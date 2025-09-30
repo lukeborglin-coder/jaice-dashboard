@@ -1963,9 +1963,6 @@ const PHASES = [
   "Fielding",
   "Post-Field Analysis",
   "Reporting",
-  // Additional lifecycle statuses used in UI logic
-  "Awaiting KO",
-  "Complete",
 ] as const;
 type Phase = typeof PHASES[number];
 
@@ -1988,12 +1985,13 @@ const METHODOLOGIES = [
   "Other"
 ] as const;
 type Methodology = typeof METHODOLOGIES[number];
-const PHASE_COLORS: Record<Phase, string> = {
+const PHASE_COLORS: Record<string, string> = {
   Kickoff: "#6B7280", // Grey
   "Pre-Field": "#1D4ED8", // Blue
   Fielding: "#7C3AED", // Purple
   "Post-Field Analysis": "#F97316", // Orange-500 (lighter)
   Reporting: "#DC2626", // Red
+  // Additional lifecycle statuses (not shown as tabs)
   "Awaiting KO": "#9CA3AF", // Neutral grey
   Complete: "#10B981", // Green
 };
@@ -2923,7 +2921,7 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
           return project.phase; // Fallback
         };
 
-        const currentPhase = getCurrentPhase(project) as Phase;
+        const currentPhase = getCurrentPhase(project);
         let priority = 0;
         let priorityReason = '';
 
@@ -3158,7 +3156,7 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
                     };
 
                     const currentPhase = getCurrentPhase(project);
-                    const phaseColor = PHASE_COLORS[currentPhase as Phase];
+                    const phaseColor = PHASE_COLORS[currentPhase] || PHASE_COLORS['Kickoff'];
                     
                     // Get fieldwork range
                     const fieldworkSegment = project.segments?.find(s => s.phase === 'Fielding');
@@ -6649,7 +6647,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
   };
 
   const currentPhase = getCurrentPhase(project);
-  const phaseColor = PHASE_COLORS[currentPhase as Phase];
+  const phaseColor = PHASE_COLORS[currentPhase] || PHASE_COLORS['Kickoff'];
   const [showAddTask, setShowAddTask] = useState(false);
   const [newTask, setNewTask] = useState({ description: "", assignedTo: "", status: "pending" as Task['status'] });
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -10241,7 +10239,7 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
               <div className="mb-4">
                 <div className="flex flex-wrap items-stretch border-b">
                   {PHASES.map((phase, index) => {
-                    const phaseColor = PHASE_COLORS[phase as Phase];
+                    const phaseColor = PHASE_COLORS[phase];
                     const isActive = activePhase === phase;
                     return (
                       <button
