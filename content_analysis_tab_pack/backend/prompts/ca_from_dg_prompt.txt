@@ -1,0 +1,18 @@
+You will convert a Discussion Guide (DG) into a JSON payload for a Content Analysis (CA) workbook.
+
+1) Follow these SHEETS exactly: ["Demos","Background & SMA Management","Category Ranking","Category C","Category S","Dashboard"]
+2) For each sheet, output an array of row objects. Column names must match exactly the schema the tool provides—you should infer from headings in the DG and the examples below.
+3) DO NOT add prose—return strict JSON.
+
+MAPPING HINTS
+- Demos: respondent-level attributes to capture (specialty, years in practice, setting, SMA patient counts, etc.).
+- Background & SMA Management: themes/subthemes from SMA management warm-up.
+- Category Ranking: map Theme ratings from the "CATEGORY RANKING" task (importance and associations).
+- Category C: "CONSISTENT, DAILY TREATMENT EFFECT" item-level statements + respondent coding slots.
+- Category S: "LONG-TERM EFFICACY AND SAFETY" statements + coding.
+- Dashboard: roll-ups (e.g., top 5 statements by Net Positive; leading themes).
+
+SCORING RULES
+- Mentions = count of times item/theme is coded.
+- Net Positive = Top Box - Bottom Box (if boxes exist).
+- Rank = descending by Mentions (or Net Positive when provided). Ties keep stable order.

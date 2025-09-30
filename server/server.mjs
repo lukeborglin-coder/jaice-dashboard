@@ -1,0 +1,78 @@
+import express from 'express';
+import cors from 'cors';
+import { config } from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import contentAnalysisRouter from './routes/contentAnalysis.routes.mjs';
+import contentAnalysisXRouter from './routes/contentAnalysisX.routes.mjs';
+import authRouter from './routes/auth.routes.mjs';
+import projectsRouter from './routes/projects.routes.mjs';
+import vendorsRouter from './routes/vendors.routes.mjs';
+
+// Load environment variables
+config();
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const app = express();
+const PORT = process.env.PORT || 3005;
+
+// Middleware
+app.use(cors({
+  origin: /^http:\/\/localhost:\d+$/, // Allow any localhost port
+  credentials: true
+}));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Static files (for serving uploaded files)
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Routes
+app.use('/api/auth', authRouter);
+app.use('/api/projects', projectsRouter);
+app.use('/api/vendors', vendorsRouter);
+app.use('/api/ca', contentAnalysisRouter);
+app.use('/api/caX', contentAnalysisXRouter);
+
+// Health check
+app.get('/health', (req, res) => {
+  const hasValidKey = process.env.OPENAI_API_KEY &&
+                      process.env.OPENAI_API_KEY !== 'your_openai_api_key_here' &&
+                      process.env.OPENAI_API_KEY.startsWith('sk-');
+
+  res.json({
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    openaiConfigured: hasValidKey
+  });
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Server error:', err);
+  res.status(500).json({
+    error: 'Internal server error',
+    message: err.message
+  });
+});
+
+// Start server
+app.listen(PORT, () => {
+  console.log(`🚀 JAICE Dashboard Server running on http://localhost:${PORT}`);
+  console.log(`📊 Content Analysis API available at http://localhost:${PORT}/api/ca`);
+
+  const hasValidKey = process.env.OPENAI_API_KEY &&
+                      process.env.OPENAI_API_KEY !== 'your_openai_api_key_here' &&
+                      process.env.OPENAI_API_KEY.startsWith('sk-');
+
+  if (!hasValidKey) {
+    console.log('⚠️  Warning: OPENAI_API_KEY not set. AI generation will not work.');
+    console.log('   Edit server/.env file with: OPENAI_API_KEY=sk-your-actual-key-here');
+  } else {
+    console.log('✅ OpenAI API key configured - AI generation enabled');
+  }
+
+  console.log(`🔗 Frontend should connect to: http://localhost:${PORT}`);
+});
+
+export default app;

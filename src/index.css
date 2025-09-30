@@ -1,0 +1,58 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* smooth font rendering */
+body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+
+/* Clamp multi-line text to 4 lines with graceful overflow */
+.clamp-4 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  overflow: hidden;
+}
+
+/* Slightly smaller data text for dense tables */
+.table-small-text {
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+/* Dynamic task list that adapts to available space */
+.dynamic-task-list {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.dynamic-task-list .task-item {
+  flex-shrink: 0;
+  min-height: 1.25rem; /* 20px - height of one task line */
+}
+
+/* Limit tasks to fit within calendar height (h-36 = 144px) */
+/* Account for Key Dates section taking up space, show max 3 tasks */
+.dynamic-task-list .task-item:nth-child(n+4) {
+  display: none;
+}
+
+/* Responsive task count based on available height */
+@media (max-width: 1024px) {
+  .dynamic-task-list .task-item:nth-child(n+3) {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .dynamic-task-list .task-item:nth-child(n+2) {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .dynamic-task-list .task-item:nth-child(n+1) {
+    display: none;
+  }
+}

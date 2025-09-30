@@ -1,0 +1,675 @@
+========================================
+   JAICE Dashboard Startup Script
+========================================
+
+Γ£à Node.js found
+
+Γ£à Project structure verified
+
+Γ£à Dependencies verified
+
+≡ƒÜÇ Starting JAICE Dashboard...
+
+Frontend will be available at: http://localhost:5173
+Backend API will be available at: http://localhost:3005
+
+Press Ctrl+C to stop both servers
+========================================
+
+
+> jaice-dashboard@0.0.1 start
+> concurrently "npm run dev" "cd server && npm start"
+
+(node:35756) [DEP0060] DeprecationWarning: The `util._extend` API is deprecated. Please use Object.assign() instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[0]
+[0] > jaice-dashboard@0.0.1 dev
+[0] > vite
+[0]
+[1]
+[1] > jaice-dashboard-server@1.0.0 start
+[1] > node server.mjs
+[1]
+[0]
+[0]   VITE v5.4.20  ready in 621 ms
+[0]
+[0]   ➜  Local:   http://localhost:5173/
+[0]   ➜  Network: use --host to expose
+[1] 🚀 JAICE Dashboard Server running on http://localhost:3005
+[1] 📊 Content Analysis API available at http://localhost:3005/api/ca
+[1] ✅ OpenAI API key configured - AI generation enabled
+[1] 🔗 Frontend should connect to: http://localhost:3005
+[1] Transcript upload request received
+[1] Request body: [Object: null prototype] {
+[1]   projectId: 'demo',
+[1]   activeSheet: 'Demographics',
+[1]   currentData: '{"Demographics":[{"Respondent ID":"","Specialty":"","Date":"","Time (ET)":""}],"INTRODUCTION":[{"Respondent ID":"","Question":""}],"BACKGROUND":[{"Respondent ID":"","Brief Introduction":"","Unique Patient Population":"","Overall SMA Patient Population":"","Number of Patients Managed":"","Age Range":"","Typical Approach to Treating SMA":"","Preferred Treatments":""}],"CURRENT AWARENESS AND PERCEPTIONS OF TREATMENTS IN DEVELOPMENT":[{"Respondent ID":"","Heard of New Formulation or Dosing Options":"","New Treatment Awareness":"","Initial Thoughts on New Treatment":"","Source of Information":"","Level of Interest":"","Patient Benefit":"","Impact on Prescribing":""}],"EVRYSDI TABLET PRODUCT PROFILE REVIEW":[{"Respondent ID":"","Overall Impression":"","Questions About Product":"","Address Gaps or Unmet Needs":"","Most Interesting Information":"","Effectiveness Perception":"","Safety Perception":"","Initial Reaction to Administration Modes":"","Candidates for Evrysdi Tablet":"","Proactive Communication":"","Reasons for Offering Evrysdi Tablet":"","Future Use of Evrysdi":""}],"COMPETITIVE COMPARISON TO OTHER TREATMENTS IN DEVELOPMENT":[{"Respondent ID":"","Overall Impression of DEVOTE Findings":"","Questions About High Dose Spinraza":"","Address Gaps or Unmet Needs":"","Most InterestingInformation":"","Trial Design Awareness":"","Initial Reaction to Changes":"","Impact on Perceptions":"","Initial Thoughts on Plasma NfL Levels":"","Initial Thoughts on Functional Outcomes":"","Initial Thoughts on Survival Data":"","InitialThoughts on Safety Data":"","Impact Scale Responses":"","Candidates for High Dose Spinraza":"","Proactive Communication":"","Reasons for Offering High Dose Spinraza":"","Future Use of Spinraza":"","Candidates for Zolgensma":"","Proactive Communication for Zolgensma":"","Reasons for Offering Zolgensma":""}],"THANK AND CONCLUDE":[{"Respondent ID":"","Last Comments":""}]}'
+[1] }
+[1] Request file: {
+[1]   fieldname: 'transcript',
+[1]   originalname: 'SMA Demand Qual - HCP Interview_5pm.docx',
+[1]   encoding: '7bit',
+[1]   mimetype: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+[1]   destination: './uploads',
+[1]   filename: 'transcript_1759182374796.docx',
+[1]   path: 'uploads\\transcript_1759182374796.docx',
+[1]   size: 51832
+[1] }
+[1] Processing transcript for project: demo, sheet: Demographics
+[1] File details: {
+[1]   originalname: 'SMA Demand Qual - HCP Interview_5pm.docx',
+[1]   mimetype: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+[1]   size: 51832,
+[1]   path: 'uploads\\transcript_1759182374796.docx'
+[1] }
+[1] Processing DOCX file with mammoth...
+[1] Successfully extracted 73877 characters from DOCX file
+[1] DOCX content preview: SMA Demand Qual
+[1]
+[1] (Sep 5, 2024 - 5:00pm)
+[1]
+[1]
+[1]
+[1] (00:00:04 - 00:00:41)
+[1]
+[1]     Stacey: Thank you for your time today. I appreciate it. Just to quickly reiterate, our topic today is going to be SMA. I think you ar...
+[1] Using current data structure: [
+[1]   'Demographics',
+[1]   'INTRODUCTION',
+[1]   'BACKGROUND',
+[1]   'CURRENT AWARENESS AND PERCEPTIONS OF TREATMENTS IN DEVELOPMENT',
+[1]   'EVRYSDI TABLET PRODUCT PROFILE REVIEW',
+[1]   'COMPETITIVE COMPARISON TO OTHER TREATMENTS IN DEVELOPMENT',
+[1]   'THANK AND CONCLUDE'
+[1] ]
+[1] Transcript text length: 73877
+[1] Transcript preview: SMA Demand Qual
+[1]
+[1] (Sep 5, 2024 - 5:00pm)
+[1]
+[1]
+[1]
+[1] (00:00:04 - 00:00:41)
+[1]
+[1]     Stacey: Thank you for your time today. I appreciate it. Just to quickly reiterate, our topic today is going to be SMA. I think you ar...
+[1] Processing transcript with AI for ALL sheets...
+[1] Available sheets: [
+[1]   'Demographics',
+[1]   'INTRODUCTION',
+[1]   'BACKGROUND',
+[1]   'CURRENT AWARENESS AND PERCEPTIONS OF TREATMENTS IN DEVELOPMENT',
+[1]   'EVRYSDI TABLET PRODUCT PROFILE REVIEW',
+[1]   'COMPETITIVE COMPARISON TO OTHER TREATMENTS IN DEVELOPMENT',
+[1]   'THANK AND CONCLUDE'
+[1] ]
+[1] Discussion guide available: false
+[1] Transcript preview (first 500 chars): SMA Demand Qual
+[1]
+[1] (Sep 5, 2024 - 5:00pm)
+[1]
+[1]
+[1]
+[1] (00:00:04 - 00:00:41)
+[1]
+[1]     Stacey: Thank you for your time today. I appreciate it. Just to quickly reiterate, our topic today is going to be SMA. I think you are anticipating that, and, we have an hour call together. I know we're getting started just a few minutes late, so it's about, seven after. So I'll plan to to finish about seven after six or whatever time it is in your time zone. Alright? And then I oh, sorry. Just it, like, kinda went crazy there fo
+[1] Next respondent ID: 1
+[1] Skipping demographics - should be manually entered
+[1] Processing sheet: INTRODUCTION with columns: [ 'Respondent ID', 'Question' ]
+[1]
+[1] === AI TRANSCRIPT ANALYSIS ===
+[1] Column: "Question" in Sheet: "INTRODUCTION"
+[1] Transcript length: 73877 characters
+[1] Moderator comments found: 20
+[1] Respondent responses found: 1011
+[1] Parsed transcript - Respondent responses: 1011
+[1] Respondent text length: 60843
+[1] Generated respondent data for INTRODUCTION : {
+[1]   'Respondent ID': '1',
+[1]   Question: Promise { <pending> },
+[1]   Date: '09/29/2025',
+[1]   'Time (ET)': '05:46 PM'
+[1] }
+[1] Processing sheet: BACKGROUND with columns: [
+[1]   'Respondent ID',
+[1]   'Brief Introduction',
+[1]   'Unique Patient Population',
+[1]   'Overall SMA Patient Population',
+[1]   'Number of Patients Managed',
+[1]   'Age Range',
+[1]   'Typical Approach to Treating SMA',
+[1]   'Preferred Treatments'
+[1] ]
+[1]
+[1] === AI TRANSCRIPT ANALYSIS ===
+[1] Column: "Brief Introduction" in Sheet: "BACKGROUND"
+[1] Transcript length: 73877 characters
+[1] Moderator comments found: 20
+[1] Respondent responses found: 1011
+[1] Parsed transcript - Respondent responses: 1011
+[1] Respondent text length: 60843
+[1]
+[1] === AI TRANSCRIPT ANALYSIS ===
+[1] Column: "Unique Patient Population" in Sheet: "BACKGROUND"
+[1] Transcript length: 73877 characters
+[1] Moderator comments found: 20
+[1] Respondent responses found: 1011
+[1] Parsed transcript - Respondent responses: 1011
+[1] Respondent text length: 60843
+[1]
+[1] === AI TRANSCRIPT ANALYSIS ===
+[1] Column: "Overall SMA Patient Population" in Sheet: "BACKGROUND"
+[1] Transcript length: 73877 characters
+[1] Moderator comments found: 20
+[1] Respondent responses found: 1011
+[1] Parsed transcript - Respondent responses: 1011
+[1] Respondent text length: 60843
+[1]
+[1] === AI TRANSCRIPT ANALYSIS ===
+[1] Column: "Number of Patients Managed" in Sheet: "BACKGROUND"
+[1] Transcript length: 73877 characters
+[1] Moderator comments found: 20
+[1] Respondent responses found: 1011
+[1] Parsed transcript - Respondent responses: 1011
+[1] Respondent text length: 60843
+[1]
+[1] === AI TRANSCRIPT ANALYSIS ===
+[1] Column: "Age Range" in Sheet: "BACKGROUND"
+[1] Transcript length: 73877 characters
+[1] Moderator comments found: 20
+[1] Respondent responses found: 1011
+[1] Parsed transcript - Respondent responses: 1011
+[1] Respondent text length: 60843
+[1]
+[1] === AI TRANSCRIPT ANALYSIS ===
+[1] Column: "Typical Approach to Treating SMA" in Sheet: "BACKGROUND"
+[1] Transcript length: 73877 characters
+[1] Moderator comments found: 20
+[1] Respondent responses found: 1011
+[1] Parsed transcript - Respondent responses: 1011
+[1] Respondent text length: 60843
+[1]
+[1] === AI TRANSCRIPT ANALYSIS ===
+[1] Column: "Preferred Treatments" in Sheet: "BACKGROUND"
+[1] Transcript length: 73877 characters
+[1] Moderator comments found: 20
+[1] Respondent responses found: 1011
+[1] Parsed transcript - Respondent responses: 1011
+[1] Respondent text length: 60843
+[1] Generated respondent data for BACKGROUND : {
+[1]   'Respondent ID': '1',
+[1]   'Brief Introduction': Promise { <pending> },
+[1]   'Unique Patient Population': Promise { <pending> },
+[1]   'Overall SMA Patient Population': Promise { <pending> },
+[1]   'Number of Patients Managed': Promise { <pending> },
+[1]   'Age Range': Promise { <pending> },
+[1]   'Typical Approach to Treating SMA': Promise { <pending> },
+[1]   'Preferred Treatments': Promise { <pending> },
+[1]   Date: '09/29/2025',
+[1]   'Time (ET)': '05:46 PM'
+[1] }
+[1] Processing sheet: CURRENT AWARENESS AND PERCEPTIONS OF TREATMENTS IN DEVELOPMENT with columns: [
+[1]   'Respondent ID',
+[1]   'Heard of New Formulation or Dosing Options',
+[1]   'New Treatment Awareness',
+[1]   'Initial Thoughts on New Treatment',
+[1]   'Source of Information',
+[1]   'Level of Interest',
+[1]   'Patient Benefit',
+[1]   'Impact on Prescribing'
+[1] ]
+[1]
+[1] === AI TRANSCRIPT ANALYSIS ===
+[1] Column: "Heard of New Formulation or Dosing Options" in Sheet: "CURRENT AWARENESS AND PERCEPTIONS OF TREATMENTS IN DEVELOPMENT"
+[1] Transcript length: 73877 characters
+[1] Moderator comments found: 20
+[1] Respondent responses found: 1011
+[1] Parsed transcript - Respondent responses: 1011
+[1] Respondent text length: 60843
+[1]
+[1] === AI TRANSCRIPT ANALYSIS ===
+[1] Column: "New Treatment Awareness" in Sheet: "CURRENT AWARENESS AND PERCEPTIONS OF TREATMENTS IN DEVELOPMENT"
+[1] Transcript length: 73877 characters
+[1] Moderator comments found: 20
+[1] Respondent responses found: 1011
+[1] Parsed transcript - Respondent responses: 1011
+[1] Respondent text length: 60843
+[1]
+[1] === AI TRANSCRIPT ANALYSIS ===
+[1] Column: "Initial Thoughts on New Treatment" in Sheet: "CURRENT AWARENESS AND PERCEPTIONS OF TREATMENTS IN DEVELOPMENT"
+[1] Transcript length: 73877 characters
+[1] Moderator comments found: 20
+[1] Respondent responses found: 1011
+[1] Parsed transcript - Respondent responses: 1011
+[1] Respondent text length: 60843
+[1]
+[1] === AI TRANSCRIPT ANALYSIS ===
+[1] Column: "Source of Information" in Sheet: "CURRENT AWARENESS AND PERCEPTIONS OF TREATMENTS IN DEVELOPMENT"
+[1] Transcript length: 73877 characters
+[1] Moderator comments found: 20
+[1] Respondent responses found: 1011
+[1] Parsed transcript - Respondent responses: 1011
+[1] Respondent text length: 60843
+[1]
+[1] === AI TRANSCRIPT ANALYSIS ===
+[1] Column: "Level of Interest" in Sheet: "CURRENT AWARENESS AND PERCEPTIONS OF TREATMENTS IN DEVELOPMENT"
+[1] Transcript length: 73877 characters
+[1] Moderator comments found: 20
+[1] Respondent responses found: 1011
+[1] Parsed transcript - Respondent responses: 1011
+[1] Respondent text length: 60843
+[1]
+[1] === AI TRANSCRIPT ANALYSIS ===
+[1] Column: "Patient Benefit" in Sheet: "CURRENT AWARENESS AND PERCEPTIONS OF TREATMENTS IN DEVELOPMENT"
+[1] Transcript length: 73877 characters
+[1] Moderator comments found: 20
+[1] Respondent responses found: 1011
+[1] Parsed transcript - Respondent responses: 1011
+[1] Respondent text length: 60843
+[1]
+[1] === AI TRANSCRIPT ANALYSIS ===
+[1] Column: "Impact on Prescribing" in Sheet: "CURRENT AWARENESS AND PERCEPTIONS OF TREATMENTS IN DEVELOPMENT"
+[1] Transcript length: 73877 characters
+[1] Moderator comments found: 20
+[1] Respondent responses found: 1011
+[1] Parsed transcript - Respondent responses: 1011
+[1] Respondent text length: 60843
+[1] Generated respondent data for CURRENT AWARENESS AND PERCEPTIONS OF TREATMENTS IN DEVELOPMENT : {
+[1]   'Respondent ID': '1',
+[1]   'Heard of New Formulation or Dosing Options': Promise { <pending> },
+[1]   'New Treatment Awareness': Promise { <pending> },
+[1]   'Initial Thoughts on New Treatment': Promise { <pending> },
+[1]   'Source of Information': Promise { <pending> },
+[1]   'Level of Interest': Promise { <pending> },
+[1]   'Patient Benefit': Promise { <pending> },
+[1]   'Impact on Prescribing': Promise { <pending> },
+[1]   Date: '09/29/2025',
+[1]   'Time (ET)': '05:46 PM'
+[1] }
+[1] Processing sheet: EVRYSDI TABLET PRODUCT PROFILE REVIEW with columns: [
+[1]   'Respondent ID',
+[1]   'Overall Impression',
+[1]   'Questions About Product',
+[1]   'Address Gaps or Unmet Needs',
+[1]   'Most Interesting Information',
+[1]   'Effectiveness Perception',
+[1]   'Safety Perception',
+[1]   'Initial Reaction to Administration Modes',
+[1]   'Candidates for Evrysdi Tablet',
+[1]   'Proactive Communication',
+[1]   'Reasons for Offering Evrysdi Tablet',
+[1]   'Future Use of Evrysdi'
+[1] ]
+[1]
+[1] === AI TRANSCRIPT ANALYSIS ===
+[1] Column: "Overall Impression" in Sheet: "EVRYSDI TABLET PRODUCT PROFILE REVIEW"
+[1] Transcript length: 73877 characters
+[1] Moderator comments found: 20
+[1] Respondent responses found: 1011
+[1] Parsed transcript - Respondent responses: 1011
+[1] Respondent text length: 60843
+[1]
+[1] === AI TRANSCRIPT ANALYSIS ===
+[1] Column: "Questions About Product" in Sheet: "EVRYSDI TABLET PRODUCT PROFILE REVIEW"
+[1] Transcript length: 73877 characters
+[1] Moderator comments found: 20
+[1] Respondent responses found: 1011
+[1] Parsed transcript - Respondent responses: 1011
+[1] Respondent text length: 60843
+[1]
+[1] === AI TRANSCRIPT ANALYSIS ===
+[1] Column: "Address Gaps or Unmet Needs" in Sheet: "EVRYSDI TABLET PRODUCT PROFILE REVIEW"
+[1] Transcript length: 73877 characters
+[1] Moderator comments found: 20
+[1] Respondent responses found: 1011
+[1] Parsed transcript - Respondent responses: 1011
+[1] Respondent text length: 60843
+[1]
+[1] === AI TRANSCRIPT ANALYSIS ===
+[1] Column: "Most Interesting Information" in Sheet: "EVRYSDI TABLET PRODUCT PROFILE REVIEW"
+[1] Transcript length: 73877 characters
+[1] Moderator comments found: 20
+[1] Respondent responses found: 1011
+[1] Parsed transcript - Respondent responses: 1011
+[1] Respondent text length: 60843
+[1]
+[1] === AI TRANSCRIPT ANALYSIS ===
+[1] Column: "Effectiveness Perception" in Sheet: "EVRYSDI TABLET PRODUCT PROFILE REVIEW"
+[1] Transcript length: 73877 characters
+[1] Moderator comments found: 20
+[1] Respondent responses found: 1011
+[1] Parsed transcript - Respondent responses: 1011
+[1] Respondent text length: 60843
+[1]
+[1] === AI TRANSCRIPT ANALYSIS ===
+[1] Column: "Safety Perception" in Sheet: "EVRYSDI TABLET PRODUCT PROFILE REVIEW"
+[1] Transcript length: 73877 characters
+[1] Moderator comments found: 20
+[1] Respondent responses found: 1011
+[1] Parsed transcript - Respondent responses: 1011
+[1] Respondent text length: 60843
+[1]
+[1] === AI TRANSCRIPT ANALYSIS ===
+[1] Column: "Initial Reaction to Administration Modes" in Sheet: "EVRYSDI TABLET PRODUCT PROFILE REVIEW"
+[1] Transcript length: 73877 characters
+[1] Moderator comments found: 20
+[1] Respondent responses found: 1011
+[1] Parsed transcript - Respondent responses: 1011
+[1] Respondent text length: 60843
+[1]
+[1] === AI TRANSCRIPT ANALYSIS ===
+[1] Column: "Candidates for Evrysdi Tablet" in Sheet: "EVRYSDI TABLET PRODUCT PROFILE REVIEW"
+[1] Transcript length: 73877 characters
+[1] Moderator comments found: 20
+[1] Respondent responses found: 1011
+[1] Parsed transcript - Respondent responses: 1011
+[1] Respondent text length: 60843
+[1]
+[1] === AI TRANSCRIPT ANALYSIS ===
+[1] Column: "Proactive Communication" in Sheet: "EVRYSDI TABLET PRODUCT PROFILE REVIEW"
+[1] Transcript length: 73877 characters
+[1] Moderator comments found: 20
+[1] Respondent responses found: 1011
+[1] Parsed transcript - Respondent responses: 1011
+[1] Respondent text length: 60843
+[1]
+[1] === AI TRANSCRIPT ANALYSIS ===
+[1] Column: "Reasons for Offering Evrysdi Tablet" in Sheet: "EVRYSDI TABLET PRODUCT PROFILE REVIEW"
+[1] Transcript length: 73877 characters
+[1] Moderator comments found: 20
+[1] Respondent responses found: 1011
+[1] Parsed transcript - Respondent responses: 1011
+[1] Respondent text length: 60843
+[1]
+[1] === AI TRANSCRIPT ANALYSIS ===
+[1] Column: "Future Use of Evrysdi" in Sheet: "EVRYSDI TABLET PRODUCT PROFILE REVIEW"
+[1] Transcript length: 73877 characters
+[1] Moderator comments found: 20
+[1] Respondent responses found: 1011
+[1] Parsed transcript - Respondent responses: 1011
+[1] Respondent text length: 60843
+[1] Generated respondent data for EVRYSDI TABLET PRODUCT PROFILE REVIEW : {
+[1]   'Respondent ID': '1',
+[1]   'Overall Impression': Promise { <pending> },
+[1]   'Questions About Product': Promise { <pending> },
+[1]   'Address Gaps or Unmet Needs': Promise { <pending> },
+[1]   'Most Interesting Information': Promise { <pending> },
+[1]   'Effectiveness Perception': Promise { <pending> },
+[1]   'Safety Perception': Promise { <pending> },
+[1]   'Initial Reaction to Administration Modes': Promise { <pending> },
+[1]   'Candidates for Evrysdi Tablet': Promise { <pending> },
+[1]   'Proactive Communication': Promise { <pending> },
+[1]   'Reasons for Offering Evrysdi Tablet': Promise { <pending> },
+[1]   'Future Use of Evrysdi': Promise { <pending> },
+[1]   Date: '09/29/2025',
+[1]   'Time (ET)': '05:46 PM'
+[1] }
+[1] Processing sheet: COMPETITIVE COMPARISON TO OTHER TREATMENTS IN DEVELOPMENT with columns: [
+[1]   'Respondent ID',
+[1]   'Overall Impression of DEVOTE Findings',
+[1]   'Questions About High Dose Spinraza',
+[1]   'Address Gaps or Unmet Needs',
+[1]   'Most Interesting Information',
+[1]   'Trial Design Awareness',
+[1]   'Initial Reaction to Changes',
+[1]   'Impact on Perceptions',
+[1]   'Initial Thoughts on Plasma NfL Levels',
+[1]   'Initial Thoughts on Functional Outcomes',
+[1]   'Initial Thoughts on Survival Data',
+[1]   'Initial Thoughts on Safety Data',
+[1]   'Impact Scale Responses',
+[1]   'Candidates for High Dose Spinraza',
+[1]   'Proactive Communication',
+[1]   'Reasons for Offering High Dose Spinraza',
+[1]   'Future Use of Spinraza',
+[1]   'Candidates for Zolgensma',
+[1]   'Proactive Communication for Zolgensma',
+[1]   'Reasons for Offering Zolgensma'
+[1] ]
+[1]
+[1] === AI TRANSCRIPT ANALYSIS ===
+[1] Column: "Overall Impression of DEVOTE Findings" in Sheet: "COMPETITIVE COMPARISON TO OTHER TREATMENTS IN DEVELOPMENT"
+[1] Transcript length: 73877 characters
+[1] Moderator comments found: 20
+[1] Respondent responses found: 1011
+[1] Parsed transcript - Respondent responses: 1011
+[1] Respondent text length: 60843
+[1]
+[1] === AI TRANSCRIPT ANALYSIS ===
+[1] Column: "Questions About High Dose Spinraza" in Sheet: "COMPETITIVE COMPARISON TO OTHER TREATMENTS IN DEVELOPMENT"
+[1] Transcript length: 73877 characters
+[1] Moderator comments found: 20
+[1] Respondent responses found: 1011
+[1] Parsed transcript - Respondent responses: 1011
+[1] Respondent text length: 60843
+[1]
+[1] === AI TRANSCRIPT ANALYSIS ===
+[1] Column: "Address Gaps or Unmet Needs" in Sheet: "COMPETITIVE COMPARISON TO OTHER TREATMENTS IN DEVELOPMENT"
+[1] Transcript length: 73877 characters
+[1] Moderator comments found: 20
+[1] Respondent responses found: 1011
+[1] Parsed transcript - Respondent responses: 1011
+[1] Respondent text length: 60843
+[1]
+[1] === AI TRANSCRIPT ANALYSIS ===
+[1] Column: "Most Interesting Information" in Sheet: "COMPETITIVE COMPARISON TO OTHER TREATMENTS IN DEVELOPMENT"
+[1] Transcript length: 73877 characters
+[1] Moderator comments found: 20
+[1] Respondent responses found: 1011
+[1] Parsed transcript - Respondent responses: 1011
+[1] Respondent text length: 60843
+[1]
+[1] === AI TRANSCRIPT ANALYSIS ===
+[1] Column: "Trial Design Awareness" in Sheet: "COMPETITIVE COMPARISON TO OTHER TREATMENTS IN DEVELOPMENT"
+[1] Transcript length: 73877 characters
+[1] Moderator comments found: 20
+[1] Respondent responses found: 1011
+[1] Parsed transcript - Respondent responses: 1011
+[1] Respondent text length: 60843
+[1]
+[1] === AI TRANSCRIPT ANALYSIS ===
+[1] Column: "Initial Reaction to Changes" in Sheet: "COMPETITIVE COMPARISON TO OTHER TREATMENTS IN DEVELOPMENT"
+[1] Transcript length: 73877 characters
+[1] Moderator comments found: 20
+[1] Respondent responses found: 1011
+[1] Parsed transcript - Respondent responses: 1011
+[1] Respondent text length: 60843
+[1]
+[1] === AI TRANSCRIPT ANALYSIS ===
+[1] Column: "Impact on Perceptions" in Sheet: "COMPETITIVE COMPARISON TO OTHER TREATMENTS IN DEVELOPMENT"
+[1] Transcript length: 73877 characters
+[1] Moderator comments found: 20
+[1] Respondent responses found: 1011
+[1] Parsed transcript - Respondent responses: 1011
+[1] Respondent text length: 60843
+[1]
+[1] === AI TRANSCRIPT ANALYSIS ===
+[1] Column: "Initial Thoughts on Plasma NfL Levels" in Sheet: "COMPETITIVE COMPARISON TO OTHER TREATMENTS IN DEVELOPMENT"
+[1] Transcript length: 73877 characters
+[1] Moderator comments found: 20
+[1] Respondent responses found: 1011
+[1] Parsed transcript - Respondent responses: 1011
+[1] Respondent text length: 60843
+[1]
+[1] === AI TRANSCRIPT ANALYSIS ===
+[1] Column: "Initial Thoughts on Functional Outcomes" in Sheet: "COMPETITIVE COMPARISON TO OTHER TREATMENTS IN DEVELOPMENT"
+[1] Transcript length: 73877 characters
+[1] Moderator comments found: 20
+[1] Respondent responses found: 1011
+[1] Parsed transcript - Respondent responses: 1011
+[1] Respondent text length: 60843
+[1]
+[1] === AI TRANSCRIPT ANALYSIS ===
+[1] Column: "Initial Thoughts on Survival Data" in Sheet: "COMPETITIVE COMPARISON TO OTHER TREATMENTS IN DEVELOPMENT"
+[1] Transcript length: 73877 characters
+[1] Moderator comments found: 20
+[1] Respondent responses found: 1011
+[1] Parsed transcript - Respondent responses: 1011
+[1] Respondent text length: 60843
+[1]
+[1] === AI TRANSCRIPT ANALYSIS ===
+[1] Column: "Initial Thoughts on Safety Data" in Sheet: "COMPETITIVE COMPARISON TO OTHER TREATMENTS IN DEVELOPMENT"
+[1] Transcript length: 73877 characters
+[1] Moderator comments found: 20
+[1] Respondent responses found: 1011
+[1] Parsed transcript - Respondent responses: 1011
+[1] Respondent text length: 60843
+[1]
+[1] === AI TRANSCRIPT ANALYSIS ===
+[1] Column: "Impact Scale Responses" in Sheet: "COMPETITIVE COMPARISON TO OTHER TREATMENTS IN DEVELOPMENT"
+[1] Transcript length: 73877 characters
+[1] Moderator comments found: 20
+[1] Respondent responses found: 1011
+[1] Parsed transcript - Respondent responses: 1011
+[1] Respondent text length: 60843
+[1]
+[1] === AI TRANSCRIPT ANALYSIS ===
+[1] Column: "Candidates for High Dose Spinraza" in Sheet: "COMPETITIVE COMPARISON TO OTHER TREATMENTS IN DEVELOPMENT"
+[1] Transcript length: 73877 characters
+[1] Moderator comments found: 20
+[1] Respondent responses found: 1011
+[1] Parsed transcript - Respondent responses: 1011
+[1] Respondent text length: 60843
+[1]
+[1] === AI TRANSCRIPT ANALYSIS ===
+[1] Column: "Proactive Communication" in Sheet: "COMPETITIVE COMPARISON TO OTHER TREATMENTS IN DEVELOPMENT"
+[1] Transcript length: 73877 characters
+[1] Moderator comments found: 20
+[1] Respondent responses found: 1011
+[1] Parsed transcript - Respondent responses: 1011
+[1] Respondent text length: 60843
+[1]
+[1] === AI TRANSCRIPT ANALYSIS ===
+[1] Column: "Reasons for Offering High Dose Spinraza" in Sheet: "COMPETITIVE COMPARISON TO OTHER TREATMENTS IN DEVELOPMENT"
+[1] Transcript length: 73877 characters
+[1] Moderator comments found: 20
+[1] Respondent responses found: 1011
+[1] Parsed transcript - Respondent responses: 1011
+[1] Respondent text length: 60843
+[1]
+[1] === AI TRANSCRIPT ANALYSIS ===
+[1] Column: "Future Use of Spinraza" in Sheet: "COMPETITIVE COMPARISON TO OTHER TREATMENTS IN DEVELOPMENT"
+[1] Transcript length: 73877 characters
+[1] Moderator comments found: 20
+[1] Respondent responses found: 1011
+[1] Parsed transcript - Respondent responses: 1011
+[1] Respondent text length: 60843
+[1]
+[1] === AI TRANSCRIPT ANALYSIS ===
+[1] Column: "Candidates for Zolgensma" in Sheet: "COMPETITIVE COMPARISON TO OTHER TREATMENTS IN DEVELOPMENT"
+[1] Transcript length: 73877 characters
+[1] Moderator comments found: 20
+[1] Respondent responses found: 1011
+[1] Parsed transcript - Respondent responses: 1011
+[1] Respondent text length: 60843
+[1]
+[1] === AI TRANSCRIPT ANALYSIS ===
+[1] Column: "Proactive Communication for Zolgensma" in Sheet: "COMPETITIVE COMPARISON TO OTHER TREATMENTS IN DEVELOPMENT"
+[1] Transcript length: 73877 characters
+[1] Moderator comments found: 20
+[1] Respondent responses found: 1011
+[1] Parsed transcript - Respondent responses: 1011
+[1] Respondent text length: 60843
+[1]
+[1] === AI TRANSCRIPT ANALYSIS ===
+[1] Column: "Reasons for Offering Zolgensma" in Sheet: "COMPETITIVE COMPARISON TO OTHER TREATMENTS IN DEVELOPMENT"
+[1] Transcript length: 73877 characters
+[1] Moderator comments found: 20
+[1] Respondent responses found: 1011
+[1] Parsed transcript - Respondent responses: 1011
+[1] Respondent text length: 60843
+[1] Generated respondent data for COMPETITIVE COMPARISON TO OTHER TREATMENTS IN DEVELOPMENT : {
+[1]   'Respondent ID': '1',
+[1]   'Overall Impression of DEVOTE Findings': Promise { <pending> },
+[1]   'Questions About High Dose Spinraza': Promise { <pending> },
+[1]   'Address Gaps or Unmet Needs': Promise { <pending> },
+[1]   'Most Interesting Information': Promise { <pending> },
+[1]   'Trial Design Awareness': Promise { <pending> },
+[1]   'Initial Reaction to Changes': Promise { <pending> },
+[1]   'Impact on Perceptions': Promise { <pending> },
+[1]   'Initial Thoughts on Plasma NfL Levels': Promise { <pending> },
+[1]   'Initial Thoughts on Functional Outcomes': Promise { <pending> },
+[1]   'Initial Thoughts on Survival Data': Promise { <pending> },
+[1]   'Initial Thoughts on Safety Data': Promise { <pending> },
+[1]   'Impact Scale Responses': Promise { <pending> },
+[1]   'Candidates for High Dose Spinraza': Promise { <pending> },
+[1]   'Proactive Communication': Promise { <pending> },
+[1]   'Reasons for Offering High Dose Spinraza': Promise { <pending> },
+[1]   'Future Use of Spinraza': Promise { <pending> },
+[1]   'Candidates for Zolgensma': Promise { <pending> },
+[1]   'Proactive Communication for Zolgensma': Promise { <pending> },
+[1]   'Reasons for Offering Zolgensma': Promise { <pending> },
+[1]   Date: '09/29/2025',
+[1]   'Time (ET)': '05:46 PM'
+[1] }
+[1] Processing sheet: THANK AND CONCLUDE with columns: [ 'Respondent ID', 'Last Comments' ]
+[1]
+[1] === AI TRANSCRIPT ANALYSIS ===
+[1] Column: "Last Comments" in Sheet: "THANK AND CONCLUDE"
+[1] Transcript length: 73877 characters
+[1] Moderator comments found: 20
+[1] Respondent responses found: 1011
+[1] Parsed transcript - Respondent responses: 1011
+[1] Respondent text length: 60843
+[1] Generated respondent data for THANK AND CONCLUDE : {
+[1]   'Respondent ID': '1',
+[1]   'Last Comments': Promise { <pending> },
+[1]   Date: '09/29/2025',
+[1]   'Time (ET)': '05:46 PM'
+[1] }
+[1] Processed sheets: [
+[1]   'INTRODUCTION',
+[1]   'BACKGROUND',
+[1]   'CURRENT AWARENESS AND PERCEPTIONS OF TREATMENTS IN DEVELOPMENT',
+[1]   'EVRYSDI TABLET PRODUCT PROFILE REVIEW',
+[1]   'COMPETITIVE COMPARISON TO OTHER TREATMENTS IN DEVELOPMENT',
+[1]   'THANK AND CONCLUDE'
+[1] ]
+[1] Total sheets updated: 6
+[1] Uploaded file cleaned up successfully
+[1] Transcript processing completed successfully
+[1] Generated analysis: Heard of New Formulation or Dosing Options: (Sep 5, 2024 - 5:00pm) (00:00:04 - 00:00:41) (00:00:41 - 00:00:44) Nivedita: No...
+[1] Generated analysis: The respondent believes this would impact prescribing by do you prefer that they start on spinraza, and and then, you know, perhaps make a change down...
+[1] Generated analysis: Age range: (00:02:38 - 00:02:45) (00:02:46 - 00:03:41) Nivedita: So I run a big neuromaster clinic, and the clinic was kind of designed from scratch a...
+[1] Generated analysis: The respondent's overall impression is that and, i work for an independent research group, so we have no vested interest in the comments that you shar...
+[1] Generated analysis: The respondent identified key benefits including your next thing is that they liked it because there's a lot more evidence and data with the younger p...
+[1] Generated analysis: Candidates for Zolgensma: (Sep 5, 2024 - 5:00pm) (00:00:04 - 00:00:41) (00:00:41 - 00:00:44) Nivedita: No...
+[1] Generated analysis: The respondent's initial thoughts were that and, i work for an independent research group, so we have no vested interest in the comments that you shar...
+[1] Generated analysis: The respondent showed high interest and enthusiasm, actively engaging with the topic...
+[1] Generated analysis: Effectiveness Perception: (Sep 5, 2024 - 5:00pm) (00:00:04 - 00:00:41) (00:00:41 - 00:00:44) Nivedita: No...
+[1] Generated analysis: The respondent's initial thoughts were that and, i work for an independent research group, so we have no vested interest in the comments that you shar...
+[1] Generated analysis: The respondent's initial thoughts were that and, i work for an independent research group, so we have no vested interest in the comments that you shar...
+[1] Generated analysis: Future Use of Evrysdi: (Sep 5, 2024 - 5:00pm) (00:00:04 - 00:00:41) (00:00:41 - 00:00:44) Nivedita: No...
+[1] Generated analysis: Source of Information: (Sep 5, 2024 - 5:00pm) (00:00:04 - 00:00:41) (00:00:41 - 00:00:44) Nivedita: No...
+[1] Generated analysis: Proactive Communication: (Sep 5, 2024 - 5:00pm) (00:00:04 - 00:00:41) (00:00:41 - 00:00:44) Nivedita: No...
+[1] Generated analysis: Proactive Communication for Zolgensma: (Sep 5, 2024 - 5:00pm) (00:00:04 - 00:00:41) (00:00:41 -00:00:44) Nivedita: No...
+[1] Generated analysis: The respondent's initial thoughts were that and, i work for an independent research group, so we have no vested interest in the comments that you shar...
+[1] Generated analysis: Reasons for Offering Evrysdi Tablet: (Sep 5, 2024 - 5:00pm) (00:00:04 - 00:00:41) (00:00:41 - 00:00:44) Nivedita: No...
+[1] Generated analysis: The respondent believes this would impact prescribing by do you prefer that they start on spinraza, and and then, you know, perhaps make a change down...
+[1] Generated analysis: The respondent's overall impression is that and, i work for an independent research group, so we have no vested interest in the comments that you shar...
+[1] Generated analysis: Questions About High Dose Spinraza: (Sep 5, 2024 - 5:00pm) (00:00:04 - 00:00:41) (00:00:41 - 00:00:44) Nivedita: No...
+[1] Generated analysis: Candidates for High Dose Spinraza: (Sep 5, 2024 - 5:00pm) (00:00:04 - 00:00:41) (00:00:41 - 00:00:44) Nivedita: No...
+[1] Generated analysis: The respondent showed high interest and enthusiasm, actively engaging with the topic...
+[1] Generated analysis: Future Use of Spinraza: (Sep 5, 2024 - 5:00pm) (00:00:04 - 00:00:41) (00:00:41 - 00:00:44) Nivedita: No...
+[1] Generated analysis: Brief Introduction: (Sep 5, 2024 - 5:00pm) (00:00:04 - 00:00:41) (00:00:41 - 00:00:44) Nivedita: No...
+[1] Generated analysis: Safety Perception: (Sep 5, 2024 - 5:00pm) (00:00:04 - 00:00:41) (00:00:41 - 00:00:44) Nivedita:No...
+[1] Generated analysis: The respondent's overall impression is that and, i work for an independent research group, so we have no vested interest in the comments that you shar...
+[1] Generated analysis: The respondent's initial thoughts were that and, i work for an independent research group, so we have no vested interest in the comments that you shar...
+[1] Generated analysis: Reasons for Offering High Dose Spinraza: (Sep 5, 2024 - 5:00pm) (00:00:04 - 00:00:41) (00:00:41- 00:00:44) Nivedita: No...
+[1] Generated analysis: Questions About Product: (Sep 5, 2024 - 5:00pm) (00:00:04 - 00:00:41) (00:00:41 - 00:00:44) Nivedita: No...
+[1] Generated analysis: The respondent's preferences include so, we'll do our best to try to avoid those things today  so we have a lot of accolades, peripheral nerve center ...
+[1] Generated analysis: Address Gaps or Unmet Needs: (Sep 5, 2024 - 5:00pm) (00:00:04 - 00:00:41) (00:00:41 - 00:00:44)Nivedita: No...
+[1] Generated analysis: Address Gaps or Unmet Needs: (Sep 5, 2024 - 5:00pm) (00:00:04 - 00:00:41) (00:00:41 - 00:00:44)Nivedita: No...
+[1] Generated analysis: Candidates for Evrysdi Tablet: (Sep 5, 2024 - 5:00pm) (00:00:04 - 00:00:41) (00:00:41 - 00:00:44) Nivedita: No...
+[1] Generated analysis: The respondent's initial thoughts were that and, i work for an independent research group, so we have no vested interest in the comments that you shar...
+[1] Generated analysis: The respondent manages approximately 2024 patients in their practice...
+[1] Generated analysis: Reasons for Offering Zolgensma: (Sep 5, 2024 - 5:00pm) (00:00:04 - 00:00:41) (00:00:41 - 00:00:44) Nivedita: No...
+[1] Generated analysis: The respondent's approach to treating SMA involves (00:04:32 - 00:04:32) (00:04:32 - 00:04:32) (00:04:32 - 00:04:32) (00:04:32 - 00:04:41) nivedita: s...
+[1] Generated analysis: The respondent manages approximately 2024 patients in their practice...
+[1] Generated analysis: Question: (Sep 5, 2024 - 5:00pm) (00:00:04 - 00:00:41) (00:00:41 - 00:00:44) Nivedita: No...
+[1] Generated analysis: The respondent showed high interest and enthusiasm, actively engaging with the topic...
+[1] Generated analysis: New Treatment Awareness: (Sep 5, 2024 - 5:00pm) (00:00:04 - 00:00:41) (00:00:41 - 00:00:44) Nivedita: No...
+[1] Generated analysis: Last Comments: (Sep 5, 2024 - 5:00pm) (00:00:04 - 00:00:41) (00:00:41 - 00:00:44) Nivedita: No...
+[1] Generated analysis: Trial Design Awareness: (Sep 5, 2024 - 5:00pm) (00:00:04 - 00:00:41) (00:00:41 - 00:00:44) Nivedita: No...
+[1] Generated analysis: Proactive Communication: (Sep 5, 2024 - 5:00pm) (00:00:04 - 00:00:41) (00:00:41 - 00:00:44) Nivedita: No...
+[1] Generated analysis: The respondent showed high interest and enthusiasm, actively engaging with the topic...
+[1] Generated analysis: The respondent believes this would impact prescribing by do you prefer that they start on spinraza, and and then, you know, perhaps make a change down...

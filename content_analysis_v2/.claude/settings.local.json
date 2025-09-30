@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/LukeBorglin/Desktop/Apps/JaiceDashboard_92525/**)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

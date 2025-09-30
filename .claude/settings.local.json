@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run dev:*)",
+      "Bash(npm install)",
+      "Bash(npm install:*)",
+      "Bash(npm start)",
+      "Bash(curl:*)",
+      "Bash(taskkill:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(cmd /c taskkill:*)",
+      "Bash(cmd /c:*)",
+      "Bash(node:*)",
+      "Bash(dir)",
+      "Bash(tasklist:*)",
+      "Bash(dir \"C:\\Users\\LukeBorglin\\Desktop\\Apps\\JaiceDashboard_92525 - Copy\\src\")",
+      "Bash(cd:*)",
+      "Bash(npm run build:*)",
+      "Bash(/bashes)",
+      "Bash(PORT=3005 node server.mjs)",
+      "Bash(npx tsc:*)",
+      "Bash(cat:*)",
+      "Bash(git init:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

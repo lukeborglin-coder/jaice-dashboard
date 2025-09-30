@@ -1,0 +1,49 @@
+You will analyze a Discussion Guide (DG) and create a Content Analysis template for qualitative research data collection.
+
+TASK: Generate a JSON structure representing Excel sheets where each row will capture a respondent's interview responses.
+
+INSTRUCTIONS:
+1) READ the Discussion Guide and identify the EXACT section headings/titles
+2) CREATE sheet names using the EXACT section names from the discussion guide (preserve original capitalization, spacing, and punctuation)
+3) For each sheet, create column headers that capture the questions/topics being discussed
+4) Include standard respondent tracking columns: "Respondent ID", "Specialty", "Date", "Time (ET)"
+5) Add columns for each question/topic in that section
+6) Return empty template structure (no sample data - this will be filled by researchers)
+
+SHEET CREATION RULES:
+- Always include a "Demographics" sheet for respondent tracking (simplified - only Respondent ID)
+- Create separate sheets for each major section found in the discussion guide
+- Use the EXACT section headings from the discussion guide as sheet names
+- Do NOT modify, abbreviate, or standardize section names - use them exactly as written
+- If there are subsections, create separate sheets for each major subsection
+
+COLUMN GENERATION RULES:
+- Start each sheet with ONLY: "Respondent ID"
+- Add columns for each question/topic in that discussion section
+- Use descriptive headers that match the discussion guide questions
+- Include rating scale columns if the DG has rating exercises
+- Add open-ended response columns for qualitative feedback
+- Do NOT include "Specialty", "Date", "Time (ET)" in any section except Demographics
+
+DEMOGRAPHICS SHEET RULES:
+- Demographics sheet should ONLY include: "Respondent ID", "Specialty", "Date", "Time (ET)"
+- Do NOT include other demographic fields like "Years Experience", "Practice Setting", "Patient Volume"
+- This allows researchers to manually add their own demographic columns as needed
+
+TEMPLATE STRUCTURE:
+- Each sheet should have empty rows (template for data entry)
+- Include 3-5 empty respondent rows as examples
+- Column headers should be clear and match the discussion flow
+
+OUTPUT FORMAT:
+{
+  "Demographics": [
+    {"Respondent ID": "", "Specialty": "", "Date": "", "Time (ET)": ""}
+  ],
+  "[EXACT SECTION NAME FROM DG]": [
+    {"Respondent ID": "", "Question 1": "", "Question 2": "", "Rating": ""}
+  ],
+  "[ANOTHER EXACT SECTION NAME]": [
+    {"Respondent ID": "", "Topic A": "", "Topic B": "", "Response": ""}
+  ]
+}
