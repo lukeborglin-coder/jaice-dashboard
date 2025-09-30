@@ -51,7 +51,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onSwitchToRegister }) => {
           <img
             src="/Jaice_Logo_Transparent.png"
             alt="JAICE Logo"
-            className="w-32 h-32 object-contain"
+            className="w-40 h-40 sm:w-48 sm:h-48 object-contain"
           />
         </div>
         <p className="mt-2 text-center text-sm text-gray-600">
@@ -129,10 +129,10 @@ const Login: React.FC<LoginProps> = ({ onLogin, onSwitchToRegister }) => {
                 disabled={loading}
                 className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ 
-                  backgroundColor: '#F37021'
+                  backgroundColor: '#D14A2D'
                 }}
-                onMouseEnter={(e) => (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#E55A1A'}
-                onMouseLeave={(e) => (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#F37021'}
+                onMouseEnter={(e) => (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#B74227'}
+                onMouseLeave={(e) => (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#D14A2D'}
               >
                 {loading ? 'Signing in...' : 'Sign in'}
               </button>
