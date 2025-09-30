@@ -39,6 +39,28 @@ const AuthWrapper: React.FC<AuthWrapperProps> = ({ children }) => {
     );
   }
 
+  // Company-based access gating
+  if ((user as any).company !== 'Cognitive' && user.role !== 'admin') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="bg-white shadow rounded-lg p-8 max-w-md w-full text-center">
+          <img src="/Jaice_Logo_Transparent.png" alt="JAICE Logo" className="w-24 h-24 object-contain mx-auto mb-4" />
+          <h1 className="text-xl font-semibold text-gray-900 mb-2">Access Pending</h1>
+          <p className="text-sm text-gray-600 mb-6">
+            Your account is not yet assigned to a company. Please contact an administrator to set your company to Cognitive to access the dashboard.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="w-full py-2 rounded text-white"
+            style={{ backgroundColor: '#D14A2D' }}
+          >
+            Refresh
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return <>{children}</>;
 };
 

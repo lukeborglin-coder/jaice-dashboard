@@ -1331,7 +1331,8 @@ function AdminCenter() {
     name: '',
     email: '',
     password: '',
-    role: 'user' as 'user' | 'admin'
+    role: 'user' as 'user' | 'admin',
+    company: 'None' as 'None' | 'Cognitive'
   });
 
   // Feature Requests and Bug Reports state
@@ -1415,6 +1416,28 @@ function AdminCenter() {
     } catch (error) {
       console.error('Error updating user role:', error);
       alert('Error updating user role. Please try again.');
+    }
+  };
+
+  const handleUpdateCompany = async (userId: string, newCompany: 'None' | 'Cognitive') => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/users/${userId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+        },
+        body: JSON.stringify({ company: newCompany })
+      });
+      if (response.ok) {
+        loadUsers();
+      } else {
+        const errorData = await response.json();
+        alert(`Error updating user company: ${errorData.message || 'Please try again.'}`);
+      }
+    } catch (error) {
+      console.error('Error updating user company:', error);
+      alert('Error updating user company. Please try again.');
     }
   };
 
@@ -1692,6 +1715,18 @@ function AdminCenter() {
                   <option value="admin">Admin</option>
                 </select>
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Company</label>
+                <select
+                  value={newUser.company}
+                  onChange={(e) => setNewUser({ ...newUser, company: e.target.value as 'None' | 'Cognitive' })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:border-gray-300"
+                  style={{ '--tw-ring-color': '#F37021' } as React.CSSProperties}
+                >
+                  <option value="None">None</option>
+                  <option value="Cognitive">Cognitive</option>
+                </select>
+              </div>
               <div className="flex gap-3 pt-4">
                 <button
                   type="submit"
@@ -1732,6 +1767,7 @@ function AdminCenter() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Password</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Company</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
@@ -1802,6 +1838,17 @@ function AdminCenter() {
                       >
                         <option value="user">User</option>
                         <option value="admin">Admin</option>
+                      </select>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <select
+                        value={(user as any).company || 'None'}
+                        onChange={(e) => handleUpdateCompany(user.id, e.target.value as 'None' | 'Cognitive')}
+                        className="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:border-gray-300"
+                        style={{ '--tw-ring-color': '#F37021' } as React.CSSProperties}
+                      >
+                        <option value="None">None</option>
+                        <option value="Cognitive">Cognitive</option>
                       </select>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">

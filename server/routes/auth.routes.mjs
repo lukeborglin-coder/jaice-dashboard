@@ -22,11 +22,15 @@ try {
     users = JSON.parse(data);
     nextUserId = Math.max(...users.map(u => parseInt(u.id)), 0) + 1;
     
-    // Migration: Add originalPassword field to existing users if missing
+    // Migration: Add originalPassword/company field to existing users if missing
     let needsMigration = false;
     users.forEach(user => {
       if (!user.originalPassword) {
         user.originalPassword = 'password123'; // Default password for existing users
+        needsMigration = true;
+      }
+      if (!user.company) {
+        user.company = 'None';
         needsMigration = true;
       }
     });
@@ -113,6 +117,7 @@ router.post('/register', async (req, res) => {
       password: hashedPassword,
       originalPassword: password, // Store original password for admin management
       role: users.length === 0 ? 'admin' : 'user', // First user is admin
+      company: 'None',
       createdAt: new Date().toISOString()
     };
 
@@ -122,7 +127,7 @@ router.post('/register', async (req, res) => {
 
     // Generate JWT token
     const token = jwt.sign(
-      { userId: newUser.id, email: newUser.email, role: newUser.role },
+      { userId: newUser.id, email: newUser.email, role: newUser.role, company: newUser.company },
       JWT_SECRET,
       { expiresIn: '7d' }
     );
@@ -165,7 +170,7 @@ router.post('/login', async (req, res) => {
 
     // Generate JWT token
     const token = jwt.sign(
-      { userId: user.id, email: user.email, role: user.role },
+      { userId: user.id, email: user.email, role: user.role, company: user.company || 'None' },
       JWT_SECRET,
       { expiresIn: '7d' }
     );
@@ -351,7 +356,7 @@ router.post('/users', authenticateToken, async (req, res) => {
       return res.status(403).json({ message: 'Access denied. Admin role required.' });
     }
 
-    const { name, email, password, role = 'user' } = req.body;
+    const { name, email, password, role = 'user', company = 'None' } = req.body;
 
     // Validate required fields
     if (!name || !email || !password) {
@@ -375,6 +380,7 @@ router.post('/users', authenticateToken, async (req, res) => {
       password: hashedPassword,
       originalPassword: password, // Store original password for admin management
       role,
+      company,
       createdAt: new Date().toISOString()
     };
 
@@ -399,7 +405,7 @@ router.put('/users/:id', authenticateToken, async (req, res) => {
     }
 
     const { id } = req.params;
-    const { name, email, role, password } = req.body;
+    const { name, email, role, password, company } = req.body;
 
     const userIndex = users.findIndex(u => u.id === id);
     if (userIndex === -1) {
@@ -410,6 +416,7 @@ router.put('/users/:id', authenticateToken, async (req, res) => {
     if (name) users[userIndex].name = name;
     if (email) users[userIndex].email = email;
     if (role) users[userIndex].role = role;
+    if (company) users[userIndex].company = company;
     if (password) {
       // Hash new password
       users[userIndex].password = await bcrypt.hash(password, 10);

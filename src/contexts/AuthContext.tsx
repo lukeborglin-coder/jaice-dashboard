@@ -6,6 +6,7 @@ interface User {
   email: string;
   name: string;
   role: 'admin' | 'user';
+  company?: 'None' | 'Cognitive';
 }
 
 interface AuthContextType {
