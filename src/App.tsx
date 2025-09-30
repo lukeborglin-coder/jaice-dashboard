@@ -1392,7 +1392,7 @@ function AdminCenter() {
   // Load users
   const loadUsers = useCallback(async () => {
     try {
-      const response = await fetch(\/api/auth/users/with-passwords', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/users/with-passwords`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
         }
@@ -1416,7 +1416,7 @@ function AdminCenter() {
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await fetch(\/api/auth/users', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/users`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1629,8 +1629,8 @@ function AdminCenter() {
             style={{ 
               backgroundColor: '#F37021',
             }}
-            onMouseEnter={(e) => e.target.style.backgroundColor = '#E55A1A'}
-            onMouseLeave={(e) => e.target.style.backgroundColor = '#F37021'}
+            onMouseEnter={(e) => (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#E55A1A'}
+            onMouseLeave={(e) => (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#F37021'}
           >
             <UserPlusIcon className="h-5 w-5" />
             Create User
@@ -1744,8 +1744,8 @@ function AdminCenter() {
                   style={{ 
                     backgroundColor: '#F37021',
                   }}
-                  onMouseEnter={(e) => e.target.style.backgroundColor = '#E55A1A'}
-                  onMouseLeave={(e) => e.target.style.backgroundColor = '#F37021'}
+                  onMouseEnter={(e) => (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#E55A1A'}
+                  onMouseLeave={(e) => (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#F37021'}
                 >
                   Create User
                 </button>
@@ -1879,8 +1879,8 @@ function AdminCenter() {
                 style={{ 
                   backgroundColor: '#F37021',
                 }}
-                onMouseEnter={(e) => e.target.style.backgroundColor = '#E55A1A'}
-                onMouseLeave={(e) => e.target.style.backgroundColor = '#F37021'}
+                onMouseEnter={(e) => (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#E55A1A'}
+                onMouseLeave={(e) => (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#F37021'}
               >
                 <PlusIcon className="h-4 w-4" />
                 New Request
@@ -1945,8 +1945,8 @@ function AdminCenter() {
                 style={{ 
                   backgroundColor: '#F37021',
                 }}
-                onMouseEnter={(e) => e.target.style.backgroundColor = '#E55A1A'}
-                onMouseLeave={(e) => e.target.style.backgroundColor = '#F37021'}
+                onMouseEnter={(e) => (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#E55A1A'}
+                onMouseLeave={(e) => (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#F37021'}
               >
                 <PlusIcon className="h-4 w-4" />
                 New Report
@@ -2008,6 +2008,9 @@ const PHASES = [
   "Fielding",
   "Post-Field Analysis",
   "Reporting",
+  // Additional lifecycle statuses used in UI logic
+  "Awaiting KO",
+  "Complete",
 ] as const;
 type Phase = typeof PHASES[number];
 
@@ -2036,6 +2039,8 @@ const PHASE_COLORS: Record<Phase, string> = {
   Fielding: "#7C3AED", // Purple
   "Post-Field Analysis": "#F97316", // Orange-500 (lighter)
   Reporting: "#DC2626", // Red
+  "Awaiting KO": "#9CA3AF", // Neutral grey
+  Complete: "#10B981", // Green
 };
 
 type TeamMember = {
@@ -2046,17 +2051,24 @@ type TeamMember = {
 
 type Task = {
   id: string;
-  description: string;
+  // New schema
+  description?: string;
   assignedTo?: string; // Team member ID
   status: 'pending' | 'in-progress' | 'completed';
   dueDate?: string;
   phase?: Phase;
+  // Legacy schema compatibility
+  content?: string;
+  completed?: boolean;
+  notes?: string;
+  completedBy?: string | null;
+  completedDate?: string | null;
 };
 
 type ProjectFile = {
   id: string;
   name: string;
-  type: 'content-analysis' | 'qnr' | 'report' | 'other';
+  type: 'content-analysis' | 'qnr' | 'report' | 'other' | 'word' | 'excel' | 'powerpoint';
   uploadedAt: string;
   size: string;
   url?: string;
@@ -2077,20 +2089,24 @@ type Project = {
   methodology: Methodology;
   startDate: string; // YYYY-MM-DD format
   endDate: string; // YYYY-MM-DD format
+  // Numeric timeline (days from a reference) used across UI
+  startDay: number;
+  endDay: number;
   deadline: number;
   nextDeadline: string;
   keyDeadlines: Array<{ label: string; date: string }>;
   tasks: Array<Task>;
   teamMembers: Array<TeamMember>;
   files: Array<ProjectFile>;
-  segments: Array<{ phase: Phase; startDate: string; endDate: string }>; // Use actual dates
-  notes: Array<{ id: string; title: string; body: string; createdAt: string; createdBy: string; isEditable: boolean; date?: string }>;
-  archivedNotes?: Array<{ id: string; title: string; body: string; createdAt: string; createdBy: string; isEditable: boolean; date?: string }>;
+  segments: Array<{ phase: Phase; startDate: string; endDate: string; startDay?: number; endDay?: number }>; // dates required, numeric optional
+  notes: Array<{ id: string; title: string; body: string; createdAt: string; createdBy: string; isEditable: boolean; date?: string; postToProjectPage?: boolean; taggedMembers?: string[]; comments?: Array<{ id: string; text: string; author: string; createdAt: string }> }>;
+  archivedNotes?: Array<{ id: string; title: string; body: string; createdAt: string; createdBy: string; isEditable: boolean; date?: string; postToProjectPage?: boolean; taggedMembers?: string[]; comments?: Array<{ id: string; text: string; author: string; createdAt: string }> }>;
   savedContentAnalyses?: Array<{ id: string; name: string; savedBy: string; savedDate: string; description: string; data: any }>;
   // Additional fields for comprehensive project summary
   methodologyType?: string;
   sampleDetails?: string;
   moderator?: string;
+  createdBy?: string;
   archived?: boolean;
   archivedDate?: string;
 };
@@ -2495,7 +2511,7 @@ export default function App() {
           if (project.archived) {
             return {
               ...projectWithKeyDates,
-              phase: 'Complete'
+              phase: 'Complete' as Phase
             };
           }
           
@@ -2512,7 +2528,7 @@ export default function App() {
             if (today < koDate) {
               return {
                 ...projectWithKeyDates,
-                phase: 'Awaiting KO'
+                phase: 'Awaiting KO' as Phase
               };
             }
           }
@@ -2531,7 +2547,7 @@ export default function App() {
               // Project has passed its end date but hasn't been marked as complete
               return {
                 ...projectWithKeyDates,
-                phase: 'Reporting' // Set to final actual phase instead of artificial "Pending Completion"
+                phase: 'Reporting' as Phase // Set to final actual phase instead of artificial "Pending Completion"
               };
             }
           }
@@ -2573,7 +2589,7 @@ export default function App() {
   // Load saved content analyses
   const loadSavedContentAnalyses = useCallback(async () => {
     try {
-      const response = await fetch(\/api/caX/saved');
+      const response = await fetch(`${API_BASE_URL}/api/caX/saved`);
       if (response.ok) {
         const analyses = await response.json();
         setSavedContentAnalyses(analyses);
@@ -2872,7 +2888,7 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
   const loadAllProjects = useCallback(async () => {
     setLoadingAllProjects(true);
     try {
-      const response = await fetch(\/api/projects/all');
+      const response = await fetch(`${API_BASE_URL}/api/projects/all`);
       if (response.ok) {
         const data = await response.json();
         setAllProjects(data.projects || []);
@@ -2952,9 +2968,13 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
           return project.phase; // Fallback
         };
 
-        const currentPhase = getCurrentPhase(project);
+        const currentPhase = getCurrentPhase(project) as Phase;
         let priority = 0;
         let priorityReason = '';
+
+        // Calculate deadline deltas for use in conditions below
+        const endDate = new Date(project.endDate);
+        const daysUntilDeadline = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
         // Phase-based priority
         if (currentPhase === 'Reporting') {
@@ -2984,9 +3004,6 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
         }
         
         // Dynamic reprioritization based on deadlines
-        const endDate = new Date(project.endDate);
-        const daysUntilDeadline = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-        
         if (daysUntilDeadline <= 7) {
           priority += 50;
           priorityReason += ' - Deadline approaching';
@@ -3186,7 +3203,7 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
                     };
 
                     const currentPhase = getCurrentPhase(project);
-                    const phaseColor = PHASE_COLORS[currentPhase];
+                    const phaseColor = PHASE_COLORS[currentPhase as Phase];
                     
                     // Get fieldwork range
                     const fieldworkSegment = project.segments?.find(s => s.phase === 'Fielding');
@@ -3211,7 +3228,7 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
                     let moderator = 'TBD';
                     if (project.moderator) {
                       // First try to find by ID (new format)
-                      const moderatorData = vendorsData?.moderators?.find(m => m.id === project.moderator);
+                      const moderatorData = vendorsData?.moderators?.find((m: any) => m.id === project.moderator);
                       if (moderatorData) {
                         moderator = moderatorData.name;
                       } else {
@@ -4111,7 +4128,7 @@ function ModeratorTimeline({ projects, onDateRangeChange }: { projects: Project[
                   </div>
                 </div>
               ) : (
-                moderators.map((moderator) => (
+                moderators.map((moderator: any) => (
                     <div key={moderator.id} className="flex items-stretch border-b border-gray-100 hover:bg-gray-25">
                     {/* Moderator Name Column */}
                     <div className="w-40 flex-shrink-0 py-3 flex flex-col justify-center">
@@ -4178,7 +4195,7 @@ function ModeratorTimeline({ projects, onDateRangeChange }: { projects: Project[
                             endDate: project.segments?.find(s => s.phase === 'Fielding')?.endDate
                           })),
                           // Custom schedule entries
-                          ...customSchedules.map(schedule => ({
+                          ...customSchedules.map((schedule: any) => ({
                             type: 'custom',
                             id: schedule.id,
                             name: schedule.projectName,
@@ -4359,7 +4376,7 @@ function ContentAnalysis() {
       if (type === 'dg') {
         // Discussion Guide upload for AI generation
         formData.append('dg', file);
-        const response = await fetch(\/api/ca/generate', {
+        const response = await fetch(`${API_BASE_URL}/api/ca/generate`, {
           method: 'POST',
           body: formData,
         });
@@ -4378,7 +4395,7 @@ function ContentAnalysis() {
         // Content Analysis Excel upload
         formData.append('file', file);
         formData.append('projectId', projectId);
-        const response = await fetch(\/api/ca/upload', {
+        const response = await fetch(`${API_BASE_URL}/api/ca/upload`, {
           method: 'POST',
           body: formData,
         });
@@ -4759,7 +4776,9 @@ const PHASE_TOOLS: Record<Phase, string[]> = {
   "Pre-Field": ["QNR Builder", "Survey Logic", "Pilot Test", "Programming", "QA Review", "Site Setup", "Training", "Launch Prep"],
   "Fielding": ["Field Monitor", "Data Quality", "Response Tracking", "Support"],
   "Post-Field Analysis": ["Analytics", "Statistical Test", "Charts", "Insights"],
-  "Reporting": ["Report Builder", "Presentation", "Delivery", "Archive"]
+  "Reporting": ["Report Builder", "Presentation", "Delivery", "Archive"],
+  "Awaiting KO": [],
+  "Complete": []
 };
 
 // Map deadline keywords to phases for coloring
@@ -4989,7 +5008,7 @@ function ProjectCard({ project, onView, savedContentAnalyses = [], setRoute }: {
                   .filter(task => task.status !== 'completed')
                   .sort((a, b) => {
                     // Sort by status: pending first, then in-progress
-                    const statusOrder = { 'pending': 0, 'in-progress': 1 };
+                    const statusOrder: Record<Task['status'], number> = { 'pending': 0, 'in-progress': 1, 'completed': 2 };
                     return statusOrder[a.status] - statusOrder[b.status];
                   })
                   .slice(0, 5) // Show up to 5, CSS will hide extras based on screen size
@@ -6675,10 +6694,11 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
   };
 
   const currentPhase = getCurrentPhase(project);
-  const phaseColor = PHASE_COLORS[currentPhase];
+  const phaseColor = PHASE_COLORS[currentPhase as Phase];
   const [showAddTask, setShowAddTask] = useState(false);
   const [newTask, setNewTask] = useState({ description: "", assignedTo: "", status: "pending" as Task['status'] });
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [showFullCalendar, setShowFullCalendar] = useState(true);
   const [editingTimeline, setEditingTimeline] = useState(false);
   const [editingSegments, setEditingSegments] = useState(project.segments || []);
   const [activePhase, setActivePhase] = useState(project.phase);
