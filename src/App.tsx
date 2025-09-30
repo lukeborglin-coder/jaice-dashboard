@@ -122,25 +122,40 @@ function VendorLibrary({ projects }: { projects: any[] }) {
     projectName: ''
   });
 
-  // Load vendor data from localStorage temporarily
+  // Load vendor data; prefer server if available, else fallback to localStorage
   const loadVendors = useCallback(async () => {
     setLoading(true);
     try {
-      // Temporary localStorage solution until server restart
       const storedVendors = localStorage.getItem('jaice_vendors');
-      if (storedVendors) {
-        const data = JSON.parse(storedVendors);
-        setVendors(data);
-      } else {
-        // Initialize empty vendor structure
-        const initialData = {
-          moderators: [],
-          sampleVendors: [],
-          analytics: []
-        };
-        setVendors(initialData);
-        localStorage.setItem('jaice_vendors', JSON.stringify(initialData));
+      let data = storedVendors ? JSON.parse(storedVendors) : null;
+
+      // If no local data or empty moderators, try server fetch (requires auth)
+      if (!data || (!Array.isArray(data.moderators) || data.moderators.length === 0)) {
+        const token = localStorage.getItem('jaice_token');
+        if (token) {
+          const resp = await fetch(`${API_BASE_URL}/api/vendors`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (resp.ok) {
+            const serverData = await resp.json();
+            if (serverData && typeof serverData === 'object') {
+              data = {
+                moderators: serverData.moderators || [],
+                sampleVendors: serverData.sampleVendors || [],
+                analytics: serverData.analytics || []
+              };
+              localStorage.setItem('jaice_vendors', JSON.stringify(data));
+            }
+          }
+        }
       }
+
+      if (!data) {
+        data = { moderators: [], sampleVendors: [], analytics: [] };
+        localStorage.setItem('jaice_vendors', JSON.stringify(data));
+      }
+
+      setVendors(data);
     } catch (error) {
       console.error('Error loading vendors:', error);
       // Fallback to empty structure

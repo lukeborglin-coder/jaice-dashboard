@@ -3,6 +3,8 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
+  // Serve static assets from the existing 'assets' directory
+  publicDir: 'assets',
   server: {
     port: 5173,
     proxy: {
