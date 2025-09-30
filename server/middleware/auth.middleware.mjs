@@ -18,3 +18,16 @@ export const authenticateToken = (req, res, next) => {
     next();
   });
 };
+
+// Require user to be Cognitive company or Admin role
+export const requireCognitiveOrAdmin = (req, res, next) => {
+  try {
+    const u = req.user || {};
+    const isAdmin = u.role === 'admin';
+    const isCognitive = u.company === 'Cognitive';
+    if (isAdmin || isCognitive) return next();
+    return res.status(403).json({ error: 'Access restricted. Company must be Cognitive.' });
+  } catch (e) {
+    return res.status(403).json({ error: 'Access restricted.' });
+  }
+};

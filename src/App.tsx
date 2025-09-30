@@ -2888,7 +2888,9 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
   const loadAllProjects = useCallback(async () => {
     setLoadingAllProjects(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/projects/all`);
+      const response = await fetch(`${API_BASE_URL}/api/projects/all`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` }
+      });
       if (response.ok) {
         const data = await response.json();
         setAllProjects(data.projects || []);
@@ -4361,7 +4363,9 @@ function ContentAnalysis() {
     setBusy(true);
     try {
       // Try to fetch from backend first
-      const response = await fetch(`${API_BASE_URL}/api/ca/${projectId}`);
+      const response = await fetch(`${API_BASE_URL}/api/ca/${projectId}`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` }
+      });
       if (response.ok) {
         const data = await response.json();
         setData(data);
@@ -4394,6 +4398,7 @@ function ContentAnalysis() {
         const response = await fetch(`${API_BASE_URL}/api/ca/generate`, {
           method: 'POST',
           body: formData,
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` }
         });
 
         if (response.ok) {
@@ -4413,6 +4418,7 @@ function ContentAnalysis() {
         const response = await fetch(`${API_BASE_URL}/api/ca/upload`, {
           method: 'POST',
           body: formData,
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` }
         });
 
         if (response.ok) {
@@ -4474,15 +4480,31 @@ function ContentAnalysis() {
                   <ChartBarIcon className="h-5 w-5 mr-2" />
                   {busy ? 'Loading...' : 'View Analysis'}
                 </button>
-                <a
-                  href="${API_BASE_URL}/api/ca/template"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  onClick={async () => {
+                    try {
+                      const resp = await fetch(`${API_BASE_URL}/api/ca/template`, {
+                        headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` }
+                      });
+                      if (!resp.ok) throw new Error('Failed to download template');
+                      const blob = await resp.blob();
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = 'CA_template_HCP.xlsx';
+                      document.body.appendChild(a);
+                      a.click();
+                      a.remove();
+                      window.URL.revokeObjectURL(url);
+                    } catch (e) {
+                      alert('Failed to download template');
+                    }
+                  }}
                   className="inline-flex items-center justify-center px-8 py-4 border-2 border-gray-300 text-gray-700 font-semibold rounded-xl hover:border-gray-400 hover:bg-gray-50 transition-colors"
                 >
                   <DocumentArrowUpIcon className="h-5 w-5 mr-2" />
                   Download Template
-                </a>
+                </button>
               </div>
             </div>
 

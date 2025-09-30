@@ -2,10 +2,13 @@ import express from 'express';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { authenticateToken } from '../middleware/auth.middleware.mjs';
+import { authenticateToken, requireCognitiveOrAdmin } from '../middleware/auth.middleware.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const router = express.Router();
+
+// Enforce authenticated + company access on all vendor routes
+router.use(authenticateToken, requireCognitiveOrAdmin);
 
 const VENDORS_FILE = path.join(__dirname, '../data/vendors.json');
 

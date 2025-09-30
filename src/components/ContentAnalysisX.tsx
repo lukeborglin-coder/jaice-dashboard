@@ -218,7 +218,7 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
       try {
         await fetch(`${API_BASE_URL}/api/caX/update`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` },
           body: JSON.stringify({
             id: currentAnalysis.id,
             data: updatedData,
@@ -252,7 +252,8 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
       const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
       
       const res = await fetch(`${API_BASE_URL}/api/caX/saved`, {
-        signal: controller.signal
+        signal: controller.signal,
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` }
       });
       clearTimeout(timeoutId);
       
@@ -327,7 +328,7 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
   const deleteSavedAnalysis = async (id: string, name: string) => {
     if (!confirm(`Delete content analysis "${name}"?`)) return;
     try {
-      await fetch(`${API_BASE_URL}/api/caX/delete/${id}`, { method: 'DELETE' });
+      await fetch(`${API_BASE_URL}/api/caX/delete/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` } });
       setSavedAnalyses(prev => prev.filter(a => a.id !== id));
     } catch (e) {
       console.error('Failed to delete analysis', e);
@@ -346,6 +347,7 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
       const response = await fetch(`${API_BASE_URL}/api/caX/preview`, {
         method: 'POST',
         body: formData,
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` }
       });
 
       if (response.ok) {
@@ -394,7 +396,7 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
       const selectedProject = projects.find(p => p.id === saveFormData.projectId);
       const response = await fetch(`${API_BASE_URL}/api/caX/save`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` },
         body: JSON.stringify({
           projectId: saveFormData.projectId,
           projectName: selectedProject?.name || 'Unknown Project',
@@ -450,6 +452,7 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
       const response = await fetch(`${API_BASE_URL}/api/caX/process-transcript`, {
         method: 'POST',
         body: formData,
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` }
       });
 
       if (response.ok) {
@@ -468,7 +471,7 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
           try {
             const saveResponse = await fetch(`${API_BASE_URL}/api/caX/update`, {
               method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` },
               body: JSON.stringify({
                 id: currentAnalysis.id,
                 data: result.data,

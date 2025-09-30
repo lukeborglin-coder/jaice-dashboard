@@ -1,4 +1,5 @@
 import express from 'express';
+import { authenticateToken, requireCognitiveOrAdmin } from '../middleware/auth.middleware.mjs';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs/promises';
@@ -9,6 +10,9 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const router = express.Router();
+
+// Enforce auth + company access for all CA-X endpoints
+router.use(authenticateToken, requireCognitiveOrAdmin);
 
 const storage = multer.diskStorage({
   destination: async (req, file, cb) => {

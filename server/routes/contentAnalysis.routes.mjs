@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { authenticateToken, requireCognitiveOrAdmin } from '../middleware/auth.middleware.mjs';
 import multer from 'multer';
 import fs from 'fs/promises';
 import path from 'path';
@@ -15,7 +16,7 @@ await fs.mkdir(uploadDir, { recursive: true });
 
 const upload = multer({ dest: uploadDir });
 
-// Download template
+// Download template (public for now)
 router.get('/template', async (req, res) => {
   try {
     const templatePath = path.join(__dirname, '../templates/CA_template_HCP.xlsx');
@@ -34,6 +35,9 @@ router.get('/template', async (req, res) => {
     res.status(500).json({ error: 'Failed to serve template' });
   }
 });
+
+// Require auth + company access for subsequent endpoints
+router.use(authenticateToken, requireCognitiveOrAdmin);
 
 // Generate CA from Discussion Guide
 router.post('/generate', upload.single('dg'), async (req, res) => {

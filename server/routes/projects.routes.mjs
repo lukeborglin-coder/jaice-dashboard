@@ -1,4 +1,5 @@
 import express from 'express';
+import { authenticateToken, requireCognitiveOrAdmin } from '../middleware/auth.middleware.mjs';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -7,6 +8,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const router = express.Router();
+
+// Enforce authenticated + company access on all project routes
+router.use(authenticateToken, requireCognitiveOrAdmin);
 
 // Helper function to read projects data
 const readProjectsData = () => {
@@ -334,4 +338,3 @@ router.delete('/:projectId', (req, res) => {
 });
 
 export default router;
-
