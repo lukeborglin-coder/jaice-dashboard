@@ -2324,7 +2324,9 @@ export default function App() {
     setLoadingProjects(true);
     try {
       // Force refresh by adding timestamp to prevent caching
-      const response = await fetch(`${API_BASE_URL}/api/projects?userId=${user.id}&t=${Date.now()}`);
+      const response = await fetch(`${API_BASE_URL}/api/projects?userId=${user.id}&t=${Date.now()}`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` }
+      });
       if (response.ok) {
         const data = await response.json();
 
@@ -2589,7 +2591,9 @@ export default function App() {
   // Load saved content analyses
   const loadSavedContentAnalyses = useCallback(async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/caX/saved`);
+      const response = await fetch(`${API_BASE_URL}/api/caX/saved`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` }
+      });
       if (response.ok) {
         const analyses = await response.json();
         setSavedContentAnalyses(analyses);
@@ -5527,7 +5531,9 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
 
     setLoadingArchived(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/projects/archived?userId=${user.id}`);
+      const response = await fetch(`${API_BASE_URL}/api/projects/archived?userId=${user.id}` , {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` }
+      });
       if (response.ok) {
         const data = await response.json();
         setArchivedProjects(data.projects || []);
@@ -5663,13 +5669,14 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
     e.stopPropagation();
     if (window.confirm('Are you sure you want to permanently delete this project? This action cannot be undone.')) {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}`, {
-          method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ userId: user?.id })
-        });
+      const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+        },
+        body: JSON.stringify({ userId: user?.id })
+      });
 
         if (response.ok) {
           // Remove from both archived and main projects list
@@ -5689,13 +5696,14 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
     e.stopPropagation();
     if (window.confirm(`Are you sure you want to archive "${project.name}"?`)) {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/projects/${project.id}/archive`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ userId: user?.id })
-        });
+      const response = await fetch(`${API_BASE_URL}/api/projects/${project.id}/archive`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+        },
+        body: JSON.stringify({ userId: user?.id })
+      });
 
         if (response.ok) {
           // Remove from current projects list
