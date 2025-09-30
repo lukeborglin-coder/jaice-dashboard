@@ -2669,7 +2669,7 @@ export default function App() {
         <div className={`flex items-center border-b p-3 ${sidebarOpen ? 'justify-between' : 'justify-center'}`}>
           <div className="flex items-center">
             <img
-              src={sidebarOpen ? "/assets/Jaice_Logo_Transparent.png" : "/assets/Circle.png"}
+              src={sidebarOpen ? "/Jaice_Logo_Transparent.png" : "/Circle.png"}
               alt="Jaice Logo"
               className={`object-contain transition-all ${sidebarOpen ? "h-8" : "h-8 w-8 cursor-pointer hover:opacity-70"}`}
               onClick={() => !sidebarOpen && setSidebarOpen(true)}

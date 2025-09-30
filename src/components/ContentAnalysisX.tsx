@@ -557,7 +557,7 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
                   <tr>
                     <td colSpan={5} className="px-6 py-6">
                       <div className="flex items-center gap-2 text-gray-700">
-                        <img src="/assets/Circle.png" alt="Loading" className="w-4 h-4 animate-spin" />
+                        <img src="/Circle.png" alt="Loading" className="w-4 h-4 animate-spin" />
                         <span className="text-sm">Loading...</span>
                       </div>
                     </td>
@@ -593,7 +593,7 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
 
       {viewMode === 'viewer' && loadingSavedView && (
         <div className="p-8 flex items-center justify-center">
-          <img src="/assets/Circle.png" alt="Loading" className="w-5 h-5 animate-spin" />
+          <img src="/Circle.png" alt="Loading" className="w-5 h-5 animate-spin" />
           <span className="ml-2 text-sm text-gray-700">Loading analysis...</span>
         </div>
       )}
@@ -842,7 +842,7 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
                     <label className="inline-flex items-center gap-2 px-3 py-1.5 text-xs text-white rounded hover:opacity-90 transition-colors cursor-pointer" style={{ backgroundColor: '#D14A2D', opacity: processingTranscript ? 0.7 : 1 }}>
                       {processingTranscript ? (
                         <>
-                          <img src="/assets/Circle.png" alt="Loading" className="w-3 h-3 animate-spin" style={{ filter: 'brightness(0) invert(1)' }} />
+                          <img src="/Circle.png" alt="Loading" className="w-3 h-3 animate-spin" style={{ filter: 'brightness(0) invert(1)' }} />
                           Processing Transcript...
                         </>
                       ) : (
