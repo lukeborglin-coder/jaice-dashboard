@@ -2876,6 +2876,13 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
     loadVendorsData();
   }, [loadAllProjects, loadVendorsData]);
 
+  // When switching to "All Cognitive Projects", refresh from server to ensure latest
+  useEffect(() => {
+    if (!showMyProjectsOnly) {
+      loadAllProjects();
+    }
+  }, [showMyProjectsOnly, loadAllProjects]);
+
   // Calculate project priorities and sort
   const prioritizedProjects = useMemo(() => {
     const currentWeek = 0;
@@ -3038,13 +3045,21 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
     return null;
   };
 
-  // Filter projects based on user membership
+  // Filter projects based on user membership (by id, email, or name, or creator)
   const filteredProjects = useMemo(() => {
     if (showMyProjectsOnly) {
-      // Show only projects where the current user is a team member
-      return allProjects.filter(project => 
-        project.teamMembers?.some(member => member.id === user?.id)
-      );
+      const uid = user?.id;
+      const uemail = (user as any)?.email?.toLowerCase?.();
+      const uname = (user as any)?.name?.toLowerCase?.();
+      return allProjects.filter(project => {
+        const createdByMe = (project as any).createdBy && (project as any).createdBy === uid;
+        const inTeam = (project.teamMembers || []).some((member: any) =>
+          member?.id === uid ||
+          (member?.email && uemail && String(member.email).toLowerCase() === uemail) ||
+          (member?.name && uname && String(member.name).toLowerCase() === uname)
+        );
+        return createdByMe || inTeam;
+      });
     }
     return allProjects;
   }, [allProjects, showMyProjectsOnly, user?.id]);
@@ -5526,11 +5541,20 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
       default: tabProjects = [...proposalProjects, ...activeProjects];
     }
     
-    // Apply "My Projects Only" filter if enabled
+    // Apply "My Projects Only" filter if enabled (by id/email/name or creator)
     if (showMyProjectsOnly) {
-      return tabProjects.filter(project => 
-        project.teamMembers?.some(member => member.id === user?.id)
-      );
+      const uid = user?.id;
+      const uemail = (user as any)?.email?.toLowerCase?.();
+      const uname = (user as any)?.name?.toLowerCase?.();
+      return tabProjects.filter(project => {
+        const createdByMe = (project as any).createdBy && (project as any).createdBy === uid;
+        const inTeam = (project.teamMembers || []).some((member: any) =>
+          member?.id === uid ||
+          (member?.email && uemail && String(member.email).toLowerCase() === uemail) ||
+          (member?.name && uname && String(member.name).toLowerCase() === uname)
+        );
+        return createdByMe || inTeam;
+      });
     }
     
     return tabProjects;
