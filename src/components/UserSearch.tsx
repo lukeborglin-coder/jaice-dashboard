@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '../config';
 import React, { useState, useEffect, useRef } from 'react';
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 
@@ -94,7 +95,7 @@ const UserSearch: React.FC<UserSearchProps> = ({
       console.log('Token:', token ? 'Present' : 'Missing');
       console.log('Token length:', token ? token.length : 0);
       
-      const url = `http://localhost:3005/api/auth/users/search?q=${encodeURIComponent(query)}`;
+      const url = `${API_BASE_URL}/api/auth/users/search?q=${encodeURIComponent(query)}`;
       console.log('Request URL:', url);
       
       const response = await fetch(url, {

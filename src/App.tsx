@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
+import { API_BASE_URL } from './config';
 import {
   Bars3Icon,
   PlusSmallIcon,
@@ -1391,7 +1392,7 @@ function AdminCenter() {
   // Load users
   const loadUsers = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:3005/api/auth/users/with-passwords', {
+      const response = await fetch(\/api/auth/users/with-passwords', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
         }
@@ -1415,7 +1416,7 @@ function AdminCenter() {
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await fetch('http://localhost:3005/api/auth/users', {
+      const response = await fetch(\/api/auth/users', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1441,7 +1442,7 @@ function AdminCenter() {
   // Update user role
   const handleUpdateRole = async (userId: string, newRole: 'user' | 'admin') => {
     try {
-      const response = await fetch(`http://localhost:3005/api/auth/users/${userId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/auth/users/${userId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -1467,7 +1468,7 @@ function AdminCenter() {
     if (!confirm('Are you sure you want to delete this user?')) return;
     
     try {
-      const response = await fetch(`http://localhost:3005/api/auth/users/${userId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/auth/users/${userId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
@@ -1494,7 +1495,7 @@ function AdminCenter() {
     }
 
     try {
-      const response = await fetch(`http://localhost:3005/api/auth/users/${userId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/auth/users/${userId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -2307,7 +2308,7 @@ export default function App() {
     setLoadingProjects(true);
     try {
       // Force refresh by adding timestamp to prevent caching
-      const response = await fetch(`http://localhost:3005/api/projects?userId=${user.id}&t=${Date.now()}`);
+      const response = await fetch(`${API_BASE_URL}/api/projects?userId=${user.id}&t=${Date.now()}`);
       if (response.ok) {
         const data = await response.json();
 
@@ -2542,7 +2543,7 @@ export default function App() {
         // Update projects in backend with corrected key dates
         for (const project of updatedProjects) {
           try {
-            await fetch(`http://localhost:3005/api/projects/${project.id}`, {
+            await fetch(`${API_BASE_URL}/api/projects/${project.id}`, {
               method: 'PUT',
               headers: {
                 'Content-Type': 'application/json',
@@ -2572,7 +2573,7 @@ export default function App() {
   // Load saved content analyses
   const loadSavedContentAnalyses = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:3005/api/caX/saved');
+      const response = await fetch(\/api/caX/saved');
       if (response.ok) {
         const analyses = await response.json();
         setSavedContentAnalyses(analyses);
@@ -2636,7 +2637,7 @@ export default function App() {
 
     if (confirm('Are you sure you want to archive this project? It will be moved to archived projects.')) {
       try {
-        const response = await fetch(`http://localhost:3005/api/projects/${projectId}/archive`, {
+        const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}/archive`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -2871,7 +2872,7 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
   const loadAllProjects = useCallback(async () => {
     setLoadingAllProjects(true);
     try {
-      const response = await fetch('http://localhost:3005/api/projects/all');
+      const response = await fetch(\/api/projects/all');
       if (response.ok) {
         const data = await response.json();
         setAllProjects(data.projects || []);
@@ -4328,7 +4329,7 @@ function ContentAnalysis() {
     setBusy(true);
     try {
       // Try to fetch from backend first
-      const response = await fetch(`http://localhost:3005/api/ca/${projectId}`);
+      const response = await fetch(`${API_BASE_URL}/api/ca/${projectId}`);
       if (response.ok) {
         const data = await response.json();
         setData(data);
@@ -4358,7 +4359,7 @@ function ContentAnalysis() {
       if (type === 'dg') {
         // Discussion Guide upload for AI generation
         formData.append('dg', file);
-        const response = await fetch('http://localhost:3005/api/ca/generate', {
+        const response = await fetch(\/api/ca/generate', {
           method: 'POST',
           body: formData,
         });
@@ -4367,7 +4368,7 @@ function ContentAnalysis() {
           const result = await response.json();
           alert(`AI generation successful! Download: ${result.downloadUrl}`);
           if (result.downloadUrl) {
-            window.open(`http://localhost:3005${result.downloadUrl}`, '_blank');
+            window.open(`${API_BASE_URL}${result.downloadUrl}`, '_blank');
           }
         } else {
           const error = await response.json();
@@ -4377,7 +4378,7 @@ function ContentAnalysis() {
         // Content Analysis Excel upload
         formData.append('file', file);
         formData.append('projectId', projectId);
-        const response = await fetch('http://localhost:3005/api/ca/upload', {
+        const response = await fetch(\/api/ca/upload', {
           method: 'POST',
           body: formData,
         });
@@ -4442,7 +4443,7 @@ function ContentAnalysis() {
                   {busy ? 'Loading...' : 'View Analysis'}
                 </button>
                 <a
-                  href="http://localhost:3005/api/ca/template"
+                  href="${API_BASE_URL}/api/ca/template"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center justify-center px-8 py-4 border-2 border-gray-300 text-gray-700 font-semibold rounded-xl hover:border-gray-400 hover:bg-gray-50 transition-colors"
@@ -5470,7 +5471,7 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
 
     setLoadingArchived(true);
     try {
-      const response = await fetch(`http://localhost:3005/api/projects/archived?userId=${user.id}`);
+      const response = await fetch(`${API_BASE_URL}/api/projects/archived?userId=${user.id}`);
       if (response.ok) {
         const data = await response.json();
         setArchivedProjects(data.projects || []);
@@ -5597,7 +5598,7 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
     e.stopPropagation();
     if (window.confirm('Are you sure you want to permanently delete this project? This action cannot be undone.')) {
       try {
-        const response = await fetch(`http://localhost:3005/api/projects/${projectId}`, {
+        const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}`, {
           method: 'DELETE',
           headers: {
             'Content-Type': 'application/json'
@@ -5623,7 +5624,7 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
     e.stopPropagation();
     if (window.confirm(`Are you sure you want to archive "${project.name}"?`)) {
       try {
-        const response = await fetch(`http://localhost:3005/api/projects/${project.id}/archive`, {
+        const response = await fetch(`${API_BASE_URL}/api/projects/${project.id}/archive`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -5650,7 +5651,7 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
     e.stopPropagation();
     if (window.confirm(`Are you sure you want to restore "${project.name}" to active status?`)) {
       try {
-        const response = await fetch(`http://localhost:3005/api/projects/${project.id}/unarchive`, {
+        const response = await fetch(`${API_BASE_URL}/api/projects/${project.id}/unarchive`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -5720,7 +5721,7 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
         teamMembers: updatedTeamMembers
       };
 
-      const response = await fetch(`http://localhost:3005/api/projects/${selectedProject.id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/projects/${selectedProject.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -6737,7 +6738,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
         keyDeadlines: projectKeyDates
       };
       try {
-        const response = await fetch(`http://localhost:3005/api/projects/${project.id}`, {
+        const response = await fetch(`${API_BASE_URL}/api/projects/${project.id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -6969,7 +6970,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
       const projectField = fieldMapping[field] || field;
       const updatedProject = { ...project, [projectField]: value };
 
-      const response = await fetch(`http://localhost:3005/api/projects/${project.id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/projects/${project.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -7378,7 +7379,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
 
       // Save to backend
       try {
-        const response = await fetch(`http://localhost:3005/api/projects/${project.id}`, {
+        const response = await fetch(`${API_BASE_URL}/api/projects/${project.id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -7521,7 +7522,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
 
       // Save to backend
       try {
-        await fetch(`http://localhost:3005/api/projects/${project.id}`, {
+        await fetch(`${API_BASE_URL}/api/projects/${project.id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -7565,7 +7566,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
 
       // Save to backend
       try {
-        const response = await fetch(`http://localhost:3005/api/projects/${project.id}`, {
+        const response = await fetch(`${API_BASE_URL}/api/projects/${project.id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -7608,7 +7609,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
 
     // Save to backend
     try {
-      const response = await fetch(`http://localhost:3005/api/projects/${project.id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/projects/${project.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -7670,7 +7671,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
 
     // Save to backend
     try {
-      await fetch(`http://localhost:3005/api/projects/${project.id}`, {
+      await fetch(`${API_BASE_URL}/api/projects/${project.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -7839,7 +7840,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
 
     // Save to backend
     try {
-      const response = await fetch(`http://localhost:3005/api/projects/${project.id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/projects/${project.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -7880,7 +7881,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
 
     // Save to backend
     try {
-      const response = await fetch(`http://localhost:3005/api/projects/${project.id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/projects/${project.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -9669,7 +9670,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
 
                   // Save to backend
                   try {
-                    await fetch(`http://localhost:3005/api/projects/${project.id}`, {
+                    await fetch(`${API_BASE_URL}/api/projects/${project.id}`, {
                       method: 'PUT',
                       headers: {
                         'Content-Type': 'application/json',

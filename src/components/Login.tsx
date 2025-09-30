@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '../config';
 import React, { useState } from 'react';
 import { EyeIcon, EyeSlashIcon, UserIcon, LockClosedIcon } from '@heroicons/react/24/outline';
 
@@ -19,7 +20,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onSwitchToRegister }) => {
     setError('');
 
     try {
-      const response = await fetch('http://localhost:3005/api/auth/login', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

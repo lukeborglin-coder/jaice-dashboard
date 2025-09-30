@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '../config';
 import React, { useState, useEffect } from 'react';
 import { XMarkIcon, ChevronLeftIcon, ChevronRightIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../contexts/AuthContext';
@@ -1297,7 +1298,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
       }
 
       // Save to backend
-      const response = await fetch('http://localhost:3005/api/projects', {
+      const response = await fetch(`${API_BASE_URL}/api/projects', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

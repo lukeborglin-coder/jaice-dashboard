@@ -1,4 +1,5 @@
-﻿import React, { useEffect, useMemo, useState } from 'react';
+﻿import { API_BASE_URL } from '../config';
+import React, { useEffect, useMemo, useState } from 'react';
 import { CloudArrowUpIcon, TrashIcon, CalendarIcon, UserGroupIcon, UserIcon, BookOpenIcon, BeakerIcon, LightBulbIcon, ChartBarIcon, TrophyIcon, ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline';
 
 interface ContentAnalysisXProps {
@@ -215,7 +216,7 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
     // Auto-save if this is a saved analysis
     if (currentAnalysis.projectId) {
       try {
-        await fetch('http://localhost:3005/api/caX/update', {
+        await fetch(`${API_BASE_URL}/api/caX/update', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -250,7 +251,7 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
       
-      const res = await fetch('http://localhost:3005/api/caX/saved', {
+      const res = await fetch(`${API_BASE_URL}/api/caX/saved', {
         signal: controller.signal
       });
       clearTimeout(timeoutId);
@@ -326,7 +327,7 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
   const deleteSavedAnalysis = async (id: string, name: string) => {
     if (!confirm(`Delete content analysis "${name}"?`)) return;
     try {
-      await fetch(`http://localhost:3005/api/caX/delete/${id}`, { method: 'DELETE' });
+      await fetch(`${API_BASE_URL}/api/caX/delete/${id}`, { method: 'DELETE' });
       setSavedAnalyses(prev => prev.filter(a => a.id !== id));
     } catch (e) {
       console.error('Failed to delete analysis', e);
@@ -342,7 +343,7 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
       const formData = new FormData();
       formData.append('dg', file);
 
-      const response = await fetch('http://localhost:3005/api/caX/preview', {
+      const response = await fetch(`${API_BASE_URL}/api/caX/preview', {
         method: 'POST',
         body: formData,
       });
@@ -391,7 +392,7 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
     setSaving(true);
     try {
       const selectedProject = projects.find(p => p.id === saveFormData.projectId);
-      const response = await fetch('http://localhost:3005/api/caX/save', {
+      const response = await fetch(`${API_BASE_URL}/api/caX/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -446,7 +447,7 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
       formData.append('currentData', JSON.stringify(currentAnalysis.data));
       formData.append('discussionGuide', currentAnalysis.rawGuideText || '');
 
-      const response = await fetch('http://localhost:3005/api/caX/process-transcript', {
+      const response = await fetch(`${API_BASE_URL}/api/caX/process-transcript', {
         method: 'POST',
         body: formData,
       });
@@ -465,7 +466,7 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
         // Auto-save if this is a saved analysis (has projectId)
         if (currentAnalysis.projectId) {
           try {
-            const saveResponse = await fetch('http://localhost:3005/api/caX/update', {
+            const saveResponse = await fetch(`${API_BASE_URL}/api/caX/update', {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
