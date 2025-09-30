@@ -102,7 +102,7 @@ router.post('/moderators', authenticateToken, async (req, res) => {
 router.put('/moderators/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, email, phone, company, specialties, notes } = req.body;
+    const { name, email, phone, company, specialties, notes, customSchedule } = req.body;
 
     const vendors = await loadVendors();
     const moderatorIndex = vendors.moderators.findIndex(mod => mod.id === id);
@@ -119,6 +119,8 @@ router.put('/moderators/:id', authenticateToken, async (req, res) => {
       company: company || vendors.moderators[moderatorIndex].company,
       specialties: specialties || vendors.moderators[moderatorIndex].specialties,
       notes: notes || vendors.moderators[moderatorIndex].notes,
+      // optionally persist custom schedule entries
+      ...(customSchedule ? { customSchedule } : {}),
       updatedAt: new Date().toISOString()
     };
 
@@ -203,6 +205,57 @@ router.post('/sample-vendors', authenticateToken, async (req, res) => {
   }
 });
 
+// PUT /api/vendors/sample-vendors/:id - Update sample vendor
+router.put('/sample-vendors/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, email, phone, company, specialties, notes, customSchedule } = req.body;
+
+    const vendors = await loadVendors();
+    const idx = vendors.sampleVendors.findIndex(v => v.id === id);
+
+    if (idx === -1) {
+      return res.status(404).json({ error: 'Sample vendor not found' });
+    }
+
+    vendors.sampleVendors[idx] = {
+      ...vendors.sampleVendors[idx],
+      name: name || vendors.sampleVendors[idx].name,
+      email: email || vendors.sampleVendors[idx].email,
+      phone: phone || vendors.sampleVendors[idx].phone,
+      company: company || vendors.sampleVendors[idx].company,
+      specialties: specialties || vendors.sampleVendors[idx].specialties,
+      notes: notes || vendors.sampleVendors[idx].notes,
+      ...(customSchedule ? { customSchedule } : {}),
+      updatedAt: new Date().toISOString()
+    };
+
+    await saveVendors(vendors);
+    res.json({ vendor: vendors.sampleVendors[idx] });
+  } catch (error) {
+    console.error('Error updating sample vendor:', error);
+    res.status(500).json({ error: 'Failed to update sample vendor' });
+  }
+});
+
+// DELETE /api/vendors/sample-vendors/:id - Delete sample vendor
+router.delete('/sample-vendors/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const vendors = await loadVendors();
+    const idx = vendors.sampleVendors.findIndex(v => v.id === id);
+    if (idx === -1) {
+      return res.status(404).json({ error: 'Sample vendor not found' });
+    }
+    vendors.sampleVendors.splice(idx, 1);
+    await saveVendors(vendors);
+    res.json({ message: 'Sample vendor deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting sample vendor:', error);
+    res.status(500).json({ error: 'Failed to delete sample vendor' });
+  }
+});
+
 // ANALYTICS ROUTES
 
 // GET /api/vendors/analytics - Get all analytics vendors
@@ -252,6 +305,57 @@ router.post('/analytics', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error adding analytics vendor:', error);
     res.status(500).json({ error: 'Failed to add analytics vendor' });
+  }
+});
+
+// PUT /api/vendors/analytics/:id - Update analytics vendor
+router.put('/analytics/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, email, phone, company, specialties, notes, customSchedule } = req.body;
+
+    const vendors = await loadVendors();
+    const idx = vendors.analytics.findIndex(v => v.id === id);
+
+    if (idx === -1) {
+      return res.status(404).json({ error: 'Analytics vendor not found' });
+    }
+
+    vendors.analytics[idx] = {
+      ...vendors.analytics[idx],
+      name: name || vendors.analytics[idx].name,
+      email: email || vendors.analytics[idx].email,
+      phone: phone || vendors.analytics[idx].phone,
+      company: company || vendors.analytics[idx].company,
+      specialties: specialties || vendors.analytics[idx].specialties,
+      notes: notes || vendors.analytics[idx].notes,
+      ...(customSchedule ? { customSchedule } : {}),
+      updatedAt: new Date().toISOString()
+    };
+
+    await saveVendors(vendors);
+    res.json({ vendor: vendors.analytics[idx] });
+  } catch (error) {
+    console.error('Error updating analytics vendor:', error);
+    res.status(500).json({ error: 'Failed to update analytics vendor' });
+  }
+});
+
+// DELETE /api/vendors/analytics/:id - Delete analytics vendor
+router.delete('/analytics/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const vendors = await loadVendors();
+    const idx = vendors.analytics.findIndex(v => v.id === id);
+    if (idx === -1) {
+      return res.status(404).json({ error: 'Analytics vendor not found' });
+    }
+    vendors.analytics.splice(idx, 1);
+    await saveVendors(vendors);
+    res.json({ message: 'Analytics vendor deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting analytics vendor:', error);
+    res.status(500).json({ error: 'Failed to delete analytics vendor' });
   }
 });
 

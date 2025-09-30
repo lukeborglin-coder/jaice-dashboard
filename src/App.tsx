@@ -122,40 +122,38 @@ function VendorLibrary({ projects }: { projects: any[] }) {
     projectName: ''
   });
 
-  // Load vendor data; prefer server if available, else fallback to localStorage
+  // Helper: map section key to API path
+  const getVendorsApiPath = (section: 'moderators' | 'sampleVendors' | 'analytics') => {
+    if (section === 'moderators') return 'moderators';
+    if (section === 'sampleVendors') return 'sample-vendors';
+    return 'analytics';
+  };
+
+  // Load vendor data; prefer server always, fallback to localStorage if it fails
   const loadVendors = useCallback(async () => {
     setLoading(true);
     try {
-      const storedVendors = localStorage.getItem('jaice_vendors');
-      let data = storedVendors ? JSON.parse(storedVendors) : null;
-
-      // If no local data or empty moderators, try server fetch (requires auth)
-      if (!data || (!Array.isArray(data.moderators) || data.moderators.length === 0)) {
-        const token = localStorage.getItem('jaice_token');
-        if (token) {
-          const resp = await fetch(`${API_BASE_URL}/api/vendors`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          if (resp.ok) {
-            const serverData = await resp.json();
-            if (serverData && typeof serverData === 'object') {
-              data = {
-                moderators: serverData.moderators || [],
-                sampleVendors: serverData.sampleVendors || [],
-                analytics: serverData.analytics || []
-              };
-              localStorage.setItem('jaice_vendors', JSON.stringify(data));
-            }
-          }
+      const token = localStorage.getItem('jaice_token');
+      if (token) {
+        const resp = await fetch(`${API_BASE_URL}/api/vendors`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (resp.ok) {
+          const serverData = await resp.json();
+          const data = {
+            moderators: serverData.moderators || [],
+            sampleVendors: serverData.sampleVendors || [],
+            analytics: serverData.analytics || []
+          };
+          localStorage.setItem('jaice_vendors', JSON.stringify(data));
+          setVendors(data);
+          return;
         }
       }
-
-      if (!data) {
-        data = { moderators: [], sampleVendors: [], analytics: [] };
-        localStorage.setItem('jaice_vendors', JSON.stringify(data));
-      }
-
-      setVendors(data);
+      // Fallback to local
+      const storedVendors = localStorage.getItem('jaice_vendors');
+      const fallbackData = storedVendors ? JSON.parse(storedVendors) : { moderators: [], sampleVendors: [], analytics: [] };
+      setVendors(fallbackData);
     } catch (error) {
       console.error('Error loading vendors:', error);
       // Fallback to empty structure
@@ -182,39 +180,22 @@ function VendorLibrary({ projects }: { projects: any[] }) {
     }
 
     try {
-      // Get current vendors from localStorage
-      const storedVendors = localStorage.getItem('jaice_vendors');
-      const currentVendors = storedVendors ? JSON.parse(storedVendors) : {
-        moderators: [],
-        sampleVendors: [],
-        analytics: []
-      };
-
-      // Check if vendor already exists
       const sectionKey = activeSection;
-      const existingVendor = currentVendors[sectionKey].find((v: any) => v.email === newVendor.email);
-      if (existingVendor) {
-        alert('Vendor with this email already exists');
-        return;
+      const path = getVendorsApiPath(sectionKey as any);
+      const token = localStorage.getItem('jaice_token');
+      const resp = await fetch(`${API_BASE_URL}/api/vendors/${path}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify(newVendor)
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to add vendor');
       }
-
-      // Create new vendor
-      const newVendorData = {
-        id: Date.now().toString(),
-        ...newVendor,
-        pastProjects: [],
-        createdAt: new Date().toISOString()
-      };
-
-      // Add to appropriate section
-      currentVendors[sectionKey].push(newVendorData);
-
-      // Save back to localStorage
-      localStorage.setItem('jaice_vendors', JSON.stringify(currentVendors));
-
-
-      // Reload vendors and reset form
-      loadVendors();
+      await loadVendors();
       setNewVendor({ name: '', email: '', phone: '', company: '', specialties: [], notes: '' });
       setShowAddModal(false);
     } catch (error) {
@@ -245,32 +226,23 @@ function VendorLibrary({ projects }: { projects: any[] }) {
     }
 
     try {
-      // Get current vendors from localStorage
-      const storedVendors = localStorage.getItem('jaice_vendors');
-      const currentVendors = storedVendors ? JSON.parse(storedVendors) : {
-        moderators: [],
-        sampleVendors: [],
-        analytics: []
-      };
-
-      // Find the section this vendor belongs to
       const sectionKey = activeSection;
-      const vendorIndex = currentVendors[sectionKey].findIndex((v: any) => v.id === selectedVendor.id);
-
-      if (vendorIndex !== -1) {
-        // Remove the vendor
-        currentVendors[sectionKey].splice(vendorIndex, 1);
-
-        // Save back to localStorage
-        localStorage.setItem('jaice_vendors', JSON.stringify(currentVendors));
-
-
-        // Reload vendors and close modal
-        loadVendors();
-        setShowDetailsModal(false);
-        setSelectedVendor(null);
-        setIsEditing(false);
+      const path = getVendorsApiPath(sectionKey as any);
+      const token = localStorage.getItem('jaice_token');
+      const resp = await fetch(`${API_BASE_URL}/api/vendors/${path}/${selectedVendor.id}`, {
+        method: 'DELETE',
+        headers: {
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        }
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to delete vendor');
       }
+      await loadVendors();
+      setShowDetailsModal(false);
+      setSelectedVendor(null);
+      setIsEditing(false);
     } catch (error) {
       console.error('Error deleting vendor:', error);
       alert('Failed to delete vendor');
@@ -285,36 +257,25 @@ function VendorLibrary({ projects }: { projects: any[] }) {
     }
 
     try {
-      // Get current vendors from localStorage
-      const storedVendors = localStorage.getItem('jaice_vendors');
-      const currentVendors = storedVendors ? JSON.parse(storedVendors) : {
-        moderators: [],
-        sampleVendors: [],
-        analytics: []
-      };
-
-      // Find the section this vendor belongs to
       const sectionKey = activeSection;
-      const vendorIndex = currentVendors[sectionKey].findIndex((v: any) => v.id === selectedVendor.id);
-
-      if (vendorIndex !== -1) {
-        // Update the vendor
-        currentVendors[sectionKey][vendorIndex] = {
-          ...selectedVendor,
-          ...editingVendor,
-          updatedAt: new Date().toISOString()
-        };
-
-        // Save back to localStorage
-        localStorage.setItem('jaice_vendors', JSON.stringify(currentVendors));
-
-
-        // Reload vendors and close modal
-        loadVendors();
-        setIsEditing(false);
-        setShowDetailsModal(false);
-        setSelectedVendor(null);
+      const path = getVendorsApiPath(sectionKey as any);
+      const token = localStorage.getItem('jaice_token');
+      const resp = await fetch(`${API_BASE_URL}/api/vendors/${path}/${selectedVendor.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify(editingVendor)
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to update vendor');
       }
+      await loadVendors();
+      setIsEditing(false);
+      setShowDetailsModal(false);
+      setSelectedVendor(null);
     } catch (error) {
       console.error('Error updating vendor:', error);
       alert('Failed to update vendor');
@@ -406,37 +367,26 @@ function VendorLibrary({ projects }: { projects: any[] }) {
     }
 
     try {
-      // Get current vendor data
-      const storedVendors = localStorage.getItem('jaice_vendors');
-      const vendorData = storedVendors ? JSON.parse(storedVendors) : {
-        moderators: [],
-        sampleVendors: [],
-        analytics: []
-      };
+      // Update on server: modify vendor's customSchedule
+      const sectionKey = activeSection as 'moderators' | 'sampleVendors' | 'analytics';
+      const path = getVendorsApiPath(sectionKey);
+      const token = localStorage.getItem('jaice_token');
 
-      // Find the vendor in the appropriate section
-      const sectionKey = activeSection;
-      const vendorIndex = vendorData[sectionKey].findIndex((v: any) => v.id === selectedVendor.id);
-
-      if (vendorIndex !== -1) {
-        // Remove the specific schedule entry
-        if (vendorData[sectionKey][vendorIndex].customSchedule) {
-          vendorData[sectionKey][vendorIndex].customSchedule = vendorData[sectionKey][vendorIndex].customSchedule.filter(
-            (entry: any) => entry.id !== entryId
-          );
-        }
-
-        // Save back to localStorage
-        localStorage.setItem('jaice_vendors', JSON.stringify(vendorData));
-
-        // Update the selectedVendor state
-        setSelectedVendor({
-          ...vendorData[sectionKey][vendorIndex]
-        });
-
-        // Reload vendors to refresh the display
-        loadVendors();
+      const updatedSchedule = (selectedVendor.customSchedule || []).filter((entry: any) => entry.id !== entryId);
+      const resp = await fetch(`${API_BASE_URL}/api/vendors/${path}/${selectedVendor.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ customSchedule: updatedSchedule })
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to update schedule');
       }
+      await loadVendors();
+      setSelectedVendor((prev: any) => prev ? { ...prev, customSchedule: updatedSchedule } : prev);
     } catch (error) {
       console.error('Error deleting schedule entry:', error);
       alert('Failed to delete schedule entry');
@@ -467,48 +417,38 @@ function VendorLibrary({ projects }: { projects: any[] }) {
     }
 
     try {
-      // Get current vendor data
-      const storedVendors = localStorage.getItem('jaice_vendors');
-      const vendorData = storedVendors ? JSON.parse(storedVendors) : {
-        moderators: [],
-        sampleVendors: [],
-        analytics: []
+      const sectionKey = activeSection as 'moderators' | 'sampleVendors' | 'analytics';
+      const path = getVendorsApiPath(sectionKey);
+      const token = localStorage.getItem('jaice_token');
+
+      const scheduleEntry = {
+        id: Date.now().toString(),
+        startDate: scheduleForm.startDate,
+        endDate: scheduleForm.endDate,
+        type: scheduleForm.type,
+        projectName: scheduleForm.projectName || (scheduleForm.type === 'pending' ? 'PENDING HOLD' : 'Other Project'),
+        createdAt: new Date().toISOString()
       };
 
-      // Find the vendor in the appropriate section
-      const sectionKey = activeSection;
-      const vendorIndex = vendorData[sectionKey].findIndex((v: any) => v.id === selectedVendor.id);
-
-      if (vendorIndex !== -1) {
-        // Add schedule entry to vendor
-        if (!vendorData[sectionKey][vendorIndex].customSchedule) {
-          vendorData[sectionKey][vendorIndex].customSchedule = [];
-        }
-
-        const scheduleEntry = {
-          id: Date.now().toString(),
-          startDate: scheduleForm.startDate,
-          endDate: scheduleForm.endDate,
-          type: scheduleForm.type, // 'booked' or 'pending'
-          projectName: scheduleForm.projectName || (scheduleForm.type === 'pending' ? 'PENDING HOLD' : 'Other Project'),
-          createdAt: new Date().toISOString()
-        };
-
-        vendorData[sectionKey][vendorIndex].customSchedule.push(scheduleEntry);
-
-        // Save back to localStorage
-        localStorage.setItem('jaice_vendors', JSON.stringify(vendorData));
-
-
-        // Reload vendors and reset form
-        loadVendors();
-        setScheduleForm({ startDate: '', endDate: '', type: 'booked', projectName: '' });
-        setShowScheduleModal(false);
-
-        // Show success message
-        setShowSuccessMessage(true);
-        setTimeout(() => setShowSuccessMessage(false), 3000);
+      const updatedSchedule = [ ...(selectedVendor.customSchedule || []), scheduleEntry ];
+      const resp = await fetch(`${API_BASE_URL}/api/vendors/${path}/${selectedVendor.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ customSchedule: updatedSchedule })
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to add schedule entry');
       }
+
+      await loadVendors();
+      setScheduleForm({ startDate: '', endDate: '', type: 'booked', projectName: '' });
+      setShowScheduleModal(false);
+      setShowSuccessMessage(true);
+      setTimeout(() => setShowSuccessMessage(false), 3000);
     } catch (error) {
       console.error('Error adding schedule entry:', error);
     }
