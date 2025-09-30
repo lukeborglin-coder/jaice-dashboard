@@ -49,7 +49,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onSwitchToRegister }) => {
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center">
           <img
-            src="/assets/Jaice_Logo_Transparent.png"
+            src="/Jaice_Logo_Transparent.png"
             alt="JAICE Logo"
             className="w-32 h-32 object-contain"
           />
