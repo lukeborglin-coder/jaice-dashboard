@@ -10741,11 +10741,12 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
                           <div
                             key={`${weekIndex}-${dayIndex}`}
                             className={`relative p-2 text-center text-sm rounded-lg cursor-pointer hover:bg-gray-200 h-16 flex flex-col justify-between ${
-                              isTodayDate ? 'bg-gray-100' : isCurrentMonth ? 'bg-gray-100' : 'bg-white'
+                              isTodayDate ? 'bg-white' : isCurrentMonth ? 'bg-gray-100' : 'bg-white'
                             } ${isPastDate ? 'opacity-50' : ''}`}
                             style={{
-                              backgroundColor: isCurrentWeekDay ? '#FED7AA40' : isTodayDate ? '#F3F4F6' : isCurrentMonth ? '#F3F4F6' : '#FFFFFF',
-                              border: isTodayDate ? '2px solid #F97316' : !isCurrentMonth && !isCurrentWeekDay ? '1px solid #E5E7EB' : 'none'
+                              // Slightly darker orange for the current date than other highlighted dates
+                              backgroundColor: isTodayDate ? '#FDBA7466' : (isCurrentWeekDay ? '#FED7AA40' : (isCurrentMonth ? '#F3F4F6' : '#FFFFFF')),
+                              border: isTodayDate ? '2px solid #F97316' : (!isCurrentMonth && !isCurrentWeekDay ? '1px solid #E5E7EB' : 'none')
                             }}
                             title={phaseForDay ? `${phaseForDay.phase} phase` : 'No project activity'}
                           >
