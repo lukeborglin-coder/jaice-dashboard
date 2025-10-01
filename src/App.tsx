@@ -1339,6 +1339,36 @@ function AdminCenter() {
   // Feature Requests and Bug Reports state
   const [featureRequests, setFeatureRequests] = useState<any[]>([]);
   const [bugReports, setBugReports] = useState<any[]>([]);
+  const loadAdminFeedback = useCallback(async () => {
+    try {
+      const headers: any = { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` };
+      const resp = await fetch(`${API_BASE_URL}/api/feedback`, { headers });
+      if (resp.ok) {
+        const data = await resp.json();
+        setFeatureRequests(Array.isArray(data.featureRequests) ? data.featureRequests : []);
+        setBugReports(Array.isArray(data.bugReports) ? data.bugReports : []);
+      }
+    } catch (e) {
+      setFeatureRequests([]);
+      setBugReports([]);
+    }
+  }, []);
+
+  const updateFeedbackStatus = useCallback(async (id: string, updates: { status?: string; priority?: string }) => {
+    try {
+      const resp = await fetch(`${API_BASE_URL}/api/feedback/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+        },
+        body: JSON.stringify(updates)
+      });
+      if (resp.ok) {
+        await loadAdminFeedback();
+      }
+    } catch (e) {}
+  }, [loadAdminFeedback]);
   const [loadingRequests, setLoadingRequests] = useState(false);
 
   // Password management state
@@ -1368,6 +1398,12 @@ function AdminCenter() {
   useEffect(() => {
     loadUsers();
   }, [loadUsers]);
+
+  useEffect(() => {
+    if (activeTab === 'feature-requests' || activeTab === 'bug-reports') {
+      loadAdminFeedback();
+    }
+  }, [activeTab, loadAdminFeedback]);
 
   // Create new user
   const handleCreateUser = async (e: React.FormEvent) => {
@@ -1872,133 +1908,121 @@ function AdminCenter() {
       )}
 
       {activeTab === 'feature-requests' && (
-        /* Feature Requests View */
-        <div className="space-y-6">
-          <div className="bg-white shadow-sm rounded-lg border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Feature Requests ({featureRequests.length})</h3>
-              <button
-                className="flex items-center gap-2 px-4 py-2 text-white rounded-lg transition-colors"
-                style={{ 
-                  backgroundColor: '#F37021',
-                }}
-                onMouseEnter={(e) => (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#E55A1A'}
-                onMouseLeave={(e) => (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#F37021'}
-              >
-                <PlusIcon className="h-4 w-4" />
-                New Request
-              </button>
-            </div>
-
-            {featureRequests.length === 0 ? (
-              <div className="text-center py-8">
-                <LightBulbIcon className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">No feature requests yet</h3>
-                <p className="mt-1 text-sm text-gray-500">Users can submit feature requests through the system.</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {featureRequests.map((request) => (
-                  <div key={request.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h4 className="text-sm font-medium text-gray-900">{request.title}</h4>
-                          <span className={`px-2 py-1 text-xs rounded-full ${
-                            request.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                            request.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
-                            'bg-green-100 text-green-800'
-                          }`}>
-                            {request.status}
-                          </span>
-                          <span className={`px-2 py-1 text-xs rounded-full ${
-                            request.priority === 'high' ? 'bg-red-100 text-red-800' :
-                            request.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-green-100 text-green-800'
-                          }`}>
-                            {request.priority}
-                          </span>
-                        </div>
-                        <p className="text-sm text-gray-600 mb-2">{request.description}</p>
-                        <div className="flex items-center gap-4 text-xs text-gray-500">
-                          <span>By: {request.createdBy}</span>
-                          <span>•</span>
-                          <span>{new Date(request.createdAt).toLocaleDateString()}</span>
-                          <span>•</span>
-                          <span>{request.votes} votes</span>
-                        </div>
+        <div className="bg-white shadow-sm rounded-lg border border-gray-200 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Feature Requests</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {['pending review','working on it','done'].map((status) => (
+              <div key={status} className="border rounded-lg p-3">
+                <div className="text-sm font-semibold text-gray-800 mb-2 capitalize">{status}</div>
+                <div className="space-y-2">
+                  {featureRequests.filter((r:any) => r.status === status).map((item:any) => (
+                    <div key={item.id} className="border rounded p-2">
+                      <div className="text-xs text-gray-500 mb-1">{new Date(item.createdAt).toLocaleString()}</div>
+                      <div className="text-sm text-gray-900">{item.subject}</div>
+                      <div className="text-xs text-gray-600 truncate">{item.body}</div>
+                      <div className="flex items-center justify-between mt-2">
+                        <select
+                          className="text-xs border rounded px-2 py-1"
+                          value={item.status}
+                          onChange={(e) => updateFeedbackStatus(item.id, { status: e.target.value })}
+                        >
+                          <option value="pending review">Pending review</option>
+                          <option value="working on it">Working on it</option>
+                          <option value="done">Done</option>
+                          <option value="archived">Archived</option>
+                        </select>
+                        <select
+                          className="text-xs border rounded px-2 py-1"
+                          value={item.priority}
+                          onChange={(e) => updateFeedbackStatus(item.id, { priority: e.target.value })}
+                        >
+                          <option value="low">Low</option>
+                          <option value="medium">Medium</option>
+                          <option value="high">High</option>
+                        </select>
                       </div>
                     </div>
+                  ))}
+                  {featureRequests.filter((r:any) => r.status === status).length === 0 && (
+                    <div className="text-xs text-gray-500 italic">No items</div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          {/* Archived toggle */}
+          {featureRequests.some((r:any) => r.status === 'archived') && (
+            <div className="mt-4">
+              <div className="text-sm font-semibold text-gray-800 mb-2">Archived</div>
+              <div className="grid md:grid-cols-3 gap-2">
+                {featureRequests.filter((r:any) => r.status === 'archived').map((item:any) => (
+                  <div key={item.id} className="border rounded p-2">
+                    <div className="text-xs text-gray-500 mb-1">{new Date(item.updatedAt || item.createdAt).toLocaleString()}</div>
+                    <div className="text-sm text-gray-900">{item.subject}</div>
                   </div>
                 ))}
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       )}
 
       {activeTab === 'bug-reports' && (
-        /* Bug Reports View */
-        <div className="space-y-6">
-          <div className="bg-white shadow-sm rounded-lg border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Bug Reports ({bugReports.length})</h3>
-              <button
-                className="flex items-center gap-2 px-4 py-2 text-white rounded-lg transition-colors"
-                style={{ 
-                  backgroundColor: '#F37021',
-                }}
-                onMouseEnter={(e) => (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#E55A1A'}
-                onMouseLeave={(e) => (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#F37021'}
-              >
-                <PlusIcon className="h-4 w-4" />
-                New Report
-              </button>
-            </div>
-
-            {bugReports.length === 0 ? (
-              <div className="text-center py-8">
-                <ExclamationTriangleIcon className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">No bug reports yet</h3>
-                <p className="mt-1 text-sm text-gray-500">Users can submit bug reports through the system.</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {bugReports.map((report) => (
-                  <div key={report.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h4 className="text-sm font-medium text-gray-900">{report.title}</h4>
-                          <span className={`px-2 py-1 text-xs rounded-full ${
-                            report.status === 'open' ? 'bg-red-100 text-red-800' :
-                            report.status === 'investigating' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-green-100 text-green-800'
-                          }`}>
-                            {report.status}
-                          </span>
-                          <span className={`px-2 py-1 text-xs rounded-full ${
-                            report.severity === 'critical' ? 'bg-red-100 text-red-800' :
-                            report.severity === 'high' ? 'bg-orange-100 text-orange-800' :
-                            report.severity === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-green-100 text-green-800'
-                          }`}>
-                            {report.severity}
-                          </span>
-                        </div>
-                        <p className="text-sm text-gray-600 mb-2">{report.description}</p>
-                        <div className="flex items-center gap-4 text-xs text-gray-500">
-                          <span>Reported by: {report.reportedBy}</span>
-                          <span>•</span>
-                          <span>{new Date(report.createdAt).toLocaleDateString()}</span>
-                        </div>
+        <div className="bg-white shadow-sm rounded-lg border border-gray-200 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Bug Reports</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {['pending review','working on it','done'].map((status) => (
+              <div key={status} className="border rounded-lg p-3">
+                <div className="text-sm font-semibold text-gray-800 mb-2 capitalize">{status}</div>
+                <div className="space-y-2">
+                  {bugReports.filter((r:any) => r.status === status).map((item:any) => (
+                    <div key={item.id} className="border rounded p-2">
+                      <div className="text-xs text-gray-500 mb-1">{new Date(item.createdAt).toLocaleString()}</div>
+                      <div className="text-sm text-gray-900">{item.subject}</div>
+                      <div className="text-xs text-gray-600 truncate">{item.body}</div>
+                      <div className="flex items-center justify-between mt-2">
+                        <select
+                          className="text-xs border rounded px-2 py-1"
+                          value={item.status}
+                          onChange={(e) => updateFeedbackStatus(item.id, { status: e.target.value })}
+                        >
+                          <option value="pending review">Pending review</option>
+                          <option value="working on it">Working on it</option>
+                          <option value="done">Done</option>
+                          <option value="archived">Archived</option>
+                        </select>
+                        <select
+                          className="text-xs border rounded px-2 py-1"
+                          value={item.priority}
+                          onChange={(e) => updateFeedbackStatus(item.id, { priority: e.target.value })}
+                        >
+                          <option value="low">Low</option>
+                          <option value="medium">Medium</option>
+                          <option value="high">High</option>
+                        </select>
                       </div>
                     </div>
+                  ))}
+                  {bugReports.filter((r:any) => r.status === status).length === 0 && (
+                    <div className="text-xs text-gray-500 italic">No items</div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          {bugReports.some((r:any) => r.status === 'archived') && (
+            <div className="mt-4">
+              <div className="text-sm font-semibold text-gray-800 mb-2">Archived</div>
+              <div className="grid md:grid-cols-3 gap-2">
+                {bugReports.filter((r:any) => r.status === 'archived').map((item:any) => (
+                  <div key={item.id} className="border rounded p-2">
+                    <div className="text-xs text-gray-500 mb-1">{new Date(item.updatedAt || item.createdAt).toLocaleString()}</div>
+                    <div className="text-sm text-gray-900">{item.subject}</div>
                   </div>
                 ))}
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       )}
     </div>
