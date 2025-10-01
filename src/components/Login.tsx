@@ -46,14 +46,12 @@ const Login: React.FC<LoginProps> = ({ onLogin, onSwitchToRegister }) => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="flex justify-center">
-          <img
-            src="/Jaice_Logo_Transparent.png"
-            alt="JAICE Logo"
-            className="w-40 h-40 sm:w-48 sm:h-48 object-contain"
-          />
-        </div>
+      <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
+        <img
+          src="/Jaice_Logo_Transparent.png"
+          alt="JAICE Logo"
+          className="mx-auto w-full h-auto object-contain"
+        />
         <p className="mt-2 text-center text-sm text-gray-600">
           Project Management Dashboard
         </p>

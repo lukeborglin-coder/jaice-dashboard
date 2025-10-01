@@ -13,12 +13,13 @@ const AuthWrapper: React.FC<AuthWrapperProps> = ({ children }) => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
         <div className="text-center">
-          <div className="w-16 h-16 bg-orange-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <span className="text-white font-bold text-2xl">J</span>
-          </div>
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto"></div>
+          <img src="/Jaice_Logo_Transparent.png" alt="JAICE Logo" className="w-40 h-40 object-contain mx-auto mb-4" />
+          <div
+            className="animate-spin rounded-full h-10 w-10 mx-auto border-4"
+            style={{ borderColor: '#D14A2D', borderTopColor: 'transparent', borderRightColor: '#D14A2D', borderBottomColor: '#D14A2D', borderLeftColor: '#D14A2D' }}
+          ></div>
           <p className="mt-4 text-gray-600">Loading JAICE Dashboard...</p>
         </div>
       </div>
