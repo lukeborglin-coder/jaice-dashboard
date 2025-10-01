@@ -31,6 +31,15 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
   const [hoveredColumnDivider, setHoveredColumnDivider] = useState<number | null>(null);
   const [editingColumnName, setEditingColumnName] = useState<string | null>(null);
   const [editingColumnValue, setEditingColumnValue] = useState<string>('');
+  // Dynamic headers: union of keys across all rows for the active sheet
+  const dynamicHeaders = useMemo(() => {
+    const rows = (currentAnalysis?.data?.[activeSheet] as any[]) || [];
+    const set = new Set<string>();
+    for (const r of rows) {
+      Object.keys(r || {}).forEach((k) => set.add(k));
+    }
+    return Array.from(set);
+  }, [currentAnalysis?.data, activeSheet]);
 
   // Handler for deleting a demographic column
   const handleDeleteDemographicColumn = (columnName: string) => {
@@ -622,7 +631,7 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
             </div>
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-xs text-gray-500">{getProjectName(currentAnalysis)} • Saved {currentAnalysis.savedDate || new Date(currentAnalysis.savedAt).toLocaleDateString()}</div>
+                <div className="text-xs text-gray-500">{getProjectName(currentAnalysis)} ? Saved {currentAnalysis.savedDate || new Date(currentAnalysis.savedAt).toLocaleDateString()}</div>
                 <div className="text-xs text-gray-500 mt-0.5">Current Tab/Section: <span className="font-medium capitalize">{activeSheet.toLowerCase()}</span></div>
               </div>
               <div className="flex items-center gap-2">
@@ -684,7 +693,7 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
               <table className="min-w-full text-[11px] leading-tight border-collapse">
                 <thead style={{ backgroundColor: '#e5e7eb' }}>
                   <tr>
-                    {Object.keys((currentAnalysis.data[activeSheet][0] || {})).map((h, idx) => (
+                    {dynamicHeaders.map((h, idx) => (
                       <React.Fragment key={h}>
                         <th className="px-2 py-2 text-left font-medium border-r border-gray-300 last:border-r-0 align-top" style={{ whiteSpace: h === 'Respondent ID' ? 'nowrap' : 'normal', minWidth: h === 'Respondent ID' ? 'auto' : '120px', lineHeight: '1.3', width: h === 'Respondent ID' ? '1%' : 'auto' }}>
                           {activeSheet === 'Demographics' && h !== 'Respondent ID' && h !== 'respno' ? (
@@ -776,7 +785,7 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
                       const hasAnyRespondent = activeSheet === 'Demographics' ? currentAnalysis.data[activeSheet].some((r: any) => (r['Respondent ID'] && String(r['Respondent ID']).trim() !== '') || (r['respno'] && String(r['respno']).trim() !== '')) : true;
                       return (
                       <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                        {Object.keys(row).map((k, kidx) => {
+                        {dynamicHeaders.map((k, kidx) => {
                           const respondentId = row['Respondent ID'] || row['respno'];
                           const hasQuotes = currentAnalysis?.quotes?.[activeSheet]?.[respondentId]?.[k]?.length > 0;
 
@@ -1024,7 +1033,7 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
                                !keyLower.includes('time');
                       })
                       .map(([key, value]) => `${key}: ${value}`)
-                      .join(' • ');
+                      .join(' ? ');
 
                     return demographics || null;
                   })()}
