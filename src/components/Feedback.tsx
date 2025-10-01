@@ -121,26 +121,18 @@ export default function Feedback({ defaultType = 'bug' as FeedbackType }) {
               <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
               <input className="w-full border rounded px-3 py-2" value={subject} onChange={e => setSubject(e.target.value)} required />
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
-                <select className="w-full border rounded px-3 py-2" value={type} onChange={e => setType(e.target.value as FeedbackType)}>
-                  <option value="bug">Bug Report</option>
-                  <option value="feature">Feature Request</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
-                <select className="w-full border rounded px-3 py-2" value={priority} onChange={e => setPriority(e.target.value as any)}>
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                </select>
-              </div>
-            </div>
+            {/* Type selection removed; determined by tabs */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Details</label>
               <textarea className="w-full border rounded px-3 py-2 min-h-[120px]" value={body} onChange={e => setBody(e.target.value)} required />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+              <select className="w-full border rounded px-3 py-2" value={priority} onChange={e => setPriority(e.target.value as any)}>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
             </div>
             <div className="flex items-center justify-end gap-3">
               {submitInfo && (
