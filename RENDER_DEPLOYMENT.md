@@ -59,7 +59,7 @@ Render will automatically deploy when you push to GitHub. You can also manually 
 ## How Persistence Works
 
 ### Data Storage
-All persistent data is stored in `/opt/render/project/data`:
+All persistent data is stored in `/server/data`:
 - `projects.json` - User projects
 - `users.json` - User accounts
 - `savedAnalyses.json` - Content analysis results
@@ -67,12 +67,12 @@ All persistent data is stored in `/opt/render/project/data`:
 - `discussionGuides/` - Saved discussion guides
 
 ### Environment Variables
-- `DATA_DIR=/opt/render/project/data` - Points to persistent disk
-- `FILES_DIR=/opt/render/project/data/uploads` - Upload directory on persistent disk
+- `DATA_DIR=/server/data` - Points to persistent disk
+- `FILES_DIR=/server/data/uploads` - Upload directory on persistent disk
 
 ### What Happens During Deployment
 1. Render builds your new code
-2. The persistent disk at `/opt/render/project/data` is **NOT** deleted
+2. The persistent disk at `/server/data` is **NOT** deleted
 3. Your new server starts and connects to the existing persistent disk
 4. All your data (projects, users, files) is still there!
 

@@ -698,8 +698,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
       };
       
       localStorage.setItem('jaice_project_draft', JSON.stringify(projectData));
-      console.log('Project data auto-saved');
-    }, 1000); // Save after 1 second of inactivity
+      }, 1000); // Save after 1 second of inactivity
     
     setSaveTimeout(timeout);
   };
@@ -762,13 +761,10 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
     }
     
     setTimelineDates(newTimelineDates);
-    
-    // Calculate and update phase timeline
-    const calculatedTimeline = calculatePhaseTimeline(newTimelineDates);
-    if (Object.keys(calculatedTimeline).length > 0) {
-      setPhaseTimeline(calculatedTimeline);
-    }
-    
+    // Do not render or update calculated timeline during wizard step 3
+    // Final timeline is calculated on submit only
+    setPhaseTimeline({});
+
     autoSave(); // Trigger auto-save
   };
 
@@ -1298,10 +1294,16 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
       }
 
       // Save to backend
+      const token = localStorage.getItem('jaice_token');
+      if (!token) {
+        throw new Error('You are not authenticated. Please log in again.');
+      }
+
       const response = await fetch(`${API_BASE_URL}/api/projects`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           userId: user.id,
@@ -1310,7 +1312,18 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
       });
 
       if (!response.ok) {
-        throw new Error('Failed to save project to server');
+        const status = response.status;
+        let message = 'Failed to save project to server';
+        try {
+          const data = await response.json();
+          if (data?.error || data?.message) message = `${message} (${status}): ${data.error || data.message}`;
+        } catch (_) {
+          try {
+            const text = await response.text();
+            if (text) message = `${message} (${status}): ${text}`;
+          } catch {}
+        }
+        throw new Error(message);
       }
 
       const result = await response.json();
@@ -1385,7 +1398,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
         zIndex: 99999
       }}
     >
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b">
           <div>
@@ -1427,7 +1440,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
         </div>
 
         {/* Content */}
-        <div className="wizard-content p-4 max-h-[70vh] overflow-y-auto">
+        <div className="wizard-content p-4 overflow-y-auto flex-1">
           {currentStep === 1 && (
             <div className="space-y-4">
               <div>
@@ -1670,13 +1683,13 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
           )}
 
           {currentStep === 3 && (
-            <div className="space-y-6">
+            <div className="space-y-4">
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">Project Timeline</h3>
               </div>
-              
+
               {/* Simplified Date Inputs */}
-              <div className="space-y-6">
+              <div className="space-y-4">
                 {/* Kickoff Date */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1841,69 +1854,10 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
                   />
                 </div>
 
-                {/* Validation Message */}
-                {timelineDates.kickoffDate && timelineDates.fieldworkStartDate && 
-                 timelineDates.fieldworkEndDate && timelineDates.reportDeadlineDate && (
-                  <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-                    <div className="flex items-center gap-2 text-sm text-blue-800">
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                      </svg>
-                      <span className="font-medium">Timeline calculated successfully!</span>
-                    </div>
-                    <p className="text-xs text-blue-600 mt-1">
-                      The system will automatically calculate all phase dates based on your key milestones.
-                    </p>
-                  </div>
-                )}
+                {/* Removed validation message per requirements */}
               </div>
 
-              {/* Phase Timeline Preview */}
-              {Object.keys(phaseTimeline).length > 0 && (
-                <div className="mt-6">
-                  <h4 className="text-sm font-medium text-gray-700 mb-3">Calculated Timeline Preview</h4>
-                  <div className="space-y-2">
-                    {PHASES.map((phase) => {
-                      const timeline = phaseTimeline[phase];
-                      if (!timeline || !timeline.start || !timeline.end) return null;
-                      
-                      const phaseColor = PHASE_COLORS[phase];
-                      // Parse dates using UTC to avoid timezone issues
-                      const parseDateForDisplay = (dateString: string) => {
-                        const [year, month, day] = dateString.split('-').map(Number);
-                        return new Date(Date.UTC(year, month - 1, day));
-                      };
-                      
-                      const startDate = parseDateForDisplay(timeline.start);
-                      const endDate = parseDateForDisplay(timeline.end);
-                      const duration = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-                      
-                      // Format dates using UTC methods to avoid timezone conversion
-                      const formatDateForDisplay = (date: Date) => {
-                        const month = date.getUTCMonth() + 1;
-                        const day = date.getUTCDate();
-                        const year = date.getUTCFullYear();
-                        return `${month}/${day}/${year}`;
-                      };
-                      
-                      return (
-                        <div key={phase} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                          <div className="flex items-center gap-3">
-                            <div 
-                              className="w-3 h-3 rounded-full"
-                              style={{ background: phaseColor }}
-                            />
-                            <span className="text-sm font-medium text-gray-900">{phase}</span>
-                          </div>
-                          <div className="text-sm text-gray-600">
-                            {formatDateForDisplay(startDate)} - {formatDateForDisplay(endDate)} ({duration} days)
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+              {/* Removed calculated timeline preview per requirements */}
             </div>
           )}
 

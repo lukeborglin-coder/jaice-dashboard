@@ -16,14 +16,14 @@ services:
       - key: OPENAI_API_KEY
         sync: false  # Set this in Render dashboard
       - key: DATA_DIR
-        value: /opt/render/project/data
+        value: /server/data
       - key: FILES_DIR
-        value: /opt/render/project/data/uploads
+        value: /server/data/uploads
       - key: CORS_ORIGIN
         sync: false  # Set this to your frontend URL in Render dashboard
     disk:
       name: data-disk
-      mountPath: /opt/render/project/data
+      mountPath: /server/data
       sizeGB: 1
 
   # Frontend Static Site
