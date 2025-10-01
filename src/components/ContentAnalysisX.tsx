@@ -767,23 +767,13 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
                 </thead>
                 <tbody>
                   {currentAnalysis.data[activeSheet]
-                    .filter((row: any) => {
-                      // Only show rows with a respondent ID starting with 'R'
-                      const respondentId = row['Respondent ID'] || row['respno'];
-                      if (respondentId && String(respondentId).trim().startsWith('R')) return true;
-
-                      // Filter out template rows (rows with empty values but defined keys)
-                      return false;
-                    })
+                    .filter((row: any) => { if (activeSheet === 'Demographics') { const respondentId = row['Respondent ID'] ?? row['respno']; return respondentId !== undefined && String(respondentId).trim() !== ''; } return Object.values(row).some(v => String(v ?? '').trim() !== ''); })
                     .map((row: any, i: number) => {
                       // Check if this row has a respondent ID (real respondent vs template row)
                       const hasRespondentId = (row['Respondent ID'] && String(row['Respondent ID']).trim() && String(row['Respondent ID']).startsWith('R')) ||
                                              (row['respno'] && String(row['respno']).trim() && String(row['respno']).startsWith('R'));
                       // Check if any respondent exists in the sheet
-                      const hasAnyRespondent = currentAnalysis.data[activeSheet].some((r: any) =>
-                        (r['Respondent ID'] && String(r['Respondent ID']).trim().startsWith('R')) ||
-                        (r['respno'] && String(r['respno']).trim().startsWith('R'))
-                      );
+                      const hasAnyRespondent = activeSheet === 'Demographics' ? currentAnalysis.data[activeSheet].some((r: any) => (r['Respondent ID'] && String(r['Respondent ID']).trim() !== '') || (r['respno'] && String(r['respno']).trim() !== '')) : true;
                       return (
                       <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                         {Object.keys(row).map((k, kidx) => {
@@ -1052,6 +1042,10 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
     </div>
   );
 }
+
+
+
+
 
 
 
