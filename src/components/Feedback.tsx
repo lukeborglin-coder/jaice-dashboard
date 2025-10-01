@@ -15,24 +15,28 @@ export default function Feedback({ defaultType = 'bug' as FeedbackType }) {
   const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium');
   const [loading, setLoading] = useState(false);
   const [submitInfo, setSubmitInfo] = useState<{ ok: boolean; msg: string } | null>(null);
-  const [bugReports, setBugReports] = useState<any[]>([]);
-  const [featureRequests, setFeatureRequests] = useState<any[]>([]);
+  const [bugWorking, setBugWorking] = useState<any[]>([]);
+  const [bugDone, setBugDone] = useState<any[]>([]);
+  const [featWorking, setFeatWorking] = useState<any[]>([]);
+  const [featDone, setFeatDone] = useState<any[]>([]);
 
   const loadActive = async () => {
     try {
       const headers: any = { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` };
-      const [pendingBugs, doneBugs, pendingFeatures, doneFeatures] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/feedback?type=bug&status=pending%20review`, { headers }).then(r => r.json()),
+      const [workingBugs, doneBugs, workingFeatures, doneFeatures] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/feedback?type=bug&status=working%20on%20it`, { headers }).then(r => r.json()),
         fetch(`${API_BASE_URL}/api/feedback?type=bug&status=done`, { headers }).then(r => r.json()),
-        fetch(`${API_BASE_URL}/api/feedback?type=feature&status=pending%20review`, { headers }).then(r => r.json()),
+        fetch(`${API_BASE_URL}/api/feedback?type=feature&status=working%20on%20it`, { headers }).then(r => r.json()),
         fetch(`${API_BASE_URL}/api/feedback?type=feature&status=done`, { headers }).then(r => r.json()),
       ]);
-      const toSorted = (arr: any[]) => [...arr].sort((a, b) => (b.statusUpdatedAt || b.updatedAt || b.createdAt).localeCompare(a.statusUpdatedAt || a.updatedAt || a.createdAt));
-      setBugReports([...toSorted(pendingBugs.bugReports || []).slice(0, 5), ...toSorted(doneBugs.bugReports || []).slice(0, 5)]);
-      setFeatureRequests([...toSorted(pendingFeatures.featureRequests || []).slice(0, 5), ...toSorted(doneFeatures.featureRequests || []).slice(0, 5)]);
+      const toSorted = (arr: any[]) => [...(arr || [])].sort((a, b) => (b.statusUpdatedAt || b.updatedAt || b.createdAt).localeCompare(a.statusUpdatedAt || a.updatedAt || a.createdAt));
+      setBugWorking(toSorted(workingBugs.bugReports).slice(0, 5));
+      setBugDone(toSorted(doneBugs.bugReports).slice(0, 5));
+      setFeatWorking(toSorted(workingFeatures.featureRequests).slice(0, 5));
+      setFeatDone(toSorted(doneFeatures.featureRequests).slice(0, 5));
     } catch (e) {
-      setBugReports([]);
-      setFeatureRequests([]);
+      setBugWorking([]); setBugDone([]);
+      setFeatWorking([]); setFeatDone([]);
     }
   };
 
@@ -77,7 +81,6 @@ export default function Feedback({ defaultType = 'bug' as FeedbackType }) {
         <ul className="space-y-2">
           {items.map((i) => (
             <li key={i.id} className="border rounded p-2">
-              <div className="text-xs text-gray-500 mb-1">{new Date(i.updatedAt || i.createdAt).toLocaleString()}</div>
               <div className="text-sm text-gray-800">{i.subject}</div>
               <div className="text-xs text-gray-600">Priority: {i.priority} | Status: {i.status}</div>
             </li>
@@ -151,8 +154,10 @@ export default function Feedback({ defaultType = 'bug' as FeedbackType }) {
       </div>
       <div className="lg:col-span-1">
         <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <List title="Bug Reports (Pending/Done)" items={bugReports} />
-          <List title="Feature Requests (Pending/Done)" items={featureRequests} />
+          <List title="Bug Reports – In Progress" items={bugWorking} />
+          <List title="Bug Reports – Completed" items={bugDone} />
+          <List title="Feature Requests – In Progress" items={featWorking} />
+          <List title="Feature Requests – Completed" items={featDone} />
         </div>
       </div>
     </div>
