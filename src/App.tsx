@@ -1920,6 +1920,9 @@ function AdminCenter() {
                       <div className="text-xs text-gray-500 mb-1">{new Date(item.createdAt).toLocaleString()}</div>
                       <div className="text-sm text-gray-900">{item.subject}</div>
                       <div className="text-xs text-gray-600 truncate">{item.body}</div>
+                      {(() => { const submitter = (users || []).find((u:any) => u.id === item.createdBy); return (
+                        <div className="text-xs text-gray-500 mt-1">Submitted by: {submitter?.name || item.createdBy}</div>
+                      ); })()}
                       <div className="flex items-center justify-between mt-2">
                         <select
                           className="text-xs border rounded px-2 py-1"
@@ -1980,6 +1983,9 @@ function AdminCenter() {
                       <div className="text-xs text-gray-500 mb-1">{new Date(item.createdAt).toLocaleString()}</div>
                       <div className="text-sm text-gray-900">{item.subject}</div>
                       <div className="text-xs text-gray-600 truncate">{item.body}</div>
+                      {(() => { const submitter = (users || []).find((u:any) => u.id === item.createdBy); return (
+                        <div className="text-xs text-gray-500 mt-1">Submitted by: {submitter?.name || item.createdBy}</div>
+                      ); })()}
                       <div className="flex items-center justify-between mt-2">
                         <select
                           className="text-xs border rounded px-2 py-1"
