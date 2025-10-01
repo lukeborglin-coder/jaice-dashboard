@@ -335,15 +335,34 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
     return validRespondents.length;
   };
 
-  const loadSavedAnalysis = (analysis: any) => {
+  const loadSavedAnalysis = async (analysis: any) => {
     setViewMode('viewer');
     setLoadingSavedView(true);
-    setTimeout(() => {
+    try {
+      const token = localStorage.getItem('jaice_token');
+      // Try to fetch full analysis (including quotes) by id
+      const resp = await fetch(`${API_BASE_URL}/api/caX/saved/${analysis.id}`, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : undefined,
+      });
+      if (resp.ok) {
+        const full = await resp.json();
+        setCurrentAnalysis(full || analysis);
+        const sheets = Object.keys((full || analysis)?.data || {});
+        if (sheets.length) setActiveSheet(sheets[0]);
+      } else {
+        // Fallback to provided object
+        setCurrentAnalysis(analysis);
+        const sheets = Object.keys(analysis?.data || {});
+        if (sheets.length) setActiveSheet(sheets[0]);
+      }
+    } catch (e) {
+      // Network/endpoint not available; fallback to provided object
       setCurrentAnalysis(analysis);
       const sheets = Object.keys(analysis?.data || {});
       if (sheets.length) setActiveSheet(sheets[0]);
+    } finally {
       setLoadingSavedView(false);
-    }, 1500);
+    }
   };
 
   const deleteSavedAnalysis = async (id: string, name: string) => {
