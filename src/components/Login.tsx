@@ -50,7 +50,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onSwitchToRegister }) => {
         <img
           src="/Jaice_Logo_Transparent.png"
           alt="JAICE Logo"
-          className="mx-auto w-full h-auto object-contain"
+          className="mx-auto w-48 sm:w-64 h-auto object-contain"
         />
         <p className="mt-2 text-center text-sm text-gray-600">
           Project Management Dashboard
