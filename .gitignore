@@ -39,3 +39,10 @@ server/data/discussionGuides/*
 # Misc
 .cache
 coverage
+
+# Local artifacts
+nu*
+*.bak
+RenderLog.txt
+.claude/
+

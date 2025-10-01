@@ -74,7 +74,9 @@
         {
           "id": "t1",
           "description": "Create Kick Off (KO) deck",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Kickoff",
           "dueDate": null
@@ -82,7 +84,9 @@
         {
           "id": "t2",
           "description": "Create detailed timeline",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Kickoff",
           "dueDate": null
@@ -90,7 +94,9 @@
         {
           "id": "t3",
           "description": "Hold Internal Pre-Kick Off: Talk through study overview, roles, deadlines, and any other key project info prior to KO with client.",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Kickoff",
           "dueDate": null
@@ -98,7 +104,9 @@
         {
           "id": "t4",
           "description": "Create or review Proposal based on RFP (Request For Proposal)",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Kickoff",
           "dueDate": null
@@ -106,7 +114,9 @@
         {
           "id": "t5",
           "description": "Bid project out to vendors/moderators",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Kickoff",
           "dueDate": null
@@ -114,7 +124,9 @@
         {
           "id": "t6",
           "description": "Get moderator availability",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Kickoff",
           "dueDate": null
@@ -122,7 +134,9 @@
         {
           "id": "t7",
           "description": "Create a job folder for the study in the 'Proposals' folder (within appropriate client folder)",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Kickoff",
           "dueDate": null
@@ -130,7 +144,9 @@
         {
           "id": "t8",
           "description": "Save vendors' bids to job folder",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Kickoff",
           "dueDate": null
@@ -138,7 +154,9 @@
         {
           "id": "t9",
           "description": "Ensure any new vendors have signed the NDA",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Kickoff",
           "dueDate": null
@@ -146,7 +164,9 @@
         {
           "id": "t10",
           "description": "Create Internal Cost Worksheet, send to supervisor",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Kickoff",
           "dueDate": null
@@ -154,7 +174,9 @@
         {
           "id": "t11",
           "description": "Move study docs from 'Proposals' folder to main client folder",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Kickoff",
           "dueDate": null
@@ -162,7 +184,9 @@
         {
           "id": "t12",
           "description": "Update folder name with job #",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Kickoff",
           "dueDate": null
@@ -170,7 +194,9 @@
         {
           "id": "t13",
           "description": "Add AE submission forms & contact info to job folder",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Kickoff",
           "dueDate": null
@@ -178,7 +204,9 @@
         {
           "id": "t14",
           "description": "Set up Invoice Schedule & Worksheet",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Kickoff",
           "dueDate": null
@@ -186,7 +214,9 @@
         {
           "id": "t15",
           "description": "Alert recruiter and moderator that project is moving forward",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Kickoff",
           "dueDate": null
@@ -194,7 +224,9 @@
         {
           "id": "t16",
           "description": "Draft screener",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Kickoff",
           "dueDate": null
@@ -202,7 +234,9 @@
         {
           "id": "t17",
           "description": "Draft discussion guide",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Kickoff",
           "dueDate": null
@@ -210,7 +244,9 @@
         {
           "id": "t18",
           "description": "Start Discuss.io project",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Kickoff",
           "dueDate": null
@@ -218,7 +254,9 @@
         {
           "id": "t19",
           "description": "Send screener to client",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Kickoff",
           "dueDate": null
@@ -226,7 +264,9 @@
         {
           "id": "t20",
           "description": "Send discussion guide draft to client",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Kickoff",
           "dueDate": null
@@ -234,7 +274,9 @@
         {
           "id": "t21",
           "description": "Schedule KO with moderator",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Kickoff",
           "dueDate": null
@@ -242,9 +284,8 @@
         {
           "id": "t22",
           "description": "Create respondent grid for recruiters",
-          "status": "completed",
-          "phase": "Pre-Field",
-          "assignedTo": "11"
+          "status": "pending",
+          "phase": "Pre-Field"
         },
         {
           "id": "t23",
@@ -255,15 +296,12 @@
         {
           "id": "t24",
           "description": "Get screener approval from client",
-          "assignedTo": "",
           "status": "pending",
-          "phase": "Pre-Field",
-          "dueDate": null
+          "phase": "Pre-Field"
         },
         {
           "id": "t25",
           "description": "Alert moderator and confirm availability",
-          "assignedTo": "",
           "status": "pending",
           "phase": "Pre-Field",
           "dueDate": null
@@ -271,23 +309,24 @@
         {
           "id": "t26",
           "description": "Submit first invoice request",
-          "assignedTo": "",
           "status": "pending",
-          "phase": "Pre-Field",
-          "dueDate": null
+          "phase": "Pre-Field"
         },
         {
           "id": "t27",
           "description": "Ensure signed documents are saved to job folder",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
-          "phase": "Pre-Field",
-          "dueDate": null
+          "phase": "Pre-Field"
         },
         {
           "id": "t28",
           "description": "Schedule DG walk-through with client and moderator",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Pre-Field",
           "dueDate": null
@@ -295,7 +334,9 @@
         {
           "id": "t29",
           "description": "Copy Cost Tracker shell to job folder",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Pre-Field",
           "dueDate": null
@@ -303,7 +344,9 @@
         {
           "id": "t30",
           "description": "Coordinate discussion guide updates from client",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Pre-Field",
           "dueDate": null
@@ -311,7 +354,9 @@
         {
           "id": "t31",
           "description": "Confirm attendee list with client",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Pre-Field",
           "dueDate": null
@@ -319,7 +364,9 @@
         {
           "id": "t32",
           "description": "Get and finalize stimuli",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Pre-Field",
           "dueDate": null
@@ -327,7 +374,9 @@
         {
           "id": "t33",
           "description": "Monitor recruits and update quotas",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Pre-Field",
           "dueDate": null
@@ -335,7 +384,9 @@
         {
           "id": "t34",
           "description": "Create invite template",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Pre-Field",
           "dueDate": null
@@ -343,7 +394,9 @@
         {
           "id": "t35",
           "description": "Create Content Analysis (CA)",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Pre-Field",
           "dueDate": null
@@ -351,7 +404,9 @@
         {
           "id": "t36",
           "description": "Send Outlook invites with respondent details and observer login info",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Pre-Field",
           "dueDate": null
@@ -359,7 +414,9 @@
         {
           "id": "t37",
           "description": "Brief moderator",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Pre-Field",
           "dueDate": null
@@ -367,7 +424,9 @@
         {
           "id": "t38",
           "description": "Create notetaking schedule and align team",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Pre-Field",
           "dueDate": null
@@ -375,7 +434,9 @@
         {
           "id": "t39",
           "description": "Set up ShareFile folder",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Pre-Field",
           "dueDate": null
@@ -383,7 +444,9 @@
         {
           "id": "t40",
           "description": "Send final stimuli/workbooks/guide to moderator",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Pre-Field",
           "dueDate": null
@@ -391,7 +454,9 @@
         {
           "id": "t41",
           "description": "Schedule client debrief after first 1-2 interviews",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Pre-Field",
           "dueDate": null
@@ -399,23 +464,21 @@
         {
           "id": "t42",
           "description": "Create report shell based on discussion guide and objectives",
-          "assignedTo": "",
           "status": "pending",
-          "phase": "Fielding",
-          "dueDate": null
+          "phase": "Fielding"
         },
         {
           "id": "t43",
           "description": "Engage transcriptionist (if needed)",
-          "assignedTo": "",
           "status": "pending",
-          "phase": "Fielding",
-          "dueDate": null
+          "phase": "Fielding"
         },
         {
           "id": "t44",
           "description": "Request invoice (if needed)",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Fielding",
           "dueDate": null
@@ -423,7 +486,9 @@
         {
           "id": "t45",
           "description": "Continue updating report shell with interview content",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Fielding",
           "dueDate": null
@@ -431,7 +496,9 @@
         {
           "id": "t46",
           "description": "Submit AE reports within 24 hours",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Fielding",
           "dueDate": null
@@ -439,7 +506,9 @@
         {
           "id": "t47",
           "description": "Download audio files and transcripts daily",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Fielding",
           "dueDate": null
@@ -447,7 +516,9 @@
         {
           "id": "t48",
           "description": "Manage stimuli changes",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Fielding",
           "dueDate": null
@@ -455,7 +526,9 @@
         {
           "id": "t49",
           "description": "Track high-level findings for client",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Fielding",
           "dueDate": null
@@ -463,7 +536,9 @@
         {
           "id": "t50",
           "description": "Ensure objectives are being met",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Fielding",
           "dueDate": null
@@ -471,7 +546,9 @@
         {
           "id": "t51",
           "description": "Engage with moderator and ask probes",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Fielding",
           "dueDate": null
@@ -479,7 +556,9 @@
         {
           "id": "t52",
           "description": "Schedule second client debrief (if needed)",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Fielding",
           "dueDate": null
@@ -487,7 +566,9 @@
         {
           "id": "t53",
           "description": "Clean project folder",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Post-Field Analysis",
           "dueDate": null
@@ -495,7 +576,9 @@
         {
           "id": "t54",
           "description": "Internal download: all audio files, CA, transcripts, lessons, and notes",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Post-Field Analysis",
           "dueDate": null
@@ -503,7 +586,9 @@
         {
           "id": "t55",
           "description": "Submit AE reconciliation (if needed)",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Post-Field Analysis",
           "dueDate": null
@@ -511,7 +596,9 @@
         {
           "id": "t56",
           "description": "Write findings",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Reporting",
           "dueDate": null
@@ -519,7 +606,9 @@
         {
           "id": "t57",
           "description": "Write executive summary",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Reporting",
           "dueDate": null
@@ -527,7 +616,9 @@
         {
           "id": "t58",
           "description": "Have report proofed",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Reporting",
           "dueDate": null
@@ -535,7 +626,9 @@
         {
           "id": "t59",
           "description": "Have report reviewed internally",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Reporting",
           "dueDate": null
@@ -543,7 +636,9 @@
         {
           "id": "t60",
           "description": "Send report to client",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Reporting",
           "dueDate": null
@@ -551,7 +646,9 @@
         {
           "id": "t61",
           "description": "Update report based on client comments",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Reporting",
           "dueDate": null
@@ -559,7 +656,9 @@
         {
           "id": "t62",
           "description": "Request invoice (if needed)",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Reporting",
           "dueDate": null
@@ -567,7 +666,9 @@
         {
           "id": "t63",
           "description": "Save vendor invoices and submit to accounting",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Reporting",
           "dueDate": null
@@ -575,7 +676,9 @@
         {
           "id": "t64",
           "description": "Reconcile with client-specific finance process",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Reporting",
           "dueDate": null
@@ -583,7 +686,9 @@
         {
           "id": "t65",
           "description": "Fill out Cost Tracker",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Reporting",
           "dueDate": null
@@ -724,7 +829,9 @@
         {
           "id": "t1",
           "description": "Create Kick Off (KO) deck",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Kickoff",
           "dueDate": null
@@ -732,7 +839,9 @@
         {
           "id": "t2",
           "description": "Create detailed timeline",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Kickoff",
           "dueDate": null
@@ -740,7 +849,9 @@
         {
           "id": "t3",
           "description": "Hold Internal Pre-Kick Off: Talk through study overview, roles, deadlines, and any other key project info prior to KO with client.",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Kickoff",
           "dueDate": null
@@ -748,7 +859,9 @@
         {
           "id": "t4",
           "description": "Create or review Proposal based on RFP (Request For Proposal)",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Kickoff",
           "dueDate": null
@@ -756,7 +869,9 @@
         {
           "id": "t5",
           "description": "Bid project out to vendors/moderators",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Kickoff",
           "dueDate": null
@@ -764,7 +879,9 @@
         {
           "id": "t6",
           "description": "Get moderator availability",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Kickoff",
           "dueDate": null
@@ -772,7 +889,9 @@
         {
           "id": "t7",
           "description": "Create a job folder for the study in the 'Proposals' folder (within appropriate client folder)",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Kickoff",
           "dueDate": null
@@ -780,7 +899,9 @@
         {
           "id": "t8",
           "description": "Save vendors' bids to job folder",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Kickoff",
           "dueDate": null
@@ -788,7 +909,9 @@
         {
           "id": "t9",
           "description": "Ensure any new vendors have signed the NDA",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Kickoff",
           "dueDate": null
@@ -796,7 +919,9 @@
         {
           "id": "t10",
           "description": "Create Internal Cost Worksheet, send to supervisor",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Kickoff",
           "dueDate": null
@@ -804,7 +929,9 @@
         {
           "id": "t11",
           "description": "Move study docs from 'Proposals' folder to main client folder",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Kickoff",
           "dueDate": null
@@ -812,7 +939,9 @@
         {
           "id": "t12",
           "description": "Update folder name with job #",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Kickoff",
           "dueDate": null
@@ -820,7 +949,9 @@
         {
           "id": "t13",
           "description": "Add AE submission forms & contact info to job folder",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Kickoff",
           "dueDate": null
@@ -828,7 +959,9 @@
         {
           "id": "t14",
           "description": "Set up Invoice Schedule & Worksheet",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Kickoff",
           "dueDate": null
@@ -836,7 +969,9 @@
         {
           "id": "t15",
           "description": "Alert recruiter and moderator that project is moving forward",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Kickoff",
           "dueDate": null
@@ -844,7 +979,9 @@
         {
           "id": "t16",
           "description": "Draft screener",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Kickoff",
           "dueDate": null
@@ -852,7 +989,9 @@
         {
           "id": "t17",
           "description": "Draft discussion guide",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Kickoff",
           "dueDate": null
@@ -860,7 +999,9 @@
         {
           "id": "t18",
           "description": "Start Discuss.io project",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Kickoff",
           "dueDate": null
@@ -868,7 +1009,9 @@
         {
           "id": "t19",
           "description": "Send screener to client",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Kickoff",
           "dueDate": null
@@ -876,7 +1019,9 @@
         {
           "id": "t20",
           "description": "Send discussion guide draft to client",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Kickoff",
           "dueDate": null
@@ -884,7 +1029,9 @@
         {
           "id": "t21",
           "description": "Schedule KO with moderator",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Kickoff",
           "dueDate": null
@@ -892,7 +1039,9 @@
         {
           "id": "t22",
           "description": "Create respondent grid for recruiters",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Pre-Field",
           "dueDate": null
@@ -900,7 +1049,9 @@
         {
           "id": "t23",
           "description": "Create shared/client respondent grid",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Pre-Field",
           "dueDate": null
@@ -908,7 +1059,9 @@
         {
           "id": "t24",
           "description": "Get screener approval from client",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Pre-Field",
           "dueDate": null
@@ -916,7 +1069,9 @@
         {
           "id": "t25",
           "description": "Alert moderator and confirm availability",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Pre-Field",
           "dueDate": null
@@ -924,7 +1079,9 @@
         {
           "id": "t26",
           "description": "Submit first invoice request",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Pre-Field",
           "dueDate": null
@@ -932,7 +1089,9 @@
         {
           "id": "t27",
           "description": "Ensure signed documents are saved to job folder",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Pre-Field",
           "dueDate": null
@@ -940,7 +1099,9 @@
         {
           "id": "t28",
           "description": "Schedule DG walk-through with client and moderator",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Pre-Field",
           "dueDate": null
@@ -948,7 +1109,9 @@
         {
           "id": "t29",
           "description": "Copy Cost Tracker shell to job folder",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Pre-Field",
           "dueDate": null
@@ -956,7 +1119,9 @@
         {
           "id": "t30",
           "description": "Coordinate discussion guide updates from client",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Pre-Field",
           "dueDate": null
@@ -964,7 +1129,9 @@
         {
           "id": "t31",
           "description": "Confirm attendee list with client",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Pre-Field",
           "dueDate": null
@@ -972,7 +1139,9 @@
         {
           "id": "t32",
           "description": "Get and finalize stimuli",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Pre-Field",
           "dueDate": null
@@ -980,7 +1149,9 @@
         {
           "id": "t33",
           "description": "Monitor recruits and update quotas",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Pre-Field",
           "dueDate": null
@@ -988,7 +1159,9 @@
         {
           "id": "t34",
           "description": "Create invite template",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Pre-Field",
           "dueDate": null
@@ -996,7 +1169,9 @@
         {
           "id": "t35",
           "description": "Create Content Analysis (CA)",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Pre-Field",
           "dueDate": null
@@ -1004,7 +1179,9 @@
         {
           "id": "t36",
           "description": "Send Outlook invites with respondent details and observer login info",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Pre-Field",
           "dueDate": null
@@ -1012,7 +1189,9 @@
         {
           "id": "t37",
           "description": "Brief moderator",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Pre-Field",
           "dueDate": null
@@ -1020,7 +1199,9 @@
         {
           "id": "t38",
           "description": "Create notetaking schedule and align team",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Pre-Field",
           "dueDate": null
@@ -1028,7 +1209,9 @@
         {
           "id": "t39",
           "description": "Set up ShareFile folder",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Pre-Field",
           "dueDate": null
@@ -1036,7 +1219,9 @@
         {
           "id": "t40",
           "description": "Send final stimuli/workbooks/guide to moderator",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Pre-Field",
           "dueDate": null
@@ -1044,7 +1229,9 @@
         {
           "id": "t41",
           "description": "Schedule client debrief after first 1-2 interviews",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Pre-Field",
           "dueDate": null
@@ -1052,7 +1239,9 @@
         {
           "id": "t42",
           "description": "Create report shell based on discussion guide and objectives",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Fielding",
           "dueDate": null
@@ -1060,7 +1249,9 @@
         {
           "id": "t43",
           "description": "Engage transcriptionist (if needed)",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Fielding",
           "dueDate": null
@@ -1068,7 +1259,9 @@
         {
           "id": "t44",
           "description": "Request invoice (if needed)",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Fielding",
           "dueDate": null
@@ -1076,7 +1269,9 @@
         {
           "id": "t45",
           "description": "Continue updating report shell with interview content",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Fielding",
           "dueDate": null
@@ -1084,7 +1279,9 @@
         {
           "id": "t46",
           "description": "Submit AE reports within 24 hours",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Fielding",
           "dueDate": null
@@ -1092,7 +1289,9 @@
         {
           "id": "t47",
           "description": "Download audio files and transcripts daily",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Fielding",
           "dueDate": null
@@ -1100,7 +1299,9 @@
         {
           "id": "t48",
           "description": "Manage stimuli changes",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Fielding",
           "dueDate": null
@@ -1108,7 +1309,9 @@
         {
           "id": "t49",
           "description": "Track high-level findings for client",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Fielding",
           "dueDate": null
@@ -1116,7 +1319,9 @@
         {
           "id": "t50",
           "description": "Ensure objectives are being met",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Fielding",
           "dueDate": null
@@ -1124,7 +1329,9 @@
         {
           "id": "t51",
           "description": "Engage with moderator and ask probes",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Fielding",
           "dueDate": null
@@ -1132,7 +1339,9 @@
         {
           "id": "t52",
           "description": "Schedule second client debrief (if needed)",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Fielding",
           "dueDate": null
@@ -1140,7 +1349,9 @@
         {
           "id": "t53",
           "description": "Clean project folder",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Post-Field Analysis",
           "dueDate": null
@@ -1148,7 +1359,9 @@
         {
           "id": "t54",
           "description": "Internal download: all audio files, CA, transcripts, lessons, and notes",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Post-Field Analysis",
           "dueDate": null
@@ -1156,7 +1369,9 @@
         {
           "id": "t55",
           "description": "Submit AE reconciliation (if needed)",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Post-Field Analysis",
           "dueDate": null
@@ -1164,7 +1379,9 @@
         {
           "id": "t56",
           "description": "Write findings",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Reporting",
           "dueDate": null
@@ -1172,7 +1389,9 @@
         {
           "id": "t57",
           "description": "Write executive summary",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Reporting",
           "dueDate": null
@@ -1180,7 +1399,9 @@
         {
           "id": "t58",
           "description": "Have report proofed",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Reporting",
           "dueDate": null
@@ -1188,7 +1409,9 @@
         {
           "id": "t59",
           "description": "Have report reviewed internally",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Reporting",
           "dueDate": null
@@ -1196,7 +1419,9 @@
         {
           "id": "t60",
           "description": "Send report to client",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Reporting",
           "dueDate": null
@@ -1204,7 +1429,9 @@
         {
           "id": "t61",
           "description": "Update report based on client comments",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Reporting",
           "dueDate": null
@@ -1212,7 +1439,9 @@
         {
           "id": "t62",
           "description": "Request invoice (if needed)",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Reporting",
           "dueDate": null
@@ -1220,7 +1449,9 @@
         {
           "id": "t63",
           "description": "Save vendor invoices and submit to accounting",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Reporting",
           "dueDate": null
@@ -1228,7 +1459,9 @@
         {
           "id": "t64",
           "description": "Reconcile with client-specific finance process",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Reporting",
           "dueDate": null
@@ -1236,7 +1469,9 @@
         {
           "id": "t65",
           "description": "Fill out Cost Tracker",
-          "assignedTo": "",
+          "assignedTo": [
+            ""
+          ],
           "status": "pending",
           "phase": "Reporting",
           "dueDate": null

@@ -52,7 +52,52 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 }
 
 @media (max-width: 640px) {
-  .dynamic-task-list .task-item:nth-child(n+1) {
-    display: none;
-  }
+.dynamic-task-list .task-item:nth-child(n+1) {
+  display: none;
 }
+
+/* Subtle, transparent scrollbar for scrollable panes */
+.thin-scrollbar {
+  scrollbar-width: thin;            /* Firefox */
+  scrollbar-color: rgba(0,0,0,0.2) transparent;
+}
+.thin-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.thin-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(0,0,0,0.2);
+  border-radius: 8px;
+}
+.thin-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.thin-scrollbar::-webkit-scrollbar-button {
+  display: none; /* hide arrows */
+}
+}
+
+/* Grid layout for task headers and rows to ensure perfect alignment */
+.task-grid {
+  display: grid;
+  grid-template-columns: 1rem 1fr 5rem 8rem; /* checkbox | task | due | assigned */
+  column-gap: 0.5rem; /* matches gap-2 */
+  align-items: center;
+}
+
+
+/* Grid layout for task headers and rows to ensure perfect alignment */
+.task-grid {
+  display: grid;
+  grid-template-columns: 1rem 1fr 5rem 8rem; /* checkbox | task | due | assigned */
+  column-gap: 0.5rem; /* matches gap-2 */
+  align-items: center;
+}
+
+/* Header padding to account for list padding and thin scrollbar width */
+.header-pad {
+  padding-left: 0.75rem; /* matches px-3 */
+  /* add extra right padding to compensate scrollbar/gutter and nudge headers left */
+  padding-right: calc(0.75rem + 14px);
+}
+

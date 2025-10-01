@@ -150,12 +150,8 @@ const SimpleCalendar: React.FC<SimpleCalendarProps> = ({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (hasTasks && onTaskClick) {
-                    // Show task popup instead of selecting date
-                    onTaskClick(tasksForDay[0]); // Show first task for now
-                  } else {
-                    handleDateClick(day);
-                  }
+                  // Always allow selecting the date, even if tasks exist
+                  handleDateClick(day);
                 }}
                 disabled={isWeekendDay}
                 className={`

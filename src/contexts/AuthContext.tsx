@@ -56,11 +56,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             // Token invalid, clear storage
             localStorage.removeItem('jaice_user');
             localStorage.removeItem('jaice_token');
+            localStorage.removeItem('jaice_vendors');
           }
         } catch (error) {
           console.log('Auth verification failed, clearing storage');
           localStorage.removeItem('jaice_user');
           localStorage.removeItem('jaice_token');
+          localStorage.removeItem('jaice_vendors');
         }
       }
       setLoading(false);
@@ -77,6 +79,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setUser(null);
     localStorage.removeItem('jaice_user');
     localStorage.removeItem('jaice_token');
+    localStorage.removeItem('jaice_vendors'); // Clear vendors cache on logout
   };
 
   const value = {

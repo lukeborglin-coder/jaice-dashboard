@@ -1,7 +1,7 @@
 services:
   # Backend API Server
   - type: web
-    name: jaice-dashboard-api
+    name: jaice-dashboard-backend
     runtime: node
     env: node
     region: oregon

@@ -25,7 +25,9 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(for:*)",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(git push:*)",
+      "Bash(npm run typecheck:*)"
     ],
     "deny": [],
     "ask": []

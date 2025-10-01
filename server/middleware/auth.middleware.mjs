@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+// Keep JWT secret consistent with auth.routes.mjs so tokens verify correctly
+const JWT_SECRET = process.env.JWT_SECRET || 'jaice-dashboard-secret-key-change-in-production';
 
 export const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];

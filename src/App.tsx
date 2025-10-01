@@ -2082,7 +2082,7 @@ type Task = {
   id: string;
   // New schema
   description?: string;
-  assignedTo?: string; // Team member ID
+  assignedTo?: string[]; // Array of team member IDs
   status: 'pending' | 'in-progress' | 'completed';
   dueDate?: string;
   phase?: Phase;
@@ -2174,7 +2174,7 @@ const formatDateForInput = (dateString: string): string => {
 
 const formatDateForDisplay = (dateString: string): string => {
   if (!dateString) return "";
-  
+
   // If in YYYY-MM-DD format, convert to M/D/YY for display (no leading zeros)
   if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
     const [year, month, day] = dateString.split('-');
@@ -2183,8 +2183,17 @@ const formatDateForDisplay = (dateString: string): string => {
     const dayNum = parseInt(day, 10);
     return `${monthNum}/${dayNum}/${shortYear}`;
   }
-  
+
   return dateString;
+};
+
+// Helper function to check if a task is overdue
+const isTaskOverdue = (task: Task): boolean => {
+  if (!task.dueDate || task.status === 'completed') return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const dueDate = new Date(task.dueDate + 'T00:00:00');
+  return dueDate < today;
 };
 
 // Helper function for getting initials
@@ -2352,8 +2361,9 @@ export default function App() {
 
     setLoadingProjects(true);
     try {
-      // Force refresh by adding timestamp to prevent caching
-      const response = await fetch(`${API_BASE_URL}/api/projects?userId=${user.id}&t=${Date.now()}`, {
+      // Fetch all projects across all users (not just current user's projects)
+      // This allows Project Hub and Content Analysis to filter by team membership
+      const response = await fetch(`${API_BASE_URL}/api/projects/all`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` }
       });
       if (response.ok) {
@@ -2510,7 +2520,7 @@ export default function App() {
                       content: taskContent,
                       phase: phase,
                       completed: existingTask?.completed || false,
-                      assignedTo: existingTask?.assignedTo || null,
+                      assignedTo: existingTask?.assignedTo || undefined,
                       dueDate: existingTask?.dueDate || null,
                       notes: existingTask?.notes || '',
                       completedBy: existingTask?.completedBy || null,
@@ -2530,9 +2540,27 @@ export default function App() {
           });
         };
 
+        // Migrate legacy task assignedTo from string to array
+        const migrateTaskAssignees = (projects: Project[]) => {
+          return projects.map(project => ({
+            ...project,
+            tasks: project.tasks.map((task: any) => {
+              // If assignedTo is a string or null, convert to array
+              if (typeof task.assignedTo === 'string') {
+                return { ...task, assignedTo: [task.assignedTo] };
+              } else if (task.assignedTo === null || task.assignedTo === undefined) {
+                return { ...task, assignedTo: undefined };
+              }
+              // Already an array or undefined
+              return task;
+            })
+          }));
+        };
+
         // Fix timezone issues and regenerate key dates for all projects
         const projectsWithCA = addDemoContentAnalyses(data.projects || []);
-        const projectsWithCorrectedTasks = updateProjectsWithCorrectedTasks(projectsWithCA);
+        const projectsWithMigratedTasks = migrateTaskAssignees(projectsWithCA);
+        const projectsWithCorrectedTasks = updateProjectsWithCorrectedTasks(projectsWithMigratedTasks);
         const updatedProjects = projectsWithCorrectedTasks.map(project => {
           const fixedProject = fixProjectSegments(project);
           const fixedFieldingSegment = fixedProject.segments?.find(s => s.phase === 'Fielding');
@@ -2885,16 +2913,7 @@ export default function App() {
                 </div>
               </div>
             )}
-            {!sidebarOpen && (
-              <div className="text-xs text-gray-600">
-                <button
-                  className="underline hover:text-gray-800"
-                  onClick={() => { try { window.history.replaceState(null, '', '?route=Feedback&type=bug'); } catch {} setRoute('Feedback'); }}
-                >
-                  Report
-                </button>
-              </div>
-            )}
+            {/* When collapsed, show only initials icon (centered). No extra actions. */}
           </div>
         </div>
       </aside>
@@ -6022,7 +6041,7 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                 })}
                 <button
                   onClick={() => setShowAddTeamMember(true)}
-                  className="w-8 h-8 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-400 hover:border-gray-400 hover:text-gray-600 transition-colors"
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors"
                   title="Add team member"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -6324,13 +6343,34 @@ function ProjectForm({
   });
 
   const [newDeadline, setNewDeadline] = useState({ label: "", date: "" });
-  const [newTask, setNewTask] = useState<{ description: string; assignedTo: string; status: Task['status'] }>({ description: "", assignedTo: "", status: "pending" });
+  const [newTask, setNewTask] = useState<{ description: string; assignedTo: string[]; status: Task['status'] }>({ description: "", assignedTo: [], status: "pending" });
   const [newTeamMember, setNewTeamMember] = useState({ name: "", email: "" });
   const [showNewDeadline, setShowNewDeadline] = useState(false);
   const [showNewTask, setShowNewTask] = useState(false);
   const [showNewTeamMember, setShowNewTeamMember] = useState(false);
   const [showDatePickerForTask, setShowDatePickerForTask] = useState(false);
   const [selectedTaskForDate, setSelectedTaskForDate] = useState<string | null>(null);
+  const [showAssignmentDropdownForm, setShowAssignmentDropdownForm] = useState<string | null>(null);
+
+  // Close assignment dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showAssignmentDropdownForm) {
+        const target = event.target as Element;
+        if (!target.closest('.assignment-dropdown-form')) {
+          setShowAssignmentDropdownForm(null);
+        }
+      }
+    };
+
+    if (showAssignmentDropdownForm) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showAssignmentDropdownForm]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -6370,14 +6410,14 @@ function ProjectForm({
       const task: Task = {
         id: `task-${Date.now()}`,
         description: newTask.description,
-        assignedTo: newTask.assignedTo || undefined,
+        assignedTo: newTask.assignedTo.length > 0 ? newTask.assignedTo : undefined,
         status: newTask.status
       };
       setFormData(prev => ({
         ...prev,
         tasks: [...prev.tasks, task]
       }));
-      setNewTask({ description: "", assignedTo: "", status: "pending" });
+      setNewTask({ description: "", assignedTo: [], status: "pending" });
       setShowNewTask(false);
     }
   };
@@ -6563,21 +6603,61 @@ function ProjectForm({
                       }}
                       className="flex-1 border rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-orange-200"
                     />
-                    <select
-                      value={task.assignedTo || ""}
-                      onChange={(e) => {
-                        const newTasks = formData.tasks.map(t =>
-                          t.id === task.id ? { ...t, assignedTo: e.target.value || undefined } : t
-                        );
-                        setFormData(prev => ({ ...prev, tasks: newTasks }));
-                      }}
-                      className="w-40 border rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-orange-200"
-                    >
-                      <option value="">Unassigned</option>
-                      {formData.teamMembers.map(member => (
-                        <option key={member.id} value={member.id}>{member.name}</option>
-                      ))}
-                    </select>
+                    <div className="relative flex items-center gap-2 justify-self-center">
+                      {task.assignedTo && task.assignedTo.filter(id => id && id.trim() !== '').length > 0 && (
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          {task.assignedTo.filter(id => id && id.trim() !== '').slice(0, 2).map((memberId) => (
+                            <div key={memberId} className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium" style={{ backgroundColor: getMemberColor(memberId) }}>
+                              {getInitials(formData.teamMembers.find(m => m.id === memberId)?.name || 'Unknown')}
+                            </div>
+                          ))}
+                          {task.assignedTo.filter(id => id && id.trim() !== '').length > 2 && (
+                            <div className="relative group">
+                              <span className="text-xs italic text-gray-500 ml-1 cursor-help">
+                                +{task.assignedTo.filter(id => id && id.trim() !== '').length - 2}
+                              </span>
+                              <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs rounded p-2 whitespace-nowrap z-10 left-0 top-8">
+                                {task.assignedTo.filter(id => id && id.trim() !== '').slice(2).map(id => formData.teamMembers.find(m => m.id === id)?.name || 'Unknown').join(', ')}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setShowAssignmentDropdownForm(showAssignmentDropdownForm === task.id ? null : task.id)}
+                        className="w-6 h-6 rounded-full bg-white flex items-center justify-center text-gray-500 hover:text-gray-700 transition-colors"
+                        title="Assign team members"
+                      >
+                        +
+                      </button>
+                      {showAssignmentDropdownForm === task.id && (
+                        <div className="assignment-dropdown-form absolute left-0 top-10 z-50 bg-white border border-gray-300 rounded-lg shadow-lg p-2 min-w-[200px]">
+                          <div className="space-y-1">
+                            {formData.teamMembers.map(member => (
+                              <label key={member.id} className="flex items-center gap-2 px-2 py-1 hover:bg-gray-50 rounded cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={task.assignedTo?.includes(member.id) || false}
+                                  onChange={(e) => {
+                                    const currentAssigned = task.assignedTo || [];
+                                    const newAssigned = e.target.checked
+                                      ? [...currentAssigned, member.id]
+                                      : currentAssigned.filter(id => id !== member.id);
+                                    const newTasks = formData.tasks.map(t =>
+                                      t.id === task.id ? { ...t, assignedTo: newAssigned.length > 0 ? newAssigned : undefined } : t
+                                    );
+                                    setFormData(prev => ({ ...prev, tasks: newTasks }));
+                                  }}
+                                  className="rounded border-gray-300"
+                                />
+                                <span className="text-sm">{member.name}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                     <select
                       value={task.status}
                       onChange={(e) => {
@@ -6623,16 +6703,58 @@ function ProjectForm({
                       placeholder="New task..."
                       className="flex-1 border rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-orange-200"
                     />
-                    <select
-                      value={newTask.assignedTo}
-                      onChange={(e) => setNewTask(prev => ({ ...prev, assignedTo: e.target.value }))}
-                      className="w-40 border rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-orange-200"
-                    >
-                      <option value="">Unassigned</option>
-                      {formData.teamMembers.map(member => (
-                        <option key={member.id} value={member.id}>{member.name}</option>
-                      ))}
-                    </select>
+                    <div className="relative flex items-center gap-2 justify-self-center">
+                      {newTask.assignedTo && newTask.assignedTo.filter(id => id && id.trim() !== '').length > 0 && (
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          {newTask.assignedTo.filter(id => id && id.trim() !== '').slice(0, 2).map((memberId) => (
+                            <div key={memberId} className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium" style={{ backgroundColor: getMemberColor(memberId) }}>
+                              {getInitials(formData.teamMembers.find(m => m.id === memberId)?.name || 'Unknown')}
+                            </div>
+                          ))}
+                          {newTask.assignedTo.filter(id => id && id.trim() !== '').length > 2 && (
+                            <div className="relative group">
+                              <span className="text-xs italic text-gray-500 ml-1 cursor-help">
+                                +{newTask.assignedTo.filter(id => id && id.trim() !== '').length - 2}
+                              </span>
+                              <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs rounded p-2 whitespace-nowrap z-10 left-0 top-8">
+                                {newTask.assignedTo.filter(id => id && id.trim() !== '').slice(2).map(id => formData.teamMembers.find(m => m.id === id)?.name || 'Unknown').join(', ')}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setShowAssignmentDropdownForm(showAssignmentDropdownForm === 'newTask' ? null : 'newTask')}
+                        className="w-6 h-6 rounded-full bg-white flex items-center justify-center text-gray-500 hover:text-gray-700 transition-colors"
+                        title="Assign team members"
+                      >
+                        +
+                      </button>
+                      {showAssignmentDropdownForm === 'newTask' && (
+                        <div className="assignment-dropdown-form absolute left-0 top-10 z-50 bg-white border border-gray-300 rounded-lg shadow-lg p-2 min-w-[200px]">
+                          <div className="space-y-1">
+                            {formData.teamMembers.map(member => (
+                              <label key={member.id} className="flex items-center gap-2 px-2 py-1 hover:bg-gray-50 rounded cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={newTask.assignedTo?.includes(member.id) || false}
+                                  onChange={(e) => {
+                                    const currentAssigned = newTask.assignedTo || [];
+                                    const newAssigned = e.target.checked
+                                      ? [...currentAssigned, member.id]
+                                      : currentAssigned.filter(id => id !== member.id);
+                                    setNewTask(prev => ({ ...prev, assignedTo: newAssigned }));
+                                  }}
+                                  className="rounded border-gray-300"
+                                />
+                                <span className="text-sm">{member.name}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                     <select
                       value={newTask.status}
                       onChange={(e) => setNewTask(prev => ({ ...prev, status: e.target.value as Task['status'] }))}
@@ -6845,10 +6967,109 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
     return project.phase; // Fallback
   };
 
+  // Helper function to get start and end of current week
+  const getThisWeekRange = () => {
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const diff = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1); // Adjust when day is Sunday
+    const monday = new Date(today.setDate(diff));
+    monday.setHours(0, 0, 0, 0);
+
+    const friday = new Date(monday);
+    friday.setDate(monday.getDate() + 4);
+    friday.setHours(23, 59, 59, 999);
+
+    return { monday, friday };
+  };
+
+  // Helper function to get tasks due this week
+  const getTasksDueThisWeek = () => {
+    const { monday, friday } = getThisWeekRange();
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    return projectTasks
+      .filter(task => {
+        if (!task.dueDate) return false;
+        const taskDate = new Date(task.dueDate + 'T00:00:00');
+        return taskDate >= monday && taskDate <= friday;
+      })
+      .sort((a, b) => {
+        // Sort by: 1) Overdue first, 2) Today's tasks, 3) incomplete before completed, 4) date
+        const aDate = new Date(a.dueDate! + 'T00:00:00');
+        const bDate = new Date(b.dueDate! + 'T00:00:00');
+        const aIsToday = a.dueDate === todayStr;
+        const bIsToday = b.dueDate === todayStr;
+        const aIsOverdue = isTaskOverdue(a);
+        const bIsOverdue = isTaskOverdue(b);
+
+        if (aIsOverdue && !bIsOverdue) return -1;
+        if (!aIsOverdue && bIsOverdue) return 1;
+
+        if (aIsToday && !bIsToday) return -1;
+        if (!aIsToday && bIsToday) return 1;
+
+        if (a.status === 'completed' && b.status !== 'completed') return 1;
+        if (a.status !== 'completed' && b.status === 'completed') return -1;
+
+        return aDate.getTime() - bDate.getTime();
+      })
+      .slice(0, 5);
+  };
+
+  // Helper function to get next phase
+  const getNextPhase = () => {
+    if (!project.segments || project.segments.length === 0) return null;
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const currentPhaseSegment = project.segments.find(
+      segment => todayStr >= segment.startDate && todayStr <= segment.endDate
+    );
+
+    if (!currentPhaseSegment) return null;
+    if (currentPhaseSegment.phase === 'Reporting') return null; // Don't show if in Reporting
+
+    const currentIndex = project.segments.indexOf(currentPhaseSegment);
+    if (currentIndex >= 0 && currentIndex < project.segments.length - 1) {
+      const nextSegment = project.segments[currentIndex + 1];
+      return {
+        phase: nextSegment.phase,
+        startDate: nextSegment.startDate
+      };
+    }
+
+    return null;
+  };
+
+  // Helper function to get next key date
+  const getNextKeyDate = () => {
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    return projectKeyDates
+      .map(keyDate => {
+        let dateStr: string;
+
+        if (keyDate.date.includes('/')) {
+          // MM/DD/YY format - convert to YYYY-MM-DD
+          const [month, day, year] = keyDate.date.split('/');
+          const fullYear = parseInt(year) < 50 ? 2000 + parseInt(year) : 1900 + parseInt(year);
+          dateStr = `${fullYear}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        } else if (keyDate.date.includes('-')) {
+          // Already in YYYY-MM-DD format
+          dateStr = keyDate.date;
+        } else {
+          return null;
+        }
+
+        return { ...keyDate, dateStr };
+      })
+      .filter(keyDate => keyDate && keyDate.dateStr >= todayStr)
+      .sort((a, b) => a!.dateStr.localeCompare(b!.dateStr))[0] || null;
+  };
+
   const currentPhase = getCurrentPhase(project);
   const phaseColor = PHASE_COLORS[currentPhase] || PHASE_COLORS['Kickoff'];
   const [showAddTask, setShowAddTask] = useState(false);
-  const [newTask, setNewTask] = useState({ description: "", assignedTo: "", status: "pending" as Task['status'] });
+  const [newTask, setNewTask] = useState({ description: "", assignedTo: [] as string[], status: "pending" as Task['status'] });
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [showFullCalendar, setShowFullCalendar] = useState(true);
   const [editingTimeline, setEditingTimeline] = useState(false);
@@ -6862,6 +7083,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
   const [selectedTaskForDate, setSelectedTaskForDate] = useState<string | null>(null);
   const [showDatePickerForTaskInDashboard, setShowDatePickerForTaskInDashboard] = useState(false);
   const [selectedTaskForDateInDashboard, setSelectedTaskForDateInDashboard] = useState<string | null>(null);
+  const [showAssignmentDropdown, setShowAssignmentDropdown] = useState<string | null>(null);
 
   // Close calendar dropdown when clicking outside
   useEffect(() => {
@@ -6883,6 +7105,27 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [showCalendarDropdown]);
+
+  // Close assignment dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showAssignmentDropdown) {
+        const target = event.target as Element;
+        // Don't close if clicking inside the assignment dropdown
+        if (!target.closest('.assignment-dropdown')) {
+          setShowAssignmentDropdown(null);
+        }
+      }
+    };
+
+    if (showAssignmentDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showAssignmentDropdown]);
 
   // Function to calculate optimal number of tasks to display
   const calculateMaxTasks = useCallback(() => {
@@ -7217,11 +7460,11 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
     );
   };
 
-  const updateTaskAssignment = (taskId: string, assignedTo: string) => {
+  const updateTaskAssignment = (taskId: string, assignedTo: string[]) => {
     setProjectTasks(prevTasks =>
       prevTasks.map(task =>
         task.id === taskId
-          ? { ...task, assignedTo: assignedTo || undefined }
+          ? { ...task, assignedTo: assignedTo.length > 0 ? assignedTo : undefined }
           : task
       )
     );
@@ -7232,13 +7475,13 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
       const task: Task = {
         id: `task-${Date.now()}`,
         description: newTask.description,
-        assignedTo: newTask.assignedTo || undefined,
+        assignedTo: newTask.assignedTo.length > 0 ? newTask.assignedTo : undefined,
         status: newTask.status,
         phase: activePhase,
         dueDate: null
       };
       setProjectTasks(prevTasks => [...prevTasks, task]);
-      setNewTask({ description: "", assignedTo: "", status: "pending" });
+      setNewTask({ description: "", assignedTo: [], status: "pending" });
       setShowAddTask(false);
     }
   };
@@ -8214,10 +8457,34 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
     const currentYear = date.getFullYear();
     const currentMonthNum = date.getMonth();
     const currentDay = date.getDate();
-    
+
     return projectTasks.filter(task => {
-      if (!task.dueDate || !task.assignedTo) return false;
-      
+      if (!task.dueDate || !task.assignedTo || task.assignedTo.length === 0) return false;
+
+      try {
+        // Parse date consistently without timezone issues
+        const taskDate = new Date(task.dueDate + 'T00:00:00');
+        if (isNaN(taskDate.getTime())) return false;
+
+        // Use local date methods to avoid timezone shifts
+        return taskDate.getFullYear() === currentYear &&
+               taskDate.getMonth() === currentMonthNum &&
+               taskDate.getDate() === currentDay;
+      } catch (error) {
+        console.warn('Error parsing task date:', task.dueDate, error);
+        return false;
+      }
+    });
+  };
+
+  const getTasksForDate = (date: Date) => {
+    const currentYear = date.getFullYear();
+    const currentMonthNum = date.getMonth();
+    const currentDay = date.getDate();
+
+    return projectTasks.filter(task => {
+      if (!task.dueDate) return false;
+
       try {
         // Parse date consistently without timezone issues
         const taskDate = new Date(task.dueDate + 'T00:00:00');
@@ -8398,23 +8665,11 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left Half - Tasks and Post-it Notes */}
         <div className="space-y-6 flex flex-col">
-          {/* Tasks Section */}
-          <Card className="h-[500px] flex flex-col">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">Tasks</h3>
-              {!showAddTask && (
-                <button
-                  onClick={() => setShowAddTask(true)}
-                  className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1 px-2 py-1 rounded hover:bg-gray-100"
-                >
-                  <PlusSmallIcon className="h-3 w-3" />
-                  Add task
-                </button>
-              )}
-            </div>
+          {/* Tasks Section (container without white card) */}
+          <div className="h-[500px] flex flex-col">
             {/* Phase Tabs */}
-            <div className="mb-4">
-              <div className="flex flex-wrap items-stretch border-b">
+            <div className="mb-0">
+              <div className="flex flex-wrap items-stretch w-full">
                 {PHASES.map((phase, index) => {
                   const phaseColor = PHASE_COLORS[phase as Phase];
                   const isActive = activePhase === phase;
@@ -8423,43 +8678,81 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                       key={phase}
                       className={`flex-1 px-3 py-1 text-xs font-medium transition-colors relative min-h-[32px] flex items-center justify-center ${
                         isActive
-                          ? 'text-gray-900 shadow-sm z-10'
+                          ? 'text-gray-900 z-10'
                           : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                       }`}
                       onClick={() => setActivePhase(phase as Phase)}
                       style={{
-                        backgroundColor: isActive ? phaseColor + '20' : 'transparent',
-                        borderTopLeftRadius: '6px',
-                        borderTopRightRadius: '6px',
-                        marginRight: '1px',
-                        marginLeft: index === 0 ? '0' : '-1px',
-                        border: '1px solid #d1d5db',
-                        borderBottom: isActive ? 'none' : '1px solid #d1d5db',
-                        position: 'relative',
-                        zIndex: isActive ? 10 : 1,
-                        borderColor: isActive ? phaseColor : '#d1d5db'
+                          backgroundColor: isActive ? ((PHASE_COLORS[activePhase] || '#d1d5db') + '1A') : 'transparent',
+                          borderTopLeftRadius: '6px',
+                          borderTopRightRadius: '6px',
+                          marginRight: '0',
+                          marginLeft: index === 0 ? '0' : '-1px',
+                          border: `1px solid ${isActive ? phaseColor : '#d1d5db'}`,
+                          borderBottom: isActive ? 'none' : `1px solid ${PHASE_COLORS[activePhase] || '#d1d5db'}`,
+                          position: 'relative',
+                          zIndex: isActive ? 10 : 1,
+                          minHeight: isActive ? '36px' : '32px',
+                          paddingTop: isActive ? '6px' : '4px',
+                          paddingBottom: isActive ? '6px' : '4px'
                       }}
-                    >
-                      {phase}
-                    </button>
+                      >
+                        {phase}
+                      </button>
                   );
                 })}
               </div>
             </div>
 
             {/* Tasks for Active Phase */}
-            <div ref={taskContainerRef} className="space-y-2 flex-1 overflow-y-auto">
+            <div className="flex-1 flex flex-col overflow-hidden min-h-0 border border-gray-200 border-t-0 rounded-b-lg bg-white" style={{ borderColor: PHASE_COLORS[activePhase] || '#d1d5db' }}>
+              {/* Column Headers (outside scroll) */}
+              <div
+                className="task-grid header-pad py-2"
+                style={{ backgroundColor: ((PHASE_COLORS[activePhase] || '#d1d5db') + '24'), borderBottom: '0.5px solid #D1D5DB' }}
+              >
+                <div></div>
+                <div className="min-w-0 flex items-center gap-2 -ml-1">
+                  <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Task</span>
+                  {!showAddTask && (
+                    <button
+                      onClick={() => setShowAddTask(true)}
+                      className="text-[11px] font-medium flex items-center gap-1 px-1 py-0.5 rounded"
+                      title="Add task"
+                      style={{ color: BRAND.orange, background: 'transparent' }}
+                    >
+                      + Add
+                    </button>
+                  )}
+                </div>
+                <div className="justify-self-center text-center text-xs font-semibold text-gray-600 uppercase tracking-wide">Due Date</div>
+                <div className="justify-self-center text-center text-xs font-semibold text-gray-600 uppercase tracking-wide">Assigned</div>
+              </div>
+
+              {/* Scrollable Task List (starts under headers) */}
+              <div ref={taskContainerRef} className="flex-1 overflow-y-auto thin-scrollbar px-3 pt-2 pb-3">
+                <div className="space-y-2">
               {projectTasks
                 .filter(task => task.phase === activePhase)
                 .sort((a, b) => {
                   // Sort completed tasks to bottom
                   if (a.status === 'completed' && b.status !== 'completed') return 1;
                   if (a.status !== 'completed' && b.status === 'completed') return -1;
+
+                  // Tasks with dates should come before tasks without dates
+                  if (a.dueDate && !b.dueDate) return -1;
+                  if (!a.dueDate && b.dueDate) return 1;
+
+                  // If both have dates, sort by date ascending (earliest first)
+                  if (a.dueDate && b.dueDate) {
+                    return a.dueDate.localeCompare(b.dueDate);
+                  }
+
                   return 0;
                 })
                 .map((task) => {
                   return (
-                    <div key={task.id} className="flex items-center gap-2 p-2 border rounded-lg hover:bg-gray-50">
+                    <div key={task.id} className="task-grid px-3 py-2 border rounded-lg bg-gray-100 hover:bg-gray-50">
                       {/* Task Status Checkbox */}
                       <button
                         className={`w-4 h-4 rounded border-2 flex items-center justify-center text-xs ${
@@ -8473,23 +8766,29 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                       </button>
 
                       {/* Task Description */}
-                      <div className="flex-1 min-w-0">
-                        <div className={`text-xs ${task.status === 'completed' ? 'line-through text-gray-500' : 'text-gray-900'}`}>
-                          {task.description}
+                      <div className="min-w-0">
+                        <div className={`text-xs flex items-center gap-2 ${task.status === 'completed' ? 'line-through text-gray-500' : 'text-gray-900'}`}>
+                          <span>{task.description}</span>
+                          {isTaskOverdue(task) && (
+                            <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-red-500/20 text-red-600">
+                              overdue
+                            </span>
+                          )}
                         </div>
                       </div>
 
                       {/* Calendar Icon for Due Date */}
-                      <div className="relative">
+                      <div className="relative justify-self-center ml-1">
                         {task.dueDate ? (
-                          <div className="flex items-center gap-1">
-                            <div 
-                              className="px-2 py-1 rounded-full text-xs font-medium text-white opacity-60"
-                              style={{ backgroundColor: PHASE_COLORS[activePhase] || '#6B7280' }}
+                          <div className="w-full flex items-center justify-center">
+                            <div
+                              className={`px-2 py-1 rounded-full text-xs font-medium ${isTaskOverdue(task) ? 'text-red-600' : 'text-white opacity-60'}`}
+                              style={{ backgroundColor: isTaskOverdue(task) ? 'rgba(239, 68, 68, 0.2)' : (PHASE_COLORS[activePhase] || '#6B7280') }}
                             >
                               {(() => {
                                 const date = new Date(task.dueDate + 'T00:00:00');
-                                return `${date.getMonth() + 1}/${date.getDate()}`;
+                                const dateStr = `${date.getMonth() + 1}/${date.getDate()}`;
+                                return dateStr;
                               })()}
                             </div>
                             <button
@@ -8507,7 +8806,8 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                                   );
                                 }
                               }}
-                              className="text-xs text-gray-400 hover:text-red-500"
+                              className="absolute text-xs text-gray-400 hover:text-red-500"
+                              style={{ right: '-10px', top: '50%', transform: 'translateY(-50%)' }}
                               title="Remove due date"
                             >
                               ×
@@ -8574,48 +8874,72 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                       </div>
 
                       {/* Assignment Section */}
-                      <div className="flex items-center gap-2">
-                        {task.assignedTo ? (
-                          <div className="flex items-center gap-1">
-                            <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium" style={{ backgroundColor: getMemberColor(task.assignedTo, project.id) }}>
-                              {getInitials(project.teamMembers.find(m => m.id === task.assignedTo)?.name || 'Unknown')}
-                            </div>
-                            <button
-                              onClick={() => updateTaskAssignment(task.id, '')}
-                              className="text-xs text-gray-400 hover:text-red-500"
-                            >
-                              ×
-                            </button>
-                          </div>
-                        ) : (
-                          <select
-                            onChange={(e) => updateTaskAssignment(task.id, e.target.value)}
-                            className="w-20 h-6 rounded border border-gray-300 hover:border-gray-400 hover:text-gray-600 transition-colors appearance-none bg-white text-xs cursor-pointer px-2"
-                            defaultValue=""
-                          >
-                            <option value="" disabled className="text-gray-600">Assign</option>
-                            {project.teamMembers.map(member => (
-                              <option key={member.id} value={member.id} className="text-gray-900">
-                                {member.name}
-                              </option>
+                      <div className="relative gap-2 flex justify-self-center ml-1">
+                        {task.assignedTo && task.assignedTo.filter(id => id && id.trim() !== '').length > 0 && (
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            {task.assignedTo.filter(id => id && id.trim() !== '').slice(0, 2).map((memberId) => (
+                              <div key={memberId} className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium" style={{ backgroundColor: getMemberColor(memberId, project.id) }}>
+                                {getInitials(project.teamMembers.find(m => m.id === memberId)?.name || 'Unknown')}
+                              </div>
                             ))}
-                          </select>
+                            {task.assignedTo.filter(id => id && id.trim() !== '').length > 2 && (
+                              <div className="relative group">
+                                <span className="text-xs italic text-gray-500 ml-1 cursor-help">
+                                  +{task.assignedTo.filter(id => id && id.trim() !== '').length - 2}
+                                </span>
+                                <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs rounded p-2 whitespace-nowrap z-10 left-0 top-8">
+                                  {task.assignedTo.filter(id => id && id.trim() !== '').slice(2).map(id => project.teamMembers.find(m => m.id === id)?.name || 'Unknown').join(', ')}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                          <button
+                            onClick={() => setShowAssignmentDropdown(showAssignmentDropdown === task.id ? null : task.id)}
+                            className="w-6 h-6 rounded-full bg-transparent flex items-center justify-center text-gray-500 hover:text-gray-700 transition-colors"
+                            title="Assign team members"
+                          >
+                            +
+                          </button>
+                        {showAssignmentDropdown === task.id && (
+                          <div className="assignment-dropdown absolute right-0 top-8 z-50 bg-white border border-gray-300 rounded-lg shadow-lg p-2 min-w-[200px]">
+                            <div className="space-y-1">
+                              {project.teamMembers.map(member => (
+                                <label key={member.id} className="flex items-center gap-2 px-2 py-1 hover:bg-gray-50 rounded cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={task.assignedTo?.includes(member.id) || false}
+                                    onChange={(e) => {
+                                      const currentAssigned = task.assignedTo || [];
+                                      const newAssigned = e.target.checked
+                                        ? [...currentAssigned, member.id]
+                                        : currentAssigned.filter(id => id !== member.id);
+                                      updateTaskAssignment(task.id, newAssigned);
+                                    }}
+                                    className="rounded border-gray-300"
+                                  />
+                                  <span className="text-sm">{member.name}</span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
                         )}
                       </div>
                     </div>
                   );
                 })}
-
-              {/* Show message if no tasks in this phase */}
-              {projectTasks.filter(task => task.phase === activePhase).length === 0 && (
-                <div className="text-xs text-gray-500 py-4 text-center">
-                  No tasks in {activePhase} phase
                 </div>
-              )}
 
-              {/* Add Task Form - Show in header area when active */}
-              {showAddTask && (
-                <div className="mb-4 p-3 border rounded-lg bg-gray-50">
+                {/* Show message if no tasks in this phase */}
+                {projectTasks.filter(task => task.phase === activePhase).length === 0 && (
+                  <div className="text-xs text-gray-500 py-4 text-center">
+                    No tasks in {activePhase} phase
+                  </div>
+                )}
+
+                {/* Add Task Form - Show in header area when active */}
+                {showAddTask && (
+                  <div className="mb-4 p-3 border rounded-lg bg-gray-50">
                   <div className="space-y-2">
                     <input
                       type="text"
@@ -8626,11 +8950,16 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                     />
                     <div className="flex gap-2">
                       <select
+                        multiple
                         value={newTask.assignedTo}
-                        onChange={(e) => setNewTask(prev => ({ ...prev, assignedTo: e.target.value }))}
+                        onChange={(e) => {
+                          const selected = Array.from(e.target.selectedOptions, option => option.value);
+                          setNewTask(prev => ({ ...prev, assignedTo: selected }));
+                        }}
                         className="text-xs border rounded px-2 py-1 outline-none focus:ring-2 focus:ring-orange-200"
+                        size={Math.min(project.teamMembers.length + 1, 4)}
                       >
-                        <option value="">Unassigned</option>
+                        <option value="" disabled>Select assignees...</option>
                         {project.teamMembers.map(member => (
                           <option key={member.id} value={member.id}>{member.name}</option>
                         ))}
@@ -8649,10 +8978,11 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                       </button>
                     </div>
                   </div>
-                </div>
-              )}
+                  </div>
+                )}
+              </div>
             </div>
-          </Card>
+          </div>
 
           {/* Post-it Notes */}
           {projectNotes.filter(note => note.postToProjectPage).length > 0 ? (
@@ -8723,6 +9053,211 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
 
         {/* Right Half - Calendar, Key Dates, Files/Notes */}
         <div className="space-y-6">
+          {/* This Week at a Glance */}
+          <Card>
+            <div
+              className="text-lg font-semibold text-gray-900 mb-4 px-6 py-4 rounded-t-lg"
+              style={{ backgroundColor: phaseColor + '20' }}
+            >
+              This Week at a Glance
+            </div>
+
+            {/* Phase Info Table */}
+            <div className="mb-4 bg-white border border-gray-200 rounded-lg overflow-hidden">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Current Phase
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Next Phase
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Next Key Date
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white">
+                  <tr>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-3 h-3 rounded-full"
+                          style={{ backgroundColor: phaseColor }}
+                        />
+                        <span className="text-sm font-medium text-gray-900">{currentPhase}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {(() => {
+                        const nextPhase = getNextPhase();
+                        if (!nextPhase) return <span className="text-gray-500 italic">None</span>;
+
+                        const todayStr = new Date().toISOString().split('T')[0];
+                        const isToday = nextPhase.startDate === todayStr;
+                        const nextPhaseColor = PHASE_COLORS[nextPhase.phase] || PHASE_COLORS['Kickoff'];
+
+                        return (
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="w-3 h-3 rounded-full"
+                              style={{ backgroundColor: nextPhaseColor }}
+                            />
+                            <span
+                              className="text-sm font-medium text-gray-900"
+                              style={{
+                                fontWeight: isToday ? 'bold' : 'normal',
+                                color: isToday ? nextPhaseColor : undefined
+                              }}
+                            >
+                              {nextPhase.phase} ({formatDateForDisplay(nextPhase.startDate)})
+                            </span>
+                          </div>
+                        );
+                      })()}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {(() => {
+                        const nextKeyDate = getNextKeyDate();
+                        if (!nextKeyDate) return <span className="text-gray-500 italic">None</span>;
+
+                        const todayStr = new Date().toISOString().split('T')[0];
+                        const isToday = nextKeyDate.dateStr === todayStr;
+
+                        return (
+                          <span
+                            className="text-sm font-medium text-gray-900"
+                            style={{
+                              fontWeight: isToday ? 'bold' : 'normal',
+                              color: isToday ? phaseColor : undefined
+                            }}
+                          >
+                            {nextKeyDate.label} - {nextKeyDate.date}
+                          </span>
+                        );
+                      })()}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* Two-Column Task Layout */}
+            <div className="grid grid-cols-2 gap-4">
+              {/* Left Column: Tasks Due This Week (All Team) */}
+              <div>
+                <div className="border-b border-gray-200 pb-1">
+                  <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Tasks Due This Week:</span>
+                </div>
+                <div className="mt-2 space-y-1">
+                  {(() => {
+                    const tasksDueThisWeek = getTasksDueThisWeek();
+                    const todayStr = new Date().toISOString().split('T')[0];
+
+                    if (tasksDueThisWeek.length === 0) {
+                      return (
+                        <div className="text-sm text-gray-500 italic">
+                          None assigned, please review task list
+                        </div>
+                      );
+                    }
+
+                    return tasksDueThisWeek.map(task => {
+                      const isToday = task.dueDate === todayStr;
+                      const isOverdue = isTaskOverdue(task);
+                      const taskPhase = task.phase || currentPhase;
+                      const taskPhaseColor = PHASE_COLORS[taskPhase] || phaseColor;
+
+                      return (
+                        <div
+                          key={task.id}
+                          className="flex items-start gap-2 text-sm"
+                          style={{
+                            fontWeight: (isToday || isOverdue) ? 'bold' : 'normal',
+                            color: (isToday || isOverdue) ? taskPhaseColor : undefined
+                          }}
+                        >
+                          <span>•</span>
+                          <span className={task.status === 'completed' ? 'line-through' : ''}>
+                            {task.description}
+                            {task.dueDate && (
+                              <span className="text-xs ml-1">
+                                ({formatDateForDisplay(task.dueDate)})
+                              </span>
+                            )}
+                            {isTaskOverdue(task) && (
+                              <span className="px-2 py-0.5 ml-1 rounded-full text-xs font-bold bg-red-500/20 text-red-600">
+                                overdue
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              </div>
+
+              {/* Right Column: My Tasks */}
+              <div>
+                <div className="border-b border-gray-200 pb-1">
+                  <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">My Tasks:</span>
+                </div>
+                <div className="mt-2 space-y-1">
+                  {(() => {
+                    const tasksDueThisWeek = getTasksDueThisWeek();
+                    const todayStr = new Date().toISOString().split('T')[0];
+
+                    // Filter tasks assigned to current user
+                    const myTasks = tasksDueThisWeek.filter(task => task.assignedTo && task.assignedTo.includes(user?.id || ''));
+
+                    if (myTasks.length === 0) {
+                      return (
+                        <div className="text-sm text-gray-500 italic">
+                          None assigned, please review task list
+                        </div>
+                      );
+                    }
+
+                    return myTasks.map(task => {
+                      const isToday = task.dueDate === todayStr;
+                      const isOverdue = isTaskOverdue(task);
+                      const taskPhase = task.phase || currentPhase;
+                      const taskPhaseColor = PHASE_COLORS[taskPhase] || phaseColor;
+
+                      return (
+                        <div
+                          key={task.id}
+                          className="flex items-start gap-2 text-sm"
+                          style={{
+                            fontWeight: (isToday || isOverdue) ? 'bold' : 'normal',
+                            color: (isToday || isOverdue) ? taskPhaseColor : undefined
+                          }}
+                        >
+                          <span>•</span>
+                          <span className={task.status === 'completed' ? 'line-through' : ''}>
+                            {task.description}
+                            {task.dueDate && (
+                              <span className="text-xs ml-1">
+                                ({formatDateForDisplay(task.dueDate)})
+                              </span>
+                            )}
+                            {isTaskOverdue(task) && (
+                              <span className="px-2 py-0.5 ml-1 rounded-full text-xs font-bold bg-red-500/20 text-red-600">
+                                overdue
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              </div>
+            </div>
+          </Card>
+
           {/* Calendar at top right */}
         <Card>
             <div className="mb-3">
@@ -8823,7 +9358,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                     const hasKeyDate = hasKeyDateOnDay(dayObj.date);
                     const hasNote = hasNoteOnDay(dayObj.date);
                     const hasTask = hasTaskOnDay(dayObj.date);
-                    const tasksWithBoth = getTasksWithBothAssignmentAndDate(dayObj.date);
+                    const tasksForDate = getTasksForDate(dayObj.date);
 
                     return (
                       <div
@@ -8866,27 +9401,17 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
             </div>
           )}
 
-                        {/* Task icon */}
-                        {hasTask && (
-                          <div className={`absolute top-1 left-1 z-10 ${isCurrentMonth ? 'opacity-60' : isPastDate ? 'opacity-40' : 'opacity-30'}`}>
-                            {tasksWithBoth.length > 0 ? (
-                              // Show initials when both assignment and date exist
-                              <div 
-                                className="w-4 h-4 rounded-full flex items-center justify-center text-white text-xs font-medium"
-                                style={{ 
-                                  backgroundColor: getMemberColor(tasksWithBoth[0].assignedTo, project.id),
-                                  fontSize: '8px'
-                                }}
-                              >
-                                {getInitials(project.teamMembers.find(m => m.id === tasksWithBoth[0].assignedTo)?.name || 'Unknown')}
-                              </div>
-                            ) : (
-                              // Show note icon when only date exists
-                              <DocumentTextIcon 
-                                className="w-3 h-3" 
-                                style={{ color: phaseForDay ? PHASE_COLORS[phaseForDay.phase] : '#6B7280' }}
-                              />
-                            )}
+                        {/* Task count indicator */}
+                        {hasTask && tasksForDate.length > 0 && (
+                          <div className={`absolute top-1 left-1 z-10 ${isCurrentMonth ? 'opacity-100' : isPastDate ? 'opacity-60' : 'opacity-50'}`}>
+                            <div
+                              className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-medium text-white"
+                              style={{
+                                backgroundColor: tasksForDate[0].phase ? PHASE_COLORS[tasksForDate[0].phase] : '#6B7280'
+                              }}
+                            >
+                              {tasksForDate.length}
+                            </div>
             </div>
           )}
 
@@ -9289,15 +9814,31 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                   <h4 className="font-medium text-gray-900 mb-2">Tasks</h4>
                   <ul className="space-y-2">
                     {selectedDay.tasks.map((task) => {
-                      const assignedMember = project.teamMembers.find(m => m.id === task.assignedTo);
                       return (
                         <li key={task.id} className="text-sm p-2 bg-gray-50 rounded-lg">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                              {task.assignedTo ? (
-                                <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium" 
-                                     style={{ backgroundColor: getMemberColor(task.assignedTo, project.id) }}>
-                                  {getInitials(assignedMember?.name || 'Unknown')}
+                              {task.assignedTo && task.assignedTo.filter(id => id && id.trim() !== '').length > 0 ? (
+                                <div className="flex items-center gap-1">
+                                  {task.assignedTo.filter(id => id && id.trim() !== '').slice(0, 2).map((memberId) => {
+                                    const assignedMember = project.teamMembers.find(m => m.id === memberId);
+                                    return (
+                                      <div key={memberId} className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium"
+                                           style={{ backgroundColor: getMemberColor(memberId, project.id) }}>
+                                        {getInitials(assignedMember?.name || 'Unknown')}
+                                      </div>
+                                    );
+                                  })}
+                                  {task.assignedTo.filter(id => id && id.trim() !== '').length > 2 && (
+                                    <div className="relative group">
+                                      <span className="text-xs italic text-gray-500 ml-1 cursor-help">
+                                        +{task.assignedTo.filter(id => id && id.trim() !== '').length - 2}
+                                      </span>
+                                      <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs rounded p-2 whitespace-nowrap z-10 left-0 top-8">
+                                        {task.assignedTo.filter(id => id && id.trim() !== '').slice(2).map(id => project.teamMembers.find(m => m.id === id)?.name || 'Unknown').join(', ')}
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
                               ) : (
                                 <button
@@ -10008,7 +10549,7 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
   const currentPhase = getCurrentPhase(project);
   const phaseColor = PHASE_COLORS[currentPhase];
   const [showAddTask, setShowAddTask] = useState(false);
-  const [newTask, setNewTask] = useState({ description: "", assignedTo: "", status: "pending" as Task['status'] });
+  const [newTask, setNewTask] = useState({ description: "", assignedTo: [] as string[], status: "pending" as Task['status'] });
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [editingTimeline, setEditingTimeline] = useState(false);
   const [editingSegments, setEditingSegments] = useState(project.segments || []);
@@ -10110,11 +10651,11 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
     );
   };
 
-  const updateTaskAssignment = (taskId: string, assignedTo: string) => {
+  const updateTaskAssignment = (taskId: string, assignedTo: string[]) => {
     setProjectTasks(prevTasks =>
       prevTasks.map(task =>
         task.id === taskId
-          ? { ...task, assignedTo: assignedTo || undefined }
+          ? { ...task, assignedTo: assignedTo.length > 0 ? assignedTo : undefined }
           : task
       )
     );
@@ -10125,13 +10666,13 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
       const task: Task = {
         id: `task-${Date.now()}`,
         description: newTask.description,
-        assignedTo: newTask.assignedTo || undefined,
+        assignedTo: newTask.assignedTo.length > 0 ? newTask.assignedTo : undefined,
         status: newTask.status,
         phase: activePhase,
         dueDate: null
       };
       setProjectTasks(prevTasks => [...prevTasks, task]);
-      setNewTask({ description: "", assignedTo: "", status: "pending" });
+      setNewTask({ description: "", assignedTo: [], status: "pending" });
       setShowAddTask(false);
     }
   };
@@ -10429,10 +10970,6 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
           {/* Tasks and Timeline */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
-              {/* Tasks Title */}
-              <div className="mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">Tasks</h3>
-              </div>
               
               {/* Phase Tabs */}
               <div className="mb-4">
@@ -10445,21 +10982,23 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
                         key={phase}
                         className={`flex-1 px-3 py-1 text-xs font-medium transition-colors relative min-h-[32px] flex items-center justify-center ${
                           isActive
-                            ? 'text-gray-900 shadow-sm z-10'
+                            ? 'text-gray-900 z-10'
                             : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                         }`}
                         onClick={() => setActivePhase(phase as Phase)}
                         style={{
-                          backgroundColor: isActive ? phaseColor + '20' : 'transparent', // 20% opacity for light color
+                          backgroundColor: isActive ? (phaseColor + '1A') : 'transparent', // light tint
                           borderTopLeftRadius: '6px',
                           borderTopRightRadius: '6px',
-                          marginRight: '1px',
+                          marginRight: '0',
                           marginLeft: index === 0 ? '0' : '-1px',
-                          border: '1px solid #d1d5db',
-                          borderBottom: isActive ? 'none' : '1px solid #d1d5db',
+                          border: `1px solid ${isActive ? phaseColor : '#d1d5db'}`,
+                          borderBottom: isActive ? 'none' : `1px solid ${PHASE_COLORS[activePhase] || '#d1d5db'}`,
                           position: 'relative',
                           zIndex: isActive ? 10 : 1,
-                          borderColor: isActive ? phaseColor : '#d1d5db'
+                          minHeight: isActive ? '36px' : '32px',
+                          paddingTop: isActive ? '6px' : '4px',
+                          paddingBottom: isActive ? '6px' : '4px'
                         }}
                       >
                         {phase}
@@ -10470,19 +11009,28 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
               </div>
 
               {/* Tasks for Active Phase */}
-              <div ref={taskContainerRef} className="space-y-2 max-h-80 overflow-y-auto">
+              <div ref={taskContainerRef} className="space-y-2 max-h-80 overflow-y-auto px-3 py-3 bg-white">
                 {projectTasks
                   .filter(task => task.phase === activePhase)
                   .sort((a, b) => {
                     // Sort completed tasks to bottom
                     if (a.status === 'completed' && b.status !== 'completed') return 1;
                     if (a.status !== 'completed' && b.status === 'completed') return -1;
+
+                    // Tasks with dates should come before tasks without dates
+                    if (a.dueDate && !b.dueDate) return -1;
+                    if (!a.dueDate && b.dueDate) return 1;
+
+                    // If both have dates, sort by date ascending (earliest first)
+                    if (a.dueDate && b.dueDate) {
+                      return a.dueDate.localeCompare(b.dueDate);
+                    }
+
                     return 0;
                   })
                   .map((task) => {
-                    const assignedMember = project.teamMembers.find(m => m.id === task.assignedTo);
                     return (
-                      <div key={task.id} className="flex items-center gap-2 p-2 border rounded-lg hover:bg-gray-50">
+                      <div key={task.id} className="task-grid px-3 py-2 border rounded-lg bg-gray-100 hover:bg-gray-50">
                         {/* Task Status Checkbox */}
                         <button
                           className={`w-4 h-4 rounded border-2 flex items-center justify-center text-xs ${
@@ -10503,32 +11051,55 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
                         </div>
 
                         {/* Assignment Section */}
-                        <div className="flex items-center gap-2">
-                          {task.assignedTo ? (
-                            <div className="flex items-center gap-1">
-                              <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium" style={{ backgroundColor: getMemberColor(task.assignedTo, project.id) }}>
-                                {getInitials(project.teamMembers.find(m => m.id === task.assignedTo)?.name || 'Unknown')}
-                              </div>
-                              <button
-                                onClick={() => updateTaskAssignment(task.id, '')}
-                                className="text-xs text-gray-400 hover:text-red-500"
-                              >
-                                ×
-                              </button>
-                            </div>
-                          ) : (
-                            <select
-                              onChange={(e) => updateTaskAssignment(task.id, e.target.value)}
-                              className="w-20 h-6 rounded border border-gray-300 hover:border-gray-400 hover:text-gray-600 transition-colors appearance-none bg-white text-xs cursor-pointer px-2"
-                              defaultValue=""
-                            >
-                              <option value="" disabled className="text-gray-600">Assign</option>
-                              {project.teamMembers.map(member => (
-                                <option key={member.id} value={member.id} className="text-gray-900">
-                                  {member.name}
-                                </option>
+                        <div className="relative flex items-center gap-2 justify-self-center">
+                          {task.assignedTo && task.assignedTo.filter(id => id && id.trim() !== '').length > 0 && (
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              {task.assignedTo.filter(id => id && id.trim() !== '').slice(0, 2).map((memberId) => (
+                                <div key={memberId} className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium" style={{ backgroundColor: getMemberColor(memberId, project.id) }}>
+                                  {getInitials(project.teamMembers.find(m => m.id === memberId)?.name || 'Unknown')}
+                                </div>
                               ))}
-                            </select>
+                              {task.assignedTo.filter(id => id && id.trim() !== '').length > 2 && (
+                                <div className="relative group">
+                                  <span className="text-xs italic text-gray-500 ml-1 cursor-help">
+                                    +{task.assignedTo.filter(id => id && id.trim() !== '').length - 2}
+                                  </span>
+                                  <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs rounded p-2 whitespace-nowrap z-10 left-0 top-8">
+                                    {task.assignedTo.filter(id => id && id.trim() !== '').slice(2).map(id => project.teamMembers.find(m => m.id === id)?.name || 'Unknown').join(', ')}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          <button
+                            onClick={() => setShowAssignmentDropdown(showAssignmentDropdown === task.id ? null : task.id)}
+                            className="w-6 h-6 rounded-full bg-transparent flex items-center justify-center text-gray-500 hover:text-gray-700 transition-colors"
+                            title="Assign team members"
+                          >
+                            +
+                          </button>
+                          {showAssignmentDropdown === task.id && (
+                            <div className="assignment-dropdown absolute right-0 top-8 z-50 bg-white border border-gray-300 rounded-lg shadow-lg p-2 min-w-[200px]">
+                              <div className="space-y-1">
+                                {project.teamMembers.map(member => (
+                                  <label key={member.id} className="flex items-center gap-2 px-2 py-1 hover:bg-gray-50 rounded cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={task.assignedTo?.includes(member.id) || false}
+                                      onChange={(e) => {
+                                        const currentAssigned = task.assignedTo || [];
+                                        const newAssigned = e.target.checked
+                                          ? [...currentAssigned, member.id]
+                                          : currentAssigned.filter(id => id !== member.id);
+                                        updateTaskAssignment(task.id, newAssigned);
+                                      }}
+                                      className="rounded border-gray-300"
+                                    />
+                                    <span className="text-sm">{member.name}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
                           )}
                         </div>
                       </div>
@@ -10564,11 +11135,16 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
                       />
                       <div className="flex gap-2">
                         <select
+                          multiple
                           value={newTask.assignedTo}
-                          onChange={(e) => setNewTask(prev => ({ ...prev, assignedTo: e.target.value }))}
+                          onChange={(e) => {
+                            const selected = Array.from(e.target.selectedOptions, option => option.value);
+                            setNewTask(prev => ({ ...prev, assignedTo: selected }));
+                          }}
                           className="text-xs border rounded px-2 py-1 outline-none focus:ring-2 focus:ring-orange-200"
+                          size={Math.min(project.teamMembers.length + 1, 4)}
                         >
-                          <option value="">Unassigned</option>
+                          <option value="" disabled>Select assignees...</option>
                           {project.teamMembers.map(member => (
                             <option key={member.id} value={member.id}>{member.name}</option>
                           ))}
@@ -10820,6 +11396,8 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
                         const isCurrentWeekDay = isCurrentWeek(dayDate);
                         const hasKeyDate = hasKeyDateOnDay(dayObj.date);
                         const hasNote = hasNoteOnDay(dayObj.date);
+                        const hasTask = hasTaskOnDay(dayObj.date);
+                        const tasksForDate = getTasksForDate(dayObj.date);
 
                         return (
                           <div
@@ -10859,6 +11437,20 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
                                   className="w-3 h-3"
                                   style={{ color: phaseForDay ? PHASE_COLORS[phaseForDay.phase] : '#6B7280' }}
                                 />
+                              </div>
+                            )}
+
+                            {/* Task count indicator */}
+                            {hasTask && tasksForDate.length > 0 && (
+                              <div className={`absolute top-1 left-1 z-10 ${isCurrentMonth ? 'opacity-100' : isPastDate ? 'opacity-60' : 'opacity-50'}`}>
+                                <div
+                                  className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-medium text-white"
+                                  style={{
+                                    backgroundColor: tasksForDate[0].phase ? PHASE_COLORS[tasksForDate[0].phase] : '#6B7280'
+                                  }}
+                                >
+                                  {tasksForDate.length}
+                                </div>
                               </div>
                             )}
                             
@@ -10901,3 +11493,9 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
     </div>
   );
 }
+
+
+
+
+
+

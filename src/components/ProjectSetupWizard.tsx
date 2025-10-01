@@ -1277,7 +1277,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
         tasks: formData.usePreloadedTasks ? getDefaultTasks(formData.methodologyType) : formData.customTasks.map((task, index) => ({
           id: `t${index + 1}`,
           description: task,
-          assignedTo: '',
+          assignedTo: undefined,
           status: 'pending',
           phase: 'Custom',
           dueDate: null
@@ -1356,7 +1356,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
         tasks.push({
           id: `t${taskId++}`,
           description: taskDescription,
-          assignedTo: '',
+          assignedTo: undefined,
           status: 'pending',
           phase: phase,
           dueDate: null
