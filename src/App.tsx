@@ -8669,7 +8669,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
           <div className="h-[500px] flex flex-col">
             {/* Phase Tabs */}
             <div className="mb-0">
-              <div className=\"flex flex-wrap items-stretch w-full\" style={{ marginRight: "-14px" }}>
+              <div className="flex flex-wrap items-stretch w-full" style={{ marginRight: "-14px" }}>
                 {PHASES.map((phase, index) => {
                   const phaseColor = PHASE_COLORS[phase as Phase];
                   const isActive = activePhase === phase;
@@ -10973,7 +10973,7 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
               
               {/* Phase Tabs */}
               <div className="mb-4">
-                <div className=\"flex flex-wrap items-stretch border-b\" style={{ marginRight: "-14px" }}>
+                <div className="flex flex-wrap items-stretch border-b" style={{ marginRight: "-14px" }}>
                   {PHASES.map((phase, index) => {
                     const phaseColor = PHASE_COLORS[phase];
                     const isActive = activePhase === phase;
