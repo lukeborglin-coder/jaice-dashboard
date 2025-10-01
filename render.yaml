@@ -1,0 +1,44 @@
+services:
+  # Backend API Server
+  - type: web
+    name: jaice-dashboard-api
+    runtime: node
+    env: node
+    region: oregon
+    plan: free
+    buildCommand: cd server && npm install
+    startCommand: cd server && node server.mjs
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: OPENAI_API_KEY
+        sync: false  # Set this in Render dashboard
+      - key: DATA_DIR
+        value: /opt/render/project/data
+      - key: FILES_DIR
+        value: /opt/render/project/data/uploads
+      - key: CORS_ORIGIN
+        sync: false  # Set this to your frontend URL in Render dashboard
+    disk:
+      name: data-disk
+      mountPath: /opt/render/project/data
+      sizeGB: 1
+
+  # Frontend Static Site
+  - type: web
+    name: jaice-dashboard-frontend
+    runtime: node
+    env: node
+    region: oregon
+    plan: free
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      - key: VITE_API_URL
+        sync: false  # Set this to your backend URL in Render dashboard
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

@@ -30,6 +30,12 @@ Thumbs.db
 # TypeScript
 *.tsbuildinfo
 
+# Data files (persistent on Render, don't commit)
+server/data/*.json
+server/data/uploads/*
+server/data/discussionGuides/*
+!server/data/.gitkeep
+
 # Misc
 .cache
 coverage
