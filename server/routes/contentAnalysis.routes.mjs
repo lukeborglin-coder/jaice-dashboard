@@ -9,7 +9,7 @@ import { ingestCAWorkbook, parseCAWorkbook } from '../services/caIngest.service.
 
 const router = Router();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const uploadDir = process.env.FILES_DIR || path.join(__dirname, '../uploads');
+const uploadDir = process.env.FILES_DIR || path.join(process.env.DATA_DIR || path.join(__dirname, '../data'), 'uploads');
 
 // Ensure upload directory exists
 await fs.mkdir(uploadDir, { recursive: true });
@@ -120,3 +120,4 @@ async function createBasicTemplate(templatePath) {
 }
 
 export default router;
+

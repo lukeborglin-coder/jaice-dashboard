@@ -16,7 +16,7 @@ router.use(authenticateToken, requireCognitiveOrAdmin);
 
 const storage = multer.diskStorage({
   destination: async (req, file, cb) => {
-    const uploadDir = process.env.FILES_DIR || './uploads';
+    const uploadDir = process.env.FILES_DIR || path.join(process.env.DATA_DIR || path.join(__dirname, '../data'), 'uploads');
     try {
       await fs.mkdir(uploadDir, { recursive: true });
       cb(null, uploadDir);
@@ -1836,3 +1836,6 @@ async function processTranscriptWithAI(transcriptText, currentData, discussionGu
 }
 
 export default router;
+
+
+

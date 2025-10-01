@@ -30,7 +30,8 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Static files (for serving uploaded files)
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+const FILES_DIR = process.env.FILES_DIR || path.join(process.env.DATA_DIR || path.join(__dirname, 'data'), 'uploads');
+app.use('/uploads', express.static(FILES_DIR));
 
 // Routes
 app.use('/api/auth', authRouter);
@@ -82,3 +83,4 @@ app.listen(PORT, () => {
 });
 
 export default app;
+
