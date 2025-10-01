@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { ExclamationTriangleIcon, LightBulbIcon } from '@heroicons/react/24/outline';
 import { API_BASE_URL } from '../config';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -13,26 +14,22 @@ export default function Feedback({ defaultType = 'bug' as FeedbackType }) {
   const [body, setBody] = useState('');
   const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium');
   const [loading, setLoading] = useState(false);
+  const [submitInfo, setSubmitInfo] = useState<{ ok: boolean; msg: string } | null>(null);
   const [bugReports, setBugReports] = useState<any[]>([]);
   const [featureRequests, setFeatureRequests] = useState<any[]>([]);
 
   const loadActive = async () => {
     try {
       const headers: any = { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` };
-      const [workingBugs, doneBugs, workingFeatures, doneFeatures] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/feedback?type=bug&status=working%20on%20it`, { headers }).then(r => r.json()),
+      const [pendingBugs, doneBugs, pendingFeatures, doneFeatures] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/feedback?type=bug&status=pending%20review`, { headers }).then(r => r.json()),
         fetch(`${API_BASE_URL}/api/feedback?type=bug&status=done`, { headers }).then(r => r.json()),
-        fetch(`${API_BASE_URL}/api/feedback?type=feature&status=working%20on%20it`, { headers }).then(r => r.json()),
+        fetch(`${API_BASE_URL}/api/feedback?type=feature&status=pending%20review`, { headers }).then(r => r.json()),
         fetch(`${API_BASE_URL}/api/feedback?type=feature&status=done`, { headers }).then(r => r.json()),
       ]);
-      const bugs = [...(workingBugs.bugReports || []), ...(doneBugs.bugReports || [])]
-        .sort((a, b) => (b.statusUpdatedAt || b.updatedAt || b.createdAt).localeCompare(a.statusUpdatedAt || a.updatedAt || a.createdAt))
-        .slice(0, 10);
-      const feats = [...(workingFeatures.featureRequests || []), ...(doneFeatures.featureRequests || [])]
-        .sort((a, b) => (b.statusUpdatedAt || b.updatedAt || b.createdAt).localeCompare(a.statusUpdatedAt || a.updatedAt || a.createdAt))
-        .slice(0, 10);
-      setBugReports(bugs);
-      setFeatureRequests(feats);
+      const toSorted = (arr: any[]) => [...arr].sort((a, b) => (b.statusUpdatedAt || b.updatedAt || b.createdAt).localeCompare(a.statusUpdatedAt || a.updatedAt || a.createdAt));
+      setBugReports([...toSorted(pendingBugs.bugReports || []).slice(0, 5), ...toSorted(doneBugs.bugReports || []).slice(0, 5)]);
+      setFeatureRequests([...toSorted(pendingFeatures.featureRequests || []).slice(0, 5), ...toSorted(doneFeatures.featureRequests || []).slice(0, 5)]);
     } catch (e) {
       setBugReports([]);
       setFeatureRequests([]);
@@ -58,11 +55,13 @@ export default function Feedback({ defaultType = 'bug' as FeedbackType }) {
       });
       if (resp.ok) {
         setSubject(''); setBody(''); setPriority('medium'); setType(activeTab);
-        alert('Thanks! Your submission has been received.');
+        setSubmitInfo({ ok: true, msg: 'Submitted' });
+        setTimeout(() => setSubmitInfo(null), 3000);
         loadActive();
       } else {
         const err = await resp.json().catch(() => ({}));
-        alert(err.error || 'Failed to submit');
+        setSubmitInfo({ ok: false, msg: err.error || 'Failed to submit' });
+        setTimeout(() => setSubmitInfo(null), 4000);
       }
     } finally {
       setLoading(false);
@@ -90,24 +89,29 @@ export default function Feedback({ defaultType = 'bug' as FeedbackType }) {
 
   return (
     <div className="w-full grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="lg:col-span-4">
+        <h2 className="text-2xl font-bold mb-2" style={{ color: '#5D5F62' }}>Feedback</h2>
+        <div className="border-b border-gray-200 mb-4">
+          <nav className="-mb-px flex space-x-8">
+            <button
+              onClick={() => { setActiveTab('bug'); setType('bug'); }}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'bug' ? 'text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+              style={activeTab === 'bug' ? { borderBottomColor: '#D14A2D' } : {}}
+            >
+              <span className="inline-flex items-center gap-2"><ExclamationTriangleIcon className="w-4 h-4" /> Bug Report</span>
+            </button>
+            <button
+              onClick={() => { setActiveTab('feature'); setType('feature'); }}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'feature' ? 'text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+              style={activeTab === 'feature' ? { borderBottomColor: '#D14A2D' } : {}}
+            >
+              <span className="inline-flex items-center gap-2"><LightBulbIcon className="w-4 h-4" /> Feature Request</span>
+            </button>
+          </nav>
+        </div>
+      </div>
       <div className="lg:col-span-3">
         <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <div className="mb-4 flex items-center gap-2">
-            <button
-              className={`px-3 py-1 text-sm rounded ${activeTab === 'bug' ? 'text-white' : 'border border-gray-300'}`}
-              style={activeTab === 'bug' ? { backgroundColor: '#D14A2D' } : {}}
-              onClick={() => { setActiveTab('bug'); setType('bug'); }}
-            >
-              Bug Report
-            </button>
-            <button
-              className={`px-3 py-1 text-sm rounded ${activeTab === 'feature' ? 'text-white' : 'border border-gray-300'}`}
-              style={activeTab === 'feature' ? { backgroundColor: '#D14A2D' } : {}}
-              onClick={() => { setActiveTab('feature'); setType('feature'); }}
-            >
-              Feature Request
-            </button>
-          </div>
           <form className="space-y-4" onSubmit={submit}>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
@@ -134,7 +138,10 @@ export default function Feedback({ defaultType = 'bug' as FeedbackType }) {
               <label className="block text-sm font-medium text-gray-700 mb-1">Details</label>
               <textarea className="w-full border rounded px-3 py-2 min-h-[120px]" value={body} onChange={e => setBody(e.target.value)} required />
             </div>
-            <div className="text-right">
+            <div className="flex items-center justify-end gap-3">
+              {submitInfo && (
+                <span className={`text-xs ${submitInfo.ok ? 'text-green-600' : 'text-red-600'}`}>{submitInfo.msg}</span>
+              )}
               <button type="submit" disabled={loading} className="px-4 py-2 text-white rounded disabled:opacity-50" style={{ backgroundColor: '#D14A2D' }}>
                 {loading ? 'Submitting...' : 'Submit'}
               </button>
@@ -144,12 +151,10 @@ export default function Feedback({ defaultType = 'bug' as FeedbackType }) {
       </div>
       <div className="lg:col-span-1">
         <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <h3 className="text-sm font-semibold text-gray-900 mb-3">Active Items</h3>
-          <List title="Bug Reports (Reviewing/Done)" items={bugReports} />
-          <List title="Feature Requests (Reviewing/Done)" items={featureRequests} />
+          <List title="Bug Reports (Pending/Done)" items={bugReports} />
+          <List title="Feature Requests (Pending/Done)" items={featureRequests} />
         </div>
       </div>
     </div>
   );
 }
-
