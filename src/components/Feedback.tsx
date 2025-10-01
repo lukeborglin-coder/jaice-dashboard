@@ -113,7 +113,8 @@ export default function Feedback({ defaultType = 'bug' as FeedbackType }) {
           </nav>
         </div>
       </div>
-      <div className="lg:col-span-3">
+      {/* Main form takes half (2/4) */}
+      <div className="lg:col-span-2">
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <form className="space-y-4" onSubmit={submit}>
             <div>
@@ -152,14 +153,34 @@ export default function Feedback({ defaultType = 'bug' as FeedbackType }) {
           </form>
         </div>
       </div>
-      <div className="lg:col-span-1">
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <List title="Bug Reports – In Progress" items={bugWorking} />
-          <List title="Bug Reports – Completed" items={bugDone} />
-          <List title="Feature Requests – In Progress" items={featWorking} />
-          <List title="Feature Requests – Completed" items={featDone} />
-        </div>
-      </div>
+      {/* Right two boxes each 1/4 width */}
+      {activeTab === 'feature' ? (
+        <>
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-lg border border-gray-200 p-4">
+              <List title="Feature Requests: In Progress" items={featWorking} />
+            </div>
+          </div>
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-lg border border-gray-200 p-4">
+              <List title="Feature Requests: Completed" items={featDone} />
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-lg border border-gray-200 p-4">
+              <List title="Bug Reports: In Progress" items={bugWorking} />
+            </div>
+          </div>
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-lg border border-gray-200 p-4">
+              <List title="Bug Reports: Completed" items={bugDone} />
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
