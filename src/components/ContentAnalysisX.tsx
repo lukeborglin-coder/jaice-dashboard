@@ -1,5 +1,6 @@
 ﻿import { API_BASE_URL } from '../config';
 import React, { useEffect, useMemo, useState } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import { CloudArrowUpIcon, TrashIcon, CalendarIcon, UserGroupIcon, UserIcon, BookOpenIcon, BeakerIcon, LightBulbIcon, ChartBarIcon, TrophyIcon, ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline';
 
 interface ContentAnalysisXProps {
@@ -8,7 +9,8 @@ interface ContentAnalysisXProps {
 }
 
 export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProps) {
-  const [showMyProjectsOnly, setShowMyProjectsOnly] = useState(false);
+  const { user } = useAuth();
+  const [showMyProjectsOnly, setShowMyProjectsOnly] = useState(true);
   const [savedAnalyses, setSavedAnalyses] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState<'home' | 'viewer'>('home');
@@ -294,12 +296,22 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
   );
 
   const filtered = useMemo(() => {
-    if (showMyProjectsOnly) {
-      // If team membership is not available, show all with projects for now
-      return withProjectOnly;
-    }
-    return withProjectOnly;
-  }, [showMyProjectsOnly, withProjectOnly]);
+    if (!showMyProjectsOnly) return withProjectOnly;
+    const uid = user?.id;
+    const uemail = (user as any)?.email?.toLowerCase?.();
+    const uname = (user as any)?.name?.toLowerCase?.();
+    return withProjectOnly.filter((a: any) => {
+      const p = projects.find((p: any) => p.id === a.projectId);
+      if (!p) return false;
+      const createdByMe = (p as any).createdBy && (p as any).createdBy === uid;
+      const inTeam = (p.teamMembers || []).some((m: any) =>
+        m?.id === uid ||
+        (m?.email && uemail && String(m.email).toLowerCase() === uemail) ||
+        (m?.name && uname && String(m.name).toLowerCase() === uname)
+      );
+      return createdByMe || inTeam;
+    });
+  }, [showMyProjectsOnly, withProjectOnly, projects, user?.id]);
 
   const getRespondentCount = (analysis: any) => {
     if (!analysis.data || !analysis.data.Demographics) return 0;

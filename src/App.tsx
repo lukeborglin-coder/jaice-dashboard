@@ -5523,7 +5523,7 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
   const [showAddTeamMember, setShowAddTeamMember] = useState(false);
   const [localTeamMembers, setLocalTeamMembers] = useState<Array<{ id: string; name: string; role: string; email?: string }>>([]);
   const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
-  const [showMyProjectsOnly, setShowMyProjectsOnly] = useState(false);
+  const [showMyProjectsOnly, setShowMyProjectsOnly] = useState(true);
 
   // Load archived projects
   const loadArchivedProjects = async () => {
