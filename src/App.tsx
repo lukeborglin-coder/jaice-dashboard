@@ -2887,6 +2887,7 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
   const [moderatorDateRange, setModeratorDateRange] = useState('');
   const [projectTimelineDateRange, setProjectTimelineDateRange] = useState('');
   const [vendorsData, setVendorsData] = useState<any>(null);
+  const [sampleTooltip, setSampleTooltip] = useState<{ visible: boolean; x: number; y: number; items: string[] } | null>(null);
 
   // Fetch all projects across all users
   const loadAllProjects = useCallback(async () => {
@@ -3335,18 +3336,19 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
                             const subgroupText = match ? match[2] : '';
                             const subgroups = subgroupText ? subgroupText.split(',').map(s => s.trim()) : [];
                             return (
-                              <div className="relative group inline-block">
+                              <div
+                                className="inline-block"
+                                onMouseEnter={(e) => {
+                                  if (subgroups.length === 0) return;
+                                  setSampleTooltip({ visible: true, x: e.clientX + 12, y: e.clientY - 12, items: subgroups });
+                                }}
+                                onMouseMove={(e) => {
+                                  if (!subgroups.length) return;
+                                  setSampleTooltip({ visible: true, x: e.clientX + 12, y: e.clientY - 12, items: subgroups });
+                                }}
+                                onMouseLeave={() => setSampleTooltip(null)}
+                              >
                                 <div className="text-sm text-gray-700 font-medium">{totalText}</div>
-                                {subgroups.length > 0 && (
-                                  <div className="absolute left-0 mt-1 hidden group-hover:block z-50 bg-white border border-gray-200 shadow-lg rounded-md p-2 w-56">
-                                    <div className="text-xs font-semibold text-gray-600 mb-1">Sub-groups</div>
-                                    <ul className="list-disc list-inside space-y-0.5 text-xs text-gray-700">
-                                      {subgroups.map((sg, idx) => (
-                                        <li key={idx}>{sg}</li>
-                                      ))}
-                                    </ul>
-                                  </div>
-                                )}
                               </div>
                             );
                           })()}
@@ -3362,6 +3364,20 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
               </tbody>
             </table>
           </div>
+          {sampleTooltip && sampleTooltip.visible && createPortal(
+            <div
+              style={{ position: 'fixed', left: sampleTooltip.x, top: Math.max(8, sampleTooltip.y - 8), zIndex: 99999 }}
+              className="bg-white border border-gray-200 shadow-lg rounded-md p-2 w-56"
+            >
+              <div className="text-xs font-semibold text-gray-600 mb-1">Sub-groups</div>
+              <ul className="list-disc list-inside space-y-0.5 text-xs text-gray-700">
+                {sampleTooltip.items.map((sg, idx) => (
+                  <li key={idx}>{sg}</li>
+                ))}
+              </ul>
+            </div>,
+            document.body
+          )}
           
           {/* Show More/Less Button */}
           {filteredProjects.length > 5 && (
