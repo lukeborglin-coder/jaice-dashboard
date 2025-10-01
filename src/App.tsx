@@ -3326,16 +3326,30 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
                           <div>{project.methodology}</div>
                         </td>
                         <td className="px-2 py-3 text-sm text-gray-500 max-w-[150px]">
-                          <div className="flex flex-col">
-                            {typeof sampleDetails === 'string' && sampleDetails.includes('(') ? (
-                              <>
-                                <div className="text-sm text-gray-500">{sampleDetails.split('(')[0].trim()}</div>
-                                <div className="text-xs italic text-gray-500" style={{ marginTop: '1px' }}>{sampleDetails.substring(sampleDetails.indexOf('('))}</div>
-                              </>
-                            ) : (
-                              <div className="text-sm text-gray-500">{sampleDetails}</div>
-                            )}
-                          </div>
+                          {(() => {
+                            if (!sampleDetails || sampleDetails === 'TBD') {
+                              return <div className="text-sm text-gray-500">TBD</div>;
+                            }
+                            const match = String(sampleDetails).match(/^(.+?)\s*\((.+?)\)$/);
+                            const totalText = match ? match[1].trim() : String(sampleDetails);
+                            const subgroupText = match ? match[2] : '';
+                            const subgroups = subgroupText ? subgroupText.split(',').map(s => s.trim()) : [];
+                            return (
+                              <div className="relative group inline-block">
+                                <div className="text-sm text-gray-700 font-medium">{totalText}</div>
+                                {subgroups.length > 0 && (
+                                  <div className="absolute left-0 mt-1 hidden group-hover:block z-50 bg-white border border-gray-200 shadow-lg rounded-md p-2 w-56">
+                                    <div className="text-xs font-semibold text-gray-600 mb-1">Sub-groups</div>
+                                    <ul className="list-disc list-inside space-y-0.5 text-xs text-gray-700">
+                                      {subgroups.map((sg, idx) => (
+                                        <li key={idx}>{sg}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </td>
                         <td className="px-2 py-3 text-sm text-gray-500 max-w-[120px]">
                           <div className="truncate">{moderator}</div>
