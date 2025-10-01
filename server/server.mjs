@@ -8,6 +8,7 @@ import contentAnalysisXRouter from './routes/contentAnalysisX.routes.mjs';
 import authRouter from './routes/auth.routes.mjs';
 import projectsRouter from './routes/projects.routes.mjs';
 import vendorsRouter from './routes/vendors.routes.mjs';
+import feedbackRouter from './routes/feedback.routes.mjs';
 
 // Load environment variables
 config();
@@ -37,6 +38,7 @@ app.use('/api/projects', projectsRouter);
 app.use('/api/vendors', vendorsRouter);
 app.use('/api/ca', contentAnalysisRouter);
 app.use('/api/caX', contentAnalysisXRouter);
+app.use('/api/feedback', feedbackRouter);
 
 // Health check
 app.get('/health', (req, res) => {

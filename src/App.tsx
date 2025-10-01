@@ -51,6 +51,7 @@ import {
 import ContentAnalysisX from "./components/ContentAnalysisX";
 import AuthWrapper from "./components/AuthWrapper";
 import TopBar from "./components/TopBar";
+import Feedback from "./components/Feedback";
 import ProjectSetupWizard from "./components/ProjectSetupWizard";
 import UserSearch from "./components/UserSearch";
 import CalendarPicker from "./components/CalendarPicker";
@@ -2605,6 +2606,11 @@ export default function App() {
 
   // Load projects when user logs in
   useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const r = params.get('route');
+      if (r) setRoute(r);
+    } catch {}
     loadProjects();
     loadSavedContentAnalyses();
   }, [loadProjects, loadSavedContentAnalyses]);
@@ -2829,12 +2835,21 @@ export default function App() {
                 <div className="text-xs text-gray-500 truncate">
                   {user?.email || 'user@example.com'}
                 </div>
+                <div className="text-xs text-gray-600 space-x-3 mt-1">
+                  <a href="?route=Feedback&type=bug" target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-800">Report bug</a>
+                  <a href="?route=Feedback&type=feature" target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-800">Feature request</a>
+                </div>
                 <div 
                   className="text-xs text-red-600 cursor-pointer hover:text-red-700 transition mt-1"
                   onClick={logout}
                 >
                   Sign out
                 </div>
+              </div>
+            )}
+            {!sidebarOpen && (
+              <div className="text-xs text-gray-600">
+                <a href="?route=Feedback&type=bug" target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-800">Report</a>
               </div>
             )}
           </div>
@@ -2861,6 +2876,7 @@ export default function App() {
             ) : (
               <>
                 {route === "Home" && <Dashboard projects={projects} loading={loadingProjects} onProjectCreated={handleProjectCreated} onNavigateToProject={handleProjectView} />}
+                {route === "Feedback" && <Feedback defaultType={(new URLSearchParams(window.location.search).get('type') as any) || 'bug'} />}
                 {route === "Project Hub" && <ProjectHub projects={projects} onProjectCreated={handleProjectCreated} onArchive={handleArchiveProject} setProjects={setProjects} savedContentAnalyses={savedContentAnalyses} setRoute={setRoute} initialProject={projectToNavigate} />}
               </>
             )}
