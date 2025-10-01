@@ -1,4 +1,4 @@
-ï»¿import { API_BASE_URL } from '../config';
+import { API_BASE_URL } from '../config';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { CloudArrowUpIcon, TrashIcon, CalendarIcon, UserGroupIcon, UserIcon, BookOpenIcon, BeakerIcon, LightBulbIcon, ChartBarIcon, TrophyIcon, ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline';
@@ -622,7 +622,7 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
             </div>
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-xs text-gray-500">{getProjectName(currentAnalysis)} â€¢ Saved {currentAnalysis.savedDate || new Date(currentAnalysis.savedAt).toLocaleDateString()}</div>
+                <div className="text-xs text-gray-500">{getProjectName(currentAnalysis)} • Saved {currentAnalysis.savedDate || new Date(currentAnalysis.savedAt).toLocaleDateString()}</div>
                 <div className="text-xs text-gray-500 mt-0.5">Current Tab/Section: <span className="font-medium capitalize">{activeSheet.toLowerCase()}</span></div>
               </div>
               <div className="flex items-center gap-2">
@@ -1034,7 +1034,7 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
                                !keyLower.includes('time');
                       })
                       .map(([key, value]) => `${key}: ${value}`)
-                      .join(' â€¢ ');
+                      .join(' • ');
 
                     return demographics || null;
                   })()}
@@ -1052,5 +1052,6 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
     </div>
   );
 }
+
 
 
