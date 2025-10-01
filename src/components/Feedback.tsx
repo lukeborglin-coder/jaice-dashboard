@@ -115,7 +115,7 @@ export default function Feedback({ defaultType = 'bug' as FeedbackType }) {
       </div>
       {/* Main form takes half (2/4) */}
       <div className="lg:col-span-2">
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="bg-white rounded-lg border border-gray-200 p-6 h-full flex flex-col">
           <form className="space-y-4" onSubmit={submit}>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
@@ -157,12 +157,14 @@ export default function Feedback({ defaultType = 'bug' as FeedbackType }) {
       {activeTab === 'feature' ? (
         <>
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <div className="relative bg-white rounded-lg border border-gray-200 p-4 h-full">
+              <div className="absolute top-2 right-2 w-2 h-2 rounded-full" style={{ backgroundColor: '#FACC15' }}></div>
               <List title="Feature Requests: In Progress" items={featWorking} />
             </div>
           </div>
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <div className="relative bg-white rounded-lg border border-gray-200 p-4 h-full">
+              <div className="absolute top-2 right-2 w-2 h-2 rounded-full" style={{ backgroundColor: '#10B981' }}></div>
               <List title="Feature Requests: Completed" items={featDone} />
             </div>
           </div>
@@ -170,12 +172,14 @@ export default function Feedback({ defaultType = 'bug' as FeedbackType }) {
       ) : (
         <>
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <div className="relative bg-white rounded-lg border border-gray-200 p-4 h-full">
+              <div className="absolute top-2 right-2 w-2 h-2 rounded-full" style={{ backgroundColor: '#FACC15' }}></div>
               <List title="Bug Reports: In Progress" items={bugWorking} />
             </div>
           </div>
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <div className="relative bg-white rounded-lg border border-gray-200 p-4 h-full">
+              <div className="absolute top-2 right-2 w-2 h-2 rounded-full" style={{ backgroundColor: '#10B981' }}></div>
               <List title="Bug Reports: Completed" items={bugDone} />
             </div>
           </div>

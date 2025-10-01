@@ -2927,7 +2927,7 @@ export default function App() {
             )}
             {route === "Vendor Library" && <VendorLibrary projects={projects} />}
             {route === "Admin Center" && <AdminCenter />}
-            {route !== "Home" && route !== "Project Hub" && route !== "Content Analysis" && route !== "Vendor Library" && route !== "Admin Center" && <Placeholder name={route} />}
+            {route !== "Home" && route !== "Project Hub" && route !== "Content Analysis" && route !== "Vendor Library" && route !== "Admin Center" && route !== "Feedback" && <Placeholder name={route} />}
           </div>
         </main>
       )}
