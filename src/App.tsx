@@ -3332,7 +3332,16 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
                               return <div className="text-sm text-gray-500">TBD</div>;
                             }
                             const match = String(sampleDetails).match(/^(.+?)\s*\((.+?)\)$/);
-                            const totalText = match ? match[1].trim() : String(sampleDetails);
+                            const baseTotal = match ? match[1].trim() : String(sampleDetails);
+                            // Normalize to display as n=XX
+                            let displayTotal = baseTotal;
+                            const nMatch = baseTotal.match(/n\s*=\s*(\d+)/i);
+                            if (nMatch) {
+                              displayTotal = `n=${nMatch[1]}`;
+                            } else {
+                              const numMatch = baseTotal.replace(/total\s*:/i, '').match(/(\d+)/);
+                              displayTotal = numMatch ? `n=${numMatch[1]}` : baseTotal;
+                            }
                             const subgroupText = match ? match[2] : '';
                             const subgroups = subgroupText ? subgroupText.split(',').map(s => s.trim()) : [];
                             return (
@@ -3348,7 +3357,7 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
                                 }}
                                 onMouseLeave={() => setSampleTooltip(null)}
                               >
-                                <div className="text-sm text-gray-700 font-medium">{totalText}</div>
+                                <div className="text-sm text-gray-700">{displayTotal}</div>
                               </div>
                             );
                           })()}
