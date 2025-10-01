@@ -3180,21 +3180,24 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
   // Filter projects based on user membership (by id, email, or name, or creator)
   const filteredProjects = useMemo(() => {
     if (showMyProjectsOnly) {
-      const uid = user?.id;
-      const uemail = (user as any)?.email?.toLowerCase?.();
-      const uname = (user as any)?.name?.toLowerCase?.();
+      if (!user) return allProjects; // fallback to avoid empty view when user not resolved
+      const uid = String((user as any)?.id || '').toLowerCase();
+      const uemail = String((user as any)?.email || '').toLowerCase();
+      const uname = String((user as any)?.name || '').toLowerCase();
       return allProjects.filter(project => {
-        const createdByMe = (project as any).createdBy && (project as any).createdBy === uid;
-        const inTeam = (project.teamMembers || []).some((member: any) =>
-          member?.id === uid ||
-          (member?.email && uemail && String(member.email).toLowerCase() === uemail) ||
-          (member?.name && uname && String(member.name).toLowerCase() === uname)
-        );
+        const createdBy = String((project as any).createdBy || '').toLowerCase();
+        const createdByMe = createdBy && (createdBy === uid || createdBy === uemail);
+        const inTeam = (project.teamMembers || []).some((member: any) => {
+          const mid = String(member?.id || '').toLowerCase();
+          const memail = String(member?.email || '').toLowerCase();
+          const mname = String(member?.name || '').toLowerCase();
+          return (uid && mid === uid) || (uemail && memail === uemail) || (uname && mname === uname);
+        });
         return createdByMe || inTeam;
       });
     }
     return allProjects;
-  }, [allProjects, showMyProjectsOnly, user?.id]);
+  }, [allProjects, showMyProjectsOnly, user]);
 
   // Sort projects by final report delivery date (closest first)
   const sortedProjects = useMemo(() => {
@@ -5735,16 +5738,24 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
     
     // Apply "My Projects Only" filter if enabled (by id/email/name or creator)
     if (showMyProjectsOnly) {
-      const uid = user?.id;
-      const uemail = (user as any)?.email?.toLowerCase?.();
-      const uname = (user as any)?.name?.toLowerCase?.();
+      // If user is not available, fall back to showing all to avoid empty state
+      if (!user) return tabProjects;
+
+      const uid = String((user as any)?.id || '').toLowerCase();
+      const uemail = String((user as any)?.email || '').toLowerCase();
+      const uname = String((user as any)?.name || '').toLowerCase();
+
       return tabProjects.filter(project => {
-        const createdByMe = (project as any).createdBy && (project as any).createdBy === uid;
-        const inTeam = (project.teamMembers || []).some((member: any) =>
-          member?.id === uid ||
-          (member?.email && uemail && String(member.email).toLowerCase() === uemail) ||
-          (member?.name && uname && String(member.name).toLowerCase() === uname)
-        );
+        const createdBy = String((project as any).createdBy || '').toLowerCase();
+        const createdByMe = createdBy && (createdBy === uid || createdBy === uemail);
+
+        const inTeam = (project.teamMembers || []).some((member: any) => {
+          const mid = String(member?.id || '').toLowerCase();
+          const memail = String(member?.email || '').toLowerCase();
+          const mname = String(member?.name || '').toLowerCase();
+          return (uid && mid === uid) || (uemail && memail === uemail) || (uname && mname === uname);
+        });
+
         return createdByMe || inTeam;
       });
     }
@@ -11493,6 +11504,7 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
     </div>
   );
 }
+
 
 
 
