@@ -6428,7 +6428,7 @@ function ProjectForm({
         ...prev,
         tasks: [...prev.tasks, task]
       }));
-      setNewTask({ description: "", assignedTo: [], status: "pending" });
+      setNewTask({ description: "", assignedTo: [], status: "pending", dueDate: "" });
       setShowNewTask(false);
     }
   };
@@ -7080,7 +7080,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
   const currentPhase = getCurrentPhase(project);
   const phaseColor = PHASE_COLORS[currentPhase] || PHASE_COLORS['Kickoff'];
   const [showAddTask, setShowAddTask] = useState(false);
-  const [newTask, setNewTask] = useState({ description: "", assignedTo: [] as string[], status: "pending" as Task['status'] });
+  const [newTask, setNewTask] = useState({ description: "", assignedTo: [] as string[], status: "pending" as Task['status'], dueDate: "" });
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [showFullCalendar, setShowFullCalendar] = useState(true);
   const [editingTimeline, setEditingTimeline] = useState(false);
@@ -7489,10 +7489,10 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
         assignedTo: newTask.assignedTo.length > 0 ? newTask.assignedTo : undefined,
         status: newTask.status,
         phase: activePhase,
-        dueDate: null
+        dueDate: newTask.dueDate && newTask.dueDate.trim() ? newTask.dueDate : null
       };
       setProjectTasks(prevTasks => [...prevTasks, task]);
-      setNewTask({ description: "", assignedTo: [], status: "pending" });
+      setNewTask({ description: "", assignedTo: [], status: "pending", dueDate: "" });
       setShowAddTask(false);
     }
   };
@@ -9419,7 +9419,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                               className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-medium"
                               style={{
                                 color: '#374151',
-                                backgroundColor: tasksForDate[0].phase ? ${PHASE_COLORS[tasksForDate[0].phase]}30 : '#9CA3AF30'
+                                backgroundColor: tasksForDate[0].phase ? (PHASE_COLORS[tasksForDate[0].phase] + '30') : '#9CA3AF30'
                               }}
                             >
                               {tasksForDate.length}
@@ -10561,7 +10561,7 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
   const currentPhase = getCurrentPhase(project);
   const phaseColor = PHASE_COLORS[currentPhase];
   const [showAddTask, setShowAddTask] = useState(false);
-  const [newTask, setNewTask] = useState({ description: "", assignedTo: [] as string[], status: "pending" as Task['status'] });
+  const [newTask, setNewTask] = useState({ description: "", assignedTo: [] as string[], status: "pending" as Task['status'], dueDate: "" });
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [editingTimeline, setEditingTimeline] = useState(false);
   const [editingSegments, setEditingSegments] = useState(project.segments || []);
@@ -10681,10 +10681,10 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
         assignedTo: newTask.assignedTo.length > 0 ? newTask.assignedTo : undefined,
         status: newTask.status,
         phase: activePhase,
-        dueDate: null
+        dueDate: newTask.dueDate && newTask.dueDate.trim() ? newTask.dueDate : null
       };
       setProjectTasks(prevTasks => [...prevTasks, task]);
-      setNewTask({ description: "", assignedTo: [], status: "pending" });
+      setNewTask({ description: "", assignedTo: [], status: "pending", dueDate: "" });
       setShowAddTask(false);
     }
   };
@@ -11459,7 +11459,7 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
                                   className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-medium"
                                   style={{
                                     color: '#374151',
-                                backgroundColor: tasksForDate[0].phase ? ${PHASE_COLORS[tasksForDate[0].phase]}30 : '#9CA3AF30'
+                                backgroundColor: tasksForDate[0].phase ? (PHASE_COLORS[tasksForDate[0].phase] + '30') : '#9CA3AF30'
                                   }}
                                 >
                                   {tasksForDate.length}
@@ -11506,6 +11506,7 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
     </div>
   );
 }
+
 
 
 
