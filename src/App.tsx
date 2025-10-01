@@ -1641,11 +1641,9 @@ function AdminCenter() {
           <button
             onClick={() => setShowCreateUser(true)}
             className="flex items-center gap-2 px-4 py-2 text-white rounded-lg transition-colors"
-            style={{ 
-              backgroundColor: '#F37021',
-            }}
-            onMouseEnter={(e) => (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#E55A1A'}
-            onMouseLeave={(e) => (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#F37021'}
+            style={{ backgroundColor: '#D14A2D' }}
+            onMouseEnter={(e) => (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#B74227'}
+            onMouseLeave={(e) => (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#D14A2D'}
           >
             <UserPlusIcon className="h-5 w-5" />
             Create User
@@ -1660,10 +1658,10 @@ function AdminCenter() {
             onClick={() => setActiveTab('users')}
             className={`py-2 px-1 border-b-2 font-medium text-sm ${
               activeTab === 'users'
-                ? 'text-orange-600'
+                ? 'text-gray-900'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
-            style={activeTab === 'users' ? { borderBottomColor: '#F37021' } : {}}
+            style={activeTab === 'users' ? { borderBottomColor: '#D14A2D', color: '#D14A2D' } : {}}
           >
             <div className="flex items-center gap-2">
               <UserGroupIcon className="w-5 h-5" />
@@ -1674,28 +1672,28 @@ function AdminCenter() {
             onClick={() => setActiveTab('feature-requests')}
             className={`py-2 px-1 border-b-2 font-medium text-sm ${
               activeTab === 'feature-requests'
-                ? 'text-orange-600'
+                ? 'text-gray-900'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
-            style={activeTab === 'feature-requests' ? { borderBottomColor: '#F37021' } : {}}
+            style={activeTab === 'feature-requests' ? { borderBottomColor: '#D14A2D', color: '#D14A2D' } : {}}
           >
             <div className="flex items-center gap-2">
               <LightBulbIcon className="w-5 h-5" />
-              Feature Requests
+              Feature Requests #{featureRequests.filter((r:any) => r.status === 'pending review').length}
             </div>
           </button>
           <button
             onClick={() => setActiveTab('bug-reports')}
             className={`py-2 px-1 border-b-2 font-medium text-sm ${
               activeTab === 'bug-reports'
-                ? 'text-orange-600'
+                ? 'text-gray-900'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
-            style={activeTab === 'bug-reports' ? { borderBottomColor: '#F37021' } : {}}
+            style={activeTab === 'bug-reports' ? { borderBottomColor: '#D14A2D', color: '#D14A2D' } : {}}
           >
             <div className="flex items-center gap-2">
               <ExclamationTriangleIcon className="w-5 h-5" />
-              Bug Reports
+              Bug Reports #{bugReports.filter((r:any) => r.status === 'pending review').length}
             </div>
           </button>
         </nav>
@@ -1715,7 +1713,7 @@ function AdminCenter() {
                   value={newUser.name}
                   onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:border-gray-300"
-                  style={{ '--tw-ring-color': '#F37021' } as React.CSSProperties}
+                  style={{ '--tw-ring-color': '#D14A2D' } as React.CSSProperties}
                 />
               </div>
               <div>
@@ -1726,7 +1724,7 @@ function AdminCenter() {
                   value={newUser.email}
                   onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:border-gray-300"
-                  style={{ '--tw-ring-color': '#F37021' } as React.CSSProperties}
+                  style={{ '--tw-ring-color': '#D14A2D' } as React.CSSProperties}
                 />
               </div>
               <div>
@@ -1737,7 +1735,7 @@ function AdminCenter() {
                   value={newUser.password}
                   onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:border-gray-300"
-                  style={{ '--tw-ring-color': '#F37021' } as React.CSSProperties}
+                  style={{ '--tw-ring-color': '#D14A2D' } as React.CSSProperties}
                 />
               </div>
               <div>
@@ -1746,7 +1744,7 @@ function AdminCenter() {
                   value={newUser.role}
                   onChange={(e) => setNewUser({ ...newUser, role: e.target.value as 'user' | 'admin' })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:border-gray-300"
-                  style={{ '--tw-ring-color': '#F37021' } as React.CSSProperties}
+                  style={{ '--tw-ring-color': '#D14A2D' } as React.CSSProperties}
                 >
                   <option value="user">User</option>
                   <option value="admin">Admin</option>
@@ -1758,7 +1756,7 @@ function AdminCenter() {
                   value={newUser.company}
                   onChange={(e) => setNewUser({ ...newUser, company: e.target.value as 'None' | 'Cognitive' })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:border-gray-300"
-                  style={{ '--tw-ring-color': '#F37021' } as React.CSSProperties}
+                  style={{ '--tw-ring-color': '#D14A2D' } as React.CSSProperties}
                 >
                   <option value="None">None</option>
                   <option value="Cognitive">Cognitive</option>
@@ -1769,10 +1767,10 @@ function AdminCenter() {
                   type="submit"
                   className="flex-1 px-4 py-2 text-white rounded-lg transition-colors"
                   style={{ 
-                    backgroundColor: '#F37021',
+                    backgroundColor: '#D14A2D',
                   }}
-                  onMouseEnter={(e) => (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#E55A1A'}
-                  onMouseLeave={(e) => (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#F37021'}
+                  onMouseEnter={(e) => (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#B74227'}
+                  onMouseLeave={(e) => (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#D14A2D'}
                 >
                   Create User
                 </button>
@@ -1827,7 +1825,7 @@ function AdminCenter() {
                             onChange={(e) => setNewPassword(e.target.value)}
                             placeholder="New password"
                             className="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:border-gray-300 w-32"
-                            style={{ '--tw-ring-color': '#F37021' } as React.CSSProperties}
+                            style={{ '--tw-ring-color': '#D14A2D' } as React.CSSProperties}
                           />
                           <button
                             onClick={() => handleChangePassword(user.id)}
@@ -1871,7 +1869,7 @@ function AdminCenter() {
                         value={user.role}
                         onChange={(e) => handleUpdateRole(user.id, e.target.value as 'user' | 'admin')}
                         className="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:border-gray-300"
-                        style={{ '--tw-ring-color': '#F37021' } as React.CSSProperties}
+                        style={{ '--tw-ring-color': '#D14A2D' } as React.CSSProperties}
                       >
                         <option value="user">User</option>
                         <option value="admin">Admin</option>
@@ -1882,7 +1880,7 @@ function AdminCenter() {
                         value={(user as any).company || 'None'}
                         onChange={(e) => handleUpdateCompany(user.id, e.target.value as 'None' | 'Cognitive')}
                         className="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:border-gray-300"
-                        style={{ '--tw-ring-color': '#F37021' } as React.CSSProperties}
+                        style={{ '--tw-ring-color': '#D14A2D' } as React.CSSProperties}
                       >
                         <option value="None">None</option>
                         <option value="Cognitive">Cognitive</option>
