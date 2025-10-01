@@ -15,7 +15,8 @@ let users = [];
 let nextUserId = 1;
 
 // Load users from file if it exists
-const usersFile = join(__dirname, '../data/users.json');
+const dataDir = process.env.DATA_DIR || join(__dirname, '../data');
+const usersFile = join(dataDir, 'users.json');
 try {
   if (fs.existsSync(usersFile)) {
     const data = fs.readFileSync(usersFile, 'utf8');
@@ -47,7 +48,6 @@ try {
 // Save users to file
 const saveUsers = () => {
   try {
-    const dataDir = join(__dirname, '../data');
     if (!fs.existsSync(dataDir)) {
       fs.mkdirSync(dataDir, { recursive: true });
     }
@@ -465,7 +465,7 @@ router.delete('/users/:id', authenticateToken, async (req, res) => {
 });
 
 // TEMPORARY VENDOR ROUTES (until server restart)
-const vendorsFile = join(__dirname, '../data/vendors.json');
+const vendorsFile = join(dataDir, 'vendors.json');
 
 // Ensure vendors data file exists
 const ensureVendorsFile = () => {

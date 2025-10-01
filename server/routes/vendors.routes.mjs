@@ -1,5 +1,6 @@
 import express from 'express';
 import fs from 'fs/promises';
+import fsSync from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { authenticateToken, requireCognitiveOrAdmin } from '../middleware/auth.middleware.mjs';
@@ -10,11 +11,14 @@ const router = express.Router();
 // Enforce authenticated + company access on all vendor routes
 router.use(authenticateToken, requireCognitiveOrAdmin);
 
-const VENDORS_FILE = path.join(__dirname, '../data/vendors.json');
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '../data');
+const VENDORS_FILE = path.join(DATA_DIR, 'vendors.json');
 
 // Ensure vendors data file exists
 async function ensureVendorsFile() {
   try {
+    // Ensure data dir exists
+    if (!fsSync.existsSync(DATA_DIR)) fsSync.mkdirSync(DATA_DIR, { recursive: true });
     await fs.access(VENDORS_FILE);
   } catch (error) {
     // File doesn't exist, create it with initial structure

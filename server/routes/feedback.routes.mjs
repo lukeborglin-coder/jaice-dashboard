@@ -10,7 +10,8 @@ const __dirname = path.dirname(__filename);
 
 const router = express.Router();
 
-const feedbackFile = path.join(__dirname, '../data/feedback.json');
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '../data');
+const feedbackFile = path.join(DATA_DIR, 'feedback.json');
 
 const ensureFeedbackFile = () => {
   const dir = path.dirname(feedbackFile);
@@ -138,4 +139,3 @@ router.put('/:id', authenticateToken, (req, res) => {
 });
 
 export default router;
-

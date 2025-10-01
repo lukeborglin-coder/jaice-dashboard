@@ -12,10 +12,21 @@ const router = express.Router();
 // Enforce authenticated + company access on all project routes
 router.use(authenticateToken, requireCognitiveOrAdmin);
 
+// Resolve data dir (supports persistent disk via DATA_DIR)
+const dataDir = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
+const ensureDataDir = () => {
+  try {
+    if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+  } catch (e) {
+    console.error('Failed to ensure data dir', e);
+  }
+};
+
 // Helper function to read projects data
 const readProjectsData = () => {
   try {
-    const dataPath = path.join(__dirname, '..', 'data', 'projects.json');
+    ensureDataDir();
+    const dataPath = path.join(dataDir, 'projects.json');
     if (fs.existsSync(dataPath)) {
       const data = fs.readFileSync(dataPath, 'utf8');
       return JSON.parse(data);
@@ -30,14 +41,8 @@ const readProjectsData = () => {
 // Helper function to write projects data
 const writeProjectsData = (data) => {
   try {
-    const dataPath = path.join(__dirname, '..', 'data', 'projects.json');
-    const dataDir = path.dirname(dataPath);
-    
-    // Ensure data directory exists
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true });
-    }
-    
+    ensureDataDir();
+    const dataPath = path.join(dataDir, 'projects.json');
     fs.writeFileSync(dataPath, JSON.stringify(data, null, 2));
     return true;
   } catch (error) {
