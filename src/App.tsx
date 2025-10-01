@@ -9416,9 +9416,10 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                         {hasTask && tasksForDate.length > 0 && (
                           <div className={`absolute top-1 left-1 z-10 ${isCurrentMonth ? 'opacity-100' : isPastDate ? 'opacity-60' : 'opacity-50'}`}>
                             <div
-                              className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-medium text-white"
+                              className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-medium"
                               style={{
-                                backgroundColor: tasksForDate[0].phase ? PHASE_COLORS[tasksForDate[0].phase] : '#6B7280'
+                                color: '#374151',
+                                backgroundColor: tasksForDate[0].phase ? ${PHASE_COLORS[tasksForDate[0].phase]}30 : '#9CA3AF30'
                               }}
                             >
                               {tasksForDate.length}
@@ -11418,7 +11419,7 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
                             } ${isPastDate ? 'opacity-50' : ''}`}
                             style={{
                               // Slightly darker orange for the current date than other highlighted dates
-                              backgroundColor: isTodayDate ? '#FDBA7466' : (isCurrentWeekDay ? '#FED7AA40' : (isCurrentMonth ? '#F3F4F6' : '#FFFFFF')),
+                              backgroundColor: isTodayDate ? '#FDBA74A6' : (isCurrentWeekDay ? '#FED7AA40' : (isCurrentMonth ? '#F3F4F6' : '#FFFFFF')),
                               border: isTodayDate ? '2px solid #F97316' : (!isCurrentMonth && !isCurrentWeekDay ? '1px solid #E5E7EB' : 'none')
                             }}
                             title={phaseForDay ? `${phaseForDay.phase} phase` : 'No project activity'}
@@ -11455,9 +11456,10 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
                             {hasTask && tasksForDate.length > 0 && (
                               <div className={`absolute top-1 left-1 z-10 ${isCurrentMonth ? 'opacity-100' : isPastDate ? 'opacity-60' : 'opacity-50'}`}>
                                 <div
-                                  className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-medium text-white"
+                                  className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-medium"
                                   style={{
-                                    backgroundColor: tasksForDate[0].phase ? PHASE_COLORS[tasksForDate[0].phase] : '#6B7280'
+                                    color: '#374151',
+                                backgroundColor: tasksForDate[0].phase ? ${PHASE_COLORS[tasksForDate[0].phase]}30 : '#9CA3AF30'
                                   }}
                                 >
                                   {tasksForDate.length}

@@ -59,15 +59,15 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 /* Subtle, transparent scrollbar for scrollable panes */
 .thin-scrollbar {
   scrollbar-width: thin;            /* Firefox */
-  scrollbar-color: rgba(0,0,0,0.2) transparent;
+  scrollbar-color: rgba(0,0,0,0.15) transparent;
 }
 .thin-scrollbar::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 .thin-scrollbar::-webkit-scrollbar-thumb {
-  background-color: rgba(0,0,0,0.2);
-  border-radius: 8px;
+  background-color: rgba(0,0,0,0.15);
+  border-radius: 10px;
 }
 .thin-scrollbar::-webkit-scrollbar-track {
   background: transparent;

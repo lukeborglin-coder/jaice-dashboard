@@ -852,7 +852,7 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
                           <td className="px-2 py-1 text-center border-b-0">
                             {hasRespondentId && (
                               <button
-                                onClick={() => handleDeleteRespondent(i)}
+                                onClick={() => { if (!confirm("Delete this respondent? This cannot be undone.")) return; handleDeleteRespondent(i); }}
                                 className="text-red-500 hover:text-red-700 hover:bg-red-50 rounded p-1 transition-colors"
                                 title="Delete respondent"
                               >
