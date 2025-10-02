@@ -207,7 +207,15 @@ router.put('/update', async (req, res) => {
 });
 
 // GET /api/caX/saved - Get saved content analyses
-
+router.get('/saved', async (req, res) => {
+  try {
+    const analyses = await loadSavedAnalyses();
+    res.json(analyses);
+  } catch (error) {
+    console.error('Error in saved endpoint:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // GET /api/caX/saved/:id - Get a single saved analysis by id (includes quotes)
 router.get('/saved/:id', async (req, res) => {
@@ -219,11 +227,6 @@ router.get('/saved/:id', async (req, res) => {
     res.json(item);
   } catch (error) {
     console.error('Error in saved/:id endpoint:', error);
-    res.status(500).json({ error: error.message });
-  }
-});\n    res.json(analyses);
-  } catch (error) {
-    console.error('Error in saved endpoint:', error);
     res.status(500).json({ error: error.message });
   }
 });
