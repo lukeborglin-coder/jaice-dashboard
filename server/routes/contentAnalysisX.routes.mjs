@@ -163,17 +163,14 @@ router.post('/upload', upload.single('file'), async (req, res) => {
 // POST /api/caX/update - Update existing saved content analysis by id
 router.post('/update', async (req, res) => {
   try {
-    const { id, data, name, description, quotes } = req.body;
+    const { id, data, name, description, quotes, projectId, projectName } = req.body;
     if (!id || !data) {
       return res.status(400).json({ error: 'id and data are required' });
     }
     const analyses = await loadSavedAnalyses();
     const idx = analyses.findIndex(a => a.id === id);
     if (idx === -1) return res.status(404).json({ error: 'Analysis not found' });
-    if (name) analyses[idx].name = name;
-    if (description) analyses[idx].description = description;
-    analyses[idx].data = data;
-    if (quotes) analyses[idx].quotes = quotes;
+    if (name) analyses[idx].name = name; if (description) analyses[idx].description = description; if (projectId) analyses[idx].projectId = projectId; if (projectName) analyses[idx].projectName = projectName; analyses[idx].data = data; if (quotes) analyses[idx].quotes = quotes;
     analyses[idx].savedAt = new Date().toISOString();
     await saveAnalysesToFile(analyses);
     res.json({ success: true });
@@ -186,17 +183,14 @@ router.post('/update', async (req, res) => {
 // PUT /api/caX/update - Alternative PUT method for updating content analysis
 router.put('/update', async (req, res) => {
   try {
-    const { id, data, name, description, quotes } = req.body;
+    const { id, data, name, description, quotes, projectId, projectName } = req.body;
     if (!id || !data) {
       return res.status(400).json({ error: 'id and data are required' });
     }
     const analyses = await loadSavedAnalyses();
     const idx = analyses.findIndex(a => a.id === id);
     if (idx === -1) return res.status(404).json({ error: 'Analysis not found' });
-    if (name) analyses[idx].name = name;
-    if (description) analyses[idx].description = description;
-    analyses[idx].data = data;
-    if (quotes) analyses[idx].quotes = quotes;
+    if (name) analyses[idx].name = name; if (description) analyses[idx].description = description; if (projectId) analyses[idx].projectId = projectId; if (projectName) analyses[idx].projectName = projectName; analyses[idx].data = data; if (quotes) analyses[idx].quotes = quotes;
     analyses[idx].savedAt = new Date().toISOString();
     await saveAnalysesToFile(analyses);
     res.json({ success: true });
