@@ -8742,6 +8742,46 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
 
               {/* Scrollable Task List (starts under headers) */}
               <div ref={taskContainerRef} className="flex-1 overflow-y-auto thin-scrollbar px-3 pt-2 pb-3">
+                {/* Add Task Form at top */}
+                {showAddTask && (
+                  <div className="mb-3 p-3 border rounded-lg bg-gray-50">
+                    <div className="space-y-2">
+                      <input
+                        type="text"
+                        value={newTask.description}
+                        onChange={(e) => setNewTask(prev => ({ ...prev, description: e.target.value }))}
+                        placeholder="Task description"
+                        className="w-full text-xs border rounded px-2 py-1 outline-none focus:ring-2 focus:ring-orange-200"
+                      />
+                      <div className="flex gap-2 flex-wrap items-center">
+                        <input
+                          type="date"
+                          value={(newTask as any).dueDate || ''}
+                          onChange={(e) => setNewTask(prev => ({ ...prev, dueDate: e.target.value as any }))}
+                          className="text-xs border rounded px-2 py-1 outline-none focus:ring-2 focus:ring-orange-200"
+                          title="Due date"
+                        />
+                        <select
+                          multiple
+                          value={newTask.assignedTo}
+                          onChange={(e) => {
+                            const selected = Array.from(e.target.selectedOptions, option => option.value);
+                            setNewTask(prev => ({ ...prev, assignedTo: selected }));
+                          }}
+                          className="text-xs border rounded px-2 py-1 outline-none focus:ring-2 focus:ring-orange-200"
+                          size={Math.min(project.teamMembers.length + 1, 4)}
+                        >
+                          <option value="" disabled>Select assignees...</option>
+                          {project.teamMembers.map(member => (
+                            <option key={member.id} value={member.id}>{member.name}</option>
+                          ))}
+                        </select>
+                        <button onClick={handleAddTask} className="px-2 py-1 text-xs bg-orange-500 text-white rounded hover:bg-orange-600">Add</button>
+                        <button onClick={() => setShowAddTask(false)} className="px-2 py-1 text-xs border rounded hover:bg-gray-100">Cancel</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <div className="space-y-2">
               {projectTasks
                 .filter(task => task.phase === activePhase)
@@ -8948,49 +8988,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                   </div>
                 )}
 
-                {/* Add Task Form - Show in header area when active */}
-                {showAddTask && (
-                  <div className="mb-4 p-3 border rounded-lg bg-gray-50">
-                  <div className="space-y-2">
-                    <input
-                      type="text"
-                      value={newTask.description}
-                      onChange={(e) => setNewTask(prev => ({ ...prev, description: e.target.value }))}
-                      placeholder="Task description"
-                      className="w-full text-xs border rounded px-2 py-1 outline-none focus:ring-2 focus:ring-orange-200"
-                    />
-                    <div className="flex gap-2">
-                      <select
-                        multiple
-                        value={newTask.assignedTo}
-                        onChange={(e) => {
-                          const selected = Array.from(e.target.selectedOptions, option => option.value);
-                          setNewTask(prev => ({ ...prev, assignedTo: selected }));
-                        }}
-                        className="text-xs border rounded px-2 py-1 outline-none focus:ring-2 focus:ring-orange-200"
-                        size={Math.min(project.teamMembers.length + 1, 4)}
-                      >
-                        <option value="" disabled>Select assignees...</option>
-                        {project.teamMembers.map(member => (
-                          <option key={member.id} value={member.id}>{member.name}</option>
-                        ))}
-                      </select>
-                      <button
-                        onClick={handleAddTask}
-                        className="px-2 py-1 text-xs bg-orange-500 text-white rounded hover:bg-orange-600"
-                      >
-                        Add
-                      </button>
-                      <button
-                        onClick={() => setShowAddTask(false)}
-                        className="px-2 py-1 text-xs border rounded hover:bg-gray-100"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                  </div>
-                )}
+                
               </div>
             </div>
           </div>
@@ -11145,7 +11143,14 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
                         placeholder="Task description"
                         className="w-full text-xs border rounded px-2 py-1 outline-none focus:ring-2 focus:ring-orange-200"
                       />
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 flex-wrap items-center">
+                        <input
+                          type="date"
+                          value={(newTask as any).dueDate || ''}
+                          onChange={(e) => setNewTask(prev => ({ ...prev, dueDate: e.target.value as any }))}
+                          className="text-xs border rounded px-2 py-1 outline-none focus:ring-2 focus:ring-orange-200"
+                          title="Due date"
+                        />
                         <select
                           multiple
                           value={newTask.assignedTo}

@@ -31,6 +31,10 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
   const [hoveredColumnDivider, setHoveredColumnDivider] = useState<number | null>(null);
   const [editingColumnName, setEditingColumnName] = useState<string | null>(null);
   const [editingColumnValue, setEditingColumnValue] = useState<string>('');
+  // Header edit state
+  const [editingHeader, setEditingHeader] = useState(false);
+  const [editAnalysisName, setEditAnalysisName] = useState('');
+  const [editProjectId, setEditProjectId] = useState('');
   // Dynamic headers: union of keys across all rows for the active sheet
   const dynamicHeaders = useMemo(() => {
     const rows = (currentAnalysis?.data?.[activeSheet] as any[]) || [];
@@ -645,26 +649,40 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
         <div>
           <div className="mb-3">
             <div className="flex items-center justify-between mb-1">
-              <div className="text-lg font-semibold text-gray-900">{currentAnalysis.name}</div>
+              <div className="text-lg font-semibold text-gray-900">
+                {!editingHeader ? (
+                  currentAnalysis.name
+                ) : null}
+              </div>
               <button className="text-xs text-gray-600 hover:text-gray-900" onClick={() => { setViewMode('home'); setCurrentAnalysis(null); }}>Back to list</button>
             </div>
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-xs text-gray-500">{getProjectName(currentAnalysis)} ? Saved {currentAnalysis.savedDate || new Date(currentAnalysis.savedAt).toLocaleDateString()}</div>
+                <div className="text-xs text-gray-500">{getProjectName(currentAnalysis)}  Saved {currentAnalysis.savedDate || new Date(currentAnalysis.savedAt).toLocaleDateString()}</div>
                 <div className="text-xs text-gray-500 mt-0.5">Current Tab/Section: <span className="font-medium capitalize">{activeSheet.toLowerCase()}</span></div>
               </div>
               <div className="flex items-center gap-2">
-                {!currentAnalysis.projectId && (
-                  <button
-                    className="px-3 py-1 text-xs rounded-lg shadow-sm transition-colors text-white hover:opacity-90"
-                    style={{ backgroundColor: '#D14A2D' }}
-                    onClick={() => {
-                      setSaveFormData({ projectId: '', name: '', description: '' });
-                      setShowSaveModal(true);
-                    }}
-                  >
-                    Save to Project
-                  </button>
+                {!editingHeader ? (
+                  <button className="text-xs text-gray-600 hover:text-gray-900 underline" onClick={() => { setEditingHeader(true); setEditAnalysisName(currentAnalysis.name || ''); setEditProjectId(currentAnalysis.projectId || ''); }}>Edit</button>
+                ) : (
+                  <>
+                    <input value={editAnalysisName} onChange={(e) => setEditAnalysisName(e.target.value)} placeholder="Analysis title" className="text-xs border rounded px-2 py-1" />
+                    <select value={editProjectId} onChange={(e) => setEditProjectId(e.target.value)} className="text-xs border rounded px-2 py-1">
+                      <option value="">Unassigned</option>
+                      {projects.map(p => (<option key={p.id} value={p.id}>{p.name}</option>))}
+                    </select>
+                    <button className="text-xs px-2 py-1 rounded text-white" style={{ backgroundColor: '#D14A2D' }} onClick={async () => {
+                      try {
+                        const token = localStorage.getItem('jaice_token');
+                        const body: any = { id: currentAnalysis.id, data: currentAnalysis.data, quotes: currentAnalysis.quotes || {}, name: editAnalysisName };
+                        if (editProjectId) { body.projectId = editProjectId; const proj = projects.find(p => p.id === editProjectId); if (proj) body.projectName = proj.name; }
+                        await fetch(`${API_BASE_URL}/api/caX/update`, { method: 'PUT', headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) }, body: JSON.stringify(body) });
+                        setCurrentAnalysis({ ...currentAnalysis, name: editAnalysisName, projectId: editProjectId || null, projectName: (projects.find(p => p.id === editProjectId)?.name) || currentAnalysis.projectName });
+                        setEditingHeader(false);
+                      } catch (e) { console.error('Failed to update analysis meta', e); alert('Failed to save changes'); }
+                    }}>Save</button>
+                    <button className="text-xs underline" onClick={() => setEditingHeader(false)}>Cancel</button>
+                  </>
                 )}
               </div>
             </div>
