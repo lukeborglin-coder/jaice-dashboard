@@ -714,7 +714,14 @@
         }
       ],
       "sampleDetails": "Total: n=6 (Treatment Naive: n=3, Discontinued DMT: n=3)",
-      "files": [],
+      "files": [
+        {
+          "id": "1759419980060",
+          "name": "2025 SMA Adult Activation Qual Kick Off Presentation",
+          "type": "PowerPoint",
+          "url": "https://hypothesisconsulting.sharepoint.com/:p:/r/sites/cognitivedrive/_layouts/15/Doc.aspx?sourcedoc=%7B0E75648B-6D35-465B-AAB8-CE43B5FA7085%7D&file=2025%20SMA%20Adult%20Activation%20Qual%20Kick%20Off%20Presentation_090825.pptx&action=edit&mobileredirect=true"
+        }
+      ],
       "segments": [
         {
           "phase": "Kickoff",

@@ -1,0 +1,118 @@
+  You are helping build a new “Tools” tab for the JAICE Dashboard (React + TypeScript + Vite + Tailwind +
+  Heroicons). The dashboard routes by comparing a string route in src/App.tsx to human-readable labels in a toolsNav
+  array. New tools become tabs under “Tools,” and the main content renders a component when route === "<Tab Label>".
+  Unrecognized routes show a placeholder.
+
+  Project context:
+
+  - Frontend root: index.html loads src/main.tsx which mounts src/App.tsx.
+  - Styling: Tailwind; follow existing patterns from src/components/ContentAnalysisX.tsx.
+  - Icons: @heroicons/react/24/outline, imported as React components.
+  - API config: src/config.ts exposes API_ENDPOINTS and the API_BASE_URL.
+  - Backend (if needed): Express in server/, routers in server/routes, services in server/services, mounted in
+  server/server.mjs.
+  - Constraints: Use only existing deps in package.json. Prefer self-contained components. Do not modify unrelated
+  code. Assume integration (wiring into App.tsx and server) will be done by the maintainer after you deliver a zip.
+
+  Your task:
+
+  - Produce a complete, ready-to-zip folder that includes:
+      - README.txt (purpose, features, local test steps, known limitations).
+      - tool.manifest.json describing the tab and how to wire it (see schema below).
+      - src/components/<ToolName>.tsx with the full UI.
+      - Optional: backend route/service files if needed.
+      - Optional: any assets under assets/<tool>/.
+
+  Before coding, ask clarifying questions to fill any gaps:
+
+  1. Tab basics:
+
+  - What is the exact tab label to show in the sidebar? [Label]
+  - What icon do you want (Heroicons 24 outline)? [IconName]
+  - Should the label be the exact route match string? [Yes/No; default Yes]
+
+  2. Core requirements:
+
+  - What problem does this tool solve? [Goal]
+  - Primary user actions and flows? [Actions/Flows]
+  - Inputs (files, text, settings)? Provide examples/schemas. [Inputs]
+  - Outputs (tables, charts, downloads)? Provide examples. [Outputs]
+  - Does it require backend processing? If yes, what endpoints and behavior? [Backend?]
+
+  3. Data and rules:
+
+  - Validation rules for inputs? [Rules]
+  - Any domain terminology or constraints? [Domain Notes]
+  - Any performance/size constraints (e.g., max file size)? [Limits]
+
+  4. UI specifics:
+
+  - Layout preferences (panels, tables, forms, modals)? [Layout]
+  - Empty, loading, and error states? [States]
+  - Accessibility or keyboard shortcuts? [A11y]
+
+  5. Integration expectations:
+
+  - Will this tool need to read from API_ENDPOINTS? Which ones? [APIs]
+  - Does it need a new backend router/service? [Yes/No; details]
+  - Any persistence needed (e.g., saved configs)? [Persistence]
+
+  When requirements are clear, propose:
+
+  - A short plan (components, state, data flow, API usage).
+  - A file list for the zip.
+  - Acceptance criteria (what “done” looks like).
+
+  Then generate:
+
+  1. tool.manifest.json with:
+     {
+     "name": "<Label>",
+     "icon": "<HeroiconName>",
+     "routeName": "<Label>",
+     "componentPath": "src/components/<ToolName>.tsx",
+     "requiresBackend": <true|false>,
+     "endpoints": [
+     { "method": "GET|POST|PUT|DELETE", "path": "/api/<tool>/...", "description": "..." }
+     ],
+     "notes": "Any integration details or testing notes."
+     }
+  2. src/components/<ToolName>.tsx
+
+  - React + TypeScript functional component.
+  - Self-contained state with clear handlers, using Tailwind for styling.
+  - Use Heroicons via import { <IconName> } from '@heroicons/react/24/outline'.
+  - If fetching: import endpoints from src/config.ts and use fetch with JSON, handle loading/error states, and
+  expose a simple retry.
+  - No external packages; no global state changes; no edits to App.tsx.
+
+  3. Optional backend files
+
+  - server/routes/<tool>.routes.mjs: Express router mounting endpoints from the manifest.
+  - server/services/<tool>.service.mjs: Service functions; separate side effects.
+  - Follow existing patterns in contentAnalysis.routes.mjs and services.
+  - Do not modify server/server.mjs; include a note in README to mount the router at /api/<tool>.
+
+  4. README.txt
+
+  - Overview, quick start (frontend-only if no backend; otherwise outline server routes).
+  - Test instructions (e.g., how to simulate inputs).
+  - Any environment variables if backend is used.
+  - Known limitations.
+
+  Deliver as a single zip preserving paths. Ensure code compiles in a standard React + Vite + Tailwind setup and
+  uses only existing dependencies.
+
+  Finally, output the zip file layout and the full contents of each file as code blocks.
+
+  End of prompt.
+
+  Contributor Checklist (Quick)
+
+  - Use TypeScript React functional component.
+  - Tailwind classes consistent with existing components.
+  - Use @heroicons/react/24/outline icons.
+  - No new dependencies.
+  - Read API URLs from src/config.ts if needed.
+  - Include tool.manifest.json and README.txt.
+  - Don’t modify existing files; we’ll integrate.
