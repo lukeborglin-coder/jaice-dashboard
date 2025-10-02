@@ -34,14 +34,14 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 // File paths for persistent storage
-const dataDir = path.join(__dirname, '../data');
-const savedAnalysesFile = path.join(dataDir, 'savedAnalyses.json');
-const discussionGuidesDir = path.join(dataDir, 'discussionGuides');
+const baseDataDir = process.env.DATA_DIR || path.join(__dirname, '../data');
+const savedAnalysesFile = path.join(baseDataDir, 'savedAnalyses.json');
+const discussionGuidesDir = path.join(baseDataDir, 'discussionGuides');
 
 // Ensure data directory exists
 async function ensureDataDir() {
   try {
-    await fs.mkdir(dataDir, { recursive: true });
+    await fs.mkdir(baseDataDir, { recursive: true });
     await fs.mkdir(discussionGuidesDir, { recursive: true });
   } catch (error) {
     console.error('Error creating data directory:', error);
@@ -207,10 +207,21 @@ router.put('/update', async (req, res) => {
 });
 
 // GET /api/caX/saved - Get saved content analyses
-router.get('/saved', async (req, res) => {
+
+
+// GET /api/caX/saved/:id - Get a single saved analysis by id (includes quotes)
+router.get('/saved/:id', async (req, res) => {
   try {
-    // Return saved analyses from memory (in production, fetch from database)
-    res.json(savedAnalyses);
+    const { id } = req.params;
+    const analyses = await loadSavedAnalyses();
+    const item = analyses.find(a => String(a.id) === String(id));
+    if (!item) return res.status(404).json({ error: 'Analysis not found' });
+    res.json(item);
+  } catch (error) {
+    console.error('Error in saved/:id endpoint:', error);
+    res.status(500).json({ error: error.message });
+  }
+});\n    res.json(analyses);
   } catch (error) {
     console.error('Error in saved endpoint:', error);
     res.status(500).json({ error: error.message });
