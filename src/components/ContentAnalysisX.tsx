@@ -1,19 +1,21 @@
 import { API_BASE_URL } from '../config';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { CloudArrowUpIcon, TrashIcon, CalendarIcon, UserGroupIcon, UserIcon, BookOpenIcon, BeakerIcon, LightBulbIcon, ChartBarIcon, TrophyIcon, ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline';
+import { CloudArrowUpIcon, TrashIcon, CalendarIcon, UserGroupIcon, UserIcon, BookOpenIcon, BeakerIcon, LightBulbIcon, ChartBarIcon, TrophyIcon, ChatBubbleLeftRightIcon, ExclamationTriangleIcon, ExclamationCircleIcon, ArrowTrendingUpIcon, UsersIcon, DocumentMagnifyingGlassIcon, CheckCircleIcon, EllipsisHorizontalCircleIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
 
 interface ContentAnalysisXProps {
   projects?: any[];
   onNavigate?: (route: string) => void;
+  onNavigateToProject?: (project: any) => void;
 }
 
-export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProps) {
+export default function ContentAnalysisX({ projects = [], onNavigate, onNavigateToProject }: ContentAnalysisXProps) {
   const { user } = useAuth();
   const [showMyProjectsOnly, setShowMyProjectsOnly] = useState(true);
   const [savedAnalyses, setSavedAnalyses] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [viewMode, setViewMode] = useState<'home' | 'viewer'>('home');
+  const [viewMode, setViewMode] = useState<'home' | 'viewer' | 'create'>('home');
   const [loadingSavedView, setLoadingSavedView] = useState(false);
   const [currentAnalysis, setCurrentAnalysis] = useState<any | null>(null);
   const [activeSheet, setActiveSheet] = useState<string>('');
@@ -35,6 +37,30 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
   const [editingHeader, setEditingHeader] = useState(false);
   const [editAnalysisName, setEditAnalysisName] = useState('');
   const [editProjectId, setEditProjectId] = useState('');
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [editingProject, setEditingProject] = useState(false);
+  // Create form state
+  const [createFormData, setCreateFormData] = useState({ title: '', projectId: '', discussionGuide: null as File | null });
+  const [generatingAnalysis, setGeneratingAnalysis] = useState(false);
+  // Transcripts state - stores cleaned transcripts with demographic info
+  const [transcripts, setTranscripts] = useState<Array<{
+    id: string;
+    respno: string;
+    demographics: Record<string, string>;
+    cleanedTranscript: string;
+    originalTranscript: string;
+    uploadedAt: string;
+  }>>(currentAnalysis?.transcripts || []);
+
+  // Sync transcripts when currentAnalysis changes
+  useEffect(() => {
+    if (currentAnalysis?.transcripts) {
+      setTranscripts(currentAnalysis.transcripts);
+    } else {
+      setTranscripts([]);
+    }
+  }, [currentAnalysis]);
+
   // Dynamic headers: union of keys across all rows for the active sheet
   const dynamicHeaders = useMemo(() => {
     const rows = (currentAnalysis?.data?.[activeSheet] as any[]) || [];
@@ -42,8 +68,15 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
     for (const r of rows) {
       Object.keys(r || {}).forEach((k) => set.add(k));
     }
-    return Array.from(set);
-  }, [currentAnalysis?.data, activeSheet]);
+    const headers = Array.from(set);
+
+    // Add Transcript column for Demographics sheet if there are any transcripts
+    if (activeSheet === 'Demographics' && transcripts.length > 0) {
+      headers.push('Transcript');
+    }
+
+    return headers;
+  }, [currentAnalysis?.data, activeSheet, transcripts.length]);
 
   // Handler for deleting a demographic column
   const handleDeleteDemographicColumn = (columnName: string) => {
@@ -69,7 +102,7 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
   };
 
   // Handler for renaming a demographic column
-  const handleRenameColumn = (oldName: string, newName: string) => {
+  const handleRenameColumn = async (oldName: string, newName: string) => {
     if (!currentAnalysis || activeSheet !== 'Demographics') return;
     if (oldName === 'Respondent ID' || oldName === 'respno') return; // Don't rename respondent ID
     if (!newName.trim() || newName === oldName) {
@@ -100,10 +133,34 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
       data: updatedData
     });
     setEditingColumnName(null);
+
+    // Auto-save if this is a saved analysis
+    if (currentAnalysis.projectId && !currentAnalysis.id?.startsWith('temp-')) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/caX/update`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+          },
+          body: JSON.stringify({
+            id: currentAnalysis.id,
+            data: updatedData,
+            quotes: currentAnalysis.quotes || {}
+          })
+        });
+
+        if (!response.ok) {
+          console.error('Auto-save failed for column rename');
+        }
+      } catch (error) {
+        console.error('Failed to auto-save column rename:', error);
+      }
+    }
   };
 
   // Handler for adding a new demographic column at a specific position
-  const handleAddDemographicColumn = (afterColumnIndex: number) => {
+  const handleAddDemographicColumn = async (afterColumnIndex: number) => {
     if (!currentAnalysis || activeSheet !== 'Demographics') return;
 
     const updatedData = { ...currentAnalysis.data };
@@ -149,10 +206,34 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
       ...currentAnalysis,
       data: updatedData
     });
+
+    // Auto-save if this is a saved analysis
+    if (currentAnalysis.projectId && !currentAnalysis.id?.startsWith('temp-')) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/caX/update`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+          },
+          body: JSON.stringify({
+            id: currentAnalysis.id,
+            data: updatedData,
+            quotes: currentAnalysis.quotes || {}
+          })
+        });
+
+        if (!response.ok) {
+          console.error('Auto-save failed for new demographic column');
+        }
+      } catch (error) {
+        console.error('Failed to auto-save new demographic column:', error);
+      }
+    }
   };
 
   // Handler for updating demographic data
-  const handleDemographicChange = (respondentId: string, columnKey: string, value: string) => {
+  const handleDemographicChange = async (respondentId: string, columnKey: string, value: string) => {
     if (!currentAnalysis || activeSheet !== 'Demographics') return;
 
     const updatedData = { ...currentAnalysis.data };
@@ -166,10 +247,52 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
     if (actualRowIndex !== -1) {
       updatedData.Demographics[actualRowIndex][columnKey] = value;
 
+      // Also update the corresponding transcript demographics if it exists
+      const updatedTranscripts = transcripts.map(transcript => {
+        if (transcript.respno === respondentId) {
+          return {
+            ...transcript,
+            demographics: {
+              ...transcript.demographics,
+              [columnKey]: value
+            }
+          };
+        }
+        return transcript;
+      });
+
+      setTranscripts(updatedTranscripts);
+
       setCurrentAnalysis({
         ...currentAnalysis,
-        data: updatedData
+        data: updatedData,
+        transcripts: updatedTranscripts
       });
+
+      // Auto-save if this is a saved analysis
+      if (currentAnalysis.projectId && !currentAnalysis.id?.startsWith('temp-')) {
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/caX/update`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+            },
+            body: JSON.stringify({
+              id: currentAnalysis.id,
+              data: updatedData,
+              quotes: currentAnalysis.quotes || {},
+              transcripts: updatedTranscripts
+            })
+          });
+
+          if (!response.ok) {
+            console.error('Auto-save failed for demographic change');
+          }
+        } catch (error) {
+          console.error('Failed to auto-save demographic change:', error);
+        }
+      }
     }
   };
 
@@ -193,6 +316,10 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
   // Handler for deleting a respondent
   const handleDeleteRespondent = async (rowIndex: number) => {
     if (!currentAnalysis) return;
+
+    if (!confirm("Delete this respondent? This cannot be undone.")) {
+      return;
+    }
 
     const updatedData = { ...currentAnalysis.data };
 
@@ -249,14 +376,44 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
   // Function to get icon for sheet name
   const getSheetIcon = (sheetName: string) => {
     const name = sheetName.toLowerCase();
+
+    // Demographics and personal info
     if (name.includes('demographic')) return UserIcon;
-    if (name.includes('introduction')) return ChatBubbleLeftRightIcon;
+    if (name.includes('introduction') || name.includes('intro')) return ChatBubbleLeftRightIcon;
     if (name.includes('background')) return BookOpenIcon;
-    if (name.includes('awareness') || name.includes('perception')) return LightBulbIcon;
-    if (name.includes('profile') || name.includes('review')) return BeakerIcon;
+
+    // Attitudes and perceptions
+    if (name.includes('awareness') || name.includes('perception') || name.includes('attitude')) return LightBulbIcon;
+    if (name.includes('opinion') || name.includes('thought')) return ChatBubbleLeftRightIcon;
+
+    // Barriers and challenges
+    if (name.includes('barrier') || name.includes('challenge') || name.includes('unmet')) return ExclamationTriangleIcon;
+    if (name.includes('concern') || name.includes('worry')) return ExclamationCircleIcon;
+
+    // Motivations and future
+    if (name.includes('motivation') || name.includes('future') || name.includes('consideration')) return ArrowTrendingUpIcon;
+    if (name.includes('goal') || name.includes('aspiration')) return TrophyIcon;
+
+    // Community and engagement
+    if (name.includes('community') || name.includes('engagement') || name.includes('info') || name.includes('source')) return UserGroupIcon;
+    if (name.includes('social') || name.includes('network')) return UsersIcon;
+
+    // Treatment and medical
+    if (name.includes('treatment') || name.includes('therapy')) return BeakerIcon;
+    if (name.includes('medication') || name.includes('drug')) return BeakerIcon;
+
+    // Analysis and comparison
     if (name.includes('comparison') || name.includes('competitive')) return ChartBarIcon;
-    if (name.includes('conclude') || name.includes('thank')) return TrophyIcon;
-    return BookOpenIcon; // Default icon
+    if (name.includes('analysis') || name.includes('review')) return DocumentMagnifyingGlassIcon;
+
+    // Closing
+    if (name.includes('conclude') || name.includes('thank') || name.includes('closing')) return CheckCircleIcon;
+    if (name.includes('misc') || name.includes('other') || name.includes('additional')) return EllipsisHorizontalCircleIcon;
+
+    // Use a simple hash to pick a varied icon for unknown sheets
+    const hash = sheetName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const icons = [ChatBubbleLeftRightIcon, LightBulbIcon, BeakerIcon, ChartBarIcon, DocumentTextIcon];
+    return icons[hash % icons.length];
   };
 
   const fetchSavedAnalyses = async () => {
@@ -288,8 +445,10 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
 
   useEffect(() => {
     fetchSavedAnalyses();
+  }, []);
 
-    // Listen for custom event to load a specific content analysis
+  // Separate effect for event listener that depends on savedAnalyses
+  useEffect(() => {
     const handleLoadAnalysis = (event: any) => {
       const { analysisId } = event.detail;
       const analysis = savedAnalyses.find(a => a.id === analysisId);
@@ -300,7 +459,7 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
 
     window.addEventListener('loadContentAnalysis', handleLoadAnalysis);
     return () => window.removeEventListener('loadContentAnalysis', handleLoadAnalysis);
-  }, []); // Remove savedAnalyses dependency to prevent infinite loop
+  }, [savedAnalyses]); // Now properly includes savedAnalyses
 
   const withProjectOnly = useMemo(() => (savedAnalyses || []).filter(a => !!a.projectId), [savedAnalyses]);
 
@@ -325,6 +484,27 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
       return createdByMe || inTeam;
     });
   }, [showMyProjectsOnly, withProjectOnly, projects, user?.id]);
+
+  const filteredProjects = useMemo(() => {
+    // Filter for qualitative projects only
+    const qualProjects = projects.filter(p => !p.archived && p.methodologyType === 'Qualitative');
+
+    if (!showMyProjectsOnly) return qualProjects;
+
+    const uid = user?.id;
+    const uemail = (user as any)?.email?.toLowerCase?.();
+    const uname = (user as any)?.name?.toLowerCase?.();
+
+    return qualProjects.filter((p: any) => {
+      const createdByMe = p.createdBy && p.createdBy === uid;
+      const inTeam = (p.teamMembers || []).some((m: any) =>
+        m?.id === uid ||
+        (m?.email && uemail && String(m.email).toLowerCase() === uemail) ||
+        (m?.name && uname && String(m.name).toLowerCase() === uname)
+      );
+      return createdByMe || inTeam;
+    });
+  }, [showMyProjectsOnly, projects, user?.id]);
 
   const getRespondentCount = (analysis: any) => {
     if (!analysis.data || !analysis.data.Demographics) return 0;
@@ -429,6 +609,58 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
     e.target.value = '';
   };
 
+  const handleCreateFormSubmit = async () => {
+    if (!createFormData.title || !createFormData.discussionGuide) {
+      alert('Please enter a title and upload a discussion guide');
+      return;
+    }
+
+    setGeneratingAnalysis(true);
+    try {
+      const formData = new FormData();
+      formData.append('dg', createFormData.discussionGuide);
+
+      const response = await fetch(`${API_BASE_URL}/api/caX/preview`, {
+        method: 'POST',
+        body: formData,
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` }
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+
+        // Create a new analysis with the generated data
+        const newAnalysis = {
+          id: `temp-${Date.now()}`,
+          name: createFormData.title,
+          projectId: createFormData.projectId || null,
+          projectName: createFormData.projectId ? projects.find(p => p.id === createFormData.projectId)?.name || 'Unknown Project' : 'No Project',
+          data: result.data,
+          quotes: {},
+          rawGuideText: result.rawGuideText,
+          savedAt: new Date().toISOString(),
+          savedBy: 'You'
+        };
+
+        // Switch to viewer mode with the new analysis
+        setCurrentAnalysis(newAnalysis);
+        const sheets = Object.keys(newAnalysis.data);
+        if (sheets.length) setActiveSheet(sheets[0]);
+        setViewMode('viewer');
+
+        // Reset create form
+        setCreateFormData({ title: '', projectId: '', discussionGuide: null });
+      } else {
+        const error = await response.json();
+        alert(`Generation failed: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Generation error:', error);
+      alert('Generation failed - make sure the backend server is running');
+    }
+    setGeneratingAnalysis(false);
+  };
+
   const handleSaveToProject = async () => {
     if (!saveFormData.projectId || !saveFormData.name) {
       alert('Please select a project and enter a name');
@@ -455,11 +687,21 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
         const result = await response.json();
         setShowSaveModal(false);
         setSaveFormData({ projectId: '', name: '', description: '' });
+
+        // Update current analysis with saved ID and info
+        setCurrentAnalysis({
+          ...currentAnalysis,
+          id: result.id,
+          name: saveFormData.name,
+          projectId: saveFormData.projectId,
+          projectName: selectedProject?.name || 'Unknown Project',
+          savedAt: new Date().toISOString(),
+          savedBy: 'You'
+        });
+
         // Reload the saved analyses list
         await fetchSavedAnalyses();
-        // Go back to home
-        setViewMode('home');
-        setCurrentAnalysis(null);
+
         // Show success message
         setShowSaveSuccessMessage(true);
         setTimeout(() => setShowSaveSuccessMessage(false), 3000);
@@ -502,12 +744,65 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
       if (response.ok) {
         const result = await response.json();
 
+        console.log('=== TRANSCRIPT UPLOAD RESULT ===');
+        console.log('Sheets in result.data:', Object.keys(result.data || {}));
+        console.log('Current analysis sheets before update:', Object.keys(currentAnalysis.data || {}));
+
+        // Log each sheet's row count
+        for (const [sheetName, sheetData] of Object.entries(result.data || {})) {
+          console.log(`Sheet "${sheetName}": ${Array.isArray(sheetData) ? sheetData.length : 0} rows`);
+        }
+
         // Update the current analysis with the new respondent data and quotes
+        // Merge quotes properly - don't replace, but merge sheet by sheet
+        const mergedQuotes = { ...currentAnalysis.quotes };
+        if (result.quotes) {
+          for (const [sheetName, sheetQuotes] of Object.entries(result.quotes)) {
+            if (!mergedQuotes[sheetName]) mergedQuotes[sheetName] = {};
+            mergedQuotes[sheetName] = { ...mergedQuotes[sheetName], ...(sheetQuotes as any) };
+          }
+        }
+
+        // Add cleaned transcript to transcripts array
+        const newTranscripts = [...transcripts];
+        if (result.cleanedTranscript && result.respno) {
+          // Get demographics for this respondent
+          const demographicsRow = result.data.Demographics?.find((row: any) =>
+            (row['Respondent ID'] || row['respno']) === result.respno
+          );
+
+          const demographics: Record<string, string> = {};
+          if (demographicsRow) {
+            Object.keys(demographicsRow).forEach(key => {
+              if (key !== 'Respondent ID' && key !== 'respno') {
+                demographics[key] = demographicsRow[key] || '';
+              }
+            });
+          }
+
+          newTranscripts.push({
+            id: Date.now().toString(),
+            respno: result.respno,
+            demographics,
+            cleanedTranscript: result.cleanedTranscript,
+            originalTranscript: result.originalTranscript || '',
+            uploadedAt: new Date().toISOString()
+          });
+          setTranscripts(newTranscripts);
+        }
+
         const updatedAnalysis = {
           ...currentAnalysis,
           data: result.data,
-          quotes: result.quotes || currentAnalysis.quotes || {}
+          quotes: mergedQuotes,
+          transcripts: newTranscripts
         };
+
+        console.log('Updated analysis sheets:', Object.keys(updatedAnalysis.data || {}));
+        for (const [sheetName, sheetData] of Object.entries(updatedAnalysis.data || {})) {
+          console.log(`Updated Sheet "${sheetName}": ${Array.isArray(sheetData) ? sheetData.length : 0} rows`);
+        }
+
         setCurrentAnalysis(updatedAnalysis);
 
         // Auto-save if this is a saved analysis (has projectId)
@@ -519,7 +814,8 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
               body: JSON.stringify({
                 id: currentAnalysis.id,
                 data: result.data,
-                quotes: result.quotes || currentAnalysis.quotes || {}
+                quotes: mergedQuotes,
+                transcripts: newTranscripts
               })
             });
 
@@ -541,11 +837,167 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
     } catch (error) {
       console.error('Transcript processing error:', error);
       alert('Transcript processing failed - make sure the backend server is running');
-    }
-    setProcessingTranscript(false);
+    } finally {
+      setProcessingTranscript(false);
 
-    // Reset file input
-    e.target.value = '';
+      // Reset file input to allow re-uploading the same file
+      e.target.value = '';
+    }
+  };
+
+  // Helper function to download transcript as Word document
+  const downloadTranscriptAsWord = async (transcript: any) => {
+    try {
+      // Parse the cleaned transcript to extract dialogue
+      const lines = transcript.cleanedTranscript.split('\n').filter((line: string) => line.trim());
+
+      // Create paragraphs for the document
+      const paragraphs: Paragraph[] = [];
+
+      // Add title with PROJECT name + "Transcript"
+      const projectName = currentAnalysis?.projectName || 'Interview';
+      const title = `${projectName} Transcript`;
+      paragraphs.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: title,
+              font: 'Trebuchet MS',
+              size: 32, // 16pt (size is in half-points)
+              bold: true
+            })
+          ],
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 100 }
+        })
+      );
+
+      // Add date and time as italic subtitle (smaller text)
+      const dateTimeParts: string[] = [];
+
+      // Get date from demographics (check multiple possible column names)
+      const dateValue = transcript.demographics['Interview Date'] ||
+                       transcript.demographics['Date'] ||
+                       transcript.demographics['date'];
+
+      // Get time from demographics (check multiple possible column names)
+      const timeValue = transcript.demographics['Interview Time'] ||
+                       transcript.demographics['Time (ET)'] ||
+                       transcript.demographics['Time'] ||
+                       transcript.demographics['time'];
+
+      if (dateValue) dateTimeParts.push(dateValue);
+      if (timeValue) dateTimeParts.push(timeValue);
+
+      if (dateTimeParts.length > 0) {
+        paragraphs.push(
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: dateTimeParts.join(' | '),
+                font: 'Trebuchet MS',
+                size: 20, // 10pt
+                italics: true
+              })
+            ],
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 400 }
+          })
+        );
+      } else {
+        // If no date/time, add spacing anyway
+        paragraphs.push(
+          new Paragraph({
+            text: '',
+            spacing: { after: 400 }
+          })
+        );
+      }
+
+      // Add transcript content
+      for (const line of lines) {
+        if (line.trim()) {
+          // Check if line starts with speaker label
+          const speakerMatch = line.match(/^(Moderator|Respondent):\s*(.*)$/);
+
+          if (speakerMatch) {
+            const [, speaker, text] = speakerMatch;
+            paragraphs.push(
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: `${speaker}: `,
+                    bold: true,
+                    font: 'Trebuchet MS',
+                    size: 22 // 11pt
+                  }),
+                  new TextRun({
+                    text: text,
+                    font: 'Trebuchet MS',
+                    size: 22 // 11pt
+                  })
+                ],
+                spacing: { after: 200 } // Double line break (increased from 100)
+              })
+            );
+          } else {
+            // If no speaker label, just add as regular paragraph
+            paragraphs.push(
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: line,
+                    font: 'Trebuchet MS',
+                    size: 22 // 11pt
+                  })
+                ],
+                spacing: { after: 200 } // Double line break (increased from 100)
+              })
+            );
+          }
+        }
+      }
+
+      // Create document
+      const doc = new Document({
+        sections: [{
+          properties: {},
+          children: paragraphs
+        }]
+      });
+
+      // Generate and download
+      const blob = await Packer.toBlob(doc);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+
+      // Build filename: [ProjectName] Transcript_[Date]_[Time]
+      // Format: "2025 SMA Adult Activation Qual Transcript_Oct 1 2025_300pm"
+      let filename = projectName.replace(/[/\\?%*:|"<>]/g, '-'); // Remove invalid filename chars
+      filename += ' Transcript';
+
+      if (dateValue) {
+        // Clean up date for filename (remove commas, etc.)
+        const cleanDate = dateValue.replace(/,/g, '').replace(/\s+/g, ' ');
+        filename += `_${cleanDate}`;
+      }
+
+      if (timeValue) {
+        // Clean up time for filename (remove spaces, colons, convert to format like "300pm")
+        const cleanTime = timeValue.replace(/\s+/g, '').replace(/:/g, '').toLowerCase();
+        filename += `_${cleanTime}`;
+      }
+
+      a.download = `${filename}.docx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error generating Word document:', error);
+      alert('Failed to generate Word document');
+    }
   };
 
   return (
@@ -554,34 +1006,55 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
         {/* Header */}
         <section className="flex items-center justify-between">
           <h2 className="text-2xl font-bold" style={{ color: '#5D5F62' }}>Content Analysis</h2>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600">Current View:</span>
-            <button
-              onClick={() => viewMode === 'home' && !uploading && setShowMyProjectsOnly(!showMyProjectsOnly)}
-              disabled={viewMode !== 'home' || uploading}
-              className={`px-3 py-1 text-xs rounded-lg shadow-sm transition-colors ${
-                viewMode !== 'home' || uploading
-                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                  : showMyProjectsOnly
-                  ? 'text-white hover:opacity-90'
-                  : 'bg-white border border-gray-300 hover:bg-gray-50'
-              }`}
-              style={viewMode === 'home' && !uploading && showMyProjectsOnly ? { backgroundColor: '#D14A2D' } : {}}
-            >
-              {showMyProjectsOnly ? 'Only My Projects' : 'All Cognitive Projects'}
-            </button>
-          </div>
+          {viewMode !== 'viewer' && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-600">Current View:</span>
+              <button
+                onClick={() => (viewMode === 'home' || viewMode === 'create') && !uploading && !generatingAnalysis && setShowMyProjectsOnly(!showMyProjectsOnly)}
+                disabled={(viewMode !== 'home' && viewMode !== 'create') || uploading || generatingAnalysis}
+                className={`px-3 py-1 text-xs rounded-lg shadow-sm transition-colors ${
+                  (viewMode !== 'home' && viewMode !== 'create') || uploading || generatingAnalysis
+                    ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                    : showMyProjectsOnly
+                    ? 'text-white hover:opacity-90'
+                    : 'bg-white border border-gray-300 hover:bg-gray-50'
+                }`}
+                style={(viewMode === 'home' || viewMode === 'create') && !uploading && !generatingAnalysis && showMyProjectsOnly ? { backgroundColor: '#D14A2D' } : {}}
+              >
+                {showMyProjectsOnly ? 'Only My Projects' : 'All Cognitive Projects'}
+              </button>
+            </div>
+          )}
         </section>
 
         {/* Title bar with Generate button */}
         <div className="border-b border-gray-200">
           <div className="flex items-center pb-3">
-            <p className="text-sm text-gray-600">View and manage your saved content analyses</p>
-            <label className={`flex items-center gap-1 rounded-lg px-3 py-1 text-xs shadow-sm transition-colors ml-4 ${viewMode === 'home' && !uploading ? 'text-white hover:opacity-90 cursor-pointer' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`} style={viewMode === 'home' && !uploading ? { backgroundColor: '#D14A2D' } : {}}>
-              <CloudArrowUpIcon className="h-4 w-4" />
-              {uploading ? 'Generating...' : 'Generate New'}
-              {viewMode === 'home' && !uploading && <input type="file" accept=".docx" className="hidden" onChange={handleFileUpload} disabled={uploading} />}
-            </label>
+            {viewMode === 'viewer' ? (
+              <button
+                onClick={() => { setViewMode('home'); setCurrentAnalysis(null); }}
+                className="flex items-center gap-2 text-xs hover:opacity-80 transition-colors"
+                style={{ color: '#D14A2D' }}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                Back to list
+              </button>
+            ) : (
+              <>
+                <p className="text-sm text-gray-600">View and manage your saved content analyses</p>
+                <button
+                  onClick={() => setViewMode('create')}
+                  disabled={viewMode !== 'home'}
+                  className={`flex items-center gap-1 rounded-lg px-3 py-1 text-xs shadow-sm transition-colors ml-4 ${viewMode === 'home' ? 'text-white hover:opacity-90 cursor-pointer' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
+                  style={viewMode === 'home' ? { backgroundColor: '#D14A2D' } : {}}
+                >
+                  <CloudArrowUpIcon className="h-4 w-4" />
+                  Generate New
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -638,6 +1111,115 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
         </div>
       )}
 
+      {/* Create Form View */}
+      {viewMode === 'create' && (
+        <div className="bg-white shadow-sm border border-gray-200 rounded-lg p-8 max-w-2xl mx-auto">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-semibold text-gray-900">Create New Content Analysis</h3>
+            <button
+              onClick={() => {
+                setViewMode('home');
+                setCreateFormData({ title: '', projectId: '', discussionGuide: null });
+              }}
+              className="text-sm text-gray-600 hover:text-gray-900"
+              disabled={generatingAnalysis}
+            >
+              Cancel
+            </button>
+          </div>
+
+          {generatingAnalysis ? (
+            <div className="py-16 flex flex-col items-center justify-center gap-4">
+              <div className="w-16 h-16 flex items-center justify-center mx-auto">
+                <svg className="animate-spin" width="48" height="48" viewBox="0 0 48 48">
+                  <circle cx="24" cy="24" r="20" fill="none" stroke="#D14A2D" strokeWidth="4" strokeDasharray="50 75.4" strokeDashoffset="0" />
+                  <circle cx="24" cy="24" r="20" fill="none" stroke="#5D5F62" strokeWidth="4" strokeDasharray="50 75.4" strokeDashoffset="-62.7" />
+                </svg>
+              </div>
+              <p className="text-gray-600">Generating content analysis...</p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Title <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={createFormData.title}
+                  onChange={(e) => setCreateFormData({ ...createFormData, title: e.target.value })}
+                  placeholder="Enter content analysis title..."
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Project (Optional)
+                </label>
+                <select
+                  value={createFormData.projectId}
+                  onChange={(e) => setCreateFormData({ ...createFormData, projectId: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                >
+                  <option value="">Select a project...</option>
+                  {filteredProjects.map(project => (
+                    <option key={project.id} value={project.id}>{project.name}</option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-gray-500">
+                  {showMyProjectsOnly ? 'Showing only your Qualitative projects' : 'Showing all Qualitative projects'}
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Discussion Guide <span className="text-red-500">*</span>
+                </label>
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
+                  <input
+                    type="file"
+                    accept=".docx"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setCreateFormData({ ...createFormData, discussionGuide: file });
+                      }
+                    }}
+                    className="hidden"
+                    id="discussion-guide-upload"
+                  />
+                  <label htmlFor="discussion-guide-upload" className="cursor-pointer">
+                    <CloudArrowUpIcon className="mx-auto h-12 w-12 text-gray-400" />
+                    <p className="mt-2 text-sm text-gray-600">
+                      {createFormData.discussionGuide ? (
+                        <span className="font-medium text-gray-900">{createFormData.discussionGuide.name}</span>
+                      ) : (
+                        <>
+                          <span className="text-orange-600 font-medium">Click to upload</span> or drag and drop
+                        </>
+                      )}
+                    </p>
+                    <p className="mt-1 text-xs text-gray-500">DOCX files only</p>
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-4">
+                <button
+                  onClick={handleCreateFormSubmit}
+                  disabled={!createFormData.title || !createFormData.discussionGuide}
+                  className="px-6 py-2 text-sm text-white rounded-lg hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ backgroundColor: '#D14A2D' }}
+                >
+                  Generate Analysis
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {viewMode === 'viewer' && loadingSavedView && (
         <div className="p-8 flex items-center justify-center">
           <img src="/Circle.png" alt="Loading" className="w-5 h-5 animate-spin" />
@@ -649,47 +1231,133 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
         <div>
           <div className="mb-3">
             <div className="flex items-center justify-between mb-1">
-              <div className="text-lg font-semibold text-gray-900">
-                {!editingHeader ? (
-                  currentAnalysis.name
-                ) : null}
+              <div className="flex items-center gap-2">
+                {editingTitle ? (
+                  <input
+                    value={editAnalysisName}
+                    onChange={(e) => setEditAnalysisName(e.target.value)}
+                    onBlur={async () => {
+                      try {
+                        const token = localStorage.getItem('jaice_token');
+                        await fetch(`${API_BASE_URL}/api/caX/update`, {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                          body: JSON.stringify({ id: currentAnalysis.id, data: currentAnalysis.data, quotes: currentAnalysis.quotes || {}, name: editAnalysisName, transcripts: currentAnalysis.transcripts || [] })
+                        });
+                        setCurrentAnalysis({ ...currentAnalysis, name: editAnalysisName });
+                        setEditingTitle(false);
+                      } catch (e) { console.error('Failed to update title', e); }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                      if (e.key === 'Escape') { setEditingTitle(false); setEditAnalysisName(currentAnalysis.name || ''); }
+                    }}
+                    autoFocus
+                    className="text-lg font-semibold text-gray-900 border border-orange-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-orange-400"
+                  />
+                ) : (
+                  <>
+                    <div className="text-lg font-semibold text-gray-900">{currentAnalysis.name}</div>
+                    {!currentAnalysis.id?.startsWith('temp-') && (
+                      <button onClick={() => { setEditingTitle(true); setEditAnalysisName(currentAnalysis.name || ''); }} className="text-gray-400 hover:text-orange-600 transition-colors">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                      </button>
+                    )}
+                  </>
+                )}
               </div>
-              <button className="text-xs text-gray-600 hover:text-gray-900" onClick={() => { setViewMode('home'); setCurrentAnalysis(null); }}>Back to list</button>
+              {currentAnalysis.id?.startsWith('temp-') && (
+                <button
+                  onClick={() => {
+                    setSaveFormData({
+                      projectId: currentAnalysis.projectId || '',
+                      name: currentAnalysis.name || '',
+                      description: ''
+                    });
+                    setShowSaveModal(true);
+                  }}
+                  className="px-4 py-1.5 text-sm text-white rounded-lg hover:opacity-90 transition-colors"
+                  style={{ backgroundColor: '#D14A2D' }}
+                >
+                  Save
+                </button>
+              )}
             </div>
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-xs text-gray-500">{getProjectName(currentAnalysis)}  Saved {currentAnalysis.savedDate || new Date(currentAnalysis.savedAt).toLocaleDateString()}</div>
-                <div className="text-xs text-gray-500 mt-0.5">Current Tab/Section: <span className="font-medium capitalize">{activeSheet.toLowerCase()}</span></div>
-              </div>
-              <div className="flex items-center gap-2">
-                {!editingHeader ? (
-                  <button className="text-xs text-gray-600 hover:text-gray-900 underline" onClick={() => { setEditingHeader(true); setEditAnalysisName(currentAnalysis.name || ''); setEditProjectId(currentAnalysis.projectId || ''); }}>Edit</button>
-                ) : (
-                  <>
-                    <input value={editAnalysisName} onChange={(e) => setEditAnalysisName(e.target.value)} placeholder="Analysis title" className="text-xs border rounded px-2 py-1" />
-                    <select value={editProjectId} onChange={(e) => setEditProjectId(e.target.value)} className="text-xs border rounded px-2 py-1">
+                <div className="flex items-center gap-2 text-xs">
+                  {editingProject ? (
+                    <select
+                      value={editProjectId}
+                      onChange={async (e) => {
+                        const newProjectId = e.target.value;
+                        try {
+                          const token = localStorage.getItem('jaice_token');
+                          const proj = projects.find(p => p.id === newProjectId);
+                          await fetch(`${API_BASE_URL}/api/caX/update`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                            body: JSON.stringify({
+                              id: currentAnalysis.id,
+                              data: currentAnalysis.data,
+                              quotes: currentAnalysis.quotes || {},
+                              projectId: newProjectId,
+                              projectName: proj?.name || '',
+                              transcripts: currentAnalysis.transcripts || []
+                            })
+                          });
+                          setCurrentAnalysis({ ...currentAnalysis, projectId: newProjectId, projectName: proj?.name || '' });
+                          setEditingProject(false);
+                        } catch (e) { console.error('Failed to update project', e); }
+                      }}
+                      onBlur={() => setEditingProject(false)}
+                      autoFocus
+                      className="border border-orange-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-orange-400"
+                    >
                       <option value="">Unassigned</option>
-                      {projects.map(p => (<option key={p.id} value={p.id}>{p.name}</option>))}
+                      {projects.filter(p => p.methodologyType === 'Qualitative').map(p => (<option key={p.id} value={p.id}>{p.name}</option>))}
                     </select>
-                    <button className="text-xs px-2 py-1 rounded text-white" style={{ backgroundColor: '#D14A2D' }} onClick={async () => {
-                      try {
-                        const token = localStorage.getItem('jaice_token');
-                        const body: any = { id: currentAnalysis.id, data: currentAnalysis.data, quotes: currentAnalysis.quotes || {}, name: editAnalysisName };
-                        if (editProjectId) { body.projectId = editProjectId; const proj = projects.find(p => p.id === editProjectId); if (proj) body.projectName = proj.name; }
-                        await fetch(`${API_BASE_URL}/api/caX/update`, { method: 'PUT', headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) }, body: JSON.stringify(body) });
-                        setCurrentAnalysis({ ...currentAnalysis, name: editAnalysisName, projectId: editProjectId || null, projectName: (projects.find(p => p.id === editProjectId)?.name) || currentAnalysis.projectName });
-                        setEditingHeader(false);
-                      } catch (e) { console.error('Failed to update analysis meta', e); alert('Failed to save changes'); }
-                    }}>Save</button>
-                    <button className="text-xs underline" onClick={() => setEditingHeader(false)}>Cancel</button>
-                  </>
+                  ) : (
+                    <>
+                      {currentAnalysis.projectId && projects.length > 0 ? (
+                        <button
+                          onClick={() => {
+                            const project = projects.find(p => p.id === currentAnalysis.projectId);
+                            if (project && onNavigateToProject) {
+                              onNavigateToProject(project);
+                            }
+                          }}
+                          className="text-gray-700 hover:text-orange-600 underline font-medium"
+                        >
+                          {getProjectName(currentAnalysis)}
+                        </button>
+                      ) : (
+                        <span className="text-gray-700 font-medium">{getProjectName(currentAnalysis)}</span>
+                      )}
+                      {!currentAnalysis.id?.startsWith('temp-') && (
+                        <button onClick={() => { setEditingProject(true); setEditProjectId(currentAnalysis.projectId || ''); }} className="text-gray-400 hover:text-orange-600 transition-colors">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                          </svg>
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+                {!currentAnalysis.id?.startsWith('temp-') && (
+                  <div className="text-xs text-gray-500 italic mt-0.5">
+                    Saved {currentAnalysis.savedDate || new Date(currentAnalysis.savedAt).toLocaleDateString()}
+                  </div>
                 )}
+                <div className="text-xs text-gray-500 mt-0.5">Current Tab/Section: <span className="font-medium capitalize">{activeSheet.toLowerCase()}</span></div>
               </div>
             </div>
           </div>
           {/* Sheet tabs and table container */}
           {currentAnalysis.data && activeSheet && Array.isArray(currentAnalysis.data?.[activeSheet]) && (
-            <div className="shadow-lg rounded-t-lg overflow-hidden">
+            <div className="overflow-hidden">
               <div className="flex w-full">
                 {Object.keys(currentAnalysis.data).map((sheet, idx) => {
                   const SheetIcon = getSheetIcon(sheet);
@@ -726,14 +1394,15 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
               </div>
 
               {/* Active sheet table */}
-              <div className="overflow-auto rounded-b-2xl min-h-[200px] bg-white max-w-full border-t-0">
-              <table className="min-w-full text-[11px] leading-tight border-collapse">
+              <div className="overflow-hidden shadow-lg">
+                <div className="overflow-auto min-h-[200px] bg-white max-w-full border-l border-r border-b border-gray-300">
+                  <table className="min-w-full text-[11px] leading-tight border-collapse">
                 <thead style={{ backgroundColor: '#e5e7eb' }}>
                   <tr>
                     {dynamicHeaders.map((h, idx) => (
                       <React.Fragment key={h}>
-                        <th className="px-2 py-2 text-left font-medium border-r border-gray-300 last:border-r-0 align-top" style={{ whiteSpace: h === 'Respondent ID' ? 'nowrap' : 'normal', minWidth: h === 'Respondent ID' ? 'auto' : '120px', lineHeight: '1.3', width: h === 'Respondent ID' ? '1%' : 'auto' }}>
-                          {activeSheet === 'Demographics' && h !== 'Respondent ID' && h !== 'respno' ? (
+                        <th className={`px-2 py-2 font-medium border-r border-gray-300 last:border-r-0 align-top ${h === 'Transcript' ? 'text-center' : 'text-left'}`} style={{ whiteSpace: (h === 'Respondent ID' || h === 'Transcript') ? 'nowrap' : 'normal', minWidth: h === 'Transcript' ? 'auto' : (h === 'Respondent ID' ? 'auto' : '120px'), lineHeight: '1.3', width: (h === 'Respondent ID' || h === 'Transcript') ? '1%' : 'auto' }}>
+                          {activeSheet === 'Demographics' && h !== 'Respondent ID' && h !== 'respno' && h !== 'Transcript' ? (
                             <div className="flex items-center gap-1">
                               {editingColumnName === h ? (
                                 <input
@@ -779,8 +1448,8 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
                             </div>
                           )}
                         </th>
-                        {/* Column divider with + button (only for Demographics, skip Respondent ID) */}
-                        {activeSheet === 'Demographics' && h !== 'Respondent ID' && h !== 'respno' && (
+                        {/* Column divider with + button (only for Demographics) */}
+                        {activeSheet === 'Demographics' && (
                           <th
                             className="relative p-0 border-r-0"
                             style={{ width: '8px', cursor: 'pointer' }}
@@ -830,7 +1499,7 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
                           return (
                             <React.Fragment key={k}>
                               <td
-                                className={`px-2 py-1 text-gray-900 align-top border-r border-gray-300 last:border-r-0 border-b-0 ${activeSheet !== 'Demographics' && k !== 'Respondent ID' && k !== 'respno' ? 'cursor-pointer hover:bg-blue-50' : ''}`}
+                                className={`px-2 py-1 text-gray-900 ${k === 'Transcript' ? 'align-middle text-center' : 'align-top'} border-r border-gray-300 last:border-r-0 border-b-0 ${activeSheet !== 'Demographics' && k !== 'Respondent ID' && k !== 'respno' ? 'cursor-pointer hover:bg-blue-50' : ''}`}
                                 style={{ whiteSpace: k === 'Respondent ID' ? 'nowrap' : 'pre-wrap', width: k === 'Respondent ID' ? '1%' : 'auto' }}
                                 onClick={(e) => {
                                   // Don't trigger click if clicking on an input field
@@ -838,7 +1507,24 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
                                   handleCellClick(row, k);
                                 }}
                               >
-                                {activeSheet === 'Demographics' && k !== 'Respondent ID' && k !== 'respno' ? (
+                                {k === 'Transcript' ? (
+                                  // Show download button for transcript
+                                  (() => {
+                                    const respondentId = row['Respondent ID'] || row['respno'];
+                                    const transcript = transcripts.find(t => t.respno === respondentId);
+                                    return transcript ? (
+                                      <button
+                                        onClick={() => downloadTranscriptAsWord(transcript)}
+                                        className="text-gray-600 hover:text-orange-600 transition-colors inline-flex items-center justify-center gap-1"
+                                        title="Download cleaned transcript"
+                                      >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                        </svg>
+                                      </button>
+                                    ) : null;
+                                  })()
+                                ) : activeSheet === 'Demographics' && k !== 'Respondent ID' && k !== 'respno' ? (
                                   <input
                                     type="text"
                                     value={String(row[k] ?? '')}
@@ -859,8 +1545,8 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
                                   String(row[k] ?? '')
                                 )}
                               </td>
-                              {/* Empty spacer cell for column divider (only for Demographics, skip Respondent ID) */}
-                              {activeSheet === 'Demographics' && k !== 'Respondent ID' && k !== 'respno' && (
+                              {/* Empty spacer cell for column divider (only for Demographics) */}
+                              {activeSheet === 'Demographics' && (
                                 <td className="p-0 border-r-0" style={{ width: '8px' }}></td>
                               )}
                             </React.Fragment>
@@ -870,7 +1556,7 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
                           <td className="px-2 py-1 text-center border-b-0">
                             {hasRespondentId && (
                               <button
-                                onClick={() => { if (!confirm("Delete this respondent? This cannot be undone.")) return; handleDeleteRespondent(i); }}
+                                onClick={() => handleDeleteRespondent(i)}
                                 className="text-red-500 hover:text-red-700 hover:bg-red-50 rounded p-1 transition-colors"
                                 title="Delete respondent"
                               >
@@ -882,35 +1568,37 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
                       </tr>
                       );
                     })}
+                  {/* Add Respondent Transcript row - only show for saved analyses on Demographics sheet */}
+                  {activeSheet === 'Demographics' && !currentAnalysis.id?.startsWith('temp-') && currentAnalysis.projectId && (
+                    <tr className="bg-gray-50 hover:bg-gray-100">
+                      <td colSpan={999} className="px-2 py-2 text-center border-b-0">
+                        <label className="inline-flex items-center gap-2 px-3 py-1.5 text-xs text-gray-600 hover:text-gray-900 transition-colors cursor-pointer">
+                          {processingTranscript ? (
+                            <>
+                              <div className="w-3 h-3 flex items-center justify-center">
+                                <svg className="animate-spin" width="12" height="12" viewBox="0 0 48 48">
+                                  <circle cx="24" cy="24" r="20" fill="none" stroke="#D14A2D" strokeWidth="4" strokeDasharray="50 75.4" strokeDashoffset="0" />
+                                  <circle cx="24" cy="24" r="20" fill="none" stroke="#5D5F62" strokeWidth="4" strokeDasharray="50 75.4" strokeDashoffset="-62.7" />
+                                </svg>
+                              </div>
+                              Processing Transcript (this may take a couple of minutes, please keep this page open)...
+                            </>
+                          ) : (
+                            <>
+                              <CloudArrowUpIcon className="h-4 w-4" />
+                              Add Respondent Transcript
+                            </>
+                          )}
+                          <input type="file" accept=".txt,.docx" className="hidden" onChange={handleTranscriptUpload} disabled={processingTranscript} />
+                        </label>
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
+                </div>
               </div>
 
-              {/* Footer with Add Respondent Transcript button */}
-              {activeSheet === 'Demographics' && (
-                <div className="mt-3 pb-2 flex justify-center">
-                  {currentAnalysis.projectId ? (
-                    <label className="inline-flex items-center gap-2 px-3 py-1.5 text-xs text-white rounded hover:opacity-90 transition-colors cursor-pointer" style={{ backgroundColor: '#D14A2D', opacity: processingTranscript ? 0.7 : 1 }}>
-                      {processingTranscript ? (
-                        <>
-                          <img src="/Circle.png" alt="Loading" className="w-3 h-3 animate-spin" style={{ filter: 'brightness(0) invert(1)' }} />
-                          Processing Transcript...
-                        </>
-                      ) : (
-                        <>
-                          <CloudArrowUpIcon className="h-3 w-3" />
-                          Add Respondent Transcript
-                        </>
-                      )}
-                      <input type="file" accept=".txt,.docx" className="hidden" onChange={handleTranscriptUpload} disabled={processingTranscript} />
-                    </label>
-                  ) : (
-                    <div className="text-xs text-gray-500">
-                      Save this analysis to a project before adding transcripts
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
           )}
         </div>
@@ -1070,7 +1758,7 @@ export default function ContentAnalysisX({ projects = [] }: ContentAnalysisXProp
                                !keyLower.includes('time');
                       })
                       .map(([key, value]) => `${key}: ${value}`)
-                      .join(' ? ');
+                      .join(' | ');
 
                     return demographics || null;
                   })()}

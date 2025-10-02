@@ -6,7 +6,7 @@ INSTRUCTIONS:
 1) READ the Discussion Guide and identify the EXACT section headings/titles
 2) CREATE sheet names using the EXACT section names from the discussion guide (preserve original capitalization, spacing, and punctuation)
 3) For each sheet, create column headers that capture the questions/topics being discussed
-4) Include standard respondent tracking columns: "Respondent ID", "Specialty", "Date", "Time (ET)"
+4) Include standard respondent tracking columns: "Respondent ID", "Interview Date", "Interview Time"
 5) Add columns for each question/topic in that section
 6) Return empty template structure (no sample data - this will be filled by researchers)
 
@@ -23,11 +23,11 @@ COLUMN GENERATION RULES:
 - Use descriptive headers that match the discussion guide questions
 - Include rating scale columns if the DG has rating exercises
 - Add open-ended response columns for qualitative feedback
-- Do NOT include "Specialty", "Date", "Time (ET)" in any section except Demographics
+- Do NOT include "Interview Date", "Interview Time" in any section except Demographics
 
 DEMOGRAPHICS SHEET RULES:
-- Demographics sheet should ONLY include: "Respondent ID", "Specialty", "Date", "Time (ET)"
-- Do NOT include other demographic fields like "Years Experience", "Practice Setting", "Patient Volume"
+- Demographics sheet should ONLY include: "Respondent ID", "Interview Date", "Interview Time"
+- Do NOT include other demographic fields like "Specialty", "Years Experience", "Practice Setting", "Patient Volume"
 - This allows researchers to manually add their own demographic columns as needed
 
 TEMPLATE STRUCTURE:
@@ -38,7 +38,7 @@ TEMPLATE STRUCTURE:
 OUTPUT FORMAT:
 {
   "Demographics": [
-    {"Respondent ID": "", "Specialty": "", "Date": "", "Time (ET)": ""}
+    {"Respondent ID": "", "Interview Date": "", "Interview Time": ""}
   ],
   "[EXACT SECTION NAME FROM DG]": [
     {"Respondent ID": "", "Question 1": "", "Question 2": "", "Rating": ""}

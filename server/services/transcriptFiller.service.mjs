@@ -53,20 +53,22 @@ export async function fillRespondentRowsFromTranscript({ transcript, sheetsColum
   // Build an instruction that is very strict and schema-bound
   const sys = [
     'You are a senior qualitative market researcher completing a Content Analysis grid from a single respondent transcript.',
-    'Task: For each sheet and its columns, extract concise respondent-only notes (not moderator prompts).',
+    'Task: For EVERY sheet and EVERY column, extract concise respondent-only notes (not moderator prompts).',
+    'CRITICAL: You MUST return data for ALL sheets provided. Do not skip any sheets.',
     'Rules:',
     '- Output STRICT JSON only. No prose outside JSON.',
-    '- Keys = EXACT sheet names given.',
+    '- Keys = EXACT sheet names given. ALL sheets MUST be present in your response.',
     '- Output two top-level keys: "rows" and "quotes".',
     '  - rows: { "<Sheet>": { "<Col>": "value" } }',
     '  - quotes: { "<Sheet>": { "<Col>": ["verbatim respondent quote", ...] } }',
-    '- If transcript lacks evidence for a column, set that column to an empty string.',
+    '- If transcript lacks evidence for a column, set that column to an empty string - but still include the sheet and column.',
     '- Cell content: 3–6 sentences, written in clear report-style notes with specific details (who/what/how many/why). Use full sentences separated by periods. Aim for depth (up to ~900 characters) where evidence exists.',
     '- Prefer quoting or near-quoting the respondent; avoid generic boilerplate.',
     '- Do NOT invent respondent ID/date/time. Do NOT infer demographics unless clearly stated.',
     '- Ignore moderator text; focus on respondent statements.',
     '- Do NOT add extra columns or sheets; use only those provided.',
-    '- For every NON-EMPTY cell value, include 2–4 verbatim respondent quotes that directly support it. Quotes must be exact substrings from the RESPONDENT-ONLY TEXT, excluding moderator content.'
+    '- For every NON-EMPTY cell value, include 2–4 verbatim respondent quotes that directly support it. Quotes must be exact substrings from the RESPONDENT-ONLY TEXT, excluding moderator content.',
+    '- REMEMBER: Return ALL sheets in your JSON response, even if some columns are empty strings.'
   ].join('\n');
 
   const userParts = [];
@@ -80,6 +82,11 @@ export async function fillRespondentRowsFromTranscript({ transcript, sheetsColum
     return `- ${sheet}: [${cols.join(', ')}]`;
   }).join('\n');
   userParts.push(sheetsSpec);
+
+  console.log(`📋 Sending ${Object.keys(sheetsColumns).length} sheets to AI:`, Object.keys(sheetsColumns));
+  for (const [sheet, cols] of Object.entries(sheetsColumns)) {
+    console.log(`   "${sheet}": ${cols.length} columns`);
+  }
 
   userParts.push('=== TRANSCRIPT (FULL) ===');
   userParts.push(transcript);
@@ -105,13 +112,25 @@ export async function fillRespondentRowsFromTranscript({ transcript, sheetsColum
   try {
     json = JSON.parse(resp.choices[0].message.content);
   } catch (e) {
+    console.error('Failed to parse AI response:', resp.choices[0].message.content);
     throw new Error('AI returned invalid JSON for transcript filling');
   }
+
+  console.log('🤖 AI RAW RESPONSE - Sheets returned:', Object.keys(json.rows || {}));
 
   const rowsOut = {};
   const quotesOut = {};
   const aiRows = (json && typeof json === 'object' && json.rows && typeof json.rows === 'object') ? json.rows : {};
   const aiQuotes = (json && typeof json === 'object' && json.quotes && typeof json.quotes === 'object') ? json.quotes : {};
+
+  console.log('🤖 AI returned data for sheets:', Object.keys(aiRows));
+  for (const [sheetName, rowData] of Object.entries(aiRows)) {
+    const filledCols = Object.entries(rowData).filter(([k, v]) => v && String(v).trim().length > 0);
+    console.log(`  📊 Sheet "${sheetName}": ${filledCols.length}/${Object.keys(rowData).length} columns filled`);
+    if (filledCols.length > 0) {
+      console.log(`     Filled columns:`, filledCols.map(([k]) => k).join(', '));
+    }
+  }
 
   // Ensure each requested sheet exists in result; if missing, create empty row
   for (const [sheet, cols] of Object.entries(sheetsColumns)) {

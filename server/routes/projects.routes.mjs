@@ -110,30 +110,30 @@ router.put('/:projectId', (req, res) => {
   try {
     const { userId, project } = req.body;
     const { projectId } = req.params;
-    
+
     if (!userId || !project) {
       return res.status(400).json({ error: 'User ID and project data are required' });
     }
-    
-    
+
+
     const projectsData = readProjectsData();
-    
+
     if (!projectsData[userId]) {
       return res.status(404).json({ error: 'User projects not found' });
     }
-    
+
     // Find and update the project
     const projectIndex = projectsData[userId].findIndex(p => p.id === projectId);
-    
+
     if (projectIndex === -1) {
       return res.status(404).json({ error: 'Project not found' });
     }
-    
+
     projectsData[userId][projectIndex] = project;
-    
+
     // Save to file
     if (writeProjectsData(projectsData)) {
-      res.json({ 
+      res.json({
         message: 'Project updated successfully',
         project: project
       });
@@ -142,6 +142,64 @@ router.put('/:projectId', (req, res) => {
     }
   } catch (error) {
     console.error('Error updating project:', error);
+    res.status(500).json({ error: 'Failed to update project' });
+  }
+});
+
+// PATCH /api/projects/:projectId - Partially update a project (for quick field updates like files)
+router.patch('/:projectId', (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const updates = req.body; // Partial updates object
+
+    // Get userId from auth token (JWT uses 'userId' field)
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    console.log(`[PATCH] userId from token: ${userId}, projectId: ${projectId}`);
+
+    const projectsData = readProjectsData();
+
+    // Find which user owns this project (search across all users)
+    let ownerUserId = null;
+    let projectIndex = -1;
+
+    for (const uid of Object.keys(projectsData)) {
+      if (uid.includes('_archived')) continue; // Skip archived users
+      const idx = projectsData[uid].findIndex(p => p.id === projectId);
+      if (idx !== -1) {
+        ownerUserId = uid;
+        projectIndex = idx;
+        break;
+      }
+    }
+
+    if (!ownerUserId || projectIndex === -1) {
+      console.log(`[PATCH] Project ${projectId} not found in any user's projects`);
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    console.log(`[PATCH] Found project ${projectId} owned by user ${ownerUserId}`);
+
+    // Merge updates into existing project
+    projectsData[ownerUserId][projectIndex] = {
+      ...projectsData[ownerUserId][projectIndex],
+      ...updates
+    };
+
+    // Save to file
+    if (writeProjectsData(projectsData)) {
+      res.json({
+        message: 'Project updated successfully',
+        project: projectsData[ownerUserId][projectIndex]
+      });
+    } else {
+      res.status(500).json({ error: 'Failed to update project' });
+    }
+  } catch (error) {
+    console.error('Error patching project:', error);
     res.status(500).json({ error: 'Failed to update project' });
   }
 });

@@ -7,6 +7,7 @@ import mammoth from 'mammoth';
 import { generateCAFromDGAsJSON, generateExcelFromJSON } from '../services/caGenerator.service.mjs';
 import { fillRespondentRowsFromTranscript } from '../services/transcriptFiller.service.mjs';
 import { fileURLToPath } from 'url';
+import OpenAI from 'openai';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const router = express.Router();
@@ -87,6 +88,15 @@ router.post('/preview', upload.single('dg'), async (req, res) => {
     // Generate JSON preview instead of Excel file
     const jsonData = await generateCAFromDGAsJSON(req.file.path);
 
+    console.log('Generated content analysis structure:');
+    console.log('Number of sheets:', Object.keys(jsonData).length);
+    console.log('Sheet names:', Object.keys(jsonData));
+    for (const [sheetName, rows] of Object.entries(jsonData)) {
+      if (Array.isArray(rows) && rows.length > 0) {
+        console.log(`  "${sheetName}": ${Object.keys(rows[0]).length} columns -`, Object.keys(rows[0]));
+      }
+    }
+
     // Also extract full raw text of the uploaded discussion guide (for viewing later)
     let rawGuideText = '';
     try {
@@ -163,14 +173,14 @@ router.post('/upload', upload.single('file'), async (req, res) => {
 // POST /api/caX/update - Update existing saved content analysis by id
 router.post('/update', async (req, res) => {
   try {
-    const { id, data, name, description, quotes, projectId, projectName } = req.body;
+    const { id, data, name, description, quotes, projectId, projectName, transcripts } = req.body;
     if (!id || !data) {
       return res.status(400).json({ error: 'id and data are required' });
     }
     const analyses = await loadSavedAnalyses();
     const idx = analyses.findIndex(a => a.id === id);
     if (idx === -1) return res.status(404).json({ error: 'Analysis not found' });
-    if (name) analyses[idx].name = name; if (description) analyses[idx].description = description; if (projectId) analyses[idx].projectId = projectId; if (projectName) analyses[idx].projectName = projectName; analyses[idx].data = data; if (quotes) analyses[idx].quotes = quotes;
+    if (name) analyses[idx].name = name; if (description) analyses[idx].description = description; if (projectId) analyses[idx].projectId = projectId; if (projectName) analyses[idx].projectName = projectName; analyses[idx].data = data; if (quotes) analyses[idx].quotes = quotes; if (transcripts) analyses[idx].transcripts = transcripts;
     analyses[idx].savedAt = new Date().toISOString();
     await saveAnalysesToFile(analyses);
     res.json({ success: true });
@@ -183,14 +193,14 @@ router.post('/update', async (req, res) => {
 // PUT /api/caX/update - Alternative PUT method for updating content analysis
 router.put('/update', async (req, res) => {
   try {
-    const { id, data, name, description, quotes, projectId, projectName } = req.body;
+    const { id, data, name, description, quotes, projectId, projectName, transcripts } = req.body;
     if (!id || !data) {
       return res.status(400).json({ error: 'id and data are required' });
     }
     const analyses = await loadSavedAnalyses();
     const idx = analyses.findIndex(a => a.id === id);
     if (idx === -1) return res.status(404).json({ error: 'Analysis not found' });
-    if (name) analyses[idx].name = name; if (description) analyses[idx].description = description; if (projectId) analyses[idx].projectId = projectId; if (projectName) analyses[idx].projectName = projectName; analyses[idx].data = data; if (quotes) analyses[idx].quotes = quotes;
+    if (name) analyses[idx].name = name; if (description) analyses[idx].description = description; if (projectId) analyses[idx].projectId = projectId; if (projectName) analyses[idx].projectName = projectName; analyses[idx].data = data; if (quotes) analyses[idx].quotes = quotes; if (transcripts) analyses[idx].transcripts = transcripts;
     analyses[idx].savedAt = new Date().toISOString();
     await saveAnalysesToFile(analyses);
     res.json({ success: true });
@@ -428,8 +438,70 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
     console.log('Transcript text length:', transcriptText.length);
     console.log('Transcript preview:', transcriptText.substring(0, 200) + '...');
 
+    // Get column headers from Demographics sheet for context
+    const columnHeaders = currentData.Demographics && Array.isArray(currentData.Demographics) && currentData.Demographics.length > 0
+      ? Object.keys(currentData.Demographics[0])
+      : [];
+
+    // Extract date and time from the beginning of the transcript
+    console.log('=== EXTRACTING DATE/TIME ===');
+    console.log('First 500 chars of transcript:', transcriptText.substring(0, 500));
+    const dateTimeInfo = extractDateTimeFromTranscript(transcriptText);
+    console.log('Extracted date/time from transcript:', dateTimeInfo);
+
+    // Clean the transcript with AI
+    console.log('=== ABOUT TO CALL cleanTranscriptWithAI ===');
+    console.log('Transcript text preview:', transcriptText.substring(0, 300));
+    console.log('Discussion guide available:', !!discussionGuide);
+    console.log('Column headers:', columnHeaders);
+
+    const cleanedTranscript = await cleanTranscriptWithAI(transcriptText, discussionGuide, columnHeaders);
+
+    console.log('=== TRANSCRIPT CLEANING COMPLETED ===');
+    console.log('Cleaned transcript preview:', cleanedTranscript.substring(0, 300));
+
     // Process the transcript with AI to extract key findings for ALL sheets
     const processed = await processTranscriptWithAI(transcriptText, currentData, discussionGuide);
+
+    // Update the Demographics sheet with extracted date/time if available
+    console.log('=== UPDATING DEMOGRAPHICS WITH DATE/TIME ===');
+    console.log('Date/Time info to apply:', dateTimeInfo);
+    if (dateTimeInfo.date || dateTimeInfo.time) {
+      const demographicsSheet = processed.data.Demographics;
+      console.log('Demographics sheet exists:', !!demographicsSheet);
+      console.log('Demographics sheet length:', demographicsSheet?.length);
+      if (demographicsSheet && Array.isArray(demographicsSheet) && demographicsSheet.length > 0) {
+        const lastRow = demographicsSheet[demographicsSheet.length - 1];
+        console.log('Last row columns:', Object.keys(lastRow));
+        console.log('Has Date column:', 'Date' in lastRow);
+        console.log('Has Time (ET) column:', 'Time (ET)' in lastRow);
+
+        // Check for various possible column name variations
+        const dateColumn = Object.keys(lastRow).find(k =>
+          k.toLowerCase().includes('date') || k === 'Date'
+        );
+        const timeColumn = Object.keys(lastRow).find(k =>
+          k.toLowerCase().includes('time') || k === 'Time (ET)' || k === 'Time'
+        );
+
+        if (dateTimeInfo.date && dateColumn) {
+          console.log(`Setting ${dateColumn} to:`, dateTimeInfo.date);
+          lastRow[dateColumn] = dateTimeInfo.date;
+        }
+        if (dateTimeInfo.time && timeColumn) {
+          console.log(`Setting ${timeColumn} to:`, dateTimeInfo.time);
+          lastRow[timeColumn] = dateTimeInfo.time;
+        }
+        console.log('Updated Demographics with date/time:', {
+          dateColumn,
+          timeColumn,
+          dateValue: dateColumn ? lastRow[dateColumn] : undefined,
+          timeValue: timeColumn ? lastRow[timeColumn] : undefined
+        });
+      }
+    } else {
+      console.log('No date/time info extracted to apply');
+    }
 
     // If analysisId is provided, persist the updated data to savedAnalyses
     if (analysisId) {
@@ -452,13 +524,25 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
       console.warn('Failed to cleanup uploaded file:', cleanupError);
     }
 
+    // Extract the respno from the Demographics sheet (it's the newly added row)
+    const demographicsSheet = processed.data.Demographics;
+    let respno = null;
+    if (demographicsSheet && Array.isArray(demographicsSheet) && demographicsSheet.length > 0) {
+      const lastRow = demographicsSheet[demographicsSheet.length - 1];
+      respno = lastRow['Respondent ID'] || lastRow['respno'] || null;
+    }
+
     console.log('Transcript processing completed successfully');
-    res.json({ 
-      success: true, 
+    console.log('Extracted respno:', respno);
+    res.json({
+      success: true,
       data: processed.data,
       quotes: processed.quotes,
+      cleanedTranscript: cleanedTranscript,
+      originalTranscript: transcriptText,
+      respno: respno,
       analysisId: analysisId || null,
-      message: 'Transcript processed successfully' 
+      message: 'Transcript processed successfully'
     });
   } catch (error) {
     console.error('Error in process-transcript endpoint:', error);
@@ -1741,6 +1825,208 @@ function generateContextualSummary(columnName, sheetName, transcriptText) {
   }
 }
 
+// Helper function to extract date and time from transcript header
+function extractDateTimeFromTranscript(transcriptText) {
+  const result = { date: null, time: null };
+
+  // Get first 500 characters where date/time info is usually located
+  const header = transcriptText.substring(0, 500);
+
+  // Try to match common date formats
+  // Format: Oct 1, 2025 (abbreviated month)
+  const dateMatch1 = header.match(/\b((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2},\s+\d{4})\b/i);
+  if (dateMatch1) {
+    result.date = dateMatch1[1];
+  }
+
+  // Format: MM/DD/YYYY or M/D/YYYY
+  const dateMatch2 = header.match(/\b(\d{1,2}\/\d{1,2}\/\d{4})\b/);
+  if (dateMatch2 && !result.date) {
+    result.date = dateMatch2[1];
+  }
+
+  // Format: Month DD, YYYY (full month name)
+  const dateMatch3 = header.match(/\b((?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},\s+\d{4})\b/i);
+  if (dateMatch3 && !result.date) {
+    result.date = dateMatch3[1];
+  }
+
+  // Try to match time formats
+  // Format: 3:00pm or 3:00 pm (with optional space before AM/PM)
+  const timeMatch1 = header.match(/\b(\d{1,2}:\d{2})\s*((?:AM|PM|am|pm))\b/);
+  if (timeMatch1) {
+    result.time = `${timeMatch1[1]} ${timeMatch1[2].toUpperCase()}`;
+  }
+
+  // Format: HH:MM:SS AM/PM
+  const timeMatch2 = header.match(/\b(\d{1,2}:\d{2}:\d{2})\s*(?:AM|PM|am|pm)\b/);
+  if (timeMatch2 && !result.time) {
+    // Remove seconds for cleaner format
+    const timeParts = timeMatch2[1].split(':');
+    const ampm = timeMatch2[0].match(/AM|PM|am|pm/i)[0].toUpperCase();
+    result.time = `${timeParts[0]}:${timeParts[1]} ${ampm}`;
+  }
+
+  return result;
+}
+
+// Helper function to clean transcript with AI
+async function cleanTranscriptWithAI(transcriptText, discussionGuide, columnHeaders) {
+  const hasValidKey = process.env.OPENAI_API_KEY &&
+                      process.env.OPENAI_API_KEY !== 'your_openai_api_key_here' &&
+                      process.env.OPENAI_API_KEY.startsWith('sk-');
+
+  if (!hasValidKey) {
+    console.log('OpenAI API key not configured, skipping transcript cleaning');
+    return transcriptText; // Return original if no API key
+  }
+
+  try {
+    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+    // Build context from column headers for terminology
+    const terminology = columnHeaders
+      .filter(h => h !== 'Respondent ID' && h !== 'respno' && h !== 'Date' && h !== 'Time (ET)')
+      .join(', ');
+
+    const systemPrompt = `You are a professional transcript editor. You will receive a raw interview transcript and must clean it following EXACT rules below.
+
+RULE 1: Remove all timestamps
+- Delete any lines with timestamps like (00:00:00 - 00:00:01)
+- Delete any standalone timestamp markers
+
+RULE 2: Standardize speaker labels
+- Replace ALL speaker name variations with exactly "Moderator:" or "Respondent:"
+- If a line starts with any speaker indicator (names, roles, etc.), standardize it
+
+RULE 3: Format with proper line spacing
+- CRITICAL: Add ONE blank line between EVERY speaker change
+- When Moderator speaks after Respondent: add blank line
+- When Respondent speaks after Moderator: add blank line
+- Do NOT add blank lines between consecutive lines from the same speaker (but you should have already combined those)
+- Each speaker's dialogue is ONE line, then blank line, then next speaker's ONE line
+
+RULE 4: Clean up overlapping/interrupted dialogue - THIS IS CRITICAL:
+
+PATTERN A - Combine consecutive same-speaker lines:
+INPUT:
+Respondent: Well, we used to live in Ohio. We moved to Georgia about sixteen years ago. I went to Ohio University, not the Ohio State.
+Respondent: State.
+
+OUTPUT:
+Respondent: Well, we used to live in Ohio. We moved to Georgia about sixteen years ago. I went to Ohio University, not the Ohio State.
+
+(The second "Respondent: State." is DELETED because "State" already ends the first line)
+
+PATTERN B - Merge interrupted speech:
+INPUT:
+Respondent: I went to
+Moderator: This
+Respondent: Ohio State
+
+OUTPUT:
+Respondent: I went to Ohio State
+
+(Moderator interjection "This" is DELETED, respondent fragments are MERGED)
+
+PATTERN C - Delete redundant echo fragments:
+INPUT:
+Respondent: Gotcha. I'm good with that. Just cut me off.
+Moderator: Thank you.
+Respondent: Me off.
+
+OUTPUT:
+Respondent: Gotcha. I'm good with that. Just cut me off.
+
+Moderator: Thank you.
+
+(The "Respondent: Me off." is DELETED because "me off" already appears in "cut me off")
+
+PATTERN D - Keep meaningful interjections, remove filler:
+- Keep: "Yeah. Yep." "Okay." "Right." when they are standalone responses
+- Remove: "Yeah." "Right." "Okay." when interrupting another speaker's sentence
+
+RULE 5: Correct misspellings
+- Fix obvious transcription errors using context
+- Use terminology from columns: ${terminology}
+
+OUTPUT FORMAT REQUIREMENTS:
+1. Start each speaker line with "Moderator:" or "Respondent:" (no other labels)
+2. Add ONE blank line between every speaker change
+3. NO blank lines between consecutive same-speaker lines
+4. NO timestamps anywhere
+5. NO consecutive lines from the same speaker (combine them)
+6. NO redundant fragments (delete them)
+
+EXAMPLE OF CORRECT OUTPUT FORMAT (notice the blank lines between speakers):
+Respondent: Yes. I am.
+[BLANK LINE HERE]
+Moderator: I'm seeing you're a Buckeyes fan. Do you live in Columbus?
+[BLANK LINE HERE]
+Respondent: Well, we used to live in Ohio. We moved to Georgia about sixteen years ago. I went to Ohio University, not the Ohio State.
+[BLANK LINE HERE]
+Moderator: A liberal arts school?
+[BLANK LINE HERE]
+Respondent: Yeah. Yep.
+
+The actual output should look like:
+Respondent: Yes. I am.
+
+Moderator: I'm seeing you're a Buckeyes fan. Do you live in Columbus?
+
+Respondent: Well, we used to live in Ohio. We moved to Georgia about sixteen years ago. I went to Ohio University, not the Ohio State.
+
+Moderator: A liberal arts school?
+
+Respondent: Yeah. Yep.
+
+PROCESSING STEPS:
+1. Remove ALL timestamps
+2. Standardize speaker labels to "Moderator:" and "Respondent:"
+3. Combine consecutive same-speaker lines
+4. Delete redundant echo fragments
+5. Merge interrupted speech (remove short interjections, combine fragments)
+6. Add ONE blank line between each speaker change
+7. Fix misspellings
+
+OUTPUT ONLY THE CLEANED TRANSCRIPT - NO explanations, NO preamble, NO meta-commentary.`;
+
+    const userPrompt = discussionGuide
+      ? `Discussion Guide (for terminology context):\n${discussionGuide}\n\n---\n\nTranscript to clean:\n${transcriptText}`
+      : `Transcript to clean:\n${transcriptText}`;
+
+    console.log('=== CLEANING TRANSCRIPT WITH AI ===');
+    console.log('Calling OpenAI to clean transcript...');
+    console.log('Column headers for context:', terminology);
+    console.log('System prompt length:', systemPrompt.length);
+    console.log('System prompt preview:', systemPrompt.substring(0, 200));
+
+    const response = await client.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+        { role: 'assistant', content: 'I will follow ALL rules exactly and output ONLY the cleaned transcript with proper formatting. I will add blank lines between speaker changes, remove redundant fragments, and combine consecutive same-speaker lines.' },
+        { role: 'user', content: 'Yes, please proceed with cleaning the transcript according to all the rules, especially adding blank lines between speaker changes.' }
+      ],
+      temperature: 0.1, // Very low temperature for strict rule following
+      max_tokens: 8000, // Increased for longer transcripts
+      seed: Date.now() // Add seed to prevent caching
+    });
+
+    console.log('=== OPENAI RESPONSE RECEIVED ===');
+
+    const cleanedTranscript = response.choices[0].message.content.trim();
+    console.log('Transcript cleaned successfully');
+    console.log('Original length:', transcriptText.length, 'Cleaned length:', cleanedTranscript.length);
+
+    return cleanedTranscript;
+  } catch (error) {
+    console.error('Error cleaning transcript with AI:', error);
+    return transcriptText; // Return original if cleaning fails
+  }
+}
+
 // Helper function to process transcript with AI
 async function processTranscriptWithAI(transcriptText, currentData, discussionGuide) {
   console.log('Processing transcript with AI for ALL sheets...');
@@ -1779,6 +2065,7 @@ async function processTranscriptWithAI(transcriptText, currentData, discussionGu
     if (!Array.isArray(rows) || rows.length === 0) continue;
     const cols = Object.keys(rows[0] || {});
     sheetsColumns[sheetName] = cols;
+    console.log(`Sheet "${sheetName}" has ${cols.length} columns:`, cols);
   }
 
   // Optionally skip Demographics from AI filling (typically manual)
@@ -1790,6 +2077,7 @@ async function processTranscriptWithAI(transcriptText, currentData, discussionGu
   let aiRowsBySheet = {};
   let aiQuotesBySheet = {};
   if (Object.keys(sheetsColumns).length > 0) {
+    console.log('Calling AI with sheets:', Object.keys(sheetsColumns));
     const ai = await fillRespondentRowsFromTranscript({
       transcript: transcriptText,
       sheetsColumns,
@@ -1797,6 +2085,12 @@ async function processTranscriptWithAI(transcriptText, currentData, discussionGu
     });
     aiRowsBySheet = ai.rows || {};
     aiQuotesBySheet = ai.quotes || {};
+
+    console.log('AI returned data for sheets:', Object.keys(aiRowsBySheet));
+    for (const [sheetName, rowData] of Object.entries(aiRowsBySheet)) {
+      const filledColumns = Object.entries(rowData).filter(([k, v]) => v && String(v).trim().length > 0);
+      console.log(`AI filled ${filledColumns.length} columns in "${sheetName}":`, filledColumns.map(([k]) => k));
+    }
   }
 
   // Merge into updated data, appending a new row per sheet

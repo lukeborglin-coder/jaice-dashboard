@@ -26,8 +26,9 @@ app.use(cors({
   origin: allowedOrigins,
   credentials: true
 }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Increase body size limit to handle large transcripts (10MB)
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Static files (for serving uploaded files)
 const FILES_DIR = process.env.FILES_DIR || path.join(process.env.DATA_DIR || path.join(__dirname, 'data'), 'uploads');

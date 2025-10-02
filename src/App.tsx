@@ -2097,10 +2097,10 @@ type Task = {
 type ProjectFile = {
   id: string;
   name: string;
-  type: 'content-analysis' | 'qnr' | 'report' | 'other' | 'word' | 'excel' | 'powerpoint';
-  uploadedAt: string;
-  size: string;
-  url?: string;
+  type: 'content-analysis' | 'qnr' | 'report' | 'other' | 'word' | 'excel' | 'powerpoint' | 'Word' | 'Excel' | 'PowerPoint' | 'PDF' | 'Other';
+  uploadedAt?: string;
+  size?: string;
+  url: string;
 };
 
 type User = {
@@ -2919,7 +2919,7 @@ export default function App() {
       </aside>
 
       {route === "Content Analysis" ? (
-        <ContentAnalysisX projects={projects} onNavigate={setRoute} />
+        <ContentAnalysisX projects={projects} onNavigate={setRoute} onNavigateToProject={handleProjectView} />
       ) : (
         <main className="flex-1 overflow-visible" style={{ background: BRAND.bg }}>
           <div className="p-5 overflow-y-auto h-screen max-w-full">
@@ -5875,7 +5875,7 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
     }
   };
 
-  const handleProjectView = (project: Project) => {
+  const handleProjectView = useCallback((project: Project) => {
     setSelectedProject(project);
     setIsTransitioning(true);
 
@@ -5899,11 +5899,11 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
       setShowDashboard(true);
       setIsTransitioning(false);
     }, 1500);
-  };
+  }, [user]);
 
   const handleReturnToHub = () => {
     setIsTransitioning(true);
-    
+
     // Start transition animation
     setTimeout(() => {
       setShowDashboard(false);
@@ -7085,7 +7085,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
   const [showFullCalendar, setShowFullCalendar] = useState(true);
   const [editingTimeline, setEditingTimeline] = useState(false);
   const [editingSegments, setEditingSegments] = useState(project.segments || []);
-  const [activePhase, setActivePhase] = useState(project.phase);
+  const [activePhase, setActivePhase] = useState(getCurrentPhase(project));
   const [projectTasks, setProjectTasks] = useState(project.tasks);
   const [showAllTasks, setShowAllTasks] = useState(false);
   const [maxVisibleTasks, setMaxVisibleTasks] = useState(8);
@@ -7216,11 +7216,17 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
   const [newComment, setNewComment] = useState("");
   const [archivedNotes, setArchivedNotes] = useState<Array<{ id: string; title: string; body: string; createdAt: string; createdBy: string; comments?: Array<{ id: string; text: string; author: string; createdAt: string }> }>>(project.archivedNotes || []);
 
+  // Project Files state
+  const [projectFiles, setProjectFiles] = useState<Array<{ id: string; name: string; type: string; url: string }>>(project.files || []);
+  const [showAddFileModal, setShowAddFileModal] = useState(false);
+  const [newFileUrl, setNewFileUrl] = useState("");
+
   // Sync local state when project prop changes
   useEffect(() => {
     setProjectNotes(project.notes || []);
     setArchivedNotes(project.archivedNotes || []);
-  }, [project.notes, project.archivedNotes]);
+    setProjectFiles(project.files || []);
+  }, [project.notes, project.archivedNotes, project.files]);
   const [showArchivedNotes, setShowArchivedNotes] = useState(false);
   const [showAddKeyDate, setShowAddKeyDate] = useState(false);
   const [newKeyDate, setNewKeyDate] = useState({ label: "", date: "" });
@@ -7691,6 +7697,164 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
     e.preventDefault();
     setIsDragging(false);
     handleFileDrop(e);
+  };
+
+  // SharePoint file helpers
+  const parseSharePointLink = (url: string): { name: string; type: string } | null => {
+    try {
+      // Extract filename from SharePoint URL
+      // Example: https://hypothesisconsulting.sharepoint.com/:x:/r/sites/cognitivedrive/_layouts/15/Doc.aspx?sourcedoc=%7B625425B1-25AB-4B0E-AE88-66EAB325EA79%7D&file=ProjectName_Project%20Checklist_110722.xlsx&action=default&mobileredirect=true
+      const fileMatch = url.match(/[&?]file=([^&]+)/);
+      if (!fileMatch) return null;
+
+      let filename = decodeURIComponent(fileMatch[1]);
+
+      // Extract extension
+      const extMatch = filename.match(/\.([^.]+)$/);
+      if (!extMatch) return null;
+
+      const extension = extMatch[1].toLowerCase();
+
+      // Remove extension and date pattern from filename
+      let cleanName = filename.replace(/\.[^.]+$/, ''); // Remove extension
+      cleanName = cleanName.replace(/_\d{6}$/, ''); // Remove _MMDDYY pattern
+      cleanName = cleanName.replace(/_/g, ' '); // Replace underscores with spaces
+
+      // Map extension to file type
+      let type = 'Other';
+      if (['xlsx', 'xls', 'xlsm'].includes(extension)) {
+        type = 'Excel';
+      } else if (['docx', 'doc'].includes(extension)) {
+        type = 'Word';
+      } else if (['pptx', 'ppt'].includes(extension)) {
+        type = 'PowerPoint';
+      } else if (extension === 'pdf') {
+        type = 'PDF';
+      }
+
+      return { name: cleanName, type };
+    } catch (error) {
+      console.error('Error parsing SharePoint link:', error);
+      return null;
+    }
+  };
+
+  const getSharePointFileIcon = (type: string) => {
+    const iconClass = "h-5 w-5";
+    switch (type) {
+      case 'Excel':
+        return (
+          <svg className={iconClass} fill="currentColor" viewBox="0 0 24 24" style={{ color: '#1D6F42' }}>
+            <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zM6 20V4h7v5h5v11H6zm7-11h-2l-1.5 3.5L8 9H6l2.5 4.5L6 18h2l1.5-3.5L11 18h2l-2.5-4.5L13 9z"/>
+          </svg>
+        );
+      case 'Word':
+        return (
+          <svg className={iconClass} fill="currentColor" viewBox="0 0 24 24" style={{ color: '#2B579A' }}>
+            <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zM6 20V4h7v5h5v11H6zm2.5-9h1.1l.9 3.3.9-3.3h1.1l.9 3.3.9-3.3h1.1L14 15h-1.1l-.9-3-.9 3H10l-1.5-4z"/>
+          </svg>
+        );
+      case 'PowerPoint':
+        return (
+          <svg className={iconClass} fill="currentColor" viewBox="0 0 24 24" style={{ color: '#D24726' }}>
+            <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zM6 20V4h7v5h5v11H6zm3-9h3c1.1 0 2 .9 2 2s-.9 2-2 2h-1v2H9v-6zm2 3c.6 0 1-.4 1-1s-.4-1-1-1h-1v2h1z"/>
+          </svg>
+        );
+      case 'PDF':
+        return (
+          <svg className={iconClass} fill="currentColor" viewBox="0 0 24 24" style={{ color: '#F40F02' }}>
+            <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zM6 20V4h7v5h5v11H6zm2-9h2c1.1 0 2 .9 2 2v1c0 1.1-.9 2-2 2H8v2H7v-7zm1 1v3h1c.6 0 1-.4 1-1v-1c0-.6-.4-1-1-1H9z"/>
+          </svg>
+        );
+      default:
+        return <DocumentIcon className={iconClass + " text-gray-600"} />;
+    }
+  };
+
+  const handleAddFile = async () => {
+    if (!newFileUrl.trim()) return;
+
+    const parsedFile = parseSharePointLink(newFileUrl);
+    if (!parsedFile) {
+      alert('Could not parse SharePoint link. Please check the URL format.');
+      return;
+    }
+
+    const newFile: ProjectFile = {
+      id: Date.now().toString(),
+      name: parsedFile.name,
+      type: parsedFile.type as ProjectFile['type'],
+      url: newFileUrl
+    };
+
+    const updatedFiles: ProjectFile[] = [...projectFiles, newFile];
+    setProjectFiles(updatedFiles);
+
+    // Save to backend
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/projects/${project.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+        },
+        body: JSON.stringify({ files: updatedFiles })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('Server error:', response.status, errorData);
+        throw new Error(`Failed to save file: ${errorData.error || response.statusText}`);
+      }
+
+      // Update parent state
+      if (setProjects) {
+        setProjects((prev: Project[]) =>
+          prev.map(p => p.id === project.id ? { ...p, files: updatedFiles } : p)
+        );
+      }
+
+      setNewFileUrl('');
+      setShowAddFileModal(false);
+    } catch (error) {
+      console.error('Error saving file:', error);
+      alert('Failed to save file. Please try again.');
+    }
+  };
+
+  const handleDeleteFile = async (fileId: string) => {
+    if (!confirm('Are you sure you want to delete this file?')) return;
+
+    const updatedFiles: ProjectFile[] = projectFiles.filter(f => f.id !== fileId);
+    setProjectFiles(updatedFiles);
+
+    // Save to backend
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/projects/${project.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+        },
+        body: JSON.stringify({ files: updatedFiles })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete file');
+      }
+
+      // Update parent state
+      if (setProjects) {
+        setProjects((prev: Project[]) =>
+          prev.map(p => p.id === project.id ? { ...p, files: updatedFiles } : p)
+        );
+      }
+    } catch (error) {
+      console.error('Error deleting file:', error);
+      alert('Failed to delete file. Please try again.');
+      // Revert the local state on error
+      setProjectFiles(projectFiles);
+    }
   };
 
   // Day click handler for calendar
@@ -8674,8 +8838,8 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
 
       {/* Main Layout: Left side (Tasks + Post-it Notes) and Right side (Calendar + Key Dates + Files/Notes) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left Half - Tasks and Post-it Notes */}
-        <div className="space-y-6 flex flex-col">
+        {/* Left Half - Tasks, Post-it Notes, and Project Files */}
+        <div className="flex flex-col gap-6">
           {/* Tasks Section (container without white card) */}
           <div className="h-[500px] flex flex-col">
             {/* Phase Tabs */}
@@ -8995,7 +9159,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
 
           {/* Post-it Notes */}
           {projectNotes.filter(note => note.postToProjectPage).length > 0 ? (
-            <div className="flex-1 flex gap-3 items-stretch">
+            <div className="flex gap-3 items-stretch h-48">
               <div className="flex-1 flex gap-3">
                 {projectNotes
                   .filter(note => note.postToProjectPage)
@@ -9048,16 +9212,140 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
               </div>
             </div>
           ) : (
-            <Card className="flex-1 flex items-center justify-center">
-              <button
-                onClick={() => setShowAddNote(true)}
-                className="w-full h-full border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-gray-400 hover:text-gray-600 transition-colors flex items-center justify-center gap-2"
-              >
-                <PlusSmallIcon className="h-4 w-4" />
-                <span className="text-sm">Add Post-it Note</span>
-              </button>
-            </Card>
+            <div className="h-48">
+              <Card className="h-full flex items-center justify-center">
+                <button
+                  onClick={() => setShowAddNote(true)}
+                  className="w-full h-full border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-gray-400 hover:text-gray-600 transition-colors flex items-center justify-center gap-2"
+                >
+                  <PlusSmallIcon className="h-4 w-4" />
+                  <span className="text-sm">Add Post-it Note</span>
+                </button>
+              </Card>
+            </div>
           )}
+
+          {/* Project Files */}
+          <Card className="flex-1">
+            <div className="px-6 py-4 h-full flex flex-col">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Project Files</h3>
+                <button
+                  onClick={() => setShowAddFileModal(true)}
+                  className="px-3 py-1.5 text-xs text-white rounded-lg hover:opacity-90 transition-colors flex items-center gap-1"
+                  style={{ backgroundColor: BRAND.orange }}
+                >
+                  <PlusSmallIcon className="h-4 w-4" />
+                  Add File
+                </button>
+              </div>
+
+              {(() => {
+                // Combine all files: project files + content analyses
+                const allFiles = [...projectFiles];
+
+                // Add content analyses for qualitative projects
+                if (project.methodologyType === 'Qualitative') {
+                  const projectAnalyses = savedContentAnalyses.filter(analysis => analysis.projectId === project.id);
+                  projectAnalyses.forEach(analysis => {
+                    const respondentCount = analysis.data?.Demographics ?
+                      analysis.data.Demographics.filter((row: any) => {
+                        const respondentId = row['Respondent ID'] || row['respno'];
+                        return respondentId && String(respondentId).trim().startsWith('R');
+                      }).length : 0;
+
+                    allFiles.push({
+                      id: `ca-${analysis.id}`,
+                      name: analysis.name,
+                      type: 'content-analysis' as ProjectFile['type'],
+                      url: '#',
+                      metadata: { respondentCount, analysisId: analysis.id }
+                    } as any);
+                  });
+                }
+
+                return allFiles.length > 0 ? (
+                  <div className="space-y-2 flex-1 overflow-y-auto">
+                    {allFiles.map((file: any) => {
+                      const isContentAnalysis = file.type === 'content-analysis';
+
+                      return isContentAnalysis ? (
+                        <div
+                          key={file.id}
+                          onClick={() => {
+                            setRoute && setRoute('Content Analysis');
+                            setTimeout(() => {
+                              const event = new CustomEvent('loadContentAnalysis', { detail: { analysisId: file.metadata.analysisId } });
+                              window.dispatchEvent(event);
+                            }, 100);
+                          }}
+                          className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors group cursor-pointer"
+                        >
+                          <div className="flex-shrink-0">
+                            <ChartBarIcon className="h-5 w-5 text-blue-600" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate group-hover:text-orange-600">
+                              {file.name}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              Content Analysis • {file.metadata.respondentCount} respondent{file.metadata.respondentCount !== 1 ? 's' : ''}
+                            </p>
+                          </div>
+                        </div>
+                      ) : (
+                        <a
+                          key={file.id}
+                          href={file.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors group"
+                        >
+                          <div className="flex-shrink-0">
+                            {getSharePointFileIcon(file.type)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate group-hover:text-orange-600">
+                              {file.name}
+                            </p>
+                            <p className="text-xs text-gray-500">{file.type}</p>
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleDeleteFile(file.id);
+                            }}
+                            className="flex-shrink-0 p-1 text-gray-400 hover:text-red-600 transition-colors"
+                            title="Delete file"
+                          >
+                            <TrashIcon className="h-4 w-4" />
+                          </button>
+                        </a>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="flex-1 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center">
+                    <div className="text-center">
+                      <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                      </svg>
+                      <p className="mt-2 text-sm text-gray-500">No files added yet</p>
+                      {project.methodologyType === 'Qualitative' && (
+                        <button
+                          onClick={() => setRoute && setRoute('Content Analysis')}
+                          className="mt-2 text-xs text-orange-600 hover:text-orange-800"
+                        >
+                          Add Content Analysis
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          </Card>
         </div>
 
         {/* Right Half - Calendar, Key Dates, Files/Notes */}
@@ -9443,83 +9731,8 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
             </div>
         </Card>
 
-          {/* Content Analysis and Key Dates side by side */}
-          <div className={`grid grid-cols-1 gap-4 ${project.methodologyType === 'Qualitative' ? 'lg:grid-cols-2' : 'lg:grid-cols-1'}`}>
-            {/* Content Analysis Box - Only for Qualitative projects */}
-            {project.methodologyType === 'Qualitative' && (
-              <Card>
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold">Content Analysis</h3>
-                </div>
-                <div className="space-y-2">
-                  {(() => {
-                    const projectAnalyses = savedContentAnalyses.filter(analysis => analysis.projectId === project.id);
-                    
-                    if (projectAnalyses.length === 0) {
-                      return (
-                        <>
-                          <div className="text-xs text-gray-500">
-                            No content analysis yet
-                          </div>
-                          <button
-                            onClick={() => setRoute && setRoute('Content Analysis')}
-                            className="text-xs text-orange-600 hover:text-orange-800 flex items-center gap-1"
-                          >
-                            <PlusSmallIcon className="h-3 w-3" />
-                            Add Content Analysis
-                          </button>
-                        </>
-                      );
-                    }
-                    
-                    return (
-                      <>
-                        {projectAnalyses.map((analysis) => {
-                          // Count respondents only in Demographics sheet with IDs starting with 'R'
-                          const respondentCount = analysis.data?.Demographics ?
-                            analysis.data.Demographics.filter((row: any) => {
-                              const respondentId = row['Respondent ID'] || row['respno'];
-                              return respondentId && String(respondentId).trim().startsWith('R');
-                            }).length : 0;
-
-                          return (
-                            <div
-                              key={analysis.id}
-                              className="text-xs cursor-pointer hover:bg-gray-50 p-1.5 rounded -mx-1.5 transition-colors"
-                              onClick={() => {
-                                setRoute && setRoute('Content Analysis');
-                                // Navigate to the content analysis and load this specific analysis
-                                setTimeout(() => {
-                                  const event = new CustomEvent('loadContentAnalysis', { detail: { analysisId: analysis.id } });
-                                  window.dispatchEvent(event);
-                                }, 100);
-                              }}
-                            >
-                              <div className="font-medium text-gray-900 truncate" title={analysis.name}>
-                                {analysis.name}
-                              </div>
-                              <div className="text-gray-500">
-                                {respondentCount} respondent{respondentCount !== 1 ? 's' : ''}
-                              </div>
-                            </div>
-                          );
-                        })}
-                        <button
-                          onClick={() => setRoute && setRoute('Content Analysis')}
-                          className="text-xs text-orange-600 hover:text-orange-800 flex items-center gap-1 mt-1"
-                        >
-                          <PlusSmallIcon className="h-3 w-3" />
-                          Add Another
-                        </button>
-                      </>
-                    );
-                  })()}
-                </div>
-              </Card>
-            )}
-
-            {/* Key Dates */}
-            <Card>
+          {/* Key Dates */}
+          <Card>
               <div className="flex items-center justify-between mb-3">
                   <h3 className="font-semibold">Key Dates</h3>
                 <button
@@ -9566,7 +9779,6 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                   )}
                 </div>
               </Card>
-          </div>
         </div>
       </div>
 
@@ -9763,6 +9975,65 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
         </div>
       )}
 
+      {/* Add File Modal */}
+      {showAddFileModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center overflow-y-auto py-8 z-[9999] p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Add Project File</h3>
+              <button
+                onClick={() => {
+                  setShowAddFileModal(false);
+                  setNewFileUrl('');
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">SharePoint Link</label>
+                <p className="text-xs text-gray-500 mb-2">
+                  Copy and paste the URL from the SharePoint file you want to upload
+                </p>
+                <input
+                  type="text"
+                  value={newFileUrl}
+                  onChange={(e) => setNewFileUrl(e.target.value)}
+                  placeholder="Paste SharePoint file link..."
+                  className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-orange-200"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  The file name and type will be automatically extracted from the link
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => {
+                    setShowAddFileModal(false);
+                    setNewFileUrl('');
+                  }}
+                  className="px-4 py-2 text-sm border rounded-lg hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAddFile}
+                  className="px-4 py-2 text-sm text-white rounded-lg hover:opacity-90"
+                  style={{ backgroundColor: BRAND.orange }}
+                >
+                  Add File
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Day Details Popup */}
       {selectedDay && (
@@ -10563,7 +10834,7 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [editingTimeline, setEditingTimeline] = useState(false);
   const [editingSegments, setEditingSegments] = useState(project.segments || []);
-  const [activePhase, setActivePhase] = useState(project.phase);
+  const [activePhase, setActivePhase] = useState(getCurrentPhase(project));
   const [projectTasks, setProjectTasks] = useState(project.tasks);
   const [maxVisibleTasks, setMaxVisibleTasks] = useState(8);
   const taskContainerRef = useRef<HTMLDivElement>(null);
