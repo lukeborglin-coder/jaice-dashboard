@@ -32,7 +32,33 @@ const storage = multer.diskStorage({
   }
 });
 
-const upload = multer({ storage });
+// File filter for allowed types
+const fileFilter = (req, file, cb) => {
+  const allowedTypes = [
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+    'application/msword', // .doc
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+    'application/vnd.ms-excel', // .xls
+    'text/plain', // .txt
+    'application/pdf', // .pdf
+    'application/json' // .json
+  ];
+
+  if (allowedTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error(`Invalid file type. Allowed types: Word documents, Excel files, PDFs, text files, and JSON files.`), false);
+  }
+};
+
+const upload = multer({
+  storage,
+  fileFilter,
+  limits: {
+    fileSize: 25 * 1024 * 1024, // 25MB max file size
+    files: 10 // Max 10 files per request
+  }
+});
 
 // File paths for persistent storage
 const baseDataDir = process.env.DATA_DIR || '/server/data' || path.join(__dirname, '../data');
@@ -460,8 +486,8 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
     console.log('=== TRANSCRIPT CLEANING COMPLETED ===');
     console.log('Cleaned transcript preview:', cleanedTranscript.substring(0, 300));
 
-    // Process the transcript with AI to extract key findings for ALL sheets
-    const processed = await processTranscriptWithAI(transcriptText, currentData, discussionGuide);
+    // Process the CLEANED transcript with AI to extract key findings for ALL sheets
+    const processed = await processTranscriptWithAI(cleanedTranscript, currentData, discussionGuide);
 
     // Update the Demographics sheet with extracted date/time if available
     console.log('=== UPDATING DEMOGRAPHICS WITH DATE/TIME ===');
@@ -508,9 +534,11 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
       const idx = savedAnalyses.findIndex(a => a.id === analysisId);
       if (idx !== -1) {
         savedAnalyses[idx].data = processed.data;
+        savedAnalyses[idx].quotes = processed.quotes;
+        savedAnalyses[idx].context = processed.context;
         savedAnalyses[idx].savedAt = new Date().toISOString();
         await saveAnalysesToFile(savedAnalyses);
-        console.log(`Persisted updated analysis ${analysisId}`);
+        console.log(`Persisted updated analysis ${analysisId} with quotes and context`);
       } else {
         console.log(`Analysis ${analysisId} not found to persist`);
       }
@@ -534,10 +562,16 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
 
     console.log('Transcript processing completed successfully');
     console.log('Extracted respno:', respno);
+    console.log('📤 About to send response with context:', processed.context);
+    console.log('📤 Context keys:', processed.context ? Object.keys(processed.context) : 'NO CONTEXT');
+    for (const [sheet, cols] of Object.entries(processed.context || {})) {
+      console.log(`📤 Sheet "${sheet}" context columns:`, Object.keys(cols));
+    }
     res.json({
       success: true,
       data: processed.data,
       quotes: processed.quotes,
+      context: processed.context || {},
       cleanedTranscript: cleanedTranscript,
       originalTranscript: transcriptText,
       respno: respno,
@@ -2076,6 +2110,7 @@ async function processTranscriptWithAI(transcriptText, currentData, discussionGu
   // Call OpenAI once to fill a row per sheet
   let aiRowsBySheet = {};
   let aiQuotesBySheet = {};
+  let aiContextBySheet = {};
   if (Object.keys(sheetsColumns).length > 0) {
     console.log('Calling AI with sheets:', Object.keys(sheetsColumns));
     const ai = await fillRespondentRowsFromTranscript({
@@ -2085,6 +2120,7 @@ async function processTranscriptWithAI(transcriptText, currentData, discussionGu
     });
     aiRowsBySheet = ai.rows || {};
     aiQuotesBySheet = ai.quotes || {};
+    aiContextBySheet = ai.context || {};
 
     console.log('AI returned data for sheets:', Object.keys(aiRowsBySheet));
     for (const [sheetName, rowData] of Object.entries(aiRowsBySheet)) {
@@ -2097,6 +2133,7 @@ async function processTranscriptWithAI(transcriptText, currentData, discussionGu
   const updatedData = { ...currentData };
   const processedSheets = [];
   const quotesBySheetAndResp = {};
+  const contextBySheetAndResp = {};
   for (const sheetName of sheetNames) {
     const rows = currentData[sheetName];
     if (!Array.isArray(rows)) continue;
@@ -2130,11 +2167,16 @@ async function processTranscriptWithAI(transcriptText, currentData, discussionGu
     const sheetQuotes = aiQuotesBySheet[sheetName] || {};
     if (!quotesBySheetAndResp[sheetName]) quotesBySheetAndResp[sheetName] = {};
     quotesBySheetAndResp[sheetName][respKey] = sheetQuotes;
+
+    // Attach context for this respondent by respno value
+    const sheetContext = aiContextBySheet[sheetName] || {};
+    if (!contextBySheetAndResp[sheetName]) contextBySheetAndResp[sheetName] = {};
+    contextBySheetAndResp[sheetName][respKey] = sheetContext;
   }
 
   console.log('Processed sheets:', processedSheets);
   console.log('Total sheets updated:', processedSheets.length);
-  return { data: updatedData, quotes: quotesBySheetAndResp };
+  return { data: updatedData, quotes: quotesBySheetAndResp, context: contextBySheetAndResp };
 }
 
 export default router;

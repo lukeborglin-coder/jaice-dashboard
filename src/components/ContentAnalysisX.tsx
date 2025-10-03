@@ -1,8 +1,9 @@
 import { API_BASE_URL } from '../config';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { CloudArrowUpIcon, TrashIcon, CalendarIcon, UserGroupIcon, UserIcon, BookOpenIcon, BeakerIcon, LightBulbIcon, ChartBarIcon, TrophyIcon, ChatBubbleLeftRightIcon, ExclamationTriangleIcon, ExclamationCircleIcon, ArrowTrendingUpIcon, UsersIcon, DocumentMagnifyingGlassIcon, CheckCircleIcon, EllipsisHorizontalCircleIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
+import { CloudArrowUpIcon, TrashIcon, CalendarIcon, UserGroupIcon, UserIcon, BookOpenIcon, BeakerIcon, LightBulbIcon, ChartBarIcon, TrophyIcon, ChatBubbleLeftRightIcon, ExclamationTriangleIcon, ExclamationCircleIcon, ArrowTrendingUpIcon, UsersIcon, DocumentMagnifyingGlassIcon, CheckCircleIcon, EllipsisHorizontalCircleIcon, DocumentTextIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
+import ExcelJS from 'exceljs';
 
 interface ContentAnalysisXProps {
   projects?: any[];
@@ -28,7 +29,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
   const [showSaveSuccessMessage, setShowSaveSuccessMessage] = useState(false);
   const [showQuotesModal, setShowQuotesModal] = useState(false);
   const [selectedQuotes, setSelectedQuotes] = useState<string[]>([]);
-  const [selectedCellInfo, setSelectedCellInfo] = useState({ column: '', respondent: '' });
+  const [selectedCellInfo, setSelectedCellInfo] = useState({ column: '', respondent: '', summary: '', sheet: '' });
   const [copiedQuoteIndex, setCopiedQuoteIndex] = useState<number | null>(null);
   const [hoveredColumnDivider, setHoveredColumnDivider] = useState<number | null>(null);
   const [editingColumnName, setEditingColumnName] = useState<string | null>(null);
@@ -296,6 +297,223 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
     }
   };
 
+  // Extract context from transcript around a quote
+  const extractContext = (transcript: string, quote: string): { context: string; matchedQuote: string } | null => {
+    if (!transcript || !quote) return null;
+
+    // Clean the quote for better matching
+    const cleanQuote = quote.trim().toLowerCase();
+    if (cleanQuote.length < 10) return null; // Skip very short quotes
+
+    // Split transcript into lines
+    const lines = transcript.split('\n');
+    let contextLines: string[] = [];
+    let foundQuote = false;
+    let matchedQuoteText = '';
+
+    // Extract quote words for matching
+    const quoteWords = cleanQuote.split(/\s+/).filter(w => w.length > 3);
+
+    // Find the quote in the transcript - look for the best match
+    let bestMatchIndex = -1;
+    let bestMatchLength = 0;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+
+      // Skip moderator lines for quote matching
+      if (line.startsWith('Moderator:')) continue;
+
+      const lineLower = line.toLowerCase();
+
+      // Check if this line contains a significant portion of the quote
+      // Look for at least 70% of the quote text
+      const lineWords = lineLower.split(/\s+/);
+
+      let matchingWords = 0;
+      for (const qWord of quoteWords) {
+        if (lineWords.some(lWord => lWord.includes(qWord) || qWord.includes(lWord))) {
+          matchingWords++;
+        }
+      }
+
+      const matchPercentage = quoteWords.length > 0 ? matchingWords / quoteWords.length : 0;
+
+      if (matchPercentage > 0.5 && matchingWords > bestMatchLength) {
+        bestMatchLength = matchingWords;
+        bestMatchIndex = i;
+      }
+    }
+
+    if (bestMatchIndex === -1) {
+      // Fallback: simple contains check
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (line && line.toLowerCase().includes(cleanQuote.substring(0, Math.min(50, cleanQuote.length)))) {
+          bestMatchIndex = i;
+          break;
+        }
+      }
+    }
+
+    if (bestMatchIndex !== -1) {
+      foundQuote = true;
+      const i = bestMatchIndex;
+
+      // Extract the matched quote line (remove "Respondent:" prefix if present)
+      matchedQuoteText = lines[i].trim();
+      if (matchedQuoteText.startsWith('Respondent:')) {
+        matchedQuoteText = matchedQuoteText.substring('Respondent:'.length).trim();
+      }
+
+      // Collect extended topical context
+      // Find the start: look back for moderator question that introduced this topic
+      let startIdx = Math.max(0, i - 3);
+      for (let j = i - 1; j >= Math.max(0, i - 12); j--) {
+        if (lines[j].trim().startsWith('Moderator:')) {
+          startIdx = j;
+          break;
+        }
+      }
+
+      // Find the end: continue forward through the topical discussion
+      // Include all follow-up Q&A that contains key topic words from the quote
+      let endIdx = i;
+      const topicWords = quoteWords.slice(0, 3); // Use top 3 words from quote as topic indicators
+
+      for (let j = i + 1; j < Math.min(lines.length, i + 40); j++) {
+        const line = lines[j].trim();
+        if (!line) continue;
+
+        const lineLower = line.toLowerCase();
+
+        // Check if this line is still about the same topic
+        const hasTopicWords = topicWords.some(word => lineLower.includes(word));
+
+        if (line.startsWith('Moderator:') || line.startsWith('Respondent:')) {
+          // If the line mentions topic words OR is within 5 lines of last topic mention, include it
+          if (hasTopicWords || (j - endIdx <= 5)) {
+            endIdx = j;
+          } else {
+            // We've moved to a different topic
+            break;
+          }
+        }
+      }
+
+      // Collect the context lines
+      for (let j = startIdx; j <= endIdx; j++) {
+        const contextLine = lines[j].trim();
+        if (contextLine) {
+          contextLines.push(contextLine);
+        }
+      }
+    }
+
+    return foundQuote ? { context: contextLines.join('\n'), matchedQuote: matchedQuoteText } : null;
+  };
+
+  // Export content analysis to Excel
+  const handleExportToExcel = async () => {
+    if (!currentAnalysis || !currentAnalysis.data) return;
+
+    const workbook = new ExcelJS.Workbook();
+
+    // Get all sheet names from the data
+    const sheetNames = Object.keys(currentAnalysis.data);
+
+    sheetNames.forEach((sheetName) => {
+      const sheetData = currentAnalysis.data[sheetName];
+      if (!Array.isArray(sheetData) || sheetData.length === 0) return;
+
+      // Get all column headers
+      const headers = new Set<string>();
+      sheetData.forEach((row: any) => {
+        Object.keys(row).forEach(key => headers.add(key));
+      });
+      const headerArray = Array.from(headers);
+
+      // Create worksheet with truncated name (Excel limit is 31 chars)
+      const truncatedSheetName = sheetName.length > 31 ? sheetName.substring(0, 31) : sheetName;
+      const worksheet = workbook.addWorksheet(truncatedSheetName);
+
+      // Add header row
+      worksheet.addRow(headerArray);
+
+      // Style header row
+      const headerRow = worksheet.getRow(1);
+      headerRow.font = { bold: true };
+      headerRow.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFD3D3D3' }
+      };
+      headerRow.alignment = { vertical: 'middle', horizontal: 'left' };
+
+      // Add data rows - only include summary text (first line before newline)
+      sheetData.forEach((row: any) => {
+        const rowData = headerArray.map(header => {
+          const value = row[header];
+          if (typeof value === 'string') {
+            // Extract only the summary (first line or text before double newline)
+            const summaryMatch = value.split('\n\n')[0] || value.split('\n')[0] || value;
+            return summaryMatch.trim();
+          }
+          return value || '';
+        });
+        worksheet.addRow(rowData);
+      });
+
+      // Set column widths and apply text wrapping
+      worksheet.columns.forEach((column, index) => {
+        const header = headerArray[index];
+
+        if (sheetName === 'Demographics') {
+          // For Demographics: auto-fit all columns
+          let maxWidth = header?.length || 10;
+          column.eachCell?.({ includeEmpty: false }, (cell) => {
+            const cellLength = String(cell.value || '').length;
+            maxWidth = Math.max(maxWidth, cellLength);
+          });
+          column.width = Math.min(maxWidth + 2, 50);
+        } else {
+          // For other sheets: respno column auto-fit, others standard width of 50
+          if (header === 'respno' || header === 'Respondent ID') {
+            let maxWidth = header?.length || 10;
+            column.eachCell?.({ includeEmpty: false }, (cell) => {
+              const cellLength = String(cell.value || '').length;
+              maxWidth = Math.max(maxWidth, cellLength);
+            });
+            column.width = maxWidth + 2;
+          } else {
+            column.width = 50;
+          }
+
+          // Apply text wrapping to all data cells (not header)
+          column.eachCell?.({ includeEmpty: false }, (cell, rowNumber) => {
+            if (rowNumber > 1) { // Skip header row
+              cell.alignment = { wrapText: true, vertical: 'top', horizontal: 'left' };
+            }
+          });
+        }
+      });
+    });
+
+    // Generate filename
+    const filename = `${currentAnalysis.name || 'Content_Analysis'}_${new Date().toISOString().split('T')[0]}.xlsx`;
+
+    // Download file
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    window.URL.revokeObjectURL(url);
+  };
+
   // Handler for cell click to show quotes
   const handleCellClick = (row: any, columnKey: string) => {
     // Skip Demographics and respno column
@@ -306,10 +524,12 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
     // Get quotes from the analysis data (if stored)
     const quotes = currentAnalysis?.quotes?.[activeSheet]?.[respondentId]?.[columnKey] || [];
 
+    // Get the cell value (summary finding)
+    const cellValue = row[columnKey] || '';
 
     // Show modal even if no quotes (will display "No quotes available" message)
     setSelectedQuotes(quotes);
-    setSelectedCellInfo({ column: columnKey, respondent: respondentId });
+    setSelectedCellInfo({ column: columnKey, respondent: respondentId, summary: cellValue, sheet: activeSheet });
     setShowQuotesModal(true);
   };
 
@@ -753,7 +973,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
           console.log(`Sheet "${sheetName}": ${Array.isArray(sheetData) ? sheetData.length : 0} rows`);
         }
 
-        // Update the current analysis with the new respondent data and quotes
+        // Update the current analysis with the new respondent data, quotes, and context
         // Merge quotes properly - don't replace, but merge sheet by sheet
         const mergedQuotes = { ...currentAnalysis.quotes };
         if (result.quotes) {
@@ -762,6 +982,19 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
             mergedQuotes[sheetName] = { ...mergedQuotes[sheetName], ...(sheetQuotes as any) };
           }
         }
+
+        // Merge context similarly
+        const mergedContext = { ...currentAnalysis.context };
+        console.log('🔍 Frontend received result.context:', result.context);
+        console.log('🔍 Context keys:', result.context ? Object.keys(result.context) : 'NO CONTEXT');
+        if (result.context) {
+          for (const [sheetName, sheetContext] of Object.entries(result.context)) {
+            console.log(`🔍 Processing context for sheet "${sheetName}":`, sheetContext);
+            if (!mergedContext[sheetName]) mergedContext[sheetName] = {};
+            mergedContext[sheetName] = { ...mergedContext[sheetName], ...(sheetContext as any) };
+          }
+        }
+        console.log('🔍 Final mergedContext:', mergedContext);
 
         // Add cleaned transcript to transcripts array
         const newTranscripts = [...transcripts];
@@ -795,6 +1028,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
           ...currentAnalysis,
           data: result.data,
           quotes: mergedQuotes,
+          context: mergedContext,
           transcripts: newTranscripts
         };
 
@@ -1268,22 +1502,34 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                   </>
                 )}
               </div>
-              {currentAnalysis.id?.startsWith('temp-') && (
+              <div className="flex gap-2">
+                {/* Export to Excel button - always visible */}
                 <button
-                  onClick={() => {
-                    setSaveFormData({
-                      projectId: currentAnalysis.projectId || '',
-                      name: currentAnalysis.name || '',
-                      description: ''
-                    });
-                    setShowSaveModal(true);
-                  }}
-                  className="px-4 py-1.5 text-sm text-white rounded-lg hover:opacity-90 transition-colors"
-                  style={{ backgroundColor: '#D14A2D' }}
+                  onClick={handleExportToExcel}
+                  className="px-4 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+                  title="Export to Excel"
                 >
-                  Save
+                  <ArrowDownTrayIcon className="h-4 w-4" />
+                  Export as Excel
                 </button>
-              )}
+                {/* Save button - only for unsaved analyses */}
+                {currentAnalysis.id?.startsWith('temp-') && (
+                  <button
+                    onClick={() => {
+                      setSaveFormData({
+                        projectId: currentAnalysis.projectId || '',
+                        name: currentAnalysis.name || '',
+                        description: ''
+                      });
+                      setShowSaveModal(true);
+                    }}
+                    className="px-4 py-1.5 text-sm text-white rounded-lg hover:opacity-90 transition-colors"
+                    style={{ backgroundColor: '#D14A2D' }}
+                  >
+                    Save
+                  </button>
+                )}
+              </div>
             </div>
             <div className="flex items-center justify-between">
               <div>
@@ -1686,8 +1932,8 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
 
       {/* Quotes Modal */}
       {showQuotesModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowQuotesModal(false)}>
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowQuotesModal(false)}>
+          <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start justify-between mb-4">
               <div>
                 <p className="text-sm text-gray-900 font-bold">
@@ -1707,35 +1953,137 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
               </button>
             </div>
 
-            <div className="space-y-3 overflow-y-auto flex-1">
-              {selectedQuotes.length > 0 ? (
-                selectedQuotes.map((quote, idx) => (
-                  <div key={idx} className="bg-gray-50 rounded-lg p-4 border-l-4 border-blue-500 flex items-start justify-between gap-3">
-                    <p className="text-sm text-gray-800 italic flex-1">"{quote}"</p>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(quote);
-                        setCopiedQuoteIndex(idx);
-                        setTimeout(() => setCopiedQuoteIndex(null), 2000);
-                      }}
-                      className="text-gray-400 hover:text-gray-600 flex-shrink-0 relative"
-                      title="Copy quote"
-                    >
-                      {copiedQuoteIndex === idx ? (
-                        <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                      ) : (
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
-                      )}
-                    </button>
-                  </div>
-                ))
-              ) : (
-                <p className="text-sm text-gray-500 text-center py-8">No quotes available for this cell.</p>
+            <div className="space-y-6 overflow-y-auto flex-1">
+              {/* Summary Finding Section */}
+              {selectedCellInfo.summary && (
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                  <h3 className="text-sm font-semibold text-orange-900 mb-2">Key Finding</h3>
+                  <p className="text-sm text-gray-800">{selectedCellInfo.summary}</p>
+                </div>
               )}
+
+              {/* Quotes Section */}
+              <div>
+                <h3 className="text-sm font-semibold text-gray-700 mb-3">Supporting Quotes</h3>
+                <div className="space-y-3">
+                  {selectedQuotes.length > 0 ? (
+                    selectedQuotes.map((quote, idx) => (
+                      <div key={idx} className="bg-gray-50 rounded-lg p-4 border-l-4 border-blue-500 flex items-start justify-between gap-3">
+                        <p className="text-sm text-gray-800 italic flex-1">"{quote}"</p>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(quote);
+                            setCopiedQuoteIndex(idx);
+                            setTimeout(() => setCopiedQuoteIndex(null), 2000);
+                          }}
+                          className="text-gray-400 hover:text-gray-600 flex-shrink-0 relative"
+                          title="Copy quote"
+                        >
+                          {copiedQuoteIndex === idx ? (
+                            <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          ) : (
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                          )}
+                        </button>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-gray-500 text-center py-8">No quotes available for this cell.</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Additional Context Section */}
+              {selectedQuotes.length > 0 && (() => {
+                // Get context from AI-provided data
+                console.log('🔍 MODAL: Looking for context in:', {
+                  sheet: selectedCellInfo.sheet,
+                  respondent: selectedCellInfo.respondent,
+                  column: selectedCellInfo.column,
+                  hasAnalysisContext: !!currentAnalysis.context,
+                  contextKeys: currentAnalysis.context ? Object.keys(currentAnalysis.context) : []
+                });
+                const sheetContext = currentAnalysis.context?.[selectedCellInfo.sheet]?.[selectedCellInfo.respondent]?.[selectedCellInfo.column];
+                console.log('🔍 MODAL: Found sheetContext:', sheetContext);
+                console.log('🔍 MODAL: Number of quotes:', selectedQuotes.length);
+                console.log('🔍 MODAL: Number of contexts:', sheetContext?.length);
+                if (!sheetContext || !Array.isArray(sheetContext) || sheetContext.length === 0) {
+                  console.log('🔍 MODAL: No context found - returning null');
+                  return null;
+                }
+
+                return (
+                  <div className="border-t border-gray-200 pt-6">
+                    <h3 className="text-sm font-semibold text-gray-700 mb-3">Additional Context</h3>
+                    <div className="space-y-4">
+                      {selectedQuotes.map((quote, idx) => {
+                        const contextString = sheetContext[idx];
+                        console.log(`🔍 MODAL: Processing quote ${idx + 1}/${selectedQuotes.length}:`, quote);
+                        console.log(`🔍 MODAL: Context for quote ${idx + 1}:`, contextString ? 'EXISTS' : 'MISSING');
+                        if (!contextString) return null;
+
+                        // Clean the quote for matching (lowercase, normalize spaces)
+                        const cleanQuote = quote.toLowerCase().trim().replace(/\s+/g, ' ');
+
+                        // Handle both actual newlines and escaped newlines (\n as string)
+                        const normalizedContext = contextString.replace(/\\n/g, '\n');
+
+                        return (
+                          <div key={idx} className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                            <div className="text-sm text-gray-800 space-y-2">
+                              {normalizedContext.split('\n').map((line, lineIdx) => {
+                                const isModerator = line.startsWith('Moderator:');
+                                const isRespondent = line.startsWith('Respondent:');
+
+                                if (isModerator || isRespondent) {
+                                  const [speaker, ...textParts] = line.split(':');
+                                  const text = textParts.join(':').trim();
+
+                                  // Check if this line contains the quote and find its position
+                                  const cleanText = text.toLowerCase().replace(/\s+/g, ' ');
+                                  const quoteIndex = cleanText.indexOf(cleanQuote);
+                                  const hasQuote = quoteIndex !== -1;
+
+                                  return (
+                                    <p key={lineIdx}>
+                                      <span className={`font-bold ${isModerator ? 'text-gray-900' : 'text-blue-700'}`}>
+                                        {speaker}:
+                                      </span>
+                                      {' '}
+                                      {hasQuote ? (
+                                        <span className={isModerator ? 'text-gray-800' : 'text-blue-600'}>
+                                          {/* Text before the quote */}
+                                          {text.substring(0, quoteIndex)}
+                                          {/* The highlighted quote */}
+                                          <span className="bg-blue-200 px-1 rounded font-bold">
+                                            {text.substring(quoteIndex, quoteIndex + cleanQuote.length)}
+                                          </span>
+                                          {/* Text after the quote */}
+                                          {text.substring(quoteIndex + cleanQuote.length)}
+                                        </span>
+                                      ) : (
+                                        <span className={isModerator ? 'text-gray-800' : 'text-blue-600'}>
+                                          {text}
+                                        </span>
+                                      )}
+                                    </p>
+                                  );
+                                }
+
+                                return <p key={lineIdx} className="text-gray-600">{line}</p>;
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Demographics Footer */}

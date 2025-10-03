@@ -25,30 +25,8 @@ export async function fillRespondentRowsFromTranscript({ transcript, sheetsColum
 
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-  // Try to derive a respondent-only view to improve quote extraction
-  function respondentOnly(text) {
-    try {
-      const lines = text.split(/\r?\n/);
-      const out = [];
-      for (const raw of lines) {
-        const line = raw.trim();
-        if (!line) continue;
-        // Skip clear moderator markers
-        if (/^(moderator|interviewer|facilitator|mod:|m:)/i.test(line)) continue;
-        if (/^q\d+[:\s]/i.test(line)) continue;
-        // Strip respondent labels
-        let content = line.replace(/^(respondent|participant|interviewee|resp:|r:)/i, '').trim();
-        // If looks like "Speaker: content", keep content only
-        const m = content.match(/^[^:]{1,40}:\s*(.*)$/);
-        if (m) content = m[1];
-        if (content.length) out.push(content);
-      }
-      return out.join('\n');
-    } catch {
-      return text;
-    }
-  }
-  const respondentText = respondentOnly(transcript);
+  // Use the full transcript with speaker labels intact for better quote matching
+  const respondentText = transcript;
 
   // Build an instruction that is very strict and schema-bound
   const sys = [
@@ -74,16 +52,56 @@ export async function fillRespondentRowsFromTranscript({ transcript, sheetsColum
     'Rules:',
     '- Output STRICT JSON only. No prose outside JSON.',
     '- Keys = EXACT sheet names given. ALL sheets MUST be present in your response.',
-    '- Output two top-level keys: "rows" and "quotes".',
-    '  - rows: { "<Sheet>": { "<Col>": "value" } }',
-    '  - quotes: { "<Sheet>": { "<Col>": ["verbatim respondent quote", ...] } }',
+    '- Output three top-level keys: "rows", "quotes", and "context".',
+    '  - rows: { "<Sheet>": { "<Col>": "key finding summary" } }',
+    '  - quotes: { "<Sheet>": { "<Col>": ["verbatim quote 1", "verbatim quote 2", ...] } }',
+    '  - context: { "<Sheet>": { "<Col>": ["full context for quote 1", "full context for quote 2", ...] } }',
     '- If transcript lacks evidence for a column, set that column to an empty string - but still include the sheet and column.',
-    '- Cell content: 3–6 sentences, written in clear report-style notes with specific details (who/what/how many/why). Use full sentences separated by periods. Aim for depth (up to ~900 characters) where evidence exists.',
-    '- Prefer quoting or near-quoting the respondent; avoid generic boilerplate.',
+    '- CRITICAL - CELL CONTENT FORMAT: Each cell value should be a THIRD-PERSON SUMMARY/KEY FINDING, NOT a first-person quote:',
+    '  * Write as objective research notes (e.g., "Learns about treatments through Facebook groups" NOT "I learn about treatments through Facebook")',
+    '  * 2–4 sentences capturing the key insight with specific details (who/what/how/why)',
+    '  * Use clear, analytical language suitable for a research report',
+    '  * Aim for depth (up to ~900 characters) where evidence exists',
     '- Do NOT invent respondent ID/date/time. Do NOT infer demographics unless clearly stated.',
     '- Ignore moderator text; focus on respondent statements. If speaker labels are missing/wrong, USE CONTEXT to distinguish.',
     '- Do NOT add extra columns or sheets; use only those provided.',
-    '- For every NON-EMPTY cell value, include 2–4 verbatim respondent quotes that directly support it. Quotes must be exact substrings from the RESPONDENT-ONLY TEXT, excluding moderator content.',
+    '- CRITICAL - EXACT QUOTE EXTRACTION: For every NON-EMPTY cell value, you MUST include 2–4 compelling VERBATIM quotes from the respondent that directly support the key finding.',
+    '',
+    '  ⚠️ QUOTES MUST BE COPY-PASTED EXACTLY FROM THE TRANSCRIPT ⚠️',
+    '  * Find the exact sentence or phrase in the transcript where the respondent said this',
+    '  * COPY the text word-for-word, character-for-character from the transcript',
+    '  * Do NOT reword, paraphrase, summarize, or change ANY words',
+    '  * Do NOT add your own phrasing like "I found X to be Y" - use their ACTUAL words',
+    '  * Remove "Respondent:" label but keep everything else exactly as spoken',
+    '  * Each quote should be 15-50 words - a complete thought from the respondent',
+    '  * If you cannot find an exact quote in the transcript, leave the quotes array empty for that column',
+    '',
+    '  Example of WRONG quote extraction:',
+    '  ❌ "The respondent found Evrysdi to be manageable and effective" (THIS IS PARAPHRASING)',
+    '',
+    '  Example of CORRECT quote extraction:',
+    '  ✅ "It was easy to take at home and I didn\'t have to worry about going to the hospital every month" (EXACT WORDS FROM TRANSCRIPT)',
+    '',
+    '- CRITICAL - CONTEXT EXTRACTION: For EVERY non-empty cell value (key finding), you MUST provide comprehensive context that supports ALL aspects of the finding. In the "context" object:',
+    '  * IMPORTANT: The number of context entries does NOT need to match the number of quotes. Provide as many context blocks as needed to fully support the key finding.',
+    '  * CRITICAL REQUIREMENT: EVERY supporting quote MUST appear verbatim in at least one context block. Do not create context blocks that omit the quotes.',
+    '  * Each context block should be a LONG, COMPLETE conversational excerpt (typically 5-15 speaker turns, sometimes more)',
+    '  * MUST include ALL parts of the key finding - if the finding mentions multiple things (e.g., "learns via Facebook groups AND interested in oral medication"), provide context blocks for EACH part',
+    '  * Each context block should include:',
+    '    - The moderator\'s question that introduced the topic',
+    '    - The respondent\'s initial answer',
+    '    - ALL follow-up questions and answers on that same topic or sub-topic',
+    '    - Keep going until the moderator clearly changes to a completely different subject',
+    '  * DO NOT truncate context blocks after just 1-2 exchanges. Continue the excerpt as long as it\'s relevant.',
+    '  * Include speaker labels (Moderator: and Respondent:) so the conversation flow is clear',
+    '  * Format as a multi-line string with each speaker turn on a new line (use \\n)',
+    '  * If relevant discussion happens in multiple non-contiguous parts of the transcript, create separate context blocks for each part',
+    '  * Example: If key finding is "Learns about treatments through Facebook groups AND interested in oral medication Evrysdi", provide 2+ context blocks:',
+    '    - One showing the FULL Facebook groups discussion (including all questions/answers on that topic)',
+    '    - One showing the FULL oral medication/Evrysdi discussion (including all questions/answers on that topic)',
+    '  * Example format (note the multiple exchanges):',
+    '    "Moderator: How do you learn about new treatments?\\nRespondent: Through Facebook groups...\\nModerator: When did you join those groups?\\nRespondent: I don\'t remember exactly...\\nModerator: What do people share in those groups?\\nRespondent: Mostly treatment updates and personal experiences..."',
+    '',
     '- REMEMBER: Return ALL sheets in your JSON response, even if some columns are empty strings.'
   ].join('\n');
 
@@ -109,8 +127,30 @@ export async function fillRespondentRowsFromTranscript({ transcript, sheetsColum
   userParts.push('=== RESPONDENT-ONLY TEXT (for quotes; exact substrings only) ===');
   userParts.push(respondentText);
 
-  userParts.push('=== OUTPUT FORMAT ===');
-  userParts.push('{ "rows": { "<Sheet1>": {"<ColA>": "..."}}, "quotes": { "<Sheet1>": {"<ColA>": ["quote1", "quote2"]}} }');
+  userParts.push('=== OUTPUT FORMAT EXAMPLE ===');
+  userParts.push(JSON.stringify({
+    rows: {
+      "Finding New Treatments": {
+        "Finding New Treatments": "Learns about new SMA treatments primarily through Facebook support groups, which serve as the main source of information about treatment developments."
+      }
+    },
+    quotes: {
+      "Finding New Treatments": {
+        "Finding New Treatments": [
+          "That was the only thing that I was getting my information from was these Facebook support groups that I was a part of for spinal muscular atrophy.",
+          "That was where I was getting my information."
+        ]
+      }
+    },
+    context: {
+      "Finding New Treatments": {
+        "Finding New Treatments": [
+          "Moderator: So you weren't going to a doctor. How are you learning about these developments in the SMA treatment?\\nRespondent: Through Facebook. That was the only thing that I was getting my information from was these Facebook support groups that I was a part of for spinal muscular atrophy. That was where I was getting my information.\\nModerator: So interesting. When do you think you joined those groups?",
+          "Moderator: So you weren't going to a doctor. How are you learning about these developments in the SMA treatment?\\nRespondent: Through Facebook. That was the only thing that I was getting my information from was these Facebook support groups that I was a part of for spinal muscular atrophy. That was where I was getting my information."
+        ]
+      }
+    }
+  }, null, 2));
 
   const messages = [
     { role: 'system', content: sys },
@@ -118,7 +158,7 @@ export async function fillRespondentRowsFromTranscript({ transcript, sheetsColum
   ];
 
   const resp = await client.chat.completions.create({
-    model: 'gpt-4o-mini',
+    model: 'gpt-4o',
     temperature: 0.1,
     messages,
     response_format: { type: 'json_object' },
@@ -132,12 +172,28 @@ export async function fillRespondentRowsFromTranscript({ transcript, sheetsColum
     throw new Error('AI returned invalid JSON for transcript filling');
   }
 
+  console.log('🤖 AI RAW RESPONSE - Top-level keys:', Object.keys(json));
   console.log('🤖 AI RAW RESPONSE - Sheets returned:', Object.keys(json.rows || {}));
+  console.log('🤖 AI RAW RESPONSE - Has quotes?:', !!json.quotes, 'Keys:', json.quotes ? Object.keys(json.quotes) : []);
+  console.log('🤖 AI RAW RESPONSE - Has context?:', !!json.context, 'Keys:', json.context ? Object.keys(json.context) : []);
+
+  // Sample one context to see if it's populated
+  if (json.context) {
+    const firstSheet = Object.keys(json.context)[0];
+    if (firstSheet && json.context[firstSheet]) {
+      const firstCol = Object.keys(json.context[firstSheet])[0];
+      if (firstCol) {
+        console.log(`🔍 Sample context from "${firstSheet}"."${firstCol}":`, json.context[firstSheet][firstCol]);
+      }
+    }
+  }
 
   const rowsOut = {};
   const quotesOut = {};
+  const contextOut = {};
   const aiRows = (json && typeof json === 'object' && json.rows && typeof json.rows === 'object') ? json.rows : {};
   const aiQuotes = (json && typeof json === 'object' && json.quotes && typeof json.quotes === 'object') ? json.quotes : {};
+  const aiContext = (json && typeof json === 'object' && json.context && typeof json.context === 'object') ? json.context : {};
 
   console.log('🤖 AI returned data for sheets:', Object.keys(aiRows));
   for (const [sheetName, rowData] of Object.entries(aiRows)) {
@@ -169,7 +225,25 @@ export async function fillRespondentRowsFromTranscript({ transcript, sheetsColum
       }
     }
     quotesOut[sheet] = colQuotes;
+
+    const fromContext = aiContext[sheet] || {};
+    const colContext = {};
+    for (const col of cols) {
+      const c = fromContext[col];
+      if (Array.isArray(c)) {
+        colContext[col] = c.slice(0, 5).map(x => (typeof x === 'string' ? x : String(x)).trim()).filter(Boolean);
+      } else {
+        colContext[col] = [];
+      }
+    }
+    contextOut[sheet] = colContext;
   }
 
-  return { rows: rowsOut, quotes: quotesOut };
+  console.log('📤 Returning context for sheets:', Object.keys(contextOut));
+  for (const [sheet, cols] of Object.entries(contextOut)) {
+    const filledContextCols = Object.entries(cols).filter(([k, v]) => Array.isArray(v) && v.length > 0);
+    console.log(`  📝 Sheet "${sheet}": ${filledContextCols.length} columns with context`);
+  }
+
+  return { rows: rowsOut, quotes: quotesOut, context: contextOut };
 }
