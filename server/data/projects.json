@@ -30,7 +30,7 @@
       "usePreloadedTasks": true,
       "customTasks": [],
       "id": "P-1759172986363",
-      "phase": "Awaiting KO",
+      "phase": "Kickoff",
       "methodologyDisplay": "Qualitative - In-Depth Interviews",
       "phaseTimeline": {
         "Kickoff": {
@@ -75,18 +75,17 @@
           "id": "t1",
           "description": "Create Kick Off (KO) deck",
           "assignedTo": [
-            "",
-            "3"
+            ""
           ],
           "status": "pending",
-          "phase": "Kickoff"
+          "phase": "Kickoff",
+          "dueDate": "2025-10-07"
         },
         {
           "id": "t2",
           "description": "Create detailed timeline",
           "assignedTo": [
-            "",
-            "3"
+            ""
           ],
           "status": "pending",
           "phase": "Kickoff"
@@ -1233,14 +1232,14 @@
         {
           "id": "t42",
           "description": "Create report shell based on discussion guide and objectives",
-          "status": "completed",
+          "status": "pending",
           "phase": "Fielding",
           "dueDate": "2025-10-07"
         },
         {
           "id": "t43",
           "description": "Engage transcriptionist (if needed)",
-          "status": "completed",
+          "status": "pending",
           "phase": "Fielding",
           "assignedTo": [
             "11",
@@ -1252,19 +1251,24 @@
           "id": "t44",
           "description": "Request invoice (if needed)",
           "assignedTo": [
-            ""
+            "",
+            "3"
           ],
           "status": "pending",
-          "phase": "Fielding"
+          "phase": "Fielding",
+          "dueDate": "2025-10-09"
         },
         {
           "id": "t45",
           "description": "Continue updating report shell with interview content",
           "assignedTo": [
-            ""
+            "",
+            "3",
+            "11"
           ],
-          "status": "pending",
-          "phase": "Fielding"
+          "status": "completed",
+          "phase": "Fielding",
+          "dueDate": "2025-10-07"
         },
         {
           "id": "t46",
@@ -1273,7 +1277,8 @@
             ""
           ],
           "status": "pending",
-          "phase": "Fielding"
+          "phase": "Fielding",
+          "dueDate": "2025-10-07"
         },
         {
           "id": "t47",
@@ -1282,7 +1287,8 @@
             ""
           ],
           "status": "pending",
-          "phase": "Fielding"
+          "phase": "Fielding",
+          "dueDate": "2025-10-10"
         },
         {
           "id": "t48",
@@ -1291,7 +1297,8 @@
             ""
           ],
           "status": "pending",
-          "phase": "Fielding"
+          "phase": "Fielding",
+          "dueDate": "2025-10-08"
         },
         {
           "id": "t49",
@@ -1300,16 +1307,19 @@
             ""
           ],
           "status": "pending",
-          "phase": "Fielding"
+          "phase": "Fielding",
+          "dueDate": "2025-10-09"
         },
         {
           "id": "t50",
           "description": "Ensure objectives are being met",
           "assignedTo": [
-            ""
+            "",
+            "3"
           ],
           "status": "pending",
-          "phase": "Fielding"
+          "phase": "Fielding",
+          "dueDate": "2025-10-10"
         },
         {
           "id": "t51",
@@ -1319,7 +1329,7 @@
           ],
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": "2025-10-09"
         },
         {
           "id": "t52",
@@ -1328,7 +1338,7 @@
             "",
             "3"
           ],
-          "status": "pending",
+          "status": "completed",
           "phase": "Fielding"
         },
         {

@@ -61,6 +61,15 @@ const SimpleCalendar: React.FC<SimpleCalendarProps> = ({
     return date.toDateString() === today.toDateString();
   };
 
+  const isCurrentWeek = (date: Date) => {
+    const today = new Date();
+    const currentWeekStart = getWeekStart(0);
+    const currentWeekEnd = new Date(currentWeekStart);
+    currentWeekEnd.setDate(currentWeekStart.getDate() + 6);
+    
+    return date >= currentWeekStart && date <= currentWeekEnd;
+  };
+
   const isWeekend = (date: Date) => {
     const day = date.getDay();
     return day === 0 || day === 6; // Sunday or Saturday
@@ -142,6 +151,7 @@ const SimpleCalendar: React.FC<SimpleCalendarProps> = ({
           const isSelectedDate = isSelected(day);
           const isTodayDate = isToday(day);
           const isWeekendDay = isWeekend(day);
+          const isCurrentWeekDay = isCurrentWeek(day);
           const hasTasks = hasTasksOnDate(day);
           const tasksForDay = getTasksForDate(day);
           
@@ -161,7 +171,9 @@ const SimpleCalendar: React.FC<SimpleCalendarProps> = ({
                     : isSelectedDate
                     ? 'bg-orange-500 text-white'
                     : isTodayDate
-                    ? 'bg-orange-100 text-orange-700 border border-orange-300'
+                    ? 'bg-orange-200 text-orange-800 border border-orange-400 font-bold'
+                    : isCurrentWeekDay
+                    ? 'bg-orange-50 text-orange-700 hover:bg-orange-100'
                     : 'text-gray-700 hover:bg-gray-100'
                   }
                 `}

@@ -8,6 +8,7 @@ import {
   PlusIcon,
   MagnifyingGlassIcon,
   CalendarIcon,
+  CalendarDaysIcon,
   ClipboardDocumentListIcon,
   DocumentChartBarIcon,
   PresentationChartBarIcon,
@@ -49,7 +50,7 @@ import {
   RocketLaunchIcon as RocketLaunchIconSolid,
   PlayIcon as PlayIconSolid
 } from "@heroicons/react/24/solid";
-import { IconCalendarShare } from "@tabler/icons-react";
+import { IconCalendarShare, IconCalendarWeek } from "@tabler/icons-react";
 import ContentAnalysisX from "./components/ContentAnalysisX";
 import AuthWrapper from "./components/AuthWrapper";
 import TopBar from "./components/TopBar";
@@ -3434,6 +3435,17 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
   const [moderatorDateRange, setModeratorDateRange] = useState('');
   const [projectTimelineDateRange, setProjectTimelineDateRange] = useState('');
   const [vendorsData, setVendorsData] = useState<any>(null);
+  const [expandedTaskSections, setExpandedTaskSections] = useState<{
+    todayMy: boolean;
+    todayAdditional: boolean;
+    laterMy: boolean;
+    laterAdditional: boolean;
+  }>({
+    todayMy: false,
+    todayAdditional: false,
+    laterMy: false,
+    laterAdditional: false
+  });
   const [sampleTooltip, setSampleTooltip] = useState<{ visible: boolean; x: number; y: number; items: string[] } | null>(null);
 
   // Fetch all projects across all users
@@ -3632,6 +3644,79 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
       }));
   }, []);
 
+  const currentWeekLabel = useMemo(() => {
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1));
+    monday.setHours(0, 0, 0, 0);
+    const friday = new Date(monday);
+    friday.setDate(monday.getDate() + 4);
+    const startText = monday.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const endText = friday.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    return `${startText} - ${endText}`;
+  }, []);
+
+  // Helper: Normalize date to YYYY-MM-DD
+  const toYMD = (date: Date) => {
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  
+
+  // Resolve identifiers for current user to match task.assignedTo flexibly
+  const myIdentifiers = useMemo(() => {
+    if (!user) return [] as string[];
+    const vals = [
+      String((user as any)?.id || ''),
+      String((user as any)?.email || ''),
+      String((user as any)?.name || '')
+    ]
+      .filter(Boolean)
+      .map(v => v.toLowerCase());
+    return vals;
+  }, [user]);
+
+  const isAssignedToMe = useCallback((task: Task): boolean => {
+    if (!task?.assignedTo || task.assignedTo.length === 0) return false;
+    const normalize = (s: string) => String(s || '').trim().toLowerCase();
+    const stripNonLetters = (s: string) => String(s || '').toLowerCase().replace(/[^a-z]/g, '');
+    const extractEmail = (s: string) => {
+      const m = String(s || '').match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i);
+      return m ? m[0].toLowerCase() : null;
+    };
+    const assigned = task.assignedTo.map(v => normalize(v));
+    // Direct matches to my known identifiers
+    if (myIdentifiers.some(id => assigned.includes(id))) return true;
+    // Email embedded in string
+    const myEmail = String((user as any)?.email || '').toLowerCase();
+    if (myEmail) {
+      for (const raw of task.assignedTo) {
+        const email = extractEmail(String(raw));
+        if (email && email === myEmail) return true;
+      }
+    }
+    // Initials fallback (e.g., LB vs L.B.)
+    const userName = String((user as any)?.name || '').trim();
+    if (userName) {
+      const myInitials = stripNonLetters(userName).split('').filter(Boolean).join('');
+      if (myInitials) {
+        for (const raw of task.assignedTo) {
+          const candidate = stripNonLetters(String(raw));
+          if (candidate && candidate === myInitials) return true;
+        }
+      }
+    }
+    return false;
+  }, [myIdentifiers, user]);
+
+  
+
   // Helper function to get final report date from project
   const getFinalReportDate = (project: Project): Date | null => {
     // First try to get from keyDeadlines
@@ -3676,6 +3761,11 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
     return allProjects;
   }, [allProjects, showMyProjectsOnly, user]);
 
+  // Select which projects to source tasks from to stay live with edits
+  const sourceProjects = useMemo(() => {
+    return showMyProjectsOnly ? projects : filteredProjects;
+  }, [showMyProjectsOnly, projects, filteredProjects]);
+
   // Sort projects by final report delivery date (closest first)
   const sortedProjects = useMemo(() => {
     return [...filteredProjects].sort((a, b) => {
@@ -3695,6 +3785,111 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
       return 0;
     });
   }, [filteredProjects]);
+
+  // Compute overdue, today's, and later-this-week tasks (after sourceProjects exists)
+  const { overdueTasksAll, todayMyTasks, todayAdditionalTasks, laterWeekMyTasks, laterWeekAdditionalTasks } = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayYMD = toYMD(today);
+    const friday = new Date(today);
+    // End of this work week (Friday)
+    const dow = today.getDay();
+    const offsetToFriday = (dow === 0 ? 5 : 5 - dow); // Mon=1..Fri=5, Sun=0 -> 5
+    friday.setDate(today.getDate() + offsetToFriday);
+    friday.setHours(23, 59, 59, 999);
+
+    const overdue: any[] = [];
+    const tMy: any[] = [];
+    const tAdd: any[] = [];
+    const lwMy: any[] = [];
+    const lwAdd: any[] = [];
+
+    const matchesUser = (task: any, project: any) => {
+      // Fast path using direct helper
+      if (isAssignedToMe(task)) return true;
+      if (!task?.assignedTo || task.assignedTo.length === 0) return false;
+      const normalize = (s: string) => String(s || '').trim().toLowerCase();
+      const stripNonLetters = (s: string) => String(s || '').toLowerCase().replace(/[^a-z]/g, '');
+      const assignedVals = task.assignedTo.map((v: any) => normalize(v));
+      const myId = normalize(String((user as any)?.id || ''));
+      const myEmail = normalize(String((user as any)?.email || ''));
+      const myName = normalize(String((user as any)?.name || ''));
+      const myInitials = myName ? stripNonLetters(myName) : '';
+      for (const raw of assignedVals) {
+        const val = raw;
+        if (val && (val === myId || val === myEmail || val === myName || val === myInitials)) return true;
+        // If looks like an email, compare to my email
+        if (val.includes('@') && myEmail && val === myEmail) return true;
+        // If this is a team member id, map to member and compare
+        const member = (project?.teamMembers || []).find((m: any) => normalize(m?.id) === val || normalize(m?.name) === val || normalize(m?.email) === val);
+        if (member) {
+          const memName = normalize(String(member.name || ''));
+          const memEmail = normalize(String(member.email || ''));
+          if (memName && myName && memName === myName) return true;
+          if (memEmail && myEmail && memEmail === myEmail) return true;
+          const memInitials = memName ? stripNonLetters(memName) : '';
+          if (memInitials && myInitials && memInitials === myInitials) return true;
+        }
+      }
+      return false;
+    };
+
+    for (const project of sourceProjects) {
+      for (const task of (project.tasks || [])) {
+        if (!task?.dueDate) continue;
+        const due = new Date(task.dueDate + 'T00:00:00');
+        const dueYMD = toYMD(due);
+        const isCompleted = task.status === 'completed';
+        const mine = matchesUser(task, project);
+        if (!isCompleted && due < today) {
+          overdue.push({ ...task, projectName: project.name, mine });
+          continue;
+        }
+
+        if (isCompleted) continue;
+
+        // Today
+        if (dueYMD === todayYMD) {
+          (mine ? tMy : tAdd).push({ ...task, projectName: project.name, mine });
+          continue;
+        }
+
+        // Later this week (after today up to Friday)
+        if (due > today && due <= friday) {
+          (mine ? lwMy : lwAdd).push({ ...task, projectName: project.name, mine });
+        }
+      }
+    }
+
+    // Sort for consistent display: by due time then project
+    const byDueThenProj = (a: any, b: any) => {
+      const da = new Date((a.dueDate || '') + 'T00:00:00').getTime();
+      const db = new Date((b.dueDate || '') + 'T00:00:00').getTime();
+      if (da !== db) return da - db;
+      return String(a.projectName || '').localeCompare(String(b.projectName || ''));
+    };
+
+    tMy.sort(byDueThenProj);
+    tAdd.sort(byDueThenProj);
+    lwMy.sort(byDueThenProj);
+    lwAdd.sort(byDueThenProj);
+
+    // Overdue: prioritize my tasks first
+    overdue.sort((a, b) => {
+      const aMine = a.mine ? 0 : 1;
+      const bMine = b.mine ? 0 : 1;
+      if (aMine !== bMine) return aMine - bMine;
+      return byDueThenProj(a, b);
+    });
+
+    return {
+      overdueTasksAll: overdue,
+      todayMyTasks: tMy,
+      todayAdditionalTasks: tAdd,
+      laterWeekMyTasks: lwMy,
+      laterWeekAdditionalTasks: lwAdd
+    };
+  }, [sourceProjects, isAssignedToMe]);
 
   // Get projects to display (first 5 or all if showAllProjects is true)
   const displayedProjects = showAllProjects ? sortedProjects : sortedProjects.slice(0, 5);
@@ -3952,9 +4147,9 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
             <div className="mt-4 text-center">
               <button
                 onClick={() => setShowAllProjects(!showAllProjects)}
-                className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                className="text-[10px] text-blue-600 hover:text-blue-800 font-medium"
               >
-                {showAllProjects ? 'Show Less' : `Show More (${filteredProjects.length - 5} more)`}
+                {showAllProjects ? 'Show less' : `Show more (${filteredProjects.length - 5} more)`}
               </button>
             </div>
           )}
@@ -3962,42 +4157,259 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
         )}
       </div>
 
-      {/* Project Timeline */}
-      <Card>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-lg">Project Timeline</h3>
-          <div className="flex flex-wrap gap-3 text-xs">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded" style={{ backgroundColor: PHASE_COLORS.Kickoff, opacity: 0.6 }}></div>
-              <span>Kickoff</span>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Project Timeline */}
+        <Card className="!p-0 overflow-hidden flex flex-col">
+          {/* Full-width header */}
+          <div style={{ backgroundColor: BRAND.orange }} className="text-white">
+            <div className="flex items-center px-4 py-2">
+              <div className="flex items-center gap-2">
+                <CalendarDaysIcon className="h-6 w-6 text-white" />
+                <span className="text-lg font-semibold">Project Timeline</span>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded" style={{ backgroundColor: PHASE_COLORS['Pre-Field'], opacity: 0.6 }}></div>
-              <span>Pre-Field</span>
+          </div>
+
+          {/* Body */}
+          <div className="flex-1 flex flex-col">
+            <ProjectTimeline projects={sortedProjects} onDateRangeChange={setProjectTimelineDateRange} maxWeeks={3} />
+          </div>
+        </Card>
+
+        {/* This Week Card */}
+        <Card className="!p-0 overflow-hidden flex flex-col">
+          {/* Full-width header bar inside card */}
+          <div style={{ backgroundColor: BRAND.orange }} className="text-white">
+            <div className="flex items-center justify-between px-4 py-2">
+              <div className="flex items-center gap-2">
+                <CalendarIcon className="h-6 w-6 text-white" />
+                <span className="text-lg font-semibold">This Week</span>
+              </div>
+              <span className="text-sm font-medium italic text-white/90">{currentWeekLabel}</span>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded" style={{ backgroundColor: PHASE_COLORS.Fielding, opacity: 0.6 }}></div>
-              <span>Fielding</span>
+          </div>
+
+        <div className="p-4 space-y-4">
+          {/* Overdue Tasks Banner */}
+          {overdueTasksAll.length > 0 && (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-sm font-semibold text-red-800">Overdue Tasks</h4>
+                <span className="text-xs text-red-700">{overdueTasksAll.length} overdue</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <div className="text-[10px] font-semibold text-red-900 uppercase tracking-wide mb-1">My Tasks</div>
+                  <div className="space-y-1">
+                    {overdueTasksAll.filter(t => isAssignedToMe(t)).length === 0 ? (
+                      <div className="text-[10px] italic text-red-700">No overdue tasks for you</div>
+                    ) : (
+                      overdueTasksAll.filter(t => isAssignedToMe(t)).map((t) => (
+                        <div key={`od-mine-${t.id}`} className="text-xs text-red-900 flex items-start gap-2">
+                          <span className="mt-1 w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0"></span>
+                          <span className="flex-1">
+                            <span className="font-medium">{t.description || t.content || 'Untitled task'}</span>
+                            <span className="text-[10px] text-red-700"> — {t.projectName}</span>
+                          </span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[10px] font-semibold text-red-900 uppercase tracking-wide mb-1">Additional Tasks</div>
+                  <div className="space-y-1">
+                    {overdueTasksAll.filter(t => !isAssignedToMe(t)).length === 0 ? (
+                      <div className="text-[10px] italic text-red-700">No additional overdue tasks</div>
+                    ) : (
+                      overdueTasksAll.filter(t => !isAssignedToMe(t)).map((t) => (
+                        <div key={`od-add-${t.id}`} className="text-xs text-red-900 flex items-start gap-2">
+                          <span className="mt-1 w-1.5 h-1.5 rounded-full bg-red-300 flex-shrink-0"></span>
+                          <span className="flex-1">
+                            <span className="font-medium">{t.description || t.content || 'Untitled task'}</span>
+                            <span className="text-[10px] text-red-700"> — {t.projectName}</span>
+                          </span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded" style={{ backgroundColor: PHASE_COLORS['Post-Field Analysis'], opacity: 0.6 }}></div>
-              <span>Post-Field Analysis</span>
+          )}
+
+          {/* Today and Later This Week Boxes */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Today's Tasks */}
+            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+              <div className="px-4 py-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {/* Calendar tile icon for Today */}
+                  <div className="flex-shrink-0 w-10 h-10 bg-white border border-gray-300 rounded-lg overflow-hidden flex flex-col">
+                    <div className="h-3 text-white text-[9px] leading-3 flex items-center justify-center font-semibold" style={{ backgroundColor: BRAND.orange }}>
+                      {new Date().toLocaleDateString('en-US', { month: 'short' }).toUpperCase()}
+                    </div>
+                    <div className="flex-1 flex items-center justify-center">
+                      <span className="text-sm font-bold text-gray-900">{new Date().getDate()}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="text-base font-semibold text-gray-900">Today's Tasks</h3>
+                    <p className="text-[10px] text-gray-500 italic">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="px-4 pb-4 space-y-3">
+            <div>
+              <div className="border-b border-gray-200 pb-0.5">
+                <span className="text-[10px] font-semibold text-gray-600 uppercase tracking-wide">My Tasks</span>
+              </div>
+              <div className="mt-1.5 space-y-1">
+                {todayMyTasks.length === 0 ? (
+                  <div className="text-[10px] italic text-gray-500">No tasks for you today</div>
+                ) : (
+                  <>
+                    {(expandedTaskSections.todayMy ? todayMyTasks : todayMyTasks.slice(0, 3)).map(t => (
+                      <div key={`td-mine-${t.id}`} className="flex items-start gap-2 text-xs text-gray-800">
+                        <span className="mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: BRAND.orange }}></span>
+                        <span className="flex-1">
+                          <div className="font-medium">{t.description || t.content || 'Untitled task'}</div>
+                          <div className="text-[10px] text-gray-500">{t.projectName}</div>
+                        </span>
+                      </div>
+                    ))}
+                    {todayMyTasks.length > 3 && (
+                      <button 
+                        onClick={() => setExpandedTaskSections(prev => ({ ...prev, todayMy: !prev.todayMy }))}
+                        className="text-[10px] text-blue-600 hover:text-blue-800 font-medium"
+                      >
+                        {expandedTaskSections.todayMy ? 'Show less' : `Show more (${todayMyTasks.length - 3} more)`}
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded" style={{ backgroundColor: PHASE_COLORS.Reporting, opacity: 0.6 }}></div>
-              <span>Reporting</span>
+            <div>
+              <div className="border-b border-gray-200 pb-0.5">
+                <span className="text-[10px] font-semibold text-gray-600 uppercase tracking-wide">Additional Tasks</span>
+              </div>
+              <div className="mt-1.5 space-y-1">
+                {todayAdditionalTasks.length === 0 ? (
+                  <div className="text-[10px] italic text-gray-500">No additional tasks today</div>
+                ) : (
+                  <>
+                    {(expandedTaskSections.todayAdditional ? todayAdditionalTasks : todayAdditionalTasks.slice(0, 3)).map(t => (
+                      <div key={`td-add-${t.id}`} className="flex items-start gap-2 text-xs text-gray-800">
+                        <span className="mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: BRAND.orange }}></span>
+                        <span className="flex-1">
+                          <div className="font-medium">{t.description || t.content || 'Untitled task'}</div>
+                          <div className="text-[10px] text-gray-500">{t.projectName}</div>
+                        </span>
+                      </div>
+                    ))}
+                    {todayAdditionalTasks.length > 3 && (
+                      <button 
+                        onClick={() => setExpandedTaskSections(prev => ({ ...prev, todayAdditional: !prev.todayAdditional }))}
+                        className="text-[10px] text-blue-600 hover:text-blue-800 font-medium"
+                      >
+                        {expandedTaskSections.todayAdditional ? 'Show less' : `Show more (${todayAdditionalTasks.length - 3} more)`}
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </div>
 
-        <ProjectTimeline projects={sortedProjects} onDateRangeChange={setProjectTimelineDateRange} />
-      </Card>
+            {/* Later This Week */}
+            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+          <div className="px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="flex-shrink-0 w-10 h-10 flex items-center justify-center">
+                <IconCalendarShare className="w-8 h-8 text-blue-500" stroke={1.5} />
+              </div>
+              <div>
+                <h3 className="text-base font-semibold text-gray-900">Later This Week</h3>
+                <p className="text-[10px] text-gray-500 italic">Through {new Date(new Date().setDate(new Date().getDate() + (new Date().getDay() === 0 ? 5 : 5 - new Date().getDay()))).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+              </div>
+            </div>
+          </div>
+          <div className="px-4 pb-4 space-y-3">
+            <div>
+              <div className="border-b border-gray-200 pb-0.5">
+                <span className="text-[10px] font-semibold text-gray-600 uppercase tracking-wide">My Tasks</span>
+              </div>
+              <div className="mt-1.5 space-y-1">
+                {laterWeekMyTasks.length === 0 ? (
+                  <div className="text-[10px] italic text-gray-500">No tasks for you later this week</div>
+                ) : (
+                  <>
+                    {(expandedTaskSections.laterMy ? laterWeekMyTasks : laterWeekMyTasks.slice(0, 3)).map(t => (
+                      <div key={`lw-mine-${t.id}`} className="flex items-start gap-2 text-xs text-gray-800">
+                        <span className="mt-1 w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0"></span>
+                        <span className="flex-1">
+                          <div className="font-medium">{t.description || t.content || 'Untitled task'}</div>
+                          <div className="text-[10px] text-gray-500">{t.projectName} · {new Date(t.dueDate + 'T00:00:00').toLocaleDateString()}</div>
+                        </span>
+                      </div>
+                    ))}
+                    {laterWeekMyTasks.length > 3 && (
+                      <button 
+                        onClick={() => setExpandedTaskSections(prev => ({ ...prev, laterMy: !prev.laterMy }))}
+                        className="text-[10px] text-blue-600 hover:text-blue-800 font-medium"
+                      >
+                        {expandedTaskSections.laterMy ? 'Show less' : `Show more (${laterWeekMyTasks.length - 3} more)`}
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+            <div>
+              <div className="border-b border-gray-200 pb-0.5">
+                <span className="text-[10px] font-semibold text-gray-600 uppercase tracking-wide">Additional Tasks</span>
+              </div>
+              <div className="mt-1.5 space-y-1">
+                {laterWeekAdditionalTasks.length === 0 ? (
+                  <div className="text-[10px] italic text-gray-500">No additional tasks later this week</div>
+                ) : (
+                  <>
+                    {(expandedTaskSections.laterAdditional ? laterWeekAdditionalTasks : laterWeekAdditionalTasks.slice(0, 3)).map(t => (
+                      <div key={`lw-add-${t.id}`} className="flex items-start gap-2 text-xs text-gray-800">
+                        <span className="mt-1 w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0"></span>
+                        <span className="flex-1">
+                          <span className="font-medium">{t.description || t.content || 'Untitled task'}</span>
+                          <span className="text-[10px] text-gray-500"> — {t.projectName} · {new Date(t.dueDate + 'T00:00:00').toLocaleDateString()}</span>
+                        </span>
+                      </div>
+                    ))}
+                    {laterWeekAdditionalTasks.length > 3 && (
+                      <button 
+                        onClick={() => setExpandedTaskSections(prev => ({ ...prev, laterAdditional: !prev.laterAdditional }))}
+                        className="text-[10px] text-blue-600 hover:text-blue-800 font-medium"
+                      >
+                        {expandedTaskSections.laterAdditional ? 'Show less' : `Show more (${laterWeekAdditionalTasks.length - 3} more)`}
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+            </div>
+          </div>
+        </div>
+        </Card>
+      </div>
 
       {/* Moderator Schedule */}
       <Card>
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold text-lg">Moderator Schedule</h3>
-          <div className="text-sm text-gray-600">
+          <div className="text-sm italic text-gray-600">
             {moderatorDateRange}
           </div>
         </div>
@@ -4010,11 +4422,21 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
 }
 
 // Project Timeline Component
-function ProjectTimeline({ projects, onDateRangeChange }: { projects: Project[]; onDateRangeChange?: (dateRange: string) => void }) {
+function ProjectTimeline({ projects, onDateRangeChange, maxWeeks }: { projects: Project[]; onDateRangeChange?: (dateRange: string) => void; maxWeeks?: number }) {
   const [currentWeekOffset, setCurrentWeekOffset] = useState(0); // Start with current week like Moderator Schedule
   const [isScrolling, setIsScrolling] = useState(false);
-  const [visibleWeeks, setVisibleWeeks] = useState(5);
+  const [visibleWeeks, setVisibleWeeks] = useState(maxWeeks || 5);
+  const [showAllProjects, setShowAllProjects] = useState(false);
+  const [maxVisibleProjects, setMaxVisibleProjects] = useState(5);
   const timelineRef = useRef<HTMLDivElement>(null);
+
+  // Helper function to check if a date is today
+  const isToday = (date: Date) => {
+    const today = new Date();
+    return date.getUTCFullYear() === today.getUTCFullYear() &&
+           date.getUTCMonth() === today.getUTCMonth() &&
+           date.getUTCDate() === today.getUTCDate();
+  };
 
   // Calculate number of weeks to show based on container width
   useEffect(() => {
@@ -4022,7 +4444,7 @@ function ProjectTimeline({ projects, onDateRangeChange }: { projects: Project[];
       if (timelineRef.current) {
         const containerWidth = timelineRef.current.offsetWidth;
         // Each week needs ~180px minimum for comfortable viewing
-        const weeksToShow = Math.max(2, Math.min(5, Math.floor(containerWidth / 180)));
+        const weeksToShow = Math.max(2, Math.min(maxWeeks || 5, Math.floor(containerWidth / 180)));
         setVisibleWeeks(weeksToShow);
       }
     };
@@ -4030,7 +4452,7 @@ function ProjectTimeline({ projects, onDateRangeChange }: { projects: Project[];
     updateVisibleWeeks();
     window.addEventListener('resize', updateVisibleWeeks);
     return () => window.removeEventListener('resize', updateVisibleWeeks);
-  }, []);
+  }, [maxWeeks]);
 
   // Get current week start (Monday) - always start from Monday using UTC
   const getWeekStart = (weekOffset: number) => {
@@ -4155,7 +4577,7 @@ function ProjectTimeline({ projects, onDateRangeChange }: { projects: Project[];
     return null;
   };
 
-  // Smooth scroll functions
+  // Scroll functions
   const scrollLeft = () => {
     if (isScrolling) return;
     setIsScrolling(true);
@@ -4179,86 +4601,89 @@ function ProjectTimeline({ projects, onDateRangeChange }: { projects: Project[];
 
 
   return (
-    <div className="relative">
+    <div className="relative flex flex-col h-full">
 
 
 
       {/* Timeline Container */}
-      <div ref={timelineRef} className="overflow-x-auto pb-4 select-none px-2">
-        <div className="min-w-full transition-all duration-300 ease-out">
+      <div ref={timelineRef} className="overflow-x-auto pb-4 select-none px-2 flex-1">
+        <div className="min-w-full">
           {/* Timeline Headers */}
-          <div className="flex mb-0 transition-all duration-300 ease-out">
-            {/* Navigation Controls - inline with month headers */}
-            <div className="w-40 flex-shrink-0 pr-6 flex items-center gap-1">
-              <button onClick={scrollLeft} disabled={isScrolling || currentWeekOffset <= -20} className="p-2 text-gray-500 hover:text-gray-700 disabled:opacity-50">
+          <div className="flex mb-0">
+            {/* Project Name Column Header (empty space) */}
+            <div className="w-40 flex-shrink-0 pl-4"></div>
+
+            {/* Month Headers with Navigation */}
+            <div className="flex-1 flex items-center">
+              {/* Left Arrow */}
+              <button onClick={scrollLeft} disabled={isScrolling || currentWeekOffset <= -20} className="p-2 text-gray-500 hover:text-gray-700 disabled:opacity-50 mr-2">
                 <ChevronLeftIcon className="w-5 h-5" />
               </button>
-              <button onClick={resetToCurrentWeek} disabled={isScrolling} className="px-4 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded-md transition-colors disabled:opacity-50 whitespace-nowrap">
-                This Week
-              </button>
-              <button onClick={scrollRight} disabled={isScrolling || currentWeekOffset >= 20} className="p-2 text-gray-500 hover:text-gray-700 disabled:opacity-50">
+              
+              {/* Month Headers */}
+              <div className="flex-1 flex">
+                {(() => {
+                  // Group all days by month
+                  const allDays = weeks.flatMap(week => week.days);
+                  const monthGroups: { month: string; days: Date[]; startIndex: number; endIndex: number }[] = [];
+                  
+                  let currentMonth = '';
+                  let currentGroup: Date[] = [];
+                  let startIndex = 0;
+                  
+                  allDays.forEach((day, index) => {
+                    const month = day.toLocaleDateString('en-US', { month: 'long' });
+                    
+                    if (month !== currentMonth) {
+                      // Save previous group if it exists
+                      if (currentGroup.length > 0) {
+                        monthGroups.push({
+                          month: currentMonth,
+                          days: currentGroup,
+                          startIndex: startIndex,
+                          endIndex: startIndex + currentGroup.length - 1
+                        });
+                      }
+                      
+                      // Start new group
+                      currentMonth = month;
+                      currentGroup = [day];
+                      startIndex = index;
+                    } else {
+                      currentGroup.push(day);
+                    }
+                  });
+                  
+                  // Add the last group
+                  if (currentGroup.length > 0) {
+                    monthGroups.push({
+                      month: currentMonth,
+                      days: currentGroup,
+                      startIndex: startIndex,
+                      endIndex: startIndex + currentGroup.length - 1
+                    });
+                  }
+                  
+                  return monthGroups.map((group, groupIndex) => (
+                    <div
+                      key={groupIndex}
+                      className="text-center py-1 text-sm font-semibold text-gray-700 bg-white border-r border-gray-200 last:border-r-0 whitespace-nowrap"
+                      style={{
+                        flex: `${group.days.length} 0 0`,
+                        minWidth: `${group.days.length * 28}px`
+                      }}
+                    >
+                      {group.month}
+                        </div>
+                  ));
+                })()}
+              </div>
+              
+              {/* Right Arrow */}
+              <button onClick={scrollRight} disabled={isScrolling || currentWeekOffset >= 20} className="p-2 text-gray-500 hover:text-gray-700 disabled:opacity-50 ml-2">
                 <ChevronRightIcon className="w-5 h-5" />
               </button>
             </div>
-
-            {/* Month Headers */}
-            <div className="flex-1 flex">
-              {(() => {
-                // Group all days by month
-                const allDays = weeks.flatMap(week => week.days);
-                const monthGroups: { month: string; days: Date[]; startIndex: number; endIndex: number }[] = [];
-                
-                let currentMonth = '';
-                let currentGroup: Date[] = [];
-                let startIndex = 0;
-                
-                allDays.forEach((day, index) => {
-                  const month = day.toLocaleDateString('en-US', { month: 'long' });
-                  
-                  if (month !== currentMonth) {
-                    // Save previous group if it exists
-                    if (currentGroup.length > 0) {
-                      monthGroups.push({
-                        month: currentMonth,
-                        days: currentGroup,
-                        startIndex: startIndex,
-                        endIndex: startIndex + currentGroup.length - 1
-                      });
-                    }
-                    
-                    // Start new group
-                    currentMonth = month;
-                    currentGroup = [day];
-                    startIndex = index;
-                  } else {
-                    currentGroup.push(day);
-                  }
-                });
-                
-                // Add the last group
-                if (currentGroup.length > 0) {
-                  monthGroups.push({
-                    month: currentMonth,
-                    days: currentGroup,
-                    startIndex: startIndex,
-                    endIndex: startIndex + currentGroup.length - 1
-                  });
-                }
-                
-                return monthGroups.map((group, groupIndex) => (
-                  <div
-                    key={groupIndex}
-                    className="text-center py-1 text-sm font-semibold text-gray-700 bg-gray-100 border-r border-gray-200 last:border-r-0"
-                    style={{
-                      flex: `${group.days.length} 0 0`,
-                      minWidth: `${group.days.length * 28}px`
-                    }}
-                  >
-                    {group.month}
-                      </div>
-                ));
-              })()}
-              </div>
                     </div>
 
           {/* Timeline Container with Continuous Lines */}
@@ -4292,53 +4717,53 @@ function ProjectTimeline({ projects, onDateRangeChange }: { projects: Project[];
               <div className="flex-1 flex">
                 {weeks.map((week, weekIndex) => (
                   <div key={weekIndex} className="flex-1 min-w-[140px] relative">
-                    <div className={`flex relative z-20 ${week.isCurrentWeek ? 'bg-orange-50' : ''}`}>
-                      {week.days.map((day, dayIndex) => (
-                        <div key={`${weekIndex}-${dayIndex}`} className={`flex-1 text-center py-2 text-xs text-gray-600 border-r border-gray-200 last:border-r-0 ${
-                          week.isCurrentWeek ? 'bg-orange-50' : 'bg-gray-50'
-                        }`}>
-                          <div className="font-medium">
-{(day.getUTCMonth() + 1)}/{day.getUTCDate()}
-                  </div>
-                          <div className="text-gray-500">
-                            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'][dayIndex]}
-                </div>
-              </div>
-                      ))}
+                    <div className={`flex relative z-20 ${week.isCurrentWeek ? '' : ''}`}>
+                      {week.days.map((day, dayIndex) => {
+                        const isTodayDate = isToday(day);
+                        
+                        return (
+                          <div key={`${weekIndex}-${dayIndex}`} className="flex-1 text-center py-2 text-xs text-gray-600 border-r border-gray-200 last:border-r-0 bg-gray-50">
+                            <div className={`font-medium ${
+                              isTodayDate ? 'font-bold' : ''
+                            }`} style={{
+                              color: isTodayDate ? BRAND.orange : undefined
+                            }}>
+                              {(day.getUTCMonth() + 1)}/{day.getUTCDate()}
+                            </div>
+                            <div className={`text-gray-500 ${
+                              isTodayDate ? 'font-bold' : ''
+                            }`} style={{
+                              color: isTodayDate ? BRAND.orange : undefined
+                            }}>
+                              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'][dayIndex]}
+                            </div>
+                          </div>
+                        );
+                      })}
             </div>
         </div>
                 ))}
         </div>
               </div>
 
+
+
+
             {/* Project Rows */}
-            <div className="space-y-0 relative transition-all duration-300 ease-out">
-              {/* Current week highlighting overlay - extends full height through all projects */}
-              {weeks.map((week, weekIndex) => (
-                week.isCurrentWeek && (
-                  <div
-                    key={`highlight-${weekIndex}`}
-                    className="absolute top-0 bottom-0 bg-orange-50 pointer-events-none z-0"
-                    style={{
-                      left: `calc(160px + ${weekIndex} * (100% - 160px) / ${weeks.length})`, // 160px for project name column + proportional width
-                      width: `calc((100% - 160px) / ${weeks.length})`, // Proportional width for one week
-                    }}
-                  ></div>
-                )
-              ))}
+            <div className="space-y-0 relative">
 
               
               {/* Horizontal line above first project */}
               <div className="border-b border-gray-200 relative z-10"></div>
               
-              {projects.map((project, projectIndex) => (
-                <div key={project.id} className={`flex relative z-50 ${projectIndex < projects.length - 1 ? 'border-b border-gray-200' : ''}`}>
+              {projects.slice(0, showAllProjects ? projects.length : maxVisibleProjects).map((project, projectIndex) => (
+                <div key={project.id} className="flex relative z-50 border-b border-gray-200">
                   {/* Project Name */}
                   <div className="w-40 flex-shrink-0 py-2">
-                    <div className="text-sm font-medium text-gray-900 truncate">
+                    <div className="text-xs font-medium text-gray-900 truncate">
                       {project.name}
                     </div>
-                    <div className="text-xs text-gray-500 truncate">
+                    <div className="text-[10px] text-gray-500 truncate">
                       {project.client}
                     </div>
                   </div>
@@ -4437,7 +4862,45 @@ function ProjectTimeline({ projects, onDateRangeChange }: { projects: Project[];
           ))}
                 </div>
                 
+                {/* Show More/Less Button for Projects */}
+                {projects.length > maxVisibleProjects && (
+                  <div className="px-4 py-2 border-t border-gray-200 bg-gray-50">
+                    <button
+                      onClick={() => setShowAllProjects(!showAllProjects)}
+                      className="text-[10px] text-blue-600 hover:text-blue-800 font-medium"
+                    >
+                      {showAllProjects ? 'Show less' : `Show more (${projects.length - maxVisibleProjects} more)`}
+                    </button>
+                  </div>
+                )}
+                
         </div>
+        </div>
+      </div>
+
+      {/* Footer with phase key */}
+      <div className="border-t border-gray-200 bg-gray-50 px-4 py-3 mt-auto">
+        <div className="flex flex-wrap gap-4 text-xs justify-center">
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded" style={{ backgroundColor: PHASE_COLORS.Kickoff, opacity: 0.6 }}></div>
+            <span className="text-gray-700">Kickoff</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded" style={{ backgroundColor: PHASE_COLORS['Pre-Field'], opacity: 0.6 }}></div>
+            <span className="text-gray-700">Pre-Field</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded" style={{ backgroundColor: PHASE_COLORS.Fielding, opacity: 0.6 }}></div>
+            <span className="text-gray-700">Fielding</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded" style={{ backgroundColor: PHASE_COLORS['Post-Field Analysis'], opacity: 0.6 }}></div>
+            <span className="text-gray-700">Post-Field Analysis</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded" style={{ backgroundColor: PHASE_COLORS.Reporting, opacity: 0.6 }}></div>
+            <span className="text-gray-700">Reporting</span>
+          </div>
         </div>
       </div>
     </div>
@@ -4715,12 +5178,12 @@ function ModeratorTimeline({ projects, onDateRangeChange }: { projects: Project[
               <div className="flex-1 flex">
                 {weeks.map((week, weekIndex) => (
                   <div key={weekIndex} className="flex-1 min-w-[140px] relative">
-                    <div className={`flex relative z-20 ${week.isCurrentWeek ? 'bg-orange-50' : ''}`}>
+                    <div className={`flex relative z-20 ${week.isCurrentWeek ? '' : ''}`}>
                       {week.days.map((day, dayIndex) => (
                         <div
                           key={`${weekIndex}-${dayIndex}`}
                           className={`flex-1 text-center py-2 text-xs text-gray-600 border-r border-gray-200 last:border-r-0 ${
-                            week.isCurrentWeek ? 'bg-orange-50' : 'bg-gray-50'
+                            week.isCurrentWeek ? '' : 'bg-gray-50'
                           }`}
                         >
                           <div className="font-medium">
@@ -4782,7 +5245,7 @@ function ModeratorTimeline({ projects, onDateRangeChange }: { projects: Project[
                                   key={`${weekIndex}-${dayIndex}`}
                                   className={`flex-1 h-full relative ${
                                     dayIndex < 4 ? 'border-r border-gray-100' : ''
-                                  } ${isUnavailable ? 'bg-gray-300' : week.isCurrentWeek ? 'bg-orange-50' : ''}`}
+                                  } ${isUnavailable ? 'bg-gray-300' : week.isCurrentWeek ? '' : ''}`}
                                 ></div>
                               );
                             })}
@@ -5231,7 +5694,7 @@ function ContentAnalysis() {
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Status</h3>
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
-                  <div className={`h-3 w-3 rounded-full ${busy ? 'bg-orange-500' : 'bg-green-500'}`} />
+                  <div className={`h-3 w-3 rounded-full ${busy ? '0' : 'bg-green-500'}`} />
                   <span className="text-sm font-medium text-gray-700">{busy ? "Processing..." : "Ready"}</span>
                 </div>
                 <div className="text-sm text-gray-600">
@@ -5481,10 +5944,26 @@ function ProjectCard({ project, onView, savedContentAnalyses = [], setRoute }: {
       const date = new Date(year, month, day);
       const dayOfWeek = date.getDay();
       if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+        const isToday = day === today.getDate() && month === today.getMonth() && year === today.getFullYear();
+        
+        // Check if this day is in the current week
+        const isCurrentWeek = (() => {
+          const today = new Date();
+          const currentWeekStart = new Date(today);
+          const dayOfWeek = today.getDay();
+          const diff = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1); // Adjust when day is Sunday
+          currentWeekStart.setDate(diff);
+          const currentWeekEnd = new Date(currentWeekStart);
+          currentWeekEnd.setDate(currentWeekStart.getDate() + 6);
+          
+          return date >= currentWeekStart && date <= currentWeekEnd;
+        })();
+        
         weekdays.push({
           day,
           phase: getPhaseForDay(day),
-          isToday: day === today.getDate() && month === today.getMonth() && year === today.getFullYear()
+          isToday,
+          isCurrentWeek
         });
       }
     }
@@ -5570,19 +6049,31 @@ function ProjectCard({ project, onView, savedContentAnalyses = [], setRoute }: {
 
                   return (
                     <div className="grid grid-cols-5 gap-0.5 justify-items-center">
-                      {weekdays.map((dayInfo, index) => (
-                        <div
-                          key={dayInfo.day}
-                          className={`w-4 h-4 flex items-center justify-center text-xs font-medium ${dayInfo.isToday ? 'ring-1 ring-gray-600' : ''}`}
-                          style={{
-                            color: '#374151',
-                            backgroundColor: dayInfo.phase ? `${PHASE_COLORS[dayInfo.phase]}30` : 'transparent',
-                            borderRadius: '3px'
-                          }}
-                        >
-                          {dayInfo.day}
-                        </div>
-                      ))}
+                      {weekdays.map((dayInfo, index) => {
+                        // Determine background color based on priority: today > current week > phase
+                        let backgroundColor = 'transparent';
+                        if (dayInfo.isToday) {
+                          backgroundColor = '#fed7aa'; // Light orange for today
+                        } else if (dayInfo.isCurrentWeek) {
+                          backgroundColor = '#fff7ed'; // Very light orange for current week
+                        } else if (dayInfo.phase) {
+                          backgroundColor = `${PHASE_COLORS[dayInfo.phase]}30`;
+                        }
+                        
+                        return (
+                          <div
+                            key={dayInfo.day}
+                            className={`w-4 h-4 flex items-center justify-center text-xs font-medium ${dayInfo.isToday ? 'ring-1 ring-orange-400 font-bold' : ''}`}
+                            style={{
+                              color: dayInfo.isToday ? '#ea580c' : '#374151',
+                              backgroundColor,
+                              borderRadius: '3px'
+                            }}
+                          >
+                            {dayInfo.day}
+                          </div>
+                        );
+                      })}
                     </div>
                   );
                 })()}
@@ -6013,7 +6504,7 @@ function TimelineGanttMonth() {
             if (weekEndPos >= 0 && weekStartPos <= 100) {
               return (
                 <div
-                  className="absolute top-0 bottom-0 bg-orange-100/20 pointer-events-none"
+                  className="absolute top-0 bottom-0 /20 pointer-events-none"
                   style={{
                     left: `${Math.max(0, weekStartPos)}%`,
                     width: `${Math.max(0, Math.min(100, weekWidth))}%`,
@@ -6702,7 +7193,7 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                         project.phase === 'Kickoff' ? 'bg-gray-500' :
                         project.phase === 'Pre-Field' ? 'bg-blue-500' :
                         project.phase === 'Fielding' ? 'bg-purple-500' :
-                        project.phase === 'Post-Field Analysis' ? 'bg-orange-500' :
+                        project.phase === 'Post-Field Analysis' ? '0' :
                         project.phase === 'Reporting' ? 'bg-red-500' :
                         project.phase === 'Awaiting KO' ? 'bg-yellow-500' :
                         project.phase === 'Complete' ? 'bg-green-500' :
@@ -7170,7 +7661,7 @@ function ProjectForm({
                         setSelectedTaskForDate(task.id);
                         setShowDatePickerForTask(true);
                       }}
-                      className={`p-2 rounded-lg ${task.dueDate ? 'text-orange-600 bg-orange-50' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}`}
+                      className={`p-2 rounded-lg ${task.dueDate ? 'text-orange-600 ' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}`}
                       title={task.dueDate ? `Due: ${new Date(task.dueDate).toLocaleDateString()}` : 'Set due date'}
                     >
                       <CalendarIcon className="h-4 w-4" />
@@ -9234,6 +9725,43 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
     return keyDate ? keyDate.label : null;
   };
 
+  // Robust assignment matcher for current user within ProjectDashboard
+  const isAssignedToCurrentUser = (task: Task): boolean => {
+    if (!task?.assignedTo || task.assignedTo.length === 0) return false;
+    const normalize = (s: string) => String(s || '').trim().toLowerCase();
+    const stripNonLetters = (s: string) => String(s || '').toLowerCase().replace(/[^a-z]/g, '');
+    const extractEmail = (s: string) => {
+      const m = String(s || '').match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i);
+      return m ? m[0].toLowerCase() : null;
+    };
+
+    const myId = normalize(String((user as any)?.id || ''));
+    const myEmail = normalize(String((user as any)?.email || ''));
+    const myName = normalize(String((user as any)?.name || ''));
+    const myInitials = myName ? stripNonLetters(myName) : '';
+
+    for (const raw of task.assignedTo) {
+      const val = normalize(String(raw));
+      if (!val) continue;
+      // direct comparisons
+      if (val === myId || val === myEmail || val === myName || val === myInitials) return true;
+      // embedded email
+      const email = extractEmail(String(raw));
+      if (email && email === myEmail) return true;
+      // map via team members
+      const member = (project.teamMembers || []).find(m => normalize(m?.id) === val || normalize(m?.name) === val || normalize(m?.email) === val);
+      if (member) {
+        const memName = normalize(String(member.name || ''));
+        const memEmail = normalize(String(member.email || ''));
+        const memInitials = memName ? stripNonLetters(memName) : '';
+        if ((memName && memName === myName) || (memEmail && memEmail === myEmail) || (memInitials && memInitials === myInitials)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  };
+
   return (
     <div className="space-y-6">
       {/* Top Row: Today + Later This Week + Project Details */}
@@ -9242,7 +9770,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
         <Card className="!p-0 overflow-hidden">
           <div className="px-4 py-3 flex items-center gap-2">
             {/* Calendar Icon with Month/Date */}
-            <div className="flex-shrink-0 w-10 h-10 bg-orange-500 text-white rounded-lg flex flex-col items-center justify-center" style={{ backgroundColor: BRAND.orange }}>
+            <div className="flex-shrink-0 w-10 h-10 0 text-white rounded-lg flex flex-col items-center justify-center" style={{ backgroundColor: BRAND.orange }}>
               <div className="text-[9px] font-semibold uppercase leading-tight">{new Date().toLocaleDateString('en-US', { month: 'short' })}</div>
               <div className="text-xl font-bold leading-none">{new Date().getDate()}</div>
             </div>
@@ -9280,39 +9808,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
 
                       if (!isDueToday && !isOverdue) return false;
                       if (!task.assignedTo || task.assignedTo.length === 0) return false;
-
-                      // Check if current user is in the assignedTo array
-                      return task.assignedTo.some((assignedName: string) => {
-                        if (!user?.name || !assignedName) return false;
-
-                        // Exact match or case-insensitive match
-                        if (assignedName === user.name ||
-                            assignedName.toLowerCase() === user.name.toLowerCase() ||
-                            assignedName === user.email ||
-                            assignedName.toLowerCase() === user.email?.toLowerCase()) {
-                          return true;
-                        }
-
-                        // Check if assignedName matches user's initials
-                        const userInitials = user.name
-                          .split(' ')
-                          .map(part => part[0])
-                          .join('')
-                          .toUpperCase();
-
-                        if (assignedName.toUpperCase() === userInitials) {
-                          return true;
-                        }
-
-                        // Check if user's initials match the assignedName
-                        const assignedInitials = assignedName
-                          .split(' ')
-                          .map(part => part[0])
-                          .join('')
-                          .toUpperCase();
-
-                        return assignedInitials === userInitials;
-                      });
+                      return isAssignedToCurrentUser(task);
                     })
                     .sort((a, b) => {
                       // Sort: incomplete before completed
@@ -9340,7 +9836,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                           color: isOverdue ? taskPhaseColor : undefined
                         }}
                       >
-                        <span>•</span>
+                        <span style={{ color: BRAND.orange }}>•</span>
                         <span className={task.status === 'completed' ? 'line-through' : ''}>
                           {task.description}
                           {isTaskOverdue(task) && (
@@ -9383,41 +9879,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
 
                       // If no assignedTo, include it
                       if (!task.assignedTo || task.assignedTo.length === 0) return true;
-
-                      // Check if current user is NOT in the assignedTo array
-                      const isAssignedToUser = task.assignedTo.some((assignedName: string) => {
-                        if (!user?.name || !assignedName) return false;
-
-                        // Exact match or case-insensitive match
-                        if (assignedName === user.name ||
-                            assignedName.toLowerCase() === user.name.toLowerCase() ||
-                            assignedName === user.email ||
-                            assignedName.toLowerCase() === user.email?.toLowerCase()) {
-                          return true;
-                        }
-
-                        // Check if assignedName matches user's initials
-                        const userInitials = user.name
-                          .split(' ')
-                          .map(part => part[0])
-                          .join('')
-                          .toUpperCase();
-
-                        if (assignedName.toUpperCase() === userInitials) {
-                          return true;
-                        }
-
-                        // Check if user's initials match the assignedName
-                        const assignedInitials = assignedName
-                          .split(' ')
-                          .map(part => part[0])
-                          .join('')
-                          .toUpperCase();
-
-                        return assignedInitials === userInitials;
-                      });
-
-                      return !isAssignedToUser;
+                      return !isAssignedToCurrentUser(task);
                     })
                     .sort((a, b) => {
                       // Sort: incomplete before completed
@@ -9445,7 +9907,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                           color: isOverdue ? taskPhaseColor : undefined
                         }}
                       >
-                        <span>•</span>
+                        <span style={{ color: BRAND.orange }}>•</span>
                         <span className={task.status === 'completed' ? 'line-through' : ''}>
                           {task.description}
                           {isTaskOverdue(task) && (
@@ -9551,8 +10013,8 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                   return myTasksLaterThisWeek.map(task => {
                     const taskPhaseColor = PHASE_COLORS[task.phase] || PHASE_COLORS['Kickoff'];
                     return (
-                      <div key={task.id} className="text-[10px] text-gray-700 flex items-start gap-1" style={{ color: taskPhaseColor, fontWeight: 'bold' }}>
-                        <span>•</span>
+                      <div key={task.id} className="text-xs text-gray-700 flex items-start gap-1" style={{ color: taskPhaseColor, fontWeight: 'bold' }}>
+                        <span style={{ color: BRAND.orange }}>•</span>
                         <span>
                           {task.description}
                           {task.dueDate && (
@@ -9648,8 +10110,8 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
 
                   return additionalTasksLaterThisWeek.map(task => {
                     return (
-                      <div key={task.id} className="text-[10px] text-gray-700 flex items-start gap-1">
-                        <span>•</span>
+                      <div key={task.id} className="text-xs text-gray-700 flex items-start gap-1">
+                        <span style={{ color: BRAND.orange }}>•</span>
                         <span>
                           {task.description}
                           {task.dueDate && (
@@ -9837,7 +10299,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                             <option key={member.id} value={member.id}>{member.name}</option>
                           ))}
                         </select>
-                        <button onClick={handleAddTask} className="px-2 py-1 text-xs bg-orange-500 text-white rounded hover:bg-orange-600">Add</button>
+                        <button onClick={handleAddTask} className="px-2 py-1 text-xs 0 text-white rounded hover:bg-orange-600">Add</button>
                         <button onClick={() => setShowAddTask(false)} className="px-2 py-1 text-xs border rounded hover:bg-gray-100">Cancel</button>
                       </div>
                     </div>
@@ -10281,7 +10743,8 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                         } ${isPastDate ? 'opacity-50' : ''}`}
                         style={{
                           backgroundColor: isCurrentWeekDay || isCurrentDay ? '#FED7AA40' : isCurrentMonth ? '#F3F4F6' : '#FFFFFF',
-                          border: !isCurrentMonth && !isCurrentWeekDay ? '1px solid #E5E7EB' : 'none'
+                          border: isCurrentDay ? '2px solid #D14A2D' : (!isCurrentMonth && !isCurrentWeekDay ? '1px solid #E5E7EB' : 'none'),
+                          boxShadow: isCurrentDay ? '0 0 0 1px #D14A2D inset' : undefined
                         }}
                         title={phaseForDay ? `${phaseForDay.phase} phase` : 'No project activity'}
                         onClick={() => handleDayClick(dayDate)}
@@ -10566,7 +11029,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                 </button>
                 <button
                   onClick={handleAddKeyDate}
-                  className="px-4 py-2 text-sm bg-orange-500 text-white rounded-lg hover:bg-orange-600"
+                  className="px-4 py-2 text-sm 0 text-white rounded-lg hover:bg-orange-600"
                 >
                   Add Key Date
                 </button>
@@ -10752,7 +11215,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                   <ul className="space-y-1">
                     {selectedDay.deadlines.map((deadline, index) => (
                       <li key={`selected-day-deadline-${deadline}-${index}`} className="text-sm text-gray-600 flex items-center gap-2">
-                        <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                        <div className="w-2 h-2 0 rounded-full"></div>
                         {deadline}
                       </li>
                     ))}
@@ -11104,7 +11567,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                               e.stopPropagation();
                               handleModalAddComment(note.id);
                             }}
-                            className="px-2 py-1 text-xs bg-orange-500 text-white rounded hover:bg-orange-600"
+                            className="px-2 py-1 text-xs 0 text-white rounded hover:bg-orange-600"
                           >
                             Post
                           </button>
@@ -11371,7 +11834,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
 
                   setShowTimelineEditor(false);
                 }}
-                className="px-4 py-2 text-sm bg-orange-500 text-white rounded hover:bg-orange-600"
+                className="px-4 py-2 text-sm 0 text-white rounded hover:bg-orange-600"
               >
                 Save Timeline
               </button>
@@ -12129,7 +12592,7 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
                         </select>
                         <button
                           onClick={handleAddTask}
-                          className="px-2 py-1 text-xs bg-orange-500 text-white rounded hover:bg-orange-600"
+                          className="px-2 py-1 text-xs 0 text-white rounded hover:bg-orange-600"
                         >
                           Add
                         </button>
@@ -12312,7 +12775,7 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
                         }
                       }}
                       disabled={validatePhaseDates(editingSegments).length > 0}
-                      className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                      className="px-4 py-2 0 text-white rounded-lg text-sm hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
                     >
                       Save Timeline
                     </button>
@@ -12461,7 +12924,7 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
                 onArchive(project.id);
                 onClose();
               }}
-              className="px-4 py-2 text-sm border border-orange-200 text-orange-600 rounded-xl hover:bg-orange-50 transition-colors"
+              className="px-4 py-2 text-sm border border-orange-200 text-orange-600 rounded-xl hover: transition-colors"
             >
               Archive Project
             </button>
