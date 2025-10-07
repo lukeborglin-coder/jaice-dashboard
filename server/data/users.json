@@ -6,7 +6,6 @@
     "password": "$2b$10$ymieTda3P76/E5qVSgZZt.EMcpyuvUagXSr9VrcEIUcKn4D7dXX.O",
     "role": "admin",
     "createdAt": "2025-09-25T14:09:42.885Z",
-    "originalPassword": "Flag4550",
     "company": "Cognitive"
   },
   {
@@ -16,7 +15,6 @@
     "password": "$2b$10$.he6CILtaDgEWPAY2fK8n.ezHzY7fpzhBeSjLis/N/D2N7xxrU4qq",
     "role": "user",
     "createdAt": "2025-09-29T20:05:16.090Z",
-    "originalPassword": "password123",
     "company": "Cognitive"
   },
   {
@@ -24,9 +22,17 @@
     "name": "Nikki",
     "email": "nikki.panagiota@cognitiveconsulting.com",
     "password": "$2b$10$cOBAFJcsSC/c1pgpS/n.o.Utoo.51GFJKVupb0HkxMohBHH/9UbfG",
-    "originalPassword": "password",
     "role": "user",
     "company": "Cognitive",
     "createdAt": "2025-10-01T17:43:43.476Z"
+  },
+  {
+    "id": "14",
+    "name": "test",
+    "email": "test@gmail.com",
+    "password": "$2b$10$.AveBTSTbFsXWCG2xVJ5RuIVeJlHwrMBt07yKDJukaYXKbx77N8na",
+    "role": "user",
+    "company": "None",
+    "createdAt": "2025-10-05T20:03:27.271Z"
   }
 ]

@@ -61,7 +61,7 @@ ${dgText}
 7. For any final sections meant to thank and conclude the session (e.g., "Thank and Conclude", "Closing", "Wrap-Up"), consolidate these into a single "Misc." sheet with columns: Respondent ID, Final Comments, Additional Notes`;
 
     const resp = await client.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-3.5-turbo",
       temperature: 0.1,
       messages: [
         { role: "system", content: sys },
@@ -146,7 +146,7 @@ ${dgText}
 7. For any final sections meant to thank and conclude the session (e.g., "Thank and Conclude", "Closing", "Wrap-Up"), consolidate these into a single "Misc." sheet with columns: Respondent ID, Final Comments, Additional Notes`;
 
     const resp = await client.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-3.5-turbo",
       temperature: 0.1,
       messages: [
         { role: "system", content: sys },
@@ -170,6 +170,81 @@ ${dgText}
   }
 }
 
+// NEW: Generate a mapping of guide questions to sheet/column
+// Returns an object: { bySheet: { [sheetName]: { [columnName]: string[] } } }
+export async function generateGuideMapFromDGText(dgText, sectionsJson) {
+  try {
+    const hasValidKey = process.env.OPENAI_API_KEY &&
+                        process.env.OPENAI_API_KEY !== 'your_openai_api_key_here' &&
+                        process.env.OPENAI_API_KEY.startsWith('sk-');
+
+    if (!hasValidKey) {
+      // If no key, return an empty mapping with discovered sheets/cols
+      const empty = { bySheet: {} };
+      for (const [sheet, rows] of Object.entries(sectionsJson || {})) {
+        const cols = Array.isArray(rows) && rows.length > 0 ? Object.keys(rows[0]) : [];
+        empty.bySheet[sheet] = Object.fromEntries(cols.map(c => [c, []]));
+      }
+      return empty;
+    }
+
+    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+    // Build a simple spec of sheets+columns from sectionsJson
+    const specLines = [];
+    for (const [sheet, rows] of Object.entries(sectionsJson || {})) {
+      const cols = Array.isArray(rows) && rows.length > 0 ? Object.keys(rows[0]) : [];
+      specLines.push(`- ${sheet}: [${cols.join(', ')}]`);
+    }
+
+    const sys = [
+      'You are organizing a qualitative discussion guide into a content analysis grid.',
+      'Task: For each sheet (tab) and column, list the verbatim or near-verbatim questions/prompts from the guide that belong to it.',
+      'Be comprehensive. If a guide question spans multiple columns, include it for each relevant column.',
+      'Output STRICT JSON: { "bySheet": { "<Sheet>": { "<Column>": ["question 1", "question 2", ...] } } }'
+    ].join('\n');
+
+    const user = [
+      '=== SHEETS + COLUMNS (Target structure) ===',
+      specLines.join('\n'),
+      '',
+      '=== FULL DISCUSSION GUIDE TEXT ===',
+      dgText
+    ].join('\n');
+
+    const resp = await client.chat.completions.create({
+      model: 'gpt-4o',
+      temperature: 0.1,
+      messages: [ { role: 'system', content: sys }, { role: 'user', content: user } ],
+      response_format: { type: 'json_object' }
+    });
+
+    const json = JSON.parse(resp.choices[0].message.content || '{}');
+
+    // Ensure all sheets/cols exist in result, fill missing with []
+    const out = { bySheet: {} };
+    for (const [sheet, rows] of Object.entries(sectionsJson || {})) {
+      const cols = Array.isArray(rows) && rows.length > 0 ? Object.keys(rows[0]) : [];
+      const fromAI = (json.bySheet && json.bySheet[sheet]) || {};
+      out.bySheet[sheet] = {};
+      for (const col of cols) {
+        const arr = Array.isArray(fromAI[col]) ? fromAI[col] : [];
+        out.bySheet[sheet][col] = arr.map(x => (typeof x === 'string' ? x : String(x))).filter(Boolean);
+      }
+    }
+    return out;
+  } catch (error) {
+    console.error('Error in generateGuideMapFromDGText:', error);
+    // Graceful fallback to empty mapping
+    const empty = { bySheet: {} };
+    for (const [sheet, rows] of Object.entries(sectionsJson || {})) {
+      const cols = Array.isArray(rows) && rows.length > 0 ? Object.keys(rows[0]) : [];
+      empty.bySheet[sheet] = Object.fromEntries(cols.map(c => [c, []]));
+    }
+    return empty;
+  }
+}
+
 // NEW: Generate Excel from dynamic JSON data
 export async function generateExcelFromJSON(jsonData) {
   try {
@@ -181,7 +256,9 @@ export async function generateExcelFromJSON(jsonData) {
         // Get column headers from the first row
         const cols = Object.keys(rows[0]);
         const ws = xlsx.utils.json_to_sheet(rows, { header: cols });
-        xlsx.utils.book_append_sheet(wb, ws, sectionName);
+        // Excel sheet names must be 31 characters or less
+        const truncatedSheetName = sectionName.length > 31 ? sectionName.substring(0, 31) : sectionName;
+        xlsx.utils.book_append_sheet(wb, ws, truncatedSheetName);
       }
     }
 

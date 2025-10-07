@@ -2010,7 +2010,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
 
                   {/* Add New Moderator Modal */}
                   {showAddModerator && (
-                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[99999]">
                       <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
                         <div className="flex items-center justify-between mb-4">
                           <h3 className="text-lg font-semibold">Add New Moderator</h3>
@@ -2303,7 +2303,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
       
       {/* Add New Client Modal */}
       {showAddClient && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[99999]">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Add New Client</h3>
@@ -2361,7 +2361,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
 
       {/* Add New Sample Provider Modal */}
       {showAddSampleProvider && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[99999]">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Add New Sample Provider</h3>
@@ -2442,7 +2442,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
 
       {/* Add New Analytics Partner Modal */}
       {showAddAnalyticsPartner && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[99999]">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Add New Analytics Partner</h3>

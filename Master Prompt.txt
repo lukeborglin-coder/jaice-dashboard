@@ -1,4 +1,4 @@
-  You are helping build a new “Tools” tab for the JAICE Dashboard (React + TypeScript + Vite + Tailwind +
+  You are helping build a new tab/page for the JAICE Dashboard (React + TypeScript + Vite + Tailwind +
   Heroicons). The dashboard routes by comparing a string route in src/App.tsx to human-readable labels in a toolsNav
   array. New tools become tabs under “Tools,” and the main content renders a component when route === "<Tab Label>".
   Unrecognized routes show a placeholder.
@@ -116,3 +116,25 @@
   - Read API URLs from src/config.ts if needed.
   - Include tool.manifest.json and README.txt.
   - Don’t modify existing files; we’ll integrate.
+
+---
+Interactive Session Addendum
+============================
+This section will be updated live during our Q&A.
+
+Feature Working Title: (TBD)
+Primary Goal (one sentence): (TBD)
+Target Tab Label (route label): (TBD)
+Icon (Heroicons 24/outline): (TBD)
+Inputs (files/fields): (TBD)
+Core Actions / User Flow: (TBD)
+Outputs (on-screen + export): (TBD)
+Needs Backend? (yes/no): (TBD)
+API Endpoints (if any): (TBD)
+Performance/Scale constraints: (TBD)
+Security/Privacy notes: (TBD)
+Nice-to-haves (defer if time): (TBD)
+Future Phase (v2+): (TBD)
+Acceptance Criteria (MVP): (TBD)
+
+As we agree on each answer, merge them into the spec above. Keep answers concise and deterministic.

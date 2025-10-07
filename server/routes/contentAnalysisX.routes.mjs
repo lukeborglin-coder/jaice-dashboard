@@ -4,7 +4,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs/promises';
 import mammoth from 'mammoth';
-import { generateCAFromDGAsJSON, generateExcelFromJSON } from '../services/caGenerator.service.mjs';
+import { generateCAFromDGAsJSON, generateExcelFromJSON, generateGuideMapFromDGText } from '../services/caGenerator.service.mjs';
 import { fillRespondentRowsFromTranscript } from '../services/transcriptFiller.service.mjs';
 import { fileURLToPath } from 'url';
 import OpenAI from 'openai';
@@ -12,15 +12,21 @@ import OpenAI from 'openai';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const router = express.Router();
 
+// In-memory job store for background processing
+const uploadJobs = new Map();
+
 // Enforce auth + company access for all CA-X endpoints
 router.use(authenticateToken, requireCognitiveOrAdmin);
 
+// Consistent data roots for persistence
+const dataRoot = process.env.DATA_DIR || path.join(__dirname, '../data');
+const filesDir = process.env.FILES_DIR || path.join(dataRoot, 'uploads');
+
 const storage = multer.diskStorage({
   destination: async (req, file, cb) => {
-    const uploadDir = process.env.FILES_DIR || path.join(process.env.DATA_DIR || '/server/data' || path.join(__dirname, '../data'), 'uploads');
     try {
-      await fs.mkdir(uploadDir, { recursive: true });
-      cb(null, uploadDir);
+      await fs.mkdir(filesDir, { recursive: true });
+      cb(null, filesDir);
     } catch (error) {
       cb(error);
     }
@@ -61,7 +67,7 @@ const upload = multer({
 });
 
 // File paths for persistent storage
-const baseDataDir = process.env.DATA_DIR || '/server/data' || path.join(__dirname, '../data');
+const baseDataDir = dataRoot;
 const savedAnalysesFile = path.join(baseDataDir, 'savedAnalyses.json');
 const discussionGuidesDir = path.join(baseDataDir, 'discussionGuides');
 
@@ -100,7 +106,7 @@ async function saveAnalysesToFile(analyses) {
 }
 
 // Load saved analyses on startup
-let savedAnalyses = await loadSavedAnalyses();
+  let savedAnalyses = await loadSavedAnalyses();
 
 // POST /api/caX/preview - DG → JSON preview (no auto download)
 router.post('/preview', upload.single('dg'), async (req, res) => {
@@ -123,17 +129,43 @@ router.post('/preview', upload.single('dg'), async (req, res) => {
       }
     }
 
-    // Also extract full raw text of the uploaded discussion guide (for viewing later)
+    // Also extract full raw text of the uploaded discussion guide (for AI processing and mapping)
     let rawGuideText = '';
+    let rawGuideHtml = ''; // For formatted display
     try {
       if (req.file.originalname.endsWith('.docx')) {
-        const result = await mammoth.extractRawText({ path: req.file.path });
-        rawGuideText = result.value || '';
+        // Extract plain text for AI processing
+        const textResult = await mammoth.extractRawText({ path: req.file.path });
+        rawGuideText = textResult.value || '';
+
+        // Convert DOCX to simple HTML for viewing
+        const htmlResult = await mammoth.convertToHtml({ path: req.file.path });
+        rawGuideHtml = htmlResult.value || '';
       } else if (req.file.originalname.endsWith('.txt')) {
         rawGuideText = await fs.readFile(req.file.path, 'utf8');
+        rawGuideHtml = `<pre>${rawGuideText}</pre>`;
       }
     } catch (e) {
-      console.warn('Failed to extract raw DG text:', e.message);
+      console.warn('Failed to extract/convert discussion guide:', e.message);
+    }
+
+    // Build a guide-to-grid mapping using the raw guide and discovered sheets/columns
+    let guideMap = { bySheet: {} };
+    try {
+      guideMap = await generateGuideMapFromDGText(rawGuideText || '', jsonData);
+    } catch (e) {
+      console.warn('Failed to generate guideMap:', e.message);
+    }
+
+    // Save the original DOCX file for download later (with a temporary ID)
+    let originalDocxPath = '';
+    if (req.file.originalname.endsWith('.docx')) {
+      // Ensure discussion guides directory exists
+      try { await fs.mkdir(discussionGuidesDir, { recursive: true }); } catch {}
+
+      const tempId = `temp_${Date.now()}`;
+      originalDocxPath = path.join(discussionGuidesDir, `${tempId}.docx`);
+      await fs.copyFile(req.file.path, originalDocxPath);
     }
 
     // Clean up uploaded file
@@ -143,7 +175,14 @@ router.post('/preview', upload.single('dg'), async (req, res) => {
       console.warn('Failed to cleanup uploaded file:', cleanupError);
     }
 
-    res.json({ data: jsonData, rawGuideText, fileName: req.file.originalname });
+    res.json({
+      data: jsonData,
+      rawGuideText,
+      rawGuideHtml,
+      guideMap,
+      fileName: req.file.originalname,
+      originalDocxId: originalDocxPath ? path.basename(originalDocxPath, '.docx') : null
+    });
   } catch (error) {
     console.error('Error in preview endpoint:', error);
     res.status(500).json({ error: error.message });
@@ -226,9 +265,67 @@ router.put('/update', async (req, res) => {
     const analyses = await loadSavedAnalyses();
     const idx = analyses.findIndex(a => a.id === id);
     if (idx === -1) return res.status(404).json({ error: 'Analysis not found' });
+
+    const oldProjectId = analyses[idx].projectId;
+    const projectChanged = projectId && projectId !== oldProjectId;
+
     if (name) analyses[idx].name = name; if (description) analyses[idx].description = description; if (projectId) analyses[idx].projectId = projectId; if (projectName) analyses[idx].projectName = projectName; analyses[idx].data = data; if (quotes) analyses[idx].quotes = quotes; if (transcripts) analyses[idx].transcripts = transcripts;
     analyses[idx].savedAt = new Date().toISOString();
     await saveAnalysesToFile(analyses);
+
+    // If project changed, move the discussion guide file between projects
+    if (projectChanged) {
+      try {
+        const projectsPath = path.join(process.env.DATA_DIR || path.join(__dirname, '../data'), 'projects.json');
+        const allProj = JSON.parse(await fs.readFile(projectsPath, 'utf8'));
+
+        // Find and remove file from old project
+        if (oldProjectId) {
+          for (const uid in allProj) {
+            const userProjects = allProj[uid];
+            const oldProjIndex = userProjects.findIndex(p => p.id === oldProjectId);
+            if (oldProjIndex !== -1 && Array.isArray(allProj[uid][oldProjIndex].files)) {
+              allProj[uid][oldProjIndex].files = allProj[uid][oldProjIndex].files.filter(
+                f => f.id !== `file-${id}-dg`
+              );
+            }
+          }
+        }
+
+        // Add file to new project
+        for (const uid in allProj) {
+          const userProjects = allProj[uid];
+          const newProjIndex = userProjects.findIndex(p => p.id === projectId);
+          if (newProjIndex !== -1) {
+            if (!Array.isArray(allProj[uid][newProjIndex].files)) {
+              allProj[uid][newProjIndex].files = [];
+            }
+
+            // Check if discussion guide file exists for this analysis
+            const dgFileId = `file-${id}-dg`;
+            const existingFile = allProj[uid][newProjIndex].files.find(f => f.id === dgFileId);
+
+            if (!existingFile && analyses[idx].originalDocxId) {
+              // Add discussion guide to new project
+              allProj[uid][newProjIndex].files.push({
+                id: dgFileId,
+                name: `${analyses[idx].name} Discussion Guide.docx`,
+                type: 'discussion-guide',
+                url: `/uploads/Discussion_Guide_${projectId}_${analyses[idx].originalDocxId}.docx`,
+                uploadedAt: analyses[idx].savedAt
+              });
+            }
+            break;
+          }
+        }
+
+        await fs.writeFile(projectsPath, JSON.stringify(allProj, null, 2));
+      } catch (projectUpdateError) {
+        console.error('Error updating project files:', projectUpdateError);
+        // Don't fail the whole update if project file update fails
+      }
+    }
+
     res.json({ success: true });
   } catch (error) {
     console.error('Error in update endpoint:', error);
@@ -310,7 +407,7 @@ router.get('/template', async (req, res) => {
 // POST /api/caX/save - Save content analysis to project
 router.post('/save', async (req, res) => {
   try {
-    const { projectId, projectName, data, name, discussionGuide, quotes } = req.body;
+    const { projectId, projectName, data, name, discussionGuide, discussionGuideHtml, guideMap, quotes, originalDocxId } = req.body;
 
     if (!projectId || !data) {
       return res.status(400).json({ error: 'Project ID and data are required' });
@@ -324,6 +421,7 @@ router.post('/save', async (req, res) => {
       projectName,
       name: name && name.trim() ? name.trim() : 'Content Analysis',
       data,
+      guideMap: guideMap || { bySheet: {} },
       quotes: quotes || {},
       savedAt: new Date().toISOString(),
       savedBy: 'You'
@@ -333,17 +431,156 @@ router.post('/save', async (req, res) => {
     savedAnalyses.unshift(savedAnalysis); // Add to beginning of array
     await saveAnalysesToFile(savedAnalyses);
 
-    // Save discussion guide if provided
-    if (discussionGuide) {
-      const guideFile = path.join(discussionGuidesDir, `${projectId}.txt`);
-      await fs.writeFile(guideFile, discussionGuide);
-      console.log(`Discussion guide saved for project: ${projectId}`);
+    // Save discussion guide HTML if provided (for formatted display)
+    if (discussionGuideHtml) {
+      const guideFile = path.join(discussionGuidesDir, `${projectId}.html`);
+      await fs.writeFile(guideFile, discussionGuideHtml);
+      console.log(`Discussion guide HTML saved for project: ${projectId}`);
     }
 
-    res.json({ 
-      success: true, 
+    // Move original DOCX file from temp location to permanent location
+    if (originalDocxId) {
+      const tempDocxPath = path.join(discussionGuidesDir, `${originalDocxId}.docx`);
+      const permanentDocxPath = path.join(discussionGuidesDir, `${projectId}.docx`);
+      try {
+        await fs.rename(tempDocxPath, permanentDocxPath);
+        console.log(`Original DOCX moved to permanent location for project: ${projectId}`);
+      } catch (moveError) {
+        console.warn('Failed to move original DOCX:', moveError);
+      }
+    }
+
+    // Ensure uploads directory exists for public file serving
+    try { await fs.mkdir(filesDir, { recursive: true }); } catch {}
+
+    // 1) Generate and save an Excel file for this content analysis
+    let caFilePublicUrl = null;
+    try {
+      const excelBuffer = await generateExcelFromJSON(data);
+      const safeName = (savedAnalysis.name || 'Content_Analysis').replace(/[^a-zA-Z0-9._ -]/g, '').trim() || 'Content_Analysis';
+      const caFileName = `CA_${projectId}_${savedAnalysis.id}_${safeName}.xlsx`;
+      const caFilePath = path.join(filesDir, caFileName);
+      await fs.writeFile(caFilePath, excelBuffer);
+      caFilePublicUrl = `/uploads/${caFileName}`;
+      console.log(`Content analysis Excel saved: ${caFilePath}`);
+    } catch (excelErr) {
+      console.warn('Failed to write Excel file for content analysis:', excelErr?.message || excelErr);
+    }
+
+    // 2) Copy discussion guide DOCX (if available) into uploads for Files tab
+    let dgFilePublicUrl = null;
+    try {
+      const permanentDocxPath = path.join(discussionGuidesDir, `${projectId}.docx`);
+      // Check if DOCX exists; if so, copy to uploads
+      await fs.access(permanentDocxPath);
+      const dgFileName = `Discussion_Guide_${projectId}_${savedAnalysis.id}.docx`;
+      const dgUploadPath = path.join(filesDir, dgFileName);
+      await fs.copyFile(permanentDocxPath, dgUploadPath);
+      dgFilePublicUrl = `/uploads/${dgFileName}`;
+      console.log(`Discussion guide copied to uploads: ${dgUploadPath}`);
+    } catch (dgErr) {
+      // If no DOCX but we have HTML, save HTML for reference
+      if (discussionGuideHtml) {
+        try {
+          const dgHtmlName = `Discussion_Guide_${projectId}_${savedAnalysis.id}.html`;
+          const dgHtmlPath = path.join(filesDir, dgHtmlName);
+          await fs.writeFile(dgHtmlPath, discussionGuideHtml);
+          dgFilePublicUrl = `/uploads/${dgHtmlName}`;
+          console.log(`Discussion guide HTML saved to uploads: ${dgHtmlPath}`);
+        } catch (htmlErr) {
+          console.warn('Failed to save discussion guide HTML to uploads:', htmlErr?.message || htmlErr);
+        }
+      } else {
+        console.log('No discussion guide file to add to Files tab');
+      }
+    }
+
+    // Update project in projects.json to add content analysis and discussion guide
+    try {
+      const projectsPath = path.join(process.env.DATA_DIR || path.join(__dirname, '../data'), 'projects.json');
+      if (await fs.access(projectsPath).then(() => true).catch(() => false)) {
+        const rawProj = await fs.readFile(projectsPath, 'utf8');
+        const allProj = JSON.parse(rawProj || '{}');
+
+        // Find and update the project
+        for (const [uid, arr] of Object.entries(allProj || {})) {
+          if (String(uid).includes('_archived')) continue;
+          if (!Array.isArray(arr)) continue;
+          const projIndex = arr.findIndex(p => String(p?.id) === String(projectId));
+          if (projIndex !== -1) {
+            // Add discussion guide flag if applicable
+            if (originalDocxId || discussionGuideHtml) {
+              allProj[uid][projIndex].hasDiscussionGuide = true;
+              allProj[uid][projIndex].discussionGuideUpdatedAt = new Date().toISOString();
+            }
+
+            // Add content analysis to savedContentAnalyses array
+            if (!allProj[uid][projIndex].savedContentAnalyses) {
+              allProj[uid][projIndex].savedContentAnalyses = [];
+            }
+
+            // Add the new content analysis entry
+            allProj[uid][projIndex].savedContentAnalyses.push({
+              id: savedAnalysis.id,
+              name: savedAnalysis.name,
+              savedDate: savedAnalysis.savedAt,
+              savedBy: savedAnalysis.savedBy
+            });
+
+            // Ensure files array exists
+            if (!Array.isArray(allProj[uid][projIndex].files)) {
+              allProj[uid][projIndex].files = [];
+            }
+
+            // Build file entries for Files tab
+            const filesToAdd = [];
+            // Don't add the Excel file to project files - content analysis shows as its own item
+            // if (caFilePublicUrl) {
+            //   filesToAdd.push({
+            //     id: `file-${savedAnalysis.id}-ca`,
+            //     name: `${savedAnalysis.name}.xlsx`,
+            //     type: 'Excel',
+            //     url: caFilePublicUrl,
+            //     uploadedAt: savedAnalysis.savedAt
+            //   });
+            // }
+            if (dgFilePublicUrl) {
+              const isHtml = dgFilePublicUrl.toLowerCase().endsWith('.html');
+              filesToAdd.push({
+                id: `file-${savedAnalysis.id}-dg`,
+                name: isHtml ? `${savedAnalysis.name} Discussion Guide.html` : `${savedAnalysis.name} Discussion Guide.docx`,
+                type: 'discussion-guide', // Changed to discussion-guide type to prevent deletion
+                url: dgFilePublicUrl,
+                uploadedAt: savedAnalysis.savedAt
+              });
+            }
+
+            // Append new files (avoid duplicates by id)
+            const existingIds = new Set((allProj[uid][projIndex].files || []).map(f => String(f.id)));
+            for (const f of filesToAdd) {
+              if (!existingIds.has(String(f.id))) {
+                allProj[uid][projIndex].files.push(f);
+              }
+            }
+
+            await fs.writeFile(projectsPath, JSON.stringify(allProj, null, 2));
+            console.log(`Updated project ${projectId} with content analysis and discussion guide`);
+            break;
+          }
+        }
+      }
+    } catch (projectUpdateError) {
+      console.warn('Failed to update project:', projectUpdateError);
+    }
+
+    res.json({
+      success: true,
       id: savedAnalysis.id,
-      message: `Content analysis saved to ${projectName}` 
+      message: `Content analysis saved to ${projectName}`,
+      filesAdded: {
+        contentAnalysis: caFilePublicUrl || null,
+        discussionGuide: dgFilePublicUrl || null
+      }
     });
   } catch (error) {
     console.error('Error in save endpoint:', error);
@@ -364,8 +601,8 @@ router.delete('/delete/:id', async (req, res) => {
 
     // Find and remove from memory and file
     const initialLength = savedAnalyses.length;
-    const analysisToDelete = savedAnalyses.find(analysis => analysis.id === id);
-    savedAnalyses = savedAnalyses.filter(analysis => analysis.id !== id);
+    const analysisToDelete = savedAnalyses.find(analysis => String(analysis.id) === String(id));
+    savedAnalyses = savedAnalyses.filter(analysis => String(analysis.id) !== String(id));
 
     if (savedAnalyses.length === initialLength) {
       return res.status(404).json({ error: 'Content analysis not found' });
@@ -374,21 +611,81 @@ router.delete('/delete/:id', async (req, res) => {
     // Save updated list to file
     await saveAnalysesToFile(savedAnalyses);
 
-    // Also delete associated discussion guide if it exists
+    // Also delete associated discussion guide files if they exist
     if (analysisToDelete && analysisToDelete.projectId) {
-      const guideFile = path.join(discussionGuidesDir, `${analysisToDelete.projectId}.txt`);
+      const projectId = analysisToDelete.projectId;
+
+      // Delete .txt file (old format)
+      const guideFileTxt = path.join(discussionGuidesDir, `${projectId}.txt`);
       try {
-        await fs.unlink(guideFile);
-        console.log(`Discussion guide deleted for project: ${analysisToDelete.projectId}`);
+        await fs.unlink(guideFileTxt);
+        console.log(`Discussion guide (txt) deleted for project: ${projectId}`);
       } catch (error) {
-        // Guide file might not exist, that's okay
-        console.log(`No discussion guide found for project: ${analysisToDelete.projectId}`);
+        console.log(`No txt discussion guide found for project: ${projectId}`);
+      }
+
+      // Delete .html file
+      const guideFileHtml = path.join(discussionGuidesDir, `${projectId}.html`);
+      try {
+        await fs.unlink(guideFileHtml);
+        console.log(`Discussion guide (html) deleted for project: ${projectId}`);
+      } catch (error) {
+        console.log(`No html discussion guide found for project: ${projectId}`);
+      }
+
+      // Delete .docx file
+      const guideFileDocx = path.join(discussionGuidesDir, `${projectId}.docx`);
+      try {
+        await fs.unlink(guideFileDocx);
+        console.log(`Discussion guide (docx) deleted for project: ${projectId}`);
+      } catch (error) {
+        console.log(`No docx discussion guide found for project: ${projectId}`);
+      }
+
+      // Update project in projects.json to remove discussion guide flag
+      try {
+        const projectsPath = path.join(process.env.DATA_DIR || path.join(__dirname, '../data'), 'projects.json');
+        if (await fs.access(projectsPath).then(() => true).catch(() => false)) {
+          const rawProj = await fs.readFile(projectsPath, 'utf8');
+          const allProj = JSON.parse(rawProj || '{}');
+
+          // Find and update the project
+          for (const [uid, arr] of Object.entries(allProj || {})) {
+            if (String(uid).includes('_archived')) continue;
+            if (!Array.isArray(arr)) continue;
+            const projIndex = arr.findIndex(p => String(p?.id) === String(projectId));
+            if (projIndex !== -1) {
+              delete allProj[uid][projIndex].hasDiscussionGuide;
+              delete allProj[uid][projIndex].discussionGuideUpdatedAt;
+
+              // Remove content analysis from savedContentAnalyses array
+              if (allProj[uid][projIndex].savedContentAnalyses && Array.isArray(allProj[uid][projIndex].savedContentAnalyses)) {
+                allProj[uid][projIndex].savedContentAnalyses = allProj[uid][projIndex].savedContentAnalyses.filter(
+                  ca => String(ca.id) !== String(id)
+                );
+              }
+
+              // Remove CA and DG files from the files array
+              if (allProj[uid][projIndex].files && Array.isArray(allProj[uid][projIndex].files)) {
+                allProj[uid][projIndex].files = allProj[uid][projIndex].files.filter(
+                  file => !file.id?.includes(`-${id}`) && file.id !== `file-${id}-dg`
+                );
+              }
+
+              await fs.writeFile(projectsPath, JSON.stringify(allProj, null, 2));
+              console.log(`Removed discussion guide flag, content analysis, and associated files from project ${projectId}`);
+              break;
+            }
+          }
+        }
+      } catch (projectUpdateError) {
+        console.warn('Failed to update project to remove discussion guide flag:', projectUpdateError);
       }
     }
 
-    res.json({ 
-      success: true, 
-      message: 'Content analysis deleted successfully' 
+    res.json({
+      success: true,
+      message: 'Content analysis deleted successfully'
     });
   } catch (error) {
     console.error('Error in delete endpoint:', error);
@@ -396,25 +693,26 @@ router.delete('/delete/:id', async (req, res) => {
   }
 });
 
-// POST /api/caX/process-transcript - Process transcript and extract key findings
+// POST /api/caX/process-transcript - Process transcript and extract key findings (now async with job tracking)
 router.post('/process-transcript', upload.single('transcript'), async (req, res) => {
   try {
     console.log('Transcript upload request received');
     console.log('Request body:', req.body);
     console.log('Request file:', req.file);
-    
+
     if (!req.file) {
       console.log('No file uploaded');
       return res.status(400).json({ error: 'No transcript file uploaded' });
     }
 
-    const { projectId, activeSheet, discussionGuide, analysisId } = req.body;
-    
+    const { projectId, activeSheet, discussionGuide, guideMap: guideMapRaw, analysisId } = req.body;
+
     if (!projectId || !activeSheet) {
       console.log('Missing required fields:', { projectId, activeSheet });
       return res.status(400).json({ error: 'Project ID and active sheet are required' });
     }
 
+    // Process transcript synchronously
     console.log(`Processing transcript for project: ${projectId}, sheet: ${activeSheet}`);
     console.log('File details:', {
       originalname: req.file.originalname,
@@ -475,19 +773,84 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
     const dateTimeInfo = extractDateTimeFromTranscript(transcriptText);
     console.log('Extracted date/time from transcript:', dateTimeInfo);
 
+    // Derive moderator aliases from the associated project (projects.json)
+    const moderatorAliases = [];
+    try {
+      const projectsPath = path.join(process.env.DATA_DIR || path.join(__dirname, '../data'), 'projects.json');
+      if (await fs.access(projectsPath).then(() => true).catch(() => false)) {
+        const rawProj = await fs.readFile(projectsPath, 'utf8');
+        const allProj = JSON.parse(rawProj || '{}');
+        for (const [uid, arr] of Object.entries(allProj || {})) {
+          if (String(uid).includes('_archived')) continue;
+          if (!Array.isArray(arr)) continue;
+          const proj = arr.find(p => String(p?.id) === String(projectId));
+          if (proj) {
+            const tryPush = (val) => {
+              if (!val) return;
+              const s = String(val).trim();
+              if (s && !moderatorAliases.some(x => x.toLowerCase() === s.toLowerCase())) moderatorAliases.push(s);
+            };
+            tryPush(proj.moderator);
+            tryPush(proj.moderatorName);
+            tryPush(proj.leadModerator);
+            if (Array.isArray(proj.moderators)) proj.moderators.forEach(tryPush);
+            if (Array.isArray(proj.teamMembers)) {
+              for (const m of proj.teamMembers) {
+                const role = (m?.role || m?.title || '').toString().toLowerCase();
+                if (role.includes('moderator')) tryPush(m?.name || m?.displayName || m?.email);
+              }
+            }
+            break;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to derive moderator aliases from projects.json:', e.message);
+    }
+
     // Clean the transcript with AI
     console.log('=== ABOUT TO CALL cleanTranscriptWithAI ===');
     console.log('Transcript text preview:', transcriptText.substring(0, 300));
     console.log('Discussion guide available:', !!discussionGuide);
     console.log('Column headers:', columnHeaders);
 
-    const cleanedTranscript = await cleanTranscriptWithAI(transcriptText, discussionGuide, columnHeaders);
+    // Compose enriched guide context: raw guide + per sheet/column mapping of questions
+    let guideMap = {};
+    try { guideMap = typeof guideMapRaw === 'string' ? JSON.parse(guideMapRaw) : (guideMapRaw || {}); } catch {}
+    const mappingLines = [];
+    if (guideMap && guideMap.bySheet) {
+      mappingLines.push('=== GUIDE MAPPING BY SHEET/COLUMN ===');
+      for (const [sheetName, colMap] of Object.entries(guideMap.bySheet)) {
+        mappingLines.push(`Sheet: ${sheetName}`);
+        for (const [colName, questions] of Object.entries(colMap || {})) {
+          const qList = Array.isArray(questions) ? questions : [];
+          if (qList.length) {
+            mappingLines.push(`- ${colName}:`);
+            for (const q of qList.slice(0, 5)) mappingLines.push(`  • ${q}`);
+            if (qList.length > 5) mappingLines.push(`  • (+${qList.length - 5} more in guide)`);
+          }
+        }
+      }
+    }
+    const enrichedGuide = [
+      discussionGuide || '',
+      mappingLines.join('\n')
+    ].filter(Boolean).join('\n\n');
+
+    const cleanedTranscript = await cleanTranscriptWithAI(transcriptText, enrichedGuide, columnHeaders, moderatorAliases);
 
     console.log('=== TRANSCRIPT CLEANING COMPLETED ===');
     console.log('Cleaned transcript preview:', cleanedTranscript.substring(0, 300));
+    console.log('⏱️  Elapsed time:', Math.round((Date.now() - Date.now()) / 1000), 'seconds');
+
+    console.log('=== STARTING MAIN TRANSCRIPT PROCESSING ===');
+    console.log('⏱️  This step may take 15-25 minutes for large transcripts...');
 
     // Process the CLEANED transcript with AI to extract key findings for ALL sheets
-    const processed = await processTranscriptWithAI(cleanedTranscript, currentData, discussionGuide);
+    const processed = await processTranscriptWithAI(cleanedTranscript, currentData, enrichedGuide);
+
+    console.log('=== MAIN TRANSCRIPT PROCESSING COMPLETED ===');
+    console.log('⏱️  Processing complete');
 
     // Update the Demographics sheet with extracted date/time if available
     console.log('=== UPDATING DEMOGRAPHICS WITH DATE/TIME ===');
@@ -536,6 +899,10 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
         savedAnalyses[idx].data = processed.data;
         savedAnalyses[idx].quotes = processed.quotes;
         savedAnalyses[idx].context = processed.context;
+        // Ensure guideMap is preserved if it existed on the saved analysis
+        if (!savedAnalyses[idx].guideMap && req.body.guideMap) {
+          try { savedAnalyses[idx].guideMap = typeof req.body.guideMap === 'string' ? JSON.parse(req.body.guideMap) : req.body.guideMap; } catch {}
+        }
         savedAnalyses[idx].savedAt = new Date().toISOString();
         await saveAnalysesToFile(savedAnalyses);
         console.log(`Persisted updated analysis ${analysisId} with quotes and context`);
@@ -560,28 +927,37 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
       respno = lastRow['Respondent ID'] || lastRow['respno'] || null;
     }
 
-    console.log('Transcript processing completed successfully');
-    console.log('Extracted respno:', respno);
-    console.log('📤 About to send response with context:', processed.context);
-    console.log('📤 Context keys:', processed.context ? Object.keys(processed.context) : 'NO CONTEXT');
-    for (const [sheet, cols] of Object.entries(processed.context || {})) {
-      console.log(`📤 Sheet "${sheet}" context columns:`, Object.keys(cols));
-    }
-    res.json({
-      success: true,
-      data: processed.data,
-      quotes: processed.quotes,
-      context: processed.context || {},
-      cleanedTranscript: cleanedTranscript,
-      originalTranscript: transcriptText,
-      respno: respno,
-      analysisId: analysisId || null,
-      message: 'Transcript processed successfully'
-    });
+        console.log('Transcript processing completed successfully');
+        console.log('Extracted respno:', respno);
+        console.log('📤 About to send response with context:', processed.context);
+        console.log('📤 Context keys:', processed.context ? Object.keys(processed.context) : 'NO CONTEXT');
+        for (const [sheet, cols] of Object.entries(processed.context || {})) {
+          console.log(`📤 Sheet "${sheet}" context columns:`, Object.keys(cols));
+        }
+
+        // Clean up uploaded file
+        try {
+          await fs.unlink(req.file.path);
+        } catch (cleanupError) {
+          console.warn('Failed to cleanup uploaded file:', cleanupError);
+        }
+
+        // Return the processed result directly
+        res.json({
+          success: true,
+          data: processed.data,
+          quotes: processed.quotes,
+          context: processed.context || {},
+          cleanedTranscript: cleanedTranscript,
+          originalTranscript: transcriptText,
+          respno: respno,
+          analysisId: analysisId || null,
+          message: 'Transcript processed successfully'
+        });
   } catch (error) {
-    console.error('Error in process-transcript endpoint:', error);
+    console.error('Error in transcript processing:', error);
     console.error('Error stack:', error.stack);
-    
+
     // Clean up uploaded file on error
     if (req.file && req.file.path) {
       try {
@@ -591,30 +967,52 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
         console.warn('Failed to cleanup uploaded file after error:', cleanupError);
       }
     }
-    
+
     res.status(500).json({ error: error.message });
   }
 });
 
-// GET /api/caX/discussion-guide/:projectId - Get discussion guide for a project
+
+// GET /api/caX/discussion-guide/:projectId - Get discussion guide HTML for a project
 router.get('/discussion-guide/:projectId', async (req, res) => {
   try {
     const { projectId } = req.params;
-    
-    const guideFile = path.join(discussionGuidesDir, `${projectId}.txt`);
-    
+    const htmlFile = path.join(discussionGuidesDir, `${projectId}.html`);
+
     try {
-      const discussionGuide = await fs.readFile(guideFile, 'utf8');
-      res.setHeader('Content-Type', 'text/plain');
+      const discussionGuide = await fs.readFile(htmlFile, 'utf8');
+      res.setHeader('Content-Type', 'text/html');
       res.send(discussionGuide);
-    } catch (fileError) {
-      // If file doesn't exist, return a placeholder
-      const placeholderGuide = getDiscussionGuide(projectId);
-      res.setHeader('Content-Type', 'text/plain');
-      res.send(placeholderGuide);
+    } catch (htmlError) {
+      res.status(404).json({ error: 'Discussion guide not found' });
     }
   } catch (error) {
     console.error('Error in discussion-guide endpoint:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /api/caX/discussion-guide/:projectId/download - Download original Word document
+router.get('/discussion-guide/:projectId/download', async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const docxFile = path.join(discussionGuidesDir, `${projectId}.docx`);
+
+    try {
+      // Check if file exists
+      await fs.access(docxFile);
+
+      // Send the file for download
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+      res.setHeader('Content-Disposition', `attachment; filename="Discussion_Guide_${projectId}.docx"`);
+
+      const fileBuffer = await fs.readFile(docxFile);
+      res.send(fileBuffer);
+    } catch (fileError) {
+      res.status(404).json({ error: 'Discussion guide Word document not found' });
+    }
+  } catch (error) {
+    console.error('Error in discussion-guide download endpoint:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -1905,7 +2303,7 @@ function extractDateTimeFromTranscript(transcriptText) {
 }
 
 // Helper function to clean transcript with AI
-async function cleanTranscriptWithAI(transcriptText, discussionGuide, columnHeaders) {
+async function cleanTranscriptWithAI(transcriptText, discussionGuide, columnHeaders, moderatorAliases = []) {
   const hasValidKey = process.env.OPENAI_API_KEY &&
                       process.env.OPENAI_API_KEY !== 'your_openai_api_key_here' &&
                       process.env.OPENAI_API_KEY.startsWith('sk-');
@@ -1923,69 +2321,34 @@ async function cleanTranscriptWithAI(transcriptText, discussionGuide, columnHead
       .filter(h => h !== 'Respondent ID' && h !== 'respno' && h !== 'Date' && h !== 'Time (ET)')
       .join(', ');
 
-    const systemPrompt = `You are a professional transcript editor. You will receive a raw interview transcript and must clean it following EXACT rules below.
+    const systemPrompt = `You are a professional transcript editor. You will receive an interview transcript and must clean it following EXACT rules below.
 
-RULE 1: Remove all timestamps
-- Delete any lines with timestamps like (00:00:00 - 00:00:01)
-- Delete any standalone timestamp markers
+RULE 1: Remove timestamps only
+- Delete lines or inline markers like (00:00:00 - 00:00:01), [00:12:34], 00:01:23, etc.
 
-RULE 2: Standardize speaker labels
-- Replace ALL speaker name variations with exactly "Moderator:" or "Respondent:"
-- If a line starts with any speaker indicator (names, roles, etc.), standardize it
+RULE 2: Preserve existing speaker labels
+- If the input already uses "Moderator:" and "Respondent:" speaker tags, PRESERVE THEM EXACTLY as-is (do NOT rename, reattribute, or standardize to new labels), with one exception below for moderator aliases.
+- Only if the input lacks clear speaker tags, then standardize speaker labels to exactly "Moderator:" and "Respondent:" using best judgement.
+
+MODERATOR ALIASES:
+- Treat the following names as Moderator aliases and standardize any line that begins with one of these names to "Moderator:" (case-insensitive, followed by a colon): ${Array.isArray(moderatorAliases) && moderatorAliases.length ? moderatorAliases.join(', ') : '(none provided)'}
 
 RULE 3: Format with proper line spacing
-- CRITICAL: Add ONE blank line between EVERY speaker change
-- When Moderator speaks after Respondent: add blank line
-- When Respondent speaks after Moderator: add blank line
-- Do NOT add blank lines between consecutive lines from the same speaker (but you should have already combined those)
-- Each speaker's dialogue is ONE line, then blank line, then next speaker's ONE line
+- Add ONE blank line between EVERY speaker change.
+- Do NOT add blank lines between consecutive lines from the same speaker (combine those into one line for that speaker).
 
-RULE 4: Clean up overlapping/interrupted dialogue - THIS IS CRITICAL:
+RULE 4: Clean up overlapping/interrupted dialogue (structure only)
+- Combine consecutive lines from the SAME speaker when they are obvious continuations.
+- Remove short interjections that interrupt the other speaker mid-sentence (e.g., stray one-word moderator interruptions) but DO NOT change the wording of the respondent's own sentences.
+- Delete redundant echo fragments (e.g., the same trailing word repeated on a new line by the same speaker).
 
-PATTERN A - Combine consecutive same-speaker lines:
-INPUT:
-Respondent: Well, we used to live in Ohio. We moved to Georgia about sixteen years ago. I went to Ohio University, not the Ohio State.
-Respondent: State.
-
-OUTPUT:
-Respondent: Well, we used to live in Ohio. We moved to Georgia about sixteen years ago. I went to Ohio University, not the Ohio State.
-
-(The second "Respondent: State." is DELETED because "State" already ends the first line)
-
-PATTERN B - Merge interrupted speech:
-INPUT:
-Respondent: I went to
-Moderator: This
-Respondent: Ohio State
-
-OUTPUT:
-Respondent: I went to Ohio State
-
-(Moderator interjection "This" is DELETED, respondent fragments are MERGED)
-
-PATTERN C - Delete redundant echo fragments:
-INPUT:
-Respondent: Gotcha. I'm good with that. Just cut me off.
-Moderator: Thank you.
-Respondent: Me off.
-
-OUTPUT:
-Respondent: Gotcha. I'm good with that. Just cut me off.
-
-Moderator: Thank you.
-
-(The "Respondent: Me off." is DELETED because "me off" already appears in "cut me off")
-
-PATTERN D - Keep meaningful interjections, remove filler:
-- Keep: "Yeah. Yep." "Okay." "Right." when they are standalone responses
-- Remove: "Yeah." "Right." "Okay." when interrupting another speaker's sentence
-
-RULE 5: Correct misspellings
-- Fix obvious transcription errors using context
-- Use terminology from columns: ${terminology}
+IMPORTANT: Do NOT change respondents' wording
+- Do NOT paraphrase or rewrite respondent lines.
+- Do NOT correct spelling/grammar in respondent quotes.
+- The goal is formatting/cleanup only (timestamps, spacing, obvious duplicates), not content rewriting.
 
 OUTPUT FORMAT REQUIREMENTS:
-1. Start each speaker line with "Moderator:" or "Respondent:" (no other labels)
+1. Each speaker line must begin with "Moderator:" or "Respondent:".
 2. Add ONE blank line between every speaker change
 3. NO blank lines between consecutive same-speaker lines
 4. NO timestamps anywhere
@@ -2035,18 +2398,26 @@ OUTPUT ONLY THE CLEANED TRANSCRIPT - NO explanations, NO preamble, NO meta-comme
     console.log('System prompt length:', systemPrompt.length);
     console.log('System prompt preview:', systemPrompt.substring(0, 200));
 
-    const response = await client.chat.completions.create({
-      model: 'gpt-4o-mini',
+    // Create OpenAI call with timeout
+    const openaiCallPromise = client.chat.completions.create({
+      model: 'gpt-4o',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
-        { role: 'assistant', content: 'I will follow ALL rules exactly and output ONLY the cleaned transcript with proper formatting. I will add blank lines between speaker changes, remove redundant fragments, and combine consecutive same-speaker lines.' },
-        { role: 'user', content: 'Yes, please proceed with cleaning the transcript according to all the rules, especially adding blank lines between speaker changes.' }
+        { role: 'assistant', content: 'I will follow ALL rules exactly and output ONLY the cleaned transcript with proper formatting. I will preserve existing speaker labels if present and will not change respondent wording.' },
+        { role: 'user', content: 'Please proceed with cleaning. Preserve existing Moderator/Respondent labels and do not reassign speakers.' }
       ],
       temperature: 0.1, // Very low temperature for strict rule following
-      max_tokens: 8000, // Increased for longer transcripts
+      max_tokens: 8000, // Increased for longer transcripts (gpt-4o-mini supports 16k)
       seed: Date.now() // Add seed to prevent caching
     });
+
+    // Create timeout promise (15 minutes for cleaning)
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('OpenAI transcript cleaning timed out after 15 minutes')), 15 * 60 * 1000);
+    });
+
+    const response = await Promise.race([openaiCallPromise, timeoutPromise]);
 
     console.log('=== OPENAI RESPONSE RECEIVED ===');
 
@@ -2069,24 +2440,90 @@ async function processTranscriptWithAI(transcriptText, currentData, discussionGu
   console.log('Discussion guide available:', !!discussionGuide);
   console.log('Transcript preview (first 500 chars):', transcriptText.substring(0, 500));
 
-  // Determine next respondent numeric ID across all sheets
-  let nextRespondentId = 1;
-  const allExistingIds = [];
+  // Extract interview date from transcript for proper ordering
+  const dateTimeInfo = extractDateTimeFromTranscript(transcriptText);
+  const newInterviewDate = dateTimeInfo.date;
+  console.log('Extracted interview date from transcript:', newInterviewDate);
+
+  // Collect all existing respondents with their dates and IDs
+  const existingRespondents = [];
   for (const sheetName of sheetNames) {
     const rows = currentData[sheetName];
     if (Array.isArray(rows)) {
       for (const row of rows) {
         const id = row && (row["respno"] ?? row["Respondent ID"]);
-        const n = id ? parseInt(id.toString().replace(/\D/g, '')) : 0;
-        if (!isNaN(n) && n > 0) allExistingIds.push(n);
+        const date = row && (row["Interview Date"] ?? row["Date"]);
+        if (id && date) {
+          existingRespondents.push({
+            id: id.toString(),
+            numericId: parseInt(id.toString().replace(/\D/g, '')),
+            date: date,
+            sheetName: sheetName,
+            row: row
+          });
+        }
       }
     }
   }
-  if (allExistingIds.length > 0) nextRespondentId = Math.max(...allExistingIds) + 1;
+
+  // Sort existing respondents by interview date (earliest first)
+  existingRespondents.sort((a, b) => {
+    const dateA = new Date(a.date);
+    const dateB = new Date(b.date);
+    return dateA - dateB;
+  });
+
+  console.log('Existing respondents sorted by date:', existingRespondents.map(r => ({ id: r.id, date: r.date })));
+
+  // Determine where the new respondent should be inserted based on their date
+  let newRespondentPosition = existingRespondents.length; // Default to end
+  if (newInterviewDate) {
+    const newDate = new Date(newInterviewDate);
+    newRespondentPosition = existingRespondents.findIndex(r => new Date(r.date) > newDate);
+    if (newRespondentPosition === -1) newRespondentPosition = existingRespondents.length;
+  }
+
+  console.log('New respondent position based on date:', newRespondentPosition);
+
+  // Determine the new respondent's ID
+  let newRespondentId;
+  if (newRespondentPosition === 0) {
+    // New respondent is earliest - they get R001, all others shift up
+    newRespondentId = 1;
+  } else if (newRespondentPosition === existingRespondents.length) {
+    // New respondent is latest - they get the next sequential ID
+    newRespondentId = existingRespondents.length + 1;
+  } else {
+    // New respondent goes in the middle - they get the position number, others shift
+    newRespondentId = newRespondentPosition + 1;
+  }
+
+  console.log('New respondent ID:', newRespondentId);
 
   const currentTime = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/New_York' });
   const currentDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' });
-  console.log('Next respondent ID:', nextRespondentId);
+
+  // Create ID mapping for reassignment
+  const idMapping = new Map();
+  const allRespondents = [...existingRespondents];
+  
+  // Insert new respondent at the correct position
+  allRespondents.splice(newRespondentPosition, 0, {
+    id: `R${String(newRespondentId).padStart(3, '0')}`,
+    numericId: newRespondentId,
+    date: newInterviewDate || currentDate,
+    sheetName: 'Demographics', // Will be updated for all sheets
+    row: null // Will be created
+  });
+
+  // Assign new sequential IDs based on chronological order
+  allRespondents.forEach((respondent, index) => {
+    const newId = index + 1;
+    const newFormattedId = `R${String(newId).padStart(3, '0')}`;
+    idMapping.set(respondent.id, newFormattedId);
+  });
+
+  console.log('ID mapping for reassignment:', Array.from(idMapping.entries()));
 
   // Build per-sheet columns
   const sheetsColumns = {};
@@ -2113,11 +2550,19 @@ async function processTranscriptWithAI(transcriptText, currentData, discussionGu
   let aiContextBySheet = {};
   if (Object.keys(sheetsColumns).length > 0) {
     console.log('Calling AI with sheets:', Object.keys(sheetsColumns));
-    const ai = await fillRespondentRowsFromTranscript({
+
+    // Create timeout promise (25 minutes for main processing)
+    const fillPromise = fillRespondentRowsFromTranscript({
       transcript: transcriptText,
       sheetsColumns,
       discussionGuide: discussionGuide || null,
     });
+
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Transcript processing timed out after 25 minutes')), 25 * 60 * 1000);
+    });
+
+    const ai = await Promise.race([fillPromise, timeoutPromise]);
     aiRowsBySheet = ai.rows || {};
     aiQuotesBySheet = ai.quotes || {};
     aiContextBySheet = ai.context || {};
@@ -2129,17 +2574,95 @@ async function processTranscriptWithAI(transcriptText, currentData, discussionGu
     }
   }
 
-  // Merge into updated data, appending a new row per sheet
-  const updatedData = { ...currentData };
+  // Rebuild all data with proper ID reassignment
+  const updatedData = {};
   const processedSheets = [];
   const quotesBySheetAndResp = {};
   const contextBySheetAndResp = {};
+
+  // First, update all existing rows with new IDs
   for (const sheetName of sheetNames) {
     const rows = currentData[sheetName];
-    if (!Array.isArray(rows)) continue;
+    if (!Array.isArray(rows)) {
+      updatedData[sheetName] = rows;
+      continue;
+    }
 
-    // If sheet is empty, skip it (we can't infer column structure)
-    if (rows.length === 0) {
+    const updatedRows = rows.map(row => {
+      const newRow = { ...row };
+      const oldId = row && (row["respno"] ?? row["Respondent ID"]);
+      if (oldId && idMapping.has(oldId.toString())) {
+        const newId = idMapping.get(oldId.toString());
+        if ('Respondent ID' in newRow) newRow['Respondent ID'] = newId;
+        if ('respno' in newRow) newRow['respno'] = newId;
+      }
+      return newRow;
+    });
+
+    updatedData[sheetName] = updatedRows;
+  }
+
+  // Handle Demographics sheet specially with chronological sorting
+  if (updatedData.Demographics && Array.isArray(updatedData.Demographics)) {
+    // Check if existing Demographics data has any actual respondent data (not just empty templates)
+    const hasActualRespondents = updatedData.Demographics.some(row => {
+      const id = row && (row["respno"] ?? row["Respondent ID"]);
+      return id && id.toString().trim() !== '';
+    });
+
+    // Create the new respondent row for Demographics
+    const cols = Object.keys(updatedData.Demographics[0] || {});
+    const newRow = {};
+    for (const col of cols) newRow[col] = '';
+
+    const aiRow = aiRowsBySheet.Demographics || {};
+    for (const col of cols) {
+      if (col in aiRow) newRow[col] = aiRow[col];
+    }
+
+    // Use the new respondent's assigned ID
+    const newFormattedId = `R${String(newRespondentId).padStart(3, '0')}`;
+    if ('Respondent ID' in newRow) newRow['Respondent ID'] = newFormattedId;
+    else if ('respno' in newRow) newRow['respno'] = newFormattedId;
+
+    // If there are no actual respondents, replace the empty template with the new respondent
+    // Otherwise, add the new row to the existing data
+    const allDemographics = hasActualRespondents 
+      ? [...updatedData.Demographics, newRow]
+      : [newRow];
+    
+    // Sort chronologically by interview date
+    allDemographics.sort((a, b) => {
+      const dateA = a['Interview Date'] || a['Date'] || '';
+      const dateB = b['Interview Date'] || b['Date'] || '';
+      
+      if (dateA && dateB) {
+        const parsedA = new Date(dateA);
+        const parsedB = new Date(dateB);
+        if (!isNaN(parsedA.getTime()) && !isNaN(parsedB.getTime())) {
+          return parsedA.getTime() - parsedB.getTime();
+        }
+      }
+      return 0;
+    });
+
+    // Reassign IDs based on chronological order
+    allDemographics.forEach((row, index) => {
+      const newId = `R${String(index + 1).padStart(3, '0')}`;
+      if ('Respondent ID' in row) row['Respondent ID'] = newId;
+      if ('respno' in row) row['respno'] = newId;
+    });
+
+    updatedData.Demographics = allDemographics;
+    processedSheets.push('Demographics');
+  }
+
+  // Now add the new respondent row to all other sheets (excluding Demographics)
+  for (const sheetName of sheetNames) {
+    if (sheetName === 'Demographics') continue; // Skip Demographics as it's handled above
+    
+    const rows = updatedData[sheetName];
+    if (!Array.isArray(rows) || rows.length === 0) {
       console.log(`Skipping empty sheet: ${sheetName}`);
       continue;
     }
@@ -2153,20 +2676,35 @@ async function processTranscriptWithAI(transcriptText, currentData, discussionGu
       if (col in aiRow) newRow[col] = aiRow[col];
     }
 
-    const formattedId = `R${String(nextRespondentId).padStart(3, '0')}`;
-    if ('Respondent ID' in newRow) newRow['Respondent ID'] = formattedId;
-    else if ('respno' in newRow) newRow['respno'] = formattedId;
+    // Use the new respondent's assigned ID
+    const newFormattedId = `R${String(newRespondentId).padStart(3, '0')}`;
+    if ('Respondent ID' in newRow) newRow['Respondent ID'] = newFormattedId;
+    else if ('respno' in newRow) newRow['respno'] = newFormattedId;
 
-    // Don't pre-fill Date and Time - leave empty for manual entry
-
+    // Add the new row
     updatedData[sheetName] = [...rows, newRow];
     processedSheets.push(sheetName);
 
     // Attach quotes for this respondent by respno value
-    const respKey = (newRow['Respondent ID'] || newRow['respno'] || nextRespondentId).toString();
+    const respKey = (newRow['Respondent ID'] || newRow['respno'] || newRespondentId).toString();
+    // Deduplicate quotes across columns for this respondent within the same sheet
     const sheetQuotes = aiQuotesBySheet[sheetName] || {};
+    const seenQuotes = new Set();
+    const deDuped = {};
+    for (const [col, arr] of Object.entries(sheetQuotes)) {
+      const list = Array.isArray(arr) ? arr : [];
+      const filtered = [];
+      for (const q of list) {
+        const key = typeof q === 'string' ? q.trim() : String(q).trim();
+        if (!key) continue;
+        if (seenQuotes.has(key)) continue; // skip duplicate across columns
+        seenQuotes.add(key);
+        filtered.push(key);
+      }
+      deDuped[col] = filtered;
+    }
     if (!quotesBySheetAndResp[sheetName]) quotesBySheetAndResp[sheetName] = {};
-    quotesBySheetAndResp[sheetName][respKey] = sheetQuotes;
+    quotesBySheetAndResp[sheetName][respKey] = deDuped;
 
     // Attach context for this respondent by respno value
     const sheetContext = aiContextBySheet[sheetName] || {};
@@ -2174,12 +2712,31 @@ async function processTranscriptWithAI(transcriptText, currentData, discussionGu
     contextBySheetAndResp[sheetName][respKey] = sheetContext;
   }
 
+  // Reassign quotes and context for existing respondents with new IDs
+  if (currentData.quotes) {
+    for (const [sheetName, sheetQuotes] of Object.entries(currentData.quotes)) {
+      if (!quotesBySheetAndResp[sheetName]) quotesBySheetAndResp[sheetName] = {};
+      for (const [oldRespId, respQuotes] of Object.entries(sheetQuotes)) {
+        const newRespId = idMapping.get(oldRespId) || oldRespId;
+        quotesBySheetAndResp[sheetName][newRespId] = respQuotes;
+      }
+    }
+  }
+
+  if (currentData.context) {
+    for (const [sheetName, sheetContext] of Object.entries(currentData.context)) {
+      if (!contextBySheetAndResp[sheetName]) contextBySheetAndResp[sheetName] = {};
+      for (const [oldRespId, respContext] of Object.entries(sheetContext)) {
+        const newRespId = idMapping.get(oldRespId) || oldRespId;
+        contextBySheetAndResp[sheetName][newRespId] = respContext;
+      }
+    }
+  }
+
   console.log('Processed sheets:', processedSheets);
   console.log('Total sheets updated:', processedSheets.length);
+  console.log('Respondent ID reassignments applied:', Array.from(idMapping.entries()));
   return { data: updatedData, quotes: quotesBySheetAndResp, context: contextBySheetAndResp };
 }
 
 export default router;
-
-
-

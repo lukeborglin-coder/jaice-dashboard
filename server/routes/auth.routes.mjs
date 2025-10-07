@@ -1,9 +1,14 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { body, validationResult } from 'express-validator';
+import { config } from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import fs from 'fs';
+
+// Load environment variables
+config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -23,15 +28,16 @@ try {
     users = JSON.parse(data);
     nextUserId = Math.max(...users.map(u => parseInt(u.id)), 0) + 1;
     
-    // Migration: Add originalPassword/company field to existing users if missing
+    // Migration: Add company field to existing users if missing
     let needsMigration = false;
     users.forEach(user => {
-      if (!user.originalPassword) {
-        user.originalPassword = 'password123'; // Default password for existing users
-        needsMigration = true;
-      }
       if (!user.company) {
         user.company = 'None';
+        needsMigration = true;
+      }
+      // Remove originalPassword if it exists (security cleanup)
+      if (user.originalPassword) {
+        delete user.originalPassword;
         needsMigration = true;
       }
     });
@@ -57,8 +63,14 @@ const saveUsers = () => {
   }
 };
 
-// JWT secret (in production, use environment variable)
-const JWT_SECRET = process.env.JWT_SECRET || 'jaice-dashboard-secret-key-change-in-production';
+// Enforce JWT secret - fail if not set in production
+if (!process.env.JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET environment variable is not set!');
+  console.error('Please set JWT_SECRET in your .env file before starting the server.');
+  process.exit(1);
+}
+
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // Authenticate token middleware
 const authenticateToken = (req, res, next) => {
@@ -87,18 +99,35 @@ const authenticateToken = (req, res, next) => {
 };
 
 // Register endpoint
-router.post('/register', async (req, res) => {
-  try {
-    const { name, email, password } = req.body;
+router.post('/register',
+  [
+    body('name')
+      .trim()
+      .isLength({ min: 1, max: 100 })
+      .withMessage('Name must be between 1 and 100 characters')
+      .escape(),
+    body('email')
+      .trim()
+      .isEmail()
+      .normalizeEmail()
+      .withMessage('Valid email is required')
+      .isLength({ max: 255 })
+      .withMessage('Email must be less than 255 characters'),
+    body('password')
+      .isLength({ min: 8 })
+      .withMessage('Password must be at least 8 characters')
+      .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
+      .withMessage('Password must contain at least one uppercase letter, one lowercase letter, and one number')
+  ],
+  async (req, res) => {
+    try {
+      // Check validation errors
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ message: errors.array()[0].msg });
+      }
 
-    // Validate input
-    if (!name || !email || !password) {
-      return res.status(400).json({ message: 'Name, email, and password are required' });
-    }
-
-    if (password.length < 6) {
-      return res.status(400).json({ message: 'Password must be at least 6 characters' });
-    }
+      const { name, email, password } = req.body;
 
     // Check if user already exists
     const existingUser = users.find(user => user.email === email);
@@ -115,7 +144,6 @@ router.post('/register', async (req, res) => {
       name,
       email,
       password: hashedPassword,
-      originalPassword: password, // Store original password for admin management
       role: users.length === 0 ? 'admin' : 'user', // First user is admin
       company: 'None',
       createdAt: new Date().toISOString()
@@ -147,14 +175,26 @@ router.post('/register', async (req, res) => {
 });
 
 // Login endpoint
-router.post('/login', async (req, res) => {
-  try {
-    const { email, password } = req.body;
+router.post('/login',
+  [
+    body('email')
+      .trim()
+      .isEmail()
+      .normalizeEmail()
+      .withMessage('Valid email is required'),
+    body('password')
+      .notEmpty()
+      .withMessage('Password is required')
+  ],
+  async (req, res) => {
+    try {
+      // Check validation errors
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ message: errors.array()[0].msg });
+      }
 
-    // Validate input
-    if (!email || !password) {
-      return res.status(400).json({ message: 'Email and password are required' });
-    }
+      const { email, password } = req.body;
 
     // Find user
     const user = users.find(user => user.email === email);
@@ -378,7 +418,6 @@ router.post('/users', authenticateToken, async (req, res) => {
       name,
       email,
       password: hashedPassword,
-      originalPassword: password, // Store original password for admin management
       role,
       company,
       createdAt: new Date().toISOString()
@@ -420,7 +459,6 @@ router.put('/users/:id', authenticateToken, async (req, res) => {
     if (password) {
       // Hash new password
       users[userIndex].password = await bcrypt.hash(password, 10);
-      users[userIndex].originalPassword = password; // Store original password for admin management
     }
 
     saveUsers();

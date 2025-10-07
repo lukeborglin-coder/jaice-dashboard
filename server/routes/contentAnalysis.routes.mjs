@@ -14,7 +14,33 @@ const uploadDir = process.env.FILES_DIR || path.join(process.env.DATA_DIR || pat
 // Ensure upload directory exists
 await fs.mkdir(uploadDir, { recursive: true });
 
-const upload = multer({ dest: uploadDir });
+// File filter for allowed types
+const fileFilter = (req, file, cb) => {
+  const allowedTypes = [
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+    'application/msword', // .doc
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+    'application/vnd.ms-excel', // .xls
+    'text/plain', // .txt
+    'application/pdf', // .pdf
+    'application/json' // .json
+  ];
+
+  if (allowedTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error(`Invalid file type. Allowed types: Word documents, Excel files, PDFs, text files, and JSON files.`), false);
+  }
+};
+
+const upload = multer({
+  dest: uploadDir,
+  fileFilter,
+  limits: {
+    fileSize: 25 * 1024 * 1024, // 25MB max file size
+    files: 10 // Max 10 files per request
+  }
+});
 
 // Download template (public for now)
 router.get('/template', async (req, res) => {

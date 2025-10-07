@@ -1,768 +1,6 @@
 {
   "3": [
     {
-      "name": "2025 SMA Adult Activation Qual",
-      "client": "Genentech",
-      "methodologyType": "Qualitative",
-      "methodology": "In-Depth Interviews",
-      "startDate": "",
-      "endDate": "",
-      "background": "",
-      "objectives": "",
-      "kickoffDeck": null,
-      "sampleSize": 6,
-      "subgroups": [
-        {
-          "id": "1759172799510",
-          "name": "Treatment Naive",
-          "size": 3
-        },
-        {
-          "id": "1759172808403",
-          "name": "Discontinued DMT",
-          "size": 3
-        }
-      ],
-      "moderator": "1758932066623",
-      "sampleProvider": "",
-      "requireAdvancedAnalytics": false,
-      "analyticsPartner": "",
-      "usePreloadedTasks": true,
-      "customTasks": [],
-      "id": "P-1759172819869",
-      "phase": "Pre-Field",
-      "methodologyDisplay": "Qualitative - In-Depth Interviews",
-      "phaseTimeline": {
-        "Kickoff": {
-          "start": "2025-09-08",
-          "end": "2025-09-08"
-        },
-        "Pre-Field": {
-          "start": "2025-09-09",
-          "end": "2025-09-30"
-        },
-        "Fielding": {
-          "start": "2025-10-01",
-          "end": "2025-10-10"
-        },
-        "Post-Field Analysis": {
-          "start": "2025-10-11",
-          "end": "2025-10-26"
-        },
-        "Reporting": {
-          "start": "2025-10-27",
-          "end": "2025-10-31"
-        }
-      },
-      "deadline": 32,
-      "nextDeadline": "Project kickoff: 9/8/2025",
-      "keyDeadlines": [
-        {
-          "label": "Project Kickoff",
-          "date": "9/8/25"
-        },
-        {
-          "label": "Fielding Start",
-          "date": "10/2/25"
-        },
-        {
-          "label": "Final Report",
-          "date": "10/31/25"
-        }
-      ],
-      "tasks": [
-        {
-          "id": "t1",
-          "description": "Create Kick Off (KO) deck",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Kickoff",
-          "dueDate": null
-        },
-        {
-          "id": "t2",
-          "description": "Create detailed timeline",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Kickoff",
-          "dueDate": null
-        },
-        {
-          "id": "t3",
-          "description": "Hold Internal Pre-Kick Off: Talk through study overview, roles, deadlines, and any other key project info prior to KO with client.",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Kickoff",
-          "dueDate": null
-        },
-        {
-          "id": "t4",
-          "description": "Create or review Proposal based on RFP (Request For Proposal)",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Kickoff",
-          "dueDate": null
-        },
-        {
-          "id": "t5",
-          "description": "Bid project out to vendors/moderators",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Kickoff",
-          "dueDate": null
-        },
-        {
-          "id": "t6",
-          "description": "Get moderator availability",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Kickoff",
-          "dueDate": null
-        },
-        {
-          "id": "t7",
-          "description": "Create a job folder for the study in the 'Proposals' folder (within appropriate client folder)",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Kickoff",
-          "dueDate": null
-        },
-        {
-          "id": "t8",
-          "description": "Save vendors' bids to job folder",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Kickoff",
-          "dueDate": null
-        },
-        {
-          "id": "t9",
-          "description": "Ensure any new vendors have signed the NDA",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Kickoff",
-          "dueDate": null
-        },
-        {
-          "id": "t10",
-          "description": "Create Internal Cost Worksheet, send to supervisor",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Kickoff",
-          "dueDate": null
-        },
-        {
-          "id": "t11",
-          "description": "Move study docs from 'Proposals' folder to main client folder",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Kickoff",
-          "dueDate": null
-        },
-        {
-          "id": "t12",
-          "description": "Update folder name with job #",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Kickoff",
-          "dueDate": null
-        },
-        {
-          "id": "t13",
-          "description": "Add AE submission forms & contact info to job folder",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Kickoff",
-          "dueDate": null
-        },
-        {
-          "id": "t14",
-          "description": "Set up Invoice Schedule & Worksheet",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Kickoff",
-          "dueDate": null
-        },
-        {
-          "id": "t15",
-          "description": "Alert recruiter and moderator that project is moving forward",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Kickoff",
-          "dueDate": null
-        },
-        {
-          "id": "t16",
-          "description": "Draft screener",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Kickoff",
-          "dueDate": null
-        },
-        {
-          "id": "t17",
-          "description": "Draft discussion guide",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Kickoff",
-          "dueDate": null
-        },
-        {
-          "id": "t18",
-          "description": "Start Discuss.io project",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Kickoff",
-          "dueDate": null
-        },
-        {
-          "id": "t19",
-          "description": "Send screener to client",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Kickoff",
-          "dueDate": null
-        },
-        {
-          "id": "t20",
-          "description": "Send discussion guide draft to client",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Kickoff",
-          "dueDate": null
-        },
-        {
-          "id": "t21",
-          "description": "Schedule KO with moderator",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Kickoff",
-          "dueDate": null
-        },
-        {
-          "id": "t22",
-          "description": "Create respondent grid for recruiters",
-          "status": "pending",
-          "phase": "Pre-Field"
-        },
-        {
-          "id": "t23",
-          "description": "Create shared/client respondent grid",
-          "status": "pending",
-          "phase": "Pre-Field"
-        },
-        {
-          "id": "t24",
-          "description": "Get screener approval from client",
-          "status": "pending",
-          "phase": "Pre-Field"
-        },
-        {
-          "id": "t25",
-          "description": "Alert moderator and confirm availability",
-          "status": "pending",
-          "phase": "Pre-Field",
-          "dueDate": null
-        },
-        {
-          "id": "t26",
-          "description": "Submit first invoice request",
-          "status": "pending",
-          "phase": "Pre-Field"
-        },
-        {
-          "id": "t27",
-          "description": "Ensure signed documents are saved to job folder",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Pre-Field"
-        },
-        {
-          "id": "t28",
-          "description": "Schedule DG walk-through with client and moderator",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Pre-Field",
-          "dueDate": null
-        },
-        {
-          "id": "t29",
-          "description": "Copy Cost Tracker shell to job folder",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Pre-Field",
-          "dueDate": null
-        },
-        {
-          "id": "t30",
-          "description": "Coordinate discussion guide updates from client",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Pre-Field",
-          "dueDate": null
-        },
-        {
-          "id": "t31",
-          "description": "Confirm attendee list with client",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Pre-Field",
-          "dueDate": null
-        },
-        {
-          "id": "t32",
-          "description": "Get and finalize stimuli",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Pre-Field",
-          "dueDate": null
-        },
-        {
-          "id": "t33",
-          "description": "Monitor recruits and update quotas",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Pre-Field",
-          "dueDate": null
-        },
-        {
-          "id": "t34",
-          "description": "Create invite template",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Pre-Field",
-          "dueDate": null
-        },
-        {
-          "id": "t35",
-          "description": "Create Content Analysis (CA)",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Pre-Field",
-          "dueDate": null
-        },
-        {
-          "id": "t36",
-          "description": "Send Outlook invites with respondent details and observer login info",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Pre-Field",
-          "dueDate": null
-        },
-        {
-          "id": "t37",
-          "description": "Brief moderator",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Pre-Field",
-          "dueDate": null
-        },
-        {
-          "id": "t38",
-          "description": "Create notetaking schedule and align team",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Pre-Field",
-          "dueDate": null
-        },
-        {
-          "id": "t39",
-          "description": "Set up ShareFile folder",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Pre-Field",
-          "dueDate": null
-        },
-        {
-          "id": "t40",
-          "description": "Send final stimuli/workbooks/guide to moderator",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Pre-Field",
-          "dueDate": null
-        },
-        {
-          "id": "t41",
-          "description": "Schedule client debrief after first 1-2 interviews",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Pre-Field",
-          "dueDate": null
-        },
-        {
-          "id": "t42",
-          "description": "Create report shell based on discussion guide and objectives",
-          "status": "pending",
-          "phase": "Fielding"
-        },
-        {
-          "id": "t43",
-          "description": "Engage transcriptionist (if needed)",
-          "status": "pending",
-          "phase": "Fielding"
-        },
-        {
-          "id": "t44",
-          "description": "Request invoice (if needed)",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Fielding",
-          "dueDate": null
-        },
-        {
-          "id": "t45",
-          "description": "Continue updating report shell with interview content",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Fielding",
-          "dueDate": null
-        },
-        {
-          "id": "t46",
-          "description": "Submit AE reports within 24 hours",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Fielding",
-          "dueDate": null
-        },
-        {
-          "id": "t47",
-          "description": "Download audio files and transcripts daily",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Fielding",
-          "dueDate": null
-        },
-        {
-          "id": "t48",
-          "description": "Manage stimuli changes",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Fielding",
-          "dueDate": null
-        },
-        {
-          "id": "t49",
-          "description": "Track high-level findings for client",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Fielding",
-          "dueDate": null
-        },
-        {
-          "id": "t50",
-          "description": "Ensure objectives are being met",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Fielding",
-          "dueDate": null
-        },
-        {
-          "id": "t51",
-          "description": "Engage with moderator and ask probes",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Fielding",
-          "dueDate": null
-        },
-        {
-          "id": "t52",
-          "description": "Schedule second client debrief (if needed)",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Fielding",
-          "dueDate": null
-        },
-        {
-          "id": "t53",
-          "description": "Clean project folder",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Post-Field Analysis",
-          "dueDate": null
-        },
-        {
-          "id": "t54",
-          "description": "Internal download: all audio files, CA, transcripts, lessons, and notes",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Post-Field Analysis",
-          "dueDate": null
-        },
-        {
-          "id": "t55",
-          "description": "Submit AE reconciliation (if needed)",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Post-Field Analysis",
-          "dueDate": null
-        },
-        {
-          "id": "t56",
-          "description": "Write findings",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Reporting",
-          "dueDate": null
-        },
-        {
-          "id": "t57",
-          "description": "Write executive summary",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Reporting",
-          "dueDate": null
-        },
-        {
-          "id": "t58",
-          "description": "Have report proofed",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Reporting",
-          "dueDate": null
-        },
-        {
-          "id": "t59",
-          "description": "Have report reviewed internally",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Reporting",
-          "dueDate": null
-        },
-        {
-          "id": "t60",
-          "description": "Send report to client",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Reporting",
-          "dueDate": null
-        },
-        {
-          "id": "t61",
-          "description": "Update report based on client comments",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Reporting",
-          "dueDate": null
-        },
-        {
-          "id": "t62",
-          "description": "Request invoice (if needed)",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Reporting",
-          "dueDate": null
-        },
-        {
-          "id": "t63",
-          "description": "Save vendor invoices and submit to accounting",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Reporting",
-          "dueDate": null
-        },
-        {
-          "id": "t64",
-          "description": "Reconcile with client-specific finance process",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Reporting",
-          "dueDate": null
-        },
-        {
-          "id": "t65",
-          "description": "Fill out Cost Tracker",
-          "assignedTo": [
-            ""
-          ],
-          "status": "pending",
-          "phase": "Reporting",
-          "dueDate": null
-        }
-      ],
-      "teamMembers": [
-        {
-          "id": "3",
-          "name": "Luke Borglin",
-          "role": "Project Manager"
-        },
-        {
-          "id": "11",
-          "name": "Nikki Panagiotakopoulos",
-          "role": "Team Member",
-          "email": "nikki.panagiota@cognitiveconsulting.com"
-        },
-        {
-          "id": "12",
-          "name": " Ciara Mcevoy-Benisti",
-          "role": "Team Member",
-          "email": "ciara.mcevoybenisti@cognitiveconsulting.com"
-        }
-      ],
-      "sampleDetails": "Total: n=6 (Treatment Naive: n=3, Discontinued DMT: n=3)",
-      "files": [
-        {
-          "id": "1759419980060",
-          "name": "2025 SMA Adult Activation Qual Kick Off Presentation",
-          "type": "PowerPoint",
-          "url": "https://hypothesisconsulting.sharepoint.com/:p:/r/sites/cognitivedrive/_layouts/15/Doc.aspx?sourcedoc=%7B0E75648B-6D35-465B-AAB8-CE43B5FA7085%7D&file=2025%20SMA%20Adult%20Activation%20Qual%20Kick%20Off%20Presentation_090825.pptx&action=edit&mobileredirect=true"
-        }
-      ],
-      "segments": [
-        {
-          "phase": "Kickoff",
-          "startDate": "2025-09-08",
-          "endDate": "2025-09-08"
-        },
-        {
-          "phase": "Pre-Field",
-          "startDate": "2025-09-09",
-          "endDate": "2025-10-01"
-        },
-        {
-          "phase": "Fielding",
-          "startDate": "2025-10-02",
-          "endDate": "2025-10-13"
-        },
-        {
-          "phase": "Post-Field Analysis",
-          "startDate": "2025-10-14",
-          "endDate": "2025-10-28"
-        },
-        {
-          "phase": "Reporting",
-          "startDate": "2025-10-29",
-          "endDate": "2025-10-31"
-        }
-      ],
-      "savedContentAnalyses": [
-        {
-          "id": "1",
-          "name": "Oncology Study - Patient Journey Analysis",
-          "savedBy": "Sarah Johnson",
-          "savedDate": "2024-01-15",
-          "description": "Comprehensive analysis of patient treatment journey and decision points",
-          "data": {}
-        }
-      ],
-      "notes": [],
-      "archivedNotes": []
-    },
-    {
       "name": "2025 SMA Access Promo  Messaging Qual",
       "client": "Genentech",
       "methodologyType": "Qualitative",
@@ -837,21 +75,21 @@
           "id": "t1",
           "description": "Create Kick Off (KO) deck",
           "assignedTo": [
-            ""
+            "",
+            "3"
           ],
           "status": "pending",
-          "phase": "Kickoff",
-          "dueDate": null
+          "phase": "Kickoff"
         },
         {
           "id": "t2",
           "description": "Create detailed timeline",
           "assignedTo": [
-            ""
+            "",
+            "3"
           ],
           "status": "pending",
-          "phase": "Kickoff",
-          "dueDate": null
+          "phase": "Kickoff"
         },
         {
           "id": "t3",
@@ -1522,6 +760,778 @@
       ],
       "savedContentAnalyses": [
         {
+          "id": "1",
+          "name": "Oncology Study - Patient Journey Analysis",
+          "savedBy": "Sarah Johnson",
+          "savedDate": "2024-01-15",
+          "description": "Comprehensive analysis of patient treatment journey and decision points",
+          "data": {}
+        }
+      ]
+    },
+    {
+      "name": "2025 SMA Adult Activation Qual",
+      "client": "Genentech",
+      "methodologyType": "Qualitative",
+      "methodology": "In-Depth Interviews",
+      "startDate": "",
+      "endDate": "",
+      "background": "",
+      "objectives": "",
+      "kickoffDeck": null,
+      "sampleSize": 6,
+      "subgroups": [
+        {
+          "id": "1759172799510",
+          "name": "Treatment Naive",
+          "size": 3
+        },
+        {
+          "id": "1759172808403",
+          "name": "Discontinued DMT",
+          "size": 3
+        }
+      ],
+      "moderator": "",
+      "sampleProvider": "",
+      "requireAdvancedAnalytics": false,
+      "analyticsPartner": "",
+      "usePreloadedTasks": true,
+      "customTasks": [],
+      "id": "P-1759172819869",
+      "phase": "Fielding",
+      "methodologyDisplay": "Qualitative - In-Depth Interviews",
+      "phaseTimeline": {
+        "Kickoff": {
+          "start": "2025-09-08",
+          "end": "2025-09-08"
+        },
+        "Pre-Field": {
+          "start": "2025-09-09",
+          "end": "2025-09-30"
+        },
+        "Fielding": {
+          "start": "2025-10-01",
+          "end": "2025-10-10"
+        },
+        "Post-Field Analysis": {
+          "start": "2025-10-11",
+          "end": "2025-10-26"
+        },
+        "Reporting": {
+          "start": "2025-10-27",
+          "end": "2025-10-31"
+        }
+      },
+      "deadline": 32,
+      "nextDeadline": "Project kickoff: 9/8/2025",
+      "keyDeadlines": [
+        {
+          "label": "Project Kickoff",
+          "date": "9/8/25"
+        },
+        {
+          "label": "Fielding Start",
+          "date": "10/2/25"
+        },
+        {
+          "label": "Final Report",
+          "date": "10/31/25"
+        }
+      ],
+      "tasks": [
+        {
+          "id": "t1",
+          "description": "Create Kick Off (KO) deck",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null
+        },
+        {
+          "id": "t2",
+          "description": "Create detailed timeline",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null
+        },
+        {
+          "id": "t3",
+          "description": "Hold Internal Pre-Kick Off: Talk through study overview, roles, deadlines, and any other key project info prior to KO with client.",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null
+        },
+        {
+          "id": "t4",
+          "description": "Create or review Proposal based on RFP (Request For Proposal)",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null
+        },
+        {
+          "id": "t5",
+          "description": "Bid project out to vendors/moderators",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null
+        },
+        {
+          "id": "t6",
+          "description": "Get moderator availability",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null
+        },
+        {
+          "id": "t7",
+          "description": "Create a job folder for the study in the 'Proposals' folder (within appropriate client folder)",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null
+        },
+        {
+          "id": "t8",
+          "description": "Save vendors' bids to job folder",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null
+        },
+        {
+          "id": "t9",
+          "description": "Ensure any new vendors have signed the NDA",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null
+        },
+        {
+          "id": "t10",
+          "description": "Create Internal Cost Worksheet, send to supervisor",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null
+        },
+        {
+          "id": "t11",
+          "description": "Move study docs from 'Proposals' folder to main client folder",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null
+        },
+        {
+          "id": "t12",
+          "description": "Update folder name with job #",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null
+        },
+        {
+          "id": "t13",
+          "description": "Add AE submission forms & contact info to job folder",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null
+        },
+        {
+          "id": "t14",
+          "description": "Set up Invoice Schedule & Worksheet",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null
+        },
+        {
+          "id": "t15",
+          "description": "Alert recruiter and moderator that project is moving forward",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null
+        },
+        {
+          "id": "t16",
+          "description": "Draft screener",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null
+        },
+        {
+          "id": "t17",
+          "description": "Draft discussion guide",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null
+        },
+        {
+          "id": "t18",
+          "description": "Start Discuss.io project",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null
+        },
+        {
+          "id": "t19",
+          "description": "Send screener to client",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null
+        },
+        {
+          "id": "t20",
+          "description": "Send discussion guide draft to client",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null
+        },
+        {
+          "id": "t21",
+          "description": "Schedule KO with moderator",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null
+        },
+        {
+          "id": "t22",
+          "description": "Create respondent grid for recruiters",
+          "status": "pending",
+          "phase": "Pre-Field"
+        },
+        {
+          "id": "t23",
+          "description": "Create shared/client respondent grid",
+          "status": "pending",
+          "phase": "Pre-Field"
+        },
+        {
+          "id": "t24",
+          "description": "Get screener approval from client",
+          "status": "pending",
+          "phase": "Pre-Field"
+        },
+        {
+          "id": "t25",
+          "description": "Alert moderator and confirm availability",
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null
+        },
+        {
+          "id": "t26",
+          "description": "Submit first invoice request",
+          "status": "pending",
+          "phase": "Pre-Field"
+        },
+        {
+          "id": "t27",
+          "description": "Ensure signed documents are saved to job folder",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Pre-Field"
+        },
+        {
+          "id": "t28",
+          "description": "Schedule DG walk-through with client and moderator",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null
+        },
+        {
+          "id": "t29",
+          "description": "Copy Cost Tracker shell to job folder",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null
+        },
+        {
+          "id": "t30",
+          "description": "Coordinate discussion guide updates from client",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null
+        },
+        {
+          "id": "t31",
+          "description": "Confirm attendee list with client",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null
+        },
+        {
+          "id": "t32",
+          "description": "Get and finalize stimuli",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null
+        },
+        {
+          "id": "t33",
+          "description": "Monitor recruits and update quotas",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null
+        },
+        {
+          "id": "t34",
+          "description": "Create invite template",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null
+        },
+        {
+          "id": "t35",
+          "description": "Create Content Analysis (CA)",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null
+        },
+        {
+          "id": "t36",
+          "description": "Send Outlook invites with respondent details and observer login info",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null
+        },
+        {
+          "id": "t37",
+          "description": "Brief moderator",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null
+        },
+        {
+          "id": "t38",
+          "description": "Create notetaking schedule and align team",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null
+        },
+        {
+          "id": "t39",
+          "description": "Set up ShareFile folder",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null
+        },
+        {
+          "id": "t40",
+          "description": "Send final stimuli/workbooks/guide to moderator",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null
+        },
+        {
+          "id": "t41",
+          "description": "Schedule client debrief after first 1-2 interviews",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null
+        },
+        {
+          "id": "t42",
+          "description": "Create report shell based on discussion guide and objectives",
+          "status": "completed",
+          "phase": "Fielding",
+          "dueDate": "2025-10-07"
+        },
+        {
+          "id": "t43",
+          "description": "Engage transcriptionist (if needed)",
+          "status": "completed",
+          "phase": "Fielding",
+          "assignedTo": [
+            "11",
+            "3"
+          ],
+          "dueDate": "2025-10-07"
+        },
+        {
+          "id": "t44",
+          "description": "Request invoice (if needed)",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Fielding"
+        },
+        {
+          "id": "t45",
+          "description": "Continue updating report shell with interview content",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Fielding"
+        },
+        {
+          "id": "t46",
+          "description": "Submit AE reports within 24 hours",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Fielding"
+        },
+        {
+          "id": "t47",
+          "description": "Download audio files and transcripts daily",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Fielding"
+        },
+        {
+          "id": "t48",
+          "description": "Manage stimuli changes",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Fielding"
+        },
+        {
+          "id": "t49",
+          "description": "Track high-level findings for client",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Fielding"
+        },
+        {
+          "id": "t50",
+          "description": "Ensure objectives are being met",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Fielding"
+        },
+        {
+          "id": "t51",
+          "description": "Engage with moderator and ask probes",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Fielding",
+          "dueDate": null
+        },
+        {
+          "id": "t52",
+          "description": "Schedule second client debrief (if needed)",
+          "assignedTo": [
+            "",
+            "3"
+          ],
+          "status": "pending",
+          "phase": "Fielding"
+        },
+        {
+          "id": "t53",
+          "description": "Clean project folder",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Post-Field Analysis",
+          "dueDate": null
+        },
+        {
+          "id": "t54",
+          "description": "Internal download: all audio files, CA, transcripts, lessons, and notes",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Post-Field Analysis",
+          "dueDate": null
+        },
+        {
+          "id": "t55",
+          "description": "Submit AE reconciliation (if needed)",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Post-Field Analysis",
+          "dueDate": null
+        },
+        {
+          "id": "t56",
+          "description": "Write findings",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Reporting",
+          "dueDate": null
+        },
+        {
+          "id": "t57",
+          "description": "Write executive summary",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Reporting",
+          "dueDate": null
+        },
+        {
+          "id": "t58",
+          "description": "Have report proofed",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Reporting",
+          "dueDate": null
+        },
+        {
+          "id": "t59",
+          "description": "Have report reviewed internally",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Reporting",
+          "dueDate": null
+        },
+        {
+          "id": "t60",
+          "description": "Send report to client",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Reporting",
+          "dueDate": null
+        },
+        {
+          "id": "t61",
+          "description": "Update report based on client comments",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Reporting",
+          "dueDate": null
+        },
+        {
+          "id": "t62",
+          "description": "Request invoice (if needed)",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Reporting",
+          "dueDate": null
+        },
+        {
+          "id": "t63",
+          "description": "Save vendor invoices and submit to accounting",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Reporting",
+          "dueDate": null
+        },
+        {
+          "id": "t64",
+          "description": "Reconcile with client-specific finance process",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Reporting",
+          "dueDate": null
+        },
+        {
+          "id": "t65",
+          "description": "Fill out Cost Tracker",
+          "assignedTo": [
+            ""
+          ],
+          "status": "pending",
+          "phase": "Reporting",
+          "dueDate": null
+        }
+      ],
+      "teamMembers": [
+        {
+          "id": "3",
+          "name": "Luke Borglin",
+          "role": "Project Manager"
+        },
+        {
+          "id": "11",
+          "name": "Nikki Panagiotakopoulos",
+          "role": "Team Member",
+          "email": "nikki.panagiota@cognitiveconsulting.com"
+        },
+        {
+          "id": "12",
+          "name": " Ciara Mcevoy-Benisti",
+          "role": "Team Member",
+          "email": "ciara.mcevoybenisti@cognitiveconsulting.com"
+        },
+        {
+          "id": "14",
+          "name": "test",
+          "role": "Team Member",
+          "email": "test@gmail.com"
+        }
+      ],
+      "sampleDetails": "Total: n=6 (Treatment Naive: n=3, Discontinued DMT: n=3)",
+      "files": [
+        {
+          "id": "file-1759795118239-dg",
+          "name": "Luke Test Discussion Guide.docx",
+          "type": "discussion-guide",
+          "url": "/uploads/Discussion_Guide_P-1759172819869_1759795118239.docx",
+          "uploadedAt": "2025-10-06T23:58:38.239Z"
+        },
+        {
+          "id": "1759795672618",
+          "name": "2025 Message Recall",
+          "type": "Excel",
+          "url": "https://hypothesisconsulting.sharepoint.com/:x:/r/sites/cognitivedrive/_layouts/15/Doc.aspx?sourcedoc=%7B807EE2A4-5B5C-4347-AC31-0635633A51F7%7D&file=2025%20Message%20Recall.xlsx&action=default&mobileredirect=true&DefaultItemOpen=1"
+        }
+      ],
+      "segments": [
+        {
+          "phase": "Kickoff",
+          "startDate": "2025-09-08",
+          "endDate": "2025-09-08"
+        },
+        {
+          "phase": "Pre-Field",
+          "startDate": "2025-09-09",
+          "endDate": "2025-10-01"
+        },
+        {
+          "phase": "Fielding",
+          "startDate": "2025-10-02",
+          "endDate": "2025-10-13"
+        },
+        {
+          "phase": "Post-Field Analysis",
+          "startDate": "2025-10-14",
+          "endDate": "2025-10-28"
+        },
+        {
+          "phase": "Reporting",
+          "startDate": "2025-10-29",
+          "endDate": "2025-10-31"
+        }
+      ],
+      "savedContentAnalyses": [
+        {
           "id": "2",
           "name": "HCP Insights - Treatment Preferences",
           "savedBy": "You",
@@ -1529,7 +1539,24 @@
           "description": "Healthcare provider perspectives on treatment protocols",
           "data": {}
         }
-      ]
+      ],
+      "notes": [
+        {
+          "id": "note-1759803821263",
+          "title": "test",
+          "body": "test",
+          "createdAt": "2025-10-07T02:23:41.263Z",
+          "createdBy": "3",
+          "isEditable": true,
+          "postToProjectPage": true,
+          "taggedMembers": [],
+          "comments": []
+        }
+      ],
+      "archivedNotes": [],
+      "archived": false,
+      "hasDiscussionGuide": true,
+      "discussionGuideUpdatedAt": "2025-10-06T23:58:38.305Z"
     }
   ],
   "3_archived": []

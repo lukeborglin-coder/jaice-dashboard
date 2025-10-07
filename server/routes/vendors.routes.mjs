@@ -176,28 +176,36 @@ router.get('/sample-vendors', authenticateToken, async (req, res) => {
 // POST /api/vendors/sample-vendors - Add new sample vendor
 router.post('/sample-vendors', authenticateToken, async (req, res) => {
   try {
-    const { name, email, phone, company, specialties, notes } = req.body;
+    const { company, contacts, specialties, notes } = req.body;
 
-    if (!name || !email) {
-      return res.status(400).json({ error: 'Name and email are required' });
+    if (!company) {
+      return res.status(400).json({ error: 'Company name is required' });
+    }
+
+    // Validate contacts array if provided
+    if (contacts && Array.isArray(contacts)) {
+      for (const contact of contacts) {
+        if (!contact.name || !contact.email) {
+          return res.status(400).json({ error: 'Each contact must have a name and email' });
+        }
+      }
     }
 
     const vendors = await loadVendors();
 
     // Check if sample vendor already exists
-    const existingVendor = vendors.sampleVendors.find(vendor => vendor.email === email);
+    const existingVendor = vendors.sampleVendors.find(vendor => vendor.company === company);
     if (existingVendor) {
-      return res.status(400).json({ error: 'Sample vendor with this email already exists' });
+      return res.status(400).json({ error: 'Sample vendor with this company name already exists' });
     }
 
     const newVendor = {
       id: Date.now().toString(),
-      name,
-      email,
-      phone: phone || '',
-      company: company || '',
+      company,
+      contacts: contacts || [],
       specialties: specialties || [],
       notes: notes || '',
+      activeProjects: [],
       pastProjects: [],
       createdAt: new Date().toISOString()
     };
@@ -216,7 +224,7 @@ router.post('/sample-vendors', authenticateToken, async (req, res) => {
 router.put('/sample-vendors/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, email, phone, company, specialties, notes, customSchedule } = req.body;
+    const { company, contacts, specialties, notes, customSchedule } = req.body;
 
     const vendors = await loadVendors();
     const idx = vendors.sampleVendors.findIndex(v => v.id === id);
@@ -227,12 +235,10 @@ router.put('/sample-vendors/:id', authenticateToken, async (req, res) => {
 
     vendors.sampleVendors[idx] = {
       ...vendors.sampleVendors[idx],
-      name: name || vendors.sampleVendors[idx].name,
-      email: email || vendors.sampleVendors[idx].email,
-      phone: phone || vendors.sampleVendors[idx].phone,
       company: company || vendors.sampleVendors[idx].company,
-      specialties: specialties || vendors.sampleVendors[idx].specialties,
-      notes: notes || vendors.sampleVendors[idx].notes,
+      contacts: contacts !== undefined ? contacts : vendors.sampleVendors[idx].contacts,
+      specialties: specialties !== undefined ? specialties : vendors.sampleVendors[idx].specialties,
+      notes: notes !== undefined ? notes : vendors.sampleVendors[idx].notes,
       ...(customSchedule ? { customSchedule } : {}),
       updatedAt: new Date().toISOString()
     };

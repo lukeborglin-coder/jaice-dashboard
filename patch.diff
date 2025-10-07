@@ -1,0 +1,205 @@
+*** Begin Patch
+*** Update File: server/routes/contentAnalysisX.routes.mjs
+@@
+-const storage = multer.diskStorage({
+-  destination: async (req, file, cb) => {
+-    const uploadDir = process.env.FILES_DIR || path.join(process.env.DATA_DIR || '/server/data' || path.join(__dirname, '../data'), 'uploads');
+-    try {
+-      await fs.mkdir(uploadDir, { recursive: true });
+-      cb(null, uploadDir);
+-    } catch (error) {
+-      cb(error);
+-    }
+-  },
+-  filename: (req, file, cb) => {
+-    const timestamp = Date.now();
+-    const ext = path.extname(file.originalname);
+-    cb(null, `${file.fieldname}_${timestamp}${ext}`);
+-  }
+-});
++// Consistent data roots for persistence
++const dataRoot = process.env.DATA_DIR || path.join(__dirname, '../data');
++const filesDir = process.env.FILES_DIR || path.join(dataRoot, 'uploads');
++
++const storage = multer.diskStorage({
++  destination: async (req, file, cb) => {
++    try {
++      await fs.mkdir(filesDir, { recursive: true });
++      cb(null, filesDir);
++    } catch (error) {
++      cb(error);
++    }
++  },
++  filename: (req, file, cb) => {
++    const timestamp = Date.now();
++    const ext = path.extname(file.originalname);
++    cb(null, `${file.fieldname}_${timestamp}${ext}`);
++  }
++});
+@@
+-const baseDataDir = process.env.DATA_DIR || '/server/data' || path.join(__dirname, '../data');
+-const savedAnalysesFile = path.join(baseDataDir, 'savedAnalyses.json');
+-const discussionGuidesDir = path.join(baseDataDir, 'discussionGuides');
++const baseDataDir = dataRoot;
++const savedAnalysesFile = path.join(baseDataDir, 'savedAnalyses.json');
++const discussionGuidesDir = path.join(baseDataDir, 'discussionGuides');
+@@
+ router.post('/save', async (req, res) => {
+   try {
+     const { projectId, projectName, data, name, discussionGuide, discussionGuideHtml, guideMap, quotes, originalDocxId } = req.body;
+@@
+-    // Store in memory and save to file
++    // Store in memory and save to file
+     savedAnalyses.unshift(savedAnalysis); // Add to beginning of array
+     await saveAnalysesToFile(savedAnalyses);
+ 
+     // Save discussion guide HTML if provided (for formatted display)
+     if (discussionGuideHtml) {
+       const guideFile = path.join(discussionGuidesDir, `${projectId}.html`);
+       await fs.writeFile(guideFile, discussionGuideHtml);
+       console.log(`Discussion guide HTML saved for project: ${projectId}`);
+     }
+ 
+     // Move original DOCX file from temp location to permanent location
+     if (originalDocxId) {
+       const tempDocxPath = path.join(discussionGuidesDir, `${originalDocxId}.docx`);
+       const permanentDocxPath = path.join(discussionGuidesDir, `${projectId}.docx`);
+       try {
+         await fs.rename(tempDocxPath, permanentDocxPath);
+         console.log(`Original DOCX moved to permanent location for project: ${projectId}`);
+       } catch (moveError) {
+         console.warn('Failed to move original DOCX:', moveError);
+       }
+     }
++
++    // Ensure uploads directory exists for public file serving
++    try { await fs.mkdir(filesDir, { recursive: true }); } catch {}
++
++    // 1) Generate and save an Excel file for this content analysis
++    let caFilePublicUrl = null;
++    try {
++      const excelBuffer = await generateExcelFromJSON(data);
++      const safeName = (savedAnalysis.name || 'Content_Analysis').replace(/[^a-zA-Z0-9._ -]/g, '').trim() || 'Content_Analysis';
++      const caFileName = `CA_${projectId}_${savedAnalysis.id}_${safeName}.xlsx`;
++      const caFilePath = path.join(filesDir, caFileName);
++      await fs.writeFile(caFilePath, excelBuffer);
++      caFilePublicUrl = `/uploads/${caFileName}`;
++      console.log(`Content analysis Excel saved: ${caFilePath}`);
++    } catch (excelErr) {
++      console.warn('Failed to write Excel file for content analysis:', excelErr?.message || excelErr);
++    }
++
++    // 2) Copy discussion guide DOCX (if available) into uploads for Files tab
++    let dgFilePublicUrl = null;
++    try {
++      const permanentDocxPath = path.join(discussionGuidesDir, `${projectId}.docx`);
++      // Check if DOCX exists; if so, copy to uploads
++      await fs.access(permanentDocxPath);
++      const dgFileName = `Discussion_Guide_${projectId}_${savedAnalysis.id}.docx`;
++      const dgUploadPath = path.join(filesDir, dgFileName);
++      await fs.copyFile(permanentDocxPath, dgUploadPath);
++      dgFilePublicUrl = `/uploads/${dgFileName}`;
++      console.log(`Discussion guide copied to uploads: ${dgUploadPath}`);
++    } catch (dgErr) {
++      // If no DOCX but we have HTML, save HTML for reference
++      if (discussionGuideHtml) {
++        try {
++          const dgHtmlName = `Discussion_Guide_${projectId}_${savedAnalysis.id}.html`;
++          const dgHtmlPath = path.join(filesDir, dgHtmlName);
++          await fs.writeFile(dgHtmlPath, discussionGuideHtml);
++          dgFilePublicUrl = `/uploads/${dgHtmlName}`;
++          console.log(`Discussion guide HTML saved to uploads: ${dgHtmlPath}`);
++        } catch (htmlErr) {
++          console.warn('Failed to save discussion guide HTML to uploads:', htmlErr?.message || htmlErr);
++        }
++      } else {
++        console.log('No discussion guide file to add to Files tab');
++      }
++    }
+@@
+-    try {
++    try {
+       const projectsPath = path.join(process.env.DATA_DIR || path.join(__dirname, '../data'), 'projects.json');
+       if (await fs.access(projectsPath).then(() => true).catch(() => false)) {
+         const rawProj = await fs.readFile(projectsPath, 'utf8');
+         const allProj = JSON.parse(rawProj || '{}');
+@@
+-          if (projIndex !== -1) {
++          if (projIndex !== -1) {
+             // Add discussion guide flag if applicable
+             if (originalDocxId || discussionGuideHtml) {
+               allProj[uid][projIndex].hasDiscussionGuide = true;
+               allProj[uid][projIndex].discussionGuideUpdatedAt = new Date().toISOString();
+             }
+@@
+-            // Add the new content analysis entry
++            // Add the new content analysis entry
+             allProj[uid][projIndex].savedContentAnalyses.push({
+               id: savedAnalysis.id,
+               name: savedAnalysis.name,
+               savedDate: savedAnalysis.savedAt,
+               savedBy: savedAnalysis.savedBy
+             });
++
++            // Ensure files array exists
++            if (!Array.isArray(allProj[uid][projIndex].files)) {
++              allProj[uid][projIndex].files = [];
++            }
++
++            // Build file entries for Files tab
++            const filesToAdd = [];
++            if (caFilePublicUrl) {
++              filesToAdd.push({
++                id: `file-${savedAnalysis.id}-ca`,
++                name: `${savedAnalysis.name}.xlsx`,
++                type: 'Excel',
++                url: caFilePublicUrl,
++                uploadedAt: savedAnalysis.savedAt
++              });
++            }
++            if (dgFilePublicUrl) {
++              const isHtml = dgFilePublicUrl.toLowerCase().endsWith('.html');
++              filesToAdd.push({
++                id: `file-${savedAnalysis.id}-dg`,
++                name: isHtml ? `${savedAnalysis.name} Discussion Guide.html` : `${savedAnalysis.name} Discussion Guide.docx`,
++                type: isHtml ? 'Other' : 'Word',
++                url: dgFilePublicUrl,
++                uploadedAt: savedAnalysis.savedAt
++              });
++            }
++
++            // Append new files (avoid duplicates by id)
++            const existingIds = new Set((allProj[uid][projIndex].files || []).map(f => String(f.id)));
++            for (const f of filesToAdd) {
++              if (!existingIds.has(String(f.id))) {
++                allProj[uid][projIndex].files.push(f);
++              }
++            }
+ 
+             await fs.writeFile(projectsPath, JSON.stringify(allProj, null, 2));
+             console.log(`Updated project ${projectId} with content analysis and discussion guide`);
+             break;
+           }
+         }
+       }
+     } catch (projectUpdateError) {
+       console.warn('Failed to update project:', projectUpdateError);
+     }
+ 
+-    res.json({
++    res.json({
+       success: true,
+       id: savedAnalysis.id,
+-      message: `Content analysis saved to ${projectName}`
++      message: `Content analysis saved to ${projectName}`,
++      filesAdded: {
++        contentAnalysis: caFilePublicUrl || null,
++        discussionGuide: dgFilePublicUrl || null
++      }
+     });
+   } catch (error) {
+     console.error('Error in save endpoint:', error);
+     res.status(500).json({ error: error.message });
+   }
+ });
+*** End Patch

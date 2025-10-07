@@ -52,17 +52,31 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           if (response.ok) {
             const userData = JSON.parse(storedUser);
             setUser(userData);
+          } else if (response.status === 401) {
+            // Only clear storage if token is actually invalid (401)
+            console.log('Token invalid, clearing storage');
+            localStorage.removeItem('jaice_user');
+            localStorage.removeItem('jaice_token');
+            localStorage.removeItem('jaice_vendors');
           } else {
-            // Token invalid, clear storage
+            // For other errors (500, network issues), keep user logged in
+            console.log('Server error during auth verification, keeping user logged in');
+            const userData = JSON.parse(storedUser);
+            setUser(userData);
+          }
+        } catch (error) {
+          // Network error - keep user logged in rather than forcing logout
+          console.log('Network error during auth verification, keeping user logged in');
+          try {
+            const userData = JSON.parse(storedUser);
+            setUser(userData);
+          } catch (parseError) {
+            // Only clear if stored data is corrupted
+            console.log('Corrupted user data, clearing storage');
             localStorage.removeItem('jaice_user');
             localStorage.removeItem('jaice_token');
             localStorage.removeItem('jaice_vendors');
           }
-        } catch (error) {
-          console.log('Auth verification failed, clearing storage');
-          localStorage.removeItem('jaice_user');
-          localStorage.removeItem('jaice_token');
-          localStorage.removeItem('jaice_vendors');
         }
       }
       setLoading(false);

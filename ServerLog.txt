@@ -1,5 +1,181 @@
-🚀 JAICE Dashboard Server running on http://localhost:3005
-📊 Content Analysis API available at http://localhost:3005/api/ca
-⚠️  Warning: OPENAI_API_KEY not set. AI generation will not work.
-   Edit server/.env file with: OPENAI_API_KEY=sk-your-actual-key-here
-🔗 Frontend should connect to: http://localhost:3005
+========================================
+   JAICE Dashboard Startup Script
+========================================
+
+Γ£à Node.js found
+
+Γ£à Project structure verified
+
+Γ£à Dependencies verified
+
+≡ƒÜÇ Starting JAICE Dashboard...
+
+Frontend will be available at: http://localhost:5173
+Backend API will be available at: http://localhost:3005
+
+Press Ctrl+C to stop both servers
+========================================
+
+
+> jaice-dashboard@0.0.1 start
+> concurrently "npm run dev" "cd server && npm start"
+
+(node:35364) [DEP0060] DeprecationWarning: The `util._extend` API is deprecated. Please use Object.assign() instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[0]
+[0] > jaice-dashboard@0.0.1 dev
+[0] > vite
+[0]
+[1]
+[1] > jaice-dashboard-server@1.0.0 start
+[1] > node server.mjs
+[1]
+[0]
+[0]   VITE v5.4.20  ready in 496 ms
+[0]
+[0]   ➜  Local:   http://localhost:5173/
+[0]   ➜  Network: use --host to expose
+[1] 🚀 JAICE Dashboard Server running on http://localhost:3005
+[1] 📊 Content Analysis API available at http://localhost:3005/api/ca
+[1] ✅ OpenAI API key configured - AI generation enabled
+[1] 🔗 Frontend should connect to: http://localhost:3005
+[0] [BABEL] Note: The code generator has deoptimised the styling of C:\Users\LukeBorglin\Desktop\Apps\JaiceDashboard_master\src\App.tsx as it exceeds the max of 500KB.
+[1] Transcript upload request received
+[1] Request body: [Object: null prototype] {
+[1]   projectId: 'P-1759172986363',
+[1]   analysisId: '1759721920152',
+[1]   activeSheet: 'Demographics',
+[1]   currentData: `{"Demographics":[{"Respondent ID":"","Interview Date":"","Interview Time":""},{"Respondent ID":"R001","Interview Date":"Oct 1, 2025","Interview Time":"3:00 PM"},{"Respondent ID":"R002","Interview Date":"Oct 2, 2025","Interview Time":"12:00 PM"}],"BACKGROUND":[{"Respondent ID":"","Living Situation":"","Free Time Activities":"","Journey with SMA":"","Current Health Description":"","HCPs for SMA Care":"","Reasons for Not Seeing HCPs":"","Current SMA Management":"","Number of HCPs":"","HCP Involvement in Treatment Decisions":"","Primary SMA Doctor":"","Others Involved in Health Decisions":"","Support System Involvement":"","Comfort in Making Treatment Decisions":"","Health Goals - Short-term":"","Health Goals - Long-term":"","Personal Aspirations":""},{"Respondent ID":"R001","Living Situation":"The respondent is50 years old, married, and has two stepchildren who are now adults and living independently. He lives with his wife anda small dog in Georgia, having moved from Ohio 16 years ago.","Free Time Activities":"Since retiring from his job in October 2024, the respondent spends his days walking his dog, using the computer, watching shows, and reading. He no longer engages in the corporate hustle and bustle.","Journey with SMA":"The respondent was diagnosed with SMA around the age of 10 or 11 after experiencing unexplained falls. Initially in denial, he avoided regular medical consultations until hewas 24, when he sought confirmation of his diagnosis through genetic testing. He re-engaged with medical professionals around 2017-2018 upon learning about potential treatments.","Current Health Description":"The respondent describes his health as generally good except for the impact of SMA. He experiences significant limitations in daily activities, requiring assistance from his wife and a caregiver for tasks like getting in and out of bed and bathing.","HCPs for SMA Care":"The respondent has a neurologist specializing in SMA, whom he sought out several years ago. However, he does not see her regularly and has not visited her office in about three years.","Reasons for Not Seeing HCPs":"The respondent avoided regular medical appointments due to a combination of denial and a lack of hope from medical professionals. He felt that doctors could not offer actionable advice or hope for his condition.","Current SMA Management":"The respondent manages his SMA with the help of his wife and a caregiver. He has participated in clinical trials and has taken medications like Evrysdi and Spinraza.","Number of HCPs":"The respondent primarily mentions one neurologist involved in his SMA care.","HCP Involvement in Treatment Decisions":"The respondent's neurologist is involved in treatment decisions, especially whenhe became aware of new treatments like Evrysdi.","Primary SMA Doctor":"The respondent's primary SMA doctor is a neurologist he sought out due to her expertise in SMA.","Others Involved in Health Decisions":"The respondent's wife plays a significant role in his daily care and health decisions.","Support System Involvement":"The respondent's wife is heavily involved in his care, assisting with daily activities and supporting his health management.","Comfort in Making TreatmentDecisions":"The respondent feels comfortable making treatment decisions, especially after becoming more informed through support groups and aligning with a knowledgeable neurologist.","Health Goals - Short-term":"The respondent's short-term health goal is to maintain his current level of function and manage his daily activities with the help of his support system.","Health Goals - Long-term":"Long-term, the respondent hopes to maintain his current health status and quality of life, avoiding further decline.","Personal Aspirations":"The respondent aspires to live a fulfilling life despite his limitations, focusing on maintaining his current health and enjoying his daily activities."},{"Respondent ID":"R002","Living Situation":"The respondent is 77 years old and lives with her husband and one son in Green, Oregon. She is in a wheelchair but maintains a high level of independence, performing most daily activities herself, such as cooking and shopping online.","Free Time Activities":"The respondent enjoys cooking and shopping online. She also participates in activities like protests, indicating an interest in civic engagement.","Journey with SMA":"The respondent was diagnosed with SMAin 1984 at the age of 36. She experienced a significant decline in mobility around 1998, transitioning to a manual wheelchair and then to a motorized one. Since then, her condition has progressed very slowly.","Current Health Description":"The respondent describes her overall health as pretty good, though she has experienced upper GI problems and needs to adjust her positioning due to sitting in a wheelchair all day. She emphasizes her independence and ability to perform daily tasks.","HCPs for SMA Care":"The respondent rarely sees a neurologist, approximately once a year, primarily to assessthe progression of her SMA and muscle loss. She does not frequently discuss SMA with her primary care physician.","Reasons for Not Seeing HCPs":"The respondent does not see her neurologist often because there is not much change in her condition, and she only goes when recommended by her primary care physician.","Current SMA Management":"The respondent manages her SMA by maintaining her independence and adjusting her positioning in her wheelchair. She has not taken any SMA treatments.","Number of HCPs":"The respondent primarily interacts with her neurologist and primary care physician for her SMA care.","HCP Involvement in Treatment Decisions":"The respondent's neurologist and primary care physician are not actively involved in her treatment decisions, as there have been no significant changes or recommendations.","Primary SMA Doctor":"The respondent's primary SMA doctor is her neurologist, whom she sees about once a year.","Others Involved in Health Decisions":"The respondent discusses treatment options with her husband, but they have not talked about it recentlydue to cost concerns.","Support System Involvement":"The respondent's support system includes her husband and son, who assist with daily activities when needed.","Comfort in Making Treatment Decisions":"The respondent is comfortable makingtreatment decisions but is limited by the high cost of available treatments.","Health Goals - Short-term":"The respondent's short-term health goal is to maintain her current level of independence and manage her daily activities effectively.","Health Goals - Long-term":"The respondent's long-term health goal is to remain stable and independent for as long aspossible, without further progression of her SMA.","Personal Aspirations":"The respondent aspires to maintain her independence and continue participating in activities she enjoys, such as cooking and civic engagement."}],"CURRENT PERCEPTIONS & ATTITUDES":[{"Respondent ID":"","Treatments Awareness":"","Treatments Experience - Evrysdi Liquid":"","Treatments Experience - Evrysdi Tablet":"","Treatments Experience - Spinraza":"","Treatments Experience - Zolgensma":"","Treatments Discontinuation Reasons":"","Life Changes Post Discontinuation":"","Insurance Coverage Impact":"","Consider Restarting Treatment":"","Treatment Impressions - Treatment Never Taken":"","Information Source for Treatment":"","Consideration of Future Treatments":"","Awareness of Treatments in Development":"","Impressions of Treatments in Development":"","Consideration of Treatments in Development":""},{"Respondent ID":"R001","Treatments Awareness":"The respondent became aware of SMA treatments through Facebook support groups, which informed him about developments like Evrysdi and Spinraza.","Treatments Experience - Evrysdi Liquid":"The respondent took Evrysdi liquid on two separate occasions: from April 2021 to April 2022 and then from May 2023 to December 2023.","Treatments Experience - Evrysdi Tablet":"","Treatments Experience - Spinraza":"The respondent participated in a clinical trial for Spinraza, specifically a double dose, starting in December2023.","Treatments Experience - Zolgensma":"","Treatments Discontinuation Reasons":"The respondent discontinued Evrysdiin April 2022 and again in December 2023 to participate in a clinical trial for Spinraza.","Life Changes Post Discontinuation":"","Insurance Coverage Impact":"","Consider Restarting Treatment":"","Treatment Impressions - Treatment Never Taken":"","Information Source for Treatment":"The respondent primarily learned about SMA treatments through Facebook support groups, which provided him with updates and information on new developments.","Consideration of Future Treatments":"The respondent is open to considering future treatments, especially those that are non-intrusive and easy to administer, like oral medications.","Awareness of Treatments in Development":"The respondent is aware of treatments in development, particularly oral medications like Evrysdi, which influenced his decision to seek out a neurologist.","Impressions of Treatments in Development":"The respondent feels hopeful about treatments in development, particularly those that are lessintrusive and can maintain his current health status.","Consideration of Treatments in Development":"The respondent is considering treatments in development, especially those that align with his preference for non-intrusive administration."},{"Respondent ID":"R002","Treatments Awareness":"The respondent is aware of three SMA treatments: Evrysdi, Spinraza, and Zolgensma. She knows that Evrysdi is available in liquid form and has heard about a tablet version.","Treatments Experience - Evrysdi Liquid":"The respondent has not taken Evrysdi but is aware that it is a liquid that needs refrigeration. She has no strong positive or negative impressions of it.","Treatments Experience - Evrysdi Tablet":"The respondent isaware of the new tablet form of Evrysdi and finds it appeali`... 10744 more characters,
+[1]   discussionGuide: ''
+[1] }
+[1] Request file: {
+[1]   fieldname: 'transcript',
+[1]   originalname: 'Discontinued Patient_ENGLISH (UNITED STATES)_MT (1).docx',
+[1]   encoding: '7bit',
+[1]   mimetype: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+[1]   destination: './uploads',
+[1]   filename: 'transcript_1759760741583.docx',
+[1]   path: 'uploads\\transcript_1759760741583.docx',
+[1]   size: 45467
+[1] }
+[1] Processing transcript for project: P-1759172986363, sheet: Demographics
+[1] File details: {
+[1]   originalname: 'Discontinued Patient_ENGLISH (UNITED STATES)_MT (1).docx',
+[1]   mimetype: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+[1]   size: 45467,
+[1]   path: 'uploads\\transcript_1759760741583.docx'
+[1] }
+[1] Processing DOCX file with mammoth...
+[1] Successfully extracted 87418 characters from DOCX file
+[1] DOCX content preview: SMA Adult Activation Qual
+[1]
+[1] (Oct 3, 2025 - 3:00pm)
+[1]
+[1]
+[1]
+[1] (00:00:05 - 00:00:07)
+[1]
+[1]     Michelle: Decided he wanted to be in here as well.
+[1]
+[1]
+[1]
+[1] (00:00:08 - 00:00:15)
+[1]
+[1]     Nancy: Well, I hope that he feels comfortable...
+[1] Using current data structure: [
+[1]   'Demographics',
+[1]   'BACKGROUND',
+[1]   'CURRENT PERCEPTIONS & ATTITUDES',
+[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
+[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
+[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
+[1]   'Misc.'
+[1] ]
+[1] Transcript text length: 87418
+[1] Transcript preview: SMA Adult Activation Qual
+[1]
+[1] (Oct 3, 2025 - 3:00pm)
+[1]
+[1]
+[1]
+[1] (00:00:05 - 00:00:07)
+[1]
+[1]     Michelle: Decided he wanted to be in here as well.
+[1]
+[1]
+[1]
+[1] (00:00:08 - 00:00:15)
+[1]
+[1]     Nancy: Well, I hope that he feels comfortable...
+[1] === EXTRACTING DATE/TIME ===
+[1] First 500 chars of transcript: SMA Adult Activation Qual
+[1]
+[1] (Oct 3, 2025 - 3:00pm)
+[1]
+[1]
+[1]
+[1] (00:00:05 - 00:00:07)
+[1]
+[1]     Michelle: Decided he wanted to be in here as well.
+[1]
+[1]
+[1]
+[1] (00:00:08 - 00:00:15)
+[1]
+[1]     Nancy: Well, I hope that he feels comfortable sharing his open and honest opinions, and he knows that.
+[1]
+[1]
+[1]
+[1] (00:00:14 - 00:00:15)
+[1]
+[1]     Michelle: Yes.
+[1]
+[1]
+[1]
+[1] (00:00:15 - 00:00:25)
+[1]
+[1]     Nancy: Everything he says is completely confidential. Okay. Now I'm gonna say that same thing, but in earnest to you.
+[1]
+[1]
+[1]
+[1] (00:00:24 - 00:00:25)
+[1]
+[1]     Michelle: Yes, ma'am.
+[1]
+[1]
+[1]
+[1] (00
+[1] Extracted date/time from transcript: { date: 'Oct 3, 2025', time: '3:00 PM' }
+[1] === ABOUT TO CALL cleanTranscriptWithAI ===
+[1] Transcript text preview: SMA Adult Activation Qual
+[1]
+[1] (Oct 3, 2025 - 3:00pm)
+[1]
+[1]
+[1]
+[1] (00:00:05 - 00:00:07)
+[1]
+[1]     Michelle: Decided he wanted to be in here as well.
+[1]
+[1]
+[1]
+[1] (00:00:08 - 00:00:15)
+[1]
+[1]     Nancy: Well, I hope that he feels comfortable sharing his open and honest opinions, and he knows that.
+[1]
+[1]
+[1]
+[1] (00:00:14 - 00:00:15)
+[1]
+[1]     Michelle: Yes.
+[1]
+[1] Discussion guide available: false
+[1] Column headers: [ 'Respondent ID', 'Interview Date', 'Interview Time' ]
+[1] === CLEANING TRANSCRIPT WITH AI ===
+[1] Calling OpenAI to clean transcript...
+[1] Column headers for context: Interview Date, Interview Time
+[1] System prompt length: 3274
+[1] System prompt preview: You are a professional transcript editor. You will receive an interview transcript and must clean it following EXACT rules below.
+[1]
+[1] RULE 1: Remove timestamps only
+[1] - Delete lines or inline markers like

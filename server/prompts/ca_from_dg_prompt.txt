@@ -19,10 +19,11 @@ SHEET CREATION RULES:
 
 COLUMN GENERATION RULES:
 - Start each sheet with ONLY: "Respondent ID"
-- Add columns for each question/topic in that discussion section
-- Use descriptive headers that match the discussion guide questions
-- Include rating scale columns if the DG has rating exercises
-- Add open-ended response columns for qualitative feedback
+- Create HIGH-LEVEL CATEGORY/HEADLINE columns for bucketing key findings (NOT individual questions)
+- Columns should be broad themes/topics that capture the essence of multiple related questions
+- Think of columns as "buckets" where qualitative insights will be organized
+- Use concise, descriptive category names (e.g., "Awareness & Usage", "Barriers", "Preferences", "Key Benefits")
+- Do NOT create a column for each individual question - instead group related questions under thematic categories
 - Do NOT include "Interview Date", "Interview Time" in any section except Demographics
 
 DEMOGRAPHICS SHEET RULES:
@@ -41,9 +42,9 @@ OUTPUT FORMAT:
     {"Respondent ID": "", "Interview Date": "", "Interview Time": ""}
   ],
   "[EXACT SECTION NAME FROM DG]": [
-    {"Respondent ID": "", "Question 1": "", "Question 2": "", "Rating": ""}
+    {"Respondent ID": "", "Awareness & Usage": "", "Key Drivers": "", "Barriers & Challenges": ""}
   ],
   "[ANOTHER EXACT SECTION NAME]": [
-    {"Respondent ID": "", "Topic A": "", "Topic B": "", "Response": ""}
+    {"Respondent ID": "", "Current Approach": "", "Unmet Needs": "", "Future Preferences": ""}
   ]
 }

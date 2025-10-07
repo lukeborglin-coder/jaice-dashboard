@@ -1,213 +1,96 @@
 [
   {
-    "id": "1759238391616",
+    "id": "1759795118239",
     "projectId": "P-1759172819869",
     "projectName": "2025 SMA Adult Activation Qual",
-    "name": "HCP Test",
+    "name": "Luke Test",
     "data": {
       "Demographics": [
         {
           "Respondent ID": "",
-          "Specialty": "t",
-          "Date": "",
-          "Time (ET)": ""
-        },
-        {
-          "Respondent ID": "R001",
-          "Specialty": "test",
-          "Date": "",
-          "Time (ET)": ""
-        },
-        {
-          "Respondent ID": "R002",
-          "Specialty": "",
-          "Date": "",
-          "Time (ET)": ""
+          "Interview Date": "",
+          "Interview Time": ""
         }
       ],
       "BACKGROUND": [
         {
           "Respondent ID": "",
-          "Brief Introduction": "",
-          "Unique Patient Population": "",
-          "Overall SMA Patient Population": "",
-          "Number of Patients Managed": "",
-          "Age Range": "",
-          "Typical Approach to Treating SMA": "",
-          "Preferred Treatments": ""
-        },
-        {
-          "Respondent ID": "R001",
-          "Brief Introduction": "I work in a large academic institution, and I'm a pediatric neurologist, and I work both inpatient and outpatient settings.",
-          "Unique Patient Population": "No. Not really.",
-          "Overall SMA Patient Population": "Probably about twenty patients in the pediatric SMA population. They're mostly diagnosed from a pretty young age. Now that we have newborn screening, they're becoming more readily detected at birth.",
-          "Number of Patients Managed": "About twenty patients.",
-          "Age Range": "I mostly see younger, in the baby to toddler range, but I still see some in, like, the up to around age ten.",
-          "Typical Approach to Treating SMA": "Most families opt for a one-time therapy. They prefer the one-time infusion therapy versus some patients who have already had access to SPINRAZA sooner.",
-          "Preferred Treatments": "I probably have about twelve patients doing Zolgensma. I have maybe five Spinraza and the rest Everesti."
-        },
-        {
-          "Respondent ID": "R002",
-          "Brief Introduction": "I run a big neuromuscular clinic, designed from scratch about six years ago. There was a big need in the area I serve, allowing me to build programs for adults with various conditions, including SMA.",
-          "Unique Patient Population": "I think it's incredible that they're living with such weak bodies, and then they're able to function like that.",
-          "Overall SMA Patient Population": "I have between thirty five and forty patients with SMA.",
-          "Number of Patients Managed": "Between thirty five and forty.",
-          "Age Range": "My SMA patients are mostly adults, ranging from about twenty years to sixty or sixty five.",
-          "Typical Approach to Treating SMA": "I do mostly Spinraza or Evrysdi, but most of my patients choose Evrysdi.",
-          "Preferred Treatments": "Most of my patients get Evrysdi due to the ease of administration compared to intrathecal injections."
+          "Living Situation": "",
+          "Free Time Activities": "",
+          "Journey with SMA": "",
+          "Current Health Description": "",
+          "HCPs for SMA Care": "",
+          "Reasons for Not Seeing HCPs": "",
+          "Current SMA Management": "",
+          "Number of HCPs": "",
+          "HCP Involvement in Treatment Decisions": "",
+          "Primary SMA Doctor": "",
+          "Others Involved in Health Decisions": "",
+          "Support System Involvement": "",
+          "Comfort in Making Treatment Decisions": "",
+          "Health Goals - Short-term": "",
+          "Health Goals - Long-term": "",
+          "Personal Aspirations": ""
         }
       ],
-      "CURRENT AWARENESS AND PERCEPTIONS OF TREATMENTS IN DEVELOPMENT": [
+      "CURRENT PERCEPTIONS & ATTITUDES": [
         {
           "Respondent ID": "",
-          "Heard of New Formulation or Dosing Options": "",
-          "New Treatment Awareness": "",
-          "Initial Thoughts on New Treatment": "",
-          "Source of Information": "",
-          "Level of Interest": "",
-          "Patient Benefit": "",
-          "Impact on Prescribing": ""
-        },
-        {
-          "Respondent ID": "R001",
-          "Heard of New Formulation or Dosing Options": "I am not aware of what is happening.",
-          "New Treatment Awareness": "Not that I'm aware of.",
-          "Initial Thoughts on New Treatment": "",
-          "Source of Information": "",
-          "Level of Interest": "",
-          "Patient Benefit": "",
-          "Impact on Prescribing": ""
-        },
-        {
-          "Respondent ID": "R002",
-          "Heard of New Formulation or Dosing Options": "Yes, I've heard of myostatin inhibitors and more frequent dosing of Spinraza.",
-          "New Treatment Awareness": "I'm very familiar with the Evrysdi label expansion for presymptomatic patients.",
-          "Initial Thoughts on New Treatment": "I think it's a great concept, but I don't know if it's a stand-alone medication.",
-          "Source of Information": "",
-          "Level of Interest": "I'm not that interested in myostatin inhibitors as a stand-alone treatment.",
-          "Patient Benefit": "",
-          "Impact on Prescribing": ""
+          "Treatments Awareness": "",
+          "Treatments Experience": "",
+          "Benefits of Discontinued Treatment": "",
+          "Drawbacks of Discontinued Treatment": "",
+          "Reasons for Discontinuation": "",
+          "Insurance Coverage Impact": "",
+          "Consider Restarting Treatment": "",
+          "Impressions of Untaken Treatment": "",
+          "Information Source for Untaken Treatment": "",
+          "Consideration of Untaken Treatment": "",
+          "Discussion with HCP for Untaken Treatment": "",
+          "Impact of HCP on Decision for Untaken Treatment": "",
+          "Consideration of Future Treatments": "",
+          "Impressions of In-development Treatments": "",
+          "Consideration of In-development Treatments": "",
+          "Good Candidate for Treatment": ""
         }
       ],
-      "EVRYSDI TABLET PRODUCT PROFILE REVIEW": [
+      "BARRIERS TO TREATMENT & UNMET NEEDS": [
         {
           "Respondent ID": "",
-          "Overall Impression of Evrysdi Tablet": "",
-          "Questions About Product": "",
-          "Address Gaps or Unmet Needs": "",
-          "Most Interesting Information": "",
-          "Effectiveness Perception": "",
-          "Safety Perception": "",
-          "Administration Reaction": "",
-          "Candidates for Evrysdi Tablet": "",
-          "Proactive Communication": "",
-          "Switch Patients to Evrysdi Tablet": "",
-          "Reasons for Offering Evrysdi Tablet": "",
-          "Future Use of Evrysdi": ""
-        },
-        {
-          "Respondent ID": "R001",
-          "Overall Impression of Evrysdi Tablet": "It seems very comparable to any other tablet medication that would be taken by a kid or an adult.",
-          "Questions About Product": "Any additional adverse effects?",
-          "Address Gaps or Unmet Needs": "I don't feel very strongly about this option. I think that it's a nice it's a potentially a good add-on therapy, but I don't think by itself it's like a wonderful therapy.",
-          "Most Interesting Information": "",
-          "Effectiveness Perception": "SPINRAZA seems to work better.",
-          "Safety Perception": "There's less I mean, Spinraza has risks of infection.",
-          "Administration Reaction": "I think that kids who are young even, like, up till age, like, seven or eight are not gonna want to take a pill tablet.",
-          "Candidates for Evrysdi Tablet": "",
-          "Proactive Communication": "",
-          "Switch Patients to Evrysdi Tablet": "",
-          "Reasons for Offering Evrysdi Tablet": "I just don't find that Evarise de itself is as effective as, like, Zolgensma or Spinraza.",
-          "Future Use of Evrysdi": ""
-        },
-        {
-          "Respondent ID": "R002",
-          "Overall Impression of Evrysdi Tablet": "I think the tablet option is fine, as it can be mixed with water and provides a thirty-day supply.",
-          "Questions About Product": "",
-          "Address Gaps or Unmet Needs": "",
-          "Most Interesting Information": "The double option of taking it as a liquid or swallowing it is interesting.",
-          "Effectiveness Perception": "I don't see a significant difference in efficacy between the tablet and the liquid form.",
-          "Safety Perception": "It looks safe to me, similar to the other formulations.",
-          "Administration Reaction": "I don't think the tablet will change administration significantly.",
-          "Candidates for Evrysdi Tablet": "",
-          "Proactive Communication": "I would inform patients about the tablet if they express interest.",
-          "Switch Patients to Evrysdi Tablet": "I would switch them if they want it and if it's easy.",
-          "Reasons for Offering Evrysdi Tablet": "The thirty-day supply and room temperature storage are advantages.",
-          "Future Use of Evrysdi": "I don't see it changing my prescribing habits significantly."
+          "Reasons for Not on Treatment": "",
+          "Factors Driving Treatment Consideration": "",
+          "Symptom Tracking Frequency": "",
+          "Symptom Tracking Methods": "",
+          "Discussion with HCP on Treatment Need": "",
+          "Emotional Factors": "",
+          "Practical/Logistical Factors": "",
+          "Clinical Factors": "",
+          "Treatment Benefit Requirement": "",
+          "Challenges in Accessing Treatment": "",
+          "Unmet Needs": ""
         }
       ],
-      "COMPETITIVE COMPARISON TO OTHER TREATMENTS IN DEVELOPMENT": [
+      "MOTIVATIONS & FUTURE CONSIDERATION": [
         {
           "Respondent ID": "",
-          "Overall Impression of DEVOTE Trial Findings": "",
-          "Questions About High Dose Spinraza": "",
-          "Address Gaps or Unmet Needs": "",
-          "Most Interesting Information": "",
-          "Trial Design Awareness": "",
-          "Initial Reaction to Changes": "",
-          "Impact on Perceptions": "",
-          "Initial Thoughts on Plasma NfL Level Outcomes": "",
-          "Initial Thoughts on Functional Outcomes": "",
-          "Initial Thoughts on Survival Data": "",
-          "Initial Thoughts on Safety Data": "",
-          "Trial Feature Impact Scale": "",
-          "Candidates for High Dose Spinraza": "",
-          "Proactive Communication for High Dose Spinraza": "",
-          "Switch Patients to High Dose Spinraza": "",
-          "Reasons for Offering High Dose Spinraza": "",
-          "Future Use of Spinraza": "",
-          "Candidates for Zolgensma": "",
-          "Proactive Communication for Zolgensma": "",
-          "Prescribe Zolgensma": "",
-          "Reasons for Offering Zolgensma": ""
-        },
+          "Likelihood to Consider Treatment": "",
+          "Factors Influencing Consideration": "",
+          "Expected Improvements from Treatment": "",
+          "Influential Decision-makers": "",
+          "Confidence in Treatment Decision": ""
+        }
+      ],
+      "COMMUNITY ENGAGEMENT & INFO SOURCES": [
         {
-          "Respondent ID": "R001",
-          "Overall Impression of DEVOTE Trial Findings": "",
-          "Questions About High Dose Spinraza": "",
-          "Address Gaps or Unmet Needs": "",
-          "Most Interesting Information": "",
-          "Trial Design Awareness": "",
-          "Initial Reaction to Changes": "",
-          "Impact on Perceptions": "",
-          "Initial Thoughts on Plasma NfL Level Outcomes": "",
-          "Initial Thoughts on Functional Outcomes": "",
-          "Initial Thoughts on Survival Data": "",
-          "Initial Thoughts on Safety Data": "",
-          "Trial Feature Impact Scale": "",
-          "Candidates for High Dose Spinraza": "",
-          "Proactive Communication for High Dose Spinraza": "",
-          "Switch Patients to High Dose Spinraza": "",
-          "Reasons for Offering High Dose Spinraza": "",
-          "Future Use of Spinraza": "",
-          "Candidates for Zolgensma": "",
-          "Proactive Communication for Zolgensma": "",
-          "Prescribe Zolgensma": "",
-          "Reasons for Offering Zolgensma": ""
-        },
-        {
-          "Respondent ID": "R002",
-          "Overall Impression of DEVOTE Trial Findings": "",
-          "Questions About High Dose Spinraza": "",
-          "Address Gaps or Unmet Needs": "",
-          "Most Interesting Information": "",
-          "Trial Design Awareness": "",
-          "Initial Reaction to Changes": "",
-          "Impact on Perceptions": "",
-          "Initial Thoughts on Plasma NfL Level Outcomes": "",
-          "Initial Thoughts on Functional Outcomes": "",
-          "Initial Thoughts on Survival Data": "",
-          "Initial Thoughts on Safety Data": "",
-          "Trial Feature Impact Scale": "",
-          "Candidates for High Dose Spinraza": "",
-          "Proactive Communication for High Dose Spinraza": "",
-          "Switch Patients to High Dose Spinraza": "",
-          "Reasons for Offering High Dose Spinraza": "",
-          "Future Use of Spinraza": "",
-          "Candidates for Zolgensma": "",
-          "Proactive Communication for Zolgensma": "",
-          "Prescribe Zolgensma": "",
-          "Reasons for Offering Zolgensma": ""
+          "Respondent ID": "",
+          "Connection to SMA Community": "",
+          "Participation in Support Groups": "",
+          "Reasons for Non-involvement": "",
+          "Information Sources": "",
+          "Trusted Sources": "",
+          "Finding Out About Treatments": "",
+          "Preferred Information Format": "",
+          "Improving Information Accessibility": ""
         }
       ],
       "Misc.": [
@@ -215,142 +98,14 @@
           "Respondent ID": "",
           "Final Comments": "",
           "Additional Notes": ""
-        },
-        {
-          "Respondent ID": "R001",
-          "Final Comments": "I just hope that the coverage does happen, that it's able to be covered for both for combination therapy. I do think that would be effective.",
-          "Additional Notes": ""
-        },
-        {
-          "Respondent ID": "R002",
-          "Final Comments": "I think the new treatments are interesting, but the focus should remain on efficacy.",
-          "Additional Notes": ""
         }
       ]
     },
-    "quotes": {
-      "Demographics": {
-        "R002": {}
-      },
-      "BACKGROUND": {
-        "R002": {
-          "Respondent ID": [],
-          "Brief Introduction": [
-            "I run a big neuromuscular clinic, and the clinic was kind of designed from scratch about six years ago.",
-            "There were a lot of, you know, people and patients that came to the clinic."
-          ],
-          "Unique Patient Population": [
-            "I just think it's incredible that they're living with such weak bodies, and then they they're able to function like that."
-          ],
-          "Overall SMA Patient Population": [
-            "I have between thirty five and forty patients with SMA."
-          ],
-          "Number of Patients Managed": [
-            "Between thirty five and forty."
-          ],
-          "Age Range": [
-            "My SMA patients are mostly adults, ranging from about twenty years to sixty or sixty five."
-          ],
-          "Typical Approach to Treating SMA": [
-            "I do mostly Spinraza or Evrysdi, but most of my patients choose Evrysdi."
-          ],
-          "Preferred Treatments": [
-            "Most of my patients get Evrysdi due to the ease of administration compared to intrathecal injections."
-          ]
-        }
-      },
-      "CURRENT AWARENESS AND PERCEPTIONS OF TREATMENTS IN DEVELOPMENT": {
-        "R002": {
-          "Respondent ID": [],
-          "Heard of New Formulation or Dosing Options": [
-            "Yes, I've heard of myostatin inhibitors and more frequent dosing of Spinraza."
-          ],
-          "New Treatment Awareness": [
-            "I'm very familiar with the Evrysdi label expansion for presymptomatic patients."
-          ],
-          "Initial Thoughts on New Treatment": [
-            "I think it's a great concept, but I don't know if it's a stand-alone medication."
-          ],
-          "Source of Information": [],
-          "Level of Interest": [
-            "I'm not that interested in myostatin inhibitors as a stand-alone treatment."
-          ],
-          "Patient Benefit": [],
-          "Impact on Prescribing": []
-        }
-      },
-      "EVRYSDI TABLET PRODUCT PROFILE REVIEW": {
-        "R002": {
-          "Respondent ID": [],
-          "Overall Impression of Evrysdi Tablet": [
-            "I think the tablet option is fine, as it can be mixed with water and provides a thirty-day supply."
-          ],
-          "Questions About Product": [],
-          "Address Gaps or Unmet Needs": [],
-          "Most Interesting Information": [
-            "The double option of taking it as a liquid or swallowing it is interesting."
-          ],
-          "Effectiveness Perception": [
-            "I don't see a significant difference in efficacy between the tablet and the liquid form."
-          ],
-          "Safety Perception": [
-            "It looks safe to me, similar to the other formulations."
-          ],
-          "Administration Reaction": [
-            "I don't think the tablet will change administration significantly."
-          ],
-          "Candidates for Evrysdi Tablet": [],
-          "Proactive Communication": [
-            "I would inform patients about the tablet if they express interest."
-          ],
-          "Switch Patients to Evrysdi Tablet": [
-            "I would switch them if they want it and if it's easy."
-          ],
-          "Reasons for Offering Evrysdi Tablet": [
-            "The thirty-day supply and room temperature storage are advantages."
-          ],
-          "Future Use of Evrysdi": [
-            "I don't see it changing my prescribing habits significantly."
-          ]
-        }
-      },
-      "COMPETITIVE COMPARISON TO OTHER TREATMENTS IN DEVELOPMENT": {
-        "R002": {
-          "Respondent ID": [],
-          "Overall Impression of DEVOTE Trial Findings": [],
-          "Questions About High Dose Spinraza": [],
-          "Address Gaps or Unmet Needs": [],
-          "Most Interesting Information": [],
-          "Trial Design Awareness": [],
-          "Initial Reaction to Changes": [],
-          "Impact on Perceptions": [],
-          "Initial Thoughts on Plasma NfL Level Outcomes": [],
-          "Initial Thoughts on Functional Outcomes": [],
-          "Initial Thoughts on Survival Data": [],
-          "Initial Thoughts on Safety Data": [],
-          "Trial Feature Impact Scale": [],
-          "Candidates for High Dose Spinraza": [],
-          "Proactive Communication for High Dose Spinraza": [],
-          "Switch Patients to High Dose Spinraza": [],
-          "Reasons for Offering High Dose Spinraza": [],
-          "Future Use of Spinraza": [],
-          "Candidates for Zolgensma": [],
-          "Proactive Communication for Zolgensma": [],
-          "Prescribe Zolgensma": [],
-          "Reasons for Offering Zolgensma": []
-        }
-      },
-      "Misc.": {
-        "R002": {
-          "Respondent ID": [],
-          "Final Comments": [
-            "I think the new treatments are interesting, but the focus should remain on efficacy."
-          ],
-          "Additional Notes": []
-        }
-      }
+    "guideMap": {
+      "bySheet": {}
     },
-    "savedAt": "2025-09-30T13:41:33.033Z",
+    "quotes": {},
+    "savedAt": "2025-10-06T23:58:38.239Z",
     "savedBy": "You"
   }
 ]

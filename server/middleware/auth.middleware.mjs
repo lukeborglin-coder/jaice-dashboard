@@ -1,7 +1,17 @@
 import jwt from 'jsonwebtoken';
+import { config } from 'dotenv';
 
-// Keep JWT secret consistent with auth.routes.mjs so tokens verify correctly
-const JWT_SECRET = process.env.JWT_SECRET || 'jaice-dashboard-secret-key-change-in-production';
+// Load environment variables
+config();
+
+// Enforce JWT secret - fail if not set in production
+if (!process.env.JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET environment variable is not set!');
+  console.error('Please set JWT_SECRET in your .env file before starting the server.');
+  process.exit(1);
+}
+
+const JWT_SECRET = process.env.JWT_SECRET;
 
 export const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];

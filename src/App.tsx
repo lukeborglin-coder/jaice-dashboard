@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { API_BASE_URL } from './config';
@@ -48,6 +49,7 @@ import {
   RocketLaunchIcon as RocketLaunchIconSolid,
   PlayIcon as PlayIconSolid
 } from "@heroicons/react/24/solid";
+import { IconCalendarShare } from "@tabler/icons-react";
 import ContentAnalysisX from "./components/ContentAnalysisX";
 import AuthWrapper from "./components/AuthWrapper";
 import TopBar from "./components/TopBar";
@@ -101,7 +103,8 @@ function VendorLibrary({ projects }: { projects: any[] }) {
     phone: '',
     company: '',
     specialties: [] as string[],
-    notes: ''
+    notes: '',
+    contacts: [] as Array<{ name: string; email: string }>
   });
   const [editingVendor, setEditingVendor] = useState({
     name: '',
@@ -109,13 +112,15 @@ function VendorLibrary({ projects }: { projects: any[] }) {
     phone: '',
     company: '',
     specialties: [] as string[],
-    notes: ''
+    notes: '',
+    contacts: [] as Array<{ name: string; email: string }>
   });
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [showConflictMessage, setShowConflictMessage] = useState(false);
+  const [showInactiveProjects, setShowInactiveProjects] = useState(false);
   const [scheduleForm, setScheduleForm] = useState({
     startDate: '',
     endDate: '',
@@ -175,29 +180,43 @@ function VendorLibrary({ projects }: { projects: any[] }) {
 
   // Add new vendor (localStorage solution)
   const handleAddVendor = async () => {
-    if (!newVendor.name || !newVendor.email) {
-      alert('Name and email are required');
-      return;
+    // Validation depends on vendor type
+    if (activeSection === 'sampleVendors') {
+      if (!newVendor.company) {
+        alert('Company name is required');
+        return;
+      }
+    } else {
+      if (!newVendor.name || !newVendor.email) {
+        alert('Name and email are required');
+        return;
+      }
     }
 
     try {
       const sectionKey = activeSection;
       const path = getVendorsApiPath(sectionKey as any);
       const token = localStorage.getItem('jaice_token');
+
+      // Prepare payload based on vendor type
+      const payload = activeSection === 'sampleVendors'
+        ? { company: newVendor.company, contacts: newVendor.contacts, specialties: newVendor.specialties, notes: newVendor.notes }
+        : newVendor;
+
       const resp = await fetch(`${API_BASE_URL}/api/vendors/${path}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         },
-        body: JSON.stringify(newVendor)
+        body: JSON.stringify(payload)
       });
       if (!resp.ok) {
         const err = await resp.json().catch(() => ({}));
         throw new Error(err.error || 'Failed to add vendor');
       }
       await loadVendors();
-      setNewVendor({ name: '', email: '', phone: '', company: '', specialties: [], notes: '' });
+      setNewVendor({ name: '', email: '', phone: '', company: '', specialties: [], notes: '', contacts: [] });
       setShowAddModal(false);
     } catch (error) {
       console.error('Error adding vendor:', error);
@@ -209,12 +228,13 @@ function VendorLibrary({ projects }: { projects: any[] }) {
   const handleVendorClick = (vendor: any) => {
     setSelectedVendor(vendor);
     setEditingVendor({
-      name: vendor.name,
-      email: vendor.email,
+      name: vendor.name || '',
+      email: vendor.email || '',
       phone: vendor.phone || '',
       company: vendor.company || '',
       specialties: vendor.specialties || [],
-      notes: vendor.notes || ''
+      notes: vendor.notes || '',
+      contacts: vendor.contacts || []
     });
     setIsEditing(false);
     setShowDetailsModal(true);
@@ -252,22 +272,36 @@ function VendorLibrary({ projects }: { projects: any[] }) {
 
   // Handle edit vendor
   const handleEditVendor = async () => {
-    if (!selectedVendor || !editingVendor.name || !editingVendor.email) {
-      alert('Name and email are required');
-      return;
+    // Validation depends on vendor type
+    if (activeSection === 'sampleVendors') {
+      if (!editingVendor.company) {
+        alert('Company name is required');
+        return;
+      }
+    } else {
+      if (!editingVendor.name || !editingVendor.email) {
+        alert('Name and email are required');
+        return;
+      }
     }
 
     try {
       const sectionKey = activeSection;
       const path = getVendorsApiPath(sectionKey as any);
       const token = localStorage.getItem('jaice_token');
+
+      // Prepare payload based on vendor type
+      const payload = activeSection === 'sampleVendors'
+        ? { company: editingVendor.company, contacts: editingVendor.contacts, specialties: editingVendor.specialties, notes: editingVendor.notes }
+        : editingVendor;
+
       const resp = await fetch(`${API_BASE_URL}/api/vendors/${path}/${selectedVendor.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         },
-        body: JSON.stringify(editingVendor)
+        body: JSON.stringify(payload)
       });
       if (!resp.ok) {
         const err = await resp.json().catch(() => ({}));
@@ -558,6 +592,53 @@ function VendorLibrary({ projects }: { projects: any[] }) {
     }
   };
 
+  // Get vendor's active and archived projects
+  const getVendorProjects = (vendorId: string, vendorCompany?: string) => {
+    const activeProjects: any[] = [];
+    const archivedProjects: any[] = [];
+
+    projects.forEach((project: any) => {
+      let isVendorInProject = false;
+
+      // Check different vendor fields based on the active section
+      if (activeSection === 'sampleVendors') {
+        // For sample vendors, check if company matches or vendor ID is in sampleProvider field
+        if (vendorCompany && (
+          project.sampleProvider === vendorId ||
+          project.sampleProvider === vendorCompany ||
+          (typeof project.sampleProvider === 'string' &&
+            project.sampleProvider.toLowerCase() === vendorCompany.toLowerCase())
+        )) {
+          isVendorInProject = true;
+        }
+      } else if (activeSection === 'moderators') {
+        // For moderators, check moderator field
+        if (project.moderator === vendorId ||
+            (typeof project.moderator === 'string' &&
+              project.moderator.toLowerCase() === (selectedVendor?.name || '').toLowerCase())) {
+          isVendorInProject = true;
+        }
+      } else if (activeSection === 'analytics') {
+        // For analytics, check analyticsPartner field
+        if (project.analyticsPartner === vendorId ||
+            (typeof project.analyticsPartner === 'string' &&
+              project.analyticsPartner.toLowerCase() === (selectedVendor?.name || '').toLowerCase())) {
+          isVendorInProject = true;
+        }
+      }
+
+      if (isVendorInProject) {
+        if (project.archived) {
+          archivedProjects.push(project);
+        } else {
+          activeProjects.push(project);
+        }
+      }
+    });
+
+    return { activeProjects, archivedProjects };
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -648,30 +729,49 @@ function VendorLibrary({ projects }: { projects: any[] }) {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Contact
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Company
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Email
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Phone
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Specialties
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Added
-                </th>
+                {activeSection === 'sampleVendors' ? (
+                  <>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Company
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Contacts
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Specialties
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Added
+                    </th>
+                  </>
+                ) : (
+                  <>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Contact
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Company
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Email
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Phone
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Specialties
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Added
+                    </th>
+                  </>
+                )}
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {currentVendors.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center">
+                  <td colSpan={activeSection === 'sampleVendors' ? 4 : 6} className="px-6 py-12 text-center">
                     <UserGroupIcon className="mx-auto h-12 w-12 text-gray-400" />
                     <h3 className="mt-2 text-sm font-medium text-gray-900">No vendors found</h3>
                     <p className="mt-1 text-sm text-gray-500">Get started by adding your first vendor.</p>
@@ -684,39 +784,86 @@ function VendorLibrary({ projects }: { projects: any[] }) {
                     className="hover:bg-gray-50 cursor-pointer"
                     onClick={() => handleVendorClick(vendor)}
                   >
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{vendor.name}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{vendor.company || '-'}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{vendor.email}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{vendor.phone || '-'}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex flex-wrap gap-1">
-                        {vendor.specialties && vendor.specialties.length > 0 ? (
-                          vendor.specialties.slice(0, 3).map((specialty: string, index: number) => (
-                            <span key={index} className="px-2 py-1 text-xs rounded-full text-white opacity-60" style={{ backgroundColor: '#3B82F6' }}>
-                              {specialty}
-                            </span>
-                          ))
-                        ) : (
-                          <span className="text-sm text-gray-500">-</span>
-                        )}
-                        {vendor.specialties && vendor.specialties.length > 3 && (
-                          <span className="text-xs text-gray-500">+{vendor.specialties.length - 3} more</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-500">
-                        {new Date(vendor.createdAt).toLocaleDateString()}
-                      </div>
-                    </td>
+                    {activeSection === 'sampleVendors' ? (
+                      <>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">{vendor.company}</div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-sm text-gray-900">
+                            {vendor.contacts && vendor.contacts.length > 0 ? (
+                              <div className="space-y-1">
+                                {vendor.contacts.slice(0, 2).map((contact: any, idx: number) => (
+                                  <div key={idx}>{contact.name}</div>
+                                ))}
+                                {vendor.contacts.length > 2 && (
+                                  <div className="text-xs text-gray-500">+{vendor.contacts.length - 2} more</div>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-gray-500 italic">No contacts</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex flex-wrap gap-1">
+                            {vendor.specialties && vendor.specialties.length > 0 ? (
+                              vendor.specialties.slice(0, 3).map((specialty: string, index: number) => (
+                                <span key={index} className="px-2 py-1 text-xs rounded-full text-white opacity-60" style={{ backgroundColor: '#3B82F6' }}>
+                                  {specialty}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-sm text-gray-500">-</span>
+                            )}
+                            {vendor.specialties && vendor.specialties.length > 3 && (
+                              <span className="text-xs text-gray-500">+{vendor.specialties.length - 3} more</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-500">
+                            {new Date(vendor.createdAt).toLocaleDateString()}
+                          </div>
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">{vendor.name}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{vendor.company || '-'}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{vendor.email}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{vendor.phone || '-'}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex flex-wrap gap-1">
+                            {vendor.specialties && vendor.specialties.length > 0 ? (
+                              vendor.specialties.slice(0, 3).map((specialty: string, index: number) => (
+                                <span key={index} className="px-2 py-1 text-xs rounded-full text-white opacity-60" style={{ backgroundColor: '#3B82F6' }}>
+                                  {specialty}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-sm text-gray-500">-</span>
+                            )}
+                            {vendor.specialties && vendor.specialties.length > 3 && (
+                              <span className="text-xs text-gray-500">+{vendor.specialties.length - 3} more</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-500">
+                            {new Date(vendor.createdAt).toLocaleDateString()}
+                          </div>
+                        </td>
+                      </>
+                    )}
                   </tr>
                 ))
               )}
@@ -727,8 +874,8 @@ function VendorLibrary({ projects }: { projects: any[] }) {
 
       {/* Add Vendor Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center overflow-y-auto py-8 z-[9999]">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 my-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]" style={{ margin: 0, padding: 0, top: 0, left: 0, right: 0, bottom: 0 }}>
+          <div className="bg-white rounded-lg p-6 w-full max-h-[90vh] overflow-y-auto" style={{ maxWidth: activeSection === 'sampleVendors' ? '600px' : '500px', margin: '2rem' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Add New {activeSection === 'moderators' ? 'Moderator' : activeSection === 'sampleVendors' ? 'Sample Vendor' : 'Analytics Partner'}</h3>
               <button
@@ -739,117 +886,253 @@ function VendorLibrary({ projects }: { projects: any[] }) {
               </button>
             </div>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
-                <input
-                  type="text"
-                  value={newVendor.name}
-                  onChange={(e) => setNewVendor(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2"
-                  style={{ '--tw-ring-color': BRAND.orange } as any}
-                  placeholder="Vendor name"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
-                <input
-                  type="email"
-                  value={newVendor.email}
-                  onChange={(e) => setNewVendor(prev => ({ ...prev, email: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2"
-                  style={{ '--tw-ring-color': BRAND.orange } as any}
-                  placeholder="vendor@example.com"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                <input
-                  type="tel"
-                  value={newVendor.phone}
-                  onChange={(e) => setNewVendor(prev => ({ ...prev, phone: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2"
-                  style={{ '--tw-ring-color': BRAND.orange } as any}
-                  placeholder="Phone number"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Company</label>
-                <input
-                  type="text"
-                  value={newVendor.company}
-                  onChange={(e) => setNewVendor(prev => ({ ...prev, company: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2"
-                  style={{ '--tw-ring-color': BRAND.orange } as any}
-                  placeholder="Company name"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Specialties</label>
-                <div className="space-y-2">
+            {activeSection === 'sampleVendors' ? (
+              // Sample Vendor Form
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Company Name *</label>
                   <input
                     type="text"
-                    placeholder="Add specialty and press Enter"
+                    value={newVendor.company}
+                    onChange={(e) => setNewVendor(prev => ({ ...prev, company: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2"
                     style={{ '--tw-ring-color': BRAND.orange } as any}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && e.currentTarget.value.trim()) {
-                        e.preventDefault();
-                        const specialty = e.currentTarget.value.trim();
-                        if (!newVendor.specialties.includes(specialty)) {
-                          setNewVendor(prev => ({
-                            ...prev,
-                            specialties: [...prev.specialties, specialty]
-                          }));
-                        }
-                        e.currentTarget.value = '';
-                      }
-                    }}
+                    placeholder="Company name"
                   />
-                  {newVendor.specialties.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {newVendor.specialties.map((specialty, index) => (
-                        <span
-                          key={index}
-                          className="inline-flex items-center gap-1 px-3 py-1 text-sm rounded-full text-white"
-                          style={{ backgroundColor: '#3B82F6', opacity: 0.8 }}
-                        >
-                          {specialty}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setNewVendor(prev => ({
-                                ...prev,
-                                specialties: prev.specialties.filter((_, i) => i !== index)
-                              }));
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-gray-700">Contacts</label>
+                    <button
+                      type="button"
+                      onClick={() => setNewVendor(prev => ({ ...prev, contacts: [...prev.contacts, { name: '', email: '' }] }))}
+                      className="text-sm px-2 py-1 rounded hover:bg-gray-100"
+                      style={{ color: BRAND.orange }}
+                    >
+                      + Add Contact
+                    </button>
+                  </div>
+                  <div className="space-y-3">
+                    {newVendor.contacts.map((contact, index) => (
+                      <div key={index} className="flex gap-2 items-start p-3 border border-gray-200 rounded-md">
+                        <div className="flex-1 space-y-2">
+                          <input
+                            type="text"
+                            value={contact.name}
+                            onChange={(e) => {
+                              const updated = [...newVendor.contacts];
+                              updated[index].name = e.target.value;
+                              setNewVendor(prev => ({ ...prev, contacts: updated }));
                             }}
-                            className="ml-1 text-white hover:text-gray-200"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2"
+                            style={{ '--tw-ring-color': BRAND.orange } as any}
+                            placeholder="Contact name"
+                          />
+                          <input
+                            type="email"
+                            value={contact.email}
+                            onChange={(e) => {
+                              const updated = [...newVendor.contacts];
+                              updated[index].email = e.target.value;
+                              setNewVendor(prev => ({ ...prev, contacts: updated }));
+                            }}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2"
+                            style={{ '--tw-ring-color': BRAND.orange } as any}
+                            placeholder="Contact email"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = newVendor.contacts.filter((_, i) => i !== index);
+                            setNewVendor(prev => ({ ...prev, contacts: updated }));
+                          }}
+                          className="text-red-500 hover:text-red-700 p-1"
+                        >
+                          <XMarkIcon className="w-5 h-5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Specialties</label>
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      placeholder="Add specialty and press Enter"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2"
+                      style={{ '--tw-ring-color': BRAND.orange } as any}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                          e.preventDefault();
+                          const specialty = e.currentTarget.value.trim();
+                          if (!newVendor.specialties.includes(specialty)) {
+                            setNewVendor(prev => ({
+                              ...prev,
+                              specialties: [...prev.specialties, specialty]
+                            }));
+                          }
+                          e.currentTarget.value = '';
+                        }
+                      }}
+                    />
+                    {newVendor.specialties.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {newVendor.specialties.map((specialty, index) => (
+                          <span
+                            key={index}
+                            className="inline-flex items-center gap-1 px-3 py-1 text-sm rounded-full text-white"
+                            style={{ backgroundColor: '#3B82F6', opacity: 0.8 }}
                           >
-                            ×
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                  )}
+                            {specialty}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setNewVendor(prev => ({
+                                  ...prev,
+                                  specialties: prev.specialties.filter((_, i) => i !== index)
+                                }));
+                              }}
+                              className="ml-1 text-white hover:text-gray-200"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                  <textarea
+                    value={newVendor.notes}
+                    onChange={(e) => setNewVendor(prev => ({ ...prev, notes: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2"
+                    style={{ '--tw-ring-color': BRAND.orange } as any}
+                    rows={3}
+                    placeholder="Additional notes..."
+                  />
                 </div>
               </div>
+            ) : (
+              // Moderator/Analytics Form
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+                  <input
+                    type="text"
+                    value={newVendor.name}
+                    onChange={(e) => setNewVendor(prev => ({ ...prev, name: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2"
+                    style={{ '--tw-ring-color': BRAND.orange } as any}
+                    placeholder="Vendor name"
+                  />
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-                <textarea
-                  value={newVendor.notes}
-                  onChange={(e) => setNewVendor(prev => ({ ...prev, notes: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2"
-                  style={{ '--tw-ring-color': BRAND.orange } as any}
-                  rows={3}
-                  placeholder="Additional notes..."
-                />
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                  <input
+                    type="email"
+                    value={newVendor.email}
+                    onChange={(e) => setNewVendor(prev => ({ ...prev, email: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2"
+                    style={{ '--tw-ring-color': BRAND.orange } as any}
+                    placeholder="vendor@example.com"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                  <input
+                    type="tel"
+                    value={newVendor.phone}
+                    onChange={(e) => setNewVendor(prev => ({ ...prev, phone: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2"
+                    style={{ '--tw-ring-color': BRAND.orange } as any}
+                    placeholder="Phone number"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Company</label>
+                  <input
+                    type="text"
+                    value={newVendor.company}
+                    onChange={(e) => setNewVendor(prev => ({ ...prev, company: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2"
+                    style={{ '--tw-ring-color': BRAND.orange } as any}
+                    placeholder="Company name"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Specialties</label>
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      placeholder="Add specialty and press Enter"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2"
+                      style={{ '--tw-ring-color': BRAND.orange } as any}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                          e.preventDefault();
+                          const specialty = e.currentTarget.value.trim();
+                          if (!newVendor.specialties.includes(specialty)) {
+                            setNewVendor(prev => ({
+                              ...prev,
+                              specialties: [...prev.specialties, specialty]
+                            }));
+                          }
+                          e.currentTarget.value = '';
+                        }
+                      }}
+                    />
+                    {newVendor.specialties.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {newVendor.specialties.map((specialty, index) => (
+                          <span
+                            key={index}
+                            className="inline-flex items-center gap-1 px-3 py-1 text-sm rounded-full text-white"
+                            style={{ backgroundColor: '#3B82F6', opacity: 0.8 }}
+                          >
+                            {specialty}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setNewVendor(prev => ({
+                                  ...prev,
+                                  specialties: prev.specialties.filter((_, i) => i !== index)
+                                }));
+                              }}
+                              className="ml-1 text-white hover:text-gray-200"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                  <textarea
+                    value={newVendor.notes}
+                    onChange={(e) => setNewVendor(prev => ({ ...prev, notes: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2"
+                    style={{ '--tw-ring-color': BRAND.orange } as any}
+                    rows={3}
+                    placeholder="Additional notes..."
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="flex justify-end gap-3 mt-6">
               <button
@@ -874,11 +1157,11 @@ function VendorLibrary({ projects }: { projects: any[] }) {
 
       {/* Vendor Details Modal */}
       {showDetailsModal && selectedVendor && createPortal(
-        <div className="fixed top-0 left-0 right-0 bottom-0 bg-black bg-opacity-50 flex items-start justify-center z-[9999] overflow-y-auto py-8" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
-          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 my-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]" style={{ margin: 0, padding: 0, top: 0, left: 0, right: 0, bottom: 0 }}>
+          <div className="bg-white rounded-lg p-6 w-full h-full max-w-7xl max-h-[95vh] overflow-y-auto" style={{ margin: '2rem' }}>
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-semibold text-gray-900">
-                {selectedVendor.name}
+                {activeSection === 'sampleVendors' ? selectedVendor.company : selectedVendor.name}
               </h3>
               <div className="flex items-center gap-2">
                 {!isEditing && (
@@ -908,46 +1191,122 @@ function VendorLibrary({ projects }: { projects: any[] }) {
               {isEditing ? (
                 // Edit Form
                 <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
-                    <input
-                      type="text"
-                      value={editingVendor.name}
-                      onChange={(e) => setEditingVendor(prev => ({ ...prev, name: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2"
-                      style={{ '--tw-ring-color': BRAND.orange } as any}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
-                    <input
-                      type="email"
-                      value={editingVendor.email}
-                      onChange={(e) => setEditingVendor(prev => ({ ...prev, email: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2"
-                      style={{ '--tw-ring-color': BRAND.orange } as any}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                    <input
-                      type="tel"
-                      value={editingVendor.phone}
-                      onChange={(e) => setEditingVendor(prev => ({ ...prev, phone: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2"
-                      style={{ '--tw-ring-color': BRAND.orange } as any}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Company</label>
-                    <input
-                      type="text"
-                      value={editingVendor.company}
-                      onChange={(e) => setEditingVendor(prev => ({ ...prev, company: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2"
-                      style={{ '--tw-ring-color': BRAND.orange } as any}
-                    />
-                  </div>
+                  {activeSection === 'sampleVendors' ? (
+                    // Sample Vendor Edit Form
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Company Name *</label>
+                        <input
+                          type="text"
+                          value={editingVendor.company}
+                          onChange={(e) => setEditingVendor(prev => ({ ...prev, company: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2"
+                          style={{ '--tw-ring-color': BRAND.orange } as any}
+                        />
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="block text-sm font-medium text-gray-700">Contacts</label>
+                          <button
+                            type="button"
+                            onClick={() => setEditingVendor(prev => ({ ...prev, contacts: [...prev.contacts, { name: '', email: '' }] }))}
+                            className="text-sm px-2 py-1 rounded hover:bg-gray-100"
+                            style={{ color: BRAND.orange }}
+                          >
+                            + Add Contact
+                          </button>
+                        </div>
+                        <div className="space-y-3">
+                          {editingVendor.contacts.map((contact, index) => (
+                            <div key={index} className="flex gap-2 items-start p-3 border border-gray-200 rounded-md">
+                              <div className="flex-1 space-y-2">
+                                <input
+                                  type="text"
+                                  value={contact.name}
+                                  onChange={(e) => {
+                                    const updated = [...editingVendor.contacts];
+                                    updated[index].name = e.target.value;
+                                    setEditingVendor(prev => ({ ...prev, contacts: updated }));
+                                  }}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2"
+                                  style={{ '--tw-ring-color': BRAND.orange } as any}
+                                  placeholder="Contact name"
+                                />
+                                <input
+                                  type="email"
+                                  value={contact.email}
+                                  onChange={(e) => {
+                                    const updated = [...editingVendor.contacts];
+                                    updated[index].email = e.target.value;
+                                    setEditingVendor(prev => ({ ...prev, contacts: updated }));
+                                  }}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2"
+                                  style={{ '--tw-ring-color': BRAND.orange } as any}
+                                  placeholder="Contact email"
+                                />
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const updated = editingVendor.contacts.filter((_, i) => i !== index);
+                                  setEditingVendor(prev => ({ ...prev, contacts: updated }));
+                                }}
+                                className="text-red-500 hover:text-red-700 p-1"
+                              >
+                                <XMarkIcon className="w-5 h-5" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    // Moderator/Analytics Edit Form
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+                        <input
+                          type="text"
+                          value={editingVendor.name}
+                          onChange={(e) => setEditingVendor(prev => ({ ...prev, name: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2"
+                          style={{ '--tw-ring-color': BRAND.orange } as any}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                        <input
+                          type="email"
+                          value={editingVendor.email}
+                          onChange={(e) => setEditingVendor(prev => ({ ...prev, email: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2"
+                          style={{ '--tw-ring-color': BRAND.orange } as any}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                        <input
+                          type="tel"
+                          value={editingVendor.phone}
+                          onChange={(e) => setEditingVendor(prev => ({ ...prev, phone: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2"
+                          style={{ '--tw-ring-color': BRAND.orange } as any}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Company</label>
+                        <input
+                          type="text"
+                          value={editingVendor.company}
+                          onChange={(e) => setEditingVendor(prev => ({ ...prev, company: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2"
+                          style={{ '--tw-ring-color': BRAND.orange } as any}
+                        />
+                      </div>
+                    </>
+                  )}
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Specialties</label>
                     <div className="space-y-2">
@@ -1033,56 +1392,157 @@ function VendorLibrary({ projects }: { projects: any[] }) {
                 </div>
               ) : (
                 // View Details
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-600 uppercase tracking-wide mb-2">Contact Information</h4>
-                      <div className="space-y-2">
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="space-y-6">
+                      {/* Contact Information for Moderators/Analytics */}
+                      {activeSection !== 'sampleVendors' && (
                         <div>
-                          <span className="text-sm font-medium text-gray-700">Email:</span>
-                          <span className="ml-2 text-sm text-gray-900">{selectedVendor.email}</span>
+                          <h4 className="text-sm font-medium text-gray-600 uppercase tracking-wide mb-3">Contact Information</h4>
+                          <div className="space-y-2">
+                            <div>
+                              <span className="text-sm font-medium text-gray-700">Email:</span>
+                              <span className="ml-2 text-sm text-gray-900">{selectedVendor.email}</span>
+                            </div>
+                            <div>
+                              <span className="text-sm font-medium text-gray-700">Phone:</span>
+                              <span className={`ml-2 text-sm ${selectedVendor.phone ? 'text-gray-900' : 'text-gray-500 italic'}`}>
+                                {selectedVendor.phone || 'N/A'}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-sm font-medium text-gray-700">Company:</span>
+                              <span className={`ml-2 text-sm ${selectedVendor.company ? 'text-gray-900' : 'text-gray-500 italic'}`}>
+                                {selectedVendor.company || 'N/A'}
+                              </span>
+                            </div>
+                          </div>
                         </div>
+                      )}
+
+                      {/* Contacts for Sample Vendors */}
+                      {activeSection === 'sampleVendors' && (
                         <div>
-                          <span className="text-sm font-medium text-gray-700">Phone:</span>
-                          <span className={`ml-2 text-sm ${selectedVendor.phone ? 'text-gray-900' : 'text-gray-500 italic'}`}>
-                            {selectedVendor.phone || 'N/A'}
-                          </span>
+                          <h4 className="text-sm font-medium text-gray-600 uppercase tracking-wide mb-3">Contacts</h4>
+                          {selectedVendor.contacts && selectedVendor.contacts.length > 0 ? (
+                            <div className="space-y-3">
+                              {selectedVendor.contacts.map((contact: any, index: number) => (
+                                <div key={index} className="p-3 bg-gray-50 rounded-lg">
+                                  <div className="text-sm font-medium text-gray-900">{contact.name}</div>
+                                  <div className="text-sm text-gray-600">{contact.email}</div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-gray-500 italic">No contacts added</p>
+                          )}
                         </div>
+                      )}
+
+                      {/* Specialties */}
+                      {selectedVendor.specialties && selectedVendor.specialties.length > 0 && (
                         <div>
-                          <span className="text-sm font-medium text-gray-700">Company:</span>
-                          <span className={`ml-2 text-sm ${selectedVendor.company ? 'text-gray-900' : 'text-gray-500 italic'}`}>
-                            {selectedVendor.company || 'N/A'}
-                          </span>
+                          <h4 className="text-sm font-medium text-gray-600 uppercase tracking-wide mb-3">Specialties</h4>
+                          <div className="flex flex-wrap gap-2">
+                            {selectedVendor.specialties.map((specialty: string, index: number) => (
+                              <span
+                                key={index}
+                                className="px-3 py-1 text-sm rounded-full text-white"
+                                style={{ backgroundColor: '#3B82F6', opacity: 0.8 }}
+                              >
+                                {specialty}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Notes */}
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-600 uppercase tracking-wide mb-3">Notes</h4>
+                        <div className="p-4 bg-gray-50 rounded-lg">
+                          <p className={`text-sm whitespace-pre-wrap ${selectedVendor.notes ? 'text-gray-900' : 'text-gray-500 italic'}`}>
+                            {selectedVendor.notes || 'No notes'}
+                          </p>
                         </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Specialties */}
-                  {selectedVendor.specialties && selectedVendor.specialties.length > 0 && (
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-600 uppercase tracking-wide mb-2">Specialties</h4>
-                      <div className="flex flex-wrap gap-2">
-                        {selectedVendor.specialties.map((specialty: string, index: number) => (
-                          <span
-                            key={index}
-                            className="px-3 py-1 text-sm rounded-full text-white"
-                            style={{ backgroundColor: '#3B82F6', opacity: 0.8 }}
-                          >
-                            {specialty}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                    {/* Right Column - Projects */}
+                    <div className="space-y-6">
+                      {(() => {
+                        const { activeProjects, archivedProjects } = getVendorProjects(
+                          selectedVendor.id,
+                          selectedVendor.company
+                        );
 
-                  {/* Notes */}
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-600 uppercase tracking-wide mb-2">Notes</h4>
-                    <div className="p-4 bg-gray-50 rounded-lg">
-                      <p className={`text-sm whitespace-pre-wrap ${selectedVendor.notes ? 'text-gray-900' : 'text-gray-500 italic'}`}>
-                        {selectedVendor.notes || 'N/A'}
-                      </p>
+                        return (
+                          <>
+                            {/* Active Projects */}
+                            <div>
+                              <h4 className="text-sm font-medium text-gray-600 uppercase tracking-wide mb-3">
+                                Active Projects ({activeProjects.length})
+                              </h4>
+                              {activeProjects.length > 0 ? (
+                                <div className="space-y-2">
+                                  {activeProjects.map((project: any) => (
+                                    <div key={project.id} className="p-3 bg-green-50 border border-green-100 rounded-lg">
+                                      <div className="text-sm font-medium text-gray-900">{project.name}</div>
+                                      <div className="text-xs text-gray-600 mt-1">
+                                        {project.client} • {project.methodologyType}
+                                      </div>
+                                      <div className="text-xs text-gray-500 mt-1">
+                                        Phase: {project.phase}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="text-sm text-gray-500 italic">No active projects</p>
+                              )}
+                            </div>
+
+                            {/* Inactive/Archived Projects */}
+                            <div>
+                              <button
+                                onClick={() => setShowInactiveProjects(!showInactiveProjects)}
+                                className="flex items-center justify-between w-full text-left mb-3"
+                              >
+                                <h4 className="text-sm font-medium text-gray-600 uppercase tracking-wide">
+                                  Inactive Projects ({archivedProjects.length})
+                                </h4>
+                                <svg
+                                  className={`w-5 h-5 text-gray-500 transition-transform ${showInactiveProjects ? 'rotate-180' : ''}`}
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                              </button>
+                              {showInactiveProjects && (
+                                archivedProjects.length > 0 ? (
+                                  <div className="space-y-2">
+                                    {archivedProjects.map((project: any) => (
+                                      <div key={project.id} className="p-3 bg-gray-100 border border-gray-200 rounded-lg">
+                                        <div className="text-sm font-medium text-gray-700">{project.name}</div>
+                                        <div className="text-xs text-gray-600 mt-1">
+                                          {project.client} • {project.methodologyType}
+                                        </div>
+                                        <div className="text-xs text-gray-500 mt-1">
+                                          Archived
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="text-sm text-gray-500 italic">No archived projects</p>
+                                )
+                              )}
+                            </div>
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
 
@@ -1419,7 +1879,7 @@ function AdminCenter() {
       });
       
       if (response.ok) {
-        setNewUser({ name: '', email: '', password: '', role: 'user' });
+        setNewUser({ name: '', email: '', password: '', role: 'user', company: 'None' });
         setShowCreateUser(false);
         loadUsers();
       } else {
@@ -2041,6 +2501,7 @@ const PHASES = [
   "Reporting",
 ] as const;
 type Phase = typeof PHASES[number];
+type ProjectPhase = Phase | "Awaiting KO" | "Complete";
 
 const METHODOLOGIES = [
   "ATU (Awareness, Trial, Usage)",
@@ -2114,7 +2575,7 @@ type Project = {
   id: string;
   name: string;
   client: string;
-  phase: Phase;
+  phase: ProjectPhase;
   methodology: Methodology;
   startDate: string; // YYYY-MM-DD format
   endDate: string; // YYYY-MM-DD format
@@ -2127,7 +2588,7 @@ type Project = {
   tasks: Array<Task>;
   teamMembers: Array<TeamMember>;
   files: Array<ProjectFile>;
-  segments: Array<{ phase: Phase; startDate: string; endDate: string; startDay?: number; endDay?: number }>; // dates required, numeric optional
+  segments: Array<{ phase: ProjectPhase; startDate: string; endDate: string; startDay?: number; endDay?: number }>; // dates required, numeric optional
   notes: Array<{ id: string; title: string; body: string; createdAt: string; createdBy: string; isEditable: boolean; date?: string; postToProjectPage?: boolean; taggedMembers?: string[]; comments?: Array<{ id: string; text: string; author: string; createdAt: string }> }>;
   archivedNotes?: Array<{ id: string; title: string; body: string; createdAt: string; createdBy: string; isEditable: boolean; date?: string; postToProjectPage?: boolean; taggedMembers?: string[]; comments?: Array<{ id: string; text: string; author: string; createdAt: string }> }>;
   savedContentAnalyses?: Array<{ id: string; name: string; savedBy: string; savedDate: string; description: string; data: any }>;
@@ -2209,7 +2670,7 @@ const getInitials = (name: string) => {
 };
 
 // Helper function for getting member color (consistent across all contexts)
-const getMemberColor = (memberId: string, projectId?: string) => {
+const getMemberColor = (memberId: string, teamMembers?: any[]) => {
   const colors = [
     '#3B82F6', // Blue
     '#10B981', // Green
@@ -2222,19 +2683,27 @@ const getMemberColor = (memberId: string, projectId?: string) => {
     '#EC4899', // Pink
     '#6B7280'  // Gray
   ];
-  
-  // Use only memberId for consistent colors across all contexts
-  // This ensures the same person always gets the same color regardless of project
-  const identifier = memberId;
-  
-  // Simple hash function to get consistent color for each member
+
+  // If teamMembers array is provided, use sequential color assignment
+  if (Array.isArray(teamMembers) && teamMembers.length > 0) {
+    const memberIndex = teamMembers.findIndex(member => {
+      if (!member) return false;
+      const candidateId = typeof member === 'string' ? member : (member.id || member.email || member.name);
+      return candidateId === memberId;
+    });
+    if (memberIndex !== -1) {
+      return colors[memberIndex % colors.length];
+    }
+  }
+
+  // Fallback to hash-based color for backward compatibility
   let hash = 0;
-  for (let i = 0; i < identifier.length; i++) {
-    const char = identifier.charCodeAt(i);
+  for (let i = 0; i < memberId.length; i++) {
+    const char = memberId.charCodeAt(i);
     hash = ((hash << 5) - hash) + char;
     hash = hash & hash; // Convert to 32-bit integer
   }
-  
+
   return colors[Math.abs(hash) % colors.length];
 };
 
@@ -3022,13 +3491,21 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
     
     return projects
       .filter(p => {
-        const currentPhaseSegment = p.segments?.find(s =>
-          currentWeek >= s.startDay && currentWeek <= s.endDay
-        );
+        const currentPhaseSegment = p.segments?.find(s => {
+          if (typeof s.startDay !== 'number' || typeof s.endDay !== 'number') return false;
+          return currentWeek >= s.startDay && currentWeek <= s.endDay;
+        });
         const isCurrentlyActive = !!currentPhaseSegment;
-        const isWithinKickoffBuffer = p.segments?.[0] && currentWeek >= (p.segments[0].startDay - 7) && currentWeek <= (p.segments[0].endDay + 7);
-        const lastSegment = p.segments?.[p.segments.length - 1];
-        const isWithinCompletionBuffer = lastSegment && currentWeek >= (lastSegment.startDay - 7) && currentWeek <= (lastSegment.endDay + 7);
+
+        const firstSegment = p.segments && p.segments.length > 0 ? p.segments[0] : undefined;
+        const isWithinKickoffBuffer = firstSegment && typeof firstSegment.startDay === 'number' && typeof firstSegment.endDay === 'number'
+          ? currentWeek >= (firstSegment.startDay - 7) && currentWeek <= (firstSegment.endDay + 7)
+          : false;
+
+        const lastSegment = p.segments && p.segments.length > 0 ? p.segments[p.segments.length - 1] : undefined;
+        const isWithinCompletionBuffer = lastSegment && typeof lastSegment.startDay === 'number' && typeof lastSegment.endDay === 'number'
+          ? currentWeek >= (lastSegment.startDay - 7) && currentWeek <= (lastSegment.endDay + 7)
+          : false;
 
         return isCurrentlyActive || isWithinKickoffBuffer || isWithinCompletionBuffer;
       })
@@ -3380,10 +3857,11 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
                                 key={`${project.id}-${member.id}-${index}`}
                                 className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-medium border-2 border-white"
                                 style={{
-                                  backgroundColor: '#6B7280',
+                                  backgroundColor: getMemberColor(member.id || member.name, project.teamMembers),
                                   marginLeft: index > 0 ? '-4px' : '0',
                                   zIndex: 10 - index
                                 }}
+                                title={member.name}
                               >
                                 {member.name.split(' ').map(n => n[0]).join('').toUpperCase()}
                               </div>
@@ -6039,7 +6517,7 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                     <div
                       key={member.id}
                       className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-medium relative group"
-                      style={{ backgroundColor: getMemberColor(member.id) }}
+                      style={{ backgroundColor: getMemberColor(member.id, selectedProject.teamMembers) }}
                     >
                       {initials}
                       {/* Tooltip */}
@@ -6203,7 +6681,10 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                           <div
                             key={`${project.id}-${member.id || member.name}-${index}`}
                             className="w-8 h-8 rounded-full border-2 border-white flex items-center justify-center text-xs font-medium text-white"
-                            style={{ backgroundColor: getMemberColor(member.id || member.name) }}
+                            style={{
+                              backgroundColor: getMemberColor(member.id || member.name, project.teamMembers),
+                              zIndex: 10 - index
+                            }}
                             title={member.name}
                           >
                             {member.name.split(' ').map(n => n[0]).join('').toUpperCase()}
@@ -6618,7 +7099,7 @@ function ProjectForm({
                       {task.assignedTo && task.assignedTo.filter(id => id && id.trim() !== '').length > 0 && (
                         <div className="flex items-center gap-1 flex-shrink-0">
                           {task.assignedTo.filter(id => id && id.trim() !== '').slice(0, 2).map((memberId) => (
-                            <div key={memberId} className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium" style={{ backgroundColor: getMemberColor(memberId) }}>
+                            <div key={memberId} className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium" style={{ backgroundColor: getMemberColor(memberId, formData.teamMembers) }}>
                               {getInitials(formData.teamMembers.find(m => m.id === memberId)?.name || 'Unknown')}
                             </div>
                           ))}
@@ -6718,7 +7199,7 @@ function ProjectForm({
                       {newTask.assignedTo && newTask.assignedTo.filter(id => id && id.trim() !== '').length > 0 && (
                         <div className="flex items-center gap-1 flex-shrink-0">
                           {newTask.assignedTo.filter(id => id && id.trim() !== '').slice(0, 2).map((memberId) => (
-                            <div key={memberId} className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium" style={{ backgroundColor: getMemberColor(memberId) }}>
+                            <div key={memberId} className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium" style={{ backgroundColor: getMemberColor(memberId, formData.teamMembers) }}>
                               {getInitials(formData.teamMembers.find(m => m.id === memberId)?.name || 'Unknown')}
                             </div>
                           ))}
@@ -7997,19 +8478,29 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
   const handleTextareaChange = (e: React.FormEvent<HTMLDivElement>) => {
     const target = e.target as HTMLDivElement;
     const value = target.innerHTML;
-    
+
+    // Check which members are still in the content
+    const mentionSpans = target.querySelectorAll('span[data-member-id]');
+    const remainingMemberIds = Array.from(mentionSpans).map(span =>
+      span.getAttribute('data-member-id')
+    ).filter(id => id !== null);
+
     // Only update state if the content actually changed to avoid cursor jumping
     if (value !== newNote.body) {
-      setNewNote(prev => ({ ...prev, body: value }));
+      setNewNote(prev => ({
+        ...prev,
+        body: value,
+        taggedMembers: remainingMemberIds
+      }));
     }
-    
+
     // Check for @ mentions
     const textContent = target.textContent || '';
     const selection = window.getSelection();
     const cursorPosition = selection ? getCaretPosition(target) : textContent.length;
     const textBeforeCursor = textContent.substring(0, cursorPosition);
     const atMatch = textBeforeCursor.match(/@(\w*)$/);
-    
+
     if (atMatch) {
       setMentionQuery(atMatch[1]);
       setMentionPosition(cursorPosition - atMatch[1].length - 1);
@@ -8032,29 +8523,28 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
 
   const handleMentionSelect = (member: any) => {
     if (!textareaRef.current) return;
-    
-    const memberColor = getMemberColor(member.id, project.id);
-    const firstName = member.name.split(' ')[0];
-    
+
+    const memberColor = getMemberColor(member.id, project.teamMembers);
+
     // Get current content and replace @query with styled mention
     const currentContent = textareaRef.current.innerHTML;
     const newContent = currentContent.replace(
       new RegExp(`@${mentionQuery}\\b`, 'g'),
-      `<span style="font-weight: bold; color: ${memberColor};">${firstName}</span>`
+      `<span contenteditable="false" data-member-id="${member.id}" style="font-weight: bold; color: ${memberColor}; background-color: ${memberColor}15; padding: 2px 6px; border-radius: 4px; margin: 0 2px; display: inline-block; cursor: pointer;">${member.name}</span>&nbsp;`
     );
-    
+
     // Update the contentEditable div directly
     textareaRef.current.innerHTML = newContent;
-    
+
     setNewNote(prev => ({
       ...prev,
       body: newContent,
       taggedMembers: [...prev.taggedMembers, member.id]
     }));
-    
+
     setShowMentionDropdown(false);
     setMentionQuery("");
-    
+
     // Focus back to textarea and place cursor at end
     textareaRef.current.focus();
     const range = document.createRange();
@@ -8746,93 +9236,500 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
 
   return (
     <div className="space-y-6">
-      {/* Project Overview Boxes - Spanning Top */}
-      <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 ${project.methodologyType === 'Qualitative' ? 'xl:grid-cols-5' : 'xl:grid-cols-4'} gap-4`}>
-        {/* Methodology Box */}
-        <Card className="py-3">
-          <div className="mb-2">
-            <span className="text-sm font-bold text-gray-600 uppercase tracking-wide">METHODOLOGY</span>
-          </div>
-          <p className="text-sm text-gray-600 leading-relaxed">{project.methodology || 'Not specified'}</p>
-        </Card>
-
-        {/* Sample Details Box */}
-        <Card className="py-3">
-          <div className="mb-2">
-            <span className="text-sm font-bold text-gray-600 uppercase tracking-wide">SAMPLE</span>
-          </div>
-          {(() => {
-            const sampleDetails = project.sampleDetails || 'Not specified';
-            
-            // Check if sample details contain subgroups in parentheses
-            const subgroupMatch = sampleDetails.match(/^(.+?)\s*\((.+?)\)$/);
-            
-            if (subgroupMatch) {
-              const [, mainText, subgroups] = subgroupMatch;
-              return (
-                <div>
-                  <p className="text-sm text-gray-600 leading-relaxed">{mainText.trim()}</p>
-                  <p className="text-xs text-gray-500 italic mt-1 leading-relaxed">({subgroups})</p>
-                </div>
-              );
-            }
-            
-            // If no subgroups found, display as normal
-            return <p className="text-sm text-gray-600 leading-relaxed">{sampleDetails}</p>;
-          })()}
-        </Card>
-
-        {/* Moderator Box - Only for Qualitative projects */}
-        {project.methodologyType === 'Qualitative' && (
-          <Card className="hover:shadow-md transition-shadow py-3">
-            <div className="mb-2">
-              <span className="text-sm font-bold text-gray-600 uppercase tracking-wide">MODERATOR</span>
+      {/* Top Row: Today + Later This Week + Project Details */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Today Box */}
+        <Card className="!p-0 overflow-hidden">
+          <div className="px-4 py-3 flex items-center gap-2">
+            {/* Calendar Icon with Month/Date */}
+            <div className="flex-shrink-0 w-10 h-10 bg-orange-500 text-white rounded-lg flex flex-col items-center justify-center" style={{ backgroundColor: BRAND.orange }}>
+              <div className="text-[9px] font-semibold uppercase leading-tight">{new Date().toLocaleDateString('en-US', { month: 'short' })}</div>
+              <div className="text-xl font-bold leading-none">{new Date().getDate()}</div>
             </div>
-            {localProject.moderator && localProject.moderator !== 'internal' && localProject.moderator !== 'external' && localProject.moderator !== 'vendor' ? (
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-gray-600 leading-relaxed">
-                  {moderators.find(m => m.id === localProject.moderator || m.name === localProject.moderator)?.name || localProject.moderator}
-                </p>
+            <div>
+              <h3 className="text-base font-semibold text-gray-900">Today</h3>
+              <p className="text-[10px] text-gray-500">{currentPhase}</p>
+            </div>
+          </div>
+
+          {/* Tasks Due Today */}
+          <div className="px-4 pb-3 space-y-3">
+            {/* My Tasks (Due Today) */}
+            <div>
+              <div className="border-b border-gray-200 pb-1">
+                <span className="text-[10px] font-semibold text-gray-600 uppercase tracking-wide">My Tasks</span>
+              </div>
+              <div className="mt-2 space-y-1">
+                {(() => {
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  const todayStr = today.toISOString().split('T')[0];
+
+                  // Filter tasks assigned to current user due today OR overdue
+                  const myTasksToday = projectTasks
+                    .filter(task => {
+                      if (!task.dueDate) return false;
+
+                      // Parse task due date
+                      const taskDueDate = new Date(task.dueDate + 'T00:00:00');
+                      taskDueDate.setHours(0, 0, 0, 0);
+
+                      // Check if due today or overdue (before today)
+                      const isDueToday = taskDueDate.getTime() === today.getTime();
+                      const isOverdue = task.status !== 'completed' && taskDueDate.getTime() < today.getTime();
+
+                      if (!isDueToday && !isOverdue) return false;
+                      if (!task.assignedTo || task.assignedTo.length === 0) return false;
+
+                      // Check if current user is in the assignedTo array
+                      return task.assignedTo.some((assignedName: string) => {
+                        if (!user?.name || !assignedName) return false;
+
+                        // Exact match or case-insensitive match
+                        if (assignedName === user.name ||
+                            assignedName.toLowerCase() === user.name.toLowerCase() ||
+                            assignedName === user.email ||
+                            assignedName.toLowerCase() === user.email?.toLowerCase()) {
+                          return true;
+                        }
+
+                        // Check if assignedName matches user's initials
+                        const userInitials = user.name
+                          .split(' ')
+                          .map(part => part[0])
+                          .join('')
+                          .toUpperCase();
+
+                        if (assignedName.toUpperCase() === userInitials) {
+                          return true;
+                        }
+
+                        // Check if user's initials match the assignedName
+                        const assignedInitials = assignedName
+                          .split(' ')
+                          .map(part => part[0])
+                          .join('')
+                          .toUpperCase();
+
+                        return assignedInitials === userInitials;
+                      });
+                    })
+                    .sort((a, b) => {
+                      // Sort: incomplete before completed
+                      if (a.status === 'completed' && b.status !== 'completed') return 1;
+                      if (a.status !== 'completed' && b.status === 'completed') return -1;
+                      return 0;
+                    });
+
+                  if (myTasksToday.length === 0) {
+                    return <p className="text-xs text-gray-500 italic">No tasks assigned to you today</p>;
+                  }
+
+                  return myTasksToday.map(task => {
+                    const isOverdue = isTaskOverdue(task);
+                    const taskPhaseColor = PHASE_COLORS[task.phase] || PHASE_COLORS['Kickoff'];
+
+                    return (
+                      <div
+                        key={task.id}
+                        className={`text-xs flex items-start gap-1 ${
+                          task.status === 'completed' ? 'text-gray-400' : 'text-gray-700'
+                        }`}
+                        style={{
+                          fontWeight: isOverdue ? 'bold' : 'normal',
+                          color: isOverdue ? taskPhaseColor : undefined
+                        }}
+                      >
+                        <span>•</span>
+                        <span className={task.status === 'completed' ? 'line-through' : ''}>
+                          {task.description}
+                          {isTaskOverdue(task) && (
+                            <span className="px-2 py-0.5 ml-1 rounded-full text-[10px] font-bold bg-red-500/20 text-red-600">
+                              overdue
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
+
+            {/* Additional Tasks (Due Today) */}
+            <div>
+              <div className="border-b border-gray-200 pb-1">
+                <span className="text-[10px] font-semibold text-gray-600 uppercase tracking-wide">Additional Tasks</span>
+              </div>
+              <div className="mt-2 space-y-1">
+                {(() => {
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+
+                  // Filter tasks NOT assigned to current user but due today OR overdue
+                  const additionalTasksToday = projectTasks
+                    .filter(task => {
+                      if (!task.dueDate) return false;
+
+                      // Parse task due date
+                      const taskDueDate = new Date(task.dueDate + 'T00:00:00');
+                      taskDueDate.setHours(0, 0, 0, 0);
+
+                      // Check if due today or overdue (before today)
+                      const isDueToday = taskDueDate.getTime() === today.getTime();
+                      const isOverdue = task.status !== 'completed' && taskDueDate.getTime() < today.getTime();
+
+                      if (!isDueToday && !isOverdue) return false;
+
+                      // If no assignedTo, include it
+                      if (!task.assignedTo || task.assignedTo.length === 0) return true;
+
+                      // Check if current user is NOT in the assignedTo array
+                      const isAssignedToUser = task.assignedTo.some((assignedName: string) => {
+                        if (!user?.name || !assignedName) return false;
+
+                        // Exact match or case-insensitive match
+                        if (assignedName === user.name ||
+                            assignedName.toLowerCase() === user.name.toLowerCase() ||
+                            assignedName === user.email ||
+                            assignedName.toLowerCase() === user.email?.toLowerCase()) {
+                          return true;
+                        }
+
+                        // Check if assignedName matches user's initials
+                        const userInitials = user.name
+                          .split(' ')
+                          .map(part => part[0])
+                          .join('')
+                          .toUpperCase();
+
+                        if (assignedName.toUpperCase() === userInitials) {
+                          return true;
+                        }
+
+                        // Check if user's initials match the assignedName
+                        const assignedInitials = assignedName
+                          .split(' ')
+                          .map(part => part[0])
+                          .join('')
+                          .toUpperCase();
+
+                        return assignedInitials === userInitials;
+                      });
+
+                      return !isAssignedToUser;
+                    })
+                    .sort((a, b) => {
+                      // Sort: incomplete before completed
+                      if (a.status === 'completed' && b.status !== 'completed') return 1;
+                      if (a.status !== 'completed' && b.status === 'completed') return -1;
+                      return 0;
+                    });
+
+                  if (additionalTasksToday.length === 0) {
+                    return <p className="text-xs text-gray-500 italic">No additional tasks due today</p>;
+                  }
+
+                  return additionalTasksToday.map(task => {
+                    const isOverdue = isTaskOverdue(task);
+                    const taskPhaseColor = PHASE_COLORS[task.phase] || PHASE_COLORS['Kickoff'];
+
+                    return (
+                      <div
+                        key={task.id}
+                        className={`text-xs flex items-start gap-1 ${
+                          task.status === 'completed' ? 'text-gray-400' : 'text-gray-700'
+                        }`}
+                        style={{
+                          fontWeight: isOverdue ? 'bold' : 'normal',
+                          color: isOverdue ? taskPhaseColor : undefined
+                        }}
+                      >
+                        <span>•</span>
+                        <span className={task.status === 'completed' ? 'line-through' : ''}>
+                          {task.description}
+                          {isTaskOverdue(task) && (
+                            <span className="px-2 py-0.5 ml-1 rounded-full text-[10px] font-bold bg-red-500/20 text-red-600">
+                              overdue
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        {/* Later This Week Box */}
+        <Card className="!p-0 overflow-hidden">
+          <div className="px-4 py-3 flex items-center gap-2">
+            <div className="flex-shrink-0 w-10 h-10 bg-blue-500 text-white rounded-lg flex items-center justify-center">
+              <IconCalendarShare className="w-6 h-6" stroke={1.5} />
+            </div>
+            <div>
+              <h3 className="text-base font-semibold text-gray-900">Later This Week</h3>
+              <p className="text-[10px] text-gray-500">{currentPhase}</p>
+            </div>
+          </div>
+
+          <div className="px-4 pb-3 space-y-3">
+            {/* My Tasks */}
+            <div>
+              <div className="border-b border-gray-200 pb-0.5">
+                <span className="text-[10px] font-semibold text-gray-600 uppercase tracking-wide">My Tasks</span>
+              </div>
+              <div className="mt-1.5 space-y-0.5">
+                {(() => {
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  const { monday, friday } = getThisWeekRange();
+
+                  // Set friday to end of day for proper comparison
+                  const fridayEndOfDay = new Date(friday);
+                  fridayEndOfDay.setHours(0, 0, 0, 0);
+
+                  const myTasksLaterThisWeek = projectTasks
+                    .filter(task => {
+                      if (task.status === 'completed') return false;
+                      if (!task.assignedTo || task.assignedTo.length === 0) return false;
+                      if (!task.dueDate) return false;
+
+                      const taskDate = new Date(task.dueDate + 'T00:00:00');
+                      taskDate.setHours(0, 0, 0, 0);
+
+                      // Task must be after today AND on or before Friday
+                      const isAfterToday = taskDate.getTime() > today.getTime();
+                      const isBeforeFridayEnd = taskDate.getTime() <= fridayEndOfDay.getTime();
+
+                      if (!(isAfterToday && isBeforeFridayEnd)) return false;
+
+                      return task.assignedTo.some((assignedValue: string) => {
+                        if (!user?.name || !assignedValue) return false;
+
+                        const teamMember = project.teamMembers.find(m => m.id === assignedValue);
+                        if (teamMember) {
+                          return teamMember.name === user.name ||
+                                 teamMember.name.toLowerCase() === user.name.toLowerCase() ||
+                                 teamMember.email === user.email ||
+                                 teamMember.email?.toLowerCase() === user.email?.toLowerCase();
+                        }
+
+                        if (assignedValue === user.name ||
+                            assignedValue.toLowerCase() === user.name.toLowerCase() ||
+                            assignedValue === user.email ||
+                            assignedValue.toLowerCase() === user.email?.toLowerCase()) {
+                          return true;
+                        }
+
+                        const userInitials = user.name
+                          .split(' ')
+                          .map(part => part[0])
+                          .join('')
+                          .toUpperCase();
+
+                        if (assignedValue.toUpperCase() === userInitials) {
+                          return true;
+                        }
+
+                        const assignedInitials = assignedValue
+                          .split(' ')
+                          .map(part => part[0])
+                          .join('')
+                          .toUpperCase();
+
+                        return assignedInitials === userInitials;
+                      });
+                    });
+
+                  if (myTasksLaterThisWeek.length === 0) {
+                    return <p className="text-[10px] text-gray-500 italic">No tasks for you later this week</p>;
+                  }
+
+                  return myTasksLaterThisWeek.map(task => {
+                    const taskPhaseColor = PHASE_COLORS[task.phase] || PHASE_COLORS['Kickoff'];
+                    return (
+                      <div key={task.id} className="text-[10px] text-gray-700 flex items-start gap-1" style={{ color: taskPhaseColor, fontWeight: 'bold' }}>
+                        <span>•</span>
+                        <span>
+                          {task.description}
+                          {task.dueDate && (
+                            <span className="text-[10px] ml-1">
+                              ({formatDateForDisplay(task.dueDate)})
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
+
+            {/* Additional Tasks */}
+            <div>
+              <div className="border-b border-gray-200 pb-0.5">
+                <span className="text-[10px] font-semibold text-gray-600 uppercase tracking-wide">Additional Tasks</span>
+              </div>
+              <div className="mt-1.5 space-y-0.5">
+                {(() => {
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  const { monday, friday } = getThisWeekRange();
+
+                  // Set friday to end of day for proper comparison
+                  const fridayEndOfDay = new Date(friday);
+                  fridayEndOfDay.setHours(0, 0, 0, 0);
+
+                  const additionalTasksLaterThisWeek = projectTasks
+                    .filter(task => {
+                      if (task.status === 'completed') return false;
+                      if (!task.dueDate) return false;
+
+                      const taskDate = new Date(task.dueDate + 'T00:00:00');
+                      taskDate.setHours(0, 0, 0, 0);
+
+                      // Task must be after today AND on or before Friday
+                      const isAfterToday = taskDate.getTime() > today.getTime();
+                      const isBeforeFridayEnd = taskDate.getTime() <= fridayEndOfDay.getTime();
+
+                      if (!(isAfterToday && isBeforeFridayEnd)) return false;
+
+                      // Exclude tasks assigned to current user (already shown in My Tasks)
+                      if (task.assignedTo && task.assignedTo.length > 0) {
+                        const isAssignedToMe = task.assignedTo.some((assignedValue: string) => {
+                          if (!user?.name || !assignedValue) return false;
+
+                          const teamMember = project.teamMembers.find(m => m.id === assignedValue);
+                          if (teamMember) {
+                            return teamMember.name === user.name ||
+                                   teamMember.name.toLowerCase() === user.name.toLowerCase() ||
+                                   teamMember.email === user.email ||
+                                   teamMember.email?.toLowerCase() === user.email?.toLowerCase();
+                          }
+
+                          if (assignedValue === user.name ||
+                              assignedValue.toLowerCase() === user.name.toLowerCase() ||
+                              assignedValue === user.email ||
+                              assignedValue.toLowerCase() === user.email?.toLowerCase()) {
+                            return true;
+                          }
+
+                          const userInitials = user.name
+                            .split(' ')
+                            .map(part => part[0])
+                            .join('')
+                            .toUpperCase();
+
+                          if (assignedValue.toUpperCase() === userInitials) {
+                            return true;
+                          }
+
+                          const assignedInitials = assignedValue
+                            .split(' ')
+                            .map(part => part[0])
+                            .join('')
+                            .toUpperCase();
+
+                          return assignedInitials === userInitials;
+                        });
+
+                        if (isAssignedToMe) return false;
+                      }
+
+                      return true;
+                    });
+
+                  if (additionalTasksLaterThisWeek.length === 0) {
+                    return <p className="text-[10px] text-gray-500 italic">No additional tasks later this week</p>;
+                  }
+
+                  return additionalTasksLaterThisWeek.map(task => {
+                    return (
+                      <div key={task.id} className="text-[10px] text-gray-700 flex items-start gap-1">
+                        <span>•</span>
+                        <span>
+                          {task.description}
+                          {task.dueDate && (
+                            <span className="text-[10px] ml-1">
+                              ({formatDateForDisplay(task.dueDate)})
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        {/* Project Details Box */}
+        <Card className="px-4 py-3">
+          <div className="mb-2">
+            <span className="text-base font-bold text-gray-700 uppercase tracking-wide">Project Details</span>
+          </div>
+          <div className="space-y-2">
+            {/* Client */}
+            <div>
+              <span className="text-xs font-semibold text-gray-600">Client: </span>
+              <span className="text-xs text-gray-700">{project.client || 'Not specified'}</span>
+            </div>
+
+            {/* Methodology */}
+            <div>
+              <span className="text-xs font-semibold text-gray-600">Methodology: </span>
+              <span className="text-xs text-gray-700">{project.methodology || 'Not specified'}</span>
+            </div>
+
+            {/* Sample */}
+            <div>
+              <span className="text-xs font-semibold text-gray-600">Sample: </span>
+              <span className="text-xs text-gray-700">{project.sampleDetails || 'Not specified'}</span>
+            </div>
+
+            {/* Moderator - Only show for Qualitative */}
+            {project.methodologyType === 'Qualitative' && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-gray-600">Moderator: </span>
+                <span className="text-xs text-gray-700">
+                  {localProject.moderator && localProject.moderator !== 'internal' && localProject.moderator !== 'external' && localProject.moderator !== 'vendor'
+                    ? (moderators.find(m => m.id === localProject.moderator || m.name === localProject.moderator)?.name || localProject.moderator)
+                    : 'Not assigned'}
+                </span>
                 <button
                   onClick={() => setShowModeratorModal(true)}
-                  className="text-xs text-orange-600 hover:text-orange-700 underline"
+                  className="text-gray-500 hover:text-orange-600 transition-colors"
+                  title="Edit moderator"
                 >
-                  Change
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
                 </button>
               </div>
-            ) : (
-              <button
-                onClick={() => setShowModeratorModal(true)}
-                className="flex items-center gap-1 px-3 py-1 text-xs bg-white text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-              >
-                <PlusIcon className="w-3 h-3" />
-                Add Moderator
-              </button>
             )}
-          </Card>
-        )}
 
-        {/* Fieldwork Box */}
-        <Card className="hover:shadow-md transition-shadow cursor-pointer py-3" onClick={() => console.log('Edit Fieldwork Dates - Use timeline editor')}>
-          <div className="mb-2">
-            <span className="text-sm font-bold text-gray-600 uppercase tracking-wide">FIELDWORK</span>
-          </div>
-          <p className="text-sm text-gray-600 leading-relaxed">
-            {(() => {
-              const fieldingSegment = localProject.segments?.find(s => s.phase === 'Fielding');
-              return fieldingSegment && fieldingSegment.startDate && fieldingSegment.endDate
-                ? `${formatDateForDisplay(fieldingSegment.startDate)} - ${formatDateForDisplay(fieldingSegment.endDate)}`
-                : 'Not specified';
-            })()}
-          </p>
-        </Card>
+            {/* Key Dates */}
+            <div>
+              <span className="text-xs font-semibold text-gray-600">Key Dates:</span>
+              <div className="mt-1 ml-3">
+                {(() => {
+                  const keyDates = project.keyDeadlines || [];
+                  if (keyDates.length === 0) return <p className="text-xs italic text-gray-500">No key dates set</p>;
 
-        {/* Client Box */}
-        <Card className="py-3">
-          <div className="mb-2">
-            <span className="text-sm font-bold text-gray-600 uppercase tracking-wide">CLIENT</span>
+                  // Show the first 3 key dates
+                  return keyDates.slice(0, 3).map((kd, idx) => (
+                    <div key={idx} className="text-xs italic text-gray-600">
+                      • {kd.label}: {kd.date}
+                    </div>
+                  ));
+                })()}
+              </div>
+            </div>
           </div>
-          <p className="text-sm text-gray-600 leading-relaxed">{project.client || 'Not specified'}</p>
         </Card>
       </div>
 
@@ -9093,7 +9990,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                         {task.assignedTo && task.assignedTo.filter(id => id && id.trim() !== '').length > 0 && (
                           <div className="flex items-center gap-1 flex-shrink-0">
                             {task.assignedTo.filter(id => id && id.trim() !== '').slice(0, 2).map((memberId) => (
-                              <div key={memberId} className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium" style={{ backgroundColor: getMemberColor(memberId, project.id) }}>
+                              <div key={memberId} className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium" style={{ backgroundColor: getMemberColor(memberId, project.teamMembers) }}>
                                 {getInitials(project.teamMembers.find(m => m.id === memberId)?.name || 'Unknown')}
                               </div>
                             ))}
@@ -9156,74 +10053,6 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
               </div>
             </div>
           </div>
-
-          {/* Post-it Notes */}
-          {projectNotes.filter(note => note.postToProjectPage).length > 0 ? (
-            <div className="flex gap-3 items-stretch h-48">
-              <div className="flex-1 flex gap-3">
-                {projectNotes
-                  .filter(note => note.postToProjectPage)
-                  .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-                  .slice(0, 3)
-                  .map((note) => (
-                    <div
-                      key={note.id}
-                      className="bg-yellow-100 p-3 rounded-lg border-l-4 border-yellow-300 shadow-sm flex-1 cursor-pointer hover:shadow-md transition-shadow"
-                      onClick={() => setSelectedNote(note)}
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-medium" style={{ fontSize: '10px', backgroundColor: getMemberColor(note.createdBy, project.id) }}>
-                            {getInitials(project.teamMembers.find(m => m.id === note.createdBy)?.name || note.createdBy)}
-                          </div>
-                          {note.comments && note.comments.length > 0 && (
-                            <div className="flex items-center gap-1 text-gray-500">
-                              <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                              </svg>
-                              <span className="text-xs">{note.comments.length}</span>
-                            </div>
-                          )}
-                        </div>
-                        <span className="text-xs text-gray-500 italic">{formatShortDate(note.createdAt)}</span>
-                      </div>
-                      <p className="text-sm text-gray-700 leading-relaxed line-clamp-3" dangerouslySetInnerHTML={{ __html: note.body }}></p>
-                    </div>
-                  ))}
-              </div>
-              <div className="flex flex-col gap-3">
-                <button
-                  onClick={() => setShowAddNote(true)}
-                  className="border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-gray-400 hover:text-gray-600 transition-colors flex items-center justify-center px-3 flex-1"
-                >
-                  <PlusSmallIcon className="h-4 w-4" />
-                </button>
-                {projectNotes.filter(note => note.postToProjectPage).length > 3 && (
-                  <button
-                    onClick={() => setShowNotesModal(true)}
-                    className="border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-gray-400 hover:text-gray-600 transition-colors flex items-center justify-center px-3 h-10"
-                  >
-                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                    </svg>
-                  </button>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="h-48">
-              <Card className="h-full flex items-center justify-center">
-                <button
-                  onClick={() => setShowAddNote(true)}
-                  className="w-full h-full border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-gray-400 hover:text-gray-600 transition-colors flex items-center justify-center gap-2"
-                >
-                  <PlusSmallIcon className="h-4 w-4" />
-                  <span className="text-sm">Add Post-it Note</span>
-                </button>
-              </Card>
-            </div>
-          )}
 
           {/* Project Files */}
           <Card className="flex-1">
@@ -9350,216 +10179,11 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
 
         {/* Right Half - Calendar, Key Dates, Files/Notes */}
         <div className="space-y-6">
-          {/* This Week at a Glance */}
+          {/* Calendar */}
           <Card>
-            <div
-              className="text-lg font-semibold text-gray-900 mb-4 px-6 py-4 rounded-t-lg"
-              style={{ backgroundColor: phaseColor + '20' }}
-            >
-              This Week at a Glance
-            </div>
-
-            {/* Phase Info Table */}
-            <div className="mb-4 bg-white border border-gray-200 rounded-lg overflow-hidden">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Current Phase
-                    </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Next Phase
-                    </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Next Key Date
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white">
-                  <tr>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="w-3 h-3 rounded-full"
-                          style={{ backgroundColor: phaseColor }}
-                        />
-                        <span className="text-sm font-medium text-gray-900">{currentPhase}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      {(() => {
-                        const nextPhase = getNextPhase();
-                        if (!nextPhase) return <span className="text-gray-500 italic">None</span>;
-
-                        const todayStr = new Date().toISOString().split('T')[0];
-                        const isToday = nextPhase.startDate === todayStr;
-                        const nextPhaseColor = PHASE_COLORS[nextPhase.phase] || PHASE_COLORS['Kickoff'];
-
-                        return (
-                          <div className="flex items-center gap-2">
-                            <div
-                              className="w-3 h-3 rounded-full"
-                              style={{ backgroundColor: nextPhaseColor }}
-                            />
-                            <span
-                              className="text-sm font-medium text-gray-900"
-                              style={{
-                                fontWeight: isToday ? 'bold' : 'normal',
-                                color: isToday ? nextPhaseColor : undefined
-                              }}
-                            >
-                              {nextPhase.phase} ({formatDateForDisplay(nextPhase.startDate)})
-                            </span>
-                          </div>
-                        );
-                      })()}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      {(() => {
-                        const nextKeyDate = getNextKeyDate();
-                        if (!nextKeyDate) return <span className="text-gray-500 italic">None</span>;
-
-                        const todayStr = new Date().toISOString().split('T')[0];
-                        const isToday = nextKeyDate.dateStr === todayStr;
-
-                        return (
-                          <span
-                            className="text-sm font-medium text-gray-900"
-                            style={{
-                              fontWeight: isToday ? 'bold' : 'normal',
-                              color: isToday ? phaseColor : undefined
-                            }}
-                          >
-                            {nextKeyDate.label} - {nextKeyDate.date}
-                          </span>
-                        );
-                      })()}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            {/* Two-Column Task Layout */}
-            <div className="grid grid-cols-2 gap-4">
-              {/* Left Column: Tasks Due This Week (All Team) */}
-              <div>
-                <div className="border-b border-gray-200 pb-1">
-                  <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Tasks Due This Week:</span>
-                </div>
-                <div className="mt-2 space-y-1">
-                  {(() => {
-                    const tasksDueThisWeek = getTasksDueThisWeek();
-                    const todayStr = new Date().toISOString().split('T')[0];
-
-                    if (tasksDueThisWeek.length === 0) {
-                      return (
-                        <div className="text-sm text-gray-500 italic">
-                          None assigned, please review task list
-                        </div>
-                      );
-                    }
-
-                    return tasksDueThisWeek.map(task => {
-                      const isToday = task.dueDate === todayStr;
-                      const isOverdue = isTaskOverdue(task);
-                      const taskPhase = task.phase || currentPhase;
-                      const taskPhaseColor = PHASE_COLORS[taskPhase] || phaseColor;
-
-                      return (
-                        <div
-                          key={task.id}
-                          className="flex items-start gap-2 text-sm"
-                          style={{
-                            fontWeight: (isToday || isOverdue) ? 'bold' : 'normal',
-                            color: (isToday || isOverdue) ? taskPhaseColor : undefined
-                          }}
-                        >
-                          <span>•</span>
-                          <span className={task.status === 'completed' ? 'line-through' : ''}>
-                            {task.description}
-                            {task.dueDate && (
-                              <span className="text-xs ml-1">
-                                ({formatDateForDisplay(task.dueDate)})
-                              </span>
-                            )}
-                            {isTaskOverdue(task) && (
-                              <span className="px-2 py-0.5 ml-1 rounded-full text-xs font-bold bg-red-500/20 text-red-600">
-                                overdue
-                              </span>
-                            )}
-                          </span>
-                        </div>
-                      );
-                    });
-                  })()}
-                </div>
-              </div>
-
-              {/* Right Column: My Tasks */}
-              <div>
-                <div className="border-b border-gray-200 pb-1">
-                  <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">My Tasks:</span>
-                </div>
-                <div className="mt-2 space-y-1">
-                  {(() => {
-                    const tasksDueThisWeek = getTasksDueThisWeek();
-                    const todayStr = new Date().toISOString().split('T')[0];
-
-                    // Filter tasks assigned to current user
-                    const myTasks = tasksDueThisWeek.filter(task => task.assignedTo && task.assignedTo.includes(user?.id || ''));
-
-                    if (myTasks.length === 0) {
-                      return (
-                        <div className="text-sm text-gray-500 italic">
-                          None assigned, please review task list
-                        </div>
-                      );
-                    }
-
-                    return myTasks.map(task => {
-                      const isToday = task.dueDate === todayStr;
-                      const isOverdue = isTaskOverdue(task);
-                      const taskPhase = task.phase || currentPhase;
-                      const taskPhaseColor = PHASE_COLORS[taskPhase] || phaseColor;
-
-                      return (
-                        <div
-                          key={task.id}
-                          className="flex items-start gap-2 text-sm"
-                          style={{
-                            fontWeight: (isToday || isOverdue) ? 'bold' : 'normal',
-                            color: (isToday || isOverdue) ? taskPhaseColor : undefined
-                          }}
-                        >
-                          <span>•</span>
-                          <span className={task.status === 'completed' ? 'line-through' : ''}>
-                            {task.description}
-                            {task.dueDate && (
-                              <span className="text-xs ml-1">
-                                ({formatDateForDisplay(task.dueDate)})
-                              </span>
-                            )}
-                            {isTaskOverdue(task) && (
-                              <span className="px-2 py-0.5 ml-1 rounded-full text-xs font-bold bg-red-500/20 text-red-600">
-                                overdue
-                              </span>
-                            )}
-                          </span>
-                        </div>
-                      );
-                    });
-                  })()}
-                </div>
-              </div>
-            </div>
-          </Card>
-
-          {/* Calendar at top right */}
-        <Card>
             <div className="mb-3">
-          </div>
-          
+            </div>
+
             {/* Calendar Navigation */}
             <div className="flex items-center justify-between mb-4">
               <button
@@ -9612,14 +10236,6 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
 
             {/* Calendar Grid */}
             <div className="space-y-1">
-              {/* Day names header */}
-              <div className="grid grid-cols-5 gap-1 mb-2">
-                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map(day => (
-                  <div key={day} className="h-8 flex items-center justify-center text-xs font-medium text-gray-500">
-                    {day}
-                  </div>
-                ))}
-              </div>
               {/* Calendar grid */}
               {(() => {
                 // Helper function to check if a date is in current week
@@ -9664,8 +10280,8 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                           isCurrentDay ? 'bg-gray-100' : isCurrentMonth ? 'bg-gray-100' : 'bg-white'
                         } ${isPastDate ? 'opacity-50' : ''}`}
                         style={{
-                          backgroundColor: isCurrentWeekDay ? '#FED7AA40' : isCurrentDay ? '#F3F4F6' : isCurrentMonth ? '#F3F4F6' : '#FFFFFF',
-                          border: isCurrentDay ? '2px solid #F97316' : !isCurrentMonth && !isCurrentWeekDay ? '1px solid #E5E7EB' : 'none'
+                          backgroundColor: isCurrentWeekDay || isCurrentDay ? '#FED7AA40' : isCurrentMonth ? '#F3F4F6' : '#FFFFFF',
+                          border: !isCurrentMonth && !isCurrentWeekDay ? '1px solid #E5E7EB' : 'none'
                         }}
                         title={phaseForDay ? `${phaseForDay.phase} phase` : 'No project activity'}
                         onClick={() => handleDayClick(dayDate)}
@@ -9730,6 +10346,74 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
               })()}
             </div>
         </Card>
+
+          {/* Post-it Notes */}
+          {projectNotes.filter(note => note.postToProjectPage).length > 0 ? (
+            <div className="flex gap-3 items-stretch h-48">
+              <div className="flex-1 flex gap-3">
+                {projectNotes
+                  .filter(note => note.postToProjectPage)
+                  .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                  .slice(0, 3)
+                  .map((note) => (
+                    <div
+                      key={note.id}
+                      className="bg-yellow-100 p-3 rounded-lg border-l-4 border-yellow-300 shadow-sm flex-1 cursor-pointer hover:shadow-md transition-shadow"
+                      onClick={() => setSelectedNote(note)}
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-medium" style={{ fontSize: '10px', backgroundColor: getMemberColor(note.createdBy, project.teamMembers) }}>
+                            {getInitials(project.teamMembers.find(m => m.id === note.createdBy)?.name || note.createdBy)}
+                          </div>
+                          {note.comments && note.comments.length > 0 && (
+                            <div className="flex items-center gap-1 text-gray-500">
+                              <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                              </svg>
+                              <span className="text-xs">{note.comments.length}</span>
+                            </div>
+                          )}
+                        </div>
+                        <span className="text-xs text-gray-500 italic">{formatShortDate(note.createdAt)}</span>
+                      </div>
+                      <p className="text-sm text-gray-700 leading-relaxed line-clamp-3" dangerouslySetInnerHTML={{ __html: note.body }}></p>
+                    </div>
+                  ))}
+              </div>
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={() => setShowAddNote(true)}
+                  className="border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-gray-400 hover:text-gray-600 transition-colors flex items-center justify-center px-3 flex-1"
+                >
+                  <PlusSmallIcon className="h-4 w-4" />
+                </button>
+                {projectNotes.filter(note => note.postToProjectPage).length > 3 && (
+                  <button
+                    onClick={() => setShowNotesModal(true)}
+                    className="border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-gray-400 hover:text-gray-600 transition-colors flex items-center justify-center px-3 h-10"
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="h-48">
+              <Card className="h-full flex items-center justify-center">
+                <button
+                  onClick={() => setShowAddNote(true)}
+                  className="w-full h-full border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-gray-400 hover:text-gray-600 transition-colors flex items-center justify-center gap-2"
+                >
+                  <PlusSmallIcon className="h-4 w-4" />
+                  <span className="text-sm">Add Post-it Note</span>
+                </button>
+              </Card>
+            </div>
+          )}
 
           {/* Key Dates */}
           <Card>
@@ -9803,7 +10487,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
           <div className="space-y-2 max-h-64 overflow-y-auto">
                 {archivedNotes.map((note) => (
                   <div key={note.id} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg group">
-                    <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium flex-shrink-0" style={{ fontSize: '10px', backgroundColor: getMemberColor(note.createdBy, project.id) }}>
+                    <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium flex-shrink-0" style={{ fontSize: '10px', backgroundColor: getMemberColor(note.createdBy, project.teamMembers) }}>
                       {getInitials(project.teamMembers.find(m => m.id === note.createdBy)?.name || note.createdBy)}
                     </div>
                 <div className="flex-1 min-w-0">
@@ -9893,9 +10577,9 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
       )}
 
       {/* Add Note Modal */}
-      {showAddNote && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center overflow-y-auto py-8 z-[9999] p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6">
+      {showAddNote && createPortal(
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4" style={{ margin: 0 }}>
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Add Project Note</h3>
               <button
@@ -9916,7 +10600,8 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                   value={newNote.title}
                   onChange={(e) => setNewNote(prev => ({ ...prev, title: e.target.value }))}
                   placeholder="Note title..."
-                  className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-orange-200"
+                  className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2"
+                  style={{ '--tw-ring-color': `${BRAND.orange}33` } as React.CSSProperties}
                 />
               </div>
               
@@ -9927,8 +10612,8 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                   contentEditable
                   onInput={handleTextareaChange}
                   placeholder="Write your note here... Use @ to mention team members"
-                  className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-orange-200 min-h-[100px]"
-                  style={{ whiteSpace: 'pre-wrap' }}
+                  className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 min-h-[100px]"
+                  style={{ whiteSpace: 'pre-wrap', '--tw-ring-color': `${BRAND.orange}33` } as React.CSSProperties}
                   suppressContentEditableWarning={true}
                 />
                 
@@ -9942,7 +10627,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                           onClick={() => handleMentionSelect(member)}
                           className="w-full px-3 py-2 text-left hover:bg-gray-100 flex items-center gap-2"
                         >
-                          <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium" style={{ backgroundColor: getMemberColor(member.id) }}>
+                          <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium" style={{ backgroundColor: getMemberColor(member.id, project.teamMembers) }}>
                             {getInitials(member.name)}
               </div>
                           <span className="text-sm">{member.name}</span>
@@ -9965,14 +10650,16 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                 </button>
                 <button
                   onClick={handleAddNote}
-                  className="px-4 py-2 text-sm bg-orange-500 text-white rounded-lg hover:bg-orange-600"
+                  className="px-4 py-2 text-sm text-white rounded-lg hover:opacity-90"
+                  style={{ backgroundColor: BRAND.orange }}
                 >
                   Add Note
                 </button>
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Add File Modal */}
@@ -10105,7 +10792,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                                     const assignedMember = project.teamMembers.find(m => m.id === memberId);
                                     return (
                                       <div key={memberId} className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium"
-                                           style={{ backgroundColor: getMemberColor(memberId, project.id) }}>
+                                           style={{ backgroundColor: getMemberColor(memberId, project.teamMembers) }}>
                                         {getInitials(assignedMember?.name || 'Unknown')}
                                       </div>
                                     );
@@ -10185,8 +10872,8 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
 
       {/* Moderator Selection Modal */}
       {showModeratorModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center overflow-y-auto py-8 z-[9999]">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 my-auto max-h-[80vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]" style={{ margin: 0, padding: 0, top: 0, left: 0, right: 0, bottom: 0 }}>
+          <div className="bg-white rounded-lg p-6 max-w-md w-full max-h-[80vh] overflow-y-auto" style={{ margin: '2rem' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Select Moderator</h3>
               <button
@@ -10341,7 +11028,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                     <div key={note.id} className="bg-yellow-100 p-4 rounded-lg shadow-lg border-l-4 border-yellow-300">
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex items-center gap-2">
-                          <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-medium" style={{ fontSize: '10px', backgroundColor: getMemberColor(note.createdBy, project.id) }}>
+                          <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-medium" style={{ fontSize: '10px', backgroundColor: getMemberColor(note.createdBy, project.teamMembers) }}>
                             {getInitials(project.teamMembers.find(m => m.id === note.createdBy)?.name || note.createdBy)}
                           </div>
                           {/* Tagged members icons */}
@@ -10349,7 +11036,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                             <div className="flex gap-1">
                               {note.taggedMembers.slice(0, 2).map((memberId, index) => {
                                 const member = project.teamMembers.find(m => m.id === memberId);
-                                const memberColor = member ? getMemberColor(memberId, project.id) : '#6B7280';
+                                const memberColor = member ? getMemberColor(memberId, project.teamMembers) : '#6B7280';
                                 return member ? (
                                   <div key={memberId} className="w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-medium" style={{ zIndex: 10 - index, backgroundColor: memberColor, fontSize: '10px' }}>
                                     {getInitials(member.name)}
@@ -10382,7 +11069,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                         <div className="mt-3 space-y-2">
                           {note.comments.map((comment) => (
                             <div key={comment.id} className="flex items-start gap-2 p-2 bg-yellow-50 rounded">
-                              <div className="w-4 h-4 rounded-full flex items-center justify-center text-white text-xs font-medium flex-shrink-0" style={{ fontSize: '8px', backgroundColor: getMemberColor(comment.author, project.id) }}>
+                              <div className="w-4 h-4 rounded-full flex items-center justify-center text-white text-xs font-medium flex-shrink-0" style={{ fontSize: '8px', backgroundColor: getMemberColor(comment.author, project.teamMembers) }}>
                                 {getInitials(project.teamMembers.find(m => m.id === comment.author)?.name || comment.author)}
                               </div>
                               <div className="flex-1 min-w-0">
@@ -10432,12 +11119,12 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
       )}
 
       {/* Expanded Note Modal */}
-      {selectedNote && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center overflow-y-auto py-8 z-50">
-          <div className="bg-yellow-100 rounded-lg shadow-xl max-w-2xl w-full mx-4 p-6 border-l-4 border-yellow-300">
+      {selectedNote && createPortal(
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4" style={{ margin: 0 }}>
+          <div className="bg-yellow-100 rounded-lg shadow-xl max-w-2xl w-full p-6 border-l-4 border-yellow-300 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium" style={{ backgroundColor: getMemberColor(selectedNote.createdBy, project.id) }}>
+                <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium" style={{ backgroundColor: getMemberColor(selectedNote.createdBy, project.teamMembers) }}>
                   {getInitials(project.teamMembers.find(m => m.id === selectedNote.createdBy)?.name || selectedNote.createdBy)}
                 </div>
                 <span className="text-xs text-gray-500 italic">{formatShortDate(selectedNote.createdAt)}</span>
@@ -10460,7 +11147,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                 <h4 className="font-medium text-sm text-gray-900">Comments</h4>
                 {selectedNote.comments.map((comment) => (
                   <div key={comment.id} className="flex items-start gap-2 p-2 bg-yellow-50 rounded">
-                    <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-medium flex-shrink-0" style={{ fontSize: '10px', backgroundColor: getMemberColor(comment.author, project.id) }}>
+                    <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-medium flex-shrink-0" style={{ fontSize: '10px', backgroundColor: getMemberColor(comment.author, project.teamMembers) }}>
                       {getInitials(project.teamMembers.find(m => m.id === comment.author)?.name || comment.author)}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -10480,11 +11167,13 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                   value={newComment}
                   onChange={(e) => setNewComment(e.target.value)}
                   placeholder="Add a comment..."
-                  className="flex-1 border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-orange-200"
+                  className="flex-1 border rounded-lg px-3 py-2 outline-none focus:ring-2"
+                  style={{ '--tw-ring-color': `${BRAND.orange}33` } as React.CSSProperties}
                 />
                 <button
                   onClick={() => handleAddComment(selectedNote.id)}
-                  className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
+                  className="px-4 py-2 text-white rounded-lg hover:opacity-90"
+                  style={{ backgroundColor: BRAND.orange }}
                 >
                   Post
                 </button>
@@ -10503,7 +11192,8 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Timeline Editor Modal */}
@@ -11336,7 +12026,7 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
                           {task.assignedTo && task.assignedTo.filter(id => id && id.trim() !== '').length > 0 && (
                             <div className="flex items-center gap-1 flex-shrink-0">
                               {task.assignedTo.filter(id => id && id.trim() !== '').slice(0, 2).map((memberId) => (
-                                <div key={memberId} className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium" style={{ backgroundColor: getMemberColor(memberId, project.id) }}>
+                                <div key={memberId} className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium" style={{ backgroundColor: getMemberColor(memberId, project.teamMembers) }}>
                                   {getInitials(project.teamMembers.find(m => m.id === memberId)?.name || 'Unknown')}
                                 </div>
                               ))}

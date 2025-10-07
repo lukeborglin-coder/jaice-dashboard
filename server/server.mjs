@@ -1,5 +1,7 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import { config } from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -18,6 +20,27 @@ const app = express();
 const PORT = process.env.PORT || 3005;
 
 // Middleware
+// Security headers
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"], // unsafe-inline needed for Vite in dev
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'", "http://localhost:*"]
+    }
+  },
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true
+  },
+  frameguard: { action: 'deny' },
+  noSniff: true,
+  xssFilter: true
+}));
+
 const allowedOrigins = process.env.CORS_ORIGIN
   ? [process.env.CORS_ORIGIN, /^http:\/\/localhost:\d+$/]
   : [/^http:\/\/localhost:\d+$/];
@@ -34,13 +57,36 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 const FILES_DIR = process.env.FILES_DIR || path.join(process.env.DATA_DIR || path.join(__dirname, 'data'), 'uploads');
 app.use('/uploads', express.static(FILES_DIR));
 
+// Rate limiting
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // Limit each IP to 5 requests per windowMs for login/register
+  message: 'Too many authentication attempts, please try again later',
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => {
+    // Skip rate limiting for authenticated admin operations
+    const path = req.path;
+    const isAdminRoute = path.startsWith('/users') || path.startsWith('/vendors');
+    return isAdminRoute;
+  }
+});
+
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 1000, // Limit each IP to 1000 requests per windowMs for general API (increased for development)
+  message: 'Too many requests, please try again later',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Routes
-app.use('/api/auth', authRouter);
-app.use('/api/projects', projectsRouter);
-app.use('/api/vendors', vendorsRouter);
-app.use('/api/ca', contentAnalysisRouter);
-app.use('/api/caX', contentAnalysisXRouter);
-app.use('/api/feedback', feedbackRouter);
+app.use('/api/auth', authLimiter, authRouter);
+app.use('/api/projects', apiLimiter, projectsRouter);
+app.use('/api/vendors', apiLimiter, vendorsRouter);
+app.use('/api/ca', apiLimiter, contentAnalysisRouter);
+app.use('/api/caX', apiLimiter, contentAnalysisXRouter);
+app.use('/api/feedback', apiLimiter, feedbackRouter);
 
 // Health check
 app.get('/health', (req, res) => {
