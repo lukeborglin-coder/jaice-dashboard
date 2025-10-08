@@ -1,0 +1,14 @@
+{
+  "clientId": "genentech",
+  "clientName": "Genentech",
+  "materials": [
+    {
+      "filename": "2025 SMA Access Promo Messaging Qual Kick Off Presentation_090425.pptx",
+      "content": "PowerPoint content extraction not implemented yet",
+      "uploadedAt": "2025-10-07T19:18:45.455Z"
+    }
+  ],
+  "guidelines": "As the provided training material is not accessible, I am unable to extract specific information about what constitutes an adverse event for this client. However, I can provide general guidelines based on standard pharmaceutical research and adverse event detection practices.\n\nGuidelines for AI to Detect Potential Adverse Events in Interview Transcripts:\n\n1. **Terminology Detection**: The AI should be programmed to detect specific medical and pharmaceutical terminology related to adverse events. This includes words and phrases such as \"side effect\", \"adverse event\", \"adverse reaction\", \"unexpected reaction\", \"complication\", \"unintended effect\", \"harmful effect\", \"negative outcome\", etc.\n\n2. **Symptom Recognition**: The AI should be trained to recognize a wide range of symptoms that could indicate an adverse event. This includes both common symptoms (like nausea, headache, dizziness, fatigue, etc.) and more specific symptoms related to the client's therapeutic area.\n\n3. **Severity Assessment**: The AI should be able to assess the severity of the reported symptoms. This can be done by looking for words and phrases that indicate severity, such as \"mild\", \"moderate\", \"severe\", \"extreme\", \"unbearable\", etc.\n\n4. **Frequency Assessment**: The AI should also assess the frequency of the reported symptoms. Look for words and phrases like \"occasionally\", \"often\", \"always\", \"never\", \"rarely\", etc.\n\n5. **Causality Assessment**: The AI should be able to identify whether the reported symptoms are likely to be caused by the drug in question. Look for phrases like \"after taking\", \"since starting\", \"when I use\", etc.\n\n6. **Reporting Criteria**: The AI should flag any mention of symptoms that are severe, frequent, or likely caused by the drug as potential adverse events. It should also flag any mention of hospitalization, disability, or death related to the drug use.\n\nPositive Example: \"I've been feeling extremely dizzy and nauseous ever since I started taking the drug.\"\n\nNegative Example: \"I occasionally feel a bit tired, but I think it's just because I've been working a lot.\"\n\nPlease provide specific training materials related to Genentech's therapeutic area for more precise guidelines.",
+  "createdAt": "2025-10-07T19:18:59.820Z",
+  "updatedAt": "2025-10-07T19:18:59.820Z"
+}

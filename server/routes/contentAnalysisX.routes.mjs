@@ -705,7 +705,7 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
       return res.status(400).json({ error: 'No transcript file uploaded' });
     }
 
-    const { projectId, activeSheet, discussionGuide, guideMap: guideMapRaw, analysisId } = req.body;
+    const { projectId, activeSheet, discussionGuide, guideMap: guideMapRaw, analysisId, cleanTranscript, checkForAEs, messageConceptTesting, messageTestingDetails } = req.body;
 
     if (!projectId || !activeSheet) {
       console.log('Missing required fields:', { projectId, activeSheet });
@@ -808,36 +808,42 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
       console.warn('Failed to derive moderator aliases from projects.json:', e.message);
     }
 
-    // Clean the transcript with AI
-    console.log('=== ABOUT TO CALL cleanTranscriptWithAI ===');
-    console.log('Transcript text preview:', transcriptText.substring(0, 300));
-    console.log('Discussion guide available:', !!discussionGuide);
-    console.log('Column headers:', columnHeaders);
+    // Clean the transcript with AI (if requested)
+    let cleanedTranscript = transcriptText;
+    
+    if (cleanTranscript === 'true' || cleanTranscript === true) {
+      console.log('=== ABOUT TO CALL cleanTranscriptWithAI ===');
+      console.log('Transcript text preview:', transcriptText.substring(0, 300));
+      console.log('Discussion guide available:', !!discussionGuide);
+      console.log('Column headers:', columnHeaders);
 
-    // Compose enriched guide context: raw guide + per sheet/column mapping of questions
-    let guideMap = {};
-    try { guideMap = typeof guideMapRaw === 'string' ? JSON.parse(guideMapRaw) : (guideMapRaw || {}); } catch {}
-    const mappingLines = [];
-    if (guideMap && guideMap.bySheet) {
-      mappingLines.push('=== GUIDE MAPPING BY SHEET/COLUMN ===');
-      for (const [sheetName, colMap] of Object.entries(guideMap.bySheet)) {
-        mappingLines.push(`Sheet: ${sheetName}`);
-        for (const [colName, questions] of Object.entries(colMap || {})) {
-          const qList = Array.isArray(questions) ? questions : [];
-          if (qList.length) {
-            mappingLines.push(`- ${colName}:`);
-            for (const q of qList.slice(0, 5)) mappingLines.push(`  • ${q}`);
-            if (qList.length > 5) mappingLines.push(`  • (+${qList.length - 5} more in guide)`);
+      // Compose enriched guide context: raw guide + per sheet/column mapping of questions
+      let guideMap = {};
+      try { guideMap = typeof guideMapRaw === 'string' ? JSON.parse(guideMapRaw) : (guideMapRaw || {}); } catch {}
+      const mappingLines = [];
+      if (guideMap && guideMap.bySheet) {
+        mappingLines.push('=== GUIDE MAPPING BY SHEET/COLUMN ===');
+        for (const [sheetName, colMap] of Object.entries(guideMap.bySheet)) {
+          mappingLines.push(`Sheet: ${sheetName}`);
+          for (const [colName, questions] of Object.entries(colMap || {})) {
+            const qList = Array.isArray(questions) ? questions : [];
+            if (qList.length) {
+              mappingLines.push(`- ${colName}:`);
+              for (const q of qList.slice(0, 5)) mappingLines.push(`  • ${q}`);
+              if (qList.length > 5) mappingLines.push(`  • (+${qList.length - 5} more in guide)`);
+            }
           }
         }
       }
-    }
-    const enrichedGuide = [
-      discussionGuide || '',
-      mappingLines.join('\n')
-    ].filter(Boolean).join('\n\n');
+      const enrichedGuide = [
+        discussionGuide || '',
+        mappingLines.join('\n')
+      ].filter(Boolean).join('\n\n');
 
-    const cleanedTranscript = await cleanTranscriptWithAI(transcriptText, enrichedGuide, columnHeaders, moderatorAliases);
+      cleanedTranscript = await cleanTranscriptWithAI(transcriptText, enrichedGuide, columnHeaders, moderatorAliases);
+    } else {
+      console.log('=== SKIPPING TRANSCRIPT CLEANING (cleanTranscript=false) ===');
+    }
 
     console.log('=== TRANSCRIPT CLEANING COMPLETED ===');
     console.log('Cleaned transcript preview:', cleanedTranscript.substring(0, 300));
@@ -847,7 +853,8 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
     console.log('⏱️  This step may take 15-25 minutes for large transcripts...');
 
     // Process the CLEANED transcript with AI to extract key findings for ALL sheets
-    const processed = await processTranscriptWithAI(cleanedTranscript, currentData, enrichedGuide);
+    const messageTestingDetailsParsed = messageTestingDetails ? JSON.parse(messageTestingDetails) : null;
+    const processed = await processTranscriptWithAI(cleanedTranscript, currentData, enrichedGuide, messageTestingDetailsParsed);
 
     console.log('=== MAIN TRANSCRIPT PROCESSING COMPLETED ===');
     console.log('⏱️  Processing complete');
@@ -942,6 +949,48 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
           console.warn('Failed to cleanup uploaded file:', cleanupError);
         }
 
+        // Check for AEs if requested
+        let aeReport = null;
+        if (checkForAEs === 'true' || checkForAEs === true) {
+          try {
+            console.log('=== CHECKING FOR ADVERSE EVENTS ===');
+            
+            // Get client information from project data
+            const projectData = getProjectData(projectId);
+            const clientName = projectData?.client || 'Unknown Client';
+            const clientId = projectData?.clientId || projectData?.client?.toLowerCase().replace(/\s+/g, '-');
+            
+            if (clientId) {
+              // Call AE training API to check for AEs
+              const aeResponse = await fetch(`${process.env.API_BASE_URL || 'http://localhost:3005'}/api/ae-training/check`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${req.headers.authorization?.replace('Bearer ', '') || ''}`
+                },
+                body: JSON.stringify({
+                  clientId: clientId,
+                  transcript: cleanedTranscript,
+                  clientName: clientName
+                })
+              });
+              
+              if (aeResponse.ok) {
+                const aeData = await aeResponse.json();
+                aeReport = aeData.aeReport;
+                console.log('AE Report generated successfully');
+              } else {
+                console.warn('AE checking failed:', aeResponse.status, await aeResponse.text());
+              }
+            } else {
+              console.warn('No client ID found for AE checking');
+            }
+          } catch (aeError) {
+            console.error('Error checking for AEs:', aeError);
+            // Don't fail the entire request if AE checking fails
+          }
+        }
+
         // Return the processed result directly
         res.json({
           success: true,
@@ -952,6 +1001,7 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
           originalTranscript: transcriptText,
           respno: respno,
           analysisId: analysisId || null,
+          aeReport: aeReport,
           message: 'Transcript processed successfully'
         });
   } catch (error) {
@@ -2433,7 +2483,7 @@ OUTPUT ONLY THE CLEANED TRANSCRIPT - NO explanations, NO preamble, NO meta-comme
 }
 
 // Helper function to process transcript with AI
-async function processTranscriptWithAI(transcriptText, currentData, discussionGuide) {
+async function processTranscriptWithAI(transcriptText, currentData, discussionGuide, messageTestingDetails = null) {
   console.log('Processing transcript with AI for ALL sheets...');
   const sheetNames = Object.keys(currentData);
   console.log('Available sheets:', sheetNames);
@@ -2556,6 +2606,7 @@ async function processTranscriptWithAI(transcriptText, currentData, discussionGu
       transcript: transcriptText,
       sheetsColumns,
       discussionGuide: discussionGuide || null,
+      messageTestingDetails: messageTestingDetails,
     });
 
     const timeoutPromise = new Promise((_, reject) => {

@@ -4443,8 +4443,8 @@ function ProjectTimeline({ projects, onDateRangeChange, maxWeeks }: { projects: 
     const updateVisibleWeeks = () => {
       if (timelineRef.current) {
         const containerWidth = timelineRef.current.offsetWidth;
-        // Each week needs ~180px minimum for comfortable viewing
-        const weeksToShow = Math.max(2, Math.min(maxWeeks || 5, Math.floor(containerWidth / 180)));
+        // Each week needs ~120px minimum for comfortable viewing (reduced from 180px)
+        const weeksToShow = Math.max(2, Math.min(maxWeeks || 5, Math.floor(containerWidth / 120)));
         setVisibleWeeks(weeksToShow);
       }
     };
@@ -4669,8 +4669,7 @@ function ProjectTimeline({ projects, onDateRangeChange, maxWeeks }: { projects: 
                       key={groupIndex}
                       className="text-center py-1 text-sm font-semibold text-gray-700 bg-white border-r border-gray-200 last:border-r-0 whitespace-nowrap"
                       style={{
-                        flex: `${group.days.length} 0 0`,
-                        minWidth: `${group.days.length * 28}px`
+                        flex: `${group.days.length} 0 0`
                       }}
                     >
                       {group.month}
@@ -4692,7 +4691,7 @@ function ProjectTimeline({ projects, onDateRangeChange, maxWeeks }: { projects: 
             <div className="absolute top-0 left-40 right-0 pointer-events-none z-40" style={{ height: '100%' }}>
               <div className="flex h-full">
                 {weeks.map((week, weekIndex) => (
-                  <div key={weekIndex} className="flex-1 flex min-w-[140px] relative">
+                  <div key={weekIndex} className="flex-1 flex min-w-0 relative">
                     {week.days.map((day, dayIndex) => (
                       <div key={`${weekIndex}-${dayIndex}`} className="flex-1 relative">
                         {dayIndex < 4 && (
@@ -4716,7 +4715,7 @@ function ProjectTimeline({ projects, onDateRangeChange, maxWeeks }: { projects: 
               {/* Day Headers */}
               <div className="flex-1 flex">
                 {weeks.map((week, weekIndex) => (
-                  <div key={weekIndex} className="flex-1 min-w-[140px] relative">
+                  <div key={weekIndex} className="flex-1 min-w-0 relative">
                     <div className={`flex relative z-20 ${week.isCurrentWeek ? '' : ''}`}>
                       {week.days.map((day, dayIndex) => {
                         const isTodayDate = isToday(day);
@@ -4919,8 +4918,8 @@ function ModeratorTimeline({ projects, onDateRangeChange }: { projects: Project[
     const updateVisibleWeeks = () => {
       if (timelineRef.current) {
         const containerWidth = timelineRef.current.offsetWidth;
-        // Each week needs ~180px minimum for comfortable viewing
-        const weeksToShow = Math.max(2, Math.min(5, Math.floor(containerWidth / 180)));
+        // Each week needs ~120px minimum for comfortable viewing (reduced from 180px)
+        const weeksToShow = Math.max(2, Math.min(5, Math.floor(containerWidth / 120)));
         setVisibleWeeks(weeksToShow);
       }
     };
@@ -5136,8 +5135,7 @@ function ModeratorTimeline({ projects, onDateRangeChange }: { projects: Project[
                     key={groupIndex}
                     className="text-center py-1 text-sm font-semibold text-gray-700 bg-gray-100 border-r border-gray-200 last:border-r-0"
                     style={{
-                      flex: `${group.days.length} 0 0`,
-                      minWidth: `${group.days.length * 28}px`
+                      flex: `${group.days.length} 0 0`
                     }}
                   >
                     {group.month}
@@ -5153,7 +5151,7 @@ function ModeratorTimeline({ projects, onDateRangeChange }: { projects: Project[
             <div className="absolute top-0 left-40 right-0 pointer-events-none z-40" style={{ height: '100%' }}>
               <div className="flex h-full">
                 {weeks.map((week, weekIndex) => (
-                  <div key={weekIndex} className="flex-1 flex min-w-[140px] relative">
+                  <div key={weekIndex} className="flex-1 flex min-w-0 relative">
                     {week.days.map((day, dayIndex) => (
                       <div key={`${weekIndex}-${dayIndex}`} className="flex-1 relative">
                         {dayIndex < 4 && (
@@ -5177,7 +5175,7 @@ function ModeratorTimeline({ projects, onDateRangeChange }: { projects: Project[
               {/* Day Headers */}
               <div className="flex-1 flex">
                 {weeks.map((week, weekIndex) => (
-                  <div key={weekIndex} className="flex-1 min-w-[140px] relative">
+                  <div key={weekIndex} className="flex-1 min-w-0 relative">
                     <div className={`flex relative z-20 ${week.isCurrentWeek ? '' : ''}`}>
                       {week.days.map((day, dayIndex) => (
                         <div

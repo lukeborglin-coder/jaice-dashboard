@@ -137,9 +137,9 @@ const SimpleCalendar: React.FC<SimpleCalendarProps> = ({
       </div>
 
       {/* Day Headers */}
-      <div className="grid grid-cols-7 gap-1 mb-2">
+      <div className="grid grid-cols-7 gap-1 mb-1">
         {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
-          <div key={day} className="text-center text-xs font-medium text-gray-500 py-1">
+          <div key={day} className="text-center text-2xs font-medium text-gray-500 py-0.5">
             {day}
           </div>
         ))}
@@ -165,7 +165,7 @@ const SimpleCalendar: React.FC<SimpleCalendarProps> = ({
                 }}
                 disabled={isWeekendDay}
                 className={`
-                  p-2 text-xs rounded-lg transition-colors w-full relative
+                  p-1 text-2xs rounded-lg transition-colors w-full relative
                   ${isWeekendDay 
                     ? 'text-gray-300 cursor-not-allowed' 
                     : isSelectedDate

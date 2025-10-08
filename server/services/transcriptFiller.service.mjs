@@ -14,7 +14,7 @@ import OpenAI from 'openai';
  * @param {string | null} params.discussionGuide - Optional discussion guide text for alignment
  * @returns {Promise<Object<string, Object>>} Map of sheetName -> row object (column -> value)
  */
-export async function fillRespondentRowsFromTranscript({ transcript, sheetsColumns, discussionGuide }) {
+export async function fillRespondentRowsFromTranscript({ transcript, sheetsColumns, discussionGuide, messageTestingDetails = null }) {
   const hasValidKey = process.env.OPENAI_API_KEY &&
                       process.env.OPENAI_API_KEY !== 'your_openai_api_key_here' &&
                       process.env.OPENAI_API_KEY.startsWith('sk-');
@@ -113,6 +113,28 @@ export async function fillRespondentRowsFromTranscript({ transcript, sheetsColum
   if (discussionGuide) {
     userParts.push('=== DISCUSSION GUIDE (for alignment only) ===');
     userParts.push(discussionGuide);
+  }
+
+  // Add message testing details if provided
+  if (messageTestingDetails && messageTestingDetails.categories && messageTestingDetails.categories.length > 0) {
+    userParts.push('=== MESSAGE TESTING DETAILS ===');
+    userParts.push('This interview involves message testing. The following message categories and labels should be considered when analyzing the transcript:');
+    userParts.push('');
+    
+    messageTestingDetails.categories.forEach((category, index) => {
+      if (category.name && category.labels && category.labels.length > 0) {
+        userParts.push(`Category ${category.name}: ${category.labels.join(', ')}`);
+      }
+    });
+    
+    userParts.push('');
+    userParts.push('When analyzing the transcript, look for:');
+    userParts.push('- References to specific message labels (e.g., "LB", "MT", "TG")');
+    userParts.push('- Discussion of message categories (e.g., "L messages", "T category")');
+    userParts.push('- Respondent reactions to different messages');
+    userParts.push('- Comparisons between messages');
+    userParts.push('- Any mention of message rotation or randomization');
+    userParts.push('');
   }
 
   userParts.push('=== SHEETS + COLUMNS ===');

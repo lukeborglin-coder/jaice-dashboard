@@ -1,9 +1,9 @@
 [
   {
-    "id": "1759795118239",
+    "id": "1759859806925",
     "projectId": "P-1759172819869",
     "projectName": "2025 SMA Adult Activation Qual",
-    "name": "Luke Test",
+    "name": "tttest",
     "data": {
       "Demographics": [
         {
@@ -27,10 +27,8 @@
           "Primary SMA Doctor": "",
           "Others Involved in Health Decisions": "",
           "Support System Involvement": "",
-          "Comfort in Making Treatment Decisions": "",
-          "Health Goals - Short-term": "",
-          "Health Goals - Long-term": "",
-          "Personal Aspirations": ""
+          "Treatment Decision Autonomy": "",
+          "Health Goals": ""
         }
       ],
       "CURRENT PERCEPTIONS & ATTITUDES": [
@@ -38,20 +36,23 @@
           "Respondent ID": "",
           "Treatments Awareness": "",
           "Treatments Experience": "",
-          "Benefits of Discontinued Treatment": "",
-          "Drawbacks of Discontinued Treatment": "",
-          "Reasons for Discontinuation": "",
-          "Insurance Coverage Impact": "",
-          "Consider Restarting Treatment": "",
-          "Impressions of Untaken Treatment": "",
-          "Information Source for Untaken Treatment": "",
-          "Consideration of Untaken Treatment": "",
-          "Discussion with HCP for Untaken Treatment": "",
-          "Impact of HCP on Decision for Untaken Treatment": "",
-          "Consideration of Future Treatments": "",
-          "Impressions of In-development Treatments": "",
-          "Consideration of In-development Treatments": "",
-          "Good Candidate for Treatment": ""
+          "Discontinued Treatment Experience": "",
+          "Discontinued Treatment Reasons": "",
+          "Discontinued Treatment Impact": "",
+          "Discontinued Treatment Restart Consideration": "",
+          "Treatment Impressions": "",
+          "Treatment Benefits": "",
+          "Treatment Drawbacks": "",
+          "Treatment Information Source": "",
+          "Treatment Consideration Factors": "",
+          "Treatments in Development Awareness": "",
+          "Treatments in Development Impressions": "",
+          "Treatments in Development Benefits": "",
+          "Treatments in Development Drawbacks": "",
+          "Treatments in Development Candidacy": "",
+          "Treatments in Development Consideration": "",
+          "Anti-Myostatins Awareness": "",
+          "Anti-Myostatins Brands": ""
         }
       ],
       "BARRIERS TO TREATMENT & UNMET NEEDS": [
@@ -59,14 +60,16 @@
           "Respondent ID": "",
           "Reasons for Not on Treatment": "",
           "Factors Driving Treatment Consideration": "",
+          "Muscle Loss Impact": "",
           "Symptom Tracking Frequency": "",
           "Symptom Tracking Methods": "",
-          "Discussion with HCP on Treatment Need": "",
+          "Symptom Tracking Discussion with HCP": "",
           "Emotional Factors": "",
           "Practical/Logistical Factors": "",
           "Clinical Factors": "",
           "Treatment Benefit Requirement": "",
-          "Challenges in Accessing Treatment": "",
+          "Financial/Access Barriers": "",
+          "Access Challenges": "",
           "Unmet Needs": ""
         }
       ],
@@ -75,22 +78,22 @@
           "Respondent ID": "",
           "Likelihood to Consider Treatment": "",
           "Factors Influencing Consideration": "",
-          "Expected Improvements from Treatment": "",
-          "Influential Decision-makers": "",
-          "Confidence in Treatment Decision": ""
+          "Improvement Expectations": "",
+          "Influential Decision-Makers": "",
+          "Confidence Factors": ""
         }
       ],
       "COMMUNITY ENGAGEMENT & INFO SOURCES": [
         {
           "Respondent ID": "",
-          "Connection to SMA Community": "",
-          "Participation in Support Groups": "",
-          "Reasons for Non-involvement": "",
+          "Community Connection": "",
+          "Community Participation": "",
+          "Community Trust": "",
           "Information Sources": "",
-          "Trusted Sources": "",
-          "Finding Out About Treatments": "",
+          "Trustworthy Sources": "",
+          "New Treatment Awareness": "",
           "Preferred Information Format": "",
-          "Improving Information Accessibility": ""
+          "Information Accessibility": ""
         }
       ],
       "Misc.": [
@@ -105,7 +108,7 @@
       "bySheet": {}
     },
     "quotes": {},
-    "savedAt": "2025-10-06T23:58:38.239Z",
+    "savedAt": "2025-10-07T17:56:46.925Z",
     "savedBy": "You"
   }
 ]

@@ -11,6 +11,7 @@ import authRouter from './routes/auth.routes.mjs';
 import projectsRouter from './routes/projects.routes.mjs';
 import vendorsRouter from './routes/vendors.routes.mjs';
 import feedbackRouter from './routes/feedback.routes.mjs';
+import aeTrainingRouter from './routes/aeTraining.routes.mjs';
 
 // Load environment variables
 config();
@@ -87,6 +88,7 @@ app.use('/api/vendors', apiLimiter, vendorsRouter);
 app.use('/api/ca', apiLimiter, contentAnalysisRouter);
 app.use('/api/caX', apiLimiter, contentAnalysisXRouter);
 app.use('/api/feedback', apiLimiter, feedbackRouter);
+app.use('/api/ae-training', apiLimiter, aeTrainingRouter);
 
 // Health check
 app.get('/health', (req, res) => {

@@ -1,0 +1,128 @@
+---
+title: "Quality Data Checking"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+Adding "Score" Column
+```{r}
+PracticeTable <- cbind(score = 100, PracticeTable)
+View(PracticeTable)
+
+
+```
+
+vQtime under 15 mins
+subtract 10 from score
+```{r}
+# Subtract 10 if vQtime < 15
+PracticeTable$score[PracticeTable$vQtime < 15] <- 
+  PracticeTable$score[PracticeTable$vQtime < 15] - 10
+View(PracticeTable)
+
+```
+
+Flagging straight-lining
+```{r}
+detect_straightlining <- function(data, score_col = "score", penalty = 5) {
+  # Identify all columns that look like grid items (e.g., A4r1, B2r10, etc.)
+  grid_cols <- grep("r[0-9]+$", names(data), value = TRUE)
+  
+  # Extract question prefixes (e.g., A4 from A4r1)
+  prefixes <- unique(gsub("r[0-9]+$", "", grid_cols))
+  
+  # Create a penalty tracker
+  total_penalty <- rep(0, nrow(data))
+  
+  # Loop through each grid prefix
+  for (p in prefixes) {
+    question_cols <- grep(paste0("^", p, "r[0-9]+$"), names(data), value = TRUE)
+    
+    # Skip grids that don’t have at least 2 items
+    if (length(question_cols) < 2) next
+    
+    # Check each respondent for straight-lining (including 99s)
+    flag <- apply(data[, question_cols, drop = FALSE], 1, function(x) {
+      # Straight-line if all values are identical and not all missing
+      if (length(na.omit(x)) > 1 && length(unique(na.omit(x))) == 1) {
+        return(TRUE)
+      } else {
+        return(FALSE)
+      }
+    })
+    
+    # Add penalty for each grid where straight-lining is detected
+    total_penalty <- total_penalty + ifelse(flag, penalty, 0)
+  }
+  
+  # Subtract total penalty from score
+  data[[score_col]] <- data[[score_col]] - total_penalty
+  
+  # Reporting summary
+  message(sum(total_penalty > 0), " respondents penalized for straight-lining at least one grid.")
+  message("Maximum total penalty applied: ", max(total_penalty))
+  
+  return(data)
+}
+
+```
+  Subtracting 5 for straight-liners
+```{r}
+PracticeTable <- detect_straightlining(PracticeTable, score_col = "score", penalty = 5)
+
+
+View(PracticeTable)
+```
+
+Flagging bad OE's ("nonsense answers")
+```{r}
+library(stringi)
+library(stringr)
+
+# 1️⃣ Count vowels
+PracticeTable$VowelCount <- str_count(PracticeTable$OE, "[aeiouAEIOU]")
+
+# 2️⃣ Calculate entropy (handling NA)
+PracticeTable$Entropy <- sapply(PracticeTable$OE, function(x) {
+  if(is.na(x) || nchar(x) == 0) return(0)
+  x <- tolower(x)
+  letters_freq <- table(strsplit(x, "")[[1]]) / nchar(x)
+  -sum(letters_freq * log2(letters_freq))
+})
+
+# 3️⃣ Flag nonsense
+PracticeTable$IsNonsense <- (PracticeTable$VowelCount == 0) | (PracticeTable$Entropy > 2.5)
+
+# Ensure score column is numeric
+PracticeTable$score <- as.numeric(PracticeTable$score)
+
+# 4️⃣ Subtract 10 points safely
+nonsense_flag <- PracticeTable$IsNonsense & !is.na(PracticeTable$IsNonsense)
+PracticeTable$score[nonsense_flag] <- PracticeTable$score[nonsense_flag] - 10
+
+# 5️⃣ Optional: view flagged responses
+PracticeTable[nonsense_flag, c("OE", "VowelCount", "Entropy", "score")]
+
+```
+
+Looking at scores 70 and below
+```{r}
+# Create and rank the table from low to high score
+LowScoreTable <- subset(PracticeTable, score <= 70)
+LowScoreTable <- LowScoreTable[order(LowScoreTable$score), ]
+
+# View the first few rows
+View(LowScoreTable)
+
+```
+
+
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.

@@ -53,6 +53,13 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
   // Discussion guide modal state
   const [showDiscussionGuideModal, setShowDiscussionGuideModal] = useState(false);
   const docxContainerRef = useRef<HTMLDivElement>(null);
+  // Transcript upload modal state
+  const [showTranscriptUploadModal, setShowTranscriptUploadModal] = useState(false);
+  const [transcriptFile, setTranscriptFile] = useState<File | null>(null);
+  const [cleanTranscript, setCleanTranscript] = useState(true);
+  const [checkForAEs, setCheckForAEs] = useState(false);
+  const [aeReport, setAeReport] = useState<string | null>(null);
+  const [hasAETraining, setHasAETraining] = useState<boolean | null>(null);
   // Transcripts state - stores cleaned transcripts with demographic info
   const [transcripts, setTranscripts] = useState<Array<{
     id: string;
@@ -72,6 +79,39 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
     }
   }, [currentAnalysis]);
 
+  // Check AE training when modal opens or analysis changes
+  useEffect(() => {
+    if (showTranscriptUploadModal && currentAnalysis?.projectId) {
+      // Get client ID from the project data
+      const clientId = currentAnalysis.clientId || currentAnalysis.client?.toLowerCase().replace(/\s+/g, '-');
+      if (clientId) {
+        checkAETraining(clientId).then(setHasAETraining);
+      } else {
+        setHasAETraining(false);
+      }
+    }
+  }, [showTranscriptUploadModal, currentAnalysis?.projectId, currentAnalysis?.clientId, currentAnalysis?.client]);
+
+  // Uncheck AE checkbox if training is not available
+  useEffect(() => {
+    if (hasAETraining === false) {
+      setCheckForAEs(false);
+    }
+  }, [hasAETraining]);
+
+  // Check if client has AE training data
+  const checkAETraining = async (clientId: string) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/ae-training/${clientId}`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` }
+      });
+      return response.ok;
+    } catch (error) {
+      console.error('Error checking AE training:', error);
+      return false;
+    }
+  };
+
   // Dynamic headers: union of keys across all rows for the active sheet
   const dynamicHeaders = useMemo(() => {
     const rows = (currentAnalysis?.data?.[activeSheet] as any[]) || [];
@@ -86,8 +126,13 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
       headers.push('Transcript');
     }
 
+    // Add AE Report column if AE report is available
+    if (aeReport) {
+      headers.push('AE Report');
+    }
+
     return headers;
-  }, [currentAnalysis?.data, activeSheet, transcripts.length]);
+  }, [currentAnalysis?.data, activeSheet, transcripts.length, aeReport]);
 
   // Handler for deleting a demographic column
   const handleDeleteDemographicColumn = (columnName: string) => {
@@ -1906,7 +1951,14 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
               {/* Add Respondent Transcript button - only show for saved analyses on Demographics sheet */}
               {activeSheet === 'Demographics' && !currentAnalysis.id?.startsWith('temp-') && currentAnalysis.projectId && (
                 <div className="flex items-center">
-                  <label className="inline-flex items-center gap-1.5 px-3 py-1.5 text-white text-xs font-medium rounded-md hover:opacity-90 transition-colors cursor-pointer shadow-sm" style={{ backgroundColor: '#D14A2D' }}>
+                  <button 
+                    onClick={() => {
+                      setShowTranscriptUploadModal(true);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-white text-xs font-medium rounded-md hover:opacity-90 transition-colors cursor-pointer shadow-sm" 
+                    style={{ backgroundColor: '#D14A2D' }}
+                    disabled={processingTranscript}
+                  >
                     {processingTranscript ? (
                       <>
                         <div className="w-3 h-3 flex items-center justify-center">
@@ -1923,8 +1975,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                         Add Transcript
                       </>
                     )}
-                    <input type="file" accept=".txt,.docx" className="hidden" onChange={handleTranscriptUpload} disabled={processingTranscript} />
-                  </label>
+                  </button>
                 </div>
               )}
             </div>
@@ -2136,6 +2187,30 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                                       </button>
                                     ) : null;
                                   })()
+                                ) : k === 'AE Report' ? (
+                                  // Show download button for AE Report
+                                  aeReport ? (
+                                    <button
+                                      onClick={() => {
+                                        // Create and download AE Report as Word document
+                                        const blob = new Blob([aeReport], { type: 'text/plain' });
+                                        const url = URL.createObjectURL(blob);
+                                        const a = document.createElement('a');
+                                        a.href = url;
+                                        a.download = `AE_Report_${new Date().toISOString().split('T')[0]}.txt`;
+                                        document.body.appendChild(a);
+                                        a.click();
+                                        document.body.removeChild(a);
+                                        URL.revokeObjectURL(url);
+                                      }}
+                                      className="text-gray-600 hover:text-red-600 transition-colors inline-flex items-center justify-center gap-1"
+                                      title="Download AE Report"
+                                    >
+                                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                      </svg>
+                                    </button>
+                                  ) : null
                                 ) : activeSheet === 'Demographics' && k !== 'Respondent ID' && k !== 'respno' ? (
                                   <input
                                     type="text"
@@ -2544,6 +2619,198 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                 className="docx-preview-container w-full"
               />
             </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Transcript Upload Modal */}
+      {showTranscriptUploadModal && createPortal(
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[99999] p-4"
+          onClick={() => setShowTranscriptUploadModal(false)}
+        >
+          <div className="bg-white rounded-lg w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Upload Transcript</h3>
+              <button
+                onClick={() => setShowTranscriptUploadModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            {processingTranscript ? (
+              /* Loading Screen */
+              <div className="flex-1 flex items-center justify-center p-8">
+                <div className="text-center">
+                  <div className="w-16 h-16 mx-auto mb-4">
+                    <svg className="animate-spin w-16 h-16 text-blue-600" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Processing Transcript</h3>
+                  <p className="text-gray-600 mb-4">This may take a few minutes. Please keep this page open.</p>
+                  <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">
+                    <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"></div>
+                    <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                    <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="flex-1 overflow-y-auto p-4 space-y-6">
+                {/* File Upload Area */}
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                  <CloudArrowUpIcon className="mx-auto h-12 w-12 text-gray-400" />
+                  <div className="mt-4">
+                    <label htmlFor="transcript-file" className="cursor-pointer">
+                      <span className="mt-2 block text-sm font-medium text-gray-900">
+                        {transcriptFile ? transcriptFile.name : 'Click to upload or drag and drop'}
+                      </span>
+                      <span className="mt-1 block text-sm text-gray-500">
+                        TXT or DOCX files up to 10MB
+                      </span>
+                    </label>
+                    <input
+                      id="transcript-file"
+                      type="file"
+                      accept=".txt,.docx"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setTranscriptFile(file);
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Processing Options */}
+                <div className="space-y-4">
+                  <h4 className="text-sm font-medium text-gray-900">Processing Options</h4>
+                  
+                  {/* Clean Transcript Option */}
+                  <div className="flex items-center">
+                    <input
+                      id="clean-transcript"
+                      type="checkbox"
+                      checked={cleanTranscript}
+                      onChange={(e) => setCleanTranscript(e.target.checked)}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="clean-transcript" className="ml-2 text-sm text-gray-700">
+                      Clean and generate new transcript
+                    </label>
+                  </div>
+
+                  {/* AE Check Option */}
+                  <div className="flex items-center">
+                    <input
+                      id="check-aes"
+                      type="checkbox"
+                      checked={checkForAEs}
+                      onChange={(e) => setCheckForAEs(e.target.checked)}
+                      disabled={hasAETraining === false}
+                      className={`h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded ${
+                        hasAETraining === false ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
+                    />
+                    <label 
+                      htmlFor="check-aes" 
+                      className={`ml-2 text-sm ${
+                        hasAETraining === false ? 'text-gray-400' : 'text-gray-700'
+                      }`}
+                      title={hasAETraining === false ? 'AE training not set up for this client. Visit Client Center to upload training materials.' : ''}
+                    >
+                      Check for AEs
+                      {hasAETraining === false && (
+                        <span className="ml-1 text-xs text-gray-400">(Not available)</span>
+                      )}
+                    </label>
+                  </div>
+
+                </div>
+              </div>
+            )}
+            {!processingTranscript && (
+              <div className="flex items-center justify-end space-x-3 p-4 border-t border-gray-200">
+                <button
+                  onClick={() => setShowTranscriptUploadModal(false)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!transcriptFile) return;
+                    
+                    setProcessingTranscript(true);
+                    
+                    try {
+                      const formData = new FormData();
+                      formData.append('transcript', transcriptFile);
+                      formData.append('projectId', currentAnalysis.projectId || 'temp');
+                      formData.append('analysisId', currentAnalysis.id);
+                      formData.append('activeSheet', activeSheet);
+                      formData.append('currentData', JSON.stringify(currentAnalysis.data));
+                      formData.append('discussionGuide', currentAnalysis.rawGuideText || '');
+                      formData.append('cleanTranscript', cleanTranscript.toString());
+                      formData.append('checkForAEs', checkForAEs.toString());
+
+                      const controller = new AbortController();
+                      const timeoutId = setTimeout(() => controller.abort(), 30 * 60 * 1000);
+
+                      const response = await fetch(`${API_BASE_URL}/api/caX/process-transcript`, {
+                        method: 'POST',
+                        body: formData,
+                        headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` },
+                        signal: controller.signal
+                      });
+
+                      clearTimeout(timeoutId);
+                      const result = await response.json();
+
+                      if (!response.ok) {
+                        throw new Error(result?.error || 'Transcript processing failed');
+                      }
+
+                      // Update analysis with new data
+                      if (result?.data) {
+                        const updatedAnalysis = { ...currentAnalysis };
+                        for (const [sheetName, sheetData] of Object.entries(result.data)) {
+                          updatedAnalysis.data[sheetName] = sheetData;
+                        }
+                        setCurrentAnalysis(updatedAnalysis);
+                      }
+
+                      // Handle AE Report if available
+                      if (result?.aeReport) {
+                        setAeReport(result.aeReport);
+                      }
+
+                      setTranscriptFile(null);
+                      setCleanTranscript(true);
+                      setCheckForAEs(false);
+                      setShowTranscriptUploadModal(false);
+                    } catch (error) {
+                      console.error('Transcript processing error:', error);
+                      alert('Failed to process transcript: ' + (error as Error).message);
+                    } finally {
+                      setProcessingTranscript(false);
+                    }
+                  }}
+                  disabled={!transcriptFile}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Upload & Process
+                </button>
+              </div>
+            )}
           </div>
         </div>,
         document.body
