@@ -284,12 +284,12 @@
         {
           "id": "t22",
           "description": "Create respondent grid for recruiters",
-          "status": "pending",
+          "status": "completed",
           "phase": "Pre-Field",
           "assignedTo": [
             "3"
           ],
-          "dueDate": "2025-10-07"
+          "dueDate": "2025-10-08"
         },
         {
           "id": "t23",
@@ -298,22 +298,24 @@
           "phase": "Pre-Field",
           "assignedTo": [
             "11",
-            "12"
+            "12",
+            "14"
           ],
           "dueDate": "2025-10-08"
         },
         {
           "id": "t24",
           "description": "Get screener approval from client",
-          "status": "pending",
-          "phase": "Pre-Field"
+          "status": "incomplete",
+          "phase": "Pre-Field",
+          "dueDate": "2025-10-08"
         },
         {
           "id": "t25",
           "description": "Alert moderator and confirm availability",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": "2025-10-08"
         },
         {
           "id": "t26",
@@ -473,23 +475,24 @@
         {
           "id": "t42",
           "description": "Create report shell based on discussion guide and objectives",
-          "status": "pending",
+          "status": "completed",
           "phase": "Fielding",
           "assignedTo": [
             "3"
           ],
-          "dueDate": "2025-10-07"
+          "dueDate": "2025-10-08"
         },
         {
           "id": "t43",
           "description": "Engage transcriptionist (if needed)",
-          "status": "pending",
+          "status": "completed",
           "phase": "Fielding",
           "assignedTo": [
             "11",
+            "12",
             "3"
           ],
-          "dueDate": "2025-10-09"
+          "dueDate": "2025-10-08"
         },
         {
           "id": "t44",
@@ -498,9 +501,9 @@
             "",
             "3"
           ],
-          "status": "pending",
+          "status": "completed",
           "phase": "Fielding",
-          "dueDate": "2025-10-06"
+          "dueDate": "2025-10-08"
         },
         {
           "id": "t45",
@@ -510,9 +513,9 @@
             "3",
             "11"
           ],
-          "status": "pending",
+          "status": "completed",
           "phase": "Fielding",
-          "dueDate": "2025-10-07"
+          "dueDate": "2025-10-08"
         },
         {
           "id": "t46",
@@ -520,9 +523,9 @@
           "assignedTo": [
             ""
           ],
-          "status": "pending",
+          "status": "completed",
           "phase": "Fielding",
-          "dueDate": "2025-10-07"
+          "dueDate": "2025-10-09"
         },
         {
           "id": "t47",
@@ -531,9 +534,9 @@
             "",
             "3"
           ],
-          "status": "pending",
+          "status": "completed",
           "phase": "Fielding",
-          "dueDate": "2025-10-07"
+          "dueDate": "2025-10-08"
         },
         {
           "id": "t48",
@@ -541,8 +544,9 @@
           "assignedTo": [
             ""
           ],
-          "status": "pending",
-          "phase": "Fielding"
+          "status": "completed",
+          "phase": "Fielding",
+          "dueDate": "2025-10-07"
         },
         {
           "id": "t49",
@@ -552,8 +556,7 @@
             "3"
           ],
           "status": "pending",
-          "phase": "Fielding",
-          "dueDate": "2025-10-07"
+          "phase": "Fielding"
         },
         {
           "id": "t50",
@@ -563,8 +566,7 @@
             "3"
           ],
           "status": "pending",
-          "phase": "Fielding",
-          "dueDate": "2025-10-07"
+          "phase": "Fielding"
         },
         {
           "id": "t51",
@@ -574,8 +576,7 @@
             "11"
           ],
           "status": "pending",
-          "phase": "Fielding",
-          "dueDate": "2025-10-07"
+          "phase": "Fielding"
         },
         {
           "id": "t52",

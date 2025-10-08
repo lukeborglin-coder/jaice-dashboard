@@ -2660,14 +2660,28 @@ const isTaskOverdue = (task: Task): boolean => {
 
 // Helper function for getting initials
 const getInitials = (name: string) => {
-  const words = name.split(' ');
-  if (words.length === 1) {
-    return words[0][0].toUpperCase();
+  if (!name || typeof name !== 'string') {
+    return '?';
   }
+  
+  const words = name.trim().split(' ').filter(word => word.length > 0);
+  if (words.length === 0) {
+    return '?';
+  }
+  
+  if (words.length === 1) {
+    return words[0][0]?.toUpperCase() || '?';
+  }
+  
   // Put first initial in front, then remaining initials
-  const firstInitial = words[0][0];
-  const remainingInitials = words.slice(1).map(n => n[0]).join('');
-  return (firstInitial + remainingInitials).toUpperCase();
+  const firstInitial = words[0][0]?.toUpperCase() || '';
+  const remainingInitials = words.slice(1)
+    .map(n => n[0]?.toUpperCase() || '')
+    .filter(Boolean)
+    .join('');
+  
+  const result = (firstInitial + remainingInitials).toUpperCase();
+  return result || '?';
 };
 
 // Helper function for getting member color (consistent across all contexts)
@@ -4039,8 +4053,11 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
                         </td>
                         <td className="px-2 py-3">
                           <span
-                            className="inline-flex items-center justify-center w-24 px-2 py-1 rounded-full text-xs font-medium text-white opacity-60"
-                            style={{ backgroundColor: isArchived ? '#6B7280' : phaseColor }}
+                            className="inline-flex items-center justify-center w-24 px-2 py-1 rounded-full text-xs font-medium text-white"
+                            style={{ 
+                              backgroundColor: isArchived ? '#6B7280' : phaseColor,
+                              opacity: 0.6
+                            }}
                           >
                             {isArchived ? 'Archived' : currentPhase}
                           </span>
@@ -7536,8 +7553,8 @@ function ProjectForm({
                       {task.assignedTo && task.assignedTo.filter(id => id && id.trim() !== '').length > 0 && (
                         <div className="flex items-center gap-1 flex-shrink-0">
                           {task.assignedTo.filter(id => id && id.trim() !== '').slice(0, 2).map((memberId) => (
-                            <div key={memberId} className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium" style={{ backgroundColor: getMemberColor(memberId, formData.teamMembers) }}>
-                              {getInitials(formData.teamMembers.find(m => m.id === memberId)?.name || 'Unknown')}
+                            <div key={memberId} className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium overflow-hidden" style={{ backgroundColor: getMemberColor(memberId, formData.teamMembers) }}>
+                              <span className="truncate leading-none">{getInitials(formData.teamMembers.find(m => m.id === memberId)?.name || 'Unknown')}</span>
                             </div>
                           ))}
                           {task.assignedTo.filter(id => id && id.trim() !== '').length > 2 && (
@@ -7636,8 +7653,8 @@ function ProjectForm({
                       {newTask.assignedTo && newTask.assignedTo.filter(id => id && id.trim() !== '').length > 0 && (
                         <div className="flex items-center gap-1 flex-shrink-0">
                           {newTask.assignedTo.filter(id => id && id.trim() !== '').slice(0, 2).map((memberId) => (
-                            <div key={memberId} className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium" style={{ backgroundColor: getMemberColor(memberId, formData.teamMembers) }}>
-                              {getInitials(formData.teamMembers.find(m => m.id === memberId)?.name || 'Unknown')}
+                            <div key={memberId} className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium overflow-hidden" style={{ backgroundColor: getMemberColor(memberId, formData.teamMembers) }}>
+                              <span className="truncate leading-none">{getInitials(formData.teamMembers.find(m => m.id === memberId)?.name || 'Unknown')}</span>
                             </div>
                           ))}
                           {newTask.assignedTo.filter(id => id && id.trim() !== '').length > 2 && (
@@ -8113,7 +8130,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
       saveProject();
     }
   }, [projectTasks, project.id, project.tasks, user?.id]);
-  const [selectedDay, setSelectedDay] = useState<{ day: number; phase: string; deadlines: string[]; notes: string[]; tasks: any[] } | null>(null);
+  const [selectedDay, setSelectedDay] = useState<{ day: number; date: Date; phase: string; deadlines: string[]; notes: string[]; tasks: any[] } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [showAddNote, setShowAddNote] = useState(false);
   const [showAllNotes, setShowAllNotes] = useState(false);
@@ -8846,6 +8863,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
     
     setSelectedDay({
       day: dayDate.getDate(),
+      date: dayDate,
       phase: phaseForDay?.phase || 'No phase',
       deadlines: relevantKeyDates.map(d => d.label),
       notes: relevantNotes.map(note => note.title),
@@ -9586,6 +9604,9 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
 
     return projectTasks.filter(task => {
       if (!task.dueDate) return false;
+      
+      // Only include incomplete tasks
+      if (task.status === 'completed') return false;
 
       try {
         // Parse date consistently without timezone issues
@@ -9596,6 +9617,37 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
         return taskDate.getFullYear() === currentYear &&
                taskDate.getMonth() === currentMonthNum &&
                taskDate.getDate() === currentDay;
+      } catch (error) {
+        console.warn('Error parsing task date:', task.dueDate, error);
+        return false;
+      }
+    });
+  };
+
+  const getOverdueTasksForDate = (date: Date) => {
+    const currentYear = date.getFullYear();
+    const currentMonthNum = date.getMonth();
+    const currentDay = date.getDate();
+
+    return projectTasks.filter(task => {
+      if (!task.dueDate) return false;
+      
+      // Only include incomplete tasks
+      if (task.status === 'completed') return false;
+
+      try {
+        // Parse date consistently without timezone issues
+        const taskDate = new Date(task.dueDate + 'T00:00:00');
+        if (isNaN(taskDate.getTime())) return false;
+
+        // Check if task is due on this date and is overdue
+        const isDueOnThisDate = taskDate.getFullYear() === currentYear &&
+                               taskDate.getMonth() === currentMonthNum &&
+                               taskDate.getDate() === currentDay;
+        
+        const isOverdue = taskDate < new Date(new Date().setHours(0, 0, 0, 0));
+        
+        return isDueOnThisDate && isOverdue;
       } catch (error) {
         console.warn('Error parsing task date:', task.dueDate, error);
         return false;
@@ -9713,432 +9765,274 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
       {/* Top Row: Today + Later This Week + Project Details */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Today Box */}
-        <Card className="!p-0 overflow-hidden">
+        <Card className="!p-0 overflow-hidden rounded-none h-64">
           <div className="px-4 py-3 flex items-center gap-2">
-            {/* Calendar Icon with Month/Date */}
-            <div className="flex-shrink-0 w-10 h-10 0 text-white rounded-lg flex flex-col items-center justify-center" style={{ backgroundColor: BRAND.orange }}>
-              <div className="text-[9px] font-semibold uppercase leading-tight">{new Date().toLocaleDateString('en-US', { month: 'short' })}</div>
-              <div className="text-xl font-bold leading-none">{new Date().getDate()}</div>
+            {/* Calendar tile icon for Today */}
+            <div className="flex-shrink-0 w-10 h-10 bg-white border border-gray-300 rounded-lg overflow-hidden flex flex-col">
+              <div className="h-3 text-white text-[9px] leading-3 flex items-center justify-center font-semibold" style={{ backgroundColor: BRAND.orange }}>
+                {new Date().toLocaleDateString('en-US', { month: 'short' }).toUpperCase()}
+              </div>
+              <div className="flex-1 flex items-center justify-center">
+                <span className="text-sm font-bold text-gray-900">{new Date().getDate()}</span>
+              </div>
             </div>
             <div>
               <h3 className="text-base font-semibold text-gray-900">Today</h3>
               <p className="text-[10px] text-gray-500">{currentPhase}</p>
             </div>
           </div>
+          <div className="border-b border-gray-200"></div>
 
-          {/* Tasks Due Today */}
-          <div className="px-4 pb-3 space-y-3">
-            {/* My Tasks (Due Today) */}
-            <div>
-              <div className="border-b border-gray-200 pb-1">
-                <span className="text-[10px] font-semibold text-gray-600 uppercase tracking-wide">My Tasks</span>
-              </div>
-              <div className="mt-2 space-y-1">
-                {(() => {
-                  const today = new Date();
-                  today.setHours(0, 0, 0, 0);
-                  const todayStr = today.toISOString().split('T')[0];
+          {/* Tasks Due Today - Single List */}
+          <div className="px-4 pb-4 pt-2 h-48 overflow-hidden relative">
+            <div className="h-full overflow-y-auto">
+              {(() => {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const todayStr = today.toISOString().split('T')[0];
 
-                  // Filter tasks assigned to current user due today OR overdue
-                  const myTasksToday = projectTasks
-                    .filter(task => {
-                      if (!task.dueDate) return false;
+                // Combine all tasks due today and overdue
+                const allTasksToday = projectTasks.filter(task => {
+                  if (!task.dueDate) return false;
+                  const taskDueDate = new Date(task.dueDate + 'T00:00:00');
+                  taskDueDate.setHours(0, 0, 0, 0);
+                  const isDueToday = taskDueDate.getTime() === today.getTime();
+                  const isOverdue = task.status !== 'completed' && taskDueDate.getTime() < today.getTime();
+                  return isDueToday || isOverdue;
+                });
 
-                      // Parse task due date
+                // Sort with priority: overdue first, then assigned to me, then others
+                const sortedTasksToday = allTasksToday.sort((a, b) => {
+                  const aDueDate = new Date(a.dueDate + 'T00:00:00');
+                  const bDueDate = new Date(b.dueDate + 'T00:00:00');
+                  const aIsOverdue = a.status !== 'completed' && aDueDate.getTime() < today.getTime();
+                  const bIsOverdue = b.status !== 'completed' && bDueDate.getTime() < today.getTime();
+                  
+                  // Overdue tasks first
+                  if (aIsOverdue && !bIsOverdue) return -1;
+                  if (!aIsOverdue && bIsOverdue) return 1;
+                  
+                  // Then assigned to me
+                  const aAssignedToMe = isAssignedToCurrentUser(a);
+                  const bAssignedToMe = isAssignedToCurrentUser(b);
+                  if (aAssignedToMe && !bAssignedToMe) return -1;
+                  if (!aAssignedToMe && bAssignedToMe) return 1;
+                  
+                  return 0;
+                });
+
+                if (sortedTasksToday.length === 0) {
+                  return <div className="text-xs italic text-gray-500">No tasks for today</div>;
+                }
+
+                return (
+                  <div className="space-y-1">
+                    {sortedTasksToday.map(task => {
                       const taskDueDate = new Date(task.dueDate + 'T00:00:00');
-                      taskDueDate.setHours(0, 0, 0, 0);
-
-                      // Check if due today or overdue (before today)
-                      const isDueToday = taskDueDate.getTime() === today.getTime();
                       const isOverdue = task.status !== 'completed' && taskDueDate.getTime() < today.getTime();
-
-                      if (!isDueToday && !isOverdue) return false;
-                      if (!task.assignedTo || task.assignedTo.length === 0) return false;
-                      return isAssignedToCurrentUser(task);
-                    })
-                    .sort((a, b) => {
-                      // Sort: incomplete before completed
-                      if (a.status === 'completed' && b.status !== 'completed') return 1;
-                      if (a.status !== 'completed' && b.status === 'completed') return -1;
-                      return 0;
-                    });
-
-                  if (myTasksToday.length === 0) {
-                    return <p className="text-xs text-gray-500 italic">No tasks assigned to you today</p>;
-                  }
-
-                  return myTasksToday.map(task => {
-                    const isOverdue = isTaskOverdue(task);
-                    const taskPhaseColor = PHASE_COLORS[task.phase] || PHASE_COLORS['Kickoff'];
-
-                    return (
-                      <div
-                        key={task.id}
-                        className={`text-xs flex items-start gap-1 ${
-                          task.status === 'completed' ? 'text-gray-400' : 'text-gray-700'
-                        }`}
-                        style={{
-                          fontWeight: isOverdue ? 'bold' : 'normal',
-                          color: isOverdue ? taskPhaseColor : undefined
-                        }}
-                      >
-                        <span style={{ color: BRAND.orange }}>•</span>
-                        <span className={task.status === 'completed' ? 'line-through' : ''}>
-                          {task.description}
-                          {isTaskOverdue(task) && (
-                            <span className="px-2 py-0.5 ml-1 rounded-full text-[10px] font-bold bg-red-500/20 text-red-600">
-                              overdue
+                      const isAssignedToMe = isAssignedToCurrentUser(task);
+                      const isBold = isOverdue || isAssignedToMe;
+                      
+                      return (
+                        <div key={task.id} className="flex items-start gap-2 text-xs">
+                          <span className="mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: BRAND.orange }}></span>
+                          <span className="flex-1">
+                            <span className={isBold ? "font-bold" : ""} style={{ color: isOverdue ? "#DC2626" : "#1F2937" }}>
+                              {task.description || task.content || 'Untitled task'}
                             </span>
-                          )}
-                        </span>
-                      </div>
-                    );
-                  });
-                })()}
-              </div>
+                            {isAssignedToMe && (
+                              <span className={`text-[10px] ml-1 font-bold ${isOverdue ? "text-red-600" : "text-gray-500"}`}>(assigned to you)</span>
+                            )}
+                            {isOverdue && (
+                              <span className="px-1 py-0.5 rounded-full text-[8px] font-bold bg-red-100 text-red-600 ml-1">
+                                overdue
+                              </span>
+                            )}
+                            {task.projectName && <span className="text-[10px] text-gray-500"> ({task.projectName})</span>}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
-
-            {/* Additional Tasks (Due Today) */}
-            <div>
-              <div className="border-b border-gray-200 pb-1">
-                <span className="text-[10px] font-semibold text-gray-600 uppercase tracking-wide">Additional Tasks</span>
-              </div>
-              <div className="mt-2 space-y-1">
-                {(() => {
-                  const today = new Date();
-                  today.setHours(0, 0, 0, 0);
-
-                  // Filter tasks NOT assigned to current user but due today OR overdue
-                  const additionalTasksToday = projectTasks
-                    .filter(task => {
-                      if (!task.dueDate) return false;
-
-                      // Parse task due date
-                      const taskDueDate = new Date(task.dueDate + 'T00:00:00');
-                      taskDueDate.setHours(0, 0, 0, 0);
-
-                      // Check if due today or overdue (before today)
-                      const isDueToday = taskDueDate.getTime() === today.getTime();
-                      const isOverdue = task.status !== 'completed' && taskDueDate.getTime() < today.getTime();
-
-                      if (!isDueToday && !isOverdue) return false;
-
-                      // If no assignedTo, include it
-                      if (!task.assignedTo || task.assignedTo.length === 0) return true;
-                      return !isAssignedToCurrentUser(task);
-                    })
-                    .sort((a, b) => {
-                      // Sort: incomplete before completed
-                      if (a.status === 'completed' && b.status !== 'completed') return 1;
-                      if (a.status !== 'completed' && b.status === 'completed') return -1;
-                      return 0;
-                    });
-
-                  if (additionalTasksToday.length === 0) {
-                    return <p className="text-xs text-gray-500 italic">No additional tasks due today</p>;
-                  }
-
-                  return additionalTasksToday.map(task => {
-                    const isOverdue = isTaskOverdue(task);
-                    const taskPhaseColor = PHASE_COLORS[task.phase] || PHASE_COLORS['Kickoff'];
-
-                    return (
-                      <div
-                        key={task.id}
-                        className={`text-xs flex items-start gap-1 ${
-                          task.status === 'completed' ? 'text-gray-400' : 'text-gray-700'
-                        }`}
-                        style={{
-                          fontWeight: isOverdue ? 'bold' : 'normal',
-                          color: isOverdue ? taskPhaseColor : undefined
-                        }}
-                      >
-                        <span style={{ color: BRAND.orange }}>•</span>
-                        <span className={task.status === 'completed' ? 'line-through' : ''}>
-                          {task.description}
-                          {isTaskOverdue(task) && (
-                            <span className="px-2 py-0.5 ml-1 rounded-full text-[10px] font-bold bg-red-500/20 text-red-600">
-                              overdue
-                            </span>
-                          )}
-                        </span>
-                      </div>
-                    );
-                  });
-                })()}
-              </div>
-            </div>
+            {/* Gradient overlay to indicate more content */}
+            <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white to-transparent pointer-events-none"></div>
           </div>
         </Card>
 
         {/* Later This Week Box */}
-        <Card className="!p-0 overflow-hidden">
+        <Card className="!p-0 overflow-hidden rounded-none h-64">
           <div className="px-4 py-3 flex items-center gap-2">
-            <div className="flex-shrink-0 w-10 h-10 bg-blue-500 text-white rounded-lg flex items-center justify-center">
-              <IconCalendarShare className="w-6 h-6" stroke={1.5} />
+            <div className="flex-shrink-0">
+              <IconCalendarShare className="w-10 h-10 text-blue-500" stroke={1.5} />
             </div>
             <div>
               <h3 className="text-base font-semibold text-gray-900">Later This Week</h3>
               <p className="text-[10px] text-gray-500">{currentPhase}</p>
             </div>
           </div>
+          <div className="border-b border-gray-200"></div>
 
-          <div className="px-4 pb-3 space-y-3">
-            {/* My Tasks */}
-            <div>
-              <div className="border-b border-gray-200 pb-0.5">
-                <span className="text-[10px] font-semibold text-gray-600 uppercase tracking-wide">My Tasks</span>
-              </div>
-              <div className="mt-1.5 space-y-0.5">
-                {(() => {
-                  const today = new Date();
-                  today.setHours(0, 0, 0, 0);
-                  const { monday, friday } = getThisWeekRange();
+          {/* Tasks Later This Week - Single List */}
+          <div className="px-4 pb-4 pt-2 h-48 overflow-hidden relative">
+            <div className="h-full overflow-y-auto">
+              {(() => {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const { monday, friday } = getThisWeekRange();
+                const fridayEndOfDay = new Date(friday);
+                fridayEndOfDay.setHours(0, 0, 0, 0);
 
-                  // Set friday to end of day for proper comparison
-                  const fridayEndOfDay = new Date(friday);
-                  fridayEndOfDay.setHours(0, 0, 0, 0);
+                // Combine all tasks later this week
+                const allTasksLaterThisWeek = projectTasks.filter(task => {
+                  if (task.status === 'completed') return false;
+                  if (!task.dueDate) return false;
 
-                  const myTasksLaterThisWeek = projectTasks
-                    .filter(task => {
-                      if (task.status === 'completed') return false;
-                      if (!task.assignedTo || task.assignedTo.length === 0) return false;
-                      if (!task.dueDate) return false;
+                  const taskDate = new Date(task.dueDate + 'T00:00:00');
+                  taskDate.setHours(0, 0, 0, 0);
 
-                      const taskDate = new Date(task.dueDate + 'T00:00:00');
-                      taskDate.setHours(0, 0, 0, 0);
+                  // Task must be after today AND on or before Friday
+                  const isAfterToday = taskDate.getTime() > today.getTime();
+                  const isBeforeFridayEnd = taskDate.getTime() <= fridayEndOfDay.getTime();
 
-                      // Task must be after today AND on or before Friday
-                      const isAfterToday = taskDate.getTime() > today.getTime();
-                      const isBeforeFridayEnd = taskDate.getTime() <= fridayEndOfDay.getTime();
+                  return isAfterToday && isBeforeFridayEnd;
+                });
 
-                      if (!(isAfterToday && isBeforeFridayEnd)) return false;
+                // Sort with assigned to me first
+                const sortedTasksLaterThisWeek = allTasksLaterThisWeek.sort((a, b) => {
+                  const aAssignedToMe = isAssignedToCurrentUser(a);
+                  const bAssignedToMe = isAssignedToCurrentUser(b);
+                  if (aAssignedToMe && !bAssignedToMe) return -1;
+                  if (!aAssignedToMe && bAssignedToMe) return 1;
+                  return 0;
+                });
 
-                      return task.assignedTo.some((assignedValue: string) => {
-                        if (!user?.name || !assignedValue) return false;
+                if (sortedTasksLaterThisWeek.length === 0) {
+                  return <div className="text-xs italic text-gray-500">No tasks later this week</div>;
+                }
 
-                        const teamMember = project.teamMembers.find(m => m.id === assignedValue);
-                        if (teamMember) {
-                          return teamMember.name === user.name ||
-                                 teamMember.name.toLowerCase() === user.name.toLowerCase() ||
-                                 teamMember.email === user.email ||
-                                 teamMember.email?.toLowerCase() === user.email?.toLowerCase();
-                        }
-
-                        if (assignedValue === user.name ||
-                            assignedValue.toLowerCase() === user.name.toLowerCase() ||
-                            assignedValue === user.email ||
-                            assignedValue.toLowerCase() === user.email?.toLowerCase()) {
-                          return true;
-                        }
-
-                        const userInitials = user.name
-                          .split(' ')
-                          .map(part => part[0])
-                          .join('')
-                          .toUpperCase();
-
-                        if (assignedValue.toUpperCase() === userInitials) {
-                          return true;
-                        }
-
-                        const assignedInitials = assignedValue
-                          .split(' ')
-                          .map(part => part[0])
-                          .join('')
-                          .toUpperCase();
-
-                        return assignedInitials === userInitials;
-                      });
-                    });
-
-                  if (myTasksLaterThisWeek.length === 0) {
-                    return <p className="text-[10px] text-gray-500 italic">No tasks for you later this week</p>;
-                  }
-
-                  return myTasksLaterThisWeek.map(task => {
-                    const taskPhaseColor = PHASE_COLORS[task.phase] || PHASE_COLORS['Kickoff'];
-                    return (
-                      <div key={task.id} className="text-xs text-gray-700 flex items-start gap-1" style={{ color: taskPhaseColor, fontWeight: 'bold' }}>
-                        <span style={{ color: BRAND.orange }}>•</span>
-                        <span>
-                          {task.description}
+                return (
+                  <div className="space-y-1">
+                    {sortedTasksLaterThisWeek.map(task => (
+                      <div key={task.id} className="flex items-start gap-2 text-xs text-gray-800">
+                        <span className="mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: BRAND.orange }}></span>
+                        <span className="flex-1 flex justify-between items-start">
+                          <span>
+                            <span>{task.description || task.content || 'Untitled task'}</span>
+                            {task.projectName && <span className="text-[10px] text-gray-500"> ({task.projectName})</span>}
+                          </span>
                           {task.dueDate && (
-                            <span className="text-[10px] ml-1">
-                              ({formatDateForDisplay(task.dueDate)})
+                            <span className="text-[10px] text-gray-500 ml-2 flex-shrink-0">
+                              {formatDateForDisplay(task.dueDate)}
                             </span>
                           )}
                         </span>
                       </div>
-                    );
-                  });
-                })()}
-              </div>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
-
-            {/* Additional Tasks */}
-            <div>
-              <div className="border-b border-gray-200 pb-0.5">
-                <span className="text-[10px] font-semibold text-gray-600 uppercase tracking-wide">Additional Tasks</span>
-              </div>
-              <div className="mt-1.5 space-y-0.5">
-                {(() => {
-                  const today = new Date();
-                  today.setHours(0, 0, 0, 0);
-                  const { monday, friday } = getThisWeekRange();
-
-                  // Set friday to end of day for proper comparison
-                  const fridayEndOfDay = new Date(friday);
-                  fridayEndOfDay.setHours(0, 0, 0, 0);
-
-                  const additionalTasksLaterThisWeek = projectTasks
-                    .filter(task => {
-                      if (task.status === 'completed') return false;
-                      if (!task.dueDate) return false;
-
-                      const taskDate = new Date(task.dueDate + 'T00:00:00');
-                      taskDate.setHours(0, 0, 0, 0);
-
-                      // Task must be after today AND on or before Friday
-                      const isAfterToday = taskDate.getTime() > today.getTime();
-                      const isBeforeFridayEnd = taskDate.getTime() <= fridayEndOfDay.getTime();
-
-                      if (!(isAfterToday && isBeforeFridayEnd)) return false;
-
-                      // Exclude tasks assigned to current user (already shown in My Tasks)
-                      if (task.assignedTo && task.assignedTo.length > 0) {
-                        const isAssignedToMe = task.assignedTo.some((assignedValue: string) => {
-                          if (!user?.name || !assignedValue) return false;
-
-                          const teamMember = project.teamMembers.find(m => m.id === assignedValue);
-                          if (teamMember) {
-                            return teamMember.name === user.name ||
-                                   teamMember.name.toLowerCase() === user.name.toLowerCase() ||
-                                   teamMember.email === user.email ||
-                                   teamMember.email?.toLowerCase() === user.email?.toLowerCase();
-                          }
-
-                          if (assignedValue === user.name ||
-                              assignedValue.toLowerCase() === user.name.toLowerCase() ||
-                              assignedValue === user.email ||
-                              assignedValue.toLowerCase() === user.email?.toLowerCase()) {
-                            return true;
-                          }
-
-                          const userInitials = user.name
-                            .split(' ')
-                            .map(part => part[0])
-                            .join('')
-                            .toUpperCase();
-
-                          if (assignedValue.toUpperCase() === userInitials) {
-                            return true;
-                          }
-
-                          const assignedInitials = assignedValue
-                            .split(' ')
-                            .map(part => part[0])
-                            .join('')
-                            .toUpperCase();
-
-                          return assignedInitials === userInitials;
-                        });
-
-                        if (isAssignedToMe) return false;
-                      }
-
-                      return true;
-                    });
-
-                  if (additionalTasksLaterThisWeek.length === 0) {
-                    return <p className="text-[10px] text-gray-500 italic">No additional tasks later this week</p>;
-                  }
-
-                  return additionalTasksLaterThisWeek.map(task => {
-                    return (
-                      <div key={task.id} className="text-xs text-gray-700 flex items-start gap-1">
-                        <span style={{ color: BRAND.orange }}>•</span>
-                        <span>
-                          {task.description}
-                          {task.dueDate && (
-                            <span className="text-[10px] ml-1">
-                              ({formatDateForDisplay(task.dueDate)})
-                            </span>
-                          )}
-                        </span>
-                      </div>
-                    );
-                  });
-                })()}
-              </div>
-            </div>
+            {/* Gradient overlay to indicate more content */}
+            <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white to-transparent pointer-events-none"></div>
           </div>
         </Card>
 
-        {/* Project Details Box */}
-        <Card className="px-4 py-3">
-          <div className="mb-2">
-            <span className="text-base font-bold text-gray-700 uppercase tracking-wide">Project Details</span>
-          </div>
-          <div className="space-y-2">
-            {/* Client */}
-            <div>
-              <span className="text-xs font-semibold text-gray-600">Client: </span>
-              <span className="text-xs text-gray-700">{project.client || 'Not specified'}</span>
-            </div>
-
-            {/* Methodology */}
-            <div>
-              <span className="text-xs font-semibold text-gray-600">Methodology: </span>
-              <span className="text-xs text-gray-700">{project.methodology || 'Not specified'}</span>
-            </div>
-
-            {/* Sample */}
-            <div>
-              <span className="text-xs font-semibold text-gray-600">Sample: </span>
-              <span className="text-xs text-gray-700">{project.sampleDetails || 'Not specified'}</span>
-            </div>
-
-            {/* Moderator - Only show for Qualitative */}
-            {project.methodologyType === 'Qualitative' && (
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-gray-600">Moderator: </span>
-                <span className="text-xs text-gray-700">
-                  {localProject.moderator && localProject.moderator !== 'internal' && localProject.moderator !== 'external' && localProject.moderator !== 'vendor'
-                    ? (moderators.find(m => m.id === localProject.moderator || m.name === localProject.moderator)?.name || localProject.moderator)
-                    : 'Not assigned'}
-                </span>
-                <button
-                  onClick={() => setShowModeratorModal(true)}
-                  className="text-gray-500 hover:text-orange-600 transition-colors"
-                  title="Edit moderator"
-                >
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                  </svg>
+        {/* Project Details - Three Boxes Left, Sample Details Right */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Left Column - Client, Methodology, Moderator */}
+          <div className="flex flex-col justify-between h-64">
+            {/* Client Box */}
+            <Card className="!p-0 overflow-hidden rounded-none h-20">
+              <div style={{ backgroundColor: BRAND.orange }} className="text-white px-4 py-2 flex items-center justify-between">
+                <h3 className="text-sm font-semibold">Client</h3>
+                <button className="text-white hover:text-gray-200 transition-colors" title="Edit client">
+                  <PencilIcon className="w-4 h-4" />
                 </button>
               </div>
-            )}
-
-            {/* Key Dates */}
-            <div>
-              <span className="text-xs font-semibold text-gray-600">Key Dates:</span>
-              <div className="mt-1 ml-3">
-                {(() => {
-                  const keyDates = project.keyDeadlines || [];
-                  if (keyDates.length === 0) return <p className="text-xs italic text-gray-500">No key dates set</p>;
-
-                  // Show the first 3 key dates
-                  return keyDates.slice(0, 3).map((kd, idx) => (
-                    <div key={idx} className="text-xs italic text-gray-600">
-                      • {kd.label}: {kd.date}
-                    </div>
-                  ));
-                })()}
+              <div className="border-b border-gray-200"></div>
+              <div className="px-4 py-2">
+                <span className="text-xs text-gray-700">{project.client || 'Not specified'}</span>
               </div>
-            </div>
+            </Card>
+
+            {/* Methodology Box */}
+            <Card className="!p-0 overflow-hidden rounded-none h-20">
+              <div style={{ backgroundColor: BRAND.orange }} className="text-white px-4 py-2 flex items-center justify-between">
+                <h3 className="text-sm font-semibold">Methodology</h3>
+                <button className="text-white hover:text-gray-200 transition-colors" title="Edit methodology">
+                  <PencilIcon className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="border-b border-gray-200"></div>
+              <div className="px-4 py-2">
+                <span className="text-xs text-gray-700">{project.methodology || 'Not specified'}</span>
+              </div>
+            </Card>
+
+            {/* Moderator Box */}
+            <Card className="!p-0 overflow-hidden rounded-none h-20">
+              <div style={{ backgroundColor: BRAND.orange }} className="text-white px-4 py-2 flex items-center justify-between">
+                <h3 className="text-sm font-semibold">Moderator</h3>
+                <button className="text-white hover:text-gray-200 transition-colors" title="Edit moderator">
+                  <PencilIcon className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="border-b border-gray-200"></div>
+              <div className="px-4 py-2">
+                {project.methodologyType === 'Qualitative' ? (
+                  <span className="text-xs text-gray-700">
+                    {localProject.moderator && localProject.moderator !== 'internal' && localProject.moderator !== 'external' && localProject.moderator !== 'vendor'
+                      ? (moderators.find(m => m.id === localProject.moderator || m.name === localProject.moderator)?.name || localProject.moderator)
+                      : 'Not assigned'}
+                  </span>
+                ) : (
+                  <span className="text-xs text-gray-500 italic">Not applicable for quantitative projects</span>
+                )}
+              </div>
+            </Card>
           </div>
-        </Card>
+
+          {/* Right Column - Sample Details */}
+          <div>
+            {/* Sample Details Box */}
+            <Card className="!p-0 overflow-hidden rounded-none h-64">
+              <div style={{ backgroundColor: BRAND.orange }} className="text-white px-4 py-2 flex items-center justify-between">
+                <h3 className="text-sm font-semibold">Sample Details</h3>
+                <button className="text-white hover:text-gray-200 transition-colors" title="Edit sample details">
+                  <PencilIcon className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="border-b border-gray-200"></div>
+              <div className="px-4 py-2">
+                <div className="mb-2">
+                  <span className="text-xs font-semibold text-gray-600">Total Sample: </span>
+                  <span className="text-xs text-gray-700">
+                    {project.sampleSize ? `n=${project.sampleSize}` : 'Not specified'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-xs font-semibold text-gray-600 mb-1 block">Subgroups:</span>
+                  <div className="space-y-1">
+                    {(() => {
+                      if (project.subgroups && project.subgroups.length > 0) {
+                        return project.subgroups.map((subgroup, idx) => (
+                          <div key={idx} className="text-xs text-gray-700">
+                            - {subgroup.name}: n={subgroup.size}
+                          </div>
+                        ));
+                      }
+                      
+                      return <p className="text-xs italic text-gray-500">No subgroups specified</p>;
+                    })()}
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </div>
+        </div>
       </div>
 
       {/* Main Layout: Left side (Tasks + Post-it Notes) and Right side (Calendar + Key Dates + Files/Notes) */}
@@ -10398,8 +10292,8 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                         {task.assignedTo && task.assignedTo.filter(id => id && id.trim() !== '').length > 0 && (
                           <div className="flex items-center gap-1 flex-shrink-0">
                             {task.assignedTo.filter(id => id && id.trim() !== '').slice(0, 2).map((memberId) => (
-                              <div key={memberId} className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium" style={{ backgroundColor: getMemberColor(memberId, project.teamMembers) }}>
-                                {getInitials(project.teamMembers.find(m => m.id === memberId)?.name || 'Unknown')}
+                              <div key={memberId} className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium overflow-hidden" style={{ backgroundColor: getMemberColor(memberId, project.teamMembers) }}>
+                                <span className="truncate leading-none">{getInitials(project.teamMembers.find(m => m.id === memberId)?.name || 'Unknown')}</span>
                               </div>
                             ))}
                             {task.assignedTo.filter(id => id && id.trim() !== '').length > 2 && (
@@ -10588,47 +10482,49 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
         {/* Right Half - Calendar, Key Dates, Files/Notes */}
         <div className="space-y-6">
           {/* Calendar */}
-          <Card>
-            <div className="mb-3">
-            </div>
-
+          <Card className="flex flex-col h-[500px] !p-0 overflow-hidden">
             {/* Calendar Navigation */}
-            <div className="flex items-center justify-between mb-4">
+            <div className="rounded-t-lg px-4 py-3 flex items-center justify-between" style={{ backgroundColor: BRAND.gray }}>
               <button
                 onClick={() => {
                   setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1));
                 }}
-                className="p-2 hover:bg-gray-100 rounded-lg"
+                className="p-2 rounded-lg text-white hover:opacity-80"
               >
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
               <div className="flex items-center gap-3">
-                <h4 className="text-lg font-semibold">
+                <h4 className="text-lg font-semibold text-white">
                   {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
                 </h4>
-                <button
-                  onClick={() => setShowTimelineEditor(true)}
-                  className="text-xs text-orange-600 hover:text-orange-800 underline"
-                >
-                  Edit
-                </button>
               </div>
+              <div className="flex items-center gap-2">
               <button
                 onClick={() => {
                   setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1));
                 }}
-                className="p-2 hover:bg-gray-100 rounded-lg"
+                  className="p-2 rounded-lg text-white hover:opacity-80"
               >
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </button>
+                <button
+                  onClick={() => setShowTimelineEditor(true)}
+                  className="p-2 rounded-lg text-white hover:opacity-80"
+                  title="Edit timeline"
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </button>
+              </div>
                   </div>
 
             {/* Phase Legend */}
-            <div className="mb-4 text-center">
+            <div className="mb-4 text-center pt-4">
               <div className="flex flex-wrap justify-center gap-2">
                 {project.segments?.map((segment, index) => (
                   <div key={`segment-${segment.phase}-${index}`} className="flex items-center gap-1">
@@ -10643,29 +10539,44 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
             </div>
 
             {/* Calendar Grid */}
-            <div className="space-y-1">
+            <div className="flex-1 p-4 flex flex-col">
               {/* Calendar grid */}
               {(() => {
-                // Helper function to check if a date is in current week
+                // Helper function to check if a date is in current week (Monday to Friday)
                 const isCurrentWeek = (date: Date) => {
                   const today = new Date();
-                  const startOfWeek = new Date(today);
+                  
+                  // Get Monday of current week
                   const dayOfWeek = today.getDay();
-                  const diff = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1); // Adjust when day is Sunday
-                  startOfWeek.setDate(diff);
+                  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // Monday is day 1
+                  const mondayOfWeek = new Date(today);
+                  mondayOfWeek.setDate(today.getDate() + mondayOffset);
                   
-                  const endOfWeek = new Date(startOfWeek);
-                  endOfWeek.setDate(startOfWeek.getDate() + 6);
+                  // Get Friday of current week
+                  const fridayOfWeek = new Date(mondayOfWeek);
+                  fridayOfWeek.setDate(mondayOfWeek.getDate() + 4);
                   
-                  return date >= startOfWeek && date <= endOfWeek;
+                  // Reset time to start of day for accurate comparison
+                  const dateStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+                  const mondayStart = new Date(mondayOfWeek.getFullYear(), mondayOfWeek.getMonth(), mondayOfWeek.getDate());
+                  const fridayStart = new Date(fridayOfWeek.getFullYear(), fridayOfWeek.getMonth(), fridayOfWeek.getDate());
+                  
+                  console.log('Week calculation:', {
+                    date: dateStart.toDateString(),
+                    monday: mondayStart.toDateString(),
+                    friday: fridayStart.toDateString(),
+                    isInRange: dateStart >= mondayStart && dateStart <= fridayStart
+                  });
+                  
+                  return dateStart >= mondayStart && dateStart <= fridayStart;
                 };
 
                 return getWeekGroups(getWorkWeekDays(currentMonth, true)).map((week, weekIndex) => (
-                <div key={weekIndex} className="grid grid-cols-5 gap-1">
+                <div key={weekIndex} className="grid grid-cols-5 gap-1 flex-1 mb-2">
                   {Array.from({ length: 5 }, (_, dayIndex) => {
                     const dayObj = week[dayIndex];
                     if (!dayObj) {
-                      return <div key={`${weekIndex}-${dayIndex}`} className="h-16" />;
+                      return <div key={`${weekIndex}-${dayIndex}`} className="flex-1" />;
                     }
 
                     const dayDate = dayObj.date;
@@ -10673,6 +10584,16 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                     const isCurrentWeekDay = isCurrentWeek(dayDate);
                     const isCurrentMonth = dayObj.isCurrentMonth;
                     const isPastDate = dayDate < new Date(new Date().setHours(0, 0, 0, 0));
+                    
+                    // Debug logging for Monday
+                    if (dayDate.getDay() === 1) {
+                      console.log('Monday debug:', {
+                        dayDate: dayDate.toDateString(),
+                        isCurrentWeekDay,
+                        isPastDate,
+                        isCurrentDay
+                      });
+                    }
                     const phaseForDay = project.segments?.find(segment =>
                       isDateInPhase(dayObj, segment)
                     );
@@ -10684,9 +10605,9 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                     return (
                       <div
                         key={`${weekIndex}-${dayIndex}`}
-                        className={`relative p-2 text-center text-sm rounded-lg cursor-pointer hover:bg-gray-200 h-16 flex flex-col justify-between ${
+                        className={`relative p-3 text-center text-sm rounded-lg cursor-pointer hover:bg-gray-200 flex flex-col justify-between ${
                           isCurrentDay ? 'bg-gray-100' : isCurrentMonth ? 'bg-gray-100' : 'bg-white'
-                        } ${isPastDate ? 'opacity-50' : ''}`}
+                        } ${isPastDate && !isCurrentWeekDay ? 'opacity-50' : ''}`}
                         style={{
                           backgroundColor: isCurrentWeekDay || isCurrentDay ? '#FED7AA40' : isCurrentMonth ? '#F3F4F6' : '#FFFFFF',
                           border: isCurrentDay ? '2px solid #D14A2D' : (!isCurrentMonth && !isCurrentWeekDay ? '1px solid #E5E7EB' : 'none'),
@@ -10724,19 +10645,24 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
           )}
 
                         {/* Task count indicator */}
-                        {hasTask && tasksForDate.length > 0 && (
+                        {hasTask && tasksForDate.length > 0 && (() => {
+                          const overdueTasks = getOverdueTasksForDate(dayObj.date);
+                          const hasOverdue = overdueTasks.length > 0;
+                          
+                          return (
                           <div className={`absolute top-1 left-1 z-10 ${isCurrentMonth ? 'opacity-100' : isPastDate ? 'opacity-60' : 'opacity-50'}`}>
                             <div
                               className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-medium"
                               style={{
-                                color: '#374151',
-                                backgroundColor: tasksForDate[0].phase ? (PHASE_COLORS[tasksForDate[0].phase] + '30') : '#9CA3AF30'
+                                  color: hasOverdue ? '#DC2626' : '#374151',
+                                  backgroundColor: hasOverdue ? '#FEE2E2' : (tasksForDate[0].phase ? (PHASE_COLORS[tasksForDate[0].phase] + '30') : '#9CA3AF30')
                               }}
                             >
-                              {tasksForDate.length}
+                                {hasOverdue ? overdueTasks.length : tasksForDate.length}
                             </div>
             </div>
-          )}
+                          );
+                        })()}
 
                         {/* Phase indicator pill at bottom */}
                         {phaseForDay && (
@@ -11133,10 +11059,10 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
 
       {/* Day Details Popup */}
       {selectedDay && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center overflow-y-auto py-8 z-[9999] p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6">
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-[9999]" style={{ margin: 0, padding: 0, top: 0, left: 0, right: 0, bottom: 0 }}>
+          <div className="bg-white rounded-2xl max-w-2xl w-full mx-4 p-6 shadow-xl">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Day {selectedDay.day} Details</h3>
+              <h3 className="text-lg font-semibold">{selectedDay.date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</h3>
               <button
                 onClick={() => setSelectedDay(null)}
                 className="text-gray-400 hover:text-gray-600"
@@ -11187,14 +11113,99 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
               )}
               
               {selectedDay.tasks.length > 0 && (
+                <div className="space-y-4">
+                  {/* Incomplete Tasks */}
+                  {selectedDay.tasks.filter(task => task.status !== 'completed').length > 0 && (
                 <div>
-                  <h4 className="font-medium text-gray-900 mb-2">Tasks</h4>
-                  <ul className="space-y-2">
-                    {selectedDay.tasks.map((task) => {
+                      <h4 className="font-medium text-gray-900 mb-2">Incomplete Tasks</h4>
+                      <div className="space-y-2">
+                        {selectedDay.tasks
+                          .filter(task => task.status !== 'completed')
+                          .sort((a, b) => {
+                            const userAssignedToA = a.assignedTo && a.assignedTo.includes(user?.id);
+                            const userAssignedToB = b.assignedTo && b.assignedTo.includes(user?.id);
+                            const aIsSoloAssigned = a.assignedTo && a.assignedTo.length === 1 && userAssignedToA;
+                            const bIsSoloAssigned = b.assignedTo && b.assignedTo.length === 1 && userAssignedToB;
+                            const aIsMultiAssigned = a.assignedTo && a.assignedTo.length > 1 && userAssignedToA;
+                            const bIsMultiAssigned = b.assignedTo && b.assignedTo.length > 1 && userAssignedToB;
+                            
+                            // Priority: Solo assigned to user > Multi assigned to user > Not assigned to user
+                            if (aIsSoloAssigned && !bIsSoloAssigned) return -1;
+                            if (!aIsSoloAssigned && bIsSoloAssigned) return 1;
+                            if (aIsMultiAssigned && !bIsMultiAssigned && !bIsSoloAssigned) return -1;
+                            if (!aIsMultiAssigned && bIsMultiAssigned && !aIsSoloAssigned) return 1;
+                            return 0;
+                          })
+                          .map((task) => {
+                          const isAssignedToUser = task.assignedTo && task.assignedTo.includes(user?.id);
+                          const userColor = isAssignedToUser ? getMemberColor(user?.id || '', project.teamMembers) : null;
+                          const isOverdue = task.status !== 'completed' && selectedDay.date < new Date(new Date().setHours(0, 0, 0, 0));
+                          
                       return (
-                        <li key={task.id} className="text-sm p-2 bg-gray-50 rounded-lg">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
+                            <div key={task.id} className={`grid grid-cols-12 gap-2 items-center p-3 rounded-lg ${
+                              isAssignedToUser ? 'bg-opacity-20 border' : 'bg-gray-50'
+                            }`} style={isAssignedToUser ? {
+                              backgroundColor: userColor + '10',
+                              borderColor: userColor
+                            } : {}}>
+                              {/* Checkbox - 1 column */}
+                              <div className="col-span-1 flex justify-center">
+                                <button
+                                  onClick={() => {
+                                    const updatedTasks = projectTasks.map(t =>
+                                      t.id === task.id 
+                                        ? { ...t, status: t.status === 'completed' ? 'incomplete' : 'completed' }
+                                        : t
+                                    );
+                                    setProjectTasks(updatedTasks);
+                                    if (setProjects) {
+                                      setProjects((prev: Project[]) =>
+                                        prev.map(p =>
+                                          p.id === project.id ? { ...p, tasks: updatedTasks } : p
+                                        )
+                                      );
+                                    }
+                                    // Update the selectedDay tasks to reflect the change
+                                    setSelectedDay(prev => prev ? {
+                                      ...prev,
+                                      tasks: prev.tasks.map(t =>
+                                        t.id === task.id 
+                                          ? { ...t, status: t.status === 'completed' ? 'incomplete' : 'completed' }
+                                          : t
+                                      )
+                                    } : null);
+                                  }}
+                                  className="w-4 h-4 rounded border-2 border-gray-300 flex items-center justify-center hover:border-gray-400 transition-colors"
+                                >
+                                  {task.status === 'completed' ? (
+                                    <svg className="w-3 h-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                  ) : null}
+                                </button>
+                              </div>
+                              
+                              {/* Task Description - 7 columns */}
+                              <div className="col-span-7">
+                                <span className={`text-sm ${task.status === 'completed' ? 'line-through text-gray-500' : 'text-gray-900'}`}>
+                                  {task.description}
+                                </span>
+                              </div>
+                              
+                              {/* Status - 2 columns */}
+                              <div className="col-span-2 flex justify-center">
+                                <span className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
+                                  isOverdue ? 'bg-red-100 text-red-800' :
+                                  task.status === 'completed' ? 'bg-green-100 text-green-800' :
+                                  task.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
+                                  'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {isOverdue ? 'overdue' : (task.status === 'pending' ? 'incomplete' : task.status.replace('-', ' '))}
+                                </span>
+                              </div>
+                              
+                              {/* Assigned Member Initials - 2 columns */}
+                              <div className="col-span-2 flex justify-center">
                               {task.assignedTo && task.assignedTo.filter(id => id && id.trim() !== '').length > 0 ? (
                                 <div className="flex items-center gap-1">
                                   {task.assignedTo.filter(id => id && id.trim() !== '').slice(0, 2).map((memberId) => {
@@ -11218,11 +11229,57 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                                   )}
                                 </div>
                               ) : (
+                                  <div className="w-6 h-6"></div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Complete Tasks */}
+                  {selectedDay.tasks.filter(task => task.status === 'completed').length > 0 && (
+                    <div>
+                      <h4 className="font-medium text-gray-900 mb-2">Complete Tasks</h4>
+                      <div className="space-y-2">
+                        {selectedDay.tasks
+                          .filter(task => task.status === 'completed')
+                          .sort((a, b) => {
+                            const userAssignedToA = a.assignedTo && a.assignedTo.includes(user?.id);
+                            const userAssignedToB = b.assignedTo && b.assignedTo.includes(user?.id);
+                            const aIsSoloAssigned = a.assignedTo && a.assignedTo.length === 1 && userAssignedToA;
+                            const bIsSoloAssigned = b.assignedTo && b.assignedTo.length === 1 && userAssignedToB;
+                            const aIsMultiAssigned = a.assignedTo && a.assignedTo.length > 1 && userAssignedToA;
+                            const bIsMultiAssigned = b.assignedTo && b.assignedTo.length > 1 && userAssignedToB;
+                            
+                            // Priority: Solo assigned to user > Multi assigned to user > Not assigned to user
+                            if (aIsSoloAssigned && !bIsSoloAssigned) return -1;
+                            if (!aIsSoloAssigned && bIsSoloAssigned) return 1;
+                            if (aIsMultiAssigned && !bIsMultiAssigned && !bIsSoloAssigned) return -1;
+                            if (!aIsMultiAssigned && bIsMultiAssigned && !aIsSoloAssigned) return 1;
+                            return 0;
+                          })
+                          .map((task) => {
+                          const isAssignedToUser = task.assignedTo && task.assignedTo.includes(user?.id);
+                          const userColor = isAssignedToUser ? getMemberColor(user?.id || '', project.teamMembers) : null;
+                          const isOverdue = task.status !== 'completed' && selectedDay.date < new Date(new Date().setHours(0, 0, 0, 0));
+                          
+                          return (
+                            <div key={task.id} className={`grid grid-cols-12 gap-2 items-center p-3 rounded-lg ${
+                              isAssignedToUser ? 'bg-opacity-20 border' : 'bg-gray-50'
+                            }`} style={isAssignedToUser ? {
+                              backgroundColor: userColor + '10',
+                              borderColor: userColor
+                            } : {}}>
+                              {/* Checkbox - 1 column */}
+                              <div className="col-span-1 flex justify-center">
                                 <button
                                   onClick={() => {
                                     const updatedTasks = projectTasks.map(t =>
                                       t.id === task.id 
-                                        ? { ...t, status: t.status === 'completed' ? 'pending' : 'completed' }
+                                        ? { ...t, status: t.status === 'completed' ? 'incomplete' : 'completed' }
                                         : t
                                     );
                                     setProjectTasks(updatedTasks);
@@ -11238,7 +11295,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                                       ...prev,
                                       tasks: prev.tasks.map(t =>
                                         t.id === task.id 
-                                          ? { ...t, status: t.status === 'completed' ? 'pending' : 'completed' }
+                                          ? { ...t, status: t.status === 'completed' ? 'incomplete' : 'completed' }
                                           : t
                                       )
                                     } : null);
@@ -11251,21 +11308,61 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                                     </svg>
                                   ) : null}
                                 </button>
-                              )}
-                              <span className="text-gray-900">{task.description}</span>
                             </div>
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              
+                              {/* Task Description - 7 columns */}
+                              <div className="col-span-7">
+                                <span className={`text-sm ${task.status === 'completed' ? 'line-through text-gray-500' : 'text-gray-900'}`}>
+                                  {task.description}
+                                </span>
+                              </div>
+                              
+                              {/* Status - 2 columns */}
+                              <div className="col-span-2 flex justify-center">
+                                <span className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
+                                  isOverdue ? 'bg-red-100 text-red-800' :
                               task.status === 'completed' ? 'bg-green-100 text-green-800' :
                               task.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
                               'bg-gray-100 text-gray-800'
                             }`}>
-                              {task.status.replace('-', ' ')}
+                                  {isOverdue ? 'overdue' : (task.status === 'pending' ? 'incomplete' : task.status.replace('-', ' '))}
                             </span>
                           </div>
-                        </li>
+                              
+                              {/* Assigned Member Initials - 2 columns */}
+                              <div className="col-span-2 flex justify-center">
+                                {task.assignedTo && task.assignedTo.filter(id => id && id.trim() !== '').length > 0 ? (
+                                  <div className="flex items-center gap-1">
+                                    {task.assignedTo.filter(id => id && id.trim() !== '').slice(0, 2).map((memberId) => {
+                                      const assignedMember = project.teamMembers.find(m => m.id === memberId);
+                                      return (
+                                        <div key={memberId} className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium"
+                                             style={{ backgroundColor: getMemberColor(memberId, project.teamMembers) }}>
+                                          {getInitials(assignedMember?.name || 'Unknown')}
+                                        </div>
                       );
                     })}
-                  </ul>
+                                    {task.assignedTo.filter(id => id && id.trim() !== '').length > 2 && (
+                                      <div className="relative group">
+                                        <span className="text-xs italic text-gray-500 ml-1 cursor-help">
+                                          +{task.assignedTo.filter(id => id && id.trim() !== '').length - 2}
+                                        </span>
+                                        <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs rounded p-2 whitespace-nowrap z-10 left-0 top-8">
+                                          {task.assignedTo.filter(id => id && id.trim() !== '').slice(2).map(id => project.teamMembers.find(m => m.id === id)?.name || 'Unknown').join(', ')}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div className="w-6 h-6"></div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
               
@@ -11607,9 +11704,9 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
 
       {/* Timeline Editor Modal */}
       {showTimelineEditor && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center overflow-y-auto py-8 z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center overflow-y-auto py-8 z-[99999]" style={{ margin: 0, padding: 0, top: 0, left: 0, right: 0, bottom: 0 }}>
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 my-auto max-h-[80vh] overflow-hidden">
-            <div className="flex items-center justify-between p-6 border-b">
+            <div className="flex items-center justify-between p-4 border-b">
               <h2 className="text-xl font-semibold text-gray-900">Edit Project Timeline</h2>
               <button
                 onClick={() => setShowTimelineEditor(false)}
@@ -11619,20 +11716,24 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
               </button>
             </div>
             
-            <div className="p-6 overflow-y-auto max-h-[60vh]">
-              <div className="space-y-6">
+            <div className="p-4 overflow-y-auto max-h-[60vh]">
+              <div className="space-y-4">
                 {/* Phase Segments */}
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Project Phases</h3>
-                  <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Project Phases</h3>
+                  <div className="space-y-3">
                     {editingSegments.map((segment, index) => (
-                      <div key={index} className="flex items-center gap-4 p-4 border rounded-lg">
+                      <div key={index} className="flex items-center gap-4 p-3 border rounded-lg">
                         <div className="flex items-center gap-2">
-                          <div
-                            className="w-4 h-4 rounded-full"
-                            style={{ backgroundColor: PHASE_COLORS[segment.phase] }}
-                          />
-                          <span className="font-medium text-gray-900">{segment.phase}</span>
+                        <span 
+                          className="px-3 py-1 rounded-full text-sm font-medium text-white text-center whitespace-nowrap opacity-60"
+                          style={{ 
+                            backgroundColor: PHASE_COLORS[segment.phase],
+                            minWidth: '140px'
+                          }}
+                        >
+                          {segment.phase}
+                        </span>
                         </div>
                         <div className="flex items-center gap-2">
                           <label className="text-sm text-gray-600">Start:</label>
@@ -11654,91 +11755,15 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                             />
                           </div>
                         )}
-                        <button
-                          onClick={() => {
-                            const newSegments = editingSegments.filter((_, i) => i !== index);
-                            setEditingSegments(newSegments);
-                          }}
-                          className="text-red-500 hover:text-red-700 ml-auto"
-                        >
-                          <TrashIcon className="h-4 w-4" />
-                        </button>
                       </div>
                     ))}
                   </div>
-                  <button
-                    onClick={() => {
-                      const newSegment = {
-                        phase: 'Kickoff' as Phase,
-                        startDate: new Date().toISOString().split('T')[0],
-                        endDate: new Date().toISOString().split('T')[0]
-                      };
-                      setEditingSegments([...editingSegments, newSegment]);
-                    }}
-                    className="mt-4 text-sm text-orange-600 hover:text-orange-800 flex items-center gap-1"
-                  >
-                    <PlusSmallIcon className="h-4 w-4" />
-                    Add Phase
-                  </button>
                 </div>
 
-                {/* Key Dates */}
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Key Dates</h3>
-                  <div className="space-y-3">
-                    {projectKeyDates.map((keyDate, index) => (
-                      <div key={index} className="flex items-center gap-4 p-3 border rounded-lg">
-                        <input
-                          type="text"
-                          value={keyDate.label}
-                          onChange={(e) => {
-                            const newKeyDates = [...projectKeyDates];
-                            newKeyDates[index].label = e.target.value;
-                            setProjectKeyDates(newKeyDates);
-                          }}
-                          className="flex-1 border rounded px-2 py-1 text-sm"
-                          placeholder="Key date label"
-                        />
-                        <input
-                          type="date"
-                          value={keyDate.date}
-                          onChange={(e) => {
-                            const newKeyDates = [...projectKeyDates];
-                            newKeyDates[index].date = e.target.value;
-                            setProjectKeyDates(newKeyDates);
-                          }}
-                          className="border rounded px-2 py-1 text-sm"
-                        />
-                        <button
-                          onClick={() => {
-                            const newKeyDates = projectKeyDates.filter((_, i) => i !== index);
-                            setProjectKeyDates(newKeyDates);
-                          }}
-                          className="text-red-500 hover:text-red-700"
-                        >
-                          <TrashIcon className="h-4 w-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                  <button
-                    onClick={() => {
-                      const newKeyDate = {
-                        label: '',
-                        date: new Date().toISOString().split('T')[0]
-                      };
-                      setProjectKeyDates([...projectKeyDates, newKeyDate]);
-                    }}
-                    className="mt-3 text-sm text-orange-600 hover:text-orange-800 flex items-center gap-1"
-                  >
-                    <PlusSmallIcon className="h-4 w-4" />
-                    Add Key Date
-                  </button>
-                </div>
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 p-6 border-t">
+            <div className="flex justify-end gap-3 p-4 border-t">
               <button
                 onClick={() => setShowTimelineEditor(false)}
                 className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800"
@@ -11780,7 +11805,8 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
 
                   setShowTimelineEditor(false);
                 }}
-                className="px-4 py-2 text-sm 0 text-white rounded hover:bg-orange-600"
+                className="px-4 py-2 text-sm text-white rounded hover:bg-orange-600"
+                style={{ backgroundColor: BRAND.orange }}
               >
                 Save Timeline
               </button>
@@ -12828,19 +12854,24 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
                             )}
 
                             {/* Task count indicator */}
-                            {hasTask && tasksForDate.length > 0 && (
+                            {hasTask && tasksForDate.length > 0 && (() => {
+                              const overdueTasks = getOverdueTasksForDate(dayObj.date);
+                              const hasOverdue = overdueTasks.length > 0;
+                              
+                              return (
                               <div className={`absolute top-1 left-1 z-10 ${isCurrentMonth ? 'opacity-100' : isPastDate ? 'opacity-60' : 'opacity-50'}`}>
                                 <div
                                   className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-medium"
                                   style={{
-                                    color: '#374151',
-                                backgroundColor: tasksForDate[0].phase ? (PHASE_COLORS[tasksForDate[0].phase] + '30') : '#9CA3AF30'
+                                      color: hasOverdue ? '#DC2626' : '#374151',
+                                      backgroundColor: hasOverdue ? '#FEE2E2' : (tasksForDate[0].phase ? (PHASE_COLORS[tasksForDate[0].phase] + '30') : '#9CA3AF30')
                                   }}
                                 >
-                                  {tasksForDate.length}
+                                    {hasOverdue ? overdueTasks.length : tasksForDate.length}
                                 </div>
                               </div>
-                            )}
+                              );
+                            })()}
                             
                             {/* Phase pill at bottom */}
                             {phaseForDay && (
