@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { XMarkIcon, ChevronLeftIcon, ChevronRightIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../contexts/AuthContext';
 import UserSearch from './UserSearch';
+import { createPortal } from 'react-dom';
 
 const BRAND = { orange: "#D14A2D" };
 
@@ -814,7 +815,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
     }
     
     // Validate sample details step (step 4)
-    if (currentStep === 4) {
+    if (currentStep === 3) {
       if (formData.sampleSize && formData.sampleSize > 0 && formData.subgroups && formData.subgroups.length > 0) {
         if (!validateSubgroups(formData.subgroups, formData.sampleSize)) {
           const subgroupTotal = formData.subgroups.reduce((sum, sg) => sum + (sg.size || 0), 0);
@@ -824,7 +825,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
       }
     }
     
-    if (currentStep < 5) {
+    if (currentStep < 4) {
       setCurrentStep(currentStep + 1);
       // Scroll to top of content area
       setTimeout(() => {
@@ -1391,19 +1392,16 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
 
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center"
-      style={{
-        zIndex: 99999
-      }}
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center overflow-y-auto py-8 z-[9999] p-4"
     >
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">Create New Project</h2>
-            <p className="text-sm text-gray-600">Step {currentStep} of 5</p>
+            <p className="text-sm text-gray-600">Step {currentStep} of 4</p>
           </div>
           <button
             onClick={onClose}
@@ -1416,7 +1414,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
         {/* Progress Bar */}
         <div className="px-6 py-4 bg-gray-50">
           <div className="flex items-center">
-            {[1, 2, 3, 4, 5].map((step) => (
+            {[1, 2, 3, 4].map((step) => (
               <div key={step} className="flex items-center">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
                   step <= currentStep
@@ -1427,7 +1425,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
                 >
                   {step}
                 </div>
-                {step < 5 && (
+                {step < 4 && (
                   <div className={`w-12 h-1 mx-2 ${
                     step < currentStep ? '' : 'bg-gray-200'
                   }`}
@@ -1626,63 +1624,8 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
             </div>
           )}
 
+
           {currentStep === 2 && (
-            <div className="space-y-3">
-              <h3 className="text-lg font-semibold text-gray-900">Project Details</h3>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Background
-                </label>
-                <textarea
-                  value={formData.background}
-                  onChange={(e) => handleInputChange('background', e.target.value)}
-                  rows={4}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2"
-                  style={{ '--tw-ring-color': BRAND.orange } as React.CSSProperties}
-                  placeholder="Describe the project background and context..."
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Objectives
-                </label>
-                <textarea
-                  value={formData.objectives}
-                  onChange={(e) => handleInputChange('objectives', e.target.value)}
-                  rows={4}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2"
-                  style={{ '--tw-ring-color': BRAND.orange } as React.CSSProperties}
-                  placeholder="What are the key objectives and goals for this project?"
-                />
-              </div>
-
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Kickoff Deck (Optional)
-                </label>
-                <input
-                  type="file"
-                  accept=".ppt,.pptx,.pdf,.doc,.docx"
-                  onChange={(e) => handleInputChange('kickoffDeck', e.target.files?.[0] || null)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium"
-                  style={{ 
-                    '--tw-ring-color': BRAND.orange,
-                    '--file-bg': `${BRAND.orange}10`,
-                    '--file-text': BRAND.orange,
-                    '--file-hover-bg': `${BRAND.orange}20`
-                  } as React.CSSProperties}
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Upload a kickoff deck to auto-extract timeline, background, and objectives using AI
-                </p>
-              </div>
-            </div>
-          )}
-
-          {currentStep === 3 && (
             <div className="space-y-4">
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">Project Timeline</h3>
@@ -1861,7 +1804,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
             </div>
           )}
 
-          {currentStep === 4 && (
+          {currentStep === 3 && (
             <div className="space-y-6">
               {/* Sample Details Section */}
               <div className="flex items-center gap-3">
@@ -2208,7 +2151,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
           )}
 
 
-          {currentStep === 5 && (
+          {currentStep === 4 && (
             <div className="space-y-6">
               <h3 className="text-lg font-semibold text-gray-900">Task Configuration</h3>
 
@@ -2273,7 +2216,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
               Cancel
             </button>
             
-            {currentStep === 5 ? (
+            {currentStep === 4 ? (
               <button
                 onClick={handleSubmit}
                 disabled={loading || !formData.name || !formData.client || !formData.methodologyType || !formData.methodology || (formData.methodologyType === 'Qualitative' && !formData.moderator) || !timelineDates.kickoffDate || !timelineDates.fieldworkStartDate || !timelineDates.fieldworkEndDate || !timelineDates.reportDeadlineDate}
@@ -2520,7 +2463,8 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
           </div>
         </div>
       )}
-    </div>
+    </div>,
+    document.body
   );
 };
 

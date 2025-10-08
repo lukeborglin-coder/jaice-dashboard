@@ -45,12 +45,13 @@ import {
   LightBulbIcon,
   ExclamationTriangleIcon,
   EyeIcon,
+  BeakerIcon,
 } from "@heroicons/react/24/outline";
 import {
   RocketLaunchIcon as RocketLaunchIconSolid,
   PlayIcon as PlayIconSolid
 } from "@heroicons/react/24/solid";
-import { IconCalendarShare, IconCalendarWeek } from "@tabler/icons-react";
+import { IconCalendarShare, IconCalendarWeek, IconBallAmericanFootball, IconRocket, IconFileAnalyticsFilled, IconLayoutSidebarFilled } from "@tabler/icons-react";
 import ContentAnalysisX from "./components/ContentAnalysisX";
 import AuthWrapper from "./components/AuthWrapper";
 import TopBar from "./components/TopBar";
@@ -2726,7 +2727,7 @@ export default function App() {
   const { user, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [route, setRoute] = useState("Home");
-  const [toolsDropdownOpen, setToolsDropdownOpen] = useState(false);
+  const [toolsDropdownOpen, setToolsDropdownOpen] = useState(true);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loadingProjects, setLoadingProjects] = useState(false);
   const [isNavigatingToProject, setIsNavigatingToProject] = useState(false);
@@ -3268,7 +3269,7 @@ export default function App() {
             <img
               src={sidebarOpen ? "/Jaice_Logo_Transparent.png" : "/Circle.png"}
               alt="Jaice Logo"
-              className={`object-contain transition-all ${sidebarOpen ? "h-8" : "h-8 w-8 cursor-pointer hover:opacity-70"}`}
+              className={`object-contain transition-all ${sidebarOpen ? "h-10" : "h-10 w-10 cursor-pointer hover:opacity-70"}`}
               onClick={() => !sidebarOpen && setSidebarOpen(true)}
             />
           </div>
@@ -3277,11 +3278,7 @@ export default function App() {
               className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
               onClick={() => setSidebarOpen(false)}
             >
-              <svg className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24">
-                <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="2" fill="none"/>
-                <rect x="3" y="3" width="6" height="18" rx="2" fill="currentColor" opacity="0.3"/>
-                <line x1="9" y1="3" x2="9" y2="21" stroke="currentColor" strokeWidth="2"/>
-              </svg>
+              <IconLayoutSidebarFilled className="h-6 w-6" style={{ color: BRAND.gray }} />
             </button>
           )}
         </div>
@@ -4183,7 +4180,7 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
             <div className="flex items-center px-4 py-2">
               <div className="flex items-center gap-2">
                 <CalendarDaysIcon className="h-6 w-6 text-white" />
-                <span className="text-lg font-semibold">Project Timeline</span>
+                <span className="text-lg font-semibold">Project Timelines</span>
               </div>
             </div>
           </div>
@@ -4210,10 +4207,9 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
         <div className="p-4 space-y-4">
           {/* Overdue Tasks Banner */}
           {overdueTasksAll.length > 0 && (
-            <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="text-sm font-semibold text-red-800">Overdue Tasks</h4>
-                <span className="text-xs text-red-700">{overdueTasksAll.length} overdue</span>
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2">
+              <div className="mb-2">
+                <h4 className="text-sm font-semibold text-red-800">Overdue Tasks ({overdueTasksAll.length})</h4>
               </div>
               <div className="space-y-1">
                 {(() => {
@@ -4563,12 +4559,9 @@ function ProjectTimeline({ projects, onDateRangeChange, maxWeeks }: { projects: 
 
 
   return (
-    <div className="relative flex flex-col h-full">
-
-
-
+    <div className="space-y-4">
       {/* Timeline Container */}
-      <div ref={timelineRef} className="overflow-x-auto pb-4 select-none px-2 flex-1">
+      <div ref={timelineRef} className="overflow-x-auto pb-4 select-none px-2">
         <div className="min-w-full">
           {/* Timeline Headers */}
           <div className="flex mb-0">
@@ -4677,24 +4670,26 @@ function ProjectTimeline({ projects, onDateRangeChange, maxWeeks }: { projects: 
               {/* Day Headers */}
               <div className="flex-1 flex">
                 {weeks.map((week, weekIndex) => (
-                  <div key={weekIndex} className="flex-1 min-w-0 relative">
+                  <div key={weekIndex} className={`flex-1 min-w-0 relative ${week.isCurrentWeek ? 'bg-orange-50' : ''}`}>
                     <div className={`flex relative z-20 ${week.isCurrentWeek ? '' : ''}`}>
                       {week.days.map((day, dayIndex) => {
                         const isTodayDate = isToday(day);
                         
                         return (
-                          <div key={`${weekIndex}-${dayIndex}`} className="flex-1 text-center py-2 text-xs text-gray-600 border-r border-gray-200 last:border-r-0 bg-gray-50">
+                          <div key={`${weekIndex}-${dayIndex}`} className={`flex-1 text-center py-2 text-xs text-gray-600 border-r border-gray-200 last:border-r-0 ${
+                            isTodayDate ? 'bg-orange-100' : (week.isCurrentWeek ? 'bg-orange-50' : 'bg-gray-50')
+                          }`}>
                             <div className={`font-medium ${
                               isTodayDate ? 'font-bold' : ''
                             }`} style={{
-                              color: isTodayDate ? BRAND.orange : undefined
+                              color: isTodayDate ? '#DC2626' : undefined
                             }}>
                               {(day.getUTCMonth() + 1)}/{day.getUTCDate()}
                             </div>
                             <div className={`text-gray-500 ${
                               isTodayDate ? 'font-bold' : ''
                             }`} style={{
-                              color: isTodayDate ? BRAND.orange : undefined
+                              color: isTodayDate ? '#DC2626' : undefined
                             }}>
                               {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'][dayIndex]}
                             </div>
@@ -4711,112 +4706,143 @@ function ProjectTimeline({ projects, onDateRangeChange, maxWeeks }: { projects: 
 
 
             {/* Project Rows */}
-            <div className="space-y-0 relative">
-
-              
-              {/* Horizontal line above first project */}
-              <div className="border-b border-gray-200 relative z-10"></div>
-              
+            <div className="space-y-0 border-t border-gray-200 max-h-96 overflow-y-auto">
               {projects.slice(0, showAllProjects ? projects.length : maxVisibleProjects).map((project, projectIndex) => (
-                <div key={project.id} className="flex relative z-50 border-b border-gray-200">
-                  {/* Project Name */}
-                  <div className="w-40 flex-shrink-0 py-2">
-                    <div className="text-xs font-medium text-gray-900 truncate">
+                <div key={project.id} className="flex items-stretch border-b border-gray-100 hover:bg-gray-25">
+                  {/* Project Name Column */}
+                  <div className="w-40 flex-shrink-0 py-3 flex flex-col justify-center">
+                    <div className="text-sm font-medium text-gray-900 truncate">
                       {project.name}
                     </div>
-                    <div className="text-[10px] text-gray-500 truncate">
+                    <div className="text-xs text-gray-500 truncate">
                       {project.client}
                     </div>
                   </div>
                   
-                  {/* Timeline Pills */}
-                  <div className="flex-1 flex items-center">
+                  {/* Timeline Area */}
+                  <div className="flex-1 flex items-center relative py-2">
+                    {/* Background grid for reference */}
+                    <div className="absolute inset-0 flex">
+                      {weeks.map((week, weekIndex) => (
+                        <div key={weekIndex} className={`flex-1 flex ${week.isCurrentWeek ? 'bg-orange-50' : ''}`}>
+                          {week.days.map((day, dayIndex) => {
+                            const isTodayDate = isToday(day);
+                            
+                            return (
+                              <div
+                                key={`${weekIndex}-${dayIndex}`}
+                            className={`flex-1 h-full relative ${
+                              dayIndex < 4 ? 'border-r border-gray-100' : ''
+                            } ${isTodayDate ? 'bg-orange-100' : ''}`}
+                              ></div>
+                            );
+                          })}
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {/* Project phase pills */}
                     {(() => {
-                      // Create a flattened array of all days across all weeks for proper phase boundary detection
+                      // Get project phase for each day
                       const allDays = weeks.flatMap(week => week.days);
                       const allPhases = allDays.map(day => getProjectPhaseForDate(project, day));
                       
-                      return weeks.map((week, weekIndex) => (
-                        <div key={weekIndex} className="flex-1 flex">
-                          {week.days.map((day, dayIndex) => {
-                            const globalDayIndex = weeks.slice(0, weekIndex).reduce((acc, w) => acc + w.days.length, 0) + dayIndex;
-                            const phase = allPhases[globalDayIndex];
-                            const phaseColor = phase ? PHASE_COLORS[phase as keyof typeof PHASE_COLORS] : 'transparent';
-                            
-                            // Check phase boundaries across all weeks
-                            const prevPhase = globalDayIndex > 0 ? allPhases[globalDayIndex - 1] : null;
-                            const nextPhase = globalDayIndex < allPhases.length - 1 ? allPhases[globalDayIndex + 1] : null;
-                            
-                            const isPhaseStart = phase && phase !== prevPhase;
-                            const isPhaseEnd = phase && phase !== nextPhase;
-                            
-                            
-                            // Check if this day has any key deadlines
-                            const keyDeadline = project.keyDeadlines?.find(kd => {
-                              // Parse the key deadline date (MM/DD/YY format)
-                              const [month, dayNum, year] = kd.date.split('/').map(Number);
-                              
-                              // Handle 2-digit year properly
-                              const fullYear = year < 50 ? 2000 + year : 1900 + year;
-                              const kdDate = new Date(fullYear, month - 1, dayNum);
-                              
-                              // Compare with the timeline day (use UTC methods consistently)
-                              const dayYear = day.getUTCFullYear();
-                              const dayMonth = day.getUTCMonth();
-                              const dayDate = day.getUTCDate();
-
-                              // Normalize both dates to midnight UTC to avoid timezone issues
-                              const normalizedKdDate = new Date(Date.UTC(kdDate.getFullYear(), kdDate.getMonth(), kdDate.getDate()));
-                              const normalizedDay = new Date(Date.UTC(dayYear, dayMonth, dayDate));
-                              
-                              
-                              return normalizedKdDate.getTime() === normalizedDay.getTime();
-                            });
+                      // Create a visual days array that matches what's shown in the timeline (weekdays only)
+                      const visualDays = allDays.filter(day => {
+                        const dayOfWeek = day.getUTCDay();
+                        return dayOfWeek >= 1 && dayOfWeek <= 5; // Monday = 1, Friday = 5
+                      });
+                      
+                      
+                      // Group consecutive days with the same phase
+                      const phaseRanges: { phase: string; startIndex: number; endIndex: number; color: string }[] = [];
+                      let currentRange: { phase: string; startIndex: number; endIndex: number; color: string } | null = null;
+                      
+                      allPhases.forEach((phase, index) => {
+                        if (phase && phase !== currentRange?.phase) {
+                          // Start new range
+                          if (currentRange) {
+                            phaseRanges.push(currentRange);
+                          }
+                          currentRange = {
+                            phase,
+                            startIndex: index,
+                            endIndex: index,
+                            color: PHASE_COLORS[phase as keyof typeof PHASE_COLORS]
+                          };
+                        } else if (phase && currentRange) {
+                          // Extend current range
+                          currentRange.endIndex = index;
+                        } else if (!phase && currentRange) {
+                          // End current range
+                          phaseRanges.push(currentRange);
+                          currentRange = null;
+                        }
+                      });
+                      
+                      // Add the last range if it exists
+                      if (currentRange) {
+                        phaseRanges.push(currentRange);
+                      }
+                      
+                      return (
+                        <>
+                          {/* Phase bars */}
+                          {phaseRanges.map((range, rangeIndex) => {
+                            const totalDays = allDays.length;
+                            const leftPercent = (range.startIndex / totalDays) * 100;
+                            const widthPercent = ((range.endIndex - range.startIndex + 1) / totalDays) * 100;
                             
                             return (
-                              <div key={`${weekIndex}-${dayIndex}`} className="flex-1 h-8 relative flex items-center">
-                                {phase && (
-                                  <div
-                                    className={`absolute opacity-60 ${
-                                      isPhaseStart && isPhaseEnd ? 'rounded-full' : // Single day phase - full circle
-                                      isPhaseStart ? 'rounded-l-full' : // Start of phase - left half circle
-                                      isPhaseEnd ? 'rounded-r-full' : // End of phase - right half circle
-                                      'rounded-none' // Middle of phase
-                                    }`}
-                                    style={{
-                                      backgroundColor: phaseColor,
-                                      top: '2px',
-                                      bottom: '2px',
-                                      left: isPhaseStart ? '2px' : '0px',
-                                      right: isPhaseEnd ? '2px' : '0px'
-                                    }}
-                                    title={`${project.name} - ${phase} - ${day.toLocaleDateString()}`}
-                                  />
-                                )}
-                                
-                                {/* Key deadline indicators */}
-                                {keyDeadline && (
-                                  <div className="absolute inset-0 flex items-center justify-center z-10" title={`${keyDeadline.label} - ${keyDeadline.date}`}>
-                                    {keyDeadline.label.toLowerCase().includes('report') || keyDeadline.label.toLowerCase().includes('final') ? (
-                                      <svg className="w-5 h-5 text-white drop-shadow-sm" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
-                                      </svg>
-                                    ) : keyDeadline.label.toLowerCase().includes('fielding') || keyDeadline.label.toLowerCase().includes('field') ? (
-                                      <RocketLaunchIconSolid className="w-5 h-5 text-white drop-shadow-sm" />
-                                    ) : keyDeadline.label.toLowerCase().includes('kickoff') ? (
-                                      <PlayIconSolid className="w-5 h-5 text-white drop-shadow-sm" />
-                                    ) : (
-                                      <svg className="w-5 h-5 text-white drop-shadow-sm" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                                      </svg>
-                                    )}
-                                  </div>
-                                )}
-                  </div>
+                              <div
+                                key={rangeIndex}
+                                className="absolute rounded-full"
+                                style={{
+                                  backgroundColor: range.color,
+                                  opacity: 0.6,
+                                  top: '50%',
+                                  transform: 'translateY(-50%)',
+                                  height: '32px',
+                                  left: `calc(${leftPercent}% + 2px)`,
+                                  width: `calc(${widthPercent}% - 4px)`,
+                                  zIndex: 50
+                                }}
+                              />
                             );
                           })}
-                  </div>
-                      ));
+                          
+                          {/* Phase icons positioned on specific dates */}
+                          {allPhases.map((phase, dayIndex) => {
+                            const totalDays = allDays.length;
+                            const leftPercent = (dayIndex / totalDays) * 100;
+                            
+                            return (
+                              <div key={`icon-${dayIndex}`} className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[100]" style={{
+                                left: `calc(${leftPercent}% + ${100 / totalDays / 2}%)`,
+                              }}>
+                                {phase === 'Kickoff' && (
+                                  <IconBallAmericanFootball 
+                                    className="w-6 h-6 text-white drop-shadow-lg" 
+                                    style={{ opacity: 1 }}
+                                  />
+                                )}
+                                {phase === 'Fielding' && dayIndex > 0 && allPhases[dayIndex - 1] !== 'Fielding' && (
+                                  <IconRocket 
+                                    className="w-6 h-6 text-white drop-shadow-lg" 
+                                    style={{ opacity: 1 }}
+                                  />
+                                )}
+                                {phase === 'Reporting' && (dayIndex === allDays.length - 1 || allPhases[dayIndex + 1] !== 'Reporting') && (
+                                  <IconFileAnalyticsFilled 
+                                    className="w-6 h-6 text-white drop-shadow-lg" 
+                                    style={{ opacity: 1 }}
+                                  />
+                                )}
+                              </div>
+                            );
+                          })}
+                        </>
+                      );
                     })()}
                   </div>
             </div>
@@ -4840,7 +4866,7 @@ function ProjectTimeline({ projects, onDateRangeChange, maxWeeks }: { projects: 
       </div>
 
       {/* Footer with phase key */}
-      <div className="border-t border-gray-200 bg-gray-50 px-4 py-3 mt-auto">
+      <div className="border-t border-gray-200 bg-gray-50 px-4 py-3">
         <div className="flex flex-wrap gap-4 text-xs justify-center">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded" style={{ backgroundColor: PHASE_COLORS.Kickoff, opacity: 0.6 }}></div>
@@ -4874,6 +4900,14 @@ function ModeratorTimeline({ projects, onDateRangeChange }: { projects: Project[
   const [isScrolling, setIsScrolling] = useState(false);
   const [visibleWeeks, setVisibleWeeks] = useState(5);
   const timelineRef = useRef<HTMLDivElement>(null);
+
+  // Helper function to check if a date is today
+  const isToday = (date: Date) => {
+    const today = new Date();
+    return date.getUTCFullYear() === today.getUTCFullYear() &&
+           date.getUTCMonth() === today.getUTCMonth() &&
+           date.getUTCDate() === today.getUTCDate();
+  };
 
   // Calculate number of weeks to show based on container width
   useEffect(() => {
@@ -5140,23 +5174,35 @@ function ModeratorTimeline({ projects, onDateRangeChange }: { projects: Project[
               {/* Day Headers */}
               <div className="flex-1 flex">
                 {weeks.map((week, weekIndex) => (
-                  <div key={weekIndex} className="flex-1 min-w-0 relative">
+                  <div key={weekIndex} className={`flex-1 min-w-0 relative ${week.isCurrentWeek ? 'bg-orange-50' : ''}`}>
                     <div className={`flex relative z-20 ${week.isCurrentWeek ? '' : ''}`}>
-                      {week.days.map((day, dayIndex) => (
-                        <div
-                          key={`${weekIndex}-${dayIndex}`}
-                          className={`flex-1 text-center py-2 text-xs text-gray-600 border-r border-gray-200 last:border-r-0 ${
-                            week.isCurrentWeek ? '' : 'bg-gray-50'
-                          }`}
-                        >
-                          <div className="font-medium">
-{(day.getUTCMonth() + 1)}/{day.getUTCDate()}
+                      {week.days.map((day, dayIndex) => {
+                        const isTodayDate = isToday(day);
+                        
+                        return (
+                          <div
+                            key={`${weekIndex}-${dayIndex}`}
+                            className={`flex-1 text-center py-2 text-xs text-gray-600 border-r border-gray-200 last:border-r-0 ${
+                              isTodayDate ? 'bg-orange-100' : (week.isCurrentWeek ? 'bg-orange-50' : 'bg-gray-50')
+                            }`}
+                          >
+                            <div className={`font-medium ${
+                              isTodayDate ? 'font-bold' : ''
+                            }`} style={{
+                              color: isTodayDate ? '#DC2626' : undefined
+                            }}>
+                              {(day.getUTCMonth() + 1)}/{day.getUTCDate()}
+                            </div>
+                            <div className={`text-gray-500 ${
+                              isTodayDate ? 'font-bold' : ''
+                            }`} style={{
+                              color: isTodayDate ? '#DC2626' : undefined
+                            }}>
+                              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'][dayIndex]}
+                            </div>
                           </div>
-                          <div className="text-gray-500">
-                            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'][dayIndex]}
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 ))}
@@ -5190,8 +5236,10 @@ function ModeratorTimeline({ projects, onDateRangeChange }: { projects: Project[
                       {/* Background grid for reference */}
                       <div className="absolute inset-0 flex">
                         {weeks.map((week, weekIndex) => (
-                          <div key={weekIndex} className="flex-1 flex">
+                          <div key={weekIndex} className={`flex-1 flex ${week.isCurrentWeek ? 'bg-orange-50' : ''}`}>
                             {week.days.map((day, dayIndex) => {
+                              const isTodayDate = isToday(day);
+                              
                               // Check if this day is covered by an unavailable period
                               const dayStr = day.getUTCFullYear() + '-' +
                                             String(day.getUTCMonth() + 1).padStart(2, '0') + '-' +
@@ -5208,7 +5256,7 @@ function ModeratorTimeline({ projects, onDateRangeChange }: { projects: Project[
                                   key={`${weekIndex}-${dayIndex}`}
                                   className={`flex-1 h-full relative ${
                                     dayIndex < 4 ? 'border-r border-gray-100' : ''
-                                  } ${isUnavailable ? 'bg-gray-300' : week.isCurrentWeek ? '' : ''}`}
+                                  } ${isTodayDate ? 'bg-orange-100' : (isUnavailable ? 'bg-gray-300' : '')}`}
                                 ></div>
                               );
                             })}
@@ -6787,7 +6835,8 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
         const response = await fetch(`${API_BASE_URL}/api/projects/${project.id}/unarchive`, {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
           },
           body: JSON.stringify({ userId: user?.id })
         });
@@ -10518,8 +10567,8 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                 >
                   <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                </button>
+                </svg>
+              </button>
               </div>
                   </div>
 
