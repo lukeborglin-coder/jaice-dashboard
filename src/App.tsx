@@ -4198,43 +4198,52 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
                 <h4 className="text-sm font-semibold text-red-800">Overdue Tasks</h4>
                 <span className="text-xs text-red-700">{overdueTasksAll.length} overdue</span>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <div className="text-[10px] font-semibold text-red-900 uppercase tracking-wide mb-1">My Tasks</div>
-                  <div className="space-y-1">
-                    {overdueTasksAll.filter(t => isAssignedToMe(t)).length === 0 ? (
-                      <div className="text-[10px] italic text-red-700">No overdue tasks for you</div>
-                    ) : (
-                      overdueTasksAll.filter(t => isAssignedToMe(t)).map((t) => (
-                        <div key={`od-mine-${t.id}`} className="text-xs text-red-900 flex items-start gap-2">
+              <div className="space-y-1">
+                {(() => {
+                  // Sort tasks: assigned to me first, then others
+                  const sortedOverdueTasks = [...overdueTasksAll].sort((a, b) => {
+                    const aAssignedToMe = isAssignedToMe(a);
+                    const bAssignedToMe = isAssignedToMe(b);
+                    if (aAssignedToMe && !bAssignedToMe) return -1;
+                    if (!aAssignedToMe && bAssignedToMe) return 1;
+                    return 0;
+                  });
+
+                  // Show max 5 tasks, then "show more" if there are more
+                  const maxTasks = 5;
+                  const tasksToShow = sortedOverdueTasks.slice(0, maxTasks);
+                  const hasMore = sortedOverdueTasks.length > maxTasks;
+
+                  if (sortedOverdueTasks.length === 0) {
+                    return <div className="text-[10px] italic text-red-700">No overdue tasks</div>;
+                  }
+
+                  return (
+                    <>
+                      {tasksToShow.map((t) => (
+                        <div key={`od-${t.id}`} className="text-xs text-red-900 flex items-start gap-2">
                           <span className="mt-1 w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0"></span>
-                          <span className="flex-1">
-                            <span className="font-medium">{t.description || t.content || 'Untitled task'}</span>
-                            <span className="text-[10px] text-red-700"> — {t.projectName}</span>
+                          <span className="flex-1 flex justify-between items-start">
+                            <div className="flex items-center gap-1">
+                              <span className="font-medium">{t.description || t.content || 'Untitled task'}</span>
+                              {isAssignedToMe(t) && (
+                                <span className="px-1 py-0.5 rounded-full text-[8px] font-bold bg-red-500 text-white">
+                                  assigned to you
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[10px] text-red-700">{t.projectName}</span>
                           </span>
                         </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-[10px] font-semibold text-red-900 uppercase tracking-wide mb-1">Additional Tasks</div>
-                  <div className="space-y-1">
-                    {overdueTasksAll.filter(t => !isAssignedToMe(t)).length === 0 ? (
-                      <div className="text-[10px] italic text-red-700">No additional overdue tasks</div>
-                    ) : (
-                      overdueTasksAll.filter(t => !isAssignedToMe(t)).map((t) => (
-                        <div key={`od-add-${t.id}`} className="text-xs text-red-900 flex items-start gap-2">
-                          <span className="mt-1 w-1.5 h-1.5 rounded-full bg-red-300 flex-shrink-0"></span>
-                          <span className="flex-1">
-                            <span className="font-medium">{t.description || t.content || 'Untitled task'}</span>
-                            <span className="text-[10px] text-red-700"> — {t.projectName}</span>
-                          </span>
+                      ))}
+                      {hasMore && (
+                        <div className="text-[10px] text-red-600 italic mt-2">
+                          ({sortedOverdueTasks.length - maxTasks} additional overdue tasks)
                         </div>
-                      ))
-                    )}
-                  </div>
-                </div>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
             </div>
           )}
@@ -4260,68 +4269,33 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
                   </div>
                 </div>
               </div>
-              <div className="px-4 pb-4 space-y-3">
-            <div>
-              <div className="border-b border-gray-200 pb-0.5">
-                <span className="text-[10px] font-semibold text-gray-600 uppercase tracking-wide">My Tasks</span>
+              <div className="px-4 pb-4 space-y-1">
+                {(() => {
+                  // Combine all today's tasks and sort with assigned to me first
+                  const allTodayTasks = [...todayMyTasks, ...todayAdditionalTasks];
+                  const sortedTodayTasks = allTodayTasks.sort((a, b) => {
+                    const aAssignedToMe = isAssignedToMe(a);
+                    const bAssignedToMe = isAssignedToMe(b);
+                    if (aAssignedToMe && !bAssignedToMe) return -1;
+                    if (!aAssignedToMe && bAssignedToMe) return 1;
+                    return 0;
+                  });
+
+                  if (sortedTodayTasks.length === 0) {
+                    return <div className="text-[10px] italic text-gray-500">No tasks for today</div>;
+                  }
+
+                  return sortedTodayTasks.map(t => (
+                    <div key={`td-${t.id}`} className="flex items-start gap-2 text-xs text-gray-800">
+                      <span className="mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: BRAND.orange }}></span>
+                      <span className="flex-1">
+                        <span className="font-medium">{t.description || t.content || 'Untitled task'}</span>
+                        <span className="text-[10px] text-gray-500"> ({t.projectName})</span>
+                      </span>
+                    </div>
+                  ));
+                })()}
               </div>
-              <div className="mt-1.5 space-y-1">
-                {todayMyTasks.length === 0 ? (
-                  <div className="text-[10px] italic text-gray-500">No tasks for you today</div>
-                ) : (
-                  <>
-                    {(expandedTaskSections.todayMy ? todayMyTasks : todayMyTasks.slice(0, 3)).map(t => (
-                      <div key={`td-mine-${t.id}`} className="flex items-start gap-2 text-xs text-gray-800">
-                        <span className="mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: BRAND.orange }}></span>
-                        <span className="flex-1">
-                          <div className="font-medium">{t.description || t.content || 'Untitled task'}</div>
-                          <div className="text-[10px] text-gray-500">{t.projectName}</div>
-                        </span>
-                      </div>
-                    ))}
-                    {todayMyTasks.length > 3 && (
-                      <button 
-                        onClick={() => setExpandedTaskSections(prev => ({ ...prev, todayMy: !prev.todayMy }))}
-                        className="text-[10px] text-blue-600 hover:text-blue-800 font-medium"
-                      >
-                        {expandedTaskSections.todayMy ? 'Show less' : `Show more (${todayMyTasks.length - 3} more)`}
-                      </button>
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
-            <div>
-              <div className="border-b border-gray-200 pb-0.5">
-                <span className="text-[10px] font-semibold text-gray-600 uppercase tracking-wide">Additional Tasks</span>
-              </div>
-              <div className="mt-1.5 space-y-1">
-                {todayAdditionalTasks.length === 0 ? (
-                  <div className="text-[10px] italic text-gray-500">No additional tasks today</div>
-                ) : (
-                  <>
-                    {(expandedTaskSections.todayAdditional ? todayAdditionalTasks : todayAdditionalTasks.slice(0, 3)).map(t => (
-                      <div key={`td-add-${t.id}`} className="flex items-start gap-2 text-xs text-gray-800">
-                        <span className="mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: BRAND.orange }}></span>
-                        <span className="flex-1">
-                          <div className="font-medium">{t.description || t.content || 'Untitled task'}</div>
-                          <div className="text-[10px] text-gray-500">{t.projectName}</div>
-                        </span>
-                      </div>
-                    ))}
-                    {todayAdditionalTasks.length > 3 && (
-                      <button 
-                        onClick={() => setExpandedTaskSections(prev => ({ ...prev, todayAdditional: !prev.todayAdditional }))}
-                        className="text-[10px] text-blue-600 hover:text-blue-800 font-medium"
-                      >
-                        {expandedTaskSections.todayAdditional ? 'Show less' : `Show more (${todayAdditionalTasks.length - 3} more)`}
-                      </button>
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
         </div>
 
             {/* Later This Week */}
@@ -4337,67 +4311,32 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
               </div>
             </div>
           </div>
-          <div className="px-4 pb-4 space-y-3">
-            <div>
-              <div className="border-b border-gray-200 pb-0.5">
-                <span className="text-[10px] font-semibold text-gray-600 uppercase tracking-wide">My Tasks</span>
-              </div>
-              <div className="mt-1.5 space-y-1">
-                {laterWeekMyTasks.length === 0 ? (
-                  <div className="text-[10px] italic text-gray-500">No tasks for you later this week</div>
-                ) : (
-                  <>
-                    {(expandedTaskSections.laterMy ? laterWeekMyTasks : laterWeekMyTasks.slice(0, 3)).map(t => (
-                      <div key={`lw-mine-${t.id}`} className="flex items-start gap-2 text-xs text-gray-800">
-                        <span className="mt-1 w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0"></span>
-                        <span className="flex-1">
-                          <div className="font-medium">{t.description || t.content || 'Untitled task'}</div>
-                          <div className="text-[10px] text-gray-500">{t.projectName} · {new Date(t.dueDate + 'T00:00:00').toLocaleDateString()}</div>
-                        </span>
-                      </div>
-                    ))}
-                    {laterWeekMyTasks.length > 3 && (
-                      <button 
-                        onClick={() => setExpandedTaskSections(prev => ({ ...prev, laterMy: !prev.laterMy }))}
-                        className="text-[10px] text-blue-600 hover:text-blue-800 font-medium"
-                      >
-                        {expandedTaskSections.laterMy ? 'Show less' : `Show more (${laterWeekMyTasks.length - 3} more)`}
-                      </button>
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
-            <div>
-              <div className="border-b border-gray-200 pb-0.5">
-                <span className="text-[10px] font-semibold text-gray-600 uppercase tracking-wide">Additional Tasks</span>
-              </div>
-              <div className="mt-1.5 space-y-1">
-                {laterWeekAdditionalTasks.length === 0 ? (
-                  <div className="text-[10px] italic text-gray-500">No additional tasks later this week</div>
-                ) : (
-                  <>
-                    {(expandedTaskSections.laterAdditional ? laterWeekAdditionalTasks : laterWeekAdditionalTasks.slice(0, 3)).map(t => (
-                      <div key={`lw-add-${t.id}`} className="flex items-start gap-2 text-xs text-gray-800">
-                        <span className="mt-1 w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0"></span>
-                        <span className="flex-1">
-                          <span className="font-medium">{t.description || t.content || 'Untitled task'}</span>
-                          <span className="text-[10px] text-gray-500"> — {t.projectName} · {new Date(t.dueDate + 'T00:00:00').toLocaleDateString()}</span>
-                        </span>
-                      </div>
-                    ))}
-                    {laterWeekAdditionalTasks.length > 3 && (
-                      <button 
-                        onClick={() => setExpandedTaskSections(prev => ({ ...prev, laterAdditional: !prev.laterAdditional }))}
-                        className="text-[10px] text-blue-600 hover:text-blue-800 font-medium"
-                      >
-                        {expandedTaskSections.laterAdditional ? 'Show less' : `Show more (${laterWeekAdditionalTasks.length - 3} more)`}
-                      </button>
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
+          <div className="px-4 pb-4 space-y-1">
+            {(() => {
+              // Combine all later this week tasks and sort with assigned to me first
+              const allLaterWeekTasks = [...laterWeekMyTasks, ...laterWeekAdditionalTasks];
+              const sortedLaterWeekTasks = allLaterWeekTasks.sort((a, b) => {
+                const aAssignedToMe = isAssignedToMe(a);
+                const bAssignedToMe = isAssignedToMe(b);
+                if (aAssignedToMe && !bAssignedToMe) return -1;
+                if (!aAssignedToMe && bAssignedToMe) return 1;
+                return 0;
+              });
+
+              if (sortedLaterWeekTasks.length === 0) {
+                return <div className="text-[10px] italic text-gray-500">No tasks later this week</div>;
+              }
+
+              return sortedLaterWeekTasks.map(t => (
+                <div key={`lw-${t.id}`} className="flex items-start gap-2 text-xs text-gray-800">
+                  <span className="mt-1 w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0"></span>
+                  <span className="flex-1">
+                    <span className="font-medium">{t.description || t.content || 'Untitled task'}</span>
+                    <span className="text-[10px] text-gray-500"> ({t.projectName}) · {new Date(t.dueDate + 'T00:00:00').toLocaleDateString()}</span>
+                  </span>
+                </div>
+              ));
+            })()}
           </div>
             </div>
           </div>
@@ -4406,15 +4345,21 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
       </div>
 
       {/* Moderator Schedule */}
-      <Card>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-lg">Moderator Schedule</h3>
-          <div className="text-sm italic text-gray-600">
-            {moderatorDateRange}
+      <Card className="!p-0 overflow-hidden flex flex-col">
+        {/* Full-width header bar inside card */}
+        <div style={{ backgroundColor: BRAND.gray }} className="text-white">
+          <div className="flex items-center justify-between px-4 py-2">
+            <div className="flex items-center gap-2">
+              <UserGroupIcon className="h-6 w-6 text-white" />
+              <span className="text-lg font-semibold">Moderator Schedule</span>
+            </div>
+            <span className="text-sm font-medium italic text-white/90">{moderatorDateRange}</span>
           </div>
         </div>
 
-        <ModeratorTimeline projects={sortedProjects} onDateRangeChange={setModeratorDateRange} />
+        <div className="p-4">
+          <ModeratorTimeline projects={sortedProjects} onDateRangeChange={setModeratorDateRange} />
+        </div>
       </Card>
 
           </div>
@@ -5073,21 +5018,18 @@ function ModeratorTimeline({ projects, onDateRangeChange }: { projects: Project[
         <div className="min-w-full">
           {/* Timeline Headers */}
           <div className="flex mb-0">
-            {/* Navigation Controls - inline with month headers */}
-            <div className="w-40 flex-shrink-0 pr-6 flex items-center gap-1">
-              <button onClick={goToPreviousWeek} disabled={isScrolling} className="p-2 text-gray-500 hover:text-gray-700 disabled:opacity-50">
+            {/* Project Name Column Header (empty space) */}
+            <div className="w-40 flex-shrink-0 pl-4"></div>
+
+            {/* Month Headers with Navigation */}
+            <div className="flex-1 flex items-center">
+              {/* Left Arrow */}
+              <button onClick={goToPreviousWeek} disabled={isScrolling} className="p-2 text-gray-500 hover:text-gray-700 disabled:opacity-50 mr-2">
                 <ChevronLeftIcon className="w-5 h-5" />
               </button>
-              <button onClick={goToCurrentWeek} disabled={isScrolling} className="px-4 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded-md transition-colors disabled:opacity-50 whitespace-nowrap">
-                This Week
-              </button>
-              <button onClick={goToNextWeek} disabled={isScrolling} className="p-2 text-gray-500 hover:text-gray-700 disabled:opacity-50">
-                <ChevronRightIcon className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Month Headers */}
-            <div className="flex-1 flex">
+              
+              {/* Month Headers */}
+              <div className="flex-1 flex">
               {(() => {
                 // Group all days by month
                 const allDays = weeks.flatMap(week => week.days);
@@ -5133,7 +5075,7 @@ function ModeratorTimeline({ projects, onDateRangeChange }: { projects: Project[
                 return monthGroups.map((group, groupIndex) => (
                   <div
                     key={groupIndex}
-                    className="text-center py-1 text-sm font-semibold text-gray-700 bg-gray-100 border-r border-gray-200 last:border-r-0"
+                    className="text-center py-1 text-sm font-semibold text-gray-700 bg-white border-r border-gray-200 last:border-r-0 whitespace-nowrap"
                     style={{
                       flex: `${group.days.length} 0 0`
                     }}
@@ -5142,6 +5084,12 @@ function ModeratorTimeline({ projects, onDateRangeChange }: { projects: Project[
                   </div>
                 ));
               })()}
+              </div>
+              
+              {/* Right Arrow */}
+              <button onClick={goToNextWeek} disabled={isScrolling} className="p-2 text-gray-500 hover:text-gray-700 disabled:opacity-50 ml-2">
+                <ChevronRightIcon className="w-5 h-5" />
+              </button>
             </div>
           </div>
 
@@ -12933,6 +12881,7 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
     </div>
   );
 }
+
 
 
 
