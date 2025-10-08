@@ -808,6 +808,30 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
       console.warn('Failed to derive moderator aliases from projects.json:', e.message);
     }
 
+    // Compose enriched guide context: raw guide + per sheet/column mapping of questions
+    // This needs to be available for both cleaning and main processing
+    let guideMap = {};
+    try { guideMap = typeof guideMapRaw === 'string' ? JSON.parse(guideMapRaw) : (guideMapRaw || {}); } catch {}
+    const mappingLines = [];
+    if (guideMap && guideMap.bySheet) {
+      mappingLines.push('=== GUIDE MAPPING BY SHEET/COLUMN ===');
+      for (const [sheetName, colMap] of Object.entries(guideMap.bySheet)) {
+        mappingLines.push(`Sheet: ${sheetName}`);
+        for (const [colName, questions] of Object.entries(colMap || {})) {
+          const qList = Array.isArray(questions) ? questions : [];
+          if (qList.length) {
+            mappingLines.push(`- ${colName}:`);
+            for (const q of qList.slice(0, 5)) mappingLines.push(`  • ${q}`);
+            if (qList.length > 5) mappingLines.push(`  • (+${qList.length - 5} more in guide)`);
+          }
+        }
+      }
+    }
+    const enrichedGuide = [
+      discussionGuide || '',
+      mappingLines.join('\n')
+    ].filter(Boolean).join('\n\n');
+
     // Clean the transcript with AI (if requested)
     let cleanedTranscript = transcriptText;
     
@@ -816,29 +840,6 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
       console.log('Transcript text preview:', transcriptText.substring(0, 300));
       console.log('Discussion guide available:', !!discussionGuide);
       console.log('Column headers:', columnHeaders);
-
-      // Compose enriched guide context: raw guide + per sheet/column mapping of questions
-      let guideMap = {};
-      try { guideMap = typeof guideMapRaw === 'string' ? JSON.parse(guideMapRaw) : (guideMapRaw || {}); } catch {}
-      const mappingLines = [];
-      if (guideMap && guideMap.bySheet) {
-        mappingLines.push('=== GUIDE MAPPING BY SHEET/COLUMN ===');
-        for (const [sheetName, colMap] of Object.entries(guideMap.bySheet)) {
-          mappingLines.push(`Sheet: ${sheetName}`);
-          for (const [colName, questions] of Object.entries(colMap || {})) {
-            const qList = Array.isArray(questions) ? questions : [];
-            if (qList.length) {
-              mappingLines.push(`- ${colName}:`);
-              for (const q of qList.slice(0, 5)) mappingLines.push(`  • ${q}`);
-              if (qList.length > 5) mappingLines.push(`  • (+${qList.length - 5} more in guide)`);
-            }
-          }
-        }
-      }
-      const enrichedGuide = [
-        discussionGuide || '',
-        mappingLines.join('\n')
-      ].filter(Boolean).join('\n\n');
 
       cleanedTranscript = await cleanTranscriptWithAI(transcriptText, enrichedGuide, columnHeaders, moderatorAliases);
     } else {

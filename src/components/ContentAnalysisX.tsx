@@ -1379,8 +1379,13 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
 
   const downloadTranscriptAsWord = async (transcript: any) => {
     try {
-      // Parse the cleaned transcript to extract dialogue
-      const lines = transcript.cleanedTranscript.split('\n').filter((line: string) => line.trim());
+      // Determine which transcript to use - original if cleaning was disabled, cleaned if it was enabled
+      const transcriptToUse = transcript.originalTranscript && transcript.originalTranscript !== transcript.cleanedTranscript 
+        ? transcript.originalTranscript 
+        : transcript.cleanedTranscript;
+      
+      // Parse the transcript to extract dialogue
+      const lines = transcriptToUse.split('\n').filter((line: string) => line.trim());
 
       // Create paragraphs for the document
       const paragraphs: Paragraph[] = [];
@@ -1560,18 +1565,71 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
 
         {/* Title bar with Generate button */}
         <div className="border-b border-gray-200">
-          <div className="flex items-center pb-3">
+          <div className="flex items-center justify-between pb-3">
             {viewMode === 'viewer' ? (
-              <button
-                onClick={() => { setViewMode('home'); setCurrentAnalysis(null); }}
-                className="flex items-center gap-2 text-xs hover:opacity-80 transition-colors"
-                style={{ color: '#D14A2D' }}
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
-                Back to list
-              </button>
+              <>
+                <button
+                  onClick={() => { setViewMode('home'); setCurrentAnalysis(null); }}
+                  className="flex items-center gap-2 text-xs hover:opacity-80 transition-colors"
+                  style={{ color: '#D14A2D' }}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                  </svg>
+                  Back to list
+                </button>
+                
+                {/* Action buttons - View Discussion Guide and Export as Excel */}
+                <div className="flex items-center gap-2">
+                  {/* View Discussion Guide button - only show if discussion guide exists */}
+                  {currentAnalysis?.projectId && (
+                    <button
+                      onClick={async () => {
+                        setShowDiscussionGuideModal(true);
+                        // Fetch and render the discussion guide
+                        setTimeout(async () => {
+                          try {
+                            const response = await fetch(`${API_BASE_URL}/api/caX/discussion-guide/${currentAnalysis.projectId}/download`, {
+                              headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` }
+                            });
+                            if (response.ok) {
+                              const blob = await response.blob();
+                              if (docxContainerRef.current) {
+                                docxContainerRef.current.innerHTML = ''; // Clear previous content
+                                await renderAsync(blob, docxContainerRef.current);
+                              }
+                            } else {
+                              console.error('Discussion guide not found');
+                              if (docxContainerRef.current) {
+                                docxContainerRef.current.innerHTML = '<div class="p-8 text-center text-gray-500">No discussion guide found for this project</div>';
+                              }
+                            }
+                          } catch (error) {
+                            console.error('Error loading discussion guide:', error);
+                            if (docxContainerRef.current) {
+                              docxContainerRef.current.innerHTML = '<div class="p-8 text-center text-red-500">Error loading discussion guide</div>';
+                            }
+                          }
+                        }, 100);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-white text-xs font-medium rounded-md hover:opacity-90 transition-colors cursor-pointer shadow-sm"
+                      style={{ backgroundColor: '#2563eb' }}
+                    >
+                      <BookOpenIcon className="h-4 w-4" />
+                      <span>View Discussion Guide</span>
+                    </button>
+                  )}
+                  {/* Export to Excel button - always visible */}
+                  <button
+                    onClick={handleExportToExcel}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-white text-xs font-medium rounded-md hover:opacity-90 transition-colors cursor-pointer shadow-sm"
+                    style={{ backgroundColor: '#16a34a' }}
+                  >
+                    <IconFileArrowRight className="h-4 w-4" />
+                    <span>Export as Excel</span>
+                  </button>
+                </div>
+              </>
             ) : (
               <>
                 <p className="text-sm text-gray-600">View and manage your saved content analyses</p>
@@ -1818,51 +1876,6 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                   </button>
                 ) : (
                   <>
-                    {/* View Discussion Guide button - only show if discussion guide exists */}
-                    {currentAnalysis.projectId && (
-                      <button
-                        onClick={async () => {
-                          setShowDiscussionGuideModal(true);
-                          // Fetch and render the discussion guide
-                          setTimeout(async () => {
-                            try {
-                              const response = await fetch(`${API_BASE_URL}/api/caX/discussion-guide/${currentAnalysis.projectId}/download`, {
-                                headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` }
-                              });
-                              if (response.ok) {
-                                const blob = await response.blob();
-                                if (docxContainerRef.current) {
-                                  docxContainerRef.current.innerHTML = ''; // Clear previous content
-                                  await renderAsync(blob, docxContainerRef.current);
-                                }
-                              } else {
-                                console.error('Discussion guide not found');
-                                if (docxContainerRef.current) {
-                                  docxContainerRef.current.innerHTML = '<div class="p-8 text-center text-gray-500">No discussion guide found for this project</div>';
-                                }
-                              }
-                            } catch (error) {
-                              console.error('Error loading discussion guide:', error);
-                              if (docxContainerRef.current) {
-                                docxContainerRef.current.innerHTML = '<div class="p-8 text-center text-red-500">Error loading discussion guide</div>';
-                              }
-                            }
-                          }, 100);
-                        }}
-                        className="text-gray-600 hover:text-blue-600 transition-colors"
-                    title="View Discussion Guide"
-                  >
-                        <BookOpenIcon className="h-6 w-6" />
-                  </button>
-                )}
-                {/* Export to Excel button - always visible */}
-                <button
-                  onClick={handleExportToExcel}
-                      className="text-gray-600 hover:text-green-600 transition-colors"
-                  title="Export to Excel"
-                >
-                      <IconFileArrowRight className="h-6 w-6" />
-                </button>
                     {/* Reorder by Date button - only show if there are multiple respondents */}
                     {currentAnalysis.data?.Demographics && Array.isArray(currentAnalysis.data.Demographics) && currentAnalysis.data.Demographics.length > 1 && (
                   <button
@@ -1947,6 +1960,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                 )}
                 <div className="text-xs text-gray-500 mt-0.5">Current Tab/Section: <span className="font-medium capitalize">{activeSheet.toLowerCase()}</span></div>
               </div>
+              
               
               {/* Add Respondent Transcript button - only show for saved analyses on Demographics sheet */}
               {activeSheet === 'Demographics' && !currentAnalysis.id?.startsWith('temp-') && currentAnalysis.projectId && (
@@ -2179,7 +2193,9 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                                       <button
                                         onClick={() => downloadTranscriptAsWord(transcript)}
                                         className="text-gray-600 hover:text-orange-600 transition-colors inline-flex items-center justify-center gap-1"
-                                        title="Download cleaned transcript"
+                                        title={transcript.originalTranscript && transcript.originalTranscript !== transcript.cleanedTranscript 
+                                          ? "Download original transcript" 
+                                          : "Download cleaned transcript"}
                                       >
                                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -2376,7 +2392,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
               {selectedCellInfo.summary && (
                 <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
                   <h3 className="text-sm font-semibold text-orange-900 mb-2">Key Finding</h3>
-                  <p className="text-sm text-gray-800">{selectedCellInfo.summary}</p>
+                  <p className="text-sm text-gray-800 whitespace-pre-line">{comprehensiveKeyFinding}</p>
                 </div>
               )}
 
@@ -2385,15 +2401,54 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                 <h3 className="text-sm font-semibold text-gray-700 mb-3">Supporting Context</h3>
                 <div className="space-y-3">
                   {(() => {
+                    // Debug logging
+                    console.log('Debug context access:', {
+                      sheet: selectedCellInfo.sheet,
+                      respondent: selectedCellInfo.respondent,
+                      column: selectedCellInfo.column,
+                      currentAnalysis: currentAnalysis,
+                      context: currentAnalysis?.context,
+                      sheetContext: currentAnalysis?.context?.[selectedCellInfo.sheet],
+                      respondentContext: currentAnalysis?.context?.[selectedCellInfo.sheet]?.[selectedCellInfo.respondent],
+                      columnContext: currentAnalysis?.context?.[selectedCellInfo.sheet]?.[selectedCellInfo.respondent]?.[selectedCellInfo.column]
+                    });
+                    
                 const sheetContext = currentAnalysis.context?.[selectedCellInfo.sheet]?.[selectedCellInfo.respondent]?.[selectedCellInfo.column];
                 if (!sheetContext || !Array.isArray(sheetContext) || sheetContext.length === 0) {
                       return <p className="text-sm text-gray-500 text-center py-8">No supporting context available for this cell.</p>;
                     }
                     
-                    // Build concise, high-signal, report-ready respondent quotes
-                    const keyFindingText = (selectedCellInfo?.value || '').toString();
+                    // Build comprehensive key finding by combining cell value with supporting context
+                    const cellValue = (selectedCellInfo?.value || '').toString();
                     const normalize = (s) => s.toLowerCase().replace(/[^a-z0-9\s]/gi, ' ').replace(/\s+/g, ' ').trim();
-                    const keyTokens = new Set(normalize(keyFindingText).split(' ').filter(w => w.length > 3));
+                    
+                    // Extract all respondent quotes from context for comprehensive key finding
+                    const allRespondentQuotes = [];
+                    sheetContext.forEach((contextString) => {
+                      const normalizedContext = contextString.replace(/\\n/g, '\n');
+                      const lines = normalizedContext.split('\n');
+                      lines.forEach(line => {
+                        if (line.startsWith('Respondent:')) {
+                          const text = line.replace('Respondent:', '').trim();
+                          if (text.length > 0) {
+                            allRespondentQuotes.push(text);
+                          }
+                        }
+                      });
+                    });
+                    
+                    // Create comprehensive key finding by combining cell value with supporting quotes
+                    let comprehensiveKeyFinding = cellValue;
+                    if (allRespondentQuotes.length > 0) {
+                      // Add additional context from the most relevant quotes
+                      const relevantQuotes = allRespondentQuotes.slice(0, 3); // Get first 3 quotes for additional context
+                      const additionalContext = relevantQuotes.join(' ').substring(0, 500); // Limit to 500 chars to avoid overwhelming
+                      if (additionalContext && additionalContext !== cellValue) {
+                        comprehensiveKeyFinding = `${cellValue}\n\nAdditional Context: ${additionalContext}`;
+                      }
+                    }
+                    
+                    const keyTokens = new Set(normalize(comprehensiveKeyFinding).split(' ').filter(w => w.length > 3));
 
                     const sentenceSplit = (text) => {
                       // Split by sentence enders while keeping reasonable chunks
@@ -2458,20 +2513,21 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                       if (!seen.has(key)) { seen.add(key); deduped.push(sn); }
                     });
 
-                    // Rank by relevance and select top N
+                    // Rank by relevance and select more comprehensive set
                     const ranked = deduped
                       .map(sn => ({ sn, score: scoreSentence(sn) }))
                       .sort((a, b) => b.score - a.score)
                       .map(x => x.sn);
 
-                    const topN = ranked.slice(0, Math.min(3, ranked.length));
+                    // Show more quotes (up to 8 instead of 3) and don't truncate them as heavily
+                    const topN = ranked.slice(0, Math.min(8, ranked.length));
 
-                    // Neaten overly long snippets with ellipses mid-trim
+                    // Less aggressive truncation - only trim if extremely long
                     const tidy = (s) => {
-                      const maxLen = 240;
+                      const maxLen = 800; // Increased from 240 to 800
                       if (s.length <= maxLen) return s;
-                      const start = s.slice(0, 160).trimEnd();
-                      const end = s.slice(-60).trimStart();
+                      const start = s.slice(0, 600).trimEnd();
+                      const end = s.slice(-150).trimStart();
                       return `${start}... ${end}`;
                     };
 
@@ -2507,11 +2563,11 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
 
                     return (
                       <>
-                        {/* Context Boxes */}
+                        {/* Comprehensive Context Boxes - Show more context */}
                         {sheetContext.map((contextString, idx) => {
                           const normalizedContext = contextString.replace(/\\n/g, '\n');
                           return (
-                            <div key={idx} className="bg-gray-50 rounded-lg p-4 border-l-4 border-blue-500">
+                            <div key={idx} className="bg-gray-50 rounded-lg p-4 border-l-4 border-blue-500 mb-4">
                               <div className="text-sm leading-relaxed">
                                 {formatContext(normalizedContext)}
                             </div>
@@ -2519,14 +2575,14 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                         );
                       })}
                         
-                       {/* Supporting Quotes Section - Outside context boxes */}
+                       {/* Comprehensive Supporting Quotes Section */}
                        {allQuotes.length > 0 && (
                          <div className="mt-6">
-                           <h3 className="text-sm font-semibold text-gray-700 mb-3">Supporting Quotes</h3>
-                           <div className="space-y-3">
+                           <h3 className="text-sm font-semibold text-gray-700 mb-3">Key Supporting Quotes</h3>
+                           <div className="space-y-4">
                              {allQuotes.map((quote, quoteIdx) => (
                                <div key={quoteIdx} className="bg-gray-50 rounded-lg p-4 border-l-4 border-blue-500 flex items-start justify-between gap-3">
-                                 <p className="text-sm text-gray-800 italic flex-1">"{quote}"</p>
+                                 <p className="text-sm text-gray-800 italic flex-1 leading-relaxed">"{quote}"</p>
                                  <button
                                    onClick={() => {
                                      navigator.clipboard.writeText(`"${quote}"`);
@@ -2647,7 +2703,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
               <div className="flex-1 flex items-center justify-center p-8">
                 <div className="text-center">
                   <div className="w-16 h-16 mx-auto mb-4">
-                    <svg className="animate-spin w-16 h-16 text-blue-600" fill="none" viewBox="0 0 24 24">
+                    <svg className="animate-spin w-16 h-16" fill="none" viewBox="0 0 24 24" style={{ color: '#D14A2D' }}>
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
@@ -2655,9 +2711,9 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">Processing Transcript</h3>
                   <p className="text-gray-600 mb-4">This may take a few minutes. Please keep this page open.</p>
                   <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">
-                    <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"></div>
-                    <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                    <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                    <div className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: '#D14A2D' }}></div>
+                    <div className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: '#D14A2D', animationDelay: '0.1s' }}></div>
+                    <div className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: '#D14A2D', animationDelay: '0.2s' }}></div>
                   </div>
                 </div>
               </div>
@@ -2779,12 +2835,18 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                         throw new Error(result?.error || 'Transcript processing failed');
                       }
 
-                      // Update analysis with new data
+                      // Update analysis with new data and context
                       if (result?.data) {
                         const updatedAnalysis = { ...currentAnalysis };
                         for (const [sheetName, sheetData] of Object.entries(result.data)) {
                           updatedAnalysis.data[sheetName] = sheetData;
                         }
+                        
+                        // Update context if available
+                        if (result?.context) {
+                          updatedAnalysis.context = result.context;
+                        }
+                        
                         setCurrentAnalysis(updatedAnalysis);
                       }
 

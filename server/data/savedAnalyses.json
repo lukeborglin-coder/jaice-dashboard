@@ -6,11 +6,7 @@
     "name": "tttest",
     "data": {
       "Demographics": [
-        {
-          "Respondent ID": "",
-          "Interview Date": "",
-          "Interview Time": ""
-        }
+        {}
       ],
       "BACKGROUND": [
         {
@@ -29,6 +25,23 @@
           "Support System Involvement": "",
           "Treatment Decision Autonomy": "",
           "Health Goals": ""
+        },
+        {
+          "Respondent ID": "R001",
+          "Living Situation": "The respondent is 50 years old, married, and has two children from a previous marriage who are now adults and living independently. They live in Georgia with their spouse and a small dog.",
+          "Free Time Activities": "Since retiring from work in October 2024, the respondent spends their days walking their dog, using the computer, watching shows, and reading. They no longer engage in the corporate hustle.",
+          "Journey with SMA": "The respondent was diagnosed with SMA at around 10 or 11 years old after experiencing unexplained falls. Initially in denial, they avoided regular medical consultations until adulthood. They re-engaged with healthcare providers in 2017-2018 upon learning about new treatments.",
+          "Current Health Description": "The respondent describes their health as generally good except for SMA. They have regular physicals and are considered healthy by their primary care physician, who often mislabels their condition as muscular dystrophy.",
+          "HCPs for SMA Care": "The respondent has a neurologist specializing in SMA, whom they sought out several years ago. They do not see this neurologist regularly but have interacted with them during clinical trials.",
+          "Reasons for Not Seeing HCPs": "The respondent avoided seeing healthcare providers regularly due to a combination of denial and a lack of actionable advice from doctors. They only sought medical advice when new treatments became available.",
+          "Current SMA Management": "The respondent manages their SMA with the help of a caregiver who assists with bathing and other daily activities. They have also participated in clinical trials for SMA treatments.",
+          "Number of HCPs": "",
+          "HCP Involvement in Treatment Decisions": "The respondent's neurologist is involved in treatment decisions, especially when new treatments are considered. However, the respondent primarily relies on information from Facebook groups.",
+          "Primary SMA Doctor": "The respondent's primary SMA doctor is a neurologist they sought out due to their expertise in SMA.",
+          "Others Involved in Health Decisions": "",
+          "Support System Involvement": "The respondent's wife is heavily involved in their daily care, assisting with getting in and out of bed, dressing, and other activities.",
+          "Treatment Decision Autonomy": "The respondent makes treatment decisions based on information from Facebook groups and discussions with their neurologist.",
+          "Health Goals": "The respondent aims to maintain their current level of health and functionality, hoping to prevent further progression of SMA symptoms."
         }
       ],
       "CURRENT PERCEPTIONS & ATTITUDES": [
@@ -53,6 +66,28 @@
           "Treatments in Development Consideration": "",
           "Anti-Myostatins Awareness": "",
           "Anti-Myostatins Brands": ""
+        },
+        {
+          "Respondent ID": "R001",
+          "Treatments Awareness": "The respondent is aware of SMA treatments such as Evrysdi and Spinraza, primarily through Facebook support groups.",
+          "Treatments Experience": "The respondent has experience with both Evrysdi and Spinraza, having participated in clinical trials and taken these medications at different times.",
+          "Discontinued Treatment Experience": "The respondent discontinued Evrysdi after a year and later participated in a Spinraza clinical trial.",
+          "Discontinued Treatment Reasons": "The respondent stopped taking Evrysdi due to a lack of perceived improvement and later switched to a Spinraza clinical trial.",
+          "Discontinued Treatment Impact": "Discontinuing Evrysdi did not lead to immediate negative impacts, but the respondent sought other treatment options to manage their SMA.",
+          "Discontinued Treatment Restart Consideration": "",
+          "Treatment Impressions": "The respondent feels hopeful about treatments that can stop the progression of SMA, particularly favoring non-intrusive options like oral medications.",
+          "Treatment Benefits": "The respondent perceives treatments like Evrysdi as beneficial in potentially halting the progression of SMA symptoms.",
+          "Treatment Drawbacks": "The respondent dislikes treatments that are intrusive or require frequent doctor visits, preferring more convenient options.",
+          "Treatment Information Source": "The respondent primarily learns about treatments through Facebook support groups, which they trust for firsthand experiences.",
+          "Treatment Consideration Factors": "The respondent considers the method of administration and convenience when evaluating treatments, preferring oral medications over more invasive options.",
+          "Treatments in Development Awareness": "The respondent is aware of treatments in development, such as oral medications, through online communities.",
+          "Treatments in Development Impressions": "The respondent is optimistic about treatments in development, particularly those that offer easier administration.",
+          "Treatments in Development Benefits": "The respondent believes that new treatments could help maintain their current health status and prevent further deterioration.",
+          "Treatments in Development Drawbacks": "",
+          "Treatments in Development Candidacy": "",
+          "Treatments in Development Consideration": "The respondent is open to considering new treatments, especially those that align with their preference for non-intrusive administration.",
+          "Anti-Myostatins Awareness": "",
+          "Anti-Myostatins Brands": ""
         }
       ],
       "BARRIERS TO TREATMENT & UNMET NEEDS": [
@@ -71,6 +106,22 @@
           "Financial/Access Barriers": "",
           "Access Challenges": "",
           "Unmet Needs": ""
+        },
+        {
+          "Respondent ID": "R001",
+          "Reasons for Not on Treatment": "The respondent was initially hesitant to pursue treatment due to the invasive nature of some options and a lack of perceived benefit.",
+          "Factors Driving Treatment Consideration": "The availability of non-intrusive treatments like oral medications motivated the respondent to reconsider treatment options.",
+          "Muscle Loss Impact": "The respondent experiences frustration and diminished quality of life due to muscle loss, impacting their ability to perform daily activities.",
+          "Symptom Tracking Frequency": "The respondent does not track symptoms daily but notices changes over months.",
+          "Symptom Tracking Methods": "",
+          "Symptom Tracking Discussion with HCP": "",
+          "Emotional Factors": "The respondent has struggled with denial and acceptance of their condition, influenced by early negative perceptions of disability.",
+          "Practical/Logistical Factors": "The respondent prefers treatments that do not require frequent doctor visits or complex administration.",
+          "Clinical Factors": "",
+          "Treatment Benefit Requirement": "The respondent seeks treatments that can halt the progression of SMA and maintain their current health status.",
+          "Financial/Access Barriers": "",
+          "Access Challenges": "",
+          "Unmet Needs": "The respondent feels there is a need for more convenient and less intrusive treatment options for SMA."
         }
       ],
       "MOTIVATIONS & FUTURE CONSIDERATION": [
@@ -81,6 +132,14 @@
           "Improvement Expectations": "",
           "Influential Decision-Makers": "",
           "Confidence Factors": ""
+        },
+        {
+          "Respondent ID": "R001",
+          "Likelihood to Consider Treatment": "The respondent is likely to consider treatments that are non-intrusive and can maintain their current health status.",
+          "Factors Influencing Consideration": "The method of administration and the potential to halt disease progression are key factors influencing the respondent's treatment consideration.",
+          "Improvement Expectations": "The respondent hopes for treatments that can stop the progression of SMA and allow them to maintain their current quality of life.",
+          "Influential Decision-Makers": "The respondent relies on information from Facebook groups and discussions with their neurologist when making treatment decisions.",
+          "Confidence Factors": "The respondent's confidence in treatment decisions is bolstered by firsthand accounts from online communities and the expertise of their neurologist."
         }
       ],
       "COMMUNITY ENGAGEMENT & INFO SOURCES": [
@@ -94,11 +153,27 @@
           "New Treatment Awareness": "",
           "Preferred Information Format": "",
           "Information Accessibility": ""
+        },
+        {
+          "Respondent ID": "R001",
+          "Community Connection": "The respondent is connected to the SMA community through Facebook support groups, which they joined in their late thirties or early forties.",
+          "Community Participation": "The respondent participates in online communities primarily as an observer, occasionally posting but mostly reading and learning from others.",
+          "Community Trust": "The respondent trusts the information shared in Facebook groups due to the firsthand experiences of other members.",
+          "Information Sources": "The respondent's primary source of information about SMA treatments is Facebook support groups.",
+          "Trustworthy Sources": "The respondent considers Facebook groups to be trustworthy sources of information due to the shared experiences of members.",
+          "New Treatment Awareness": "The respondent became aware of new treatments like Evrysdi through Facebook groups.",
+          "Preferred Information Format": "The respondent prefers information that is easily accessible online, such as through social media groups.",
+          "Information Accessibility": "The respondent finds information through Facebook groups to be accessible and valuable for staying informed about SMA treatments."
         }
       ],
       "Misc.": [
         {
           "Respondent ID": "",
+          "Final Comments": "",
+          "Additional Notes": ""
+        },
+        {
+          "Respondent ID": "R001",
           "Final Comments": "",
           "Additional Notes": ""
         }
@@ -107,8 +182,214 @@
     "guideMap": {
       "bySheet": {}
     },
-    "quotes": {},
-    "savedAt": "2025-10-07T17:56:46.925Z",
-    "savedBy": "You"
+    "quotes": {
+      "BACKGROUND": {
+        "R001": {}
+      },
+      "CURRENT PERCEPTIONS & ATTITUDES": {
+        "R001": {}
+      },
+      "BARRIERS TO TREATMENT & UNMET NEEDS": {
+        "R001": {}
+      },
+      "MOTIVATIONS & FUTURE CONSIDERATION": {
+        "R001": {}
+      },
+      "COMMUNITY ENGAGEMENT & INFO SOURCES": {
+        "R001": {}
+      },
+      "Misc.": {
+        "R001": {}
+      }
+    },
+    "savedAt": "2025-10-08T23:35:00.734Z",
+    "savedBy": "You",
+    "context": {
+      "BACKGROUND": {
+        "R001": {
+          "Respondent ID": [],
+          "Living Situation": [
+            "Moderator: So can you tell me a little bit about yourself? Like, how old you are, if you live with anybody, how you spend your days, just so I have a sense of who you are.\nRespondent: Yeah. So I'm 50 years old. I'm married. We have two kids, but kids are from a previous marriage, but I've been in their life. Corona was three, Jaden's eight months. They're now 24 and 22, out of the house. We have a little dog, a little Morkey."
+          ],
+          "Free Time Activities": [
+            "Moderator: What kind of work did you do until a year ago?\nRespondent: I was a service manager for a telecom company. So I sort of was like a customer advocate liaison between the technical team and the customer, normally, the director VP level.\nModerator: Wow. Okay. That sounds like a high-pressure job.\nRespondent: No.\nModerator: Because if there's anything wrong with anyone's digital or telecommunications in a company, that's very stressful. What prompted you to stop working?\nRespondent: My upper body is now being affected, so I was struggling to type. I tried doing, you know, text to speech, and I just could not reinvent the wheel. I just couldn't keep up. I'm a perfectionist at heart. Used to be an A player. I started to fall back into, like, a B minus C player, and that wasn't good for me."
+          ],
+          "Journey with SMA": [
+            "Moderator: So I have written down that you're type three SMA. Is that correct?\nRespondent: That's correct.\nModerator: Okay. So when were you first diagnosed with SMA? How old were you?\nRespondent: I was around 10, 11 years old. I don't remember the exact date and time. There was a little bit of trying to figure out what was going on with me. I kept on falling down when running. Not all the time. So they and it was just my right leg that would give out. So then that started doctor's appointments. And about a year into that journey, I saw a doctor that said you're showing all the signs of muscular dystrophy, which then led me to the Ohio State University and a doctor who was a leading pioneer in that that then diagnosed me officially."
+          ],
+          "Current Health Description": [
+            "Moderator: Broadly, how would you describe your current health, Respondent?\nRespondent: Everything but SMA, I'm as healthy as any, but I mean, I have my regular physicals and all that. And I mean, I'm just she was like, you are, I mean, in great health, but you have muscular dystrophy."
+          ],
+          "HCPs for SMA Care": [
+            "Moderator: Speaking of doctors, who are you seeing, if anyone, for specifically for health care providers for SMA-related care? Who makes up your SMA team?\nRespondent: Well, no. I have a neurologist that she is, in the world of SMA. So she knows and I sought her out several years ago. I wasn't seeing anybody for a long time specifically. But when I started to get wind of possible treatments, that's when I was like, I need to associate and get connected."
+          ],
+          "Reasons for Not Seeing HCPs": [
+            "Moderator: So you said you weren't seeing anyone for a while. When were you last seeing a neurologist regularly? What when was that?\nRespondent: So to be honest, I was never seeing a neurologist on a regular basis. So when I got diagnosed at a young age, right, 11, 12 years old when my official diagnosis came in, I went into denial. I was still playing sports. I was still active. I did not want to hear what they were telling me what was going to happen, and so I sort of avoided doctors like the plague."
+          ],
+          "Current SMA Management": [
+            "Moderator: How is your, I mean, you just talked about sort of things evolving for you. But how would you describe sort of the role of SMA in your life now? And I don't know. Just talk to me a little bit about SMA's impact in your life.\nRespondent: Where it's affecting my life now is just my day-to-day abilities to do meaningful activities. My wife gets me in and out of bed. She dresses me. Up until recently, she was bathing me. We recently just got a caregiver just about a month ago that comes in and bathes me and then helps me with little things around the house."
+          ],
+          "Number of HCPs": [],
+          "HCP Involvement in Treatment Decisions": [
+            "Moderator: Speaking of doctors, who are you seeing, if anyone, for specifically for health care providers for SMA-related care? Who makes up your SMA team?\nRespondent: Well, no. I have a neurologist that she is, in the world of SMA. So she knows and I sought her out several years ago. I wasn't seeing anybody for a long time specifically. But when I started to get wind of possible treatments, that's when I was like, I need to associate and get connected."
+          ],
+          "Primary SMA Doctor": [
+            "Moderator: Speaking of doctors, who are you seeing, if anyone, for specifically for health care providers for SMA-related care? Who makes up your SMA team?\nRespondent: Well, no. I have a neurologist that she is, in the world of SMA. So she knows and I sought her out several years ago. I wasn't seeing anybody for a long time specifically. But when I started to get wind of possible treatments, that's when I was like, I need to associate and get connected."
+          ],
+          "Others Involved in Health Decisions": [],
+          "Support System Involvement": [
+            "Moderator: How is your, I mean, you just talked about sort of things evolving for you. But how would you describe sort of the role of SMA in your life now? And I don't know. Just talk to me a little bit about SMA's impact in your life.\nRespondent: Where it's affecting my life now is just my day-to-day abilities to do meaningful activities. My wife gets me in and out of bed. She dresses me. Up until recently, she was bathing me. We recently just got a caregiver just about a month ago that comes in and bathes me and then helps me with little things around the house."
+          ],
+          "Treatment Decision Autonomy": [
+            "Moderator: So it's striking that you said in 2017 that you were aware of treatment and also that you're saying that oral was on the horizon. So you weren't going to a doctor. How are you learning about these developments in the SMA treatment?\nRespondent: Through Facebook. That was the only thing that I was getting my information from was these Facebook support groups that I was a part of for spinal muscular atrophy. That was where I was getting my information."
+          ],
+          "Health Goals": [
+            "Moderator: How did you feel reading about SPINRAZA and I guess you probably first start learning about tell me about when you first just started hearing about treatment for SMA on those Facebook groups. Like, that's very important to me to understand how that made you feel.\nRespondent: It made me feel hopeful that wait a minute. Because for so long, I heard that there's nothing. There is nothing they didn't even know what was causing it. And then when they were able to identify what the cause was, then it was like, well, it took them this long. There's never going to be anything. And then they hear that, wait a minute, we've found something that stops the progression, then it started to make me feel hopeful. If I can get comfortable with where I'm at today, if we could just stay like this, okay, I can function the rest of my life like this."
+          ]
+        }
+      },
+      "CURRENT PERCEPTIONS & ATTITUDES": {
+        "R001": {
+          "Respondent ID": [],
+          "Treatments Awareness": [
+            "Moderator: So it's striking that you said in 2017 that you were aware of treatment and also that you're saying that oral was on the horizon. So you weren't going to a doctor. How are you learning about these developments in the SMA treatment?\nRespondent: Through Facebook. That was the only thing that I was getting my information from was these Facebook support groups that I was a part of for spinal muscular atrophy. That was where I was getting my information."
+          ],
+          "Treatments Experience": [
+            "Moderator: Okay. I had written down here that at some point in your history, you have taken both Evrysdi, but also I've written down that you actually did have SPINRAZA at some point. Is that accurate?\nRespondent: I was part of the clinical trial that I just was a part of for the past year and a half."
+          ],
+          "Discontinued Treatment Experience": [
+            "Moderator: Okay. I had written down here that at some point in your history, you have taken both Evrysdi, but also I've written down that you actually did have SPINRAZA at some point. Is that accurate?\nRespondent: I was part of the clinical trial that I just was a part of for the past year and a half."
+          ],
+          "Discontinued Treatment Reasons": [
+            "Moderator: Was it any particular I mean, given that Spinraza was already out, was it a certain kind of Spinraza with a clinical trial? Or...\nRespondent: It was the double dose of Spinraza."
+          ],
+          "Discontinued Treatment Impact": [
+            "Moderator: Okay. I had written down here that at some point in your history, you have taken both Evrysdi, but also I've written down that you actually did have SPINRAZA at some point. Is that accurate?\nRespondent: I was part of the clinical trial that I just was a part of for the past year and a half."
+          ],
+          "Discontinued Treatment Restart Consideration": [],
+          "Treatment Impressions": [
+            "Moderator: How did you feel reading about SPINRAZA and I guess you probably first start learning about tell me about when you first just started hearing about treatment for SMA on those Facebook groups. Like, that's very important to me to understand how that made you feel.\nRespondent: It made me feel hopeful that wait a minute. Because for so long, I heard that there's nothing. There is nothing they didn't even know what was causing it. And then when they were able to identify what the cause was, then it was like, well, it took them this long. There's never going to be anything. And then they hear that, wait a minute, we've found something that stops the progression, then it started to make me feel hopeful."
+          ],
+          "Treatment Benefits": [
+            "Moderator: How did you feel reading about SPINRAZA and I guess you probably first start learning about tell me about when you first just started hearing about treatment for SMA on those Facebook groups. Like, that's very important to me to understand how that made you feel.\nRespondent: It made me feel hopeful that wait a minute. Because for so long, I heard that there's nothing. There is nothing they didn't even know what was causing it. And then when they were able to identify what the cause was, then it was like, well, it took them this long. There's never going to be anything. And then they hear that, wait a minute, we've found something that stops the progression, then it started to make me feel hopeful."
+          ],
+          "Treatment Drawbacks": [
+            "Moderator: How did you feel reading about SPINRAZA and I guess you probably first start learning about tell me about when you first just started hearing about treatment for SMA on those Facebook groups. Like, that's very important to me to understand how that made you feel.\nRespondent: It made me feel hopeful that wait a minute. Because for so long, I heard that there's nothing. There is nothing they didn't even know what was causing it. And then when they were able to identify what the cause was, then it was like, well, it took them this long. There's never going to be anything. And then they hear that, wait a minute, we've found something that stops the progression, then it started to make me feel hopeful."
+          ],
+          "Treatment Information Source": [
+            "Moderator: So it's striking that you said in 2017 that you were aware of treatment and also that you're saying that oral was on the horizon. So you weren't going to a doctor. How are you learning about these developments in the SMA treatment?\nRespondent: Through Facebook. That was the only thing that I was getting my information from was these Facebook support groups that I was a part of for spinal muscular atrophy. That was where I was getting my information."
+          ],
+          "Treatment Consideration Factors": [
+            "Moderator: How did you feel reading about SPINRAZA and I guess you probably first start learning about tell me about when you first just started hearing about treatment for SMA on those Facebook groups. Like, that's very important to me to understand how that made you feel.\nRespondent: It made me feel hopeful that wait a minute. Because for so long, I heard that there's nothing. There is nothing they didn't even know what was causing it. And then when they were able to identify what the cause was, then it was like, well, it took them this long. There's never going to be anything. And then they hear that, wait a minute, we've found something that stops the progression, then it started to make me feel hopeful."
+          ],
+          "Treatments in Development Awareness": [
+            "Moderator: So it's striking that you said in 2017 that you were aware of treatment and also that you're saying that oral was on the horizon. So you weren't going to a doctor. How are you learning about these developments in the SMA treatment?\nRespondent: Through Facebook. That was the only thing that I was getting my information from was these Facebook support groups that I was a part of for spinal muscular atrophy. That was where I was getting my information."
+          ],
+          "Treatments in Development Impressions": [
+            "Moderator: How did you feel reading about SPINRAZA and I guess you probably first start learning about tell me about when you first just started hearing about treatment for SMA on those Facebook groups. Like, that's very important to me to understand how that made you feel.\nRespondent: It made me feel hopeful that wait a minute. Because for so long, I heard that there's nothing. There is nothing they didn't even know what was causing it. And then when they were able to identify what the cause was, then it was like, well, it took them this long. There's never going to be anything. And then they hear that, wait a minute, we've found something that stops the progression, then it started to make me feel hopeful."
+          ],
+          "Treatments in Development Benefits": [
+            "Moderator: How did you feel reading about SPINRAZA and I guess you probably first start learning about tell me about when you first just started hearing about treatment for SMA on those Facebook groups. Like, that's very important to me to understand how that made you feel.\nRespondent: It made me feel hopeful that wait a minute. Because for so long, I heard that there's nothing. There is nothing they didn't even know what was causing it. And then when they were able to identify what the cause was, then it was like, well, it took them this long. There's never going to be anything. And then they hear that, wait a minute, we've found something that stops the progression, then it started to make me feel hopeful."
+          ],
+          "Treatments in Development Drawbacks": [],
+          "Treatments in Development Candidacy": [],
+          "Treatments in Development Consideration": [
+            "Moderator: How did you feel reading about SPINRAZA and I guess you probably first start learning about tell me about when you first just started hearing about treatment for SMA on those Facebook groups. Like, that's very important to me to understand how that made you feel.\nRespondent: It made me feel hopeful that wait a minute. Because for so long, I heard that there's nothing. There is nothing they didn't even know what was causing it. And then when they were able to identify what the cause was, then it was like, well, it took them this long. There's never going to be anything. And then they hear that, wait a minute, we've found something that stops the progression, then it started to make me feel hopeful."
+          ],
+          "Anti-Myostatins Awareness": [],
+          "Anti-Myostatins Brands": []
+        }
+      },
+      "BARRIERS TO TREATMENT & UNMET NEEDS": {
+        "R001": {
+          "Respondent ID": [],
+          "Reasons for Not on Treatment": [
+            "Moderator: How did you feel reading about SPINRAZA and I guess you probably first start learning about tell me about when you first just started hearing about treatment for SMA on those Facebook groups. Like, that's very important to me to understand how that made you feel.\nRespondent: It made me feel hopeful that wait a minute. Because for so long, I heard that there's nothing. There is nothing they didn't even know what was causing it. And then when they were able to identify what the cause was, then it was like, well, it took them this long. There's never going to be anything. And then they hear that, wait a minute, we've found something that stops the progression, then it started to make me feel hopeful."
+          ],
+          "Factors Driving Treatment Consideration": [
+            "Moderator: How did you feel reading about SPINRAZA and I guess you probably first start learning about tell me about when you first just started hearing about treatment for SMA on those Facebook groups. Like, that's very important to me to understand how that made you feel.\nRespondent: It made me feel hopeful that wait a minute. Because for so long, I heard that there's nothing. There is nothing they didn't even know what was causing it. And then when they were able to identify what the cause was, then it was like, well, it took them this long. There's never going to be anything. And then they hear that, wait a minute, we've found something that stops the progression, then it started to make me feel hopeful."
+          ],
+          "Muscle Loss Impact": [
+            "Moderator: How is your, I mean, you just talked about sort of things evolving for you. But how would you describe sort of the role of SMA in your life now? And I don't know. Just talk to me a little bit about SMA's impact in your life.\nRespondent: Where it's affecting my life now is just my day-to-day abilities to do meaningful activities. My wife gets me in and out of bed. She dresses me. Up until recently, she was bathing me. We recently just got a caregiver just about a month ago that comes in and bathes me and then helps me with little things around the house."
+          ],
+          "Symptom Tracking Frequency": [
+            "Moderator: Wow. So you don't track it, number one, but and it's not necessarily something you see changes day to day, but over a couple months, you can see differences.\nRespondent: Yep."
+          ],
+          "Symptom Tracking Methods": [],
+          "Symptom Tracking Discussion with HCP": [],
+          "Emotional Factors": [
+            "Moderator: Can you tell me I can sort of guess from some of the things that you said, but if you don't mind in telling me a little bit about why you were trying to keep all of this at arm's length. What do you think what did it feel like? What were you trying to avoid?\nRespondent: Prejudice around it that of myself I had and as well. Right? I had an early experience as a kid, prior to all this going down of hearing how people talked about disabled people. And then here I knew that was part of my denial that doctors told me I was going to be that like that as well, and then not wanting to have that perceived that way and being ridiculed and looked down upon. And then in turn, I had it myself, which was sort of ugly of me."
+          ],
+          "Practical/Logistical Factors": [
+            "Moderator: How did you feel reading about SPINRAZA and I guess you probably first start learning about tell me about when you first just started hearing about treatment for SMA on those Facebook groups. Like, that's very important to me to understand how that made you feel.\nRespondent: It made me feel hopeful that wait a minute. Because for so long, I heard that there's nothing. There is nothing they didn't even know what was causing it. And then when they were able to identify what the cause was, then it was like, well, it took them this long. There's never going to be anything. And then they hear that, wait a minute, we've found something that stops the progression, then it started to make me feel hopeful."
+          ],
+          "Clinical Factors": [],
+          "Treatment Benefit Requirement": [
+            "Moderator: How did you feel reading about SPINRAZA and I guess you probably first start learning about tell me about when you first just started hearing about treatment for SMA on those Facebook groups. Like, that's very important to me to understand how that made you feel.\nRespondent: It made me feel hopeful that wait a minute. Because for so long, I heard that there's nothing. There is nothing they didn't even know what was causing it. And then when they were able to identify what the cause was, then it was like, well, it took them this long. There's never going to be anything. And then they hear that, wait a minute, we've found something that stops the progression, then it started to make me feel hopeful."
+          ],
+          "Financial/Access Barriers": [],
+          "Access Challenges": [],
+          "Unmet Needs": [
+            "Moderator: How did you feel reading about SPINRAZA and I guess you probably first start learning about tell me about when you first just started hearing about treatment for SMA on those Facebook groups. Like, that's very important to me to understand how that made you feel.\nRespondent: It made me feel hopeful that wait a minute. Because for so long, I heard that there's nothing. There is nothing they didn't even know what was causing it. And then when they were able to identify what the cause was, then it was like, well, it took them this long. There's never going to be anything. And then they hear that, wait a minute, we've found something that stops the progression, then it started to make me feel hopeful."
+          ]
+        }
+      },
+      "MOTIVATIONS & FUTURE CONSIDERATION": {
+        "R001": {
+          "Respondent ID": [],
+          "Likelihood to Consider Treatment": [
+            "Moderator: How did you feel reading about SPINRAZA and I guess you probably first start learning about tell me about when you first just started hearing about treatment for SMA on those Facebook groups. Like, that's very important to me to understand how that made you feel.\nRespondent: It made me feel hopeful that wait a minute. Because for so long, I heard that there's nothing. There is nothing they didn't even know what was causing it. And then when they were able to identify what the cause was, then it was like, well, it took them this long. There's never going to be anything. And then they hear that, wait a minute, we've found something that stops the progression, then it started to make me feel hopeful."
+          ],
+          "Factors Influencing Consideration": [
+            "Moderator: How did you feel reading about SPINRAZA and I guess you probably first start learning about tell me about when you first just started hearing about treatment for SMA on those Facebook groups. Like, that's very important to me to understand how that made you feel.\nRespondent: It made me feel hopeful that wait a minute. Because for so long, I heard that there's nothing. There is nothing they didn't even know what was causing it. And then when they were able to identify what the cause was, then it was like, well, it took them this long. There's never going to be anything. And then they hear that, wait a minute, we've found something that stops the progression, then it started to make me feel hopeful."
+          ],
+          "Improvement Expectations": [
+            "Moderator: How did you feel reading about SPINRAZA and I guess you probably first start learning about tell me about when you first just started hearing about treatment for SMA on those Facebook groups. Like, that's very important to me to understand how that made you feel.\nRespondent: It made me feel hopeful that wait a minute. Because for so long, I heard that there's nothing. There is nothing they didn't even know what was causing it. And then when they were able to identify what the cause was, then it was like, well, it took them this long. There's never going to be anything. And then they hear that, wait a minute, we've found something that stops the progression, then it started to make me feel hopeful."
+          ],
+          "Influential Decision-Makers": [
+            "Moderator: So it's striking that you said in 2017 that you were aware of treatment and also that you're saying that oral was on the horizon. So you weren't going to a doctor. How are you learning about these developments in the SMA treatment?\nRespondent: Through Facebook. That was the only thing that I was getting my information from was these Facebook support groups that I was a part of for spinal muscular atrophy. That was where I was getting my information."
+          ],
+          "Confidence Factors": [
+            "Moderator: So it's striking that you said in 2017 that you were aware of treatment and also that you're saying that oral was on the horizon. So you weren't going to a doctor. How are you learning about these developments in the SMA treatment?\nRespondent: Through Facebook. That was the only thing that I was getting my information from was these Facebook support groups that I was a part of for spinal muscular atrophy. That was where I was getting my information."
+          ]
+        }
+      },
+      "COMMUNITY ENGAGEMENT & INFO SOURCES": {
+        "R001": {
+          "Respondent ID": [],
+          "Community Connection": [
+            "Moderator: So it's striking that you said in 2017 that you were aware of treatment and also that you're saying that oral was on the horizon. So you weren't going to a doctor. How are you learning about these developments in the SMA treatment?\nRespondent: Through Facebook. That was the only thing that I was getting my information from was these Facebook support groups that I was a part of for spinal muscular atrophy. That was where I was getting my information."
+          ],
+          "Community Participation": [
+            "Moderator: How did you feel when you're on these Facebook groups? It sounds like you were initially kind of a lurker. Is that a fair word?\nRespondent: Yeah. A little lurker. I still might be a lurker. Right? I mean, sometimes I'll post, but I mean, most of the time, I'm just looking, observing, reading."
+          ],
+          "Community Trust": [
+            "Moderator: So it's striking that you said in 2017 that you were aware of treatment and also that you're saying that oral was on the horizon. So you weren't going to a doctor. How are you learning about these developments in the SMA treatment?\nRespondent: Through Facebook. That was the only thing that I was getting my information from was these Facebook support groups that I was a part of for spinal muscular atrophy. That was where I was getting my information."
+          ],
+          "Information Sources": [
+            "Moderator: So it's striking that you said in 2017 that you were aware of treatment and also that you're saying that oral was on the horizon. So you weren't going to a doctor. How are you learning about these developments in the SMA treatment?\nRespondent: Through Facebook. That was the only thing that I was getting my information from was these Facebook support groups that I was a part of for spinal muscular atrophy. That was where I was getting my information."
+          ],
+          "Trustworthy Sources": [
+            "Moderator: So it's striking that you said in 2017 that you were aware of treatment and also that you're saying that oral was on the horizon. So you weren't going to a doctor. How are you learning about these developments in the SMA treatment?\nRespondent: Through Facebook. That was the only thing that I was getting my information from was these Facebook support groups that I was a part of for spinal muscular atrophy. That was where I was getting my information."
+          ],
+          "New Treatment Awareness": [
+            "Moderator: So it's striking that you said in 2017 that you were aware of treatment and also that you're saying that oral was on the horizon. So you weren't going to a doctor. How are you learning about these developments in the SMA treatment?\nRespondent: Through Facebook. That was the only thing that I was getting my information from was these Facebook support groups that I was a part of for spinal muscular atrophy. That was where I was getting my information."
+          ],
+          "Preferred Information Format": [
+            "Moderator: So it's striking that you said in 2017 that you were aware of treatment and also that you're saying that oral was on the horizon. So you weren't going to a doctor. How are you learning about these developments in the SMA treatment?\nRespondent: Through Facebook. That was the only thing that I was getting my information from was these Facebook support groups that I was a part of for spinal muscular atrophy. That was where I was getting my information."
+          ],
+          "Information Accessibility": [
+            "Moderator: So it's striking that you said in 2017 that you were aware of treatment and also that you're saying that oral was on the horizon. So you weren't going to a doctor. How are you learning about these developments in the SMA treatment?\nRespondent: Through Facebook. That was the only thing that I was getting my information from was these Facebook support groups that I was a part of for spinal muscular atrophy. That was where I was getting my information."
+          ]
+        }
+      },
+      "Misc.": {
+        "R001": {
+          "Respondent ID": [],
+          "Final Comments": [],
+          "Additional Notes": []
+        }
+      }
+    }
   }
 ]

@@ -811,7 +811,7 @@ function VendorLibrary({ projects }: { projects: any[] }) {
                           <div className="flex flex-wrap gap-1">
                             {vendor.specialties && vendor.specialties.length > 0 ? (
                               vendor.specialties.slice(0, 3).map((specialty: string, index: number) => (
-                                <span key={index} className="px-2 py-1 text-xs rounded-full text-white opacity-60" style={{ backgroundColor: '#3B82F6' }}>
+                                <span key={index} className="px-0.5 sm:px-1 md:px-2 py-1 text-xs rounded-full text-white opacity-60" style={{ backgroundColor: '#3B82F6' }}>
                                   {specialty}
                                 </span>
                               ))
@@ -847,7 +847,7 @@ function VendorLibrary({ projects }: { projects: any[] }) {
                           <div className="flex flex-wrap gap-1">
                             {vendor.specialties && vendor.specialties.length > 0 ? (
                               vendor.specialties.slice(0, 3).map((specialty: string, index: number) => (
-                                <span key={index} className="px-2 py-1 text-xs rounded-full text-white opacity-60" style={{ backgroundColor: '#3B82F6' }}>
+                                <span key={index} className="px-0.5 sm:px-1 md:px-2 py-1 text-xs rounded-full text-white opacity-60" style={{ backgroundColor: '#3B82F6' }}>
                                   {specialty}
                                 </span>
                               ))
@@ -909,7 +909,7 @@ function VendorLibrary({ projects }: { projects: any[] }) {
                     <button
                       type="button"
                       onClick={() => setNewVendor(prev => ({ ...prev, contacts: [...prev.contacts, { name: '', email: '' }] }))}
-                      className="text-sm px-2 py-1 rounded hover:bg-gray-100"
+                      className="text-sm px-0.5 sm:px-1 md:px-2 py-1 rounded hover:bg-gray-100"
                       style={{ color: BRAND.orange }}
                     >
                       + Add Contact
@@ -1213,7 +1213,7 @@ function VendorLibrary({ projects }: { projects: any[] }) {
                           <button
                             type="button"
                             onClick={() => setEditingVendor(prev => ({ ...prev, contacts: [...prev.contacts, { name: '', email: '' }] }))}
-                            className="text-sm px-2 py-1 rounded hover:bg-gray-100"
+                            className="text-sm px-0.5 sm:px-1 md:px-2 py-1 rounded hover:bg-gray-100"
                             style={{ color: BRAND.orange }}
                           >
                             + Add Contact
@@ -1494,7 +1494,7 @@ function VendorLibrary({ projects }: { projects: any[] }) {
                                         {project.client} • {project.methodologyType}
                                       </div>
                                       <div className="text-xs text-gray-500 mt-1">
-                                        Phase: {project.phase}
+                                        Phase: {getPhaseDisplayName(project.phase)}
                                       </div>
                                     </div>
                                   ))}
@@ -2286,12 +2286,12 @@ function AdminCenter() {
                             value={newPassword}
                             onChange={(e) => setNewPassword(e.target.value)}
                             placeholder="New password"
-                            className="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:border-gray-300 w-32"
+                            className="text-sm border border-gray-300 rounded px-0.5 sm:px-1 md:px-2 py-1 focus:ring-2 focus:border-gray-300 w-32"
                             style={{ '--tw-ring-color': '#D14A2D' } as React.CSSProperties}
                           />
                           <button
                             onClick={() => handleChangePassword(user.id)}
-                            className="text-xs px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700"
+                            className="text-xs px-0.5 sm:px-1 md:px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700"
                           >
                             Save
                           </button>
@@ -2300,7 +2300,7 @@ function AdminCenter() {
                               setEditingPassword(null);
                               setNewPassword('');
                             }}
-                            className="text-xs px-2 py-1 bg-gray-500 text-white rounded hover:bg-gray-600"
+                            className="text-xs px-0.5 sm:px-1 md:px-2 py-1 bg-gray-500 text-white rounded hover:bg-gray-600"
                           >
                             Cancel
                           </button>
@@ -2330,7 +2330,7 @@ function AdminCenter() {
                       <select
                         value={user.role}
                         onChange={(e) => handleUpdateRole(user.id, e.target.value as 'user' | 'admin')}
-                        className="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:border-gray-300"
+                        className="text-sm border border-gray-300 rounded px-0.5 sm:px-1 md:px-2 py-1 focus:ring-2 focus:border-gray-300"
                         style={{ '--tw-ring-color': '#D14A2D' } as React.CSSProperties}
                       >
                         <option value="user">User</option>
@@ -2341,7 +2341,7 @@ function AdminCenter() {
                       <select
                         value={(user as any).company || 'None'}
                         onChange={(e) => handleUpdateCompany(user.id, e.target.value as 'None' | 'Cognitive')}
-                        className="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:border-gray-300"
+                        className="text-sm border border-gray-300 rounded px-0.5 sm:px-1 md:px-2 py-1 focus:ring-2 focus:border-gray-300"
                         style={{ '--tw-ring-color': '#D14A2D' } as React.CSSProperties}
                       >
                         <option value="None">None</option>
@@ -2385,7 +2385,7 @@ function AdminCenter() {
                       ); })()}
                       <div className="flex items-center justify-between mt-2">
                         <select
-                          className="text-xs border rounded px-2 py-1"
+                          className="text-xs border rounded px-0.5 sm:px-1 md:px-2 py-1"
                           value={item.status}
                           onChange={(e) => updateFeedbackStatus(item.id, { status: e.target.value })}
                         >
@@ -2395,7 +2395,7 @@ function AdminCenter() {
                           <option value="archived">Archived</option>
                         </select>
                         <select
-                          className="text-xs border rounded px-2 py-1"
+                          className="text-xs border rounded px-0.5 sm:px-1 md:px-2 py-1"
                           value={item.priority}
                           onChange={(e) => updateFeedbackStatus(item.id, { priority: e.target.value })}
                         >
@@ -2448,7 +2448,7 @@ function AdminCenter() {
                       ); })()}
                       <div className="flex items-center justify-between mt-2">
                         <select
-                          className="text-xs border rounded px-2 py-1"
+                          className="text-xs border rounded px-0.5 sm:px-1 md:px-2 py-1"
                           value={item.status}
                           onChange={(e) => updateFeedbackStatus(item.id, { status: e.target.value })}
                         >
@@ -2458,7 +2458,7 @@ function AdminCenter() {
                           <option value="archived">Archived</option>
                         </select>
                         <select
-                          className="text-xs border rounded px-2 py-1"
+                          className="text-xs border rounded px-0.5 sm:px-1 md:px-2 py-1"
                           value={item.priority}
                           onChange={(e) => updateFeedbackStatus(item.id, { priority: e.target.value })}
                         >
@@ -2502,6 +2502,11 @@ const PHASES = [
   "Post-Field Analysis",
   "Reporting",
 ] as const;
+
+// Helper function to get display name for phases
+const getPhaseDisplayName = (phase: string) => {
+  return phase === 'Post-Field Analysis' ? 'Analysis' : phase;
+};
 type Phase = typeof PHASES[number];
 type ProjectPhase = Phase | "Awaiting KO" | "Complete";
 
@@ -2864,7 +2869,7 @@ export default function App() {
                 savedContentAnalyses: [
                   {
                     id: '1',
-                    name: 'Oncology Study - Patient Journey Analysis',
+                    name: 'Oncology Study - Patient Journey Post-Field Analysis',
                     savedBy: 'Sarah Johnson',
                     savedDate: '2024-01-15',
                     description: 'Comprehensive analysis of patient treatment journey and decision points',
@@ -3260,9 +3265,16 @@ export default function App() {
   return (
     <AuthWrapper>
     <div className="min-h-screen w-full flex bg-gray-50 text-gray-800">
+      {/* Mobile backdrop overlay */}
+      {sidebarOpen && (
+        <div 
+          className="md:hidden fixed inset-0 bg-black bg-opacity-50 z-30"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
       <aside
-          className={`${sidebarOpen ? "w-64" : "w-20"} hidden md:flex flex-col border-r bg-white/90 backdrop-blur-sm sticky top-0 h-screen`}
-          style={{ width: sidebarOpen ? 256 : 80 }}
+          className={`${sidebarOpen ? "w-64" : "w-20"} ${sidebarOpen ? "flex" : "hidden md:flex"} flex-col border-r bg-white/90 backdrop-blur-sm sticky top-0 h-screen flex-shrink-0 z-40`}
+          style={{ width: sidebarOpen ? 256 : 80, minWidth: sidebarOpen ? 256 : 80 }}
         >
         <div className={`flex items-center border-b p-3 ${sidebarOpen ? 'justify-between' : 'justify-center'}`}>
           <div className="flex items-center">
@@ -3402,8 +3414,17 @@ export default function App() {
       {route === "Content Analysis" ? (
         <ContentAnalysisX projects={projects} onNavigate={setRoute} onNavigateToProject={handleProjectView} />
       ) : (
-        <main className="flex-1 overflow-visible" style={{ background: BRAND.bg }}>
-          <div className="p-5 overflow-y-auto h-screen max-w-full">
+        <main className="flex-1 overflow-visible min-w-0" style={{ background: BRAND.bg }}>
+          {/* Mobile menu button - only visible on small screens */}
+          <div className="md:hidden fixed top-4 left-4 z-50">
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="p-2 bg-white rounded-lg shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+            >
+              <Bars3Icon className="h-6 w-6" style={{ color: BRAND.gray }} />
+            </button>
+          </div>
+          <div className="p-5 overflow-y-auto h-screen w-full min-w-0">
             {isNavigatingToProject ? (
               <div className="flex items-center justify-center h-screen">
                 <div className="text-center">
@@ -3953,16 +3974,16 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
               <table className="w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Project Name</th>
-                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
-                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Team</th>
-                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Methodology</th>
-                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sample</th>
-                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Moderator</th>
-                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fieldwork</th>
-                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Report</th>
+                    <th className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Project Name</th>
+                    <th className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
+                    <th className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Team</th>
+                    <th className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                    <th className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Methodology</th>
+                    <th className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sample</th>
+                    <th className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Moderator</th>
+                    <th className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fieldwork</th>
+                    <th className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Report</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -4007,8 +4028,18 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
                                           (project.methodology?.includes('Focus') || project.methodology?.includes('Interview') ? 'Qualitative' : 'Quantitative');
                     const displayMethodologyType = methodologyType === 'Quantitative' ? 'Quant' : methodologyType === 'Qualitative' ? 'Qual' : methodologyType;
 
-                    // Get sample details (placeholder - you may need to add this field to projects)
-                    const sampleDetails = project.sampleDetails || 'TBD';
+                    // Get sample details from sampleSize and subgroups
+                    let sampleDetails = 'TBD';
+                    if (project.sampleSize && project.sampleSize > 0) {
+                      const totalSample = project.sampleSize;
+                      const subgroups = project.subgroups || [];
+                      if (subgroups.length > 0) {
+                        const subgroupText = subgroups.map(sg => `${sg.name} (${sg.size})`).join(', ');
+                        sampleDetails = `n=${totalSample} (${subgroupText})`;
+                      } else {
+                        sampleDetails = `n=${totalSample}`;
+                      }
+                    }
 
                     // Get moderator - look up by ID to get the name
                     let moderator = 'TBD';
@@ -4039,27 +4070,27 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
                         className={`hover:bg-gray-50 cursor-pointer ${isArchived ? 'opacity-60 bg-gray-50' : ''}`}
                         onClick={() => onNavigateToProject?.(project)}
                       >
-                        <td className="px-2 py-3 text-sm font-medium text-gray-900 max-w-[180px]">
+                        <td className="px-0.5 sm:px-1 md:px-2 py-3 text-sm font-medium text-gray-900 max-w-[180px]">
                           <div>
                             {project.name}
                             {isArchived && <span className="ml-2 text-xs text-gray-500">(Archived)</span>}
                           </div>
                         </td>
-                        <td className="px-2 py-3 text-sm text-gray-500 italic max-w-[150px]">
+                        <td className="px-0.5 sm:px-1 md:px-2 py-3 text-sm text-gray-500 italic max-w-[150px]">
                           <div className="truncate">{project.client}</div>
                         </td>
-                        <td className="px-2 py-3">
+                        <td className="px-0.5 sm:px-1 md:px-2 py-3">
                           <span
-                            className="inline-flex items-center justify-center w-24 px-2 py-1 rounded-full text-xs font-medium text-white"
+                            className="inline-flex items-center justify-center w-24 px-0.5 sm:px-1 md:px-2 py-1 rounded-full text-xs font-medium text-white"
                             style={{ 
                               backgroundColor: isArchived ? '#6B7280' : phaseColor,
                               opacity: 0.6
                             }}
                           >
-                            {isArchived ? 'Archived' : currentPhase}
+                            {isArchived ? 'Archived' : getPhaseDisplayName(currentPhase)}
                           </span>
                         </td>
-                        <td className="px-2 py-3 text-sm text-gray-500">
+                        <td className="px-0.5 sm:px-1 md:px-2 py-3 text-sm text-gray-500">
                           <div className="flex items-center">
                             {project.teamMembers?.slice(0, 3).map((member, index) => (
                               <div
@@ -4077,7 +4108,7 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
                             ))}
                             {project.teamMembers && project.teamMembers.length > 3 && (
                               <div
-                                className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-medium border-2 border-white bg-gray-500"
+                                className="w-6 h-6 rounded-full flex items-center justify-center text-gray-700 text-[10px] font-medium border-2 border-white bg-gray-200"
                                 style={{ marginLeft: '-4px', zIndex: 7 }}
                               >
                                 +{project.teamMembers.length - 3}
@@ -4088,16 +4119,16 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
                             )}
                           </div>
                         </td>
-                        <td className="px-2 py-3 text-sm text-gray-500 max-w-[100px]">
+                        <td className="px-0.5 sm:px-1 md:px-2 py-3 text-xs text-gray-500 max-w-[100px]">
                           <div className="truncate">{displayMethodologyType}</div>
                         </td>
-                        <td className="px-2 py-3 text-sm text-gray-500 max-w-[120px]">
-                          <div>{project.methodology}</div>
+                        <td className="px-0.5 sm:px-1 md:px-2 py-3 text-xs text-gray-500 max-w-[120px]">
+                          <div className="truncate">{project.methodology}</div>
                         </td>
-                        <td className="px-2 py-3 text-sm text-gray-500 max-w-[150px]">
+                        <td className="px-0.5 sm:px-1 md:px-2 py-3 text-xs text-gray-500 max-w-[150px]">
                           {(() => {
                             if (!sampleDetails || sampleDetails === 'TBD') {
-                              return <div className="text-sm text-gray-500">TBD</div>;
+                              return <div className="text-xs text-gray-500">TBD</div>;
                             }
                             const match = String(sampleDetails).match(/^(.+?)\s*\((.+?)\)$/);
                             const baseTotal = match ? match[1].trim() : String(sampleDetails);
@@ -4125,16 +4156,16 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
                                 }}
                                 onMouseLeave={() => setSampleTooltip(null)}
                               >
-                                <div className="text-sm text-gray-700">{displayTotal}</div>
+                                <div className="text-xs text-gray-700 truncate">{displayTotal}</div>
                               </div>
                             );
                           })()}
                         </td>
-                        <td className="px-2 py-3 text-sm text-gray-500 max-w-[120px]">
+                        <td className="px-0.5 sm:px-1 md:px-2 py-3 text-xs text-gray-500 max-w-[120px]">
                           <div className="truncate">{moderator}</div>
                         </td>
-                        <td className="px-2 py-3 text-sm text-gray-500">{fieldworkRange}</td>
-                        <td className="px-2 py-3 text-sm text-gray-500">{reportDeadline}</td>
+                        <td className="px-0.5 sm:px-1 md:px-2 py-3 text-xs text-gray-500 truncate">{fieldworkRange}</td>
+                        <td className="px-0.5 sm:px-1 md:px-2 py-3 text-xs text-gray-500 truncate">{reportDeadline}</td>
                       </tr>
                     );
                   })}
@@ -4204,7 +4235,7 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
             </div>
           </div>
 
-        <div className="p-4 space-y-4">
+        <div className="p-4 space-y-4 flex-1 flex flex-col">
           {/* Overdue Tasks Banner */}
           {overdueTasksAll.length > 0 && (
             <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2">
@@ -4264,7 +4295,7 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
           {/* Today and Later This Week Boxes */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Today's Tasks */}
-            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden flex flex-col">
               <div className="px-4 py-3 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   {/* Calendar tile icon for Today */}
@@ -4282,11 +4313,16 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
                   </div>
                 </div>
               </div>
-              <div className="px-4 pb-4 space-y-1">
+              <div className="px-4 pb-4 space-y-1 flex-1 overflow-y-auto">
                 {(() => {
                   // Combine all today's tasks and sort with assigned to me first
                   const allTodayTasks = [...todayMyTasks, ...todayAdditionalTasks];
-                  const sortedTodayTasks = allTodayTasks.sort((a, b) => {
+                  // Remove duplicates based on task ID
+                  const uniqueTodayTasks = allTodayTasks.filter((task, index, self) => 
+                    index === self.findIndex(t => t.id === task.id)
+                  );
+                  
+                  const sortedTodayTasks = uniqueTodayTasks.sort((a, b) => {
                     const aAssignedToMe = isAssignedToMe(a);
                     const bAssignedToMe = isAssignedToMe(b);
                     if (aAssignedToMe && !bAssignedToMe) return -1;
@@ -4298,21 +4334,40 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
                     return <div className="text-[10px] italic text-gray-500">No tasks for today</div>;
                   }
 
-                  return sortedTodayTasks.map(t => (
-                    <div key={`td-${t.id}`} className="flex items-start gap-2 text-xs text-gray-800">
-                      <span className="mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: BRAND.orange }}></span>
-                      <span className="flex-1">
-                        <span className="font-medium">{t.description || t.content || 'Untitled task'}</span>
-                        <span className="text-[10px] text-gray-500"> ({t.projectName})</span>
-                      </span>
-                    </div>
-                  ));
+                  // Limit to first 8 tasks to prevent overflow
+                  const maxTasks = 8;
+                  const tasksToShow = sortedTodayTasks.slice(0, maxTasks);
+                  const remainingCount = sortedTodayTasks.length - maxTasks;
+
+                  return (
+                    <>
+                      {tasksToShow.map(t => {
+                        const isTaskAssignedToMe = isAssignedToMe(t);
+                        return (
+                        <div key={`td-${t.id}`} className="flex items-start gap-2 text-xs text-gray-800">
+                          <span className="mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: BRAND.orange }}></span>
+                          <span className="flex-1">
+                              <span className={`font-medium ${isTaskAssignedToMe ? 'font-bold text-red-600' : ''}`}>
+                                {t.description || t.content || 'Untitled task'}
+                              </span>
+                              <span className={`text-[10px] ${isTaskAssignedToMe ? 'text-red-500' : 'text-gray-500'}`}> ({t.projectName})</span>
+                          </span>
+                        </div>
+                        );
+                      })}
+                      {remainingCount > 0 && (
+                        <div className="text-[10px] text-gray-500 italic">
+                          +{remainingCount} more tasks
+                        </div>
+                      )}
+                    </>
+                  );
                 })()}
               </div>
         </div>
 
             {/* Later This Week */}
-            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden flex flex-col">
           <div className="px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="flex-shrink-0 w-10 h-10 flex items-center justify-center">
@@ -4324,11 +4379,15 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
               </div>
             </div>
           </div>
-          <div className="px-4 pb-4 space-y-1">
+          <div className="px-4 pb-4 space-y-1 flex-1 overflow-y-auto">
             {(() => {
               // Combine all later this week tasks and sort with assigned to me first
               const allLaterWeekTasks = [...laterWeekMyTasks, ...laterWeekAdditionalTasks];
-              const sortedLaterWeekTasks = allLaterWeekTasks.sort((a, b) => {
+              // Remove duplicates based on task ID
+              const uniqueLaterWeekTasks = allLaterWeekTasks.filter((task, index, self) => 
+                index === self.findIndex(t => t.id === task.id)
+              );
+              const sortedLaterWeekTasks = uniqueLaterWeekTasks.sort((a, b) => {
                 const aAssignedToMe = isAssignedToMe(a);
                 const bAssignedToMe = isAssignedToMe(b);
                 if (aAssignedToMe && !bAssignedToMe) return -1;
@@ -4340,15 +4399,34 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
                 return <div className="text-[10px] italic text-gray-500">No tasks later this week</div>;
               }
 
-              return sortedLaterWeekTasks.map(t => (
-                <div key={`lw-${t.id}`} className="flex items-start gap-2 text-xs text-gray-800">
-                  <span className="mt-1 w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0"></span>
-                  <span className="flex-1">
-                    <span className="font-medium">{t.description || t.content || 'Untitled task'}</span>
-                    <span className="text-[10px] text-gray-500"> ({t.projectName}) · {new Date(t.dueDate + 'T00:00:00').toLocaleDateString()}</span>
-                  </span>
-                </div>
-              ));
+              // Limit to first 8 tasks to prevent overflow
+              const maxTasks = 8;
+              const tasksToShow = sortedLaterWeekTasks.slice(0, maxTasks);
+              const remainingCount = sortedLaterWeekTasks.length - maxTasks;
+
+              return (
+                <>
+                  {tasksToShow.map(t => {
+                    const isTaskAssignedToMe = isAssignedToMe(t);
+                    return (
+                    <div key={`lw-${t.id}`} className="flex items-start gap-2 text-xs text-gray-800">
+                      <span className="mt-1 w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0"></span>
+                      <span className="flex-1">
+                          <span className={`font-medium ${isTaskAssignedToMe ? 'font-bold text-blue-600' : ''}`}>
+                            {t.description || t.content || 'Untitled task'}
+                          </span>
+                          <span className={`text-[10px] ${isTaskAssignedToMe ? 'text-blue-500' : 'text-gray-500'}`}> ({t.projectName}) · {new Date(t.dueDate + 'T00:00:00').toLocaleDateString()}</span>
+                      </span>
+                    </div>
+                    );
+                  })}
+                  {remainingCount > 0 && (
+                    <div className="text-[10px] text-gray-500 italic">
+                      +{remainingCount} more tasks
+                    </div>
+                  )}
+                </>
+              );
             })()}
           </div>
             </div>
@@ -4401,15 +4479,25 @@ function ProjectTimeline({ projects, onDateRangeChange, maxWeeks }: { projects: 
     const updateVisibleWeeks = () => {
       if (timelineRef.current) {
         const containerWidth = timelineRef.current.offsetWidth;
-        // Each week needs ~120px minimum for comfortable viewing (reduced from 180px)
-        const weeksToShow = Math.max(2, Math.min(maxWeeks || 5, Math.floor(containerWidth / 120)));
+        // Each week needs ~150px minimum to prevent overflow in split screen
+        const weeksToShow = Math.max(2, Math.min(maxWeeks || 3, Math.floor(containerWidth / 150)));
         setVisibleWeeks(weeksToShow);
       }
     };
 
     updateVisibleWeeks();
+    
+    // Use ResizeObserver for better split screen detection
+    const resizeObserver = new ResizeObserver(updateVisibleWeeks);
+    if (timelineRef.current) {
+      resizeObserver.observe(timelineRef.current);
+    }
+    
     window.addEventListener('resize', updateVisibleWeeks);
-    return () => window.removeEventListener('resize', updateVisibleWeeks);
+    return () => {
+      window.removeEventListener('resize', updateVisibleWeeks);
+      resizeObserver.disconnect();
+    };
   }, [maxWeeks]);
 
   // Get current week start (Monday) - always start from Monday using UTC
@@ -4446,8 +4534,9 @@ function ProjectTimeline({ projects, onDateRangeChange, maxWeeks }: { projects: 
     return targetMonday;
   };
 
-  // Generate weeks data
-  const weeks = Array.from({ length: visibleWeeks }, (_, i) => {
+  // Generate weeks data - use visible weeks for fixed width timeline
+  const totalWeeks = visibleWeeks; // Use the calculated visible weeks for fixed width
+  const weeks = Array.from({ length: totalWeeks }, (_, i) => {
     const weekStart = getWeekStart(currentWeekOffset + i);
     const weekEnd = new Date(Date.UTC(weekStart.getUTCFullYear(), weekStart.getUTCMonth(), weekStart.getUTCDate() + 4)); // Only Monday-Friday (5 days)
     
@@ -4561,156 +4650,129 @@ function ProjectTimeline({ projects, onDateRangeChange, maxWeeks }: { projects: 
   return (
     <div className="space-y-4">
       {/* Timeline Container */}
-      <div ref={timelineRef} className="overflow-x-auto pb-4 select-none px-2">
-        <div className="min-w-full">
-          {/* Timeline Headers */}
-          <div className="flex mb-0">
-            {/* Project Name Column Header (empty space) */}
-            <div className="w-40 flex-shrink-0 pl-4"></div>
+      <div ref={timelineRef} className="overflow-hidden select-none px-0.5 sm:px-1 md:px-2">
+        <div className="w-full min-w-0 max-w-full">
 
-            {/* Month Headers with Navigation */}
-            <div className="flex-1 flex items-center">
+          {/* Timeline Container */}
+          <div className="relative transition-all duration-300 ease-out">
+            {/* Month Labels and Navigation */}
+            <div className="flex mb-2">
+              {/* Project Name Column Header (empty space) */}
+              <div className="w-24 sm:w-32 md:w-40 flex-shrink-0 pl-4"></div>
+              
               {/* Left Arrow */}
-              <button onClick={scrollLeft} disabled={isScrolling || currentWeekOffset <= -20} className="p-2 text-gray-500 hover:text-gray-700 disabled:opacity-50 mr-2">
+              <button onClick={scrollLeft} disabled={isScrolling || currentWeekOffset <= -20} className="p-2 text-gray-500 hover:text-gray-700 disabled:opacity-50">
                 <ChevronLeftIcon className="w-5 h-5" />
               </button>
               
-              {/* Month Headers */}
-              <div className="flex-1 flex">
+              {/* Month Labels */}
+              <div className="flex-1 flex items-center justify-center relative">
                 {(() => {
-                  // Group all days by month
-                  const allDays = weeks.flatMap(week => week.days);
-                  const monthGroups: { month: string; days: Date[]; startIndex: number; endIndex: number }[] = [];
+                  const months = [];
+                  const dividers = [];
                   
-                  let currentMonth = '';
-                  let currentGroup: Date[] = [];
-                  let startIndex = 0;
-                  
-                  allDays.forEach((day, index) => {
-                    const month = day.toLocaleDateString('en-US', { month: 'long' });
+                  for (let i = 0; i < visibleWeeks; i++) {
+                    const weekStart = getWeekStart(currentWeekOffset + i);
+                    const month = weekStart.toLocaleDateString('en-US', { month: 'long' });
                     
-                    if (month !== currentMonth) {
-                      // Save previous group if it exists
-                      if (currentGroup.length > 0) {
-                        monthGroups.push({
-                          month: currentMonth,
-                          days: currentGroup,
-                          startIndex: startIndex,
-                          endIndex: startIndex + currentGroup.length - 1
-                        });
-                      }
+                    // Check if this is the first week of a new month
+                    if (i === 0 || weekStart.getUTCMonth() !== getWeekStart(currentWeekOffset + i - 1).getUTCMonth()) {
+                      months.push({
+                        name: month,
+                        startWeek: i,
+                        endWeek: i
+                      });
                       
-                      // Start new group
-                      currentMonth = month;
-                      currentGroup = [day];
-                      startIndex = index;
+                      // Add divider before this month (except for the first month)
+                      if (i > 0) {
+                        dividers.push(i);
+                      }
                     } else {
-                      currentGroup.push(day);
+                      // Extend the current month
+                      if (months.length > 0) {
+                        months[months.length - 1].endWeek = i;
+                      }
                     }
-                  });
-                  
-                  // Add the last group
-                  if (currentGroup.length > 0) {
-                    monthGroups.push({
-                      month: currentMonth,
-                      days: currentGroup,
-                      startIndex: startIndex,
-                      endIndex: startIndex + currentGroup.length - 1
-                    });
                   }
                   
-                  return monthGroups.map((group, groupIndex) => (
-                    <div
-                      key={groupIndex}
-                      className="text-center py-1 text-sm font-semibold text-gray-700 bg-white border-r border-gray-200 last:border-r-0 whitespace-nowrap"
-                      style={{
-                        flex: `${group.days.length} 0 0`
-                      }}
-                    >
-                      {group.month}
+                  return (
+                    <>
+                      {months.map((month, index) => (
+                        <div key={index} className="flex items-center">
+                          <span className="text-sm font-medium text-gray-700">{month.name}</span>
+                          {index < months.length - 1 && (
+                            <div className="w-px h-4 bg-gray-300 mx-2"></div>
+                          )}
                         </div>
-                  ));
+                      ))}
+                    </>
+                  );
                 })()}
               </div>
               
               {/* Right Arrow */}
-              <button onClick={scrollRight} disabled={isScrolling || currentWeekOffset >= 20} className="p-2 text-gray-500 hover:text-gray-700 disabled:opacity-50 ml-2">
+              <button onClick={scrollRight} disabled={isScrolling || currentWeekOffset >= 20} className="p-2 text-gray-500 hover:text-gray-700 disabled:opacity-50">
                 <ChevronRightIcon className="w-5 h-5" />
               </button>
             </div>
-                    </div>
-
-          {/* Timeline Container with Continuous Lines */}
-          <div className="relative transition-all duration-300 ease-out">
-            {/* Vertical divider lines - cover entire timeline */}
-            <div className="absolute top-0 left-40 right-0 pointer-events-none z-40" style={{ height: '100%' }}>
-              <div className="flex h-full">
-                {weeks.map((week, weekIndex) => (
-                  <div key={weekIndex} className="flex-1 flex min-w-0 relative">
-                    {week.days.map((day, dayIndex) => (
-                      <div key={`${weekIndex}-${dayIndex}`} className="flex-1 relative">
-                        {dayIndex < 4 && (
-                          <div className="absolute top-0 bottom-0 right-0 w-px bg-gray-200"></div>
-                        )}
-                      </div>
-                    ))}
-                    {/* Week divider line - between Friday and Monday */}
-                    {weekIndex < weeks.length - 1 && (
-                      <div className="absolute top-0 bottom-0 right-0 w-px bg-gray-200"></div>
-                    )}
-                  </div>
-                ))}
-                  </div>
-                </div>
-            {/* Day Headers */}
-            <div className="flex mb-0">
+            
+            {/* Date Header Row */}
+            <div className="flex mb-0 border-b border-gray-200">
               {/* Project Name Column Header (empty space) */}
-              <div className="w-40 flex-shrink-0 pl-4"></div>
+              <div className="w-24 sm:w-32 md:w-40 flex-shrink-0 pl-4"></div>
               
-              {/* Day Headers */}
-              <div className="flex-1 flex">
+              {/* Date Headers */}
+              <div className="flex-1 flex relative overflow-hidden">
                 {weeks.map((week, weekIndex) => (
-                  <div key={weekIndex} className={`flex-1 min-w-0 relative ${week.isCurrentWeek ? 'bg-orange-50' : ''}`}>
-                    <div className={`flex relative z-20 ${week.isCurrentWeek ? '' : ''}`}>
-                      {week.days.map((day, dayIndex) => {
-                        const isTodayDate = isToday(day);
-                        
-                        return (
-                          <div key={`${weekIndex}-${dayIndex}`} className={`flex-1 text-center py-2 text-xs text-gray-600 border-r border-gray-200 last:border-r-0 ${
-                            isTodayDate ? 'bg-orange-100' : (week.isCurrentWeek ? 'bg-orange-50' : 'bg-gray-50')
-                          }`}>
-                            <div className={`font-medium ${
-                              isTodayDate ? 'font-bold' : ''
-                            }`} style={{
-                              color: isTodayDate ? '#DC2626' : undefined
-                            }}>
-                              {(day.getUTCMonth() + 1)}/{day.getUTCDate()}
-                            </div>
-                            <div className={`text-gray-500 ${
-                              isTodayDate ? 'font-bold' : ''
-                            }`} style={{
-                              color: isTodayDate ? '#DC2626' : undefined
-                            }}>
-                              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'][dayIndex]}
-                            </div>
+                  <div key={weekIndex} className={`flex relative ${week.isCurrentWeek ? 'bg-orange-50' : ''}`} style={{ width: `${100 / weeks.length}%` }}>
+                    {week.days.map((day, dayIndex) => {
+                      const isTodayDate = isToday(day);
+                      const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+                      
+                      return (
+                        <div
+                          key={`${weekIndex}-${dayIndex}`}
+                          className={`h-10 flex flex-col justify-center items-center text-center relative ${
+                            dayIndex < 4 ? 'border-r border-gray-200' : ''
+                          } ${isTodayDate ? 'bg-orange-100' : ''}`}
+                          style={{ width: `${100 / 5}%` }}
+                        >
+                          <div className={`text-xs font-medium ${isTodayDate ? 'text-orange-600 font-bold' : 'text-gray-700'}`}>
+                            {day.getUTCMonth() + 1}/{day.getUTCDate()}
                           </div>
-                        );
-                      })}
-            </div>
-        </div>
+                          <div className={`text-[10px] ${isTodayDate ? 'text-orange-500 font-bold' : 'text-gray-500'}`}>
+                            {dayNames[dayIndex]}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 ))}
-        </div>
+                
+                {/* Week divider lines in headers - positioned between weeks */}
+                {weeks.map((week, weekIndex) => {
+                  if (weekIndex < weeks.length - 1) {
+                    const weekWidth = 100 / weeks.length;
+                    const leftPosition = (weekIndex + 1) * weekWidth;
+                    return (
+                      <div
+                        key={`header-week-divider-${weekIndex}`}
+                        className="absolute top-0 bottom-0 w-0.5 bg-gray-300 z-30"
+                        style={{ left: `${leftPosition}%` }}
+                      ></div>
+                    );
+                  }
+                  return null;
+                })}
               </div>
-
-
-
+            </div>
 
             {/* Project Rows */}
-            <div className="space-y-0 border-t border-gray-200 max-h-96 overflow-y-auto">
+            <div className="space-y-0 overflow-y-auto">
               {projects.slice(0, showAllProjects ? projects.length : maxVisibleProjects).map((project, projectIndex) => (
                 <div key={project.id} className="flex items-stretch border-b border-gray-100 hover:bg-gray-25">
                   {/* Project Name Column */}
-                  <div className="w-40 flex-shrink-0 py-3 flex flex-col justify-center">
+                  <div className="w-24 sm:w-32 md:w-40 flex-shrink-0 py-3 flex flex-col justify-center">
                     <div className="text-sm font-medium text-gray-900 truncate">
                       {project.name}
                     </div>
@@ -4721,38 +4783,49 @@ function ProjectTimeline({ projects, onDateRangeChange, maxWeeks }: { projects: 
                   
                   {/* Timeline Area */}
                   <div className="flex-1 flex items-center relative py-2">
-                    {/* Background grid for reference */}
-                    <div className="absolute inset-0 flex">
+                    {/* Background grid with vertical lines */}
+                    <div className="absolute inset-0 flex overflow-hidden">
                       {weeks.map((week, weekIndex) => (
-                        <div key={weekIndex} className={`flex-1 flex ${week.isCurrentWeek ? 'bg-orange-50' : ''}`}>
+                        <div key={weekIndex} className={`flex relative ${week.isCurrentWeek ? 'bg-orange-50' : ''}`} style={{ width: `${100 / weeks.length}%` }}>
                           {week.days.map((day, dayIndex) => {
                             const isTodayDate = isToday(day);
                             
                             return (
                               <div
                                 key={`${weekIndex}-${dayIndex}`}
-                            className={`flex-1 h-full relative ${
-                              dayIndex < 4 ? 'border-r border-gray-100' : ''
-                            } ${isTodayDate ? 'bg-orange-100' : ''}`}
-                              ></div>
+                                className={`h-full relative ${
+                                  dayIndex < 4 ? 'border-r border-gray-200' : ''
+                                } ${isTodayDate ? 'bg-orange-100' : ''}`}
+                                style={{ width: `${100 / 5}%` }}
+                              >
+                              </div>
                             );
                           })}
                         </div>
                       ))}
                     </div>
                     
+                    {/* Week divider lines in timeline content - positioned between weeks */}
+                    {weeks.map((week, weekIndex) => {
+                      if (weekIndex < weeks.length - 1) {
+                        const weekWidth = 100 / weeks.length;
+                        const leftPosition = (weekIndex + 1) * weekWidth;
+                        return (
+                          <div
+                            key={`timeline-week-divider-${weekIndex}`}
+                            className="absolute top-0 bottom-0 w-0.5 bg-gray-300 z-30"
+                            style={{ left: `${leftPosition}%` }}
+                          ></div>
+                        );
+                      }
+                      return null;
+                    })}
+                    
                     {/* Project phase pills */}
                     {(() => {
-                      // Get project phase for each day
+                      // Get project phase for each day - use the same structure as the background grid
                       const allDays = weeks.flatMap(week => week.days);
                       const allPhases = allDays.map(day => getProjectPhaseForDate(project, day));
-                      
-                      // Create a visual days array that matches what's shown in the timeline (weekdays only)
-                      const visualDays = allDays.filter(day => {
-                        const dayOfWeek = day.getUTCDay();
-                        return dayOfWeek >= 1 && dayOfWeek <= 5; // Monday = 1, Friday = 5
-                      });
-                      
                       
                       // Group consecutive days with the same phase
                       const phaseRanges: { phase: string; startIndex: number; endIndex: number; color: string }[] = [];
@@ -4787,11 +4860,20 @@ function ProjectTimeline({ projects, onDateRangeChange, maxWeeks }: { projects: 
                       
                       return (
                         <>
-                          {/* Phase bars */}
+                          {/* Phase bars - positioned to align exactly with date cell boundaries */}
                           {phaseRanges.map((range, rangeIndex) => {
                             const totalDays = allDays.length;
-                            const leftPercent = (range.startIndex / totalDays) * 100;
-                            const widthPercent = ((range.endIndex - range.startIndex + 1) / totalDays) * 100;
+                            const dayWidth = 100 / totalDays;
+                            
+                            // Calculate exact positioning to align with grid cells
+                            const startDay = range.startIndex;
+                            const endDay = range.endIndex;
+                            
+                            // Left position: start of the first day cell
+                            const leftPercent = (startDay / totalDays) * 100;
+                            
+                            // Width: span from start of first day to end of last day
+                            const widthPercent = ((endDay - startDay + 1) / totalDays) * 100;
                             
                             return (
                               <div
@@ -4803,8 +4885,8 @@ function ProjectTimeline({ projects, onDateRangeChange, maxWeeks }: { projects: 
                                   top: '50%',
                                   transform: 'translateY(-50%)',
                                   height: '32px',
-                                  left: `calc(${leftPercent}% + 2px)`,
-                                  width: `calc(${widthPercent}% - 4px)`,
+                                  left: `${leftPercent}%`,
+                                  width: `${widthPercent}%`,
                                   zIndex: 50
                                 }}
                               />
@@ -4814,11 +4896,13 @@ function ProjectTimeline({ projects, onDateRangeChange, maxWeeks }: { projects: 
                           {/* Phase icons positioned on specific dates */}
                           {allPhases.map((phase, dayIndex) => {
                             const totalDays = allDays.length;
+                            const dayWidth = 100 / totalDays;
                             const leftPercent = (dayIndex / totalDays) * 100;
                             
                             return (
-                              <div key={`icon-${dayIndex}`} className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[100]" style={{
-                                left: `calc(${leftPercent}% + ${100 / totalDays / 2}%)`,
+                              <div key={`icon-${dayIndex}`} className="absolute top-1/2 transform -translate-y-1/2 z-[100]" style={{
+                                left: `${leftPercent + (dayWidth / 2)}%`,
+                                transform: 'translateX(-50%) translateY(-50%)'
                               }}>
                                 {phase === 'Kickoff' && (
                                   <IconBallAmericanFootball 
@@ -4851,7 +4935,7 @@ function ProjectTimeline({ projects, onDateRangeChange, maxWeeks }: { projects: 
                 
                 {/* Show More/Less Button for Projects */}
                 {projects.length > maxVisibleProjects && (
-                  <div className="px-4 py-2 border-t border-gray-200 bg-gray-50">
+                  <div className="px-4 py-2 border-t border-gray-200 text-center">
                     <button
                       onClick={() => setShowAllProjects(!showAllProjects)}
                       className="text-[10px] text-blue-600 hover:text-blue-800 font-medium"
@@ -4864,9 +4948,8 @@ function ProjectTimeline({ projects, onDateRangeChange, maxWeeks }: { projects: 
         </div>
         </div>
       </div>
-
       {/* Footer with phase key */}
-      <div className="border-t border-gray-200 bg-gray-50 px-4 py-3">
+      <div className="border-t border-gray-200 bg-gray-50 px-4 py-4">
         <div className="flex flex-wrap gap-4 text-xs justify-center">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded" style={{ backgroundColor: PHASE_COLORS.Kickoff, opacity: 0.6 }}></div>
@@ -4882,7 +4965,7 @@ function ProjectTimeline({ projects, onDateRangeChange, maxWeeks }: { projects: 
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded" style={{ backgroundColor: PHASE_COLORS['Post-Field Analysis'], opacity: 0.6 }}></div>
-            <span className="text-gray-700">Post-Field Analysis</span>
+            <span className="text-gray-700">Analysis</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded" style={{ backgroundColor: PHASE_COLORS.Reporting, opacity: 0.6 }}></div>
@@ -4959,8 +5042,9 @@ function ModeratorTimeline({ projects, onDateRangeChange }: { projects: Project[
     return targetMonday;
   };
 
-  // Generate weeks data
-  const weeks = Array.from({ length: visibleWeeks }, (_, i) => {
+  // Generate weeks data - use visible weeks for fixed width timeline
+  const totalWeeks = visibleWeeks; // Use the calculated visible weeks for fixed width
+  const weeks = Array.from({ length: totalWeeks }, (_, i) => {
     const weekStart = getWeekStart(currentWeekOffset + i);
     const weekEnd = new Date(Date.UTC(weekStart.getUTCFullYear(), weekStart.getUTCMonth(), weekStart.getUTCDate() + 4)); // Only Monday-Friday (5 days)
 
@@ -5065,114 +5149,80 @@ function ModeratorTimeline({ projects, onDateRangeChange }: { projects: Project[
     <div className="space-y-4">
 
       {/* Timeline Container */}
-      <div ref={timelineRef} className="overflow-x-auto pb-4 select-none px-2">
-        <div className="min-w-full">
-          {/* Timeline Headers */}
-          <div className="flex mb-0">
-            {/* Project Name Column Header (empty space) */}
-            <div className="w-40 flex-shrink-0 pl-4"></div>
-
-            {/* Month Headers with Navigation */}
-            <div className="flex-1 flex items-center">
-              {/* Left Arrow */}
-              <button onClick={goToPreviousWeek} disabled={isScrolling} className="p-2 text-gray-500 hover:text-gray-700 disabled:opacity-50 mr-2">
-                <ChevronLeftIcon className="w-5 h-5" />
-              </button>
-              
-              {/* Month Headers */}
-              <div className="flex-1 flex">
-              {(() => {
-                // Group all days by month
-                const allDays = weeks.flatMap(week => week.days);
-                const monthGroups: { month: string; days: Date[]; startIndex: number; endIndex: number }[] = [];
-
-                let currentMonth = '';
-                let currentGroup: Date[] = [];
-                let startIndex = 0;
-
-                allDays.forEach((day, index) => {
-                  const month = day.toLocaleDateString('en-US', { month: 'long' });
-
-                  if (month !== currentMonth) {
-                    // Save previous group if it exists
-                    if (currentGroup.length > 0) {
-                      monthGroups.push({
-                        month: currentMonth,
-                        days: currentGroup,
-                        startIndex: startIndex,
-                        endIndex: startIndex + currentGroup.length - 1
-                      });
-                    }
-
-                    // Start new group
-                    currentMonth = month;
-                    currentGroup = [day];
-                    startIndex = index;
-                  } else {
-                    currentGroup.push(day);
-                  }
-                });
-
-                // Add the last group
-                if (currentGroup.length > 0) {
-                  monthGroups.push({
-                    month: currentMonth,
-                    days: currentGroup,
-                    startIndex: startIndex,
-                    endIndex: startIndex + currentGroup.length - 1
-                  });
-                }
-
-                return monthGroups.map((group, groupIndex) => (
-                  <div
-                    key={groupIndex}
-                    className="text-center py-1 text-sm font-semibold text-gray-700 bg-white border-r border-gray-200 last:border-r-0 whitespace-nowrap"
-                    style={{
-                      flex: `${group.days.length} 0 0`
-                    }}
-                  >
-                    {group.month}
-                  </div>
-                ));
-              })()}
-              </div>
-              
-              {/* Right Arrow */}
-              <button onClick={goToNextWeek} disabled={isScrolling} className="p-2 text-gray-500 hover:text-gray-700 disabled:opacity-50 ml-2">
-                <ChevronRightIcon className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
+      <div ref={timelineRef} className="overflow-hidden pb-4 select-none px-0.5 sm:px-1 md:px-2">
+        <div className="w-full min-w-0 max-w-full">
 
           {/* Timeline Container with Continuous Lines */}
           <div className="relative">
-            {/* Vertical divider lines - cover entire timeline */}
-            <div className="absolute top-0 left-40 right-0 pointer-events-none z-40" style={{ height: '100%' }}>
-              <div className="flex h-full">
-                {weeks.map((week, weekIndex) => (
-                  <div key={weekIndex} className="flex-1 flex min-w-0 relative">
-                    {week.days.map((day, dayIndex) => (
-                      <div key={`${weekIndex}-${dayIndex}`} className="flex-1 relative">
-                        {dayIndex < 4 && (
-                          <div className="absolute top-0 bottom-0 right-0 w-px bg-gray-200"></div>
-                        )}
-                      </div>
-                    ))}
-                    {/* Week divider line - between Friday and Monday */}
-                    {weekIndex < weeks.length - 1 && (
-                      <div className="absolute top-0 bottom-0 right-0 w-px bg-gray-200"></div>
-                    )}
-                  </div>
-                ))}
+            {/* Month Labels and Navigation */}
+            <div className="flex mb-2">
+              {/* Moderator Name Column Header (empty space) */}
+              <div className="w-24 sm:w-32 md:w-40 flex-shrink-0 pl-4"></div>
+              
+              {/* Left Arrow */}
+              <button onClick={goToPreviousWeek} disabled={isScrolling} className="p-2 text-gray-500 hover:text-gray-700 disabled:opacity-50">
+                <ChevronLeftIcon className="w-5 h-5" />
+              </button>
+              
+              {/* Month Labels */}
+              <div className="flex-1 flex items-center justify-center relative">
+                {(() => {
+                  const months = [];
+                  const dividers = [];
+                  
+                  for (let i = 0; i < visibleWeeks; i++) {
+                    const weekStart = getWeekStart(currentWeekOffset + i);
+                    const month = weekStart.toLocaleDateString('en-US', { month: 'long' });
+                    
+                    // Check if this is the first week of a new month
+                    if (i === 0 || weekStart.getUTCMonth() !== getWeekStart(currentWeekOffset + i - 1).getUTCMonth()) {
+                      months.push({
+                        name: month,
+                        startWeek: i,
+                        endWeek: i
+                      });
+                      
+                      // Add divider before this month (except for the first month)
+                      if (i > 0) {
+                        dividers.push(i);
+                      }
+                    } else {
+                      // Extend the current month
+                      if (months.length > 0) {
+                        months[months.length - 1].endWeek = i;
+                      }
+                    }
+                  }
+                  
+                  return (
+                    <>
+                      {months.map((month, index) => (
+                        <div key={index} className="flex items-center">
+                          <span className="text-sm font-medium text-gray-700">{month.name}</span>
+                          {index < months.length - 1 && (
+                            <div className="w-px h-4 bg-gray-300 mx-2"></div>
+                          )}
+                        </div>
+                      ))}
+                    </>
+                  );
+                })()}
               </div>
+              
+              {/* Right Arrow */}
+              <button onClick={goToNextWeek} disabled={isScrolling} className="p-2 text-gray-500 hover:text-gray-700 disabled:opacity-50">
+                <ChevronRightIcon className="w-5 h-5" />
+              </button>
             </div>
+            
+            {/* Vertical divider lines - cover entire timeline */}
             {/* Day Headers */}
             <div className="flex mb-0">
               {/* Moderator Name Column Header (empty space) */}
-              <div className="w-40 flex-shrink-0 pl-4"></div>
+              <div className="w-24 sm:w-32 md:w-40 flex-shrink-0 pl-4"></div>
 
               {/* Day Headers */}
-              <div className="flex-1 flex">
+              <div className="flex-1 flex relative">
                 {weeks.map((week, weekIndex) => (
                   <div key={weekIndex} className={`flex-1 min-w-0 relative ${week.isCurrentWeek ? 'bg-orange-50' : ''}`}>
                     <div className={`flex relative z-20 ${week.isCurrentWeek ? '' : ''}`}>
@@ -5182,9 +5232,9 @@ function ModeratorTimeline({ projects, onDateRangeChange }: { projects: Project[
                         return (
                           <div
                             key={`${weekIndex}-${dayIndex}`}
-                            className={`flex-1 text-center py-2 text-xs text-gray-600 border-r border-gray-200 last:border-r-0 ${
-                              isTodayDate ? 'bg-orange-100' : (week.isCurrentWeek ? 'bg-orange-50' : 'bg-gray-50')
-                            }`}
+                            className={`flex-1 min-w-[20px] sm:min-w-[30px] md:min-w-[40px] text-center py-2 text-xs text-gray-600 ${
+                              dayIndex < 4 ? 'border-r border-gray-200' : ''
+                            } ${isTodayDate ? 'bg-orange-100' : (week.isCurrentWeek ? 'bg-orange-50' : 'bg-gray-50')}`}
                           >
                             <div className={`font-medium ${
                               isTodayDate ? 'font-bold' : ''
@@ -5206,11 +5256,26 @@ function ModeratorTimeline({ projects, onDateRangeChange }: { projects: Project[
                     </div>
                   </div>
                 ))}
+                {/* Week divider lines in headers - positioned between weeks */}
+                {weeks.map((week, weekIndex) => {
+                  if (weekIndex < weeks.length - 1) {
+                    const weekWidth = 100 / weeks.length;
+                    const leftPosition = (weekIndex + 1) * weekWidth;
+                    return (
+                      <div
+                        key={`header-week-divider-${weekIndex}`}
+                        className="absolute top-0 bottom-0 w-0.5 bg-gray-300 z-30"
+                        style={{ left: `${leftPosition}%` }}
+                      ></div>
+                    );
+                  }
+                  return null;
+                })}
               </div>
             </div>
 
             {/* Moderator Rows */}
-            <div className="space-y-0 border-t border-gray-200">
+            <div className="space-y-0">
               {moderators.length === 0 ? (
                 <div className="flex items-center justify-center py-8 text-gray-500">
                   <div className="text-center">
@@ -5222,7 +5287,7 @@ function ModeratorTimeline({ projects, onDateRangeChange }: { projects: Project[
                 moderators.map((moderator: any) => (
                     <div key={moderator.id} className="flex items-stretch border-b border-gray-100 hover:bg-gray-25">
                     {/* Moderator Name Column */}
-                    <div className="w-40 flex-shrink-0 py-3 flex flex-col justify-center">
+                    <div className="w-24 sm:w-32 md:w-40 flex-shrink-0 py-3 flex flex-col justify-center">
                       <div className="text-sm font-medium text-gray-900 truncate">
                         {moderator.name}
                       </div>
@@ -5236,7 +5301,7 @@ function ModeratorTimeline({ projects, onDateRangeChange }: { projects: Project[
                       {/* Background grid for reference */}
                       <div className="absolute inset-0 flex">
                         {weeks.map((week, weekIndex) => (
-                          <div key={weekIndex} className={`flex-1 flex ${week.isCurrentWeek ? 'bg-orange-50' : ''}`}>
+                          <div key={weekIndex} className={`flex relative ${week.isCurrentWeek ? 'bg-orange-50' : ''}`} style={{ width: `${100 / weeks.length}%` }}>
                             {week.days.map((day, dayIndex) => {
                               const isTodayDate = isToday(day);
                               
@@ -5254,14 +5319,30 @@ function ModeratorTimeline({ projects, onDateRangeChange }: { projects: Project[
                               return (
                                 <div
                                   key={`${weekIndex}-${dayIndex}`}
-                                  className={`flex-1 h-full relative ${
-                                    dayIndex < 4 ? 'border-r border-gray-100' : ''
+                                  className={`h-full relative ${
+                                    dayIndex < 4 ? 'border-r border-gray-200' : ''
                                   } ${isTodayDate ? 'bg-orange-100' : (isUnavailable ? 'bg-gray-300' : '')}`}
+                                  style={{ width: `${100 / 5}%` }}
                                 ></div>
                               );
                             })}
                           </div>
                         ))}
+                        {/* Week divider lines - positioned between weeks */}
+                        {weeks.map((week, weekIndex) => {
+                          if (weekIndex < weeks.length - 1) {
+                            const weekWidth = 100 / weeks.length;
+                            const leftPosition = (weekIndex + 1) * weekWidth;
+                            return (
+                              <div
+                                key={`week-divider-${weekIndex}`}
+                                className="absolute top-0 bottom-0 w-0.5 bg-gray-300 z-10"
+                                style={{ left: `${leftPosition}%` }}
+                              ></div>
+                            );
+                          }
+                          return null;
+                        })}
                       </div>
                       
 
@@ -5391,7 +5472,7 @@ function ModeratorTimeline({ projects, onDateRangeChange }: { projects: Project[
                               }}
                               title={`${moderator.name} - ${displayName} - ${booking.startDate} to ${booking.endDate}`}
                             >
-                              <span className={`text-xs font-medium truncate px-2 ${(isPending || isHold) ? 'text-gray-700' : 'text-white'}`}>
+                              <span className={`text-xs font-medium truncate px-0.5 sm:px-1 md:px-2 ${(isPending || isHold) ? 'text-gray-700' : 'text-white'}`}>
                                 {isHold ? (
                                   <>PENDING HOLD (<em>{booking.name}</em>)</>
                                 ) : (
@@ -5866,14 +5947,14 @@ function CalendarMini() {
           <span>▶</span>
         </div>
       </div>
-      <div className="grid grid-cols-7 text-center text-xs text-gray-500 px-2 py-2">
+      <div className="grid grid-cols-7 text-center text-xs text-gray-500 px-0.5 sm:px-1 md:px-2 py-2">
         {days.map((d) => (
           <div key={d} className="py-1">
             {d}
           </div>
         ))}
       </div>
-      <div className="grid grid-cols-7 gap-1 px-2 pb-3">
+      <div className="grid grid-cols-7 gap-1 px-0.5 sm:px-1 md:px-2 pb-3">
         {d.map((n) => (
           <div key={n} className={`py-2 rounded-lg ${n === 16 ? "bg-gray-900 text-white" : "bg-gray-50"}`}>
             {n}
@@ -6027,7 +6108,7 @@ function ProjectCard({ project, onView, savedContentAnalyses = [], setRoute }: {
             className="inline-flex items-center justify-center w-20 py-0.5 rounded-full text-xs font-medium text-white flex-shrink-0 opacity-60"
             style={{ backgroundColor: phaseColor }}
           >
-            {project.phase}
+            {project.phase === 'Post-Field Analysis' ? 'Analysis' : project.phase}
           </span>
         </div>
       </div>
@@ -6192,7 +6273,7 @@ function LargeCard({
       className="rounded-3xl p-5 text-white shadow-sm"
       style={{ background: `linear-gradient(135deg, ${gradientFrom}, ${gradientTo})` }}
     >
-      <div className="text-xs bg-white/20 inline-block px-2 py-1 rounded-full mb-2">{badge}</div>
+      <div className="text-xs bg-white/20 inline-block px-0.5 sm:px-1 md:px-2 py-1 rounded-full mb-2">{badge}</div>
       <div className="text-lg font-semibold leading-snug">{title}</div>
       <div className="mt-4 flex items-center gap-3">
         {typeof progress === "number" ? <ProgressRing value={progress} /> : <div className="h-12" />}
@@ -6253,7 +6334,7 @@ function ProjectsTable() {
                   minWidth: '140px'
                 }}
               >
-                {p.phase}
+                {getPhaseDisplayName(p.phase)}
               </span>
             </td>
           </tr>
@@ -6534,13 +6615,13 @@ function TimelineGanttMonth() {
         {PHASES.map((ph) => (
           <span
             key={ph}
-            className="px-2 py-1 rounded-full"
+            className="px-0.5 sm:px-1 md:px-2 py-1 rounded-full"
             style={{
               background: `${PHASE_COLORS[ph]}22`,
               color: PHASE_COLORS[ph],
             }}
           >
-            {ph}
+            {getPhaseDisplayName(ph)}
           </span>
         ))}
       </div>
@@ -7004,7 +7085,7 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                   {selectedProject.name}
                 </h2>
                 <span className="px-3 py-1 rounded-full text-sm font-medium text-white shadow-sm opacity-60" style={{ background: PHASE_COLORS[getCurrentPhase(selectedProject)] }}>
-                  {getCurrentPhase(selectedProject)}
+                  {getPhaseDisplayName(getCurrentPhase(selectedProject))}
                 </span>
               </div>
             </div>
@@ -7024,7 +7105,7 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                     >
                       {initials}
                       {/* Tooltip */}
-                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
+                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-0.5 sm:px-1 md:px-2 py-1 bg-gray-800 text-white text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
                         {member.name}
                         <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
                       </div>
@@ -7073,6 +7154,9 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
             }}
             onArchive={onArchive}
             setProjects={setProjects}
+            onProjectUpdate={(updatedProject) => {
+              setSelectedProject(updatedProject);
+            }}
             savedContentAnalyses={savedContentAnalyses}
             setRoute={setRoute}
           />
@@ -7201,17 +7285,17 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center justify-center w-20 px-2 py-1 rounded-full text-xs font-medium text-white opacity-60 ${
+                      <span className={`inline-flex items-center justify-center w-20 px-0.5 sm:px-1 md:px-2 py-1 rounded-full text-xs font-medium text-white opacity-60 ${
                         project.phase === 'Kickoff' ? 'bg-gray-500' :
                         project.phase === 'Pre-Field' ? 'bg-blue-500' :
                         project.phase === 'Fielding' ? 'bg-purple-500' :
-                        project.phase === 'Post-Field Analysis' ? '0' :
+                        project.phase === 'Post-Field Analysis' ? 'bg-orange-500' :
                         project.phase === 'Reporting' ? 'bg-red-500' :
                         project.phase === 'Awaiting KO' ? 'bg-yellow-500' :
                         project.phase === 'Complete' ? 'bg-green-500' :
                         'bg-gray-500'
                       }`}>
-                        {project.phase === 'Post-Field Analysis' ? 'Post-Field' : project.phase}
+                        {project.phase === 'Post-Field Analysis' ? 'Analysis' : project.phase}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -7520,7 +7604,7 @@ function ProjectForm({
                         newDeadlines[index] = { ...deadline, date: e.target.value };
                         setFormData(prev => ({ ...prev, keyDeadlines: newDeadlines }));
                       }}
-                      className="w-40 border rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-orange-200"
+                      className="w-24 sm:w-32 md:w-40 border rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-orange-200"
                     />
                     <input
                       type="text"
@@ -7550,7 +7634,7 @@ function ProjectForm({
                       type="date"
                       value={newDeadline.date}
                       onChange={(e) => setNewDeadline(prev => ({ ...prev, date: e.target.value }))}
-                      className="w-40 border rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-orange-200"
+                      className="w-24 sm:w-32 md:w-40 border rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-orange-200"
                     />
                     <input
                       type="text"
@@ -7630,7 +7714,7 @@ function ProjectForm({
                         <div className="assignment-dropdown-form absolute left-0 top-10 z-50 bg-white border border-gray-300 rounded-lg shadow-lg p-2 min-w-[200px]">
                           <div className="space-y-1">
                             {formData.teamMembers.map(member => (
-                              <label key={member.id} className="flex items-center gap-2 px-2 py-1 hover:bg-gray-50 rounded cursor-pointer">
+                              <label key={member.id} className="flex items-center gap-2 px-0.5 sm:px-1 md:px-2 py-1 hover:bg-gray-50 rounded cursor-pointer">
                                 <input
                                   type="checkbox"
                                   checked={task.assignedTo?.includes(member.id) || false}
@@ -7730,7 +7814,7 @@ function ProjectForm({
                         <div className="assignment-dropdown-form absolute left-0 top-10 z-50 bg-white border border-gray-300 rounded-lg shadow-lg p-2 min-w-[200px]">
                           <div className="space-y-1">
                             {formData.teamMembers.map(member => (
-                              <label key={member.id} className="flex items-center gap-2 px-2 py-1 hover:bg-gray-50 rounded cursor-pointer">
+                              <label key={member.id} className="flex items-center gap-2 px-0.5 sm:px-1 md:px-2 py-1 hover:bg-gray-50 rounded cursor-pointer">
                                 <input
                                   type="checkbox"
                                   checked={newTask.assignedTo?.includes(member.id) || false}
@@ -7797,7 +7881,7 @@ function ProjectForm({
                         setFormData(prev => ({ ...prev, teamMembers: newMembers }));
                       }}
                       placeholder="Name"
-                      className="w-40 border rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-orange-200"
+                      className="w-24 sm:w-32 md:w-40 border rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-orange-200"
                     />
                     <input
                       type="email"
@@ -7829,7 +7913,7 @@ function ProjectForm({
                       value={newTeamMember.name}
                       onChange={(e) => setNewTeamMember(prev => ({ ...prev, name: e.target.value }))}
                       placeholder="Name"
-                      className="w-40 border rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-orange-200"
+                      className="w-24 sm:w-32 md:w-40 border rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-orange-200"
                     />
                     <input
                       type="email"
@@ -7904,8 +7988,79 @@ function ProjectForm({
   );
 }
 
-function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedContentAnalyses = [], setRoute }: { project: Project; onEdit: () => void; onArchive: (projectId: string) => void; setProjects?: (projects: Project[] | ((prev: Project[]) => Project[])) => void; savedContentAnalyses?: any[]; setRoute?: (route: string) => void }) {
+function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUpdate, savedContentAnalyses = [], setRoute }: { project: Project; onEdit: () => void; onArchive: (projectId: string) => void; setProjects?: (projects: Project[] | ((prev: Project[]) => Project[])) => void; onProjectUpdate?: (project: Project) => void; savedContentAnalyses?: any[]; setRoute?: (route: string) => void }) {
   const { user } = useAuth();
+
+  // Edit modal states
+  const [showClientEdit, setShowClientEdit] = useState(false);
+  const [showMethodologyEdit, setShowMethodologyEdit] = useState(false);
+  const [showModeratorEdit, setShowModeratorEdit] = useState(false);
+  const [showSampleDetailsEdit, setShowSampleDetailsEdit] = useState(false);
+  
+  // Client edit state
+  const [existingClients, setExistingClients] = useState<string[]>([]);
+  const [selectedClient, setSelectedClient] = useState(project.client || '');
+  
+  // Methodology edit state
+  const [selectedMethodology, setSelectedMethodology] = useState(project.methodology || '');
+  
+  // Moderator edit state
+  const [moderators, setModerators] = useState<any[]>([]);
+  const [selectedModerator, setSelectedModerator] = useState(project.moderator || '');
+  const [moderatorSearchTerm, setModeratorSearchTerm] = useState('');
+  const [availableModerators, setAvailableModerators] = useState<any[]>([]);
+  const [conflictedModerators, setConflictedModerators] = useState<any[]>([]);
+  
+  // Sample details edit state
+  const [sampleSize, setSampleSize] = useState(project.sampleSize || 0);
+  const [subgroups, setSubgroups] = useState<Array<{id: string, name: string, size: number}>>(project.subgroups || []);
+
+  // Load existing clients from all projects
+  useEffect(() => {
+    const loadExistingClients = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/projects/all`, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const allProjects = data.projects || [];
+          const clients = new Set<string>();
+          
+          allProjects.forEach((p: Project) => {
+            if (p.client && p.client.trim()) {
+              clients.add(p.client.trim());
+            }
+          });
+          
+          setExistingClients(Array.from(clients).sort());
+        }
+      } catch (error) {
+        console.error('Error loading existing clients:', error);
+      }
+    };
+    
+    loadExistingClients();
+  }, []);
+
+  // Load moderators
+  useEffect(() => {
+    const loadModerators = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/moderators`, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setModerators(data.moderators || []);
+        }
+      } catch (error) {
+        console.error('Error loading moderators:', error);
+      }
+    };
+    
+    loadModerators();
+  }, []);
 
   // Helper function to format dates consistently with the rest of the app
   const formatDateForDisplay = (dateString: string | undefined): string => {
@@ -8204,6 +8359,11 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
   const [projectFiles, setProjectFiles] = useState<Array<{ id: string; name: string; type: string; url: string }>>(project.files || []);
   const [showAddFileModal, setShowAddFileModal] = useState(false);
   const [newFileUrl, setNewFileUrl] = useState("");
+  
+  // Discussion guide modal state
+  const [showDiscussionGuideModal, setShowDiscussionGuideModal] = useState(false);
+  const [selectedDiscussionGuide, setSelectedDiscussionGuide] = useState<string | null>(null);
+  const docxContainerRef = useRef<HTMLDivElement>(null);
 
   // Sync local state when project prop changes
   useEffect(() => {
@@ -8211,6 +8371,41 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
     setArchivedNotes(project.archivedNotes || []);
     setProjectFiles(project.files || []);
   }, [project.notes, project.archivedNotes, project.files]);
+
+  // Load discussion guide when modal opens
+  useEffect(() => {
+    if (showDiscussionGuideModal && selectedDiscussionGuide) {
+      const analysis = savedContentAnalyses.find(a => a.id === selectedDiscussionGuide);
+      if (analysis && analysis.projectId) {
+        const loadDiscussionGuide = async () => {
+          try {
+            const response = await fetch(`${API_BASE_URL}/api/caX/discussion-guide/${analysis.projectId}/download`, {
+              headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` }
+            });
+            if (response.ok) {
+              const blob = await response.blob();
+              if (docxContainerRef.current) {
+                docxContainerRef.current.innerHTML = ''; // Clear previous content
+                const { renderAsync } = await import('docx-preview');
+                await renderAsync(blob, docxContainerRef.current);
+              }
+            } else {
+              console.error('Discussion guide not found');
+              if (docxContainerRef.current) {
+                docxContainerRef.current.innerHTML = '<div class="p-8 text-center text-gray-500">No discussion guide found for this project</div>';
+              }
+            }
+          } catch (error) {
+            console.error('Error loading discussion guide:', error);
+            if (docxContainerRef.current) {
+              docxContainerRef.current.innerHTML = '<div class="p-8 text-center text-red-500">Error loading discussion guide</div>';
+            }
+          }
+        };
+        loadDiscussionGuide();
+      }
+    }
+  }, [showDiscussionGuideModal, selectedDiscussionGuide, savedContentAnalyses]);
   const [showArchivedNotes, setShowArchivedNotes] = useState(false);
   const [showAddKeyDate, setShowAddKeyDate] = useState(false);
   const [newKeyDate, setNewKeyDate] = useState({ label: "", date: "" });
@@ -8247,7 +8442,6 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
   const [editValues, setEditValues] = useState({
     moderator: project.moderator || ''
   });
-  const [moderators, setModerators] = useState<any[]>([]);
   const [showModeratorModal, setShowModeratorModal] = useState(false);
   const [localProject, setLocalProject] = useState(project);
 
@@ -9809,6 +10003,168 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
     return false;
   };
 
+  // Handler Functions for Edit Modals
+  const handleClientSave = async () => {
+    if (!selectedClient || selectedClient.trim() === '') {
+      alert('Please select a client');
+      return;
+    }
+
+    try {
+      const updatedProject = { ...project, client: selectedClient };
+      
+      const response = await fetch(`${API_BASE_URL}/api/projects/${project.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+        },
+        body: JSON.stringify({
+          userId: user?.id,
+          project: updatedProject
+        })
+      });
+      
+      if (response.ok) {
+        if (setProjects) {
+          setProjects(prevProjects => prevProjects.map(p => p.id === updatedProject.id ? updatedProject : p));
+        }
+        if (onProjectUpdate) {
+          onProjectUpdate(updatedProject);
+        }
+        setShowClientEdit(false);
+      } else {
+        alert('Failed to update client');
+      }
+    } catch (error) {
+      console.error('Error updating client:', error);
+      alert('Error updating client');
+    }
+  };
+
+  const handleMethodologySave = async () => {
+    if (!selectedMethodology || selectedMethodology.trim() === '') {
+      alert('Please select a methodology');
+      return;
+    }
+
+    try {
+      const updatedProject = { ...project, methodology: selectedMethodology };
+      
+      const response = await fetch(`${API_BASE_URL}/api/projects/${project.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+        },
+        body: JSON.stringify({
+          userId: user?.id,
+          project: updatedProject
+        })
+      });
+      
+      if (response.ok) {
+        if (setProjects) {
+          setProjects(prevProjects => prevProjects.map(p => p.id === updatedProject.id ? updatedProject : p));
+        }
+        if (onProjectUpdate) {
+          onProjectUpdate(updatedProject);
+        }
+        setShowMethodologyEdit(false);
+      } else {
+        alert('Failed to update methodology');
+      }
+    } catch (error) {
+      console.error('Error updating methodology:', error);
+      alert('Error updating methodology');
+    }
+  };
+
+  const handleModeratorSave = async () => {
+    if (!selectedModerator || selectedModerator.trim() === '') {
+      alert('Please select a moderator');
+      return;
+    }
+
+    try {
+      const updatedProject = { ...project, moderator: selectedModerator };
+      
+      const response = await fetch(`${API_BASE_URL}/api/projects/${project.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+        },
+        body: JSON.stringify({
+          userId: user?.id,
+          project: updatedProject
+        })
+      });
+      
+      if (response.ok) {
+        if (setProjects) {
+          setProjects(prevProjects => prevProjects.map(p => p.id === updatedProject.id ? updatedProject : p));
+        }
+        if (onProjectUpdate) {
+          onProjectUpdate(updatedProject);
+        }
+        setShowModeratorEdit(false);
+      } else {
+        alert('Failed to update moderator');
+      }
+    } catch (error) {
+      console.error('Error updating moderator:', error);
+      alert('Error updating moderator');
+    }
+  };
+
+  const handleSampleDetailsSave = async () => {
+    if (sampleSize <= 0) {
+      alert('Sample size must be greater than 0');
+      return;
+    }
+
+    // Validate subgroups
+    if (subgroups.length > 0) {
+      const subgroupTotal = subgroups.reduce((sum, sg) => sum + (sg.size || 0), 0);
+      if (subgroupTotal !== sampleSize) {
+        alert(`Subgroup total (${subgroupTotal}) must equal sample size (${sampleSize})`);
+        return;
+      }
+    }
+
+    try {
+      const updatedProject = { ...project, sampleSize, subgroups };
+      
+      const response = await fetch(`${API_BASE_URL}/api/projects/${project.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+        },
+        body: JSON.stringify({
+          userId: user?.id,
+          project: updatedProject
+        })
+      });
+      
+      if (response.ok) {
+        if (setProjects) {
+          setProjects(prevProjects => prevProjects.map(p => p.id === updatedProject.id ? updatedProject : p));
+        }
+        if (onProjectUpdate) {
+          onProjectUpdate(updatedProject);
+        }
+        setShowSampleDetailsEdit(false);
+      } else {
+        alert('Failed to update sample details');
+      }
+    } catch (error) {
+      console.error('Error updating sample details:', error);
+      alert('Error updating sample details');
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Top Row: Today + Later This Week + Project Details */}
@@ -9827,7 +10183,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
             </div>
             <div>
               <h3 className="text-base font-semibold text-gray-900">Today</h3>
-              <p className="text-[10px] text-gray-500">{currentPhase}</p>
+              <p className="text-[10px] text-gray-500">{getPhaseDisplayName(currentPhase)}</p>
             </div>
           </div>
           <div className="border-b border-gray-200"></div>
@@ -9840,13 +10196,14 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                 today.setHours(0, 0, 0, 0);
                 const todayStr = today.toISOString().split('T')[0];
 
-                // Combine all tasks due today and overdue
+                // Combine all tasks due today and overdue (exclude completed tasks)
                 const allTasksToday = projectTasks.filter(task => {
                   if (!task.dueDate) return false;
+                  if (task.status === 'completed') return false; // Exclude completed tasks
                   const taskDueDate = new Date(task.dueDate + 'T00:00:00');
                   taskDueDate.setHours(0, 0, 0, 0);
                   const isDueToday = taskDueDate.getTime() === today.getTime();
-                  const isOverdue = task.status !== 'completed' && taskDueDate.getTime() < today.getTime();
+                  const isOverdue = taskDueDate.getTime() < today.getTime();
                   return isDueToday || isOverdue;
                 });
 
@@ -9854,8 +10211,8 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                 const sortedTasksToday = allTasksToday.sort((a, b) => {
                   const aDueDate = new Date(a.dueDate + 'T00:00:00');
                   const bDueDate = new Date(b.dueDate + 'T00:00:00');
-                  const aIsOverdue = a.status !== 'completed' && aDueDate.getTime() < today.getTime();
-                  const bIsOverdue = b.status !== 'completed' && bDueDate.getTime() < today.getTime();
+                  const aIsOverdue = aDueDate.getTime() < today.getTime();
+                  const bIsOverdue = bDueDate.getTime() < today.getTime();
                   
                   // Overdue tasks first
                   if (aIsOverdue && !bIsOverdue) return -1;
@@ -9874,9 +10231,14 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                   return <div className="text-xs italic text-gray-500">No tasks for today</div>;
                 }
 
+                // Limit to first 8 tasks to prevent overflow
+                const maxTasks = 8;
+                const tasksToShow = sortedTasksToday.slice(0, maxTasks);
+                const remainingCount = sortedTasksToday.length - maxTasks;
+
                 return (
                   <div className="space-y-1">
-                    {sortedTasksToday.map(task => {
+                    {tasksToShow.map(task => {
                       const taskDueDate = new Date(task.dueDate + 'T00:00:00');
                       const isOverdue = task.status !== 'completed' && taskDueDate.getTime() < today.getTime();
                       const isAssignedToMe = isAssignedToCurrentUser(task);
@@ -9902,6 +10264,11 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                         </div>
                       );
                     })}
+                    {remainingCount > 0 && (
+                      <div className="text-[10px] text-gray-500 italic">
+                        +{remainingCount} more tasks
+                      </div>
+                    )}
                   </div>
                 );
               })()}
@@ -9919,7 +10286,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
             </div>
             <div>
               <h3 className="text-base font-semibold text-gray-900">Later This Week</h3>
-              <p className="text-[10px] text-gray-500">{currentPhase}</p>
+              <p className="text-[10px] text-gray-500">{getPhaseDisplayName(currentPhase)}</p>
             </div>
           </div>
           <div className="border-b border-gray-200"></div>
@@ -9962,11 +10329,16 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                   return <div className="text-xs italic text-gray-500">No tasks later this week</div>;
                 }
 
+                // Limit to first 8 tasks to prevent overflow
+                const maxTasks = 8;
+                const tasksToShow = sortedTasksLaterThisWeek.slice(0, maxTasks);
+                const remainingCount = sortedTasksLaterThisWeek.length - maxTasks;
+
                 return (
                   <div className="space-y-1">
-                    {sortedTasksLaterThisWeek.map(task => (
+                    {tasksToShow.map(task => (
                       <div key={task.id} className="flex items-start gap-2 text-xs text-gray-800">
-                        <span className="mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: BRAND.orange }}></span>
+                        <span className="mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0 bg-blue-500"></span>
                         <span className="flex-1 flex justify-between items-start">
                           <span>
                             <span>{task.description || task.content || 'Untitled task'}</span>
@@ -9980,6 +10352,11 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                         </span>
                       </div>
                     ))}
+                    {remainingCount > 0 && (
+                      <div className="text-[10px] text-gray-500 italic">
+                        +{remainingCount} more tasks
+                      </div>
+                    )}
                   </div>
                 );
               })()}
@@ -9992,12 +10369,12 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
         {/* Project Details - Three Boxes Left, Sample Details Right */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Left Column - Client, Methodology, Moderator */}
-          <div className="flex flex-col justify-between h-64">
+          <div className={`flex flex-col ${project.methodologyType === 'Quantitative' ? 'justify-end' : 'justify-between'} h-64`}>
             {/* Client Box */}
-            <Card className="!p-0 overflow-hidden rounded-none h-20">
+            <Card className={`!p-0 overflow-hidden rounded-none ${project.methodologyType === 'Quantitative' ? 'h-32' : 'h-20'}`}>
               <div style={{ backgroundColor: BRAND.orange }} className="text-white px-4 py-2 flex items-center justify-between">
                 <h3 className="text-sm font-semibold">Client</h3>
-                <button className="text-white hover:text-gray-200 transition-colors" title="Edit client">
+                <button onClick={() => setShowClientEdit(true)} className="text-white hover:text-gray-200 transition-colors" title="Edit client">
                   <PencilIcon className="w-4 h-4" />
                 </button>
               </div>
@@ -10008,10 +10385,10 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
             </Card>
 
             {/* Methodology Box */}
-            <Card className="!p-0 overflow-hidden rounded-none h-20">
+            <Card className={`!p-0 overflow-hidden rounded-none ${project.methodologyType === 'Quantitative' ? 'h-32' : 'h-20'}`}>
               <div style={{ backgroundColor: BRAND.orange }} className="text-white px-4 py-2 flex items-center justify-between">
                 <h3 className="text-sm font-semibold">Methodology</h3>
-                <button className="text-white hover:text-gray-200 transition-colors" title="Edit methodology">
+                <button onClick={() => setShowMethodologyEdit(true)} className="text-white hover:text-gray-200 transition-colors" title="Edit methodology">
                   <PencilIcon className="w-4 h-4" />
                 </button>
               </div>
@@ -10021,11 +10398,12 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
               </div>
             </Card>
 
-            {/* Moderator Box */}
+            {/* Moderator Box - Only show for qualitative studies */}
+            {project.methodologyType === 'Qualitative' && (
             <Card className="!p-0 overflow-hidden rounded-none h-20">
               <div style={{ backgroundColor: BRAND.orange }} className="text-white px-4 py-2 flex items-center justify-between">
                 <h3 className="text-sm font-semibold">Moderator</h3>
-                <button className="text-white hover:text-gray-200 transition-colors" title="Edit moderator">
+                <button onClick={() => setShowModeratorEdit(true)} className="text-white hover:text-gray-200 transition-colors" title="Edit moderator">
                   <PencilIcon className="w-4 h-4" />
                 </button>
               </div>
@@ -10042,6 +10420,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                 )}
               </div>
             </Card>
+            )}
           </div>
 
           {/* Right Column - Sample Details */}
@@ -10050,7 +10429,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
             <Card className="!p-0 overflow-hidden rounded-none h-64">
               <div style={{ backgroundColor: BRAND.orange }} className="text-white px-4 py-2 flex items-center justify-between">
                 <h3 className="text-sm font-semibold">Sample Details</h3>
-                <button className="text-white hover:text-gray-200 transition-colors" title="Edit sample details">
+                <button onClick={() => setShowSampleDetailsEdit(true)} className="text-white hover:text-gray-200 transition-colors" title="Edit sample details">
                   <PencilIcon className="w-4 h-4" />
                 </button>
               </div>
@@ -10120,7 +10499,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                           paddingBottom: isActive ? '6px' : '4px'
                       }}
                       >
-                        {phase}
+                        {getPhaseDisplayName(phase)}
                       </button>
                   );
                 })}
@@ -10163,14 +10542,14 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                         value={newTask.description}
                         onChange={(e) => setNewTask(prev => ({ ...prev, description: e.target.value }))}
                         placeholder="Task description"
-                        className="w-full text-xs border rounded px-2 py-1 outline-none focus:ring-2 focus:ring-orange-200"
+                        className="w-full text-xs border rounded px-0.5 sm:px-1 md:px-2 py-1 outline-none focus:ring-2 focus:ring-orange-200"
                       />
                       <div className="flex gap-2 flex-wrap items-center">
                         <input
                           type="date"
                           value={(newTask as any).dueDate || ''}
                           onChange={(e) => setNewTask(prev => ({ ...prev, dueDate: e.target.value as any }))}
-                          className="text-xs border rounded px-2 py-1 outline-none focus:ring-2 focus:ring-orange-200"
+                          className="text-xs border rounded px-0.5 sm:px-1 md:px-2 py-1 outline-none focus:ring-2 focus:ring-orange-200"
                           title="Due date"
                         />
                         <select
@@ -10180,7 +10559,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                             const selected = Array.from(e.target.selectedOptions, option => option.value);
                             setNewTask(prev => ({ ...prev, assignedTo: selected }));
                           }}
-                          className="text-xs border rounded px-2 py-1 outline-none focus:ring-2 focus:ring-orange-200"
+                          className="text-xs border rounded px-0.5 sm:px-1 md:px-2 py-1 outline-none focus:ring-2 focus:ring-orange-200"
                           size={Math.min(project.teamMembers.length + 1, 4)}
                         >
                           <option value="" disabled>Select assignees...</option>
@@ -10188,8 +10567,8 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                             <option key={member.id} value={member.id}>{member.name}</option>
                           ))}
                         </select>
-                        <button onClick={handleAddTask} className="px-2 py-1 text-xs 0 text-white rounded hover:bg-orange-600">Add</button>
-                        <button onClick={() => setShowAddTask(false)} className="px-2 py-1 text-xs border rounded hover:bg-gray-100">Cancel</button>
+                        <button onClick={handleAddTask} className="px-0.5 sm:px-1 md:px-2 py-1 text-xs 0 text-white rounded hover:bg-orange-600">Add</button>
+                        <button onClick={() => setShowAddTask(false)} className="px-0.5 sm:px-1 md:px-2 py-1 text-xs border rounded hover:bg-gray-100">Cancel</button>
                       </div>
                     </div>
                   </div>
@@ -10233,7 +10612,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                         <div className={`text-xs flex items-center gap-2 ${task.status === 'completed' ? 'line-through text-gray-500' : 'text-gray-900'}`}>
                           <span>{task.description}</span>
                           {isTaskOverdue(task) && (
-                            <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-red-500/20 text-red-600">
+                            <span className="px-0.5 sm:px-1 md:px-2 py-0.5 rounded-full text-xs font-bold bg-red-500/20 text-red-600">
                               overdue
                             </span>
                           )}
@@ -10245,7 +10624,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                         {task.dueDate ? (
                           <div className="w-full flex items-center justify-center">
                             <div
-                              className={`px-2 py-1 rounded-full text-xs font-medium ${isTaskOverdue(task) ? 'text-red-600' : 'text-white opacity-60'}`}
+                              className={`px-0.5 sm:px-1 md:px-2 py-1 rounded-full text-xs font-medium ${isTaskOverdue(task) ? 'text-red-600' : 'text-white opacity-60'}`}
                               style={{ backgroundColor: isTaskOverdue(task) ? 'rgba(239, 68, 68, 0.2)' : (PHASE_COLORS[activePhase] || '#6B7280') }}
                             >
                               {(() => {
@@ -10368,7 +10747,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                           <div className="assignment-dropdown absolute right-0 top-8 z-50 bg-white border border-gray-300 rounded-lg shadow-lg p-2 min-w-[200px]">
                             <div className="space-y-1">
                               {project.teamMembers.map(member => (
-                                <label key={member.id} className="flex items-center gap-2 px-2 py-1 hover:bg-gray-50 rounded cursor-pointer">
+                                <label key={member.id} className="flex items-center gap-2 px-0.5 sm:px-1 md:px-2 py-1 hover:bg-gray-50 rounded cursor-pointer">
                                   <input
                                     type="checkbox"
                                     checked={task.assignedTo?.includes(member.id) || false}
@@ -10396,7 +10775,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                 {/* Show message if no tasks in this phase */}
                 {projectTasks.filter(task => task.phase === activePhase).length === 0 && (
                   <div className="text-xs text-gray-500 py-4 text-center">
-                    No tasks in {activePhase} phase
+                    No tasks in {activePhase === 'Post-Field Analysis' ? 'Analysis' : activePhase} phase
                   </div>
                 )}
 
@@ -10450,29 +10829,58 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                       const isContentAnalysis = file.type === 'content-analysis';
 
                       return isContentAnalysis ? (
-                        <div
-                          key={file.id}
-                          onClick={() => {
-                            setRoute && setRoute('Content Analysis');
-                            setTimeout(() => {
-                              const event = new CustomEvent('loadContentAnalysis', { detail: { analysisId: file.metadata.analysisId } });
-                              window.dispatchEvent(event);
-                            }, 100);
-                          }}
-                          className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors group cursor-pointer"
-                        >
-                          <div className="flex-shrink-0">
-                            <ChartBarIcon className="h-5 w-5 text-blue-600" />
+                        <>
+                          {/* Content Analysis Entry */}
+                          <div
+                            key={file.id}
+                            onClick={() => {
+                              setRoute && setRoute('Content Analysis');
+                              setTimeout(() => {
+                                const event = new CustomEvent('loadContentAnalysis', { detail: { analysisId: file.metadata.analysisId } });
+                                window.dispatchEvent(event);
+                              }, 100);
+                            }}
+                            className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors group cursor-pointer"
+                          >
+                            <div className="flex-shrink-0">
+                              <svg className="h-5 w-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900 truncate group-hover:text-orange-600">
+                                {file.name}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                Content Analysis • {file.metadata.respondentCount} respondent{file.metadata.respondentCount !== 1 ? 's' : ''}
+                              </p>
+                            </div>
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-900 truncate group-hover:text-orange-600">
-                              {file.name}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              Content Analysis • {file.metadata.respondentCount} respondent{file.metadata.respondentCount !== 1 ? 's' : ''}
-                            </p>
+                          
+                          {/* Discussion Guide Entry */}
+                          <div
+                            key={`dg-${file.id}`}
+                            onClick={() => {
+                              setSelectedDiscussionGuide(file.metadata.analysisId);
+                              setShowDiscussionGuideModal(true);
+                            }}
+                            className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors group cursor-pointer ml-4"
+                          >
+                            <div className="flex-shrink-0">
+                              <svg className="h-5 w-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                              </svg>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900 truncate group-hover:text-orange-600">
+                                Discussion Guide
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                View discussion guide
+                              </p>
+                            </div>
                           </div>
-                        </div>
+                        </>
                       ) : (
                         <a
                           key={file.id}
@@ -10581,7 +10989,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                       className="w-3 h-3 rounded-full opacity-60"
                       style={{ background: PHASE_COLORS[segment.phase] }}
                     />
-                    <span className="text-xs text-gray-700">{segment.phase}</span>
+                    <span className="text-xs text-gray-700">{getPhaseDisplayName(segment.phase)}</span>
                 </div>
               ))}
             </div>
@@ -11494,7 +11902,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                             {moderator.specialties && moderator.specialties.length > 0 && (
                               <div className="flex flex-wrap gap-1 mt-1">
                                 {moderator.specialties.map((specialty: string, index: number) => (
-                                  <span key={index} className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded opacity-60">
+                                  <span key={index} className="px-0.5 sm:px-1 md:px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded opacity-60">
                                     {specialty}
                                   </span>
                                 ))}
@@ -11525,7 +11933,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                             {moderator.specialties && moderator.specialties.length > 0 && (
                               <div className="flex flex-wrap gap-1 mt-1">
                                 {moderator.specialties.map((specialty: string, index: number) => (
-                                  <span key={index} className="px-2 py-0.5 bg-red-200 text-red-700 text-xs rounded">
+                                  <span key={index} className="px-0.5 sm:px-1 md:px-2 py-0.5 bg-red-200 text-red-700 text-xs rounded">
                                     {specialty}
                                   </span>
                                 ))}
@@ -11651,7 +12059,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                               }
                             }}
                             placeholder="Add a comment..."
-                            className="flex-1 text-xs border rounded px-2 py-1 outline-none focus:ring-1 focus:ring-orange-200"
+                            className="flex-1 text-xs border rounded px-0.5 sm:px-1 md:px-2 py-1 outline-none focus:ring-1 focus:ring-orange-200"
                             onClick={(e) => e.stopPropagation()}
                           />
                           <button
@@ -11659,7 +12067,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                               e.stopPropagation();
                               handleModalAddComment(note.id);
                             }}
-                            className="px-2 py-1 text-xs 0 text-white rounded hover:bg-orange-600"
+                            className="px-0.5 sm:px-1 md:px-2 py-1 text-xs 0 text-white rounded hover:bg-orange-600"
                           >
                             Post
                           </button>
@@ -11781,7 +12189,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                             minWidth: '140px'
                           }}
                         >
-                          {segment.phase}
+                          {getPhaseDisplayName(segment.phase)}
                         </span>
                         </div>
                         <div className="flex items-center gap-2">
@@ -11790,7 +12198,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                             type="date"
                             value={segment.startDate}
                             onChange={(e) => handlePhaseDateChange(index, 'startDate', e.target.value)}
-                            className="border rounded px-2 py-1 text-sm"
+                            className="border rounded px-0.5 sm:px-1 md:px-2 py-1 text-sm"
                           />
                         </div>
                         {segment.phase !== 'Kickoff' && (
@@ -11800,7 +12208,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
                               type="date"
                               value={segment.endDate}
                               onChange={(e) => handlePhaseDateChange(index, 'endDate', e.target.value)}
-                              className="border rounded px-2 py-1 text-sm"
+                              className="border rounded px-0.5 sm:px-1 md:px-2 py-1 text-sm"
                             />
                           </div>
                         )}
@@ -11863,6 +12271,281 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, savedConten
           </div>
         </div>
       )}
+
+      {/* Client Edit Modal */}
+      {showClientEdit && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">Edit Client</h3>
+            <select
+              value={selectedClient}
+              onChange={(e) => setSelectedClient(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2"
+              style={{ '--tw-ring-color': BRAND.orange } as React.CSSProperties}
+            >
+              <option value="">Select client</option>
+              {existingClients.map((client) => (
+                <option key={client} value={client}>
+                  {client}
+                </option>
+              ))}
+            </select>
+            <div className="flex gap-2 mt-4">
+              <button
+                onClick={handleClientSave}
+                className="flex-1 px-4 py-2 text-white rounded-md transition"
+                style={{ backgroundColor: BRAND.orange }}
+              >
+                Save
+              </button>
+              <button
+                onClick={() => {
+                  setShowClientEdit(false);
+                  setSelectedClient(project.client || '');
+                }}
+                className="flex-1 px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300 transition"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Methodology Edit Modal */}
+      {showMethodologyEdit && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">Edit Methodology</h3>
+            <select
+              value={selectedMethodology}
+              onChange={(e) => setSelectedMethodology(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2"
+              style={{ '--tw-ring-color': BRAND.orange } as React.CSSProperties}
+            >
+              {METHODOLOGIES.map((methodology) => (
+                <option key={methodology} value={methodology}>
+                  {methodology}
+                </option>
+              ))}
+            </select>
+            <div className="flex gap-2 mt-4">
+              <button
+                onClick={handleMethodologySave}
+                className="flex-1 px-4 py-2 text-white rounded-md transition"
+                style={{ backgroundColor: BRAND.orange }}
+              >
+                Save
+              </button>
+              <button
+                onClick={() => {
+                  setShowMethodologyEdit(false);
+                  setSelectedMethodology(project.methodology || '');
+                }}
+                className="flex-1 px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300 transition"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Moderator Edit Modal */}
+      {showModeratorEdit && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">Edit Moderator</h3>
+            <select
+              value={selectedModerator}
+              onChange={(e) => setSelectedModerator(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2"
+              style={{ '--tw-ring-color': BRAND.orange } as React.CSSProperties}
+            >
+              <option value="">Select moderator</option>
+              {moderators.map((mod: any) => (
+                <option key={mod.id} value={mod.id}>
+                  {mod.name}
+                </option>
+              ))}
+            </select>
+            <div className="flex gap-2 mt-4">
+              <button
+                onClick={handleModeratorSave}
+                className="flex-1 px-4 py-2 text-white rounded-md transition"
+                style={{ backgroundColor: BRAND.orange }}
+              >
+                Save
+              </button>
+              <button
+                onClick={() => {
+                  setShowModeratorEdit(false);
+                  setSelectedModerator(project.moderator || '');
+                }}
+                className="flex-1 px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300 transition"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sample Details Edit Modal */}
+      {showSampleDetailsEdit && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-semibold mb-4">Edit Sample Details</h3>
+            
+            {/* Sample Size */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">Total Sample Size</label>
+              <input
+                type="number"
+                value={sampleSize}
+                onChange={(e) => setSampleSize(parseInt(e.target.value) || 0)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2"
+                style={{ '--tw-ring-color': BRAND.orange } as React.CSSProperties}
+                min="0"
+              />
+            </div>
+
+            {/* Add Subgroup Button */}
+            <button
+              type="button"
+              onClick={() => {
+                if (sampleSize && sampleSize > 0) {
+                  const newSubgroup = { id: Date.now().toString(), name: '', size: 0 };
+                  setSubgroups([...subgroups, newSubgroup]);
+                }
+              }}
+              disabled={!sampleSize || sampleSize <= 0}
+              className="mb-4 px-4 py-2 text-white rounded-md transition disabled:bg-gray-300 disabled:cursor-not-allowed"
+              style={{ backgroundColor: sampleSize > 0 ? BRAND.orange : undefined }}
+            >
+              Add Subgroup
+            </button>
+
+            {/* Subgroups Table */}
+            {subgroups.length > 0 && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-2">
+                  Subgroups (Total: {subgroups.reduce((sum, sg) => sum + (sg.size || 0), 0)} / {sampleSize})
+                </label>
+                <table className="min-w-full divide-y divide-gray-200 border">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-700">Subgroup Name</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-700">Size</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-700">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {subgroups.map((subgroup, index) => (
+                      <tr key={subgroup.id}>
+                        <td className="px-4 py-3">
+                          <input
+                            type="text"
+                            value={subgroup.name}
+                            onChange={(e) => {
+                              const updatedSubgroups = [...subgroups];
+                              updatedSubgroups[index] = { ...subgroup, name: e.target.value };
+                              setSubgroups(updatedSubgroups);
+                            }}
+                            className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1"
+                            style={{ '--tw-ring-color': BRAND.orange } as React.CSSProperties}
+                            placeholder="e.g., HCPs"
+                          />
+                        </td>
+                        <td className="px-4 py-3">
+                          <input
+                            type="number"
+                            value={subgroup.size || ''}
+                            onChange={(e) => {
+                              const updatedSubgroups = [...subgroups];
+                              updatedSubgroups[index] = { ...subgroup, size: parseInt(e.target.value) || 0 };
+                              setSubgroups(updatedSubgroups);
+                            }}
+                            className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1"
+                            style={{ '--tw-ring-color': BRAND.orange } as React.CSSProperties}
+                            min="0"
+                          />
+                        </td>
+                        <td className="px-4 py-3">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updatedSubgroups = subgroups.filter((_, i) => i !== index);
+                              setSubgroups(updatedSubgroups);
+                            }}
+                            className="text-red-600 hover:text-red-800 text-sm"
+                          >
+                            Remove
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <div className="flex gap-2 mt-4">
+              <button
+                onClick={handleSampleDetailsSave}
+                className="flex-1 px-4 py-2 text-white rounded-md transition"
+                style={{ backgroundColor: BRAND.orange }}
+              >
+                Save
+              </button>
+              <button
+                onClick={() => {
+                  setShowSampleDetailsEdit(false);
+                  setSampleSize(project.sampleSize || 0);
+                  setSubgroups(project.subgroups || []);
+                }}
+                className="flex-1 px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300 transition"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Discussion Guide Modal */}
+      {showDiscussionGuideModal && selectedDiscussionGuide && (() => {
+        const analysis = savedContentAnalyses.find(a => a.id === selectedDiscussionGuide);
+        if (!analysis || !analysis.projectId) return null;
+        
+        return createPortal(
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[99999] p-4"
+            onClick={() => setShowDiscussionGuideModal(false)}
+          >
+            <div className="bg-white rounded-lg w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between p-4 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900">{analysis.name} - Discussion Guide</h3>
+                <button
+                  onClick={() => setShowDiscussionGuideModal(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto flex items-start">
+                <div
+                  ref={docxContainerRef}
+                  className="docx-preview-container w-full"
+                />
+              </div>
+            </div>
+          </div>,
+          document.body
+        );
+      })()}
     </div>
   );
 }
@@ -12325,7 +13008,7 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <span className="text-gray-600">Phase:</span>
-                  <span className="px-2 py-1 rounded-full text-xs text-white opacity-60" style={{ background: phaseColor }}>
+                  <span className="px-0.5 sm:px-1 md:px-2 py-1 rounded-full text-xs text-white opacity-60" style={{ background: phaseColor }}>
                     {currentPhase}
                   </span>
                 </div>
@@ -12456,7 +13139,7 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
                           paddingBottom: isActive ? '6px' : '4px'
                         }}
                       >
-                        {phase}
+                        {getPhaseDisplayName(phase)}
                       </button>
                     );
                   })}
@@ -12537,7 +13220,7 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
                             <div className="assignment-dropdown absolute right-0 top-8 z-50 bg-white border border-gray-300 rounded-lg shadow-lg p-2 min-w-[200px]">
                               <div className="space-y-1">
                                 {project.teamMembers.map(member => (
-                                  <label key={member.id} className="flex items-center gap-2 px-2 py-1 hover:bg-gray-50 rounded cursor-pointer">
+                                  <label key={member.id} className="flex items-center gap-2 px-0.5 sm:px-1 md:px-2 py-1 hover:bg-gray-50 rounded cursor-pointer">
                                     <input
                                       type="checkbox"
                                       checked={task.assignedTo?.includes(member.id) || false}
@@ -12564,7 +13247,7 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
                 {/* Show message if no tasks in this phase */}
                 {projectTasks.filter(task => task.phase === activePhase).length === 0 && (
                   <div className="text-xs text-gray-500 py-4 text-center">
-                    No tasks in {activePhase} phase
+                    No tasks in {activePhase === 'Post-Field Analysis' ? 'Analysis' : activePhase} phase
                   </div>
                 )}
 
@@ -12577,7 +13260,7 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
                       className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1"
                     >
                       <PlusSmallIcon className="h-3 w-3" />
-                      Add task to {activePhase}
+                      Add task to {activePhase === 'Post-Field Analysis' ? 'Analysis' : activePhase}
                     </button>
                   ) : (
                     <div className="space-y-2 p-2 border rounded-lg bg-gray-50">
@@ -12586,14 +13269,14 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
                         value={newTask.description}
                         onChange={(e) => setNewTask(prev => ({ ...prev, description: e.target.value }))}
                         placeholder="Task description"
-                        className="w-full text-xs border rounded px-2 py-1 outline-none focus:ring-2 focus:ring-orange-200"
+                        className="w-full text-xs border rounded px-0.5 sm:px-1 md:px-2 py-1 outline-none focus:ring-2 focus:ring-orange-200"
                       />
                       <div className="flex gap-2 flex-wrap items-center">
                         <input
                           type="date"
                           value={(newTask as any).dueDate || ''}
                           onChange={(e) => setNewTask(prev => ({ ...prev, dueDate: e.target.value as any }))}
-                          className="text-xs border rounded px-2 py-1 outline-none focus:ring-2 focus:ring-orange-200"
+                          className="text-xs border rounded px-0.5 sm:px-1 md:px-2 py-1 outline-none focus:ring-2 focus:ring-orange-200"
                           title="Due date"
                         />
                         <select
@@ -12603,7 +13286,7 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
                             const selected = Array.from(e.target.selectedOptions, option => option.value);
                             setNewTask(prev => ({ ...prev, assignedTo: selected }));
                           }}
-                          className="text-xs border rounded px-2 py-1 outline-none focus:ring-2 focus:ring-orange-200"
+                          className="text-xs border rounded px-0.5 sm:px-1 md:px-2 py-1 outline-none focus:ring-2 focus:ring-orange-200"
                           size={Math.min(project.teamMembers.length + 1, 4)}
                         >
                           <option value="" disabled>Select assignees...</option>
@@ -12613,13 +13296,13 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
                         </select>
                         <button
                           onClick={handleAddTask}
-                          className="px-2 py-1 text-xs 0 text-white rounded hover:bg-orange-600"
+                          className="px-0.5 sm:px-1 md:px-2 py-1 text-xs 0 text-white rounded hover:bg-orange-600"
                         >
                           Add
                         </button>
                         <button
                           onClick={() => setShowAddTask(false)}
-                          className="px-2 py-1 text-xs border rounded hover:bg-gray-100"
+                          className="px-0.5 sm:px-1 md:px-2 py-1 text-xs border rounded hover:bg-gray-100"
                         >
                           Cancel
                         </button>
@@ -12716,7 +13399,7 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
                             className="w-4 h-4 rounded-full"
                             style={{ background: PHASE_COLORS[segment.phase] }}
                           />
-                          <span className="font-medium text-sm">{segment.phase}</span>
+                          <span className="font-medium text-sm">{getPhaseDisplayName(segment.phase)}</span>
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           <div>
@@ -12736,7 +13419,7 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
                                 
                                 setEditingSegments(newSegments);
                               }}
-                              className="w-full text-xs border rounded px-2 py-1"
+                              className="w-full text-xs border rounded px-0.5 sm:px-1 md:px-2 py-1"
                             />
                           </div>
                           <div>
@@ -12756,7 +13439,7 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
                                 
                                 setEditingSegments(newSegments);
                               }}
-                              className="w-full text-xs border rounded px-2 py-1"
+                              className="w-full text-xs border rounded px-0.5 sm:px-1 md:px-2 py-1"
                             />
                           </div>
                         </div>
