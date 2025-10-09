@@ -2389,12 +2389,45 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
 
             <div className="space-y-6 overflow-y-auto flex-1">
               {/* Summary Finding Section */}
-              {selectedCellInfo.summary && (
-                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                  <h3 className="text-sm font-semibold text-orange-900 mb-2">Key Finding</h3>
-                  <p className="text-sm text-gray-800 whitespace-pre-line">{comprehensiveKeyFinding}</p>
-                </div>
-              )}
+              {selectedCellInfo.summary && (() => {
+                // Create comprehensive key finding by combining cell value with supporting context
+                const cellValue = (selectedCellInfo?.value || '').toString();
+                const sheetContext = currentAnalysis.context?.[selectedCellInfo.sheet]?.[selectedCellInfo.respondent]?.[selectedCellInfo.column];
+                
+                let comprehensiveKeyFinding = cellValue;
+                if (sheetContext && Array.isArray(sheetContext) && sheetContext.length > 0) {
+                  // Extract all respondent quotes from context for comprehensive key finding
+                  const allRespondentQuotes = [];
+                  sheetContext.forEach((contextString) => {
+                    const normalizedContext = contextString.replace(/\\n/g, '\n');
+                    const lines = normalizedContext.split('\n');
+                    lines.forEach(line => {
+                      if (line.startsWith('Respondent:')) {
+                        const text = line.replace('Respondent:', '').trim();
+                        if (text.length > 0) {
+                          allRespondentQuotes.push(text);
+                        }
+                      }
+                    });
+                  });
+                  
+                  if (allRespondentQuotes.length > 0) {
+                    // Add additional context from the most relevant quotes
+                    const relevantQuotes = allRespondentQuotes.slice(0, 3); // Get first 3 quotes for additional context
+                    const additionalContext = relevantQuotes.join(' ').substring(0, 500); // Limit to 500 chars to avoid overwhelming
+                    if (additionalContext && additionalContext !== cellValue) {
+                      comprehensiveKeyFinding = `${cellValue}\n\nAdditional Context: ${additionalContext}`;
+                    }
+                  }
+                }
+                
+                return (
+                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                    <h3 className="text-sm font-semibold text-orange-900 mb-2">Key Finding</h3>
+                    <p className="text-sm text-gray-800 whitespace-pre-line">{comprehensiveKeyFinding}</p>
+                  </div>
+                );
+              })()}
 
               {/* Context Section - Always show if available */}
               <div>
@@ -2418,37 +2451,9 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                       return <p className="text-sm text-gray-500 text-center py-8">No supporting context available for this cell.</p>;
                     }
                     
-                    // Build comprehensive key finding by combining cell value with supporting context
-                    const cellValue = (selectedCellInfo?.value || '').toString();
                     const normalize = (s) => s.toLowerCase().replace(/[^a-z0-9\s]/gi, ' ').replace(/\s+/g, ' ').trim();
-                    
-                    // Extract all respondent quotes from context for comprehensive key finding
-                    const allRespondentQuotes = [];
-                    sheetContext.forEach((contextString) => {
-                      const normalizedContext = contextString.replace(/\\n/g, '\n');
-                      const lines = normalizedContext.split('\n');
-                      lines.forEach(line => {
-                        if (line.startsWith('Respondent:')) {
-                          const text = line.replace('Respondent:', '').trim();
-                          if (text.length > 0) {
-                            allRespondentQuotes.push(text);
-                          }
-                        }
-                      });
-                    });
-                    
-                    // Create comprehensive key finding by combining cell value with supporting quotes
-                    let comprehensiveKeyFinding = cellValue;
-                    if (allRespondentQuotes.length > 0) {
-                      // Add additional context from the most relevant quotes
-                      const relevantQuotes = allRespondentQuotes.slice(0, 3); // Get first 3 quotes for additional context
-                      const additionalContext = relevantQuotes.join(' ').substring(0, 500); // Limit to 500 chars to avoid overwhelming
-                      if (additionalContext && additionalContext !== cellValue) {
-                        comprehensiveKeyFinding = `${cellValue}\n\nAdditional Context: ${additionalContext}`;
-                      }
-                    }
-                    
-                    const keyTokens = new Set(normalize(comprehensiveKeyFinding).split(' ').filter(w => w.length > 3));
+                    const cellValue = (selectedCellInfo?.value || '').toString();
+                    const keyTokens = new Set(normalize(cellValue).split(' ').filter(w => w.length > 3));
 
                     const sentenceSplit = (text) => {
                       // Split by sentence enders while keeping reasonable chunks
