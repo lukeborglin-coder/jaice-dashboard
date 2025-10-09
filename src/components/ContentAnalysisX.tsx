@@ -1295,8 +1295,14 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
       }
       console.log('🔍 Final mergedContext:', mergedContext);
 
+      console.log('🔍 TRANSCRIPT DEBUG:');
+      console.log('🔍 cleanTranscript setting:', cleanTranscript);
+      console.log('🔍 result.cleanedTranscript:', result.cleanedTranscript);
+      console.log('🔍 result.originalTranscript:', result.originalTranscript);
+      console.log('🔍 result.respno:', result.respno);
+
       const newTranscripts = [...transcripts];
-      if (result.cleanedTranscript && result.respno) {
+      if (result.respno) {
         const demographicsRow = result.data.Demographics?.find((row: any) =>
           (row['Respondent ID'] || row['respno']) === result.respno
         );
@@ -1310,15 +1316,23 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
           });
         }
 
-        newTranscripts.push({
-          id: Date.now().toString(),
-          respno: result.respno,
-          demographics,
-          cleanedTranscript: result.cleanedTranscript,
-          originalTranscript: result.originalTranscript || '',
-          uploadedAt: new Date().toISOString()
-        });
-        setTranscripts(newTranscripts);
+        // Use cleaned transcript if available, otherwise use original
+        const transcriptToUse = result.cleanedTranscript || result.originalTranscript || '';
+        
+        if (transcriptToUse) {
+          newTranscripts.push({
+            id: Date.now().toString(),
+            respno: result.respno,
+            demographics,
+            cleanedTranscript: result.cleanedTranscript || '',
+            originalTranscript: result.originalTranscript || '',
+            uploadedAt: new Date().toISOString()
+          });
+          setTranscripts(newTranscripts);
+          console.log('🔍 Added transcript for respondent:', result.respno);
+        } else {
+          console.log('🔍 No transcript content found for respondent:', result.respno);
+        }
       }
 
       if (result.respno) {
