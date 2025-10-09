@@ -2405,7 +2405,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
               {/* Summary Finding Section */}
               {selectedCellInfo.summary && (() => {
                 // Create comprehensive key finding by combining cell value with supporting context
-                const cellValue = (selectedCellInfo?.value || '').toString();
+                const cellValue = (selectedCellInfo?.summary || '').toString();
                 const sheetContext = currentAnalysis.context?.[selectedCellInfo.sheet]?.[selectedCellInfo.respondent]?.[selectedCellInfo.column];
                 
                 let comprehensiveKeyFinding = cellValue;
@@ -2466,44 +2466,77 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                     }
                     
                     const normalize = (s) => s.toLowerCase().replace(/[^a-z0-9\s]/gi, ' ').replace(/\s+/g, ' ').trim();
-                    const cellValue = (selectedCellInfo?.value || '').toString();
+                    const cellValue = (selectedCellInfo?.summary || '').toString();
                     const keyTokens = new Set(normalize(cellValue).split(' ').filter(w => w.length > 3));
 
                     const sentenceSplit = (text) => {
-                      // Split by sentence enders while keeping reasonable chunks
+                      // Clean up the text
                       const raw = text
                         .replace(/\u201c|\u201d|\u2019/g, '"')
                         .replace(/\s+/g, ' ')
                         .trim();
-                      const parts = raw.split(/(?<=[\.!\?])\s+/);
-                      // Further split overly long sentences into mid-length subspans
+                      
+                      // Split by sentence boundaries but keep related sentences together
+                      const sentences = raw.split(/(?<=[\.!\?])\s+/);
                       const out = [];
-                      parts.forEach(p => {
-                        if (p.length <= 260) {
-                          out.push(p.trim());
+                      
+                      // Group sentences into meaningful chunks (1-3 sentences per quote)
+                      let currentChunk = '';
+                      for (let i = 0; i < sentences.length; i++) {
+                        const sentence = sentences[i].trim();
+                        if (!sentence) continue;
+                        
+                        // If adding this sentence would make the chunk too long, save current chunk
+                        if (currentChunk && (currentChunk + ' ' + sentence).length > 400) {
+                          out.push(currentChunk.trim());
+                          currentChunk = sentence;
                         } else {
-                          // windowed chunks ~140-220 chars
-                          let start = 0;
-                          const step = 180;
-                          while (start < p.length) {
-                            const slice = p.slice(start, Math.min(start + step, p.length)).trim();
-                            if (slice.length > 0) out.push(slice);
-                            start += step;
-                          }
+                          currentChunk = currentChunk ? currentChunk + ' ' + sentence : sentence;
                         }
-                      });
-                      return out.filter(Boolean);
+                        
+                        // If we have 2-3 sentences or chunk is getting long, consider it complete
+                        const sentenceCount = currentChunk.split(/[\.!\?]/).length - 1;
+                        if (sentenceCount >= 2 || currentChunk.length > 300) {
+                          out.push(currentChunk.trim());
+                          currentChunk = '';
+                        }
+                      }
+                      
+                      // Add any remaining chunk
+                      if (currentChunk.trim()) {
+                        out.push(currentChunk.trim());
+                      }
+                      
+                      // Filter out very short chunks and return
+                      return out.filter(chunk => chunk.length >= 30);
                     };
 
                     const scoreSentence = (s) => {
                       const tokens = normalize(s).split(' ').filter(Boolean);
                       if (tokens.length === 0) return 0;
+                      
+                      // Calculate keyword overlap
                       let overlap = 0;
                       tokens.forEach(t => { if (t.length > 3 && keyTokens.has(t)) overlap += 1; });
-                      // Favor medium length and presence of indicative phrases
-                      const lengthPenalty = Math.abs(s.length - 160) / 160; // closer to 160 chars is better
-                      const phraseBoost = /(i feel|i think|i belong|facebook|group|community|because|so|that|which)/i.test(s) ? 0.25 : 0;
-                      return overlap + phraseBoost - lengthPenalty * 0.35;
+                      
+                      // Boost for meaningful phrases and emotional language
+                      const meaningfulPhrases = /(i feel|i think|i believe|i experience|i notice|i find|i realize|because|so that|which means|in my opinion|from my perspective|personally)/i;
+                      const emotionalLanguage = /(frustrated|excited|worried|concerned|happy|satisfied|disappointed|surprised|confused|clear|helpful|important|significant)/i;
+                      const actionLanguage = /(do|did|doing|use|using|used|try|trying|tried|start|started|stop|stopped|change|changed|decide|decided)/i;
+                      
+                      const phraseBoost = meaningfulPhrases.test(s) ? 0.4 : 0;
+                      const emotionalBoost = emotionalLanguage.test(s) ? 0.3 : 0;
+                      const actionBoost = actionLanguage.test(s) ? 0.2 : 0;
+                      
+                      // Favor medium to long quotes (100-300 chars) that provide context
+                      const lengthScore = s.length >= 100 && s.length <= 300 ? 0.3 : 
+                                        s.length >= 50 && s.length < 100 ? 0.1 : 
+                                        s.length > 300 ? 0.2 : 0;
+                      
+                      // Penalty for very short quotes that lack context
+                      const shortPenalty = s.length < 50 ? -0.2 : 0;
+                      
+                      return overlap + phraseBoost + emotionalBoost + actionBoost + lengthScore + shortPenalty;
                     };
 
                     const candidates = [];
@@ -2524,12 +2557,38 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                       });
                     });
 
-                    // Deduplicate similar snippets
+                    // Helper function to calculate similarity between two strings
+                    const calculateSimilarity = (str1, str2) => {
+                      const words1 = new Set(str1.split(' '));
+                      const words2 = new Set(str2.split(' '));
+                      const intersection = new Set([...words1].filter(x => words2.has(x)));
+                      const union = new Set([...words1, ...words2]);
+                      return intersection.size / union.size;
+                    };
+                    
+                    // Deduplicate similar snippets with better logic
                     const deduped = [];
                     const seen = new Set();
                     candidates.forEach(sn => {
-                      const key = normalize(sn).slice(0, 120); // coarse key
-                      if (!seen.has(key)) { seen.add(key); deduped.push(sn); }
+                      const normalized = normalize(sn);
+                      // Create a more sophisticated key that captures the essence
+                      const keyWords = normalized.split(' ').filter(w => w.length > 4).slice(0, 8).join(' ');
+                      const key = keyWords.slice(0, 100); // Use first 100 chars of key words
+                      
+                      // Check if this is truly different from existing quotes
+                      let isDuplicate = false;
+                      for (const existing of seen) {
+                        const similarity = calculateSimilarity(key, existing);
+                        if (similarity > 0.7) { // 70% similarity threshold
+                          isDuplicate = true;
+                          break;
+                        }
+                      }
+                      
+                      if (!isDuplicate) {
+                        seen.add(key);
+                        deduped.push(sn);
+                      }
                     });
 
                     // Rank by relevance and select more comprehensive set
@@ -2538,8 +2597,8 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                       .sort((a, b) => b.score - a.score)
                       .map(x => x.sn);
 
-                    // Show more quotes (up to 8 instead of 3) and don't truncate them as heavily
-                    const topN = ranked.slice(0, Math.min(8, ranked.length));
+                    // Show only the top 3 most meaningful quotes
+                    const topN = ranked.slice(0, Math.min(3, ranked.length));
 
                     // Less aggressive truncation - only trim if extremely long
                     const tidy = (s) => {
