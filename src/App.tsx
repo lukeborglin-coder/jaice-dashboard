@@ -3265,15 +3265,15 @@ export default function App() {
   return (
     <AuthWrapper>
     <div className="min-h-screen w-full flex bg-gray-50 text-gray-800">
-      {/* Mobile backdrop overlay */}
+      {/* Mobile backdrop overlay - only on very small screens */}
       {sidebarOpen && (
         <div 
-          className="md:hidden fixed inset-0 bg-black bg-opacity-50 z-30"
+          className="sm:hidden fixed inset-0 bg-black bg-opacity-50 z-30"
           onClick={() => setSidebarOpen(false)}
         />
       )}
       <aside
-          className={`${sidebarOpen ? "w-64" : "w-20"} ${sidebarOpen ? "flex" : "hidden md:flex"} flex-col border-r bg-white/90 backdrop-blur-sm sticky top-0 h-screen flex-shrink-0 z-40`}
+          className={`${sidebarOpen ? "w-64" : "w-20"} ${sidebarOpen ? "flex" : "hidden lg:flex"} flex-col border-r bg-white/90 backdrop-blur-sm sticky top-0 h-screen flex-shrink-0 z-40`}
           style={{ width: sidebarOpen ? 256 : 80, minWidth: sidebarOpen ? 256 : 80 }}
         >
         <div className={`flex items-center border-b p-3 ${sidebarOpen ? 'justify-between' : 'justify-center'}`}>
@@ -3415,8 +3415,8 @@ export default function App() {
         <ContentAnalysisX projects={projects} onNavigate={setRoute} onNavigateToProject={handleProjectView} />
       ) : (
         <main className="flex-1 overflow-visible min-w-0" style={{ background: BRAND.bg }}>
-          {/* Mobile menu button - only visible on small screens */}
-          <div className="md:hidden fixed top-4 left-4 z-50">
+          {/* Mobile menu button - only visible on very small screens */}
+          <div className="sm:hidden fixed top-4 left-4 z-50">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
               className="p-2 bg-white rounded-lg shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors"
@@ -3478,6 +3478,47 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
     laterMy: false,
     laterAdditional: false
   });
+
+  // Refs for dynamic task calculation
+  const todayTasksRef = useRef<HTMLDivElement>(null);
+  const laterWeekTasksRef = useRef<HTMLDivElement>(null);
+
+  // Function to calculate maximum tasks based on container height
+  const calculateMaxTasks = useCallback((containerRef: React.RefObject<HTMLDivElement>, fallbackMax: number = 8) => {
+    if (!containerRef.current) return fallbackMax;
+    
+    const container = containerRef.current;
+    const containerHeight = container.offsetHeight;
+    const taskItemHeight = 24; // Approximate height of each task item (including padding and spacing)
+    const padding = 16; // Account for container padding
+    const availableHeight = containerHeight - padding;
+    const maxTasks = Math.floor(availableHeight / taskItemHeight);
+    
+    return Math.max(1, Math.min(maxTasks, 20)); // Min 1, max 20 tasks
+  }, []);
+
+  // Function to calculate max tasks for fixed height containers (280px)
+  const calculateMaxTasksFixed = useCallback((containerHeight: number = 280) => {
+    // Conservative calculation to prevent text cutoff
+    const headerHeight = 90; // Header height (icon + title + padding)
+    const taskItemHeight = 32; // Height per task item (accounts for text wrapping)
+    const padding = 32; // Container padding
+    const availableHeight = containerHeight - headerHeight - padding;
+    const maxTasks = Math.floor(availableHeight / taskItemHeight);
+    
+    return Math.max(1, maxTasks); // No hard maximum limit
+  }, []);
+
+  // Force re-render when window is resized to recalculate task limits
+  const [, forceUpdate] = useState({});
+  useEffect(() => {
+    const handleResize = () => {
+      forceUpdate({});
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   const [sampleTooltip, setSampleTooltip] = useState<{ visible: boolean; x: number; y: number; items: string[] } | null>(null);
 
   // Fetch all projects across all users
@@ -4218,7 +4259,7 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
 
           {/* Body */}
           <div className="flex-1 flex flex-col">
-            <ProjectTimeline projects={sortedProjects} onDateRangeChange={setProjectTimelineDateRange} maxWeeks={3} />
+            <ProjectTimeline projects={sortedProjects} onDateRangeChange={setProjectTimelineDateRange} maxWeeks={2} />
           </div>
         </Card>
 
@@ -4295,7 +4336,7 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
           {/* Today and Later This Week Boxes */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Today's Tasks */}
-            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden flex flex-col">
+            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden flex flex-col" style={{ height: '280px' }}>
               <div className="px-4 py-3 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   {/* Calendar tile icon for Today */}
@@ -4313,7 +4354,7 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
                   </div>
                 </div>
               </div>
-              <div className="px-4 pb-4 space-y-1 flex-1 overflow-y-auto">
+              <div ref={todayTasksRef} className="px-4 pb-4 space-y-1 flex-1">
                 {(() => {
                   // Combine all today's tasks and sort with assigned to me first
                   const allTodayTasks = [...todayMyTasks, ...todayAdditionalTasks];
@@ -4334,8 +4375,8 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
                     return <div className="text-[10px] italic text-gray-500">No tasks for today</div>;
                   }
 
-                  // Limit to first 8 tasks to prevent overflow
-                  const maxTasks = 8;
+                  // Calculate max tasks based on fixed container height (280px)
+                  const maxTasks = calculateMaxTasksFixed(280);
                   const tasksToShow = sortedTodayTasks.slice(0, maxTasks);
                   const remainingCount = sortedTodayTasks.length - maxTasks;
 
@@ -4367,7 +4408,7 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
         </div>
 
             {/* Later This Week */}
-            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden flex flex-col">
+            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden flex flex-col" style={{ height: '280px' }}>
           <div className="px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="flex-shrink-0 w-10 h-10 flex items-center justify-center">
@@ -4379,7 +4420,7 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
               </div>
             </div>
           </div>
-          <div className="px-4 pb-4 space-y-1 flex-1 overflow-y-auto">
+          <div ref={laterWeekTasksRef} className="px-4 pb-4 space-y-1 flex-1">
             {(() => {
               // Combine all later this week tasks and sort with assigned to me first
               const allLaterWeekTasks = [...laterWeekMyTasks, ...laterWeekAdditionalTasks];
@@ -4399,8 +4440,8 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
                 return <div className="text-[10px] italic text-gray-500">No tasks later this week</div>;
               }
 
-              // Limit to first 8 tasks to prevent overflow
-              const maxTasks = 8;
+              // Calculate max tasks based on fixed container height (280px)
+              const maxTasks = calculateMaxTasksFixed(280);
               const tasksToShow = sortedLaterWeekTasks.slice(0, maxTasks);
               const remainingCount = sortedLaterWeekTasks.length - maxTasks;
 
