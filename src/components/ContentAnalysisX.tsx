@@ -1,5 +1,5 @@
 import { API_BASE_URL } from '../config';
-import React, { useEffect, useMemo, useState, useRef } from 'react';
+import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { CloudArrowUpIcon, TrashIcon, CalendarIcon, UserGroupIcon, UserIcon, BookOpenIcon, BeakerIcon, LightBulbIcon, ChartBarIcon, TrophyIcon, ChatBubbleLeftRightIcon, ExclamationTriangleIcon, ExclamationCircleIcon, ArrowTrendingUpIcon, UsersIcon, DocumentMagnifyingGlassIcon, CheckCircleIcon, EllipsisHorizontalCircleIcon, DocumentTextIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
@@ -7,6 +7,13 @@ import { IconDeviceFloppy, IconFileArrowRight } from '@tabler/icons-react';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
 import ExcelJS from 'exceljs';
 import { renderAsync } from 'docx-preview';
+
+type CostEstimate = {
+  inputTokens: number;
+  outputTokens: number;
+  cost: number;
+  formattedCost: string;
+};
 
 interface ContentAnalysisXProps {
   projects?: any[];
@@ -31,6 +38,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
   const [saveFormData, setSaveFormData] = useState({ projectId: '', name: '', description: '' });
   const [saving, setSaving] = useState(false);
   const [processingTranscript, setProcessingTranscript] = useState(false);
+  const [fillingContentAnalysis, setFillingContentAnalysis] = useState(false);
   const [highlightedRespondentId, setHighlightedRespondentId] = useState<string | null>(null);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [showSaveSuccessMessage, setShowSaveSuccessMessage] = useState(false);
@@ -53,13 +61,10 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
   // Discussion guide modal state
   const [showDiscussionGuideModal, setShowDiscussionGuideModal] = useState(false);
   const docxContainerRef = useRef<HTMLDivElement>(null);
+  const transcriptFileInputRef = useRef<HTMLInputElement | null>(null);
   // Transcript upload modal state
   const [showTranscriptUploadModal, setShowTranscriptUploadModal] = useState(false);
   const [transcriptFile, setTranscriptFile] = useState<File | null>(null);
-  const [cleanTranscript, setCleanTranscript] = useState(true);
-  const [checkForAEs, setCheckForAEs] = useState(false);
-  const [aeReport, setAeReport] = useState<string | null>(null);
-  const [hasAETraining, setHasAETraining] = useState<boolean | null>(null);
   // Transcripts state - stores cleaned transcripts with demographic info
   const [transcripts, setTranscripts] = useState<Array<{
     id: string;
@@ -68,10 +73,74 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
     cleanedTranscript: string;
     originalTranscript: string;
     uploadedAt: string;
+    originalFilePath?: string;
+    cleanedFilePath?: string;
+    sourceTranscriptId?: string | null;
   }>>(currentAnalysis?.transcripts || []);
+  const [projectTranscriptsForUpload, setProjectTranscriptsForUpload] = useState<Array<{
+    id: string;
+    originalFilename: string;
+    cleanedFilename?: string | null;
+    originalSize?: number;
+    cleanedSize?: number;
+    hasCleanedVersion: boolean;
+    uploadedAt: number;
+  }>>([]);
+  const [loadingProjectTranscripts, setLoadingProjectTranscripts] = useState(false);
+  const [projectTranscriptFetchError, setProjectTranscriptFetchError] = useState<string | null>(null);
+  const [selectedExistingTranscriptId, setSelectedExistingTranscriptId] = useState('');
+  const [existingTranscriptCostEstimate, setExistingTranscriptCostEstimate] = useState<CostEstimate | null>(null);
+  
+  // File paths for download
+  const [transcriptFilePaths, setTranscriptFilePaths] = useState<{
+    original: string | null;
+    cleaned: string | null;
+  }>({ original: null, cleaned: null });
+  
+  const fetchProjectTranscripts = useCallback(async (projectId: string) => {
+    setLoadingProjectTranscripts(true);
+    setProjectTranscriptFetchError(null);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/transcripts/all`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const items = Array.isArray(data?.[projectId]) ? data[projectId] : [];
+        const sorted = items
+          .slice()
+          .sort((a: any, b: any) => (b?.uploadedAt || 0) - (a?.uploadedAt || 0));
+
+        setProjectTranscriptsForUpload(sorted.map((item: any) => ({
+          id: item.id,
+          originalFilename: item.originalFilename,
+          cleanedFilename: item.cleanedFilename,
+          originalSize: item.originalSize,
+          cleanedSize: item.cleanedSize,
+          hasCleanedVersion: Boolean(item.cleanedPath),
+          uploadedAt: item.uploadedAt || 0
+        })));
+      } else {
+        setProjectTranscriptFetchError('Failed to load project transcripts');
+        setProjectTranscriptsForUpload([]);
+      }
+    } catch (error) {
+      console.error('Failed to load project transcripts:', error);
+      setProjectTranscriptFetchError('Failed to load project transcripts');
+      setProjectTranscriptsForUpload([]);
+    } finally {
+      setLoadingProjectTranscripts(false);
+    }
+  }, []);
+
+  // Content Analysis generation state
+  const [selectedTranscriptType, setSelectedTranscriptType] = useState<'original' | 'cleaned'>('cleaned');
+  // Removed showGenerateModal - upload now directly populates CA
 
   // Sync transcripts when currentAnalysis changes
   useEffect(() => {
+    console.log('🔄 Syncing transcripts from currentAnalysis:', currentAnalysis?.transcripts);
     if (currentAnalysis?.transcripts) {
       setTranscripts(currentAnalysis.transcripts);
     } else {
@@ -79,41 +148,99 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
     }
   }, [currentAnalysis]);
 
-  // Check AE training when modal opens or analysis changes
-  useEffect(() => {
-    if (showTranscriptUploadModal && currentAnalysis?.projectId) {
-      // Get client ID from the project data
-      const clientId = currentAnalysis.clientId || currentAnalysis.client?.toLowerCase().replace(/\s+/g, '-');
-      if (clientId) {
-        checkAETraining(clientId).then(setHasAETraining);
-      } else {
-        setHasAETraining(false);
+  const linkedTranscriptIds = useMemo(() => {
+    const ids = new Set<string>();
+    transcripts.forEach(transcript => {
+      if (transcript.sourceTranscriptId) {
+        ids.add(String(transcript.sourceTranscriptId));
       }
-    }
-  }, [showTranscriptUploadModal, currentAnalysis?.projectId, currentAnalysis?.clientId, currentAnalysis?.client]);
+    });
+    return ids;
+  }, [transcripts]);
 
-  // Uncheck AE checkbox if training is not available
+  const projectTranscriptsById = useMemo(() => {
+    const map = new Map<string, {
+      id: string;
+      originalFilename: string;
+      cleanedFilename?: string | null;
+      originalSize?: number;
+      cleanedSize?: number;
+      hasCleanedVersion: boolean;
+      uploadedAt: number;
+    }>();
+    projectTranscriptsForUpload.forEach(record => {
+      map.set(record.id, record);
+    });
+    return map;
+  }, [projectTranscriptsForUpload]);
+
+  const transcriptDropdownOptions = useMemo(() => {
+    return projectTranscriptsForUpload.map(record => {
+      const disabled = linkedTranscriptIds.has(record.id);
+      const labelParts = [record.originalFilename || 'Transcript'];
+      if (record.hasCleanedVersion) {
+        labelParts.push('cleaned available');
+      }
+      if (disabled) {
+        labelParts.push('already imported');
+      }
+      return {
+        id: record.id,
+        label: labelParts.join(' - '),
+        disabled
+      };
+    });
+  }, [projectTranscriptsForUpload, linkedTranscriptIds]);
+
   useEffect(() => {
-    if (hasAETraining === false) {
-      setCheckForAEs(false);
+    if (!showTranscriptUploadModal || !currentAnalysis?.projectId) {
+      return;
     }
-  }, [hasAETraining]);
+    fetchProjectTranscripts(currentAnalysis.projectId);
+  }, [showTranscriptUploadModal, currentAnalysis?.projectId, fetchProjectTranscripts]);
 
-  // Check if client has AE training data
-  const checkAETraining = async (clientId: string) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/ae-training/${clientId}`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` }
-      });
-      return response.ok;
-    } catch (error) {
-      console.error('Error checking AE training:', error);
-      return false;
+  useEffect(() => {
+    if (selectedExistingTranscriptId && linkedTranscriptIds.has(selectedExistingTranscriptId)) {
+      setSelectedExistingTranscriptId('');
     }
-  };
+  }, [selectedExistingTranscriptId, linkedTranscriptIds]);
+
+  useEffect(() => {
+    if (!selectedExistingTranscriptId) {
+      setExistingTranscriptCostEstimate(null);
+      return;
+    }
+
+    const record = projectTranscriptsById.get(selectedExistingTranscriptId);
+    if (!record) {
+      setExistingTranscriptCostEstimate(null);
+      return;
+    }
+
+    const preferredFilename = record.hasCleanedVersion && record.cleanedFilename ? record.cleanedFilename : record.originalFilename;
+    const sizeToUse = record.hasCleanedVersion && record.cleanedSize ? record.cleanedSize : record.originalSize;
+
+    if (sizeToUse) {
+      const estimate = calculateCostEstimateFromSize(sizeToUse, preferredFilename || record.originalFilename || 'transcript.txt');
+      setExistingTranscriptCostEstimate(estimate);
+    } else {
+      setExistingTranscriptCostEstimate(null);
+    }
+  }, [selectedExistingTranscriptId, projectTranscriptsById]);
+
+
+
 
   // Dynamic headers: union of keys across all rows for the active sheet
   const dynamicHeaders = useMemo(() => {
+    if (activeSheet === 'Demographics') {
+      // For Demographics sheet, only show specific columns
+      const headers = ['Respondent ID', 'Interview Date', 'Interview Time'];
+
+      return headers;
+    }
+    
+    // For other sheets, use the original logic
     const rows = (currentAnalysis?.data?.[activeSheet] as any[]) || [];
     const set = new Set<string>();
     for (const r of rows) {
@@ -121,18 +248,14 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
     }
     const headers = Array.from(set);
 
-    // Add Transcript column for Demographics sheet if there are any transcripts
-    if (activeSheet === 'Demographics' && transcripts.length > 0) {
-      headers.push('Transcript');
-    }
-
-    // Add AE Report column if AE report is available
-    if (aeReport) {
-      headers.push('AE Report');
+    // Remove duplicate respno column if Respondent ID exists
+    if (headers.includes('Respondent ID') && headers.includes('respno')) {
+      const respnoIndex = headers.indexOf('respno');
+      headers.splice(respnoIndex, 1);
     }
 
     return headers;
-  }, [currentAnalysis?.data, activeSheet, transcripts.length, aeReport]);
+  }, [currentAnalysis?.data, activeSheet, transcripts.length]);
 
   // Handler for deleting a demographic column
   const handleDeleteDemographicColumn = (columnName: string) => {
@@ -703,7 +826,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
     localStorage.setItem('contentAnalyses', JSON.stringify(updatedAnalyses));
   };
 
-  const handleDeleteRespondent = async (rowIndex: number) => {
+  const handleDeleteRespondent = async (respondentId: string) => {
     if (!currentAnalysis) return;
 
     if (!confirm("Delete this respondent? This cannot be undone.")) {
@@ -712,21 +835,25 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
 
     const updatedData = { ...currentAnalysis.data };
 
-    // Get the respondent ID before deletion
-    const respondentId = updatedData.Demographics[rowIndex]['Respondent ID'] || updatedData.Demographics[rowIndex]['respno'];
-
-    // Remove the respondent from all sheets
+    // Remove the respondent from all sheets by matching respondent ID
     Object.keys(updatedData).forEach(sheetName => {
       if (Array.isArray(updatedData[sheetName])) {
-        updatedData[sheetName] = updatedData[sheetName].filter((row: any, idx: number) => {
-          if (sheetName === 'Demographics') {
-            return idx !== rowIndex;
-          } else {
-            // For other sheets, match by respondent ID
-            const rowRespondentId = row['Respondent ID'] || row['respno'];
-            return rowRespondentId !== respondentId;
-          }
+        updatedData[sheetName] = updatedData[sheetName].filter((row: any) => {
+          const rowRespondentId = row['Respondent ID'] || row['respno'];
+          return rowRespondentId !== respondentId;
         });
+
+        // If sheet is now empty after deletion, add back an empty template row
+        // to preserve column structure
+        if (updatedData[sheetName].length === 0 && currentAnalysis.data[sheetName]?.length > 0) {
+          // Get column names from the original sheet structure
+          const sampleRow = currentAnalysis.data[sheetName][0];
+          const emptyRow: any = {};
+          Object.keys(sampleRow).forEach(col => {
+            emptyRow[col] = '';
+          });
+          updatedData[sheetName] = [emptyRow];
+        }
       }
     });
 
@@ -756,29 +883,24 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
     // Filter out transcripts for deleted respondent
     const filteredTranscripts = transcripts.filter(t => t.respno !== respondentId);
 
-    // Reorder remaining respondents by date
-    const { data: reorderedData, quotes: reorderedQuotes, context: reorderedContext, transcripts: reorderedTranscripts } = reorderRespondentsByDate(
-      updatedData,
-      filteredQuotes,
-      filteredContext,
-      filteredTranscripts
-    );
-
-    // Update the analysis
-    setCurrentAnalysis({
+    // Update the analysis with transcripts (no reordering - maintain upload order)
+    const updatedAnalysis = {
       ...currentAnalysis,
-      data: reorderedData,
-      quotes: reorderedQuotes,
-      context: reorderedContext
-    });
+      data: updatedData,
+      quotes: filteredQuotes,
+      context: filteredContext,
+      transcripts: filteredTranscripts
+    };
+
+    setCurrentAnalysis(updatedAnalysis);
 
     // Update transcripts
-    setTranscripts(reorderedTranscripts);
+    setTranscripts(filteredTranscripts);
 
     // Save to localStorage
-    const updatedAnalyses = savedAnalyses.map(a => 
-      a.id === currentAnalysis.id 
-        ? { ...currentAnalysis, data: reorderedData, quotes: reorderedQuotes, context: reorderedContext }
+    const updatedAnalyses = savedAnalyses.map(a =>
+      a.id === currentAnalysis.id
+        ? updatedAnalysis
         : a
     );
     setSavedAnalyses(updatedAnalyses);
@@ -792,9 +914,10 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` },
           body: JSON.stringify({
             id: currentAnalysis.id,
-            data: reorderedData,
-            quotes: reorderedQuotes,
-            context: reorderedContext
+            data: updatedData,
+            quotes: filteredQuotes,
+            context: filteredContext,
+            transcripts: filteredTranscripts
           })
         });
       } catch (error) {
@@ -1151,6 +1274,46 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
         if (sheets.length) setActiveSheet(sheets[0]);
         setViewMode('viewer');
 
+        // Auto-save if project is selected
+        if (createFormData.projectId) {
+          try {
+            const selectedProject = projects.find(p => p.id === createFormData.projectId);
+            console.log('Auto-saving content analysis with originalDocxId:', newAnalysis.originalDocxId);
+            const saveResponse = await fetch(`${API_BASE_URL}/api/caX/save`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+              },
+              body: JSON.stringify({
+                projectId: createFormData.projectId,
+                name: createFormData.title,
+                description: `Content analysis generated from discussion guide`,
+                data: newAnalysis.data,
+                quotes: newAnalysis.quotes,
+                rawGuideText: newAnalysis.rawGuideText,
+                originalDocxId: newAnalysis.originalDocxId
+              })
+            });
+
+            if (saveResponse.ok) {
+              const savedResult = await saveResponse.json();
+              console.log('Auto-save successful:', savedResult);
+              
+              // Update the analysis with the saved ID
+              setCurrentAnalysis((prev: any) => prev ? { ...prev, id: savedResult.id } : null);
+              
+              // Show success message
+              setShowSaveSuccessMessage(true);
+              setTimeout(() => setShowSaveSuccessMessage(false), 3000);
+            } else {
+              console.error('Auto-save failed');
+            }
+          } catch (saveError) {
+            console.error('Auto-save error:', saveError);
+          }
+        }
+
         // Reset create form
         setCreateFormData({ title: '', projectId: '', discussionGuide: null });
       } else {
@@ -1222,24 +1385,98 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
   };
 
 
-  const handleTranscriptUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleDownloadOriginal = async () => {
+    if (transcriptFilePaths.original) {
+      const filename = transcriptFilePaths.original.split('/').pop() || 'transcript.docx';
+      const downloadUrl = `${API_BASE_URL}/api/caX/download/original/${filename}`;
+      
+      try {
+        const response = await fetch(downloadUrl, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+          }
+        });
+        
+        if (response.ok) {
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+        } else {
+          const error = await response.json();
+          alert(`Download failed: ${error.error}`);
+        }
+      } catch (error) {
+        console.error('Download error:', error);
+        alert('Download failed - please try again');
+      }
+    }
+  };
 
+  const handleDownloadCleaned = async () => {
+    if (transcriptFilePaths.cleaned) {
+      const filename = transcriptFilePaths.cleaned.split('/').pop() || 'transcript_cleaned.docx';
+      const downloadUrl = `${API_BASE_URL}/api/caX/download/cleaned/${filename}`;
+      
+      try {
+        const response = await fetch(downloadUrl, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+          }
+        });
+        
+        if (response.ok) {
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+        } else {
+          const error = await response.json();
+          alert(`Download failed: ${error.error}`);
+        }
+      } catch (error) {
+        console.error('Download error:', error);
+        alert('Download failed - please try again');
+      }
+    }
+  };
+
+  const handleTranscriptUpload = async ({ file, existingTranscriptId }: { file?: File | null; existingTranscriptId?: string }) => {
     if (!currentAnalysis?.data || !activeSheet) {
       alert('No active analysis or sheet');
+      return;
+    }
+
+    if (!file && !existingTranscriptId) {
+      alert('Select a transcript to upload');
       return;
     }
 
     setProcessingTranscript(true);
     try {
       const formData = new FormData();
-      formData.append('transcript', file);
+      if (file) {
+        formData.append('transcript', file);
+      } else if (existingTranscriptId) {
+        formData.append('transcriptId', existingTranscriptId);
+        formData.append('preferCleanedTranscript', 'true');
+      }
       formData.append('projectId', currentAnalysis.projectId || 'temp');
       formData.append('analysisId', currentAnalysis.id);
       formData.append('activeSheet', activeSheet);
       formData.append('currentData', JSON.stringify(currentAnalysis.data));
       formData.append('discussionGuide', currentAnalysis.rawGuideText || '');
+      // Removed cleanTranscript - now directly populates CA
 
       // Create an AbortController with a long timeout for transcript processing
       const controller = new AbortController();
@@ -1283,7 +1520,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
         }
       }
 
-      const mergedContext = { ...currentAnalysis.context };
+      const mergedContext = currentAnalysis?.context ? { ...currentAnalysis.context } : {};
       console.log('🔍 Frontend received result.context:', result.context);
       console.log('🔍 Context keys:', result.context ? Object.keys(result.context) : 'NO CONTEXT');
       if (result.context) {
@@ -1296,7 +1533,6 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
       console.log('🔍 Final mergedContext:', mergedContext);
 
       console.log('🔍 TRANSCRIPT DEBUG:');
-      console.log('🔍 cleanTranscript setting:', cleanTranscript);
       console.log('🔍 result.cleanedTranscript:', result.cleanedTranscript);
       console.log('🔍 result.originalTranscript:', result.originalTranscript);
       console.log('🔍 result.respno:', result.respno);
@@ -1318,18 +1554,25 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
 
         // Use cleaned transcript if available, otherwise use original
         const transcriptToUse = result.cleanedTranscript || result.originalTranscript || '';
-        
+
         if (transcriptToUse) {
+          // Generate a temporary respondent ID if none exists
+          const respnoToUse = result.respno || `TEMP_${Date.now()}`;
+
           newTranscripts.push({
             id: Date.now().toString(),
-            respno: result.respno,
+            respno: respnoToUse,
             demographics,
             cleanedTranscript: result.cleanedTranscript || '',
             originalTranscript: result.originalTranscript || '',
-            uploadedAt: new Date().toISOString()
+            uploadedAt: new Date().toISOString(),
+            originalFilePath: result.filePaths?.original || undefined,
+            cleanedFilePath: result.filePaths?.cleaned || undefined,
+            sourceTranscriptId: result.usedTranscriptId || existingTranscriptId || null
           });
           setTranscripts(newTranscripts);
-          console.log('🔍 Added transcript for respondent:', result.respno);
+          console.log('🔍 Added transcript for respondent:', respnoToUse);
+          console.log('🔍 File paths - original:', result.filePaths?.original, 'cleaned:', result.filePaths?.cleaned);
         } else {
           console.log('🔍 No transcript content found for respondent:', result.respno);
         }
@@ -1351,9 +1594,25 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
       console.log('Updated analysis sheets:', Object.keys(updatedAnalysis.data || {}));
       for (const [sheetName, sheetData] of Object.entries(updatedAnalysis.data || {})) {
         console.log(`Updated Sheet "${sheetName}": ${Array.isArray(sheetData) ? sheetData.length : 0} rows`);
+        if (sheetName === 'Demographics' && Array.isArray(sheetData)) {
+          console.log('Demographics rows:', sheetData.map((row, idx) => ({
+            index: idx,
+            id: row['Respondent ID'] || row['respno'],
+            date: row['Interview Date'] || row['Date'],
+            time: row['Interview Time'] || row['Time']
+          })));
+        }
       }
 
       setCurrentAnalysis(updatedAnalysis);
+      
+      // Store file paths for download
+      if (result.filePaths) {
+        setTranscriptFilePaths({
+          original: result.filePaths.original,
+          cleaned: result.filePaths.cleaned
+        });
+      }
 
       if (currentAnalysis.projectId) {
         try {
@@ -1364,7 +1623,8 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
               id: currentAnalysis.id,
               data: result.data,
               quotes: mergedQuotes,
-              transcripts: newTranscripts
+              transcripts: newTranscripts,
+              context: mergedContext
             })
           });
 
@@ -1377,29 +1637,140 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
       }
 
 
+      if (currentAnalysis?.projectId) {
+        try {
+          await fetchProjectTranscripts(currentAnalysis.projectId);
+        } catch (refreshError) {
+          console.warn('Failed to refresh project transcripts after upload:', refreshError);
+        }
+      }
+
+      setTranscriptFile(null);
+      setSelectedExistingTranscriptId('');
+      setExistingTranscriptCostEstimate(null);
+
       setShowSuccessMessage(true);
       setTimeout(() => setShowSuccessMessage(false), 3000);
+      setShowTranscriptUploadModal(false);
     } catch (error) {
       console.error('Transcript processing error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Transcript processing failed - please try again.';
       alert(errorMessage);
     } finally {
       setProcessingTranscript(false);
-      if (e.target) {
-        e.target.value = '';
+      if (file && transcriptFileInputRef.current) {
+        transcriptFileInputRef.current.value = '';
       }
     }
   };
 
+  const MODEL_TOKEN_PRICING = {
+    modelName: 'GPT-4o',
+    inputPerMillion: 2.50,
+    outputPerMillion: 10.00
+  };
+
+  const calculateCostEstimateFromSize = (bytes: number, filename: string | undefined | null): CostEstimate | null => {
+    if (!bytes || Number.isNaN(bytes)) {
+      return null;
+    }
+
+    const extension = (filename || '').toLowerCase();
+    const isDocx = extension.endsWith('.docx');
+    const charsPerToken = isDocx ? 3 : 4;
+
+    const estimatedInputTokens = Math.max(1, Math.ceil(bytes / charsPerToken));
+    const estimatedOutputTokens = Math.ceil(estimatedInputTokens * 0.75);
+
+    const inputCostPerToken = MODEL_TOKEN_PRICING.inputPerMillion / 1_000_000;
+    const outputCostPerToken = MODEL_TOKEN_PRICING.outputPerMillion / 1_000_000;
+
+    const inputCost = estimatedInputTokens * inputCostPerToken;
+    const outputCost = estimatedOutputTokens * outputCostPerToken;
+    const totalCost = inputCost + outputCost;
+
+    return {
+      inputTokens: estimatedInputTokens,
+      outputTokens: estimatedOutputTokens,
+      cost: totalCost,
+      formattedCost: totalCost < 0.01 ? '< $0.01' : `$${totalCost.toFixed(2)}`
+    };
+  };
+
+  // Calculate cost estimate based on file size
+  const calculateCostEstimate = (file: File) => {
+    if (!file) return null;
+    return calculateCostEstimateFromSize(file.size, file.name);
+  };
+
+  const fillContentAnalysisFromTranscript = async (transcriptId: string) => {
+    if (!currentAnalysis?.id) return;
+    
+    setFillingContentAnalysis(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/caX/fill-content-analysis`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+        },
+        body: JSON.stringify({
+          analysisId: currentAnalysis.id,
+          transcriptId: transcriptId,
+          projectId: currentAnalysis.projectId,
+          activeSheet: activeSheet,
+          discussionGuide: currentAnalysis.rawGuideText,
+          guideMap: currentAnalysis.guideMap
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Content analysis filled successfully:', result);
+        
+        // Update the current analysis with the filled data
+        const updatedAnalysis = {
+          ...currentAnalysis,
+          data: result.data,
+          quotes: result.quotes,
+          context: result.context
+        };
+        
+        setCurrentAnalysis(updatedAnalysis);
+        
+        // Show success message
+        setShowSuccessMessage(true);
+        setTimeout(() => setShowSuccessMessage(false), 3000);
+      } else {
+        const error = await response.json();
+        alert(`Failed to fill content analysis: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Error filling content analysis:', error);
+      alert('Failed to fill content analysis - make sure the backend server is running');
+    }
+    setFillingContentAnalysis(false);
+  };
+
   const downloadTranscriptAsWord = async (transcript: any) => {
     try {
-      // Determine which transcript to use - original if cleaning was disabled, cleaned if it was enabled
-      const transcriptToUse = transcript.originalTranscript && transcript.originalTranscript !== transcript.cleanedTranscript 
-        ? transcript.originalTranscript 
-        : transcript.cleanedTranscript;
+      // Determine which transcript to use - cleaned if available, otherwise original
+      const transcriptToUse = transcript.cleanedTranscript && transcript.cleanedTranscript.trim().length > 0
+        ? transcript.cleanedTranscript 
+        : transcript.originalTranscript;
+      
+      // Debug logging
+      console.log('🔍 DOWNLOAD DEBUG:');
+      console.log('🔍 transcript.cleanedTranscript length:', transcript.cleanedTranscript?.length || 0);
+      console.log('🔍 transcript.originalTranscript length:', transcript.originalTranscript?.length || 0);
+      console.log('🔍 transcriptToUse length:', transcriptToUse?.length || 0);
+      console.log('🔍 transcriptToUse preview (first 500 chars):', transcriptToUse?.substring(0, 500));
+      console.log('🔍 transcriptToUse preview (last 500 chars):', transcriptToUse?.substring(Math.max(0, transcriptToUse.length - 500)));
       
       // Parse the transcript to extract dialogue
       const lines = transcriptToUse.split('\n').filter((line: string) => line.trim());
+      
+      console.log('🔍 Total lines to process:', lines.length);
 
       // Create paragraphs for the document
       const paragraphs: Paragraph[] = [];
@@ -1516,8 +1887,15 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
         }]
       });
 
+      console.log('🔍 Document created with', paragraphs.length, 'paragraphs');
+      console.log('🔍 Last few paragraphs preview:', paragraphs.slice(-3).map(p => {
+        const firstChild = p.children?.[0];
+        return firstChild && 'text' in firstChild ? firstChild.text?.substring(0, 100) || 'No text' : 'No text';
+      }));
+
       // Generate and download
       const blob = await Packer.toBlob(doc);
+      console.log('🔍 Blob size:', blob.size, 'bytes');
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -1732,14 +2110,21 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
           </div>
 
           {generatingAnalysis ? (
-            <div className="py-16 flex flex-col items-center justify-center gap-4">
-              <div className="w-16 h-16 flex items-center justify-center mx-auto">
-                <svg className="animate-spin" width="48" height="48" viewBox="0 0 48 48">
-                  <circle cx="24" cy="24" r="20" fill="none" stroke="#D14A2D" strokeWidth="4" strokeDasharray="50 75.4" strokeDashoffset="0" />
-                  <circle cx="24" cy="24" r="20" fill="none" stroke="#5D5F62" strokeWidth="4" strokeDasharray="50 75.4" strokeDashoffset="-62.7" />
-                </svg>
+            <div className="flex-1 flex items-center justify-center p-8">
+              <div className="text-center">
+                <div className="w-16 h-16 mx-auto mb-4">
+                  <svg className="animate-spin w-16 h-16" fill="none" viewBox="0 0 24 24" style={{ color: '#D14A2D' }}>
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Generating Content Analysis</h3>
+                <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">
+                  <div className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: '#D14A2D' }}></div>
+                  <div className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: '#D14A2D', animationDelay: '0.1s' }}></div>
+                  <div className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: '#D14A2D', animationDelay: '0.2s' }}></div>
+                </div>
               </div>
-              <p className="text-gray-600">Generating content analysis...</p>
             </div>
           ) : (
             <div className="space-y-6">
@@ -1872,8 +2257,8 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                 )}
               </div>
               <div className="flex gap-2">
-                {/* Show only save icon when generating analysis OR when analysis is complete but unsaved */}
-                {(generatingAnalysis || currentAnalysis.id?.startsWith('temp-')) ? (
+                {/* Show only save icon when generating analysis OR when analysis is complete but unsaved (and no project selected for auto-save) */}
+                {(generatingAnalysis || (currentAnalysis.id?.startsWith('temp-') && !currentAnalysis.projectId)) ? (
                   <button
                     onClick={() => {
                       setSaveFormData({
@@ -1976,14 +2361,14 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
               </div>
               
               
-              {/* Add Respondent Transcript button - only show for saved analyses on Demographics sheet */}
-              {activeSheet === 'Demographics' && !currentAnalysis.id?.startsWith('temp-') && currentAnalysis.projectId && (
+              {/* Add Respondent Transcript button - only allows selecting existing transcripts */}
+              {!currentAnalysis.id?.startsWith('temp-') && currentAnalysis.projectId && (
                 <div className="flex items-center">
-                  <button 
+                  <button
                     onClick={() => {
                       setShowTranscriptUploadModal(true);
                     }}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-white text-xs font-medium rounded-md hover:opacity-90 transition-colors cursor-pointer shadow-sm" 
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-white text-xs font-medium rounded-md hover:opacity-90 transition-colors cursor-pointer shadow-sm"
                     style={{ backgroundColor: '#D14A2D' }}
                     disabled={processingTranscript}
                   >
@@ -2054,8 +2439,8 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                   <tr>
                     {dynamicHeaders.map((h, idx) => (
                       <React.Fragment key={h}>
-                        <th className={`px-2 py-2 font-medium border-r border-gray-300 last:border-r-0 align-top ${h === 'Transcript' ? 'text-center' : 'text-left'}`} style={{ whiteSpace: (h === 'Respondent ID' || h === 'Transcript') ? 'nowrap' : 'normal', minWidth: h === 'Transcript' ? 'auto' : (h === 'Respondent ID' ? 'auto' : '120px'), lineHeight: '1.3', width: (h === 'Respondent ID' || h === 'Transcript') ? '1%' : 'auto' }}>
-                          {activeSheet === 'Demographics' && h !== 'Respondent ID' && h !== 'respno' && h !== 'Transcript' ? (
+                        <th className={`px-2 py-2 font-medium border-r border-gray-300 last:border-r-0 align-top ${h === 'Original Transcript' || h === 'Cleaned Transcript' || h === 'Populate C.A.' ? 'text-center' : 'text-left'}`} style={{ whiteSpace: (h === 'Respondent ID' || h === 'Original Transcript' || h === 'Cleaned Transcript' || h === 'Populate C.A.') ? 'nowrap' : 'normal', minWidth: (h === 'Original Transcript' || h === 'Cleaned Transcript' || h === 'Populate C.A.') ? 'auto' : (h === 'Respondent ID' ? 'auto' : '180px'), lineHeight: '1.3', width: (h === 'Respondent ID' || h === 'Original Transcript' || h === 'Cleaned Transcript' || h === 'Populate C.A.') ? '1%' : 'auto' }}>
+                          {activeSheet === 'Demographics' && h !== 'Respondent ID' && h !== 'respno' && h !== 'Original Transcript' && h !== 'Cleaned Transcript' && h !== 'Populate C.A.' ? (
                             <div className="flex items-center gap-1">
                               {editingColumnName === h ? (
                                 <input
@@ -2142,28 +2527,6 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                       }
                       return Object.values(row).some(v => String(v ?? '').trim() !== '');
                     })
-                    .sort((a: any, b: any) => {
-                      // Sort by Interview Date ascending (earliest first) to match reorder function
-                      const dateA = a['Interview Date'] || a['Date'] || '';
-                      const dateB = b['Interview Date'] || b['Date'] || '';
-
-                      if (dateA && dateB) {
-                        const parsedA = new Date(dateA);
-                        const parsedB = new Date(dateB);
-                        if (!isNaN(parsedA.getTime()) && !isNaN(parsedB.getTime())) {
-                          return parsedA.getTime() - parsedB.getTime();
-                        }
-                      }
-
-                      // Fallback to sorting by respondent ID ascending
-                      const getIdValue = (row: any) => {
-                        const raw = row['Respondent ID'] ?? row['respno'];
-                        if (!raw) return Infinity;
-                        const match = String(raw).match(/\d+/);
-                        return match ? parseInt(match[0], 10) : Infinity;
-                      };
-                      return getIdValue(a) - getIdValue(b);
-                    })
                     .map((row: any, i: number) => {
                       const rowRespondentId = row['Respondent ID'] || row['respno'];
                       const stringRespondentId = rowRespondentId !== undefined && rowRespondentId !== null ? String(rowRespondentId) : '';
@@ -2190,7 +2553,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                           return (
                             <React.Fragment key={k}>
                               <td
-                                className={`px-2 py-1 text-gray-900 ${k === 'Transcript' ? 'align-middle text-center' : 'align-top'} border-r border-gray-300 last:border-r-0 border-b-0 ${activeSheet !== 'Demographics' && k !== 'Respondent ID' && k !== 'respno' ? 'cursor-pointer hover:bg-blue-50' : ''}`}
+                                className={`px-2 py-1 text-gray-900 align-top border-r border-gray-300 last:border-r-0 border-b-0 ${activeSheet !== 'Demographics' && k !== 'Respondent ID' && k !== 'respno' ? 'cursor-pointer hover:bg-blue-50' : ''}`}
                                 style={{ whiteSpace: k === 'Respondent ID' ? 'nowrap' : 'pre-wrap', width: k === 'Respondent ID' ? '1%' : 'auto' }}
                                 onClick={(e) => {
                                   // Don't trigger click if clicking on an input field
@@ -2198,50 +2561,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                                   handleCellClick(row, k);
                                 }}
                               >
-                                {k === 'Transcript' ? (
-                                  // Show download button for transcript
-                                  (() => {
-                                    const respondentId = row['Respondent ID'] || row['respno'];
-                                    const transcript = transcripts.find(t => t.respno === respondentId);
-                                    return transcript ? (
-                                      <button
-                                        onClick={() => downloadTranscriptAsWord(transcript)}
-                                        className="text-gray-600 hover:text-orange-600 transition-colors inline-flex items-center justify-center gap-1"
-                                        title={transcript.originalTranscript && transcript.originalTranscript !== transcript.cleanedTranscript 
-                                          ? "Download original transcript" 
-                                          : "Download cleaned transcript"}
-                                      >
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                        </svg>
-                                      </button>
-                                    ) : null;
-                                  })()
-                                ) : k === 'AE Report' ? (
-                                  // Show download button for AE Report
-                                  aeReport ? (
-                                    <button
-                                      onClick={() => {
-                                        // Create and download AE Report as Word document
-                                        const blob = new Blob([aeReport], { type: 'text/plain' });
-                                        const url = URL.createObjectURL(blob);
-                                        const a = document.createElement('a');
-                                        a.href = url;
-                                        a.download = `AE_Report_${new Date().toISOString().split('T')[0]}.txt`;
-                                        document.body.appendChild(a);
-                                        a.click();
-                                        document.body.removeChild(a);
-                                        URL.revokeObjectURL(url);
-                                      }}
-                                      className="text-gray-600 hover:text-red-600 transition-colors inline-flex items-center justify-center gap-1"
-                                      title="Download AE Report"
-                                    >
-                                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                      </svg>
-                                    </button>
-                                  ) : null
-                                ) : activeSheet === 'Demographics' && k !== 'Respondent ID' && k !== 'respno' ? (
+                                {activeSheet === 'Demographics' && k !== 'Respondent ID' && k !== 'respno' && k !== 'Original Transcript' && k !== 'Cleaned Transcript' && k !== 'Populate C.A.' ? (
                                   <input
                                     type="text"
                                     value={String(row[k] ?? '')}
@@ -2258,6 +2578,75 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                                     className="w-full border bg-gray-100 focus:bg-white focus:outline-none focus:ring-1 focus:ring-orange-300 rounded px-1"
                                     style={{ minHeight: '20px' }}
                                   />
+                                ) : k === 'Original Transcript' || k === 'Cleaned Transcript' ? (
+                                  <div className="flex items-center justify-center gap-2">
+                                    {(() => {
+                                      // Try to find transcript by exact match first, then by any transcript if only one exists
+                                      let transcript = transcripts.find(t => t.respno === rowRespondentId);
+                                      if (!transcript && transcripts.length === 1) {
+                                        transcript = transcripts[0];
+                                      }
+                                      if (!transcript) return <span className="text-gray-400 text-xs">No transcript</span>;
+                                      
+                                      const isOriginal = k === 'Original Transcript';
+                                      const hasContent = isOriginal ? transcript.originalTranscript : transcript.cleanedTranscript;
+
+                                      if (!hasContent) {
+                                        return <span className="text-gray-400 text-xs">No {isOriginal ? 'original' : 'cleaned'} transcript</span>;
+                                      }
+
+                                      // Get the file path from the transcript object
+                                      const filePath = isOriginal ? transcript.originalFilePath : transcript.cleanedFilePath;
+
+                                      if (!filePath) {
+                                        return <span className="text-gray-400 text-xs">File not available</span>;
+                                      }
+
+                                      const filename = filePath.split(/[\\/]/).pop() || 'transcript.docx';
+
+                                      return (
+                                        <button
+                                          onClick={async () => {
+                                            const downloadUrl = isOriginal ?
+                                              `${API_BASE_URL}/api/caX/download/original/${filename}` :
+                                              `${API_BASE_URL}/api/caX/download/cleaned/${filename}`;
+
+                                            try {
+                                              const response = await fetch(downloadUrl, {
+                                                headers: {
+                                                  'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+                                                }
+                                              });
+
+                                              if (response.ok) {
+                                                const blob = await response.blob();
+                                                const url = window.URL.createObjectURL(blob);
+                                                const a = document.createElement('a');
+                                                a.href = url;
+                                                a.download = filename;
+                                                document.body.appendChild(a);
+                                                a.click();
+                                                window.URL.revokeObjectURL(url);
+                                                document.body.removeChild(a);
+                                              } else {
+                                                const error = await response.json();
+                                                alert(`Download failed: ${error.error}`);
+                                              }
+                                            } catch (error) {
+                                              console.error('Download error:', error);
+                                              alert('Download failed - please try again');
+                                            }
+                                          }}
+                                          className="px-2 py-1 text-xs bg-white text-gray-700 border border-gray-300 rounded hover:bg-gray-50 transition-colors flex items-center gap-1"
+                                        >
+                                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                          </svg>
+                                          Download
+                                        </button>
+                                      );
+                                    })()}
+                                  </div>
                                 ) : (
                                   String(row[k] ?? '')
                                 )}
@@ -2273,7 +2662,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                           <td className="px-2 py-1 text-center border-b-0">
                             {hasRespondentId && (
                               <button
-                                onClick={() => handleDeleteRespondent(i)}
+                                onClick={() => handleDeleteRespondent(stringRespondentId)}
                                 className="text-red-500 hover:text-red-700 hover:bg-red-50 rounded p-1 transition-colors"
                                 title="Delete respondent"
                               >
@@ -2359,11 +2748,31 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
 
       {/* Success Message Toast */}
       {showSuccessMessage && (
-        <div className="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 flex items-center gap-2">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
-          <span className="font-medium">Transcript processed successfully!</span>
+        <div className="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50">
+          <div className="flex items-center gap-2 mb-3">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            <span className="font-medium">Transcript processed successfully!</span>
+          </div>
+          <div className="flex gap-2">
+            {transcriptFilePaths.original && (
+              <button
+                onClick={handleDownloadOriginal}
+                className="px-3 py-1 bg-white text-green-600 rounded text-sm font-medium hover:bg-gray-100 transition-colors"
+              >
+                📄 Download Original
+              </button>
+            )}
+            {transcriptFilePaths.cleaned && (
+              <button
+                onClick={handleDownloadCleaned}
+                className="px-3 py-1 bg-white text-green-600 rounded text-sm font-medium hover:bg-gray-100 transition-colors"
+              >
+                📝 Download Cleaned
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -2402,294 +2811,70 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
             </div>
 
             <div className="space-y-6 overflow-y-auto flex-1">
-              {/* Summary Finding Section */}
-              {selectedCellInfo.summary && (() => {
-                // Create comprehensive key finding by combining cell value with supporting context
-                const cellValue = (selectedCellInfo?.summary || '').toString();
-                const sheetContext = currentAnalysis.context?.[selectedCellInfo.sheet]?.[selectedCellInfo.respondent]?.[selectedCellInfo.column];
-                
-                let comprehensiveKeyFinding = cellValue;
-                if (sheetContext && Array.isArray(sheetContext) && sheetContext.length > 0) {
-                  // Extract all respondent quotes from context for comprehensive key finding
-                  const allRespondentQuotes = [];
-                  sheetContext.forEach((contextString) => {
-                    const normalizedContext = contextString.replace(/\\n/g, '\n');
-                    const lines = normalizedContext.split('\n');
-                    lines.forEach(line => {
-                      if (line.startsWith('Respondent:')) {
-                        const text = line.replace('Respondent:', '').trim();
-                        if (text.length > 0) {
-                          allRespondentQuotes.push(text);
-                        }
-                      }
-                    });
-                  });
-                  
-                  if (allRespondentQuotes.length > 0) {
-                    // Add additional context from the most relevant quotes
-                    const relevantQuotes = allRespondentQuotes.slice(0, 3); // Get first 3 quotes for additional context
-                    const additionalContext = relevantQuotes.join(' ').substring(0, 500); // Limit to 500 chars to avoid overwhelming
-                    if (additionalContext && additionalContext !== cellValue) {
-                      comprehensiveKeyFinding = `${cellValue}\n\nAdditional Context: ${additionalContext}`;
-                    }
-                  }
-                }
-                
-                return (
-                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                    <h3 className="text-sm font-semibold text-orange-900 mb-2">Key Finding</h3>
-                    <p className="text-sm text-gray-800 whitespace-pre-line">{comprehensiveKeyFinding}</p>
-                  </div>
-                );
-              })()}
+              {/* Key Finding Section - Simplified */}
+              {selectedCellInfo.summary && (
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                  <h3 className="text-sm font-semibold text-orange-900 mb-2">Key Finding</h3>
+                  <p className="text-sm text-gray-800 whitespace-pre-line leading-relaxed">{selectedCellInfo.summary}</p>
+                </div>
+              )}
 
-              {/* Context Section - Always show if available */}
-              <div>
-                <h3 className="text-sm font-semibold text-gray-700 mb-3">Supporting Context</h3>
-                <div className="space-y-3">
-                  {(() => {
-                    // Debug logging
-                    console.log('Debug context access:', {
-                      sheet: selectedCellInfo.sheet,
-                      respondent: selectedCellInfo.respondent,
-                      column: selectedCellInfo.column,
-                      currentAnalysis: currentAnalysis,
-                      context: currentAnalysis?.context,
-                      sheetContext: currentAnalysis?.context?.[selectedCellInfo.sheet],
-                      respondentContext: currentAnalysis?.context?.[selectedCellInfo.sheet]?.[selectedCellInfo.respondent],
-                      columnContext: currentAnalysis?.context?.[selectedCellInfo.sheet]?.[selectedCellInfo.respondent]?.[selectedCellInfo.column]
-                    });
-                    
-                const sheetContext = currentAnalysis.context?.[selectedCellInfo.sheet]?.[selectedCellInfo.respondent]?.[selectedCellInfo.column];
+              {/* Support Section - Shows verbatim quotes from respondent */}
+              {(() => {
+                const sheetContext = currentAnalysis?.context?.[selectedCellInfo.sheet]?.[selectedCellInfo.respondent]?.[selectedCellInfo.column];
+
                 if (!sheetContext || !Array.isArray(sheetContext) || sheetContext.length === 0) {
-                      return <p className="text-sm text-gray-500 text-center py-8">No supporting context available for this cell.</p>;
-                    }
-                    
-                    const normalize = (s) => s.toLowerCase().replace(/[^a-z0-9\s]/gi, ' ').replace(/\s+/g, ' ').trim();
-                    const cellValue = (selectedCellInfo?.summary || '').toString();
-                    const keyTokens = new Set(normalize(cellValue).split(' ').filter(w => w.length > 3));
+                  return null;
+                }
 
-                    const sentenceSplit = (text) => {
-                      // Clean up the text
-                      const raw = text
-                        .replace(/\u201c|\u201d|\u2019/g, '"')
-                        .replace(/\s+/g, ' ')
-                        .trim();
-                      
-                      // Split by sentence boundaries but keep related sentences together
-                      const sentences = raw.split(/(?<=[\.!\?])\s+/);
-                      const out = [];
-                      
-                      // Group sentences into meaningful chunks (1-3 sentences per quote)
-                      let currentChunk = '';
-                      for (let i = 0; i < sentences.length; i++) {
-                        const sentence = sentences[i].trim();
-                        if (!sentence) continue;
-                        
-                        // If adding this sentence would make the chunk too long, save current chunk
-                        if (currentChunk && (currentChunk + ' ' + sentence).length > 400) {
-                          out.push(currentChunk.trim());
-                          currentChunk = sentence;
-                        } else {
-                          currentChunk = currentChunk ? currentChunk + ' ' + sentence : sentence;
-                        }
-                        
-                        // If we have 2-3 sentences or chunk is getting long, consider it complete
-                        const sentenceCount = currentChunk.split(/[\.!\?]/).length - 1;
-                        if (sentenceCount >= 2 || currentChunk.length > 300) {
-                          out.push(currentChunk.trim());
-                          currentChunk = '';
-                        }
-                      }
-                      
-                      // Add any remaining chunk
-                      if (currentChunk.trim()) {
-                        out.push(currentChunk.trim());
-                      }
-                      
-                      // Filter out very short chunks and return
-                      return out.filter(chunk => chunk.length >= 30);
-                    };
+                // Parse quote to separate moderator and respondent if both are present
+                const parseQuote = (quote: string) => {
+                  const parts = [];
 
-                    const scoreSentence = (s) => {
-                      const tokens = normalize(s).split(' ').filter(Boolean);
-                      if (tokens.length === 0) return 0;
-                      
-                      // Calculate keyword overlap
-                      let overlap = 0;
-                      tokens.forEach(t => { if (t.length > 3 && keyTokens.has(t)) overlap += 1; });
-                      
-                      // Boost for meaningful phrases and emotional language
-                      const meaningfulPhrases = /(i feel|i think|i believe|i experience|i notice|i find|i realize|because|so that|which means|in my opinion|from my perspective|personally)/i;
-                      const emotionalLanguage = /(frustrated|excited|worried|concerned|happy|satisfied|disappointed|surprised|confused|clear|helpful|important|significant)/i;
-                      const actionLanguage = /(do|did|doing|use|using|used|try|trying|tried|start|started|stop|stopped|change|changed|decide|decided)/i;
-                      
-                      const phraseBoost = meaningfulPhrases.test(s) ? 0.4 : 0;
-                      const emotionalBoost = emotionalLanguage.test(s) ? 0.3 : 0;
-                      const actionBoost = actionLanguage.test(s) ? 0.2 : 0;
-                      
-                      // Favor medium to long quotes (100-300 chars) that provide context
-                      const lengthScore = s.length >= 100 && s.length <= 300 ? 0.3 : 
-                                        s.length >= 50 && s.length < 100 ? 0.1 : 
-                                        s.length > 300 ? 0.2 : 0;
-                      
-                      // Penalty for very short quotes that lack context
-                      const shortPenalty = s.length < 50 ? -0.2 : 0;
-                      
-                      return overlap + phraseBoost + emotionalBoost + actionBoost + lengthScore + shortPenalty;
-                    };
-
-                    const candidates = [];
-                    sheetContext.forEach((contextString) => {
-                        const normalizedContext = contextString.replace(/\\n/g, '\n');
-                      const lines = normalizedContext.split('\n');
-                      lines.forEach(line => {
-                        if (line.startsWith('Respondent:')) {
-                          const text = line.replace('Respondent:', '').trim();
-                          if (text.length > 0) {
-                            sentenceSplit(text).forEach(snippet => {
-                              if (snippet.length >= 40) {
-                                candidates.push(snippet.trim());
-                              }
-                            });
-                          }
-                        }
-                      });
-                    });
-
-                    // Helper function to calculate similarity between two strings
-                    const calculateSimilarity = (str1, str2) => {
-                      const words1 = new Set(str1.split(' '));
-                      const words2 = new Set(str2.split(' '));
-                      const intersection = new Set([...words1].filter(x => words2.has(x)));
-                      const union = new Set([...words1, ...words2]);
-                      return intersection.size / union.size;
-                    };
-                    
-                    // Deduplicate similar snippets with better logic
-                    const deduped = [];
-                    const seen = new Set();
-                    candidates.forEach(sn => {
-                      const normalized = normalize(sn);
-                      // Create a more sophisticated key that captures the essence
-                      const keyWords = normalized.split(' ').filter(w => w.length > 4).slice(0, 8).join(' ');
-                      const key = keyWords.slice(0, 100); // Use first 100 chars of key words
-                      
-                      // Check if this is truly different from existing quotes
-                      let isDuplicate = false;
-                      for (const existing of seen) {
-                        const similarity = calculateSimilarity(key, existing);
-                        if (similarity > 0.7) { // 70% similarity threshold
-                          isDuplicate = true;
-                          break;
-                        }
-                      }
-                      
-                      if (!isDuplicate) {
-                        seen.add(key);
-                        deduped.push(sn);
+                  // Check if quote contains "Moderator:" or "Respondent:" labels
+                  if (quote.includes('Moderator:') || quote.includes('Respondent:')) {
+                    const lines = quote.split(/(?=Moderator:|Respondent:)/);
+                    lines.forEach(line => {
+                      const trimmed = line.trim();
+                      if (trimmed.startsWith('Moderator:')) {
+                        parts.push({ speaker: 'Moderator', text: trimmed.replace('Moderator:', '').trim() });
+                      } else if (trimmed.startsWith('Respondent:')) {
+                        parts.push({ speaker: 'Respondent', text: trimmed.replace('Respondent:', '').trim() });
                       }
                     });
+                  } else {
+                    // No labels - just respondent quote
+                    parts.push({ speaker: 'Respondent', text: quote.trim() });
+                  }
 
-                    // Rank by relevance and select more comprehensive set
-                    const ranked = deduped
-                      .map(sn => ({ sn, score: scoreSentence(sn) }))
-                      .sort((a, b) => b.score - a.score)
-                      .map(x => x.sn);
+                  return parts;
+                };
 
-                    // Show only the top 3 most meaningful quotes
-                    const topN = ranked.slice(0, Math.min(3, ranked.length));
-
-                    // Less aggressive truncation - only trim if extremely long
-                    const tidy = (s) => {
-                      const maxLen = 800; // Increased from 240 to 800
-                      if (s.length <= maxLen) return s;
-                      const start = s.slice(0, 600).trimEnd();
-                      const end = s.slice(-150).trimStart();
-                      return `${start}... ${end}`;
-                    };
-
-                    const allQuotes = topN.length > 0 ? topN.map(tidy) : [];
-
-                    // Parse the context to format speaker labels and add line breaks
-                    const formatContext = (text) => {
-                      return text.split('\n').map((line, lineIdx) => {
-                        if (line.startsWith('Moderator:')) {
-                                  return (
-                            <div key={lineIdx} className="mb-2">
-                              <span className="font-bold text-gray-900">Moderator:</span>
-                              <span className="ml-2 text-gray-800">{line.replace('Moderator:', '').trim()}</span>
-                            </div>
-                          );
-                        } else if (line.startsWith('Respondent:')) {
-                          return (
-                            <div key={lineIdx} className="mb-3">
-                              <span className="font-bold text-blue-700">Respondent:</span>
-                              <span className="ml-2 text-gray-800">{line.replace('Respondent:', '').trim()}</span>
-                            </div>
-                          );
-                        } else if (line.trim()) {
-                          return (
-                            <div key={lineIdx} className="ml-4 text-gray-600 text-sm">
-                              {line.trim()}
-                            </div>
-                          );
-                        }
-                        return null;
-                      });
-                    };
-
-                    return (
-                      <>
-                        {/* Comprehensive Context Boxes - Show more context */}
-                        {sheetContext.map((contextString, idx) => {
-                          const normalizedContext = contextString.replace(/\\n/g, '\n');
-                          return (
-                            <div key={idx} className="bg-gray-50 rounded-lg p-4 border-l-4 border-blue-500 mb-4">
-                              <div className="text-sm leading-relaxed">
-                                {formatContext(normalizedContext)}
+                return (
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-700 mb-3">Supporting Quotes</h3>
+                    <div className="space-y-3">
+                      {sheetContext.map((quote, idx) => {
+                        const parsedParts = parseQuote(quote);
+                        return (
+                          <div key={idx} className="bg-blue-50 rounded-lg p-4 border-l-4 border-blue-500">
+                            <div className="text-sm leading-relaxed space-y-3">
+                              {parsedParts.map((part, partIdx) => (
+                                <div key={partIdx}>
+                                  <div className={`font-bold ${part.speaker === 'Moderator' ? 'text-gray-900' : 'text-blue-700'}`}>
+                                    {part.speaker}:
+                                  </div>
+                                  <div className="text-gray-800 mt-1">{part.text}</div>
+                                </div>
+                              ))}
                             </div>
                           </div>
                         );
                       })}
-                        
-                       {/* Comprehensive Supporting Quotes Section */}
-                       {allQuotes.length > 0 && (
-                         <div className="mt-6">
-                           <h3 className="text-sm font-semibold text-gray-700 mb-3">Key Supporting Quotes</h3>
-                           <div className="space-y-4">
-                             {allQuotes.map((quote, quoteIdx) => (
-                               <div key={quoteIdx} className="bg-gray-50 rounded-lg p-4 border-l-4 border-blue-500 flex items-start justify-between gap-3">
-                                 <p className="text-sm text-gray-800 italic flex-1 leading-relaxed">"{quote}"</p>
-                                 <button
-                                   onClick={() => {
-                                     navigator.clipboard.writeText(`"${quote}"`);
-                                     setCopiedQuoteIndex(quoteIdx);
-                                     setTimeout(() => setCopiedQuoteIndex(null), 1500);
-                                   }}
-                                   className="text-gray-400 hover:text-gray-600 flex-shrink-0 transition-colors"
-                                   title="Copy quote"
-                                 >
-                                   {copiedQuoteIndex === quoteIdx ? (
-                                     <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                     </svg>
-                                   ) : (
-                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                     </svg>
-                                   )}
-                                 </button>
                     </div>
-                             ))}
                   </div>
-                         </div>
-                       )}
-                      </>
                 );
               })()}
-                </div>
-              </div>
 
             </div>
 
@@ -2762,14 +2947,15 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
       {showTranscriptUploadModal && createPortal(
         <div
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[99999] p-4"
-          onClick={() => setShowTranscriptUploadModal(false)}
+          onClick={() => !processingTranscript && setShowTranscriptUploadModal(false)}
         >
           <div className="bg-white rounded-lg w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between p-4 border-b border-gray-200">
               <h3 className="text-lg font-semibold text-gray-900">Upload Transcript</h3>
               <button
-                onClick={() => setShowTranscriptUploadModal(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                onClick={() => !processingTranscript && setShowTranscriptUploadModal(false)}
+                disabled={processingTranscript}
+                className={`text-gray-400 hover:text-gray-600 transition-colors ${processingTranscript ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -2797,158 +2983,122 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
               </div>
             ) : (
               <div className="flex-1 overflow-y-auto p-4 space-y-6">
-                {/* File Upload Area */}
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                  <CloudArrowUpIcon className="mx-auto h-12 w-12 text-gray-400" />
-                  <div className="mt-4">
-                    <label htmlFor="transcript-file" className="cursor-pointer">
-                      <span className="mt-2 block text-sm font-medium text-gray-900">
-                        {transcriptFile ? transcriptFile.name : 'Click to upload or drag and drop'}
-                      </span>
-                      <span className="mt-1 block text-sm text-gray-500">
-                        TXT or DOCX files up to 10MB
-                      </span>
-                    </label>
-                    <input
-                      id="transcript-file"
-                      type="file"
-                      accept=".txt,.docx"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          setTranscriptFile(file);
-                        }
-                      }}
-                    />
+                {currentAnalysis?.projectId && (
+                  <div className="rounded-lg border border-gray-200 p-4 text-left">
+                    <h4 className="text-sm font-semibold text-gray-900">Use an existing project transcript</h4>
+                    <p className="mt-1 text-sm text-gray-500">
+                      Choose a transcript from the Transcripts tab. Already imported transcripts are disabled.
+                    </p>
+                    {loadingProjectTranscripts ? (
+                      <div className="mt-4 flex items-center text-sm text-gray-500">
+                        <svg className="h-4 w-4 animate-spin text-gray-400" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0c-5.373 0-10 4.627-10 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        <span className="ml-3">Loading project transcripts...</span>
+                      </div>
+                    ) : projectTranscriptFetchError ? (
+                      <p className="mt-3 text-sm text-red-600">{projectTranscriptFetchError}</p>
+                    ) : transcriptDropdownOptions.length === 0 ? (
+                      <p className="mt-3 text-sm text-gray-500">
+                        No transcripts from this project are available yet.
+                      </p>
+                    ) : (
+                      <div className="mt-3 space-y-3">
+                        <select
+                          value={selectedExistingTranscriptId}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setSelectedExistingTranscriptId(value);
+                            if (value) {
+                              setTranscriptFile(null);
+                              if (transcriptFileInputRef.current) {
+                                transcriptFileInputRef.current.value = '';
+                              }
+                            }
+                          }}
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D14A2D]"
+                        >
+                          <option value="">Select a transcript...</option>
+                          {transcriptDropdownOptions.map(option => (
+                            <option key={option.id} value={option.id} disabled={option.disabled}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-xs text-gray-500">
+                          We'll reuse the stored file and process it with {MODEL_TOKEN_PRICING.modelName}.
+                        </p>
+                      </div>
+                    )}
                   </div>
-                </div>
+                )}
 
-                {/* Processing Options */}
-                <div className="space-y-4">
-                  <h4 className="text-sm font-medium text-gray-900">Processing Options</h4>
-                  
-                  {/* Clean Transcript Option */}
-                  <div className="flex items-center">
-                    <input
-                      id="clean-transcript"
-                      type="checkbox"
-                      checked={cleanTranscript}
-                      onChange={(e) => setCleanTranscript(e.target.checked)}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    />
-                    <label htmlFor="clean-transcript" className="ml-2 text-sm text-gray-700">
-                      Clean and generate new transcript
-                    </label>
-                  </div>
-
-                  {/* AE Check Option */}
-                  <div className="flex items-center">
-                    <input
-                      id="check-aes"
-                      type="checkbox"
-                      checked={checkForAEs}
-                      onChange={(e) => setCheckForAEs(e.target.checked)}
-                      disabled={hasAETraining === false}
-                      className={`h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded ${
-                        hasAETraining === false ? 'opacity-50 cursor-not-allowed' : ''
-                      }`}
-                    />
-                    <label 
-                      htmlFor="check-aes" 
-                      className={`ml-2 text-sm ${
-                        hasAETraining === false ? 'text-gray-400' : 'text-gray-700'
-                      }`}
-                      title={hasAETraining === false ? 'AE training not set up for this client. Visit Client Center to upload training materials.' : ''}
-                    >
-                      Check for AEs
-                      {hasAETraining === false && (
-                        <span className="ml-1 text-xs text-gray-400">(Not available)</span>
-                      )}
-                    </label>
-                  </div>
-
-                </div>
               </div>
             )}
             {!processingTranscript && (
-              <div className="flex items-center justify-end space-x-3 p-4 border-t border-gray-200">
-                <button
-                  onClick={() => setShowTranscriptUploadModal(false)}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
+              <div className="flex items-center justify-between p-4 border-t border-gray-200">
+                {(() => {
+                  if (transcriptFile) {
+                    const estimate = calculateCostEstimate(transcriptFile);
+                    return estimate ? (
+                      <div className="text-xs text-red-600 italic">
+                        Estimated Cost ({MODEL_TOKEN_PRICING.modelName}): {estimate.formattedCost}
+                      </div>
+                    ) : (
+                      <div className="text-xs text-gray-400 italic">
+                        Unable to estimate cost for this file.
+                      </div>
+                    );
+                  }
+
+                  if (selectedExistingTranscriptId) {
+                    return existingTranscriptCostEstimate ? (
+                      <div className="text-xs text-red-600 italic">
+                        Estimated Cost ({MODEL_TOKEN_PRICING.modelName}): {existingTranscriptCostEstimate.formattedCost}
+                      </div>
+                    ) : (
+                      <div className="text-xs text-gray-500 italic">
+                        Using stored transcript. {MODEL_TOKEN_PRICING.modelName} pricing applies (~$2.50 per 1M input tokens).
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="text-xs text-gray-400 italic">
+                      Select a file or existing transcript to see cost estimate
+                    </div>
+                  );
+                })()}
+                <div className="flex items-center space-x-3">
+                  <button
+                    onClick={() => {
+                      setShowTranscriptUploadModal(false);
+                      setTranscriptFile(null);
+                      setSelectedExistingTranscriptId('');
+                      setExistingTranscriptCostEstimate(null);
+                      if (transcriptFileInputRef.current) {
+                        transcriptFileInputRef.current.value = '';
+                      }
+                    }}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
                 <button
                   onClick={async () => {
-                    if (!transcriptFile) return;
-                    
-                    setProcessingTranscript(true);
-                    
-                    try {
-                      const formData = new FormData();
-                      formData.append('transcript', transcriptFile);
-                      formData.append('projectId', currentAnalysis.projectId || 'temp');
-                      formData.append('analysisId', currentAnalysis.id);
-                      formData.append('activeSheet', activeSheet);
-                      formData.append('currentData', JSON.stringify(currentAnalysis.data));
-                      formData.append('discussionGuide', currentAnalysis.rawGuideText || '');
-                      formData.append('cleanTranscript', cleanTranscript.toString());
-                      formData.append('checkForAEs', checkForAEs.toString());
-
-                      const controller = new AbortController();
-                      const timeoutId = setTimeout(() => controller.abort(), 30 * 60 * 1000);
-
-                      const response = await fetch(`${API_BASE_URL}/api/caX/process-transcript`, {
-                        method: 'POST',
-                        body: formData,
-                        headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` },
-                        signal: controller.signal
-                      });
-
-                      clearTimeout(timeoutId);
-                      const result = await response.json();
-
-                      if (!response.ok) {
-                        throw new Error(result?.error || 'Transcript processing failed');
-                      }
-
-                      // Update analysis with new data and context
-                      if (result?.data) {
-                        const updatedAnalysis = { ...currentAnalysis };
-                        for (const [sheetName, sheetData] of Object.entries(result.data)) {
-                          updatedAnalysis.data[sheetName] = sheetData;
-                        }
-                        
-                        // Update context if available
-                        if (result?.context) {
-                          updatedAnalysis.context = result.context;
-                        }
-                        
-                        setCurrentAnalysis(updatedAnalysis);
-                      }
-
-                      // Handle AE Report if available
-                      if (result?.aeReport) {
-                        setAeReport(result.aeReport);
-                      }
-
-                      setTranscriptFile(null);
-                      setCleanTranscript(true);
-                      setCheckForAEs(false);
-                      setShowTranscriptUploadModal(false);
-                    } catch (error) {
-                      console.error('Transcript processing error:', error);
-                      alert('Failed to process transcript: ' + (error as Error).message);
-                    } finally {
-                      setProcessingTranscript(false);
-                    }
+                    if (processingTranscript) return;
+                    await handleTranscriptUpload({
+                      file: transcriptFile || undefined,
+                      existingTranscriptId: selectedExistingTranscriptId || undefined
+                    });
                   }}
-                  disabled={!transcriptFile}
+                  disabled={processingTranscript || (!transcriptFile && !selectedExistingTranscriptId)}
                   className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Upload & Process
+                  {transcriptFile ? 'Upload & Process' : 'Import & Process'}
                 </button>
+                </div>
               </div>
             )}
           </div>
@@ -2956,10 +3106,126 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
         document.body
       )}
 
+      {/* Removed Populate CA Modal - upload now directly populates CA */}
+      {false && createPortal(
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[99999] p-4"
+          onClick={() => setShowGenerateModal(false)}
+        >
+          <div className="bg-white rounded-lg w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Generate Content Analysis</h3>
+              <button
+                onClick={() => setShowGenerateModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-4">
+              {generatingAnalysis ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="text-center">
+                    <div className="w-16 h-16 mx-auto mb-4">
+                      <svg className="animate-spin w-16 h-16" fill="none" viewBox="0 0 24 24" style={{ color: '#D14A2D' }}>
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Populating Content Analysis</h3>
+                    <p className="text-gray-600 mb-4">This may take a few minutes. Please keep this page open.</p>
+                    <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">
+                      <div className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: '#D14A2D' }}></div>
+                      <div className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: '#D14A2D', animationDelay: '0.1s' }}></div>
+                      <div className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: '#D14A2D', animationDelay: '0.2s' }}></div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Which transcript do you want to use to generate or populate the content analysis?
+                    </label>
+                    <select
+                      value={selectedTranscriptType}
+                      onChange={(e) => setSelectedTranscriptType(e.target.value as 'original' | 'cleaned')}
+                      className="w-full border rounded px-3 py-2"
+                    >
+                      <option value="cleaned">Cleaned Transcript (Recommended)</option>
+                      <option value="original">Original Transcript</option>
+                    </select>
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    <p>This will populate content analysis using the {selectedTranscriptType} transcript for all respondents.</p>
+                    <p className="mt-1">Found {transcripts.length} transcript(s) to process.</p>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <button
+                      onClick={() => setShowGenerateModal(false)}
+                      className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={async () => {
+                        setGeneratingAnalysis(true);
+
+                      try {
+                        // Call the content analysis generation API
+                        const response = await fetch(`${API_BASE_URL}/api/caX/generate-from-transcripts`, {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+                          },
+                          body: JSON.stringify({
+                            projectId: currentAnalysis?.projectId,
+                            analysisId: currentAnalysis?.id,
+                            transcriptType: selectedTranscriptType,
+                            transcripts: transcripts
+                          })
+                        });
+
+                        if (response.ok) {
+                          const result = await response.json();
+                          // Reload the analysis with the new data
+                          await loadAnalysis(currentAnalysis.id);
+                          setShowGenerateModal(false);
+                          setShowSuccessMessage(true);
+                          setTimeout(() => setShowSuccessMessage(false), 3000);
+                        } else {
+                          const error = await response.json();
+                          alert(`Content analysis generation failed: ${error.error}`);
+                        }
+                      } catch (error) {
+                        console.error('Content analysis generation error:', error);
+                        alert('Content analysis generation failed - please try again');
+                      } finally {
+                        setGeneratingAnalysis(false);
+                      }
+                    }}
+                    disabled={generatingAnalysis}
+                    className="px-4 py-2 text-sm font-medium text-white border border-transparent rounded-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+                    style={{ backgroundColor: '#D14A2D' }}
+                  >
+                    {generatingAnalysis ? 'Populating...' : 'Populate C.A.'}
+                  </button>
+                </div>
+              </div>
+              )}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+
     </div>
   );
 }
-
 
 
 

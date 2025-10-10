@@ -7,6 +7,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import contentAnalysisRouter from './routes/contentAnalysis.routes.mjs';
 import contentAnalysisXRouter from './routes/contentAnalysisX.routes.mjs';
+import transcriptsRouter from './routes/transcripts.routes.mjs';
 import authRouter from './routes/auth.routes.mjs';
 import projectsRouter from './routes/projects.routes.mjs';
 import vendorsRouter from './routes/vendors.routes.mjs';
@@ -14,9 +15,9 @@ import feedbackRouter from './routes/feedback.routes.mjs';
 import aeTrainingRouter from './routes/aeTraining.routes.mjs';
 
 // Load environment variables
-config();
-
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+config({ path: path.join(__dirname, '.env') });
+
 const app = express();
 const PORT = process.env.PORT || 3005;
 
@@ -87,6 +88,7 @@ app.use('/api/projects', apiLimiter, projectsRouter);
 app.use('/api/vendors', apiLimiter, vendorsRouter);
 app.use('/api/ca', apiLimiter, contentAnalysisRouter);
 app.use('/api/caX', apiLimiter, contentAnalysisXRouter);
+app.use('/api/transcripts', apiLimiter, transcriptsRouter);
 app.use('/api/feedback', apiLimiter, feedbackRouter);
 app.use('/api/ae-training', apiLimiter, aeTrainingRouter);
 

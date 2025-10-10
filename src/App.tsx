@@ -53,6 +53,7 @@ import {
 } from "@heroicons/react/24/solid";
 import { IconCalendarShare, IconCalendarWeek, IconBallAmericanFootball, IconRocket, IconFileAnalyticsFilled, IconLayoutSidebarFilled } from "@tabler/icons-react";
 import ContentAnalysisX from "./components/ContentAnalysisX";
+import Transcripts from "./components/Transcripts";
 import AuthWrapper from "./components/AuthWrapper";
 import TopBar from "./components/TopBar";
 import Feedback from "./components/Feedback";
@@ -1801,6 +1802,7 @@ function AdminCenter() {
   // Feature Requests and Bug Reports state
   const [featureRequests, setFeatureRequests] = useState<any[]>([]);
   const [bugReports, setBugReports] = useState<any[]>([]);
+  const [selectedItem, setSelectedItem] = useState<any | null>(null);
   const loadAdminFeedback = useCallback(async () => {
     try {
       const headers: any = { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` };
@@ -2141,7 +2143,7 @@ function AdminCenter() {
           >
             <div className="flex items-center gap-2">
               <LightBulbIcon className="w-5 h-5" />
-              Feature Requests #{featureRequests.filter((r:any) => r.status === 'pending review').length}
+              Feature Requests ({featureRequests.filter((r:any) => r.status === 'pending review').length})
             </div>
           </button>
           <button
@@ -2155,7 +2157,7 @@ function AdminCenter() {
           >
             <div className="flex items-center gap-2">
               <ExclamationTriangleIcon className="w-5 h-5" />
-              Bug Reports #{bugReports.filter((r:any) => r.status === 'pending review').length}
+              Bug Reports ({bugReports.filter((r:any) => r.status === 'pending review').length})
             </div>
           </button>
         </nav>
@@ -2376,13 +2378,18 @@ function AdminCenter() {
                 <div className="text-sm font-semibold text-gray-800 mb-2 capitalize">{status}</div>
                 <div className="space-y-2">
                   {featureRequests.filter((r:any) => r.status === status).map((item:any) => (
-                    <div key={item.id} className="border rounded p-2">
-                      <div className="text-xs text-gray-500 mb-1">{new Date(item.createdAt).toLocaleString()}</div>
-                      <div className="text-sm text-gray-900">{item.subject}</div>
-                      <div className="text-xs text-gray-600 truncate">{item.body}</div>
-                      {(() => { const submitter = (users || []).find((u:any) => u.id === item.createdBy); return (
-                        <div className="text-xs text-gray-500 mt-1">Submitted by: {submitter?.name || item.createdBy}</div>
-                      ); })()}
+                    <div key={item.id} className="border rounded p-2 hover:bg-gray-50 transition-colors">
+                      <div
+                        className="cursor-pointer"
+                        onClick={() => setSelectedItem(item)}
+                      >
+                        <div className="text-xs text-gray-500 mb-1">{new Date(item.createdAt).toLocaleString()}</div>
+                        <div className="text-sm text-gray-900 font-medium hover:text-blue-600">{item.subject}</div>
+                        <div className="text-xs text-gray-600 truncate">{item.body}</div>
+                        {(() => { const submitter = (users || []).find((u:any) => u.id === item.createdBy); return (
+                          <div className="text-xs text-gray-500 mt-1">Submitted by: {submitter?.name || item.createdBy}</div>
+                        ); })()}
+                      </div>
                       <div className="flex items-center justify-between mt-2">
                         <select
                           className="text-xs border rounded px-0.5 sm:px-1 md:px-2 py-1"
@@ -2439,13 +2446,18 @@ function AdminCenter() {
                 <div className="text-sm font-semibold text-gray-800 mb-2 capitalize">{status}</div>
                 <div className="space-y-2">
                   {bugReports.filter((r:any) => r.status === status).map((item:any) => (
-                    <div key={item.id} className="border rounded p-2">
-                      <div className="text-xs text-gray-500 mb-1">{new Date(item.createdAt).toLocaleString()}</div>
-                      <div className="text-sm text-gray-900">{item.subject}</div>
-                      <div className="text-xs text-gray-600 truncate">{item.body}</div>
-                      {(() => { const submitter = (users || []).find((u:any) => u.id === item.createdBy); return (
-                        <div className="text-xs text-gray-500 mt-1">Submitted by: {submitter?.name || item.createdBy}</div>
-                      ); })()}
+                    <div key={item.id} className="border rounded p-2 hover:bg-gray-50 transition-colors">
+                      <div
+                        className="cursor-pointer"
+                        onClick={() => setSelectedItem(item)}
+                      >
+                        <div className="text-xs text-gray-500 mb-1">{new Date(item.createdAt).toLocaleString()}</div>
+                        <div className="text-sm text-gray-900 font-medium hover:text-blue-600">{item.subject}</div>
+                        <div className="text-xs text-gray-600 truncate">{item.body}</div>
+                        {(() => { const submitter = (users || []).find((u:any) => u.id === item.createdBy); return (
+                          <div className="text-xs text-gray-500 mt-1">Submitted by: {submitter?.name || item.createdBy}</div>
+                        ); })()}
+                      </div>
                       <div className="flex items-center justify-between mt-2">
                         <select
                           className="text-xs border rounded px-0.5 sm:px-1 md:px-2 py-1"
@@ -2489,6 +2501,71 @@ function AdminCenter() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Full Details Modal */}
+      {selectedItem && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center overflow-y-auto py-8 z-[9999]" onClick={() => setSelectedItem(null)}>
+          <div className="bg-white rounded-lg p-6 w-full max-w-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Full Details</h3>
+              <button
+                onClick={() => setSelectedItem(null)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
+                <div className="text-base text-gray-900 font-medium">{selectedItem.subject}</div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Details</label>
+                <div className="text-sm text-gray-800 whitespace-pre-wrap bg-gray-50 p-4 rounded border border-gray-200">{selectedItem.body}</div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Submitted by</label>
+                  <div className="text-sm text-gray-900">
+                    {(() => {
+                      const submitter = (users || []).find((u:any) => u.id === selectedItem.createdBy);
+                      return submitter?.name || selectedItem.createdBy;
+                    })()}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                  <div className="text-sm text-gray-900">{new Date(selectedItem.createdAt).toLocaleString()}</div>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                  <div className="text-sm text-gray-900 capitalize">{selectedItem.status}</div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+                  <div className="text-sm text-gray-900 capitalize">{selectedItem.priority}</div>
+                </div>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setSelectedItem(null)}
+                className="px-4 py-2 text-white rounded-lg transition-colors"
+                style={{ backgroundColor: '#D14A2D' }}
+                onMouseEnter={(e) => (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#B74227'}
+                onMouseLeave={(e) => (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#D14A2D'}
+              >
+                Close
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -2738,6 +2815,48 @@ export default function App() {
   const [isNavigatingToProject, setIsNavigatingToProject] = useState(false);
   const [projectToNavigate, setProjectToNavigate] = useState<Project | null>(null);
   const [savedContentAnalyses, setSavedContentAnalyses] = useState<any[]>([]);
+
+  // Admin notification state
+  const [adminNotificationCount, setAdminNotificationCount] = useState(0);
+  const [allUsers, setAllUsers] = useState<any[]>([]);
+
+  // Load admin notification count
+  useEffect(() => {
+    const loadAdminNotifications = async () => {
+      if (user?.role !== 'admin') return;
+
+      try {
+        const headers: any = { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` };
+
+        // Load feedback (bug reports & feature requests)
+        const feedbackResp = await fetch(`${API_BASE_URL}/api/feedback`, { headers });
+        let pendingFeedbackCount = 0;
+        if (feedbackResp.ok) {
+          const feedbackData = await feedbackResp.json();
+          const pendingBugs = (feedbackData.bugReports || []).filter((r: any) => r.status === 'pending review').length;
+          const pendingFeatures = (feedbackData.featureRequests || []).filter((r: any) => r.status === 'pending review').length;
+          pendingFeedbackCount = pendingBugs + pendingFeatures;
+        }
+
+        // Load users with company = "None"
+        const usersResp = await fetch(`${API_BASE_URL}/api/auth/users`, { headers });
+        let unassignedUsersCount = 0;
+        if (usersResp.ok) {
+          const usersData = await usersResp.json();
+          unassignedUsersCount = (usersData.users || []).filter((u: any) => u.company === 'None').length;
+        }
+
+        setAdminNotificationCount(pendingFeedbackCount + unassignedUsersCount);
+      } catch (error) {
+        console.error('Error loading admin notifications:', error);
+      }
+    };
+
+    loadAdminNotifications();
+    // Reload every 30 seconds
+    const interval = setInterval(loadAdminNotifications, 30000);
+    return () => clearInterval(interval);
+  }, [user?.role]);
 
   // Function to format dates consistently across the app
   const formatDateForKeyDeadline = (dateString: string | undefined): string => {
@@ -3243,6 +3362,7 @@ export default function App() {
 
   const toolsNav = useMemo(
     () => [
+      { name: "Transcripts", icon: DocumentTextIcon },
       { name: "Content Analysis", icon: DocumentChartBarIcon },
       { name: "QNR", icon: ClipboardDocumentListIcon },
       { name: "Data QA", icon: CheckBadgeIcon },
@@ -3357,12 +3477,26 @@ export default function App() {
               <button
                 key={item.name}
                 onClick={() => setRoute(item.name)}
-                className={`w-full flex items-center gap-3 rounded-xl px-3 py-2 hover:bg-gray-100 transition ${
+                className={`w-full flex items-center gap-3 rounded-xl px-3 py-2 hover:bg-gray-100 transition relative ${
                   route === item.name ? "bg-gray-100" : ""
                 } ${!sidebarOpen ? 'justify-center' : ''}`}
               >
                 <item.icon className="h-5 w-5" />
                 {sidebarOpen && <span className="text-sm font-medium">{item.name}</span>}
+                {adminNotificationCount > 0 && (
+                  <div
+                    className="flex items-center justify-center text-white text-xs font-bold rounded-full min-w-[20px] h-5 px-1.5"
+                    style={{
+                      backgroundColor: '#D14A2D',
+                      position: sidebarOpen ? 'relative' : 'absolute',
+                      top: sidebarOpen ? 'auto' : '4px',
+                      right: sidebarOpen ? 'auto' : '4px',
+                      marginLeft: sidebarOpen ? 'auto' : '0'
+                    }}
+                  >
+                    {adminNotificationCount}
+                  </div>
+                )}
               </button>
             ))}
           </div>
@@ -3413,6 +3547,8 @@ export default function App() {
 
       {route === "Content Analysis" ? (
         <ContentAnalysisX projects={projects} onNavigate={setRoute} onNavigateToProject={handleProjectView} />
+      ) : route === "Transcripts" ? (
+        <Transcripts />
       ) : (
         <main className="flex-1 overflow-visible min-w-0" style={{ background: BRAND.bg }}>
           {/* Mobile menu button - only visible on very small screens */}
@@ -3860,16 +3996,33 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
   }, [filteredProjects]);
 
   // Compute overdue, today's, and later-this-week tasks (after sourceProjects exists)
-  const { overdueTasksAll, todayMyTasks, todayAdditionalTasks, laterWeekMyTasks, laterWeekAdditionalTasks } = useMemo(() => {
+  const { overdueTasksAll, todayMyTasks, todayAdditionalTasks, laterWeekMyTasks, laterWeekAdditionalTasks, isNextWeek } = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const todayYMD = toYMD(today);
-    const friday = new Date(today);
-    // End of this work week (Friday)
-    const dow = today.getDay();
-    const offsetToFriday = (dow === 0 ? 5 : 5 - dow); // Mon=1..Fri=5, Sun=0 -> 5
-    friday.setDate(today.getDate() + offsetToFriday);
-    friday.setHours(23, 59, 59, 999);
+    const dow = today.getDay(); // 0=Sunday, 1=Monday, ..., 5=Friday, 6=Saturday
+
+    // Determine if we should show "Next Week" (Friday or later)
+    const showNextWeek = dow >= 5; // Friday (5), Saturday (6), or Sunday (0 handled by >= 5)
+
+    let endDate: Date;
+    if (showNextWeek) {
+      // Show next week Monday-Friday
+      const nextMonday = new Date(today);
+      const daysUntilNextMonday = dow === 0 ? 1 : (8 - dow); // Days until next Monday
+      nextMonday.setDate(today.getDate() + daysUntilNextMonday);
+      nextMonday.setHours(0, 0, 0, 0);
+
+      endDate = new Date(nextMonday);
+      endDate.setDate(nextMonday.getDate() + 4); // Friday of next week
+      endDate.setHours(23, 59, 59, 999);
+    } else {
+      // Show "Later This Week" (after today up to Friday)
+      endDate = new Date(today);
+      const offsetToFriday = (dow === 0 ? 5 : 5 - dow); // Mon=1..Fri=5, Sun=0 -> 5
+      endDate.setDate(today.getDate() + offsetToFriday);
+      endDate.setHours(23, 59, 59, 999);
+    }
 
     const overdue: any[] = [];
     const tMy: any[] = [];
@@ -3927,9 +4080,22 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
           continue;
         }
 
-        // Later this week (after today up to Friday)
-        if (due > today && due <= friday) {
-          (mine ? lwMy : lwAdd).push({ ...task, projectName: project.name, mine });
+        // Later this week OR Next week
+        if (showNextWeek) {
+          // Next week: show Monday-Friday of next week
+          const nextMonday = new Date(today);
+          const daysUntilNextMonday = dow === 0 ? 1 : (8 - dow);
+          nextMonday.setDate(today.getDate() + daysUntilNextMonday);
+          nextMonday.setHours(0, 0, 0, 0);
+
+          if (due >= nextMonday && due <= endDate) {
+            (mine ? lwMy : lwAdd).push({ ...task, projectName: project.name, mine });
+          }
+        } else {
+          // Later this week (after today up to Friday)
+          if (due > today && due <= endDate) {
+            (mine ? lwMy : lwAdd).push({ ...task, projectName: project.name, mine });
+          }
         }
       }
     }
@@ -3960,7 +4126,8 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
       todayMyTasks: tMy,
       todayAdditionalTasks: tAdd,
       laterWeekMyTasks: lwMy,
-      laterWeekAdditionalTasks: lwAdd
+      laterWeekAdditionalTasks: lwAdd,
+      isNextWeek: showNextWeek
     };
   }, [sourceProjects, isAssignedToMe]);
 
@@ -4305,17 +4472,12 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
 
                   return (
                     <>
-                      {tasksToShow.map((t) => (
-                        <div key={`od-${t.id}`} className="text-xs text-red-900 flex items-start gap-2">
+                      {tasksToShow.map((t, index) => (
+                        <div key={`od-${t.id}-${t.projectName}-${index}`} className="text-xs text-red-900 flex items-start gap-2">
                           <span className="mt-1 w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0"></span>
                           <span className="flex-1 flex justify-between items-start">
                             <div className="flex items-center gap-1">
                               <span className="font-medium">{t.description || t.content || 'Untitled task'}</span>
-                              {isAssignedToMe(t) && (
-                                <span className="px-1 py-0.5 rounded-full text-[8px] font-bold bg-red-500 text-white">
-                                  assigned to you
-                                </span>
-                              )}
                             </div>
                             <span className="text-[10px] text-red-700">{t.projectName}</span>
                           </span>
@@ -4407,7 +4569,7 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
               </div>
         </div>
 
-            {/* Later This Week */}
+            {/* Later This Week / Next Week */}
             <div className="bg-white border border-gray-200 rounded-lg overflow-hidden flex flex-col" style={{ height: '280px' }}>
           <div className="px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -4415,8 +4577,28 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
                 <IconCalendarShare className="w-8 h-8 text-blue-500" stroke={1.5} />
               </div>
               <div>
-                <h3 className="text-base font-semibold text-gray-900">Later This Week</h3>
-                <p className="text-[10px] text-gray-500 italic">Through {new Date(new Date().setDate(new Date().getDate() + (new Date().getDay() === 0 ? 5 : 5 - new Date().getDay()))).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                <h3 className="text-base font-semibold text-gray-900">{isNextWeek ? 'Next Week' : 'Later This Week'}</h3>
+                <p className="text-[10px] text-gray-500 italic">
+                  {(() => {
+                    const today = new Date();
+                    const dow = today.getDay();
+                    if (isNextWeek) {
+                      // Next week: Monday-Friday
+                      const nextMonday = new Date(today);
+                      const daysUntilNextMonday = dow === 0 ? 1 : (8 - dow);
+                      nextMonday.setDate(today.getDate() + daysUntilNextMonday);
+                      const nextFriday = new Date(nextMonday);
+                      nextFriday.setDate(nextMonday.getDate() + 4);
+                      return `${nextMonday.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${nextFriday.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+                    } else {
+                      // Later this week: through Friday
+                      const friday = new Date(today);
+                      const offsetToFriday = (dow === 0 ? 5 : 5 - dow);
+                      friday.setDate(today.getDate() + offsetToFriday);
+                      return `Through ${friday.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+                    }
+                  })()}
+                </p>
               </div>
             </div>
           </div>
@@ -4437,7 +4619,7 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
               });
 
               if (sortedLaterWeekTasks.length === 0) {
-                return <div className="text-[10px] italic text-gray-500">No tasks later this week</div>;
+                return <div className="text-[10px] italic text-gray-500">{isNextWeek ? 'No tasks for next week' : 'No tasks later this week'}</div>;
               }
 
               // Calculate max tasks based on fixed container height (280px)
@@ -7463,7 +7645,7 @@ function ProjectForm({
   });
 
   const [newDeadline, setNewDeadline] = useState({ label: "", date: "" });
-  const [newTask, setNewTask] = useState<{ description: string; assignedTo: string[]; status: Task['status'] }>({ description: "", assignedTo: [], status: "pending" });
+  const [newTask, setNewTask] = useState<{ description: string; assignedTo: string[]; status: Task['status']; dueDate: string }>({ description: "", assignedTo: [], status: "pending", dueDate: "" });
   const [newTeamMember, setNewTeamMember] = useState({ name: "", email: "" });
   const [showNewDeadline, setShowNewDeadline] = useState(false);
   const [showNewTask, setShowNewTask] = useState(false);
@@ -7531,7 +7713,8 @@ function ProjectForm({
         id: `task-${Date.now()}`,
         description: newTask.description,
         assignedTo: newTask.assignedTo.length > 0 ? newTask.assignedTo : undefined,
-        status: newTask.status
+        status: newTask.status,
+        dueDate: newTask.dueDate && newTask.dueDate.trim() ? newTask.dueDate : null
       };
       setFormData(prev => ({
         ...prev,
@@ -7886,6 +8069,17 @@ function ProjectForm({
                     </select>
                     <button
                       type="button"
+                      onClick={() => {
+                        setSelectedTaskForDate('newTask');
+                        setShowDatePickerForTask(true);
+                      }}
+                      className={`p-2 rounded-lg ${newTask.dueDate ? 'text-orange-600 ' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}`}
+                      title={newTask.dueDate ? `Due: ${new Date(newTask.dueDate).toLocaleDateString()}` : 'Set due date'}
+                    >
+                      <CalendarIcon className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
                       onClick={addTask}
                       className="px-3 py-2 rounded-xl text-white"
                       style={{ background: BRAND.orange }}
@@ -8009,15 +8203,19 @@ function ProjectForm({
       {/* Calendar Picker Modal for Tasks */}
       {showDatePickerForTask && selectedTaskForDate && (
         <CalendarPicker
-          selectedDate={formData.tasks.find(t => t.id === selectedTaskForDate)?.dueDate || ''}
+          selectedDate={selectedTaskForDate === 'newTask' ? newTask.dueDate : (formData.tasks.find(t => t.id === selectedTaskForDate)?.dueDate || '')}
           onDateSelect={(date) => {
-                const newTasks = formData.tasks.map(t =>
-              t.id === selectedTaskForDate ? { ...t, dueDate: date } : t
-                );
-                setFormData(prev => ({ ...prev, tasks: newTasks }));
-                  setShowDatePickerForTask(false);
-                  setSelectedTaskForDate(null);
-                }}
+            if (selectedTaskForDate === 'newTask') {
+              setNewTask(prev => ({ ...prev, dueDate: date }));
+            } else {
+              const newTasks = formData.tasks.map(t =>
+                t.id === selectedTaskForDate ? { ...t, dueDate: date } : t
+              );
+              setFormData(prev => ({ ...prev, tasks: newTasks }));
+            }
+            setShowDatePickerForTask(false);
+            setSelectedTaskForDate(null);
+          }}
           onClose={() => {
                   setShowDatePickerForTask(false);
                   setSelectedTaskForDate(null);
@@ -10577,40 +10775,48 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                 {/* Add Task Form at top */}
                 {showAddTask && (
                   <div className="mb-3 p-3 border rounded-lg bg-gray-50">
-                    <div className="space-y-2">
+                    <div className="flex gap-2 items-center">
                       <input
                         type="text"
                         value={newTask.description}
                         onChange={(e) => setNewTask(prev => ({ ...prev, description: e.target.value }))}
                         placeholder="Task description"
-                        className="w-full text-xs border rounded px-0.5 sm:px-1 md:px-2 py-1 outline-none focus:ring-2 focus:ring-orange-200"
+                        className="flex-1 text-xs border rounded px-0.5 sm:px-1 md:px-2 py-1 outline-none focus:ring-2 focus:ring-orange-200"
                       />
-                      <div className="flex gap-2 flex-wrap items-center">
-                        <input
-                          type="date"
-                          value={(newTask as any).dueDate || ''}
-                          onChange={(e) => setNewTask(prev => ({ ...prev, dueDate: e.target.value as any }))}
-                          className="text-xs border rounded px-0.5 sm:px-1 md:px-2 py-1 outline-none focus:ring-2 focus:ring-orange-200"
-                          title="Due date"
-                        />
-                        <select
-                          multiple
-                          value={newTask.assignedTo}
-                          onChange={(e) => {
-                            const selected = Array.from(e.target.selectedOptions, option => option.value);
-                            setNewTask(prev => ({ ...prev, assignedTo: selected }));
-                          }}
-                          className="text-xs border rounded px-0.5 sm:px-1 md:px-2 py-1 outline-none focus:ring-2 focus:ring-orange-200"
-                          size={Math.min(project.teamMembers.length + 1, 4)}
+                      <input
+                        type="date"
+                        value={(newTask as any).dueDate || ''}
+                        onChange={(e) => setNewTask(prev => ({ ...prev, dueDate: e.target.value as any }))}
+                        className="text-xs border rounded px-0.5 sm:px-1 md:px-2 py-1 outline-none focus:ring-2 focus:ring-orange-200"
+                        title="Due date"
+                      />
+                      <select
+                        value={newTask.assignedTo.length > 0 ? newTask.assignedTo[0] : ''}
+                        onChange={(e) => {
+                          const selectedValue = e.target.value;
+                          if (selectedValue) {
+                            setNewTask(prev => ({ ...prev, assignedTo: [selectedValue] }));
+                          } else {
+                            setNewTask(prev => ({ ...prev, assignedTo: [] }));
+                          }
+                        }}
+                        className="text-xs border rounded px-0.5 sm:px-1 md:px-2 py-1 outline-none focus:ring-2 focus:ring-orange-200"
+                      >
+                        <option value="">Select assignee...</option>
+                        {project.teamMembers.map(member => (
+                          <option key={member.id} value={member.id}>{member.name}</option>
+                        ))}
+                      </select>
+                      {newTask.description.trim() && (
+                        <button 
+                          onClick={handleAddTask} 
+                          className="px-2 py-1 text-xs text-white rounded hover:opacity-90 transition-colors"
+                          style={{ backgroundColor: BRAND.orange }}
                         >
-                          <option value="" disabled>Select assignees...</option>
-                          {project.teamMembers.map(member => (
-                            <option key={member.id} value={member.id}>{member.name}</option>
-                          ))}
-                        </select>
-                        <button onClick={handleAddTask} className="px-0.5 sm:px-1 md:px-2 py-1 text-xs 0 text-white rounded hover:bg-orange-600">Add</button>
-                        <button onClick={() => setShowAddTask(false)} className="px-0.5 sm:px-1 md:px-2 py-1 text-xs border rounded hover:bg-gray-100">Cancel</button>
-                      </div>
+                          Add
+                        </button>
+                      )}
+                      <button onClick={() => setShowAddTask(false)} className="px-2 py-1 text-xs border rounded hover:bg-gray-100">Cancel</button>
                     </div>
                   </div>
                 )}
@@ -13304,15 +13510,15 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
                       Add task to {activePhase === 'Post-Field Analysis' ? 'Analysis' : activePhase}
                     </button>
                   ) : (
-                    <div className="space-y-2 p-2 border rounded-lg bg-gray-50">
-                      <input
-                        type="text"
-                        value={newTask.description}
-                        onChange={(e) => setNewTask(prev => ({ ...prev, description: e.target.value }))}
-                        placeholder="Task description"
-                        className="w-full text-xs border rounded px-0.5 sm:px-1 md:px-2 py-1 outline-none focus:ring-2 focus:ring-orange-200"
-                      />
-                      <div className="flex gap-2 flex-wrap items-center">
+                    <div className="p-2 border rounded-lg bg-gray-50">
+                      <div className="flex gap-2 items-center">
+                        <input
+                          type="text"
+                          value={newTask.description}
+                          onChange={(e) => setNewTask(prev => ({ ...prev, description: e.target.value }))}
+                          placeholder="Task description"
+                          className="flex-1 text-xs border rounded px-0.5 sm:px-1 md:px-2 py-1 outline-none focus:ring-2 focus:ring-orange-200"
+                        />
                         <input
                           type="date"
                           value={(newTask as any).dueDate || ''}
@@ -13321,29 +13527,34 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
                           title="Due date"
                         />
                         <select
-                          multiple
-                          value={newTask.assignedTo}
+                          value={newTask.assignedTo.length > 0 ? newTask.assignedTo[0] : ''}
                           onChange={(e) => {
-                            const selected = Array.from(e.target.selectedOptions, option => option.value);
-                            setNewTask(prev => ({ ...prev, assignedTo: selected }));
+                            const selectedValue = e.target.value;
+                            if (selectedValue) {
+                              setNewTask(prev => ({ ...prev, assignedTo: [selectedValue] }));
+                            } else {
+                              setNewTask(prev => ({ ...prev, assignedTo: [] }));
+                            }
                           }}
                           className="text-xs border rounded px-0.5 sm:px-1 md:px-2 py-1 outline-none focus:ring-2 focus:ring-orange-200"
-                          size={Math.min(project.teamMembers.length + 1, 4)}
                         >
-                          <option value="" disabled>Select assignees...</option>
+                          <option value="">Select assignee...</option>
                           {project.teamMembers.map(member => (
                             <option key={member.id} value={member.id}>{member.name}</option>
                           ))}
                         </select>
-                        <button
-                          onClick={handleAddTask}
-                          className="px-0.5 sm:px-1 md:px-2 py-1 text-xs 0 text-white rounded hover:bg-orange-600"
-                        >
-                          Add
-                        </button>
+                        {newTask.description.trim() && (
+                          <button
+                            onClick={handleAddTask}
+                            className="px-2 py-1 text-xs text-white rounded hover:opacity-90 transition-colors"
+                            style={{ backgroundColor: BRAND.orange }}
+                          >
+                            Add
+                          </button>
+                        )}
                         <button
                           onClick={() => setShowAddTask(false)}
-                          className="px-0.5 sm:px-1 md:px-2 py-1 text-xs border rounded hover:bg-gray-100"
+                          className="px-2 py-1 text-xs border rounded hover:bg-gray-100"
                         >
                           Cancel
                         </button>

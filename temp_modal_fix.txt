@@ -1,0 +1,10 @@
+The ternary should be:
+{generatingAnalysis ? (
+  <div className="flex items-center justify-center p-8">
+    ...loading content...
+  </div>
+) : (
+  <div className="p-4 space-y-4">
+    ...form content...
+  </div>
+)}

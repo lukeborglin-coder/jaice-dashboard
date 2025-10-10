@@ -20,18 +20,18 @@ Press Ctrl+C to stop both servers
 > jaice-dashboard@0.0.1 start
 > concurrently "npm run dev" "cd server && npm start"
 
-(node:29380) [DEP0060] DeprecationWarning: The `util._extend` API is deprecated. Please use Object.assign() instead.
+(node:37476) [DEP0060] DeprecationWarning: The `util._extend` API is deprecated. Please use Object.assign() instead.
 (Use `node --trace-deprecation ...` to show where the warning was created)
-[0]
-[0] > jaice-dashboard@0.0.1 dev
-[0] > vite
-[0]
 [1]
 [1] > jaice-dashboard-server@1.0.0 start
 [1] > node server.mjs
 [1]
 [0]
-[0]   VITE v5.4.20  ready in 519 ms
+[0] > jaice-dashboard@0.0.1 dev
+[0] > vite
+[0]
+[0]
+[0]   VITE v5.4.20  ready in 814 ms
 [0]
 [0]   ➜  Local:   http://localhost:5173/
 [0]   ➜  Network: use --host to expose
@@ -40,43 +40,16 @@ Press Ctrl+C to stop both servers
 [1] ✅ OpenAI API key configured - AI generation enabled
 [1] 🔗 Frontend should connect to: http://localhost:3005
 [0] [BABEL] Note: The code generator has deoptimised the styling of C:\Users\LukeBorglin\Desktop\Apps\JaiceDashboard_master\src\App.tsx as it exceeds the max of 500KB.
-[1] Transcript upload request received
-[1] Request body: [Object: null prototype] {
-[1]   projectId: 'P-1759172819869',
-[1]   analysisId: '1759859806925',
-[1]   activeSheet: 'Demographics',
-[1]   currentData: '{"Demographics":[{"Respondent ID":"","Interview Date":"","Interview Time":""}],"BACKGROUND":[{"Respondent ID":"","Living Situation":"","Free Time Activities":"","Journey with SMA":"","Current Health Description":"","HCPs for SMA Care":"","Reasons for Not Seeing HCPs":"","Current SMA Management":"","Number of HCPs":"","HCP Involvement in Treatment Decisions":"","Primary SMA Doctor":"","Others Involved in Health Decisions":"","Support System Involvement":"","Treatment Decision Autonomy":"","Health Goals":""}],"CURRENT PERCEPTIONS & ATTITUDES":[{"Respondent ID":"","TreatmentsAwareness":"","Treatments Experience":"","Discontinued Treatment Experience":"","Discontinued Treatment Reasons":"","Discontinued Treatment Impact":"","Discontinued Treatment Restart Consideration":"","Treatment Impressions":"","Treatment Benefits":"","Treatment Drawbacks":"","Treatment Information Source":"","Treatment Consideration Factors":"","Treatmentsin Development Awareness":"","Treatments in Development Impressions":"","Treatments in Development Benefits":"","Treatments in Development Drawbacks":"","Treatments in Development Candidacy":"","Treatments in Development Consideration":"","Anti-Myostatins Awareness":"","Anti-Myostatins Brands":""}],"BARRIERS TO TREATMENT & UNMET NEEDS":[{"Respondent ID":"","Reasons for Not on Treatment":"","Factors Driving Treatment Consideration":"","Muscle Loss Impact":"","Symptom TrackingFrequency":"","Symptom Tracking Methods":"","Symptom Tracking Discussion with HCP":"","Emotional Factors":"","Practical/Logistical Factors":"","Clinical Factors":"","Treatment Benefit Requirement":"","Financial/Access Barriers":"","Access Challenges":"","Unmet Needs":""}],"MOTIVATIONS & FUTURE CONSIDERATION":[{"Respondent ID":"","Likelihood to Consider Treatment":"","Factors Influencing Consideration":"","Improvement Expectations":"","Influential Decision-Makers":"","Confidence Factors":""}],"COMMUNITY ENGAGEMENT & INFO SOURCES":[{"Respondent ID":"","Community Connection":"","Community Participation":"","Community Trust":"","Information Sources":"","Trustworthy Sources":"","New Treatment Awareness":"","Preferred Information Format":"","Information Accessibility":""}],"Misc.":[{"Respondent ID":"","Final Comments":"","Additional Notes":""}]}',
-[1]   discussionGuide: '',
-[1]   cleanTranscript: 'false',
-[1]   checkForAEs: 'false'
-[1] }
-[1] Request file: {
-[1]   fieldname: 'transcript',
-[1]   originalname: '2025 SMA Adult Activation Qual Transcript_Oct 1 2025_300pm.docx',
-[1]   encoding: '7bit',
-[1]   mimetype: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-[1]   destination: './uploads',
-[1]   filename: 'transcript_1759961366983.docx',
-[1]   path: 'uploads\\transcript_1759961366983.docx',
-[1]   size: 33686
-[1] }
-[1] Processing transcript for project: P-1759172819869, sheet: Demographics
-[1] File details: {
-[1]   originalname: '2025 SMA Adult Activation Qual Transcript_Oct 1 2025_300pm.docx',
-[1]   mimetype: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-[1]   size: 33686,
-[1]   path: 'uploads\\transcript_1759961366983.docx'
-[1] }
-[1] Processing DOCX file with mammoth...
-[1] Successfully extracted 34323 characters from DOCX file
-[1] DOCX content preview: 2025 SMA Adult Activation Qual Transcript
-[1]
-[1] Oct 1, 2025 | 3:00 PM
-[1]
-[1] Respondent: Yes. I am.
-[1]
-[1] Moderator: I'm seeing you're a Buckeyes fan. Do you live in Columbus, or is it like you used to you went to sc...
-[1] Using current data structure: [
+[1] Deleting content analysis: 1760016967963
+[1] No txt discussion guide found for project: P-1759172986363
+[1] No html discussion guide found for project: P-1759172986363
+[1] Discussion guide (docx) deleted for project: P-1759172986363
+[1] Removed discussion guide flag, content analysis, and associated files from project P-1759172986363
+[1] Processing DG for preview: uploads\dg_1760020326126.docx
+[1] Successfully extracted text using mammoth
+[1] Generated content analysis structure:
+[1] Number of sheets: 7
+[1] Sheet names: [
 [1]   'Demographics',
 [1]   'BACKGROUND',
 [1]   'CURRENT PERCEPTIONS & ATTITUDES',
@@ -85,82 +58,8 @@ Press Ctrl+C to stop both servers
 [1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
 [1]   'Misc.'
 [1] ]
-[1] Transcript text length: 34323
-[1] Transcript preview: 2025 SMA Adult Activation Qual Transcript
-[1]
-[1] Oct 1, 2025 | 3:00 PM
-[1]
-[1] Respondent: Yes. I am.
-[1]
-[1] Moderator: I'm seeing you're a Buckeyes fan. Do you live in Columbus, or is it like you used to you went to sc...
-[1] === EXTRACTING DATE/TIME ===
-[1] First 500 chars of transcript: 2025 SMA Adult Activation Qual Transcript
-[1]
-[1] Oct 1, 2025 | 3:00 PM
-[1]
-[1] Respondent: Yes. I am.
-[1]
-[1] Moderator: I'm seeing you're a Buckeyes fan. Do you live in Columbus, or is it like you used to you went to school there or have a kid who went to school there?
-[1]
-[1] Respondent: Well, so we used to live in Ohio. We moved to Georgia about sixteen years ago. I went to Ohio University, not the Ohio State.
-[1]
-[1] Moderator: A liberal arts school?
-[1]
-[1] Respondent: Yeah. Yep.
-[1]
-[1] Moderator: Interesting.
-[1]
-[1] Respondent: So they didn'
-[1] Extracted date/time from transcript: { date: 'Oct 1, 2025', time: '3:00 PM' }
-[1] === SKIPPING TRANSCRIPT CLEANING (cleanTranscript=false) ===
-[1] === TRANSCRIPT CLEANING COMPLETED ===
-[1] Cleaned transcript preview: 2025 SMA Adult Activation Qual Transcript
-[1]
-[1] Oct 1, 2025 | 3:00 PM
-[1]
-[1] Respondent: Yes. I am.
-[1]
-[1] Moderator: I'm seeing you're a Buckeyes fan. Do you live in Columbus, or is it like you used to you went to school there or have a kid who went to school there?
-[1]
-[1] Respondent: Well, so we used to live in Ohio. We
-[1] ⏱️  Elapsed time: 0 seconds
-[1] === STARTING MAIN TRANSCRIPT PROCESSING ===
-[1] ⏱️  This step may take 15-25 minutes for large transcripts...
-[1] Processing transcript with AI for ALL sheets...
-[1] Available sheets: [
-[1]   'Demographics',
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1] Discussion guide available: false
-[1] Transcript preview (first 500 chars): 2025 SMA Adult Activation Qual Transcript
-[1]
-[1] Oct 1, 2025 | 3:00 PM
-[1]
-[1] Respondent: Yes. I am.
-[1]
-[1] Moderator: I'm seeing you're a Buckeyes fan. Do you live in Columbus, or is it like you used to you went to school there or have a kid who went to school there?
-[1]
-[1] Respondent: Well, so we used to live in Ohio. We moved to Georgia about sixteen years ago. I went to Ohio University, not the Ohio State.
-[1]
-[1] Moderator: A liberal arts school?
-[1]
-[1] Respondent: Yeah. Yep.
-[1]
-[1] Moderator: Interesting.
-[1]
-[1] Respondent: So they didn'
-[1] Extracted interview date from transcript: Oct 1, 2025
-[1] Existing respondents sorted by date: []
-[1] New respondent position based on date: 0
-[1] New respondent ID: 1
-[1] ID mapping for reassignment: [ [ 'R001', 'R001' ] ]
-[1] Skipping demographics sheet for auto-fill
-[1] Sheet "BACKGROUND" has 15 columns: [
+[1]   "Demographics": 3 columns - [ 'Respondent ID', 'Interview Date', 'Interview Time' ]
+[1]   "BACKGROUND": 17 columns - [
 [1]   'Respondent ID',
 [1]   'Living Situation',
 [1]   'Free Time Activities',
@@ -175,35 +74,37 @@ Press Ctrl+C to stop both servers
 [1]   'Others Involved in Health Decisions',
 [1]   'Support System Involvement',
 [1]   'Treatment Decision Autonomy',
-[1]   'Health Goals'
+[1]   'Health Goals - Short-term',
+[1]   'Health Goals - Long-term',
+[1]   'Personal Aspirations'
 [1] ]
-[1] Sheet "CURRENT PERCEPTIONS & ATTITUDES" has 20 columns: [
+[1]   "CURRENT PERCEPTIONS & ATTITUDES": 21 columns - [
 [1]   'Respondent ID',
 [1]   'Treatments Awareness',
 [1]   'Treatments Experience',
 [1]   'Discontinued Treatment Experience',
 [1]   'Discontinued Treatment Reasons',
-[1]   'Discontinued Treatment Impact',
-[1]   'Discontinued Treatment Restart Consideration',
-[1]   'Treatment Impressions',
-[1]   'Treatment Benefits',
-[1]   'Treatment Drawbacks',
-[1]   'Treatment Information Source',
-[1]   'Treatment Consideration Factors',
+[1]   'Discontinued Treatment Influencers',
+[1]   'Consider Restarting Treatment',
+[1]   'Treatment Never Taken Impressions',
+[1]   'Treatment Never Taken Benefits',
+[1]   'Treatment Never Taken Drawbacks',
+[1]   'Treatment Never Taken Information Source',
+[1]   'Consider Starting Treatment',
+[1]   'Starting Treatment Drivers',
+[1]   'Starting Treatment Hesitations',
 [1]   'Treatments in Development Awareness',
 [1]   'Treatments in Development Impressions',
 [1]   'Treatments in Development Benefits',
 [1]   'Treatments in Development Drawbacks',
-[1]   'Treatments in Development Candidacy',
-[1]   'Treatments in Development Consideration',
-[1]   'Anti-Myostatins Awareness',
-[1]   'Anti-Myostatins Brands'
+[1]   'Consider Starting Future Treatments',
+[1]   'Future Treatment Consideration Drivers',
+[1]   'Future Treatment Consideration Hesitations'
 [1] ]
-[1] Sheet "BARRIERS TO TREATMENT & UNMET NEEDS" has 14 columns: [
+[1]   "BARRIERS TO TREATMENT & UNMET NEEDS": 13 columns - [
 [1]   'Respondent ID',
-[1]   'Reasons for Not on Treatment',
-[1]   'Factors Driving Treatment Consideration',
-[1]   'Muscle Loss Impact',
+[1]   'Reasons for Not Being on Treatment',
+[1]   'Consider Starting Treatment Drivers',
 [1]   'Symptom Tracking Frequency',
 [1]   'Symptom Tracking Methods',
 [1]   'Symptom Tracking Discussion with HCP',
@@ -211,198 +112,340 @@ Press Ctrl+C to stop both servers
 [1]   'Practical/Logistical Factors',
 [1]   'Clinical Factors',
 [1]   'Treatment Benefit Requirement',
-[1]   'Financial/Access Barriers',
 [1]   'Access Challenges',
-[1]   'Unmet Needs'
+[1]   'Unmet Needs',
+[1]   'Most Important Unmet Need'
 [1] ]
-[1] Sheet "MOTIVATIONS & FUTURE CONSIDERATION" has 6 columns: [
+[1]   "MOTIVATIONS & FUTURE CONSIDERATION": 6 columns - [
 [1]   'Respondent ID',
-[1]   'Likelihood to Consider Treatment',
-[1]   'Factors Influencing Consideration',
-[1]   'Improvement Expectations',
-[1]   'Influential Decision-Makers',
-[1]   'Confidence Factors'
+[1]   'Likelihood to Consider Future Treatment',
+[1]   'Factors Influencing Future Treatment Consideration',
+[1]   'Expected Treatment Outcomes',
+[1]   'Influential Decision Makers',
+[1]   'Confidence in Treatment Decision'
 [1] ]
-[1] Sheet "COMMUNITY ENGAGEMENT & INFO SOURCES" has 9 columns: [
+[1]   "COMMUNITY ENGAGEMENT & INFO SOURCES": 9 columns - [
 [1]   'Respondent ID',
-[1]   'Community Connection',
-[1]   'Community Participation',
-[1]   'Community Trust',
-[1]   'Information Sources',
-[1]   'Trustworthy Sources',
-[1]   'New Treatment Awareness',
+[1]   'Connection to SMA Community',
+[1]   'Participation in SMA Groups',
+[1]   'Reasons for Non-involvement in SMA Communities',
+[1]   'Information Sources Trust',
+[1]   'Untrusted Sources',
+[1]   'New Treatment Information Source',
 [1]   'Preferred Information Format',
-[1]   'Information Accessibility'
+[1]   'Improving Information Accessibility'
 [1] ]
-[1] Sheet "Misc." has 3 columns: [ 'Respondent ID', 'Final Comments', 'Additional Notes' ]
-[1] Calling AI with sheets: [
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1] 📋 Sending 6 sheets to AI: [
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1]    "BACKGROUND": 15 columns
-[1]    "CURRENT PERCEPTIONS & ATTITUDES": 20 columns
-[1]    "BARRIERS TO TREATMENT & UNMET NEEDS": 14 columns
-[1]    "MOTIVATIONS & FUTURE CONSIDERATION": 6 columns
-[1]    "COMMUNITY ENGAGEMENT & INFO SOURCES": 9 columns
-[1]    "Misc.": 3 columns
-[1] 🔄 Attempt 1/3: Calling OpenAI API with gpt-4o (higher token limit)...
-[1] 🔍 Raw AI response (first 500 chars): {
-[1]   "rows": {
-[1]     "BACKGROUND": {
-[1]       "Respondent ID": "",
-[1]       "Living Situation": "The respondent is 50 years old, married, and has two children from a previous marriage who are now adults and living independently. They live with their spouse and a small dog.",
-[1]       "Free Time Activities": "Since retiring from work in October 2024, the respondent spends their days walking the dog, using the computer, watching shows, and reading. They no longer engage in the corporate hustle.",
-[1]       "Journ
-[1] 🔍 Raw AI response (last 500 chars): that you're saying that oral was on the horizon. So you weren't going to a doctor. How are you learning about these developments in the SMA treatment?\nRespondent: Through Facebook. That was the only thing that I was getting my information from was these Facebook support groups that I was a part of for spinal muscular atrophy. That was where I was getting my information."
-[1]       ]
-[1]     },
-[1]     "Misc.": {
-[1]       "Respondent ID": [],
-[1]       "Final Comments": [],
-[1]       "Additional Notes": []
-[1]     }
-[1]   }
+[1]   "Misc.": 3 columns - [ 'Respondent ID', 'Final Comments', 'Additional Notes' ]
+[1] Saving content analysis to project: undefined (P-1759172986363)
+[1] Original DOCX moved to permanent location for project: P-1759172986363
+[1] Content analysis Excel saved: uploads\CA_P-1759172986363_1760020377913_test.xlsx
+[1] Discussion guide copied to uploads: uploads\Discussion_Guide_P-1759172986363_1760020377913.docx
+[1] Updated project P-1759172986363 with content analysis and discussion guide
+[1] Transcript upload request received
+[1] Request body: [Object: null prototype] {
+[1]   projectId: 'P-1759172986363',
+[1]   analysisId: '1760020377913',
+[1]   activeSheet: 'Demographics',
+[1]   currentData: '{"Demographics":[{"Respondent ID":"","Interview Date":"","Interview Time":""}],"BACKGROUND":[{"Respondent ID":"","Living Situation":"","Free Time Activities":"","Journey with SMA":"","Current Health Description":"","HCPs for SMA Care":"","Reasons for Not Seeing HCPs":"","Current SMA Management":"","Number of HCPs":"","HCP Involvement in Treatment Decisions":"","Primary SMA Doctor":"","Others Involved in Health Decisions":"","Support System Involvement":"","Treatment Decision Autonomy":"","Health Goals - Short-term":"","Health Goals - Long-term":"","Personal Aspirations":""}],"CURRENT PERCEPTIONS & ATTITUDES":[{"Respondent ID":"","Treatments Awareness":"","Treatments Experience":"","Discontinued Treatment Experience":"","Discontinued Treatment Reasons":"","Discontinued Treatment Influencers":"","Consider Restarting Treatment":"","Treatment Never Taken Impressions":"","Treatment Never Taken Benefits":"","Treatment Never Taken Drawbacks":"","Treatment Never Taken Information Source":"","Consider Starting Treatment":"","Starting Treatment Drivers":"","Starting Treatment Hesitations":"","Treatments in Development Awareness":"","Treatments in Development Impressions":"","Treatments in Development Benefits":"","Treatments in Development Drawbacks":"","Consider Starting Future Treatments":"","Future Treatment Consideration Drivers":"","Future Treatment Consideration Hesitations":""}],"BARRIERS TO TREATMENT & UNMET NEEDS":[{"Respondent ID":"","Reasons for Not Being on Treatment":"","Consider Starting Treatment Drivers":"","Symptom Tracking Frequency":"","Symptom Tracking Methods":"","Symptom Tracking Discussion with HCP":"","Emotional Factors":"","Practical/Logistical Factors":"","Clinical Factors":"","Treatment Benefit Requirement":"","Access Challenges":"","Unmet Needs":"","Most Important Unmet Need":""}],"MOTIVATIONS & FUTURE CONSIDERATION":[{"Respondent ID":"","Likelihoodto Consider Future Treatment":"","Factors Influencing Future Treatment Consideration":"","Expected Treatment Outcomes":"","Influential Decision Makers":"","Confidence in Treatment Decision":""}],"COMMUNITY ENGAGEMENT & INFO SOURCES":[{"Respondent ID":"","Connection to SMA Community":"","Participation in SMA Groups":"","Reasons for Non-involvement in SMA Communities":"","Information Sources Trust":"","Untrusted Sources":"","New Treatment Information Source":"","Preferred Information Format":"","Improving Information Accessibility":""}],"Misc.":[{"Respondent ID":"","Final Comments":"","Additional Notes":""}]}',
+[1]   discussionGuide: '\r\n' +
+[1]     '\r\n' +
+[1]     '\r\n' +
+[1]     '\r\n' +
+[1]     '\r\n' +
+[1]     '\r\n' +
+[1]     'September 2025\r\n' +
+[1]     '\r\n' +
+[1]     'SMA ADULT ACTIVATION QUAL\r\n' +
+[1]     '\r\n' +
+[1]     'DISCUSSION GUIDE\r\n' +
+[1]     '\r\n' +
+[1]     '\r\n' +
+[1]     '\r\n' +
+[1]     'Objectives:\r\n' +
+[1]     '\r\n' +
+[1]     'Understand treatment barriers, unmet needs, and motivations among untreated adult SMA patients to identify opportunities for targeted engagement and activation.\r\n' +
+[1]     '\r\n' +
+[1]     '\r\n' +
+[1]     '\r\n' +
+[1]     'More specifically:\r\n' +
+[1]     '\r\n' +
+[1]     'Explore awareness and perceptions of available SMA treatments, including perceived benefits and drawbacks\r\n'+
+[1]     '\r\n' +
+[1]     'Identify key motivators and barriers to future treatment consideration, including access to care and availability of specialized SMA care\r\n' +
+[1]     '\r\n' +
+[1]     'Assess current levels of community engagement to uncover potential channels for outreach and activation \r\n' +
+[1]     '\r\n' +
+[1]     '\r\n' +
+[1]     '\r\n' +
+[1]     'Quotas:\r\n' +
+[1]     '\r\n' +
+[1]     'n=6 adult untreated patients\r\n' +
+[1]     '\r\n' +
+[1]     'Treatment naive adults (best efforts and priority target)\r\n' +
+[1]     '\r\n' +
+[1]     'Discontinued adults who have not been on treatment in the past 12 months\r\n' +
+[1]     '\r\n' +
+[1]     '\r\n' +
+[1]     '\r\n' +
+[1]     'INTRODUCTION\t\t\t\t\t\t        \t                (2 mins)\r\n' +
+[1]     '\r\n' +
+[1]     "Thank you for agreeing to take part in this interview, which will last approximately 60 minutes. During this discussion, I'd like to obtain your thoughts and feedback on spinal muscular atrophy (SMA).  \r\n" +
+[1]     '\r\n' +
+[1]     '\r\n' +
+[1]     '\r\n' +
+[1]     'Review Logistics with Respondent: \r\n' +
+[1]     '\r\n' +
+[1]     'Independent marketing research firm – no vested interest in responses, therefore, be frank \r\n' +
+[1]     '\r\n' +
+[1]     'Information discussed will be kept strictly confidential \r\n' +
+[1]     '\r\n' +
+[1]     'Members of the research team listening (when appropriate) \r\n' +
+[1]     '\r\n' +
+[1]     'No right or wrong answers – opinions from their own perspectives based on individual experiences \r\n' +
+[1]     '\r\n' +
+[1]     'Recording of interview for analysis purposes \r\n' +
+[1]     '\r\n' +
+[1]     '\r\n' +
+[1]     '\r\n' +
+[1]     'Different people sometimes respond in different ways to the same medicine, and some side effects may not be discovered until many people have used a medicine over a period of time.  For this reason, we are now required to pass on to our client, who is a pharmaceutical company, details of any side effects/product complaints related to their own products that are mentioned during the course of market research.   \r\n' +
+[1]     '\r\n' +
+[1]     ' \r\n' +
+[1]     '\r\n' +
+[1]     'Although what you say will, of course, be treated in confidence, should you mention during the discussion a side effect when you, or someone you know, became ill after taking one of our client’s medicines, or a problem you have had with one of our client’s medicines, we will need to report this so that they can learn more about the safety of their medicines.  Everything else you say during the course of the interview will continue to remain confidential, and you will still have the option to remain anonymous if you wish.  \r\n' +
+[1]     '\r\n' +
+[1]     ' \r\n' +
+[1]     '\r\n' +
+[1]     'Are you happy to proceed with the interview on this basis? (If no, end the interview here) \r\n' +
+[1]     '\r\n' +
+[1]     '\r\n' +
+[1]     '\r\n' +
+[1]     'US ADVERSE EVENT DISCLAIMER\r\n' +
+[1]     '\r\n' +
+[1]     'We are required to pass on to our client details of adverse events and product technical complaints that are mentioned during the course of market research. Although what you say will, of course, be treated in confidence, should you raise during the discussion an adverse event or product technical complaint in an individual or group of individuals,we will need to report this.\r\n' +
+[1]     '\r\n' +
+[1]     '\r\n' +
+[1]     '\r\n' +
+[1]     'In such a situation you will be asked whether or not you are willing to waive the confidentiality given to youunder the Market Research Codes of Conduct specifically in relation to that adverse event or product technical complaint. Everything else you say during the course of our discussion will continue to remain confidential, and you will still have the option to remain anonymous if you so wish.  Are you happy to participate in the interview on this basis?  [YES/NO; IF NO, THANK AND END INTERVIEW]\r\n' +
+[1]     '\r\n' +
+[1]     'BACKGROUND\t\t\t\t\t\t\t              (8 mins)\r\n' +
+[1]     '\r\n' +
+[1]     'SECTION GOAL: Brief warm-up and introduction. Allow for some discussion but maintain control and do not go into too much detail.\r\n' +
+[1]     '\r\n' +
+[1]     '\r\n' +
+[1]     '\r\n' +
+[1]     'Let’s begin by having you tell me a little bit about yourself. \r\n' +
+[1]     '\r\n' +
+[1]     'What is your living situation/who lives in your household? \r\n' +
+[1]     '\r\n' +
+[1]     'What do you like to do in your free time (hobbies, activities, etc.)\r\n' +
+[1]     '\r\n' +
+[1]     'Tell me a little bit about your journey with SMA so far (when you were diagnosed, your day to day, challenges,positive experiences).\r\n' +
+[1]     '\r\n' +
+[1]     'How would you describe your current health? \r\n' +
+[1]     '\r\n' +
+[1]     'Are you currently seeing any HCPs (neurologist, PT, PCP) for SMA-related care?\r\n' +
+[1]     '\r\n' +
+[1]     'IF NO: \r\n' +
+[1]     '\r\n' +
+[1]     'Why not?\r\n' +
+[1]     '\r\n' +
+[1]     'What (if anything) are you currently doing to manage your SMA?\r\n' +
+[1]     '\r\n' +
+[1]     'IF YES: How many HCPs are you currently seeing? \r\n' +
+[1]     '\r\n' +
+[1]     'How involved are each in guiding your treatment decisions? How much of an impact do each have on your final treatment decision? (probe on weight of HCP suggestions vs. self-advocacy)\r\n' +
+[1]     '\r\n' +
+[1]     'IF MULTIPLE: Which would you consider your primary SMA doctor?\r\n' +
+[1]     '\r\n' +
+[1]     'Who else, if anybody, is involved in your health decisions?\r\n' +
+[1]     '\r\n' +
+[1]     'To what extent are they involved (support, information, caregiver)?\r\n' +
+[1]     '\r\n' +
+[1]     'To what extent do you lean on your support system (doctors, family, etc.) to make treatment decisions, if at all?\r\n' +
+[1]     '\r\n' +
+[1]     "Do you feel comfortable making a treatment decision yourself once you have the information you need? PROBE: even if they have enough information, but their PCP/Neuro doesn't know anything, would they continue to push for treatment?\r\n" +
+[1]     '\r\n' +
+[1]     'What goals to you have for your health?\r\n' +
+[1]     '\r\n' +
+[1]     'Short-term goals\r\n' +
+[1]     '\r\n' +
+[1]     'Long-term goals\r\n' +
+[1]     '\r\n' +
+[1]     'Personal aspirations\r\n' +
+[1]     '\r\n' +
+[1]     '\r\n' +
+[1]     '\r\n' +
+[1]     'CURRENT PERCEPTIONS & ATTITUDES\t\t\t              (20 mins)\r\n' +
+[1]     '\r\n' +
+[1]     '\r\n' +
+[1]     '\r\n' +
+[1]     'SECTION GOAL: gauge current awareness, perceptions, experiences, and considerations for SMA treatments.\r\n' +
+[1]     '\r\n' +
+[1]     '\r\n' +
+[1]     '\r\n' +
+[1]     'What treatments are you aware of that are currently available?\r\n' +
+[1]     '\r\n' +
+[1]     'PROBE: Evrysdi liquid, Evrysdi tablet, Spinraza Zolgensma\r\n' +
+[1]     '\r\n' +
+[1]     'What experience do you have with each treatment, if any (currently taking, taken in the past but not currently, never taken)?\r\n' +
+[1]     '\r\n' +
+[1]     '[FOR TREATMENTS TAKEN IN THE PAST BUT NOT CURRENTLY] \r\n' +
+[1]     '\r\n' +
+[1]     'What was your treatment experience with [DISCONTINUED TREATMENT]? \r\n' +
+[1]     '\r\n' +
+[1]     'What do you see as the benefits?\r\n' +
+[1]     '\r\n' +
+[1]     'What do you see as the drawbacks?\r\n' +
+[1]     '\r\n' +
+[1]     'What was the reason that you discontinued the treatment? PROBE on main vs contributing factors.\r\n' +
+[1]     '\r\n' +
+[1]     'Did you experience any life change/event, change in SMA severity/symptoms (i.e. motor function) that motivatedyou to discontinue the treatment?\r\n' +
+[1]     '\r\n' +
+[1]     'Did insurance coverage or access issues contribute? (If yes, probe)\r\n' +
+[1]     '\r\n' +
+[1]     'Who was involved in your decision to stop the treatment?\r\n' +
+[1]     '\r\n' +
+[1]     'PROBE if HCP involved: what was that conversation like with the HCP? Who initiated the conversation?\r\n' +
+[1]     '\r\n' +
+[1]     'Is there anything that could have kept you on treatment? If so, what?\r\n' +
+[1]     '\r\n' +
+[1]     'Would you consider re-starting this treatment in the future? If yes, how likely are you to re-start the treatment in the future?\r\n' +
+[1]     '\r\n' +
+[1]     '[FOR TREATMENTS NEVER TAKEN] \r\n' +
+[1]     '\r\n' +
+[1]     'What are your impressions of [TREATMENT NEVER TAKEN]? \r\n' +
+[1]     '\r\n' +
+[1]     'What do you know about this treatment? PROBE on specific treatment features (efficacy, safety, ROA, dosing schedule) on their impact on likelihood to try.\r\n' +
+[1]     '\r\n' +
+[1]     'What do you see as the benefit of this treatment option for you?\r\n' +
+[1]     '\r\n' +
+[1]     'What do you see as the drawbacks? What concerns or hesitations do you have?\r\n' +
+[1]     '\r\n' +
+[1]     'Where did you get your information about this treatment?\r\n' +
+[1]     '\r\n' +
+[1]     'Have you ever considered starting on this treatment?\r\n' +
+[1]     '\r\n' +
+[1]     'If yes, what made you consider but not end up trying the treatment?\r\n' +
+[1]     '\r\n' +
+[1]     'If no, why not?\r\n' +
+[1]     '\r\n' +
+[1]     'Did you talk with your HCP about this treatment? \r\n' +
+[1]     '\r\n' +
+[1]     'If yes, what was that conversation like?\r\n' +
+[1]     '\r\n' +
+[1]     'How much of an impact did your HCP have on your final decision to not initialize this treatment?\r\n' +
+[1]     '\r\n' +
+[1]     'Did you talk with anybody else when considering starting this treatment? If so, who? How much of an impact didthey have on your final decision?\r\n' +
+[1]     '\r\n' +
+[1]     'How likely are you to consider this treatment in the future?\r\n' +
+[1]     '\r\n' +
+[1]     'If likely: what would drive you to consider starting the treatment?\r\n' +
+[1]     '\r\n' +
+[1]     'If not likely: why not?\r\n' +
+[1]     '\r\n' +
+[1]     'Do you consider yourself a good candidate for this treatment?\r\n' +
+[1]     '\r\n' +
+[1]     'If yes: why?\r\n' +
+[1]     '\r\n' +
+[1]     'If no: why not? Could you see yourself eventually being a good candidate? If yes, why?\r\n' +
+[1]     '\r\n' +
+[1]     'What treatments are you aware of that are in development/not currently available?\r\n' +
+[1]     '\r\n' +
+[1]     'PROBE: HD Spinraza, Expanded Zolgensma, Anti-myostatin\r\n' +
+[1]     '\r\n' +
+[1]     'What are your impressions of each?\r\n' +
+[1]     '\r\n' +
+[1]     'What do you see as the benefit of this treatment option for you?\r\n' +
+[1]     '\r\n' +
+[1]     'What do you see as the drawbacks? What concerns or hesitations do you have?\r\n' +
+[1]     '\r\n' +
+[1]     'Do you consider yourself a good candidate for any? Why/Why not?\r\n' +
+[1]     '\r\n' +
+[1]     'Would you consider starting on any of these treatments? \r\n' +
+[1]     '\r\n' +
+[1]     'If yes, why? What would drive your consideration? What would you hope to achieve?\r\n' +
+[1]     '\r\n' +
+[1]     'If no, why not? What hesitations do you have?\r\n' +
+[1]     '\r\n' +
+[1]     'IF AWARE OF ANTI-MYOSTATINS: Probe on which ones (the brands mentioned should be either Scholar Rock or Roche)\r\n' +
+[1]     '\r\n' +
+[1]     '\r\n' +
+[1]     '\r\n' +
+[1]     '4.  BARRIERS TO TREATMENT & UNMET NEEDS\t\t              (10 mins)\r\n' +
+[1]     '\r\n' +
+[1]     '\r\n' +
+[1]     '\r\n' +
+[1]     'SECTION GOAL: Identify why they remain untreated and what gaps currently exist in care.\r\n' +
+[1]     '\r\n' +
+[1]     '\r\n' +
+[1]     '\r\n' +
+[1]     'What are the main reasons you are not currently on any SMA treatment?\r\n' +
+[1]     '\r\n' +
+[1]     'PROBE IF NOT MENTIONED: \r\n' +
+[1]     '\r\n' +
+[1]     'Manageable SMA severity (not severe enough to feel the need for treatment)\r\n' +
+[1]     '\r\n' +
+[1]     'What would drive you to consider starting on treatment? New treatment options? SMA progression? \r\n' +
+[1]     '\r\n' +
+[1]     'Does being able to address muscle loss (like with an option like Apitegromab (Scholar Rock)) change that thinking? \r\n' +
+[1]     '\r\n' +
+[1]     'How often do you track your symptoms/progression?\r\n' +
+[1]     '\r\n' +
+[1]     'How do you track your symptom maintenance and SMA progression? PROBE if respondent does NOT track: why not?\r\n' +
+[1]     '\r\n' +
+[1]     'Did you discuss this with your HCP? If yes, what was that discussion like? Did you and your HCP agree that treatment is not needed?\r\n' +
+[1]     '\r\n' +
+[1]     'Emotional factors (e.g., fear, anxiety, denial, uncertainty about outcomes)\r\n' +
+[1]     '\r\n' +
+[1]     'Practical or logistical factors (e.g., scheduling, travel, time, disruption to daily life)\r\n' +
+[1]     '\r\n' +
+[1]     'Clinical factors (e.g., concerns about safety, side effects, not seeing enough benefit)\r\n' +
+[1]     '\r\n' +
+[1]     'What treatment benefit is needed for you to consider starting on a treatment?\r\n' +
+[1]     '\r\n' +
+[1]     'Did you discuss this with your HCP? If yes, what was that discussion like? Did you and your HCP agree that treatment is not needed?\r\n' +
+[1]     '\r\n' +
+[1]     'Financial or access-related barriers (e.g., cost, insurance coverage, prior authorization challenges)\r\n' +
+[1]     '\r\n' +
+[1]     'MODERATOR NOTE: If insurance coverage or cost is the main factor, provide hypothetical of if coverage was not an '... 3345 more characters,
+[1]   cleanTranscript: 'true',
+[1]   checkForAEs: 'false'
 [1] }
-[1] ✅ Successfully parsed JSON on attempt 1
-[1] 🤖 AI RAW RESPONSE - Top-level keys: [ 'rows', 'context' ]
-[1] 🤖 AI RAW RESPONSE - Sheets returned: [
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1] 🤖 AI RAW RESPONSE - Has context?: true Keys: [
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1] 🔍 Sample context from "BACKGROUND"."Respondent ID": []
-[1] 🤖 AI returned data for sheets: [
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1]   📊 Sheet "BACKGROUND": 13/15 columns filled
-[1]      Filled columns: Living Situation, Free Time Activities, Journey with SMA, Current Health Description, HCPs forSMA Care, Reasons for Not Seeing HCPs, Current SMA Management, HCP Involvement in Treatment Decisions, Primary SMA Doctor, Others Involved in Health Decisions, Support System Involvement, Treatment Decision Autonomy, Health Goals
-[1]   📊 Sheet "CURRENT PERCEPTIONS & ATTITUDES": 17/20 columns filled
-[1]      Filled columns: Treatments Awareness, Treatments Experience, Discontinued Treatment Experience, Discontinued Treatment Reasons, Discontinued Treatment Impact, Discontinued Treatment Restart Consideration, Treatment Impressions, Treatment Benefits, Treatment Drawbacks, Treatment Information Source, Treatment Consideration Factors, Treatments in Development Awareness, Treatments in Development Impressions, Treatments in Development Benefits, Treatments in Development Drawbacks, Treatments in Development Candidacy, Treatments in Development Consideration
-[1]   📊 Sheet "BARRIERS TO TREATMENT & UNMET NEEDS": 11/14 columns filled
-[1]      Filled columns: Reasons for Not on Treatment, Factors Driving Treatment Consideration, Muscle Loss Impact, Symptom Tracking Frequency, Symptom Tracking Methods, Symptom Tracking Discussion with HCP, Emotional Factors, Practical/Logistical Factors, Clinical Factors, Treatment Benefit Requirement, Unmet Needs
-[1]   📊 Sheet "MOTIVATIONS & FUTURE CONSIDERATION": 5/6 columns filled
-[1]      Filled columns: Likelihood to Consider Treatment, Factors Influencing Consideration, Improvement Expectations,Influential Decision-Makers, Confidence Factors
-[1]   📊 Sheet "COMMUNITY ENGAGEMENT & INFO SOURCES": 8/9 columns filled
-[1]      Filled columns: Community Connection, Community Participation, Community Trust, Information Sources, Trustworthy Sources, New Treatment Awareness, Preferred Information Format, Information Accessibility
-[1]   📊 Sheet "Misc.": 0/3 columns filled
-[1] 📤 Returning context for sheets: [
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1]   📝 Sheet "BACKGROUND": 13 columns with context
-[1]   📝 Sheet "CURRENT PERCEPTIONS & ATTITUDES": 17 columns with context
-[1]   📝 Sheet "BARRIERS TO TREATMENT & UNMET NEEDS": 10 columns with context
-[1]   📝 Sheet "MOTIVATIONS & FUTURE CONSIDERATION": 5 columns with context
-[1]   📝 Sheet "COMMUNITY ENGAGEMENT & INFO SOURCES": 8 columns with context
-[1]   📝 Sheet "Misc.": 0 columns with context
+[1] Request file: {
+[1]   fieldname: 'transcript',
+[1]   originalname: 'Discontinued Patient_ENGLISH (UNITED STATES)_MT (2).docx',
+[1]   encoding: '7bit',
+[1]   mimetype: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+[1]   destination: './uploads',
+[1]   filename: 'transcript_1760020396257.docx',
+[1]   path: 'uploads\\transcript_1760020396257.docx',
+[1]   size: 41566
+[1] }
+[1] Processing transcript for project: P-1759172986363, sheet: Demographics
+[1] File details: {
+[1]   originalname: 'Discontinued Patient_ENGLISH (UNITED STATES)_MT (2).docx',
+[1]   mimetype: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+[1]   size: 41566,
+[1]   path: 'uploads\\transcript_1760020396257.docx'
+[1] }
+[1] Processing DOCX file with mammoth...
+[1] Successfully extracted 77229 characters from DOCX file
+[1] DOCX content preview: SMA Adult Activation Qual
 [1]
-[1] ✅ Context validation: 53/53 context blocks populated
-[1] AI returned data for sheets: [
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1] AI filled 13 columns in "BACKGROUND": [
-[1]   'Living Situation',
-[1]   'Free Time Activities',
-[1]   'Journey with SMA',
-[1]   'Current Health Description',
-[1]   'HCPs for SMA Care',
-[1]   'Reasons for Not Seeing HCPs',
-[1]   'Current SMA Management',
-[1]   'HCP Involvement in Treatment Decisions',
-[1]   'Primary SMA Doctor',
-[1]   'Others Involved in Health Decisions',
-[1]   'Support System Involvement',
-[1]   'Treatment Decision Autonomy',
-[1]   'Health Goals'
-[1] ]
-[1] AI filled 17 columns in "CURRENT PERCEPTIONS & ATTITUDES": [
-[1]   'Treatments Awareness',
-[1]   'Treatments Experience',
-[1]   'Discontinued Treatment Experience',
-[1]   'Discontinued Treatment Reasons',
-[1]   'Discontinued Treatment Impact',
-[1]   'Discontinued Treatment Restart Consideration',
-[1]   'Treatment Impressions',
-[1]   'Treatment Benefits',
-[1]   'Treatment Drawbacks',
-[1]   'Treatment Information Source',
-[1]   'Treatment Consideration Factors',
-[1]   'Treatments in Development Awareness',
-[1]   'Treatments in Development Impressions',
-[1]   'Treatments in Development Benefits',
-[1]   'Treatments in Development Drawbacks',
-[1]   'Treatments in Development Candidacy',
-[1]   'Treatments in Development Consideration'
-[1] ]
-[1] AI filled 11 columns in "BARRIERS TO TREATMENT & UNMET NEEDS": [
-[1]   'Reasons for Not on Treatment',
-[1]   'Factors Driving Treatment Consideration',
-[1]   'Muscle Loss Impact',
-[1]   'Symptom Tracking Frequency',
-[1]   'Symptom Tracking Methods',
-[1]   'Symptom Tracking Discussion with HCP',
-[1]   'Emotional Factors',
-[1]   'Practical/Logistical Factors',
-[1]   'Clinical Factors',
-[1]   'Treatment Benefit Requirement',
-[1]   'Unmet Needs'
-[1] ]
-[1] AI filled 5 columns in "MOTIVATIONS & FUTURE CONSIDERATION": [
-[1]   'Likelihood to Consider Treatment',
-[1]   'Factors Influencing Consideration',
-[1]   'Improvement Expectations',
-[1]   'Influential Decision-Makers',
-[1]   'Confidence Factors'
-[1] ]
-[1] AI filled 8 columns in "COMMUNITY ENGAGEMENT & INFO SOURCES": [
-[1]   'Community Connection',
-[1]   'Community Participation',
-[1]   'Community Trust',
-[1]   'Information Sources',
-[1]   'Trustworthy Sources',
-[1]   'New Treatment Awareness',
-[1]   'Preferred Information Format',
-[1]   'Information Accessibility'
-[1] ]
-[1] AI filled 0 columns in "Misc.": []
-[1] Processed sheets: [
+[1] (Oct 1, 2025 - 3:00pm)
+[1]
+[1]
+[1]
+[1] (00:00:00 - 00:00:01)
+[1]
+[1]     Michael: Yes. I am.
+[1]
+[1]
+[1]
+[1] (00:00:01 - 00:00:11)
+[1]
+[1]     Nancy: I'm seeing you're a Buckeyes fan. Do you live in Columbus, or is it l...
+[1] Using current data structure: [
 [1]   'Demographics',
 [1]   'BACKGROUND',
 [1]   'CURRENT PERCEPTIONS & ATTITUDES',
@@ -411,8 +454,102 @@ Press Ctrl+C to stop both servers
 [1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
 [1]   'Misc.'
 [1] ]
-[1] Total sheets updated: 7
-[1] Respondent ID reassignments applied: [ [ 'R001', 'R001' ] ]
+[1] Transcript text length: 77229
+[1] Transcript preview: SMA Adult Activation Qual
+[1]
+[1] (Oct 1, 2025 - 3:00pm)
+[1]
+[1]
+[1]
+[1] (00:00:00 - 00:00:01)
+[1]
+[1]     Michael: Yes. I am.
+[1]
+[1]
+[1]
+[1] (00:00:01 - 00:00:11)
+[1]
+[1]     Nancy: I'm seeing you're a Buckeyes fan. Do you live in Columbus, or is it l...
+[1] === EXTRACTING DATE/TIME ===
+[1] First 500 chars of transcript: SMA Adult Activation Qual
+[1]
+[1] (Oct 1, 2025 - 3:00pm)
+[1]
+[1]
+[1]
+[1] (00:00:00 - 00:00:01)
+[1]
+[1]     Michael: Yes. I am.
+[1]
+[1]
+[1]
+[1] (00:00:01 - 00:00:11)
+[1]
+[1]     Nancy: I'm seeing you're a Buckeyes fan. Do you live in Columbus, or is it like you used to you went to school there or have a kid who went to school there?
+[1]
+[1]
+[1]
+[1] (00:00:11 - 00:00:22)
+[1]
+[1]     Michael: Well, so I we used to live in Ohio. We moved to Georgia about sixteen years ago. I went to Ohio University, not the.
+[1]
+[1]
+[1]
+[1] (00:00:22 - 00:00:22)
+[1]
+[1]     Nancy: This.
+[1]
+[1]
+[1]
+[1] (00:00:22 - 00:00:23)
+[1]
+[1]
+[1] Extracted date/time from transcript: { date: 'Oct 1, 2025', time: '3:00 PM' }
+[1] === ABOUT TO CALL cleanTranscriptWithAI ===
+[1] Transcript text preview: SMA Adult Activation Qual
+[1]
+[1] (Oct 1, 2025 - 3:00pm)
+[1]
+[1]
+[1]
+[1] (00:00:00 - 00:00:01)
+[1]
+[1]     Michael: Yes. I am.
+[1]
+[1]
+[1]
+[1] (00:00:01 - 00:00:11)
+[1]
+[1]     Nancy: I'm seeing you're a Buckeyes fan. Do you live in Columbus, or is it like you used to you went to school there or have a kid who went to school there?
+[1]
+[1]
+[1]
+[1] (00:00:11 - 00:0
+[1] Discussion guide available: true
+[1] Column headers: [ 'Respondent ID', 'Interview Date', 'Interview Time' ]
+[1] === CLEANING TRANSCRIPT WITH AI ===
+[1] Calling OpenAI to clean transcript...
+[1] Column headers for context: Interview Date, Interview Time
+[1] System prompt length: 3276
+[1] System prompt preview: You are a professional transcript editor. You will receive an interview transcript and must clean it following EXACT rules below.
+[1]
+[1] RULE 1: Remove timestamps only
+[1] - Delete lines or inline markers like
+[1] === OPENAI RESPONSE RECEIVED ===
+[1] Transcript cleaned successfully
+[1] Original length: 77229 Cleaned length: 54270
+[1] === TRANSCRIPT CLEANING COMPLETED ===
+[1] Cleaned transcript preview: Respondent: Yes. I am.
+[1]
+[1] Moderator: I'm seeing you're a Buckeyes fan. Do you live in Columbus, or is it like you used to you went to school there or have a kid who went to school there?
+[1]
+[1] Respondent: Well, so I we used to live in Ohio. We moved to Georgia about sixteen years ago. I went to Ohio Univer
+[1] ⏱️  Elapsed time: 0 seconds
+[1] Failed to save cleaned transcript: ReferenceError: uploadsDir is not defined
+[1]     at file:///C:/Users/LukeBorglin/Desktop/Apps/JaiceDashboard_master/server/routes/contentAnalysisX.routes.mjs:858:37
+[1]     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+[1] === STARTING MAIN TRANSCRIPT PROCESSING ===
+[1] ⏱️  This step may take 15-25 minutes for large transcripts...
 [1] === MAIN TRANSCRIPT PROCESSING COMPLETED ===
 [1] ⏱️  Processing complete
 [1] === UPDATING DEMOGRAPHICS WITH DATE/TIME ===
@@ -430,624 +567,9 @@ Press Ctrl+C to stop both servers
 [1]   dateValue: 'Oct 1, 2025',
 [1]   timeValue: '3:00 PM'
 [1] }
-[1] Persisted updated analysis 1759859806925 with quotes and context
-[1] Uploaded file cleaned up successfully
+[1] Persisted updated analysis 1760020377913 with quotes and context
+[1] Uploaded file kept for download: uploads\transcript_1760020396257.docx
 [1] Transcript processing completed successfully
-[1] Extracted respno: R001
-[1] 📤 About to send response with context: {
-[1]   BACKGROUND: {
-[1]     R001: {
-[1]       'Respondent ID': [],
-[1]       'Living Situation': [Array],
-[1]       'Free Time Activities': [Array],
-[1]       'Journey with SMA': [Array],
-[1]       'Current Health Description': [Array],
-[1]       'HCPs for SMA Care': [Array],
-[1]       'Reasons for Not Seeing HCPs': [Array],
-[1]       'Current SMA Management': [Array],
-[1]       'Number of HCPs': [],
-[1]       'HCP Involvement in Treatment Decisions': [Array],
-[1]       'Primary SMA Doctor': [Array],
-[1]       'Others Involved in Health Decisions': [Array],
-[1]       'Support System Involvement': [Array],
-[1]       'Treatment Decision Autonomy': [Array],
-[1]       'Health Goals': [Array]
-[1]     }
-[1]   },
-[1]   'CURRENT PERCEPTIONS & ATTITUDES': {
-[1]     R001: {
-[1]       'Respondent ID': [],
-[1]       'Treatments Awareness': [Array],
-[1]       'Treatments Experience': [Array],
-[1]       'Discontinued Treatment Experience': [Array],
-[1]       'Discontinued Treatment Reasons': [Array],
-[1]       'Discontinued Treatment Impact': [Array],
-[1]       'Discontinued Treatment Restart Consideration': [Array],
-[1]       'Treatment Impressions': [Array],
-[1]       'Treatment Benefits': [Array],
-[1]       'Treatment Drawbacks': [Array],
-[1]       'Treatment Information Source': [Array],
-[1]       'Treatment Consideration Factors': [Array],
-[1]       'Treatments in Development Awareness': [Array],
-[1]       'Treatments in Development Impressions': [Array],
-[1]       'Treatments in Development Benefits': [Array],
-[1]       'Treatments in Development Drawbacks': [Array],
-[1]       'Treatments in Development Candidacy': [Array],
-[1]       'Treatments in Development Consideration': [Array],
-[1]       'Anti-Myostatins Awareness': [],
-[1]       'Anti-Myostatins Brands': []
-[1]     }
-[1]   },
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS': {
-[1]     R001: {
-[1]       'Respondent ID': [],
-[1]       'Reasons for Not on Treatment': [Array],
-[1]       'Factors Driving Treatment Consideration': [Array],
-[1]       'Muscle Loss Impact': [Array],
-[1]       'Symptom Tracking Frequency': [Array],
-[1]       'Symptom Tracking Methods': [Array],
-[1]       'Symptom Tracking Discussion with HCP': [],
-[1]       'Emotional Factors': [Array],
-[1]       'Practical/Logistical Factors': [Array],
-[1]       'Clinical Factors': [Array],
-[1]       'Treatment Benefit Requirement': [Array],
-[1]       'Financial/Access Barriers': [],
-[1]       'Access Challenges': [],
-[1]       'Unmet Needs': [Array]
-[1]     }
-[1]   },
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION': {
-[1]     R001: {
-[1]       'Respondent ID': [],
-[1]       'Likelihood to Consider Treatment': [Array],
-[1]       'Factors Influencing Consideration': [Array],
-[1]       'Improvement Expectations': [Array],
-[1]       'Influential Decision-Makers': [Array],
-[1]       'Confidence Factors': [Array]
-[1]     }
-[1]   },
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES': {
-[1]     R001: {
-[1]       'Respondent ID': [],
-[1]       'Community Connection': [Array],
-[1]       'Community Participation': [Array],
-[1]       'Community Trust': [Array],
-[1]       'Information Sources': [Array],
-[1]       'Trustworthy Sources': [Array],
-[1]       'New Treatment Awareness': [Array],
-[1]       'Preferred Information Format': [Array],
-[1]       'Information Accessibility': [Array]
-[1]     }
-[1]   },
-[1]   'Misc.': {
-[1]     R001: {
-[1]       'Respondent ID': [],
-[1]       'Final Comments': [],
-[1]       'Additional Notes': []
-[1]     }
-[1]   }
-[1] }
-[1] 📤 Context keys: [
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1] 📤 Sheet "BACKGROUND" context columns: [ 'R001' ]
-[1] 📤 Sheet "CURRENT PERCEPTIONS & ATTITUDES" context columns: [ 'R001' ]
-[1] 📤 Sheet "BARRIERS TO TREATMENT & UNMET NEEDS" context columns: [ 'R001' ]
-[1] 📤 Sheet "MOTIVATIONS & FUTURE CONSIDERATION" context columns: [ 'R001' ]
-[1] 📤 Sheet "COMMUNITY ENGAGEMENT & INFO SOURCES" context columns: [ 'R001' ]
-[1] 📤 Sheet "Misc." context columns: [ 'R001' ]
-[1] Failed to cleanup uploaded file: Error: ENOENT: no such file or directory, unlink 'C:\Users\LukeBorglin\Desktop\Apps\JaiceDashboard_master\server\uploads\transcript_1759961366983.docx'
-[1]     at async Object.unlink (node:internal/fs/promises:1065:10)
-[1]     at async file:///C:/Users/LukeBorglin/Desktop/Apps/JaiceDashboard_master/server/routes/contentAnalysisX.routes.mjs:948:11 {
-[1]   errno: -4058,
-[1]   code: 'ENOENT',
-[1]   syscall: 'unlink',
-[1]   path: 'C:\\Users\\LukeBorglin\\Desktop\\Apps\\JaiceDashboard_master\\server\\uploads\\transcript_1759961366983.docx'
-[1] }
-[1] Transcript upload request received
-[1] Request body: [Object: null prototype] {
-[1]   projectId: 'P-1759172819869',
-[1]   analysisId: '1759859806925',
-[1]   activeSheet: 'Demographics',
-[1]   currentData: `{"Demographics":[{"Respondent ID":"R001","Interview Date":"Oct 1, 2025","Interview Time":"3:00 PM"}],"BACKGROUND":[{"Respondent ID":"","Living Situation":"","Free Time Activities":"","Journey with SMA":"","Current Health Description":"","HCPs for SMA Care":"","Reasons for Not Seeing HCPs":"","Current SMA Management":"","Number of HCPs":"","HCP Involvement in Treatment Decisions":"","Primary SMA Doctor":"","Others Involved in Health Decisions":"","Support System Involvement":"","Treatment Decision Autonomy":"","Health Goals":""},{"Respondent ID":"R001","Living Situation":"The respondent is 50 years old, married, and has two children from a previous marriage who are now adults and living independently. They live with their spouse and a small dog.","Free Time Activities":"Since retiring from work in October 2024, the respondent spends their days walking the dog, using the computer, watching shows, and reading. They no longer engage in the corporate hustle.","Journey with SMA":"Diagnosed with SMA at around 10 or 11 years old, the respondent initially went into denial and avoided doctors. They re-engaged with healthcare providers in their mid-20s and again in 2017-2018 upon hearing about new treatments.","Current Health Description":"The respondent describes their health as good except for SMA, which significantly impacts their daily activities. They rely on their wife and a caregiver for assistance with daily tasks.","HCPs for SMA Care":"The respondent has a neurologist specializing in SMA, whom they sought out several years ago. They do not see this neurologist regularly but have interacted with her during a clinical trial.","Reasons for Not Seeing HCPs":"The respondent avoided regular neurologist visits due to denial and a lack of actionable advice from doctors. They only sought medical advice when new treatments became available.","Current SMA Management":"The respondent manages their SMA with the help of a neurologist and has participated in clinical trials. They have tried treatmentslike Evrysdi and Spinraza.","Number of HCPs":"","HCP Involvement in Treatment Decisions":"The respondent's neurologist is involved in treatment decisions, especially when new treatments are considered.","Primary SMA Doctor":"The primary SMA doctor is a neurologist who specializes in SMA and was sought out by the respondent when they became aware of new treatments.","Others Involved in Health Decisions":"The respondent's wife is involved in their health decisions, providing daily assistance and support.","Support System Involvement":"The respondent's wife and a caregiver are actively involved in their daily care and support.","Treatment Decision Autonomy":"The respondent makes treatment decisions with input from their neurologist and support from their wife.","Health Goals":"The respondent aims to maintain their current level ofhealth and functionality, hoping to prevent further progression of SMA."}],"CURRENT PERCEPTIONS & ATTITUDES":[{"Respondent ID":"","Treatments Awareness":"","Treatments Experience":"","Discontinued Treatment Experience":"","Discontinued Treatment Reasons":"","Discontinued Treatment Impact":"","Discontinued Treatment Restart Consideration":"","Treatment Impressions":"","Treatment Benefits":"","Treatment Drawbacks":"","Treatment Information Source":"","Treatment Consideration Factors":"","Treatments in Development Awareness":"","Treatments in Development Impressions":"","Treatments in Development Benefits":"","Treatments in Development Drawbacks":"","Treatments in Development Candidacy":"","Treatments in Development Consideration":"","Anti-Myostatins Awareness":"","Anti-Myostatins Brands":""},{"Respondent ID":"R001","Treatments Awareness":"The respondent is aware of treatments like Evrysdi and Spinraza, learning about them primarily through Facebook support groups.","Treatments Experience":"The respondent has tried Evrysdi on two occasions and participated in a clinical trial for a double dose of Spinraza.","Discontinued Treatment Experience":"The respondent discontinued Evrysdi after a year and later stopped all medication before starting a Spinraza clinical trial.","Discontinued Treatment Reasons":"The respondent stopped Evrysdi due to a lack of perceived improvement and a desire to try other options.","Discontinued Treatment Impact":"Discontinuing Evrysdi did not lead to immediate changes, but the respondent sought other treatment options to manage their condition.","Discontinued Treatment Restart Consideration":"The respondent considered restarting treatment when new options like Spinraza became available.","Treatment Impressions":"The respondent feels hopeful about treatments that can stop the progression of SMA, preferring non-intrusive options like oral medications.","Treatment Benefits":"The respondent values treatments that can maintain their current health status and prevent further deterioration.","Treatment Drawbacks":"The respondent dislikes treatments that are intrusive or require frequent doctor visits, preferring more convenient options.","Treatment Information Source":"The respondent primarily learns about treatments through Facebook support groups, which they find reliable and informative.","Treatment Consideration Factors":"The respondent considers the convenience and intrusiveness of treatments, preferring options that fit easily into their lifestyle.","Treatments in Development Awareness":"The respondent is aware of treatments in development, learning about them through online communities.","Treatments in Development Impressions":"The respondent is hopeful about new treatments in development,especially those that offer easier administration.","Treatments in Development Benefits":"The respondent sees potentialbenefits in treatments that can halt disease progression and are easy to administer.","Treatments in Development Drawbacks":"The respondent is cautious about treatments that may be intrusive or require significant lifestyle changes.","Treatments in Development Candidacy":"The respondent considers themselves a candidate for new treatments, especially those that align with their preferences for ease of use.","Treatments in Development Consideration":"The respondent is open to considering new treatments that offer convenience and effectiveness.","Anti-Myostatins Awareness":"","Anti-Myostatins Brands":""}],"BARRIERS TO TREATMENT & UNMET NEEDS":[{"Respondent ID":"","Reasons for Not on Treatment":"","Factors DrivingTreatment Consideration":"","Muscle Loss Impact":"","Symptom Tracking Frequency":"","Symptom Tracking Methods":"","Symptom Tracking Discussion with HCP":"","Emotional Factors":"","Practical/Logistical Factors":"","Clinical Factors":"","Treatment Benefit Requirement":"","Financial/Access Barriers":"","Access Challenges":"","Unmet Needs":""},{"Respondent ID":"R001","Reasons for Not on Treatment":"The respondent is not currently on treatment due to a lack of perceived improvement from previous treatments and a desire to explore other options.","Factors Driving Treatment Consideration":"The respondent is driven to consider treatments that offer convenience, effectiveness, and minimal intrusion into daily life.","Muscle Loss Impact":"Muscle loss has significantly impacted the respondent's ability to perform daily tasks, leading to reliance on assistance from their wife and a caregiver.","Symptom Tracking Frequency":"The respondent does not track symptoms daily but notices changes over months.","Symptom Tracking Methods":"The respondent does not use formal methods to track symptoms, relying on retrospective observation of changes.","Symptom Tracking Discussion with HCP":"The respondent does not regularly discuss symptom tracking with their healthcare provider.","Emotional Factors":"The respondent has experienced denial and emotional challenges related to their condition, impacting their engagement with treatment.","Practical/Logistical Factors":"The respondent prefers treatments that are easy to administer and do not require frequent doctor visits.","Clinical Factors":"The respondent considers the effectiveness and administration method of treatments when making decisions.","Treatment Benefit Requirement":"The respondent requires treatments to offer tangible benefits, such as halting disease progression, to consider them worthwhile.","Financial/Access Barriers":"","Access Challenges":"","Unmet Needs":"The respondent has unmet needs for treatments that are effective, convenient, and minimally intrusive."}],"MOTIVATIONS & FUTURE CONSIDERATION":[{"Respondent ID":"","Likelihood to Consider Treatment":"","Factors Influencing Consideration":"","Improvement Expectations":"","Influential Decision-Makers":"","Confidence Factors":""},{"Respondent ID":"R001","Likelihood to Consider Treatment":"The respondent is likely to consider treatments that align with their preferencesfor convenience and effectiveness.","Factors Influencing Consideration":"Factors influencing consideration include treatment convenience, effectiveness, and the ability to maintain current health status.","Improvement Expectations":"The respondent expects treatments to halt disease progression and maintain their current level of health.","Influential Decision-Makers":"The respondent's neurologist and wife are influential in treatment decisions.","Confidence Factors":"The respondent's confidence in treatment decisions is influenced by the perceived effectiveness and convenience of the options available."}],"COMMUNITY ENGAGEMENT & INFO SOURCES":[{"Respondent ID":"","Community Connection":"","Community Participation":"","Community Trust":"","Information Sources":"","Trustworthy Sources":"","New Treatment Awareness":"","Preferred Information Format":"","Information Accessibility":""},{"Respondent ID":"R001","Community Connection":"The respondent is connected to the SMA community through Facebook support groups, which they joined to learn about treatments and connect with others.","Community Participation":"The respondent parti`... 1110 more characters,
-[1]   discussionGuide: '',
-[1]   cleanTranscript: 'true',
-[1]   checkForAEs: 'false'
-[1] }
-[1] Request file: {
-[1]   fieldname: 'transcript',
-[1]   originalname: '2025 SMA Adult Activation Qual Transcript_Oct 2 2025_1200pm.docx',
-[1]   encoding: '7bit',
-[1]   mimetype: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-[1]   destination: './uploads',
-[1]   filename: 'transcript_1759963295620.docx',
-[1]   path: 'uploads\\transcript_1759963295620.docx',
-[1]   size: 37206
-[1] }
-[1] Processing transcript for project: P-1759172819869, sheet: Demographics
-[1] File details: {
-[1]   originalname: '2025 SMA Adult Activation Qual Transcript_Oct 2 2025_1200pm.docx',
-[1]   mimetype: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-[1]   size: 37206,
-[1]   path: 'uploads\\transcript_1759963295620.docx'
-[1] }
-[1] Processing DOCX file with mammoth...
-[1] Successfully extracted 29493 characters from DOCX file
-[1] DOCX content preview: 2025 SMA Adult Activation Qual Transcript
-[1]
-[1] Oct 2, 2025 | 12:00 PM
-[1]
-[1] Moderator: Elsie, so yeah, nice to meet you. I really apologize for any of the stress caused by the technology challenges. It can be ...
-[1] Using current data structure: [
-[1]   'Demographics',
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1] Transcript text length: 29493
-[1] Transcript preview: 2025 SMA Adult Activation Qual Transcript
-[1]
-[1] Oct 2, 2025 | 12:00 PM
-[1]
-[1] Moderator: Elsie, so yeah, nice to meet you. I really apologize for any of the stress caused by the technology challenges. It can be ...
-[1] === EXTRACTING DATE/TIME ===
-[1] First 500 chars of transcript: 2025 SMA Adult Activation Qual Transcript
-[1]
-[1] Oct 2, 2025 | 12:00 PM
-[1]
-[1] Moderator: Elsie, so yeah, nice to meet you. I really apologize for any of the stress caused by the technology challenges. It can be really frustrating when the technology doesn't cooperate.
-[1]
-[1] Respondent: Exactly. It's okay.
-[1]
-[1] Moderator: Good. Well, thank you. By any chance, do you have a little bit of extra time if we need to go over?
-[1]
-[1] Respondent: Not too much. Just that we're starting at, like, you know? I don't know. We'll tr
-[1] Extracted date/time from transcript: { date: 'Oct 2, 2025', time: '12:00 PM' }
-[1] === ABOUT TO CALL cleanTranscriptWithAI ===
-[1] Transcript text preview: 2025 SMA Adult Activation Qual Transcript
-[1]
-[1] Oct 2, 2025 | 12:00 PM
-[1]
-[1] Moderator: Elsie, so yeah, nice to meet you. I really apologize for any of the stress caused by the technology challenges. It can be really frustrating when the technology doesn't cooperate.
-[1]
-[1] Respondent: Exactly. It's okay.
-[1]
-[1] Modera
-[1] Discussion guide available: false
-[1] Column headers: [ 'Respondent ID', 'Interview Date', 'Interview Time' ]
-[1] === CLEANING TRANSCRIPT WITH AI ===
-[1] Calling OpenAI to clean transcript...
-[1] Column headers for context: Interview Date, Interview Time
-[1] System prompt length: 3274
-[1] System prompt preview: You are a professional transcript editor. You will receive an interview transcript and must clean it following EXACT rules below.
-[1]
-[1] RULE 1: Remove timestamps only
-[1] - Delete lines or inline markers like
-[1] === OPENAI RESPONSE RECEIVED ===
-[1] Transcript cleaned successfully
-[1] Original length: 29493 Cleaned length: 28558
-[1] === TRANSCRIPT CLEANING COMPLETED ===
-[1] Cleaned transcript preview: Moderator: Elsie, so yeah, nice to meet you. I really apologize for any of the stress caused by the technology challenges. It can be really frustrating when the technology doesn't cooperate.
-[1]
-[1] Respondent: Exactly. It's okay.
-[1]
-[1] Moderator: Good. Well, thank you. By any chance, do you have a little bit o
-[1] ⏱️  Elapsed time: 0 seconds
-[1] === STARTING MAIN TRANSCRIPT PROCESSING ===
-[1] ⏱️  This step may take 15-25 minutes for large transcripts...
-[1] Processing transcript with AI for ALL sheets...
-[1] Available sheets: [
-[1]   'Demographics',
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1] Discussion guide available: false
-[1] Transcript preview (first 500 chars): Moderator: Elsie, so yeah, nice to meet you. I really apologize for any of the stress caused by the technology challenges. It can be really frustrating when the technology doesn't cooperate.
-[1]
-[1] Respondent: Exactly. It's okay.
-[1]
-[1] Moderator: Good. Well, thank you. By any chance, do you have a little bit of extra time if we need to go over?
-[1]
-[1] Respondent: Not too much. Just that we're starting at, like, you know? I don't know. We'll try to move as efficiently as we can, okay? But I'm here. We'll see.
-[1]
-[1] Mo
-[1] Extracted interview date from transcript: null
-[1] Existing respondents sorted by date: [ { id: 'R001', date: 'Oct 1, 2025' } ]
-[1] New respondent position based on date: 1
-[1] New respondent ID: 2
-[1] ID mapping for reassignment: [ [ 'R001', 'R001' ], [ 'R002', 'R002' ] ]
-[1] Skipping demographics sheet for auto-fill
-[1] Sheet "BACKGROUND" has 15 columns: [
-[1]   'Respondent ID',
-[1]   'Living Situation',
-[1]   'Free Time Activities',
-[1]   'Journey with SMA',
-[1]   'Current Health Description',
-[1]   'HCPs for SMA Care',
-[1]   'Reasons for Not Seeing HCPs',
-[1]   'Current SMA Management',
-[1]   'Number of HCPs',
-[1]   'HCP Involvement in Treatment Decisions',
-[1]   'Primary SMA Doctor',
-[1]   'Others Involved in Health Decisions',
-[1]   'Support System Involvement',
-[1]   'Treatment Decision Autonomy',
-[1]   'Health Goals'
-[1] ]
-[1] Sheet "CURRENT PERCEPTIONS & ATTITUDES" has 20 columns: [
-[1]   'Respondent ID',
-[1]   'Treatments Awareness',
-[1]   'Treatments Experience',
-[1]   'Discontinued Treatment Experience',
-[1]   'Discontinued Treatment Reasons',
-[1]   'Discontinued Treatment Impact',
-[1]   'Discontinued Treatment Restart Consideration',
-[1]   'Treatment Impressions',
-[1]   'Treatment Benefits',
-[1]   'Treatment Drawbacks',
-[1]   'Treatment Information Source',
-[1]   'Treatment Consideration Factors',
-[1]   'Treatments in Development Awareness',
-[1]   'Treatments in Development Impressions',
-[1]   'Treatments in Development Benefits',
-[1]   'Treatments in Development Drawbacks',
-[1]   'Treatments in Development Candidacy',
-[1]   'Treatments in Development Consideration',
-[1]   'Anti-Myostatins Awareness',
-[1]   'Anti-Myostatins Brands'
-[1] ]
-[1] Sheet "BARRIERS TO TREATMENT & UNMET NEEDS" has 14 columns: [
-[1]   'Respondent ID',
-[1]   'Reasons for Not on Treatment',
-[1]   'Factors Driving Treatment Consideration',
-[1]   'Muscle Loss Impact',
-[1]   'Symptom Tracking Frequency',
-[1]   'Symptom Tracking Methods',
-[1]   'Symptom Tracking Discussion with HCP',
-[1]   'Emotional Factors',
-[1]   'Practical/Logistical Factors',
-[1]   'Clinical Factors',
-[1]   'Treatment Benefit Requirement',
-[1]   'Financial/Access Barriers',
-[1]   'Access Challenges',
-[1]   'Unmet Needs'
-[1] ]
-[1] Sheet "MOTIVATIONS & FUTURE CONSIDERATION" has 6 columns: [
-[1]   'Respondent ID',
-[1]   'Likelihood to Consider Treatment',
-[1]   'Factors Influencing Consideration',
-[1]   'Improvement Expectations',
-[1]   'Influential Decision-Makers',
-[1]   'Confidence Factors'
-[1] ]
-[1] Sheet "COMMUNITY ENGAGEMENT & INFO SOURCES" has 9 columns: [
-[1]   'Respondent ID',
-[1]   'Community Connection',
-[1]   'Community Participation',
-[1]   'Community Trust',
-[1]   'Information Sources',
-[1]   'Trustworthy Sources',
-[1]   'New Treatment Awareness',
-[1]   'Preferred Information Format',
-[1]   'Information Accessibility'
-[1] ]
-[1] Sheet "Misc." has 3 columns: [ 'Respondent ID', 'Final Comments', 'Additional Notes' ]
-[1] Calling AI with sheets: [
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1] 📋 Sending 6 sheets to AI: [
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1]    "BACKGROUND": 15 columns
-[1]    "CURRENT PERCEPTIONS & ATTITUDES": 20 columns
-[1]    "BARRIERS TO TREATMENT & UNMET NEEDS": 14 columns
-[1]    "MOTIVATIONS & FUTURE CONSIDERATION": 6 columns
-[1]    "COMMUNITY ENGAGEMENT & INFO SOURCES": 9 columns
-[1]    "Misc.": 3 columns
-[1] 🔄 Attempt 1/3: Calling OpenAI API with gpt-4o (higher token limit)...
-[1] 🔍 Raw AI response (first 500 chars): {
-[1]   "rows": {
-[1]     "BACKGROUND": {
-[1]       "Respondent ID": "",
-[1]       "Living Situation": "The respondent is 77 years old and lives with her husband and one son in Green, Oregon. She is in a wheelchair but remains independent in many daily activities.",
-[1]       "Free Time Activities": "The respondent enjoys cooking, shopping online, and dressing herself. She values herindependence and hopes to maintain it as long as possible.",
-[1]       "Journey with SMA": "The respondent was diagnosed with SMA in 1984
-[1] 🔍 Raw AI response (last 500 chars): e costs have changed."
-[1]       ]
-[1]     },
-[1]     "Misc.": {
-[1]       "Respondent ID": [],
-[1]       "Final Comments": [
-[1]         "Moderator: Anything else you would want people in the SMA communities, a manufacturer of SMA treatments toknow about what they can do to help you or what they can do to help you access treatment? Anything else they should keep in mind about you and your experience?\nRespondent: They should keep in mind that the cost is prohibitive."
-[1]       ],
-[1]       "Additional Notes": []
-[1]     }
-[1]   }
-[1] }
-[1] ✅ Successfully parsed JSON on attempt 1
-[1] 🤖 AI RAW RESPONSE - Top-level keys: [ 'rows', 'context' ]
-[1] 🤖 AI RAW RESPONSE - Sheets returned: [
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1] 🤖 AI RAW RESPONSE - Has context?: true Keys: [
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1] 🔍 Sample context from "BACKGROUND"."Respondent ID": []
-[1] 🤖 AI returned data for sheets: [
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1]   📊 Sheet "BACKGROUND": 14/15 columns filled
-[1]      Filled columns: Living Situation, Free Time Activities, Journey with SMA, Current Health Description, HCPs forSMA Care, Reasons for Not Seeing HCPs, Current SMA Management, Number of HCPs, HCP Involvement in Treatment Decisions, Primary SMA Doctor, Others Involved in Health Decisions, Support System Involvement, Treatment Decision Autonomy, HealthGoals
-[1]   📊 Sheet "CURRENT PERCEPTIONS & ATTITUDES": 9/20 columns filled
-[1]      Filled columns: Treatments Awareness, Treatments Experience, Treatment Impressions, Treatment Benefits, Treatment Drawbacks, Treatment Information Source, Treatment Consideration Factors, Treatments in Development Awareness, Anti-Myostatins Awareness
-[1]   📊 Sheet "BARRIERS TO TREATMENT & UNMET NEEDS": 9/14 columns filled
-[1]      Filled columns: Reasons for Not on Treatment, Factors Driving Treatment Consideration, Muscle Loss Impact, Emotional Factors, Practical/Logistical Factors, Treatment Benefit Requirement, Financial/Access Barriers, Access Challenges, Unmet Needs
-[1]   📊 Sheet "MOTIVATIONS & FUTURE CONSIDERATION": 5/6 columns filled
-[1]      Filled columns: Likelihood to Consider Treatment, Factors Influencing Consideration, Improvement Expectations,Influential Decision-Makers, Confidence Factors
-[1]   📊 Sheet "COMMUNITY ENGAGEMENT & INFO SOURCES": 7/9 columns filled
-[1]      Filled columns: Community Connection, Community Participation, Information Sources, Trustworthy Sources, New Treatment Awareness, Preferred Information Format, Information Accessibility
-[1]   📊 Sheet "Misc.": 1/3 columns filled
-[1]      Filled columns: Final Comments
-[1] 📤 Returning context for sheets: [
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1]   📝 Sheet "BACKGROUND": 14 columns with context
-[1]   📝 Sheet "CURRENT PERCEPTIONS & ATTITUDES": 9 columns with context
-[1]   📝 Sheet "BARRIERS TO TREATMENT & UNMET NEEDS": 9 columns with context
-[1]   📝 Sheet "MOTIVATIONS & FUTURE CONSIDERATION": 5 columns with context
-[1]   📝 Sheet "COMMUNITY ENGAGEMENT & INFO SOURCES": 7 columns with context
-[1]   📝 Sheet "Misc.": 1 columns with context
-[1]
-[1] ✅ Context validation: 45/45 context blocks populated
-[1] AI returned data for sheets: [
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1] AI filled 14 columns in "BACKGROUND": [
-[1]   'Living Situation',
-[1]   'Free Time Activities',
-[1]   'Journey with SMA',
-[1]   'Current Health Description',
-[1]   'HCPs for SMA Care',
-[1]   'Reasons for Not Seeing HCPs',
-[1]   'Current SMA Management',
-[1]   'Number of HCPs',
-[1]   'HCP Involvement in Treatment Decisions',
-[1]   'Primary SMA Doctor',
-[1]   'Others Involved in Health Decisions',
-[1]   'Support System Involvement',
-[1]   'Treatment Decision Autonomy',
-[1]   'Health Goals'
-[1] ]
-[1] AI filled 9 columns in "CURRENT PERCEPTIONS & ATTITUDES": [
-[1]   'Treatments Awareness',
-[1]   'Treatments Experience',
-[1]   'Treatment Impressions',
-[1]   'Treatment Benefits',
-[1]   'Treatment Drawbacks',
-[1]   'Treatment Information Source',
-[1]   'Treatment Consideration Factors',
-[1]   'Treatments in Development Awareness',
-[1]   'Anti-Myostatins Awareness'
-[1] ]
-[1] AI filled 9 columns in "BARRIERS TO TREATMENT & UNMET NEEDS": [
-[1]   'Reasons for Not on Treatment',
-[1]   'Factors Driving Treatment Consideration',
-[1]   'Muscle Loss Impact',
-[1]   'Emotional Factors',
-[1]   'Practical/Logistical Factors',
-[1]   'Treatment Benefit Requirement',
-[1]   'Financial/Access Barriers',
-[1]   'Access Challenges',
-[1]   'Unmet Needs'
-[1] ]
-[1] AI filled 5 columns in "MOTIVATIONS & FUTURE CONSIDERATION": [
-[1]   'Likelihood to Consider Treatment',
-[1]   'Factors Influencing Consideration',
-[1]   'Improvement Expectations',
-[1]   'Influential Decision-Makers',
-[1]   'Confidence Factors'
-[1] ]
-[1] AI filled 7 columns in "COMMUNITY ENGAGEMENT & INFO SOURCES": [
-[1]   'Community Connection',
-[1]   'Community Participation',
-[1]   'Information Sources',
-[1]   'Trustworthy Sources',
-[1]   'New Treatment Awareness',
-[1]   'Preferred Information Format',
-[1]   'Information Accessibility'
-[1] ]
-[1] AI filled 1 columns in "Misc.": [ 'Final Comments' ]
-[1] Processed sheets: [
-[1]   'Demographics',
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1] Total sheets updated: 7
-[1] Respondent ID reassignments applied: [ [ 'R001', 'R001' ], [ 'R002', 'R002' ] ]
-[1] === MAIN TRANSCRIPT PROCESSING COMPLETED ===
-[1] ⏱️  Processing complete
-[1] === UPDATING DEMOGRAPHICS WITH DATE/TIME ===
-[1] Date/Time info to apply: { date: 'Oct 2, 2025', time: '12:00 PM' }
-[1] Demographics sheet exists: true
-[1] Demographics sheet length: 2
-[1] Last row columns: [ 'Respondent ID', 'Interview Date', 'Interview Time' ]
-[1] Has Date column: false
-[1] Has Time (ET) column: false
-[1] Setting Interview Date to: Oct 2, 2025
-[1] Setting Interview Time to: 12:00 PM
-[1] Updated Demographics with date/time: {
-[1]   dateColumn: 'Interview Date',
-[1]   timeColumn: 'Interview Time',
-[1]   dateValue: 'Oct 2, 2025',
-[1]   timeValue: '12:00 PM'
-[1] }
-[1] Persisted updated analysis 1759859806925 with quotes and context
-[1] Uploaded file cleaned up successfully
-[1] Transcript processing completed successfully
-[1] Extracted respno: R002
-[1] 📤 About to send response with context: {
-[1]   BACKGROUND: {
-[1]     R002: {
-[1]       'Respondent ID': [],
-[1]       'Living Situation': [Array],
-[1]       'Free Time Activities': [Array],
-[1]       'Journey with SMA': [Array],
-[1]       'Current Health Description': [Array],
-[1]       'HCPs for SMA Care': [Array],
-[1]       'Reasons for Not Seeing HCPs': [Array],
-[1]       'Current SMA Management': [Array],
-[1]       'Number of HCPs': [Array],
-[1]       'HCP Involvement in Treatment Decisions': [Array],
-[1]       'Primary SMA Doctor': [Array],
-[1]       'Others Involved in Health Decisions': [Array],
-[1]       'Support System Involvement': [Array],
-[1]       'Treatment Decision Autonomy': [Array],
-[1]       'Health Goals': [Array]
-[1]     }
-[1]   },
-[1]   'CURRENT PERCEPTIONS & ATTITUDES': {
-[1]     R002: {
-[1]       'Respondent ID': [],
-[1]       'Treatments Awareness': [Array],
-[1]       'Treatments Experience': [Array],
-[1]       'Discontinued Treatment Experience': [],
-[1]       'Discontinued Treatment Reasons': [],
-[1]       'Discontinued Treatment Impact': [],
-[1]       'Discontinued Treatment Restart Consideration': [],
-[1]       'Treatment Impressions': [Array],
-[1]       'Treatment Benefits': [Array],
-[1]       'Treatment Drawbacks': [Array],
-[1]       'Treatment Information Source': [Array],
-[1]       'Treatment Consideration Factors': [Array],
-[1]       'Treatments in Development Awareness': [Array],
-[1]       'Treatments in Development Impressions': [],
-[1]       'Treatments in Development Benefits': [],
-[1]       'Treatments in Development Drawbacks': [],
-[1]       'Treatments in Development Candidacy': [],
-[1]       'Treatments in Development Consideration': [],
-[1]       'Anti-Myostatins Awareness': [Array],
-[1]       'Anti-Myostatins Brands': []
-[1]     }
-[1]   },
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS': {
-[1]     R002: {
-[1]       'Respondent ID': [],
-[1]       'Reasons for Not on Treatment': [Array],
-[1]       'Factors Driving Treatment Consideration': [Array],
-[1]       'Muscle Loss Impact': [Array],
-[1]       'Symptom Tracking Frequency': [],
-[1]       'Symptom Tracking Methods': [],
-[1]       'Symptom Tracking Discussion with HCP': [],
-[1]       'Emotional Factors': [Array],
-[1]       'Practical/Logistical Factors': [Array],
-[1]       'Clinical Factors': [],
-[1]       'Treatment Benefit Requirement': [Array],
-[1]       'Financial/Access Barriers': [Array],
-[1]       'Access Challenges': [Array],
-[1]       'Unmet Needs': [Array]
-[1]     }
-[1]   },
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION': {
-[1]     R002: {
-[1]       'Respondent ID': [],
-[1]       'Likelihood to Consider Treatment': [Array],
-[1]       'Factors Influencing Consideration': [Array],
-[1]       'Improvement Expectations': [Array],
-[1]       'Influential Decision-Makers': [Array],
-[1]       'Confidence Factors': [Array]
-[1]     }
-[1]   },
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES': {
-[1]     R002: {
-[1]       'Respondent ID': [],
-[1]       'Community Connection': [Array],
-[1]       'Community Participation': [Array],
-[1]       'Community Trust': [],
-[1]       'Information Sources': [Array],
-[1]       'Trustworthy Sources': [Array],
-[1]       'New Treatment Awareness': [Array],
-[1]       'Preferred Information Format': [Array],
-[1]       'Information Accessibility': [Array]
-[1]     }
-[1]   },
-[1]   'Misc.': {
-[1]     R002: {
-[1]       'Respondent ID': [],
-[1]       'Final Comments': [Array],
-[1]       'Additional Notes': []
-[1]     }
-[1]   }
-[1] }
-[1] 📤 Context keys: [
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1] 📤 Sheet "BACKGROUND" context columns: [ 'R002' ]
-[1] 📤 Sheet "CURRENT PERCEPTIONS & ATTITUDES" context columns: [ 'R002' ]
-[1] 📤 Sheet "BARRIERS TO TREATMENT & UNMET NEEDS" context columns: [ 'R002' ]
-[1] 📤 Sheet "MOTIVATIONS & FUTURE CONSIDERATION" context columns: [ 'R002' ]
-[1] 📤 Sheet "COMMUNITY ENGAGEMENT & INFO SOURCES" context columns: [ 'R002' ]
-[1] 📤 Sheet "Misc." context columns: [ 'R002' ]
-[1] Failed to cleanup uploaded file: Error: ENOENT: no such file or directory, unlink 'C:\Users\LukeBorglin\Desktop\Apps\JaiceDashboard_master\server\uploads\transcript_1759963295620.docx'
-[1]     at async Object.unlink (node:internal/fs/promises:1065:10)
-[1]     at async file:///C:/Users/LukeBorglin/Desktop/Apps/JaiceDashboard_master/server/routes/contentAnalysisX.routes.mjs:948:11 {
-[1]   errno: -4058,
-[1]   code: 'ENOENT',
-[1]   syscall: 'unlink',
-[1]   path: 'C:\\Users\\LukeBorglin\\Desktop\\Apps\\JaiceDashboard_master\\server\\uploads\\transcript_1759963295620.docx'
-[1] }
+[1] Extracted respno: null
+[1] 📤 About to send response with context: {}
+[1] 📤 Context keys: []

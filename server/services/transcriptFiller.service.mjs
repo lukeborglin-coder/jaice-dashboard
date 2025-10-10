@@ -57,129 +57,167 @@ export async function fillRespondentRowsFromTranscript({ transcript, sheetsColum
     '  - context: { "<Sheet>": { "<Col>": ["comprehensive context 1", "comprehensive context 2", ...] } }',
     '- If transcript lacks evidence for a column, set that column to an empty string - but still include the sheet and column.',
     '- Context arrays should contain ALL relevant conversation snippets for each topic.',
+    '- If you cannot find VERBATIM quotes in the transcript for a topic, leave the context array EMPTY - never write summaries.',
     '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
     'TWO DISTINCT OUTPUTS ARE REQUIRED FOR EACH COLUMN:',
-    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+    '------------------------------------------------------------',
     '',
-    '1️⃣ KEY FINDING (goes in the cell):',
-    '   - Write a THIRD-PERSON SUMMARY that accurately describes what you learned (be comprehensive where evidence exists)',
-    '   - Use objective research language (e.g., "Learns about treatments through Facebook groups")',
-    '   - 3–6 sentences capturing who/what/how/why with specific details',
-    '   - No artificial length limit; include specifics and nuance when supported by the transcript',
-    '   - Do NOT leave cells empty just because you want verbatim quotes - ALWAYS create a finding if there is ANY relevant discussion',
+    '--- OUTPUT REQUIREMENTS ---',
+    'KEY FINDING (cell value):',
+    '  ⚠️ CRITICAL: Each finding MUST be 3-5 sentences. Findings with only 1-2 sentences are UNACCEPTABLE and will be rejected.',
+    '  - Target length: 3-5 complete sentences with specific details and evidence.',
+    '  - Include SPECIFIC EVIDENCE in EVERY finding: exact quotes, numbers, dates, timelines, names, channels, frequencies, concrete examples.',
+    '  - ALWAYS explain the respondent\'s reasoning, motivations, emotions, experiences, and decision-making process.',
+    '  - ALWAYS include relevant details, tensions, caveats, contrasts, and nuances.',
+    '  - Organize logically: background → current situation → reasoning/details → outcomes → implications.',
+    '  - Write as if you are taking comprehensive research notes, not creating a brief summary.',
     '',
-    '2️⃣ ADDITIONAL CONTEXT (shows ALL conversations that informed the finding):',
-    '   - Extract COMPREHENSIVE conversation snippets WITH speaker labels (Moderator: and Respondent:)',
-    '   - Think of this as "complete transcript excerpts" - show ALL relevant back-and-forth dialogue',
-    '   - Each context block should be EXTENSIVE and COMPLETE (typically 10-30 speaker turns)',
-    '   - Start with the moderator question that introduced the topic',
-    '   - Include ALL follow-up questions, answers, and related discussions until the topic changes',
-    '   - Format with speaker labels and line breaks (use \\n between turns)',
-    '   - Provide MULTIPLE context blocks if the topic was discussed in different parts of the interview',
-    '   - ⚠️ CRITICAL: Include EVERY conversation that relates to this topic, not just one example',
-    '   - ⚠️ If there were 5 different points in the conversation about this theme, include ALL 5',
-    '   - ⚠️ NEVER truncate context - always include the complete moderator question and full respondent answer',
-    '   - ⚠️ Include moderator follow-up questions and respondent elaborations in the same context block',
-    '   - Example format:',
-    '     "Moderator: How do you learn about new SMA treatments?\\nRespondent: Through Facebook. That was the only thing that I was getting my information from was these Facebook support groups...\\nModerator: When did you join those groups?\\nRespondent: I don\'t know exactly... probably ten years, maybe eleven at the most."',
+    '  ✅ GOOD EXAMPLE (5 sentences with details):',
+    '  "The respondent was diagnosed with SMA Type 3 at age 7 after experiencing difficulty walking and frequent falls at school. She describes her current health as stable overall but has noticed progressive weakness in her legs over the past two years, particularly when climbing stairs or walking on uneven surfaces. She manages her condition through weekly physical therapy sessions at a local clinic and regular check-ins with her neurologist every six months. For mobility, she uses a wheelchair for distances over 100 feet but can still walk short distances independently with a cane for support. She emphasizes that maintaining her independence in daily activities is her primary health goal."',
     '',
-    '3️⃣ SUPPORTING QUOTES (REMOVED - Focus on comprehensive context instead):',
-    '   - Supporting quotes are disabled - focus on providing comprehensive Additional Context',
-    '   - The Additional Context should contain all the relevant conversation snippets',
-    '   - Users will see the full conversation context instead of individual quotes',
+    '  ❌ BAD EXAMPLES (too brief, lacks detail):',
+    '  - "The respondent has SMA and uses a wheelchair." (1 sentence - REJECTED)',
+    '  - "The respondent lives with his wife and has two adult children." (1 sentence - REJECTED)',
+    '  - "Since quitting his job, he spends time walking his dog and reading." (1 sentence - REJECTED)',
     '',
-    '   ━━━ CONTEXT EXAMPLES ━━━',
-    '   ✅ GOOD context: "Moderator: How do you learn about new SMA treatments?\\nRespondent: Through Facebook. That was the only thing that I was getting my information from was these Facebook support groups that I was a part of for spinal muscular atrophy. That was where I was getting my information.\\nModerator: So interesting. When do you think you joined those groups?\\nRespondent: I don\'t know exactly... probably ten years, maybe eleven at the most.\\nModerator: What kind of information do you get from those groups?\\nRespondent: Mostly about new treatments and how other people are doing with them. It\'s really helpful to hear from people who are actually using the treatments."',
-    '   ✅ GOOD context: "Moderator: What treatments have you tried?\\nRespondent: So I\'ve been on it on two separate occasions. The first time, I started in April 2021, and I took it until April 2022.\\nModerator: And what happened after that?\\nRespondent: I stopped because I didn\'t see any improvement.\\nModerator: How did you feel about stopping?\\nRespondent: It was disappointing, but I knew I had to try something else. My doctor suggested we might try a different approach."',
     '',
-    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+    'SUPPORTING QUOTES (context array):',
+    '  ⚠️⚠️⚠️ CRITICAL: Provide 2-8 VERBATIM quotes from the RESPONDENT ONLY - NO MODERATOR TEXT ALLOWED ⚠️⚠️⚠️',
+    '  ',
+    '  🚨🚨🚨 WARNING: COPY WORD-FOR-WORD, DO NOT WRITE SUMMARIES! 🚨🚨🚨',
+    '  WRONG: "He has not had regular discussions..." (This is YOUR summary in 3rd person)',
+    '  WRONG: "The respondent explained that..." (This is YOUR description)',
+    '  RIGHT: "To be honest, I was never seeing a neurologist..." (This is the RESPONDENT\'S actual words)',
+    '  ',
+    '  ABSOLUTE REQUIREMENTS FOR QUOTES:',
+    '  1. Extract ONLY the respondent\'s words - copy word-for-word, character-for-character',
+    '  2. DO NOT include "Respondent:" or "Moderator:" labels',
+    '  3. DO NOT include ANY moderator questions, prompts, or follow-ups',
+    '  4. DO NOT include "Moderator: [question] Respondent: [answer]" - ONLY include the [answer] part',
+    '  5. DO NOT paraphrase, summarize, or clean up the text',
+    '  6. Preserve ALL filler words (um, uh, like, you know)',
+    '  7. Keep original grammar even if imperfect',
+    '  8. Each quote should be 2-6 sentences from the respondent providing FULL CONTEXT',
+    '  9. Include complete thoughts and explanations - do NOT truncate mid-thought',
+    '  10. Capture the respondent\'s full explanation with all relevant details and reasoning',
+    '',
+    '  QUOTE EXAMPLES:',
+    '  ✅ GOOD - Longer verbatim quote with full context:',
+    '  "Through Facebook. That was the only thing that I was getting my information from was these Facebook support groups that I was a part of for spinal muscular atrophy. I don\'t think I joined until either my very late thirties or my early forties. I\'ve only been on it for probably ten years, maybe eleven at the most. I can read about it and sort of see what other people are doing about it."',
+    '',
+    '  ✅ GOOD - Multiple comprehensive verbatim quotes with reasoning:',
+    '  ["I started in April 2021, and I took it until April 2022. I stopped because insurance wouldn\'t pay for it. They wouldn\'t allow me to renew it. There was part of me going, wait a minute. I got worse. The other part was like, well, insurance has denied it anyways. That\'s the writing on the wall.", "The first time when I took it, I literally had stopped driving my accessible vehicle several months prior. I started taking it that first time, and within a month and a half, I was strong enough to start driving again. I was able to wash my hair again. It was like, oh my gosh, this is amazing. But then what happened is after six months, it\'s like the bottom fell out, and I got worse quickly."]',
+    '',
+    '  ❌ BAD - Too short, missing context (REJECTED):',
+    '  "She said, well, there\'s also another drug that\'s on the horizon of getting approved."',
+    '  (This is too brief - needs the FULL conversation context around this statement)',
+    '',
+    '  ❌ BAD - Paraphrased (REJECTED):',
+    '  "The respondent gets information from Facebook support groups."',
+    '',
+    '  ❌ BAD - Includes moderator text (REJECTED):',
+    '  "Moderator: How do you learn about treatments? Respondent: Through Facebook groups."',
+    '',
+    '  ❌ BAD - Includes moderator even without label (REJECTED):',
+    '  "What do you mean you will? Why will you? Because now I\'m curious to see if any changes."',
+    '  (This includes the moderator\'s question - should ONLY include: "Because now I\'m curious to see if any changes.")',
+    '',
+    '  ❌ BAD - Cleaned up text (REJECTED):',
+    '  "I got my information from Facebook support groups for SMA." (Original had filler words)',
+    '',
+    '  ❌ ABSOLUTELY WRONG - Third-person summary (REJECTED):',
+    '  "He has not had regular discussions with healthcare providers about symptom tracking."',
+    '  ⚠️ THIS IS A SUMMARY YOU WROTE - NOT A QUOTE FROM THE TRANSCRIPT!',
+    '  ⚠️ Respondents speak in FIRST PERSON: "I", "me", "my" - NOT "he", "his", "the respondent"',
+    '  ',
+    '  ❌ ABSOLUTELY WRONG - Descriptive text (REJECTED):',
+    '  "The respondent\'s muscle loss has significantly impacted his treatment decisions."',
+    '  ⚠️ THIS IS YOUR DESCRIPTION - NOT THE RESPONDENT\'S WORDS!',
+    '  ',
+    '  ✅ CORRECT - First-person verbatim from transcript:',
+    '  "To be honest, I was never seeing a neurologist on a regular basis. My primary care would check in with me, but we never really discussed how I was tracking my symptoms day-to-day. I think that\'s something that should have happened, looking back on it now. I was just doing my own thing, keeping mental notes, but nobody was asking me about it systematically."',
+    '  ',
+    '  🚨 CRITICAL CHECK: Every quote MUST contain first-person pronouns (I, me, my, we, our)',
+    '  🚨 If your quote uses "he", "his", "the respondent", YOU MADE A MISTAKE - it\'s not a quote!',
+    '',
     'CRITICAL VALIDATION:',
-    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
-    '✓ Every key finding should have comprehensive Additional Context (unless truly no evidence exists)',
-    '✓ Context blocks should read like actual transcript excerpts with natural dialogue flow',
-    '✓ Context should include ALL relevant conversations about the topic, not just one example',
-    '✓ ⚠️ COMPREHENSIVE: Include every conversation that relates to this topic ⚠️',
-    '✓ ⚠️ MULTIPLE CONTEXTS: If topic discussed in 5 different places, include all 5 ⚠️',
+    '  - Every key finding should have 2-8 supporting quotes with comprehensive context',
+    '  - Each quote should be 2-6 sentences long with full reasoning and details',
+    '  - Quotes must be EXACT COPIES from the respondent\'s speech in the transcript',
+    '  - Quotes should prove the key finding with specific evidence',
+    '  - If the respondent discusses the topic multiple times, include quotes from different conversation sections',
+    '  - Capture the respondent\'s full explanation, not just sentence fragments',
     '',
-    '- Do NOT invent respondent ID/date/time. Do NOT infer demographics unless clearly stated.',
-    '- Ignore moderator text when creating findings; focus on respondent statements.',
-    '- If speaker labels are missing/wrong, USE CONTEXT to distinguish moderator from respondent.',
-    '- Do NOT add extra columns or sheets; use only those provided.',
-    '',
-    '- REMEMBER: Return ALL sheets in your JSON response, even if some columns are empty strings.'
+    'GENERAL REMINDERS:',
+    '  - Do NOT invent respondent ID/date/time. Do NOT infer demographics unless clearly stated.',
+    '  - Ignore moderator text when creating findings; focus on respondent statements.',
+    '  - If speaker labels are missing or wrong, use context clues to distinguish moderator from respondent.',
+    '  - Do NOT add extra columns or sheets; use only those provided.',
+    '  - Return ALL sheets in your JSON response, even if some columns are empty strings.',
   ].join('\n');
 
   const userParts = [];
-  if (discussionGuide) {
-    userParts.push('=== DISCUSSION GUIDE (for alignment only) ===');
-    userParts.push(discussionGuide);
+
+  // CRITICAL: Show the AI the EXACT sheets and columns it must fill
+  userParts.push('=== REQUIRED SHEETS AND COLUMNS ===');
+  userParts.push('You MUST use these EXACT sheet names and column names in your response:');
+  userParts.push('');
+  userParts.push('IMPORTANT: Do NOT fill these metadata columns - leave them as empty strings:');
+  userParts.push('  - "Respondent ID"');
+  userParts.push('  - "respno"');
+  userParts.push('  - "Interview Date"');
+  userParts.push('  - "Interview Time"');
+  userParts.push('  - "Date"');
+  userParts.push('  - "Time"');
+  userParts.push('  - "Time (ET)"');
+  userParts.push('These are automatically populated. Focus ONLY on content columns.');
+  userParts.push('');
+  for (const [sheetName, columns] of Object.entries(sheetsColumns)) {
+    const contentColumns = columns.filter(c =>
+      !['Respondent ID', 'respno', 'Interview Date', 'Interview Time', 'Date', 'Time', 'Time (ET)'].includes(c)
+    );
+    if (contentColumns.length > 0) {
+      userParts.push(`Sheet: "${sheetName}"`);
+      userParts.push(`Content Columns to Fill: ${contentColumns.map(c => `"${c}"`).join(', ')}`);
+      userParts.push('');
+    }
   }
-
-  // Add message testing details if provided
-  if (messageTestingDetails && messageTestingDetails.categories && messageTestingDetails.categories.length > 0) {
-    userParts.push('=== MESSAGE TESTING DETAILS ===');
-    userParts.push('This interview involves message testing. The following message categories and labels should be considered when analyzing the transcript:');
-    userParts.push('');
-    
-    messageTestingDetails.categories.forEach((category, index) => {
-      if (category.name && category.labels && category.labels.length > 0) {
-        userParts.push(`Category ${category.name}: ${category.labels.join(', ')}`);
-      }
-    });
-    
-    userParts.push('');
-    userParts.push('When analyzing the transcript, look for:');
-    userParts.push('- References to specific message labels (e.g., "LB", "MT", "TG")');
-    userParts.push('- Discussion of message categories (e.g., "L messages", "T category")');
-    userParts.push('- Respondent reactions to different messages');
-    userParts.push('- Comparisons between messages');
-    userParts.push('- Any mention of message rotation or randomization');
-    userParts.push('');
-  }
-
-  userParts.push('=== SHEETS + COLUMNS ===');
-  const sheetsSpec = Object.entries(sheetsColumns).map(([sheet, cols]) => {
-    return `- ${sheet}: [${cols.join(', ')}]`;
-  }).join('\n');
-  userParts.push(sheetsSpec);
-
-  // Reinforce requirements inline for better adherence
-  userParts.push('=== REQUIREMENTS ===');
-  userParts.push([
-    'Follow this workflow strictly:',
-    '1) Use the full CLEANED transcript as the source of truth.',
-    '2) Review all tab titles and columns; map findings by meaning (conversation may jump).',
-    '3) For EVERY sheet/column, write a Key Finding in objective research notes; do not copy/paste; no artificial length limits.',
-    '4) For each Key Finding, provide COMPREHENSIVE context excerpts that show ALL relevant conversations.',
-    '5) Include MULTIPLE context blocks if the topic was discussed in different parts of the interview.',
-    '6) ⚠️ CRITICAL: Include EVERY conversation that relates to this topic, not just one example!',
-    '7) ⚠️ If there were 5 different points in the conversation about this theme, include ALL 5!',
-  ].join('\n'));
-
-  console.log(`📋 Sending ${Object.keys(sheetsColumns).length} sheets to AI:`, Object.keys(sheetsColumns));
-  for (const [sheet, cols] of Object.entries(sheetsColumns)) {
-    console.log(`   "${sheet}": ${cols.length} columns`);
-  }
+  userParts.push('DO NOT create your own sheet names. USE ONLY THE EXACT NAMES ABOVE.');
+  userParts.push('');
 
   userParts.push('=== TRANSCRIPT (FULL) ===');
   userParts.push(transcript);
 
+  // Use actual sheet names from sheetsColumns in the example
+  const exampleSheetName = Object.keys(sheetsColumns)[0] || 'Sheet1';
+  const exampleColumnName = (sheetsColumns[exampleSheetName] && sheetsColumns[exampleSheetName][0]) || 'Column1';
+
   userParts.push('=== OUTPUT FORMAT EXAMPLE ===');
+  userParts.push('Your response must match this structure using the EXACT sheet and column names provided above:');
   userParts.push(JSON.stringify({
     rows: {
-      "Finding New Treatments": {
-        "Finding New Treatments": "Learns about new SMA treatments primarily through Facebook support groups, which serve as the main source of information about treatment developments."
+      [exampleSheetName]: {
+        [exampleColumnName]: "3-5 sentence key finding summary based on transcript evidence with specific details, reasoning, and context..."
       }
     },
     context: {
-      "Finding New Treatments": {
-        "Finding New Treatments": [
-          "Moderator: So you weren't going to a doctor. How are you learning about these developments in the SMA treatment?\\nRespondent: Through Facebook. That was the only thing that I was getting my information from was these Facebook support groups that I was a part of for spinal muscular atrophy. That was where I was getting my information.\\nModerator: So interesting. When do you think you joined those groups?\\nRespondent: I don't know exactly... probably ten years, maybe eleven at the most.",
-          "Moderator: What other sources do you use for treatment information?\\nRespondent: Honestly, just those Facebook groups. I don't really trust other sources. The people in those groups have been through it themselves, so they know what they're talking about.\\nModerator: Do you ever check with your doctor about what you learn?\\nRespondent: Sometimes, but usually I just go with what the group says."
+      [exampleSheetName]: {
+        [exampleColumnName]: [
+          "I was diagnosed in 2019, and it was a really difficult time for me because I didn't know what to expect. My doctor explained that I would need to start treatment right away, but I was hesitant because I had heard mixed things from other patients in my support group.",
+          "The side effects were pretty manageable at first, just some fatigue and nausea. But after about six months, I started experiencing muscle weakness in my legs, and that's when I really started to worry about whether this treatment was working for me."
         ]
       }
     }
   }, null, 2));
+  userParts.push('');
+  userParts.push('IMPORTANT NOTES ABOUT THE EXAMPLE ABOVE:');
+  userParts.push('- The context array quotes are EXAMPLES showing the STYLE and FORMAT you should use');
+  userParts.push('- DO NOT copy these exact example quotes into your response');
+  userParts.push('- Instead, find similar VERBATIM quotes from the actual transcript provided');
+  userParts.push('- The quotes should be word-for-word copies from what the respondent actually said');
+  userParts.push('- DO NOT write summaries like "The respondent explained..." or "He said that..."');
+  userParts.push('- DO NOT write descriptions like "The respondent\'s muscle loss has significantly impacted..."');
+  userParts.push('- COPY the respondent\'s actual words exactly as they appear in the transcript');
 
   const messages = [
     { role: 'system', content: sys },
@@ -193,12 +231,13 @@ export async function fillRespondentRowsFromTranscript({ transcript, sheetsColum
   // Retry up to 3 times if JSON parsing fails
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
-      console.log(`🔄 Attempt ${attempt}/3: Calling OpenAI API with gpt-4o (higher token limit)...`);
+      console.log(`🔄 Attempt ${attempt}/3: Calling OpenAI API with gpt-4o...`);
       resp = await client.chat.completions.create({
         model: 'gpt-4o',
         temperature: 0.1,
         messages,
         response_format: { type: 'json_object' },
+        max_tokens: 16384,
       });
 
       const content = resp.choices[0].message.content;
@@ -241,7 +280,7 @@ export async function fillRespondentRowsFromTranscript({ transcript, sheetsColum
                 additionalProperties: {
                   type: 'array',
                   items: { type: 'string' },
-                  maxItems: 10
+                  maxItems: 8
                 }
               }
             }
@@ -253,7 +292,7 @@ export async function fillRespondentRowsFromTranscript({ transcript, sheetsColum
           temperature: 0.1,
           messages,
           response_format: { type: 'json_schema', json_schema: { name: 'ca_rows_quotes_context', schema, strict: true } },
-          max_tokens: 16000
+          max_tokens: 16384
         });
 
         const content2 = resp2.choices?.[0]?.message?.content || '';

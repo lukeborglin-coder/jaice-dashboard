@@ -98,7 +98,8 @@ ${dgText}
 }
 
 // NEW: Generate JSON preview instead of Excel file
-export async function generateCAFromDGAsJSON(dgPath) {
+// Accepts either a file path OR text directly
+export async function generateCAFromDGAsJSON(dgPathOrText, isTextDirectly = false) {
   try {
     // Check and initialize OpenAI client at runtime
     const hasValidKey = process.env.OPENAI_API_KEY &&
@@ -111,8 +112,8 @@ export async function generateCAFromDGAsJSON(dgPath) {
 
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-    // 1) Extract text from docx file
-    const dgText = await extractTextFromDocx(dgPath);
+    // 1) Get discussion guide text - either from file or directly
+    const dgText = isTextDirectly ? dgPathOrText : await extractTextFromDocx(dgPathOrText);
 
     // 2) Call OpenAI with structured prompt to emit JSON by sheet
     const promptPath = path.join(__dirname, '../prompts/ca_from_dg_prompt.txt');
@@ -213,7 +214,7 @@ export async function generateGuideMapFromDGText(dgText, sectionsJson) {
     ].join('\n');
 
     const resp = await client.chat.completions.create({
-      model: 'gpt-4o',
+      model: 'gpt-4o-mini',
       temperature: 0.1,
       messages: [ { role: 'system', content: sys }, { role: 'user', content: user } ],
       response_format: { type: 'json_object' }

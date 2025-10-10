@@ -3,6 +3,7 @@ import { authenticateToken, requireCognitiveOrAdmin } from '../middleware/auth.m
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs/promises';
+import fsSync from 'fs';
 import mammoth from 'mammoth';
 import { generateCAFromDGAsJSON, generateExcelFromJSON, generateGuideMapFromDGText } from '../services/caGenerator.service.mjs';
 import { fillRespondentRowsFromTranscript } from '../services/transcriptFiller.service.mjs';
@@ -10,6 +11,11 @@ import { fileURLToPath } from 'url';
 import OpenAI from 'openai';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const uploadsDir = process.env.FILES_DIR || path.join(process.env.DATA_DIR || path.join(__dirname, '../data'), 'uploads');
+
+// Ensure upload directory exists
+await fs.mkdir(uploadsDir, { recursive: true });
+
 const router = express.Router();
 
 // In-memory job store for background processing
@@ -104,6 +110,50 @@ async function saveAnalysesToFile(analyses) {
     console.error('Error saving analyses:', error);
   }
 }
+
+const cloneContext = (context) => {
+  if (!context) return {};
+  try {
+    if (typeof structuredClone === 'function') {
+      return structuredClone(context);
+    }
+  } catch (err) {
+    console.warn('structuredClone failed, falling back to JSON clone:', err?.message);
+  }
+  try {
+    return JSON.parse(JSON.stringify(context));
+  } catch (err) {
+    console.warn('JSON clone failed, returning shallow copy:', err?.message);
+    return { ...context };
+  }
+};
+
+const mergeContextMaps = (base = {}, addition = {}) => {
+  const merged = cloneContext(base);
+
+  for (const [sheet, respondents] of Object.entries(addition || {})) {
+    if (!merged[sheet]) merged[sheet] = {};
+    for (const [respId, cols] of Object.entries(respondents || {})) {
+      if (!merged[sheet][respId]) merged[sheet][respId] = {};
+
+      for (const [colName, contexts] of Object.entries(cols || {})) {
+        const existing = Array.isArray(merged[sheet][respId][colName]) ? merged[sheet][respId][colName] : [];
+        const next = Array.isArray(contexts) ? contexts : [];
+        const seen = new Set(existing);
+        for (const ctx of next) {
+          if (!seen.has(ctx)) {
+            existing.push(ctx);
+            seen.add(ctx);
+          }
+        }
+        merged[sheet][respId][colName] = existing;
+      }
+    }
+  }
+
+  return merged;
+};
+
 
 // Load saved analyses on startup
   let savedAnalyses = await loadSavedAnalyses();
@@ -700,56 +750,163 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
     console.log('Request body:', req.body);
     console.log('Request file:', req.file);
 
-    if (!req.file) {
-      console.log('No file uploaded');
-      return res.status(400).json({ error: 'No transcript file uploaded' });
-    }
+    const { projectId, activeSheet, discussionGuide, guideMap: guideMapRaw, analysisId, cleanTranscript, checkForAEs, messageConceptTesting, messageTestingDetails, transcriptId, preferCleanedTranscript } = req.body;
 
-    const { projectId, activeSheet, discussionGuide, guideMap: guideMapRaw, analysisId, cleanTranscript, checkForAEs, messageConceptTesting, messageTestingDetails } = req.body;
+    if (!req.file && !transcriptId) {
+      console.log('No file uploaded or transcriptId provided');
+      return res.status(400).json({ error: 'A transcript file or transcriptId is required' });
+    }
 
     if (!projectId || !activeSheet) {
       console.log('Missing required fields:', { projectId, activeSheet });
       return res.status(400).json({ error: 'Project ID and active sheet are required' });
     }
 
-    // Process transcript synchronously
-    console.log(`Processing transcript for project: ${projectId}, sheet: ${activeSheet}`);
-    console.log('File details:', {
-      originalname: req.file.originalname,
-      mimetype: req.file.mimetype,
-      size: req.file.size,
-      path: req.file.path
-    });
-
-    // Read the transcript file
-    let transcriptText;
-    if (req.file.originalname.endsWith('.txt')) {
-      transcriptText = await fs.readFile(req.file.path, 'utf8');
-    } else if (req.file.originalname.endsWith('.docx')) {
-      // Process .docx files using mammoth library
-      console.log('Processing DOCX file with mammoth...');
+    const preferCleaned = preferCleanedTranscript === 'true' || preferCleanedTranscript === true;
+    let messageTestingDetailsParsed = null;
+    if (messageTestingDetails) {
       try {
-        const result = await mammoth.extractRawText({ path: req.file.path });
-        transcriptText = result.value;
-        
-        console.log(`Successfully extracted ${transcriptText.length} characters from DOCX file`);
-        console.log('DOCX content preview:', transcriptText.substring(0, 200) + '...');
-        
-        // Check if we got meaningful content
-        if (transcriptText.length < 50) {
-          console.log('Warning: Extracted content seems too short, might be an issue with the DOCX file');
-        }
-      } catch (error) {
-        console.error('Error processing DOCX file with mammoth:', error);
-        return res.status(400).json({ 
-          error: 'Failed to process DOCX file. Please try converting to .txt format and upload again.',
-          details: error.message
-        });
+        messageTestingDetailsParsed = typeof messageTestingDetails === 'string'
+          ? JSON.parse(messageTestingDetails)
+          : messageTestingDetails;
+      } catch (err) {
+        console.warn('Failed to parse messageTestingDetails:', err);
       }
-    } else {
-      return res.status(400).json({ error: 'Unsupported file format. Please upload .txt or .docx files.' });
     }
 
+    let transcriptText;
+    let cleanedTranscript;
+    let transcriptFilename = req.file ? req.file.originalname : null;
+    let usedTranscriptId = transcriptId || null;
+    let storedOriginalFilePath = req.file ? req.file.path : null;
+    let storedCleanedFilePath = null;
+    let existingTranscriptRespno = null; // Store respno from transcript if using existing transcript
+
+    // Process transcript synchronously
+    console.log(`Processing transcript for project: ${projectId}, sheet: ${activeSheet}`);
+    if (req.file) {
+      console.log('File details:', {
+        originalname: req.file.originalname,
+        mimetype: req.file.mimetype,
+        size: req.file.size,
+        path: req.file.path
+      });
+    } else {
+      console.log('Using existing transcript from transcripts store:', { transcriptId, preferCleaned });
+    }
+
+    // Read the transcript file
+    if (req.file) {
+      transcriptFilename = req.file.originalname;
+      if (req.file.originalname.endsWith('.txt')) {
+        transcriptText = await fs.readFile(req.file.path, 'utf8');
+      } else if (req.file.originalname.endsWith('.docx')) {
+        // Process .docx files using mammoth library
+        console.log('Processing DOCX file with mammoth...');
+        try {
+          const result = await mammoth.extractRawText({ path: req.file.path });
+          transcriptText = result.value;
+
+          console.log(`Successfully extracted ${transcriptText.length} characters from DOCX file`);
+          console.log('DOCX content preview:', transcriptText.substring(0, 200) + '...');
+
+          // Check if we got meaningful content
+          if (transcriptText.length < 50) {
+            console.log('Warning: Extracted content seems too short, might be an issue with the DOCX file');
+          }
+        } catch (error) {
+          console.error('Error processing DOCX file with mammoth:', error);
+          return res.status(400).json({ 
+            error: 'Failed to process DOCX file. Please try converting to .txt format and upload again.',
+            details: error.message
+          });
+        }
+      } else {
+        return res.status(400).json({ error: 'Unsupported file format. Please upload .txt or .docx files.' });
+      }
+    } else {
+      try {
+        const transcriptsPath = path.join(process.env.DATA_DIR || path.join(__dirname, '../data'), 'transcripts.json');
+        let transcriptsData = {};
+        if (await fs.access(transcriptsPath).then(() => true).catch(() => false)) {
+          const raw = await fs.readFile(transcriptsPath, 'utf8');
+          transcriptsData = JSON.parse(raw || '{}');
+        }
+
+        const projectTranscripts = Array.isArray(transcriptsData[projectId]) ? transcriptsData[projectId] : [];
+        const existingTranscript = projectTranscripts.find(t => String(t.id) === String(transcriptId));
+
+        if (!existingTranscript) {
+          return res.status(404).json({ error: 'Transcript not found for this project' });
+        }
+
+        // Store the respno from the existing transcript
+        existingTranscriptRespno = existingTranscript.respno;
+
+        const resolvePath = (filePath) => {
+          if (!filePath) return null;
+          const normalized = path.normalize(filePath);
+          if (path.isAbsolute(normalized)) return normalized;
+          return path.join(__dirname, '..', normalized);
+        };
+
+        const resolvedOriginalPath = resolvePath(existingTranscript.originalPath);
+        const resolvedCleanedPath = resolvePath(existingTranscript.cleanedPath);
+
+        if (!resolvedOriginalPath && !resolvedCleanedPath) {
+          return res.status(404).json({ error: 'Transcript file is no longer available on the server' });
+        }
+
+        const processingSourcePath = preferCleaned && resolvedCleanedPath ? resolvedCleanedPath : (resolvedCleanedPath || resolvedOriginalPath);
+        const processingExt = path.extname(processingSourcePath || '').toLowerCase();
+
+        if (processingExt === '.txt') {
+          transcriptText = await fs.readFile(processingSourcePath, 'utf8');
+        } else if (processingExt === '.docx') {
+          console.log('Processing stored DOCX transcript with mammoth...');
+          try {
+            const result = await mammoth.extractRawText({ path: processingSourcePath });
+            transcriptText = result.value;
+          } catch (error) {
+            console.error('Error processing stored DOCX file with mammoth:', error);
+            return res.status(400).json({ 
+              error: 'Failed to read stored DOCX transcript. Please re-upload as .txt if possible.',
+              details: error.message
+            });
+          }
+        } else {
+          return res.status(400).json({ error: 'Unsupported transcript format. Please upload .txt or .docx files.' });
+        }
+
+        transcriptFilename = preferCleaned && existingTranscript.cleanedFilename
+          ? existingTranscript.cleanedFilename
+          : (existingTranscript.originalFilename || path.basename(processingSourcePath));
+        usedTranscriptId = existingTranscript.id;
+
+        const timestamp = Date.now();
+        if (resolvedOriginalPath) {
+          const originalCopyName = `existing_${timestamp}_${path.basename(resolvedOriginalPath)}`;
+          const destination = path.join(uploadsDir, originalCopyName);
+          await fs.copyFile(resolvedOriginalPath, destination);
+          storedOriginalFilePath = destination;
+        }
+        if (resolvedCleanedPath) {
+          const cleanedCopyName = `existing_${timestamp}_cleaned_${path.basename(resolvedCleanedPath)}`;
+          const cleanedDestination = path.join(uploadsDir, cleanedCopyName);
+          await fs.copyFile(resolvedCleanedPath, cleanedDestination);
+          storedCleanedFilePath = cleanedDestination;
+        }
+
+        if (!storedOriginalFilePath && storedCleanedFilePath) {
+          storedOriginalFilePath = storedCleanedFilePath;
+        }
+      } catch (error) {
+        console.error('Failed to load existing transcript:', error);
+        return res.status(500).json({ error: 'Failed to load stored transcript' });
+      }
+    }
+
+    cleanedTranscript = transcriptText;
     // Get the current content analysis data structure from the request body
     // The frontend should send the current data structure
     const currentData = req.body.currentData ? JSON.parse(req.body.currentData) : getProjectData(projectId);
@@ -773,8 +930,9 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
     const dateTimeInfo = extractDateTimeFromTranscript(transcriptText);
     console.log('Extracted date/time from transcript:', dateTimeInfo);
 
-    // Derive moderator aliases from the associated project (projects.json)
+    // Derive moderator aliases and project name from the associated project (projects.json)
     const moderatorAliases = [];
+    let projectName = 'Transcript'; // Default fallback
     try {
       const projectsPath = path.join(process.env.DATA_DIR || path.join(__dirname, '../data'), 'projects.json');
       if (await fs.access(projectsPath).then(() => true).catch(() => false)) {
@@ -785,6 +943,9 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
           if (!Array.isArray(arr)) continue;
           const proj = arr.find(p => String(p?.id) === String(projectId));
           if (proj) {
+            // Extract project name
+            projectName = proj.name || proj.title || 'Transcript';
+
             const tryPush = (val) => {
               if (!val) return;
               const s = String(val).trim();
@@ -805,7 +966,7 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
         }
       }
     } catch (e) {
-      console.warn('Failed to derive moderator aliases from projects.json:', e.message);
+      console.warn('Failed to derive moderator aliases and project name from projects.json:', e.message);
     }
 
     // Compose enriched guide context: raw guide + per sheet/column mapping of questions
@@ -832,30 +993,210 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
       mappingLines.join('\n')
     ].filter(Boolean).join('\n\n');
 
-    // Clean the transcript with AI (if requested)
-    let cleanedTranscript = transcriptText;
-    
-    if (cleanTranscript === 'true' || cleanTranscript === true) {
-      console.log('=== ABOUT TO CALL cleanTranscriptWithAI ===');
-      console.log('Transcript text preview:', transcriptText.substring(0, 300));
-      console.log('Discussion guide available:', !!discussionGuide);
-      console.log('Column headers:', columnHeaders);
+    // Skip transcript cleaning - we'll directly populate CA cells
+    console.log('=== SKIPPING TRANSCRIPT CLEANING - DIRECTLY POPULATING CA ===');
 
-      cleanedTranscript = await cleanTranscriptWithAI(transcriptText, enrichedGuide, columnHeaders, moderatorAliases);
-    } else {
-      console.log('=== SKIPPING TRANSCRIPT CLEANING (cleanTranscript=false) ===');
+    // Save cleaned transcript as Word document for download
+    let cleanedFilePath = null;
+    if (false) {
+      try {
+        const cleanedFilename = req.file.filename.replace('.docx', '_cleaned.docx');
+        cleanedFilePath = path.join(uploadsDir, cleanedFilename);
+
+        // Create a Word document with the cleaned transcript
+        const { Document, Packer, Paragraph, TextRun, AlignmentType } = await import('docx');
+
+        // Parse the cleaned transcript to identify speaker changes and format accordingly
+        const lines = cleanedTranscript.split('\n');
+        const paragraphs = [];
+
+        // Add title: "Project Name - Transcript"
+        paragraphs.push(
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: `${projectName} - Transcript`,
+                bold: true,
+                size: 32, // 16pt font
+              }),
+            ],
+            spacing: { after: 200 },
+            alignment: AlignmentType.LEFT,
+          })
+        );
+
+        // Add date and time in italics
+        if (dateTimeInfo && (dateTimeInfo.date || dateTimeInfo.time)) {
+          const dateTimeText = [dateTimeInfo.date, dateTimeInfo.time].filter(Boolean).join(' - ');
+          paragraphs.push(
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: dateTimeText,
+                  italics: true,
+                  size: 20, // 10pt font
+                }),
+              ],
+              spacing: { after: 400 },
+              alignment: AlignmentType.LEFT,
+            })
+          );
+        }
+
+        // Process transcript lines
+        for (const line of lines) {
+          const trimmedLine = line.trim();
+          if (!trimmedLine) {
+            // Add empty paragraph for blank lines
+            paragraphs.push(new Paragraph({ text: '' }));
+            continue;
+          }
+
+          // Check if line starts with "Respondent:" or "Moderator:"
+          const respondentMatch = trimmedLine.match(/^(Respondent:)\s*(.*)$/);
+          const moderatorMatch = trimmedLine.match(/^(Moderator:)\s*(.*)$/);
+
+          if (respondentMatch) {
+            // Bold "Respondent:" and regular text for the rest
+            paragraphs.push(
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: 'Respondent: ',
+                    bold: true,
+                    size: 24,
+                  }),
+                  new TextRun({
+                    text: respondentMatch[2],
+                    size: 24,
+                  }),
+                ],
+                spacing: { after: 120 },
+              })
+            );
+          } else if (moderatorMatch) {
+            // Bold "Moderator:" and regular text for the rest
+            paragraphs.push(
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: 'Moderator: ',
+                    bold: true,
+                    size: 24,
+                  }),
+                  new TextRun({
+                    text: moderatorMatch[2],
+                    size: 24,
+                  }),
+                ],
+                spacing: { after: 120 },
+              })
+            );
+          } else {
+            // Regular paragraph
+            paragraphs.push(
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: trimmedLine,
+                    size: 24,
+                  }),
+                ],
+                spacing: { after: 120 },
+              })
+            );
+          }
+        }
+
+        const doc = new Document({
+          sections: [{
+            properties: {},
+            children: paragraphs,
+          }],
+        });
+
+        const buffer = await Packer.toBuffer(doc);
+        await fs.writeFile(cleanedFilePath, buffer);
+        console.log('Cleaned transcript saved for download:', cleanedFilePath);
+      } catch (saveError) {
+        console.warn('Failed to save cleaned transcript:', saveError);
+        console.error('Save error details:', saveError);
+      }
     }
 
-    console.log('=== TRANSCRIPT CLEANING COMPLETED ===');
-    console.log('Cleaned transcript preview:', cleanedTranscript.substring(0, 300));
-    console.log('⏱️  Elapsed time:', Math.round((Date.now() - Date.now()) / 1000), 'seconds');
-
     console.log('=== STARTING MAIN TRANSCRIPT PROCESSING ===');
-    console.log('⏱️  This step may take 15-25 minutes for large transcripts...');
+    console.log('⏱️  Directly populating CA cells from raw transcript...');
 
-    // Process the CLEANED transcript with AI to extract key findings for ALL sheets
-    const messageTestingDetailsParsed = messageTestingDetails ? JSON.parse(messageTestingDetails) : null;
-    const processed = await processTranscriptWithAI(cleanedTranscript, currentData, enrichedGuide, messageTestingDetailsParsed);
+    // Extract sheetsColumns from currentData
+    const sheetsColumns = {};
+    for (const [sheetName, respArray] of Object.entries(currentData || {})) {
+      if (Array.isArray(respArray) && respArray.length > 0 && typeof respArray[0] === 'object') {
+        const columns = Object.keys(respArray[0]).filter(key => key !== 'respno');
+        sheetsColumns[sheetName] = columns;
+      } else {
+        sheetsColumns[sheetName] = [];
+      }
+    }
+
+    // Call fillRespondentRowsFromTranscript directly on raw transcript
+    const caResult = await fillRespondentRowsFromTranscript({
+      transcript: transcriptText,
+      sheetsColumns: sheetsColumns,
+      discussionGuide: enrichedGuide,
+      messageTestingDetails: messageTestingDetailsParsed
+    });
+
+    // Integrate the results into currentData
+    // Use existing respno from transcript if available, otherwise calculate next respno
+    let respno;
+
+    if (existingTranscriptRespno) {
+      // Use the respno assigned to the transcript in the Transcripts tab
+      respno = existingTranscriptRespno;
+      console.log(`Using existing respno from transcript: ${respno}`);
+    } else {
+      // Calculate next respno based on HIGHEST existing respno number (not array length)
+      // Filter out empty rows (rows with no respno) before counting
+      const demographicsArray = Array.isArray(currentData.Demographics) ? currentData.Demographics : [];
+      const existingRespondents = demographicsArray.filter(row => row.respno || row['Respondent ID']);
+
+      // Find the highest existing respondent number
+      let maxRespno = 0;
+      existingRespondents.forEach(row => {
+        const id = row['Respondent ID'] || row['respno'];
+        if (id) {
+          const match = String(id).match(/\d+/);
+          if (match) {
+            const num = parseInt(match[0], 10);
+            if (num > maxRespno) {
+              maxRespno = num;
+            }
+          }
+        }
+      });
+
+      respno = `R${String(maxRespno + 1).padStart(3, '0')}`;
+      console.log(`Calculated new respno: ${respno}`);
+    }
+
+    for (const [sheetName, rowData] of Object.entries(caResult.rows || {})) {
+      if (!currentData[sheetName]) {
+        currentData[sheetName] = [];
+      }
+
+      // Add new row with proper metadata
+      currentData[sheetName].push({
+        ...rowData,
+        'Respondent ID': respno,
+        respno: respno
+      });
+    }
+
+    const processed = {
+      data: currentData,
+      quotes: {}, // Not using quotes anymore
+      context: {}
+    };
 
     console.log('=== MAIN TRANSCRIPT PROCESSING COMPLETED ===');
     console.log('⏱️  Processing complete');
@@ -906,7 +1247,9 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
       if (idx !== -1) {
         savedAnalyses[idx].data = processed.data;
         savedAnalyses[idx].quotes = processed.quotes;
-        savedAnalyses[idx].context = processed.context;
+        const mergedContextForPersistence = mergeContextMaps(savedAnalyses[idx].context || {}, processed.context);
+        savedAnalyses[idx].context = mergedContextForPersistence;
+        processed.context = mergedContextForPersistence;
         // Ensure guideMap is preserved if it existed on the saved analysis
         if (!savedAnalyses[idx].guideMap && req.body.guideMap) {
           try { savedAnalyses[idx].guideMap = typeof req.body.guideMap === 'string' ? JSON.parse(req.body.guideMap) : req.body.guideMap; } catch {}
@@ -919,21 +1262,56 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
       }
     }
 
-    // Clean up uploaded file
-    try {
-      await fs.unlink(req.file.path);
-      console.log('Uploaded file cleaned up successfully');
-    } catch (cleanupError) {
-      console.warn('Failed to cleanup uploaded file:', cleanupError);
-    }
+    // Keep uploaded or referenced file for download - no cleanup needed
+    console.log('Transcript file available for download:', storedOriginalFilePath);
 
     // Extract the respno from the Demographics sheet (it's the newly added row)
     const demographicsSheet = processed.data.Demographics;
-    let respno = null;
+    // respno already declared above
     if (demographicsSheet && Array.isArray(demographicsSheet) && demographicsSheet.length > 0) {
       const lastRow = demographicsSheet[demographicsSheet.length - 1];
       respno = lastRow['Respondent ID'] || lastRow['respno'] || null;
+      
+      // If no respno exists, generate one
+      if (!respno) {
+        // Find the highest existing respondent number
+        let maxRespno = 0;
+        demographicsSheet.forEach(row => {
+          const existingRespno = row['Respondent ID'] || row['respno'];
+          if (existingRespno && existingRespno.startsWith('R')) {
+            const num = parseInt(existingRespno.substring(1));
+            if (!isNaN(num) && num > maxRespno) {
+              maxRespno = num;
+            }
+          }
+        });
+        
+        // Generate new respondent ID
+        respno = `R${String(maxRespno + 1).padStart(3, '0')}`;
+        
+        // Update the last row with the new respondent ID
+        lastRow['Respondent ID'] = respno;
+        lastRow['respno'] = respno;
+        
+        console.log('Generated new respondent ID:', respno);
+      }
     }
+
+    const contextBySheetAndRespondent = {};
+    for (const [sheetName, columnContext] of Object.entries(caResult.context || {})) {
+      if (!contextBySheetAndRespondent[sheetName]) {
+        contextBySheetAndRespondent[sheetName] = {};
+      }
+
+      const cleanedColumns = {};
+      for (const [colName, contexts] of Object.entries(columnContext || {})) {
+        cleanedColumns[colName] = Array.isArray(contexts) ? contexts : [];
+      }
+
+      contextBySheetAndRespondent[sheetName][respno] = cleanedColumns;
+    }
+
+    processed.context = contextBySheetAndRespondent;
 
         console.log('Transcript processing completed successfully');
         console.log('Extracted respno:', respno);
@@ -943,12 +1321,7 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
           console.log(`📤 Sheet "${sheet}" context columns:`, Object.keys(cols));
         }
 
-        // Clean up uploaded file
-        try {
-          await fs.unlink(req.file.path);
-        } catch (cleanupError) {
-          console.warn('Failed to cleanup uploaded file:', cleanupError);
-        }
+        // File already cleaned up above
 
         // Check for AEs if requested
         let aeReport = null;
@@ -993,6 +1366,9 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
         }
 
         // Return the processed result directly
+        const clientOriginalPath = storedOriginalFilePath ? storedOriginalFilePath.split(path.sep).join('/') : null;
+        const clientCleanedPath = (storedCleanedFilePath || cleanedFilePath) ? (storedCleanedFilePath || cleanedFilePath).split(path.sep).join('/') : null;
+
         res.json({
           success: true,
           data: processed.data,
@@ -1003,6 +1379,11 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
           respno: respno,
           analysisId: analysisId || null,
           aeReport: aeReport,
+          filePaths: {
+            original: clientOriginalPath,
+            cleaned: clientCleanedPath
+          },
+          usedTranscriptId: usedTranscriptId,
           message: 'Transcript processed successfully'
         });
   } catch (error) {
@@ -1023,6 +1404,208 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
   }
 });
 
+// GET /api/caX/download/original/:filename - Download original transcript file
+router.get('/download/original/:filename', authenticateToken, async (req, res) => {
+  try {
+    const { filename } = req.params;
+    const filePath = path.join(uploadsDir, filename);
+
+    // Check if file exists
+    if (!await fs.access(filePath).then(() => true).catch(() => false)) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+
+    // Set appropriate headers for download
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+
+    // Stream the file using fsSync
+    const fileStream = fsSync.createReadStream(filePath);
+    fileStream.pipe(res);
+
+    fileStream.on('error', (error) => {
+      console.error('Error streaming file:', error);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Error streaming file' });
+      }
+    });
+  } catch (error) {
+    console.error('Error in download original endpoint:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /api/caX/download/cleaned/:filename - Download cleaned transcript file
+router.get('/download/cleaned/:filename', authenticateToken, async (req, res) => {
+  try {
+    const { filename } = req.params;
+    // Don't add _cleaned if it's already in the filename
+    const cleanedFilename = filename.includes('_cleaned.docx') ? filename : filename.replace('.docx', '_cleaned.docx');
+    const filePath = path.join(uploadsDir, cleanedFilename);
+
+    console.log('🔍 Download cleaned - requested filename:', filename);
+    console.log('🔍 Download cleaned - cleanedFilename:', cleanedFilename);
+    console.log('🔍 Download cleaned - filePath:', filePath);
+
+    // Check if file exists
+    if (!await fs.access(filePath).then(() => true).catch(() => false)) {
+      return res.status(404).json({ error: 'Cleaned file not found' });
+    }
+
+    // Set appropriate headers for download
+    res.setHeader('Content-Disposition', `attachment; filename="${cleanedFilename}"`);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+
+    // Stream the file using fsSync
+    const fileStream = fsSync.createReadStream(filePath);
+    fileStream.pipe(res);
+
+    fileStream.on('error', (error) => {
+      console.error('Error streaming cleaned file:', error);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Error streaming cleaned file' });
+      }
+    });
+  } catch (error) {
+    console.error('Error in download cleaned endpoint:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/caX/generate-from-transcripts - Generate content analysis from transcripts
+router.post('/generate-from-transcripts', async (req, res) => {
+  try {
+    const { projectId, analysisId, transcriptType, transcripts } = req.body;
+    
+    if (!projectId || !analysisId || !transcriptType || !transcripts || !Array.isArray(transcripts)) {
+      return res.status(400).json({ error: 'Missing required parameters' });
+    }
+
+    console.log(`Generating content analysis from ${transcriptType} transcripts for analysis ${analysisId}`);
+    console.log(`Processing ${transcripts.length} transcript(s)`);
+
+    // Load the existing analysis
+    const analysesPath = path.join(process.env.DATA_DIR || path.join(__dirname, '../data'), 'savedAnalyses.json');
+    const analysesData = await fs.readFile(analysesPath, 'utf8');
+    const analyses = JSON.parse(analysesData);
+    
+    const analysisIndex = analyses.findIndex(a => a.id === analysisId);
+    if (analysisIndex === -1) {
+      return res.status(404).json({ error: 'Analysis not found' });
+    }
+
+    const analysis = analyses[analysisIndex];
+    
+    // Generate content analysis for each transcript
+    for (const transcript of transcripts) {
+      const transcriptText = transcriptType === 'cleaned' ? transcript.cleanedTranscript : transcript.originalTranscript;
+      
+      if (!transcriptText) {
+        console.warn(`No ${transcriptType} transcript found for respondent ${transcript.respno}`);
+        continue;
+      }
+
+      console.log(`Processing transcript for respondent ${transcript.respno}`);
+
+      // Get discussion guide text for context
+      const discussionGuideText = analysis.rawGuideText || analysis.discussionGuideText || '';
+
+      // Extract sheetsColumns from analysis.data
+      // analysis.data is structured as: { sheetName: [ { columnName: value, respno: "R001" } ] }
+      const sheetsColumns = {};
+      for (const [sheetName, respArray] of Object.entries(analysis.data || {})) {
+        if (Array.isArray(respArray) && respArray.length > 0 && typeof respArray[0] === 'object') {
+          // Get all column names from the first row, excluding 'respno' which is metadata
+          const columns = Object.keys(respArray[0]).filter(key => key !== 'respno');
+          sheetsColumns[sheetName] = columns;
+        } else {
+          sheetsColumns[sheetName] = [];
+        }
+      }
+
+      console.log('Extracted sheetsColumns:', JSON.stringify(sheetsColumns, null, 2));
+
+      // Use fillRespondentRowsFromTranscript to populate the analysis
+      const caResult = await fillRespondentRowsFromTranscript({
+        transcript: transcriptText,
+        sheetsColumns: sheetsColumns,
+        discussionGuide: discussionGuideText,
+        messageTestingDetails: null
+      });
+
+      console.log('CA Result structure:', { hasRows: !!caResult?.rows, hasContext: !!caResult?.context });
+
+      if (caResult && caResult.rows) {
+        // caResult.rows is structured as: { sheetName: { columnName: value } }
+        // We need to integrate this into analysis.data which is: { sheetName: [ { columnName: value, respno: "R001" } ] }
+
+        for (const [sheetName, rowData] of Object.entries(caResult.rows)) {
+          if (!analysis.data[sheetName]) {
+            analysis.data[sheetName] = [];
+          }
+
+          // Find existing row for this respondent or create new one
+          const existingRowIndex = analysis.data[sheetName].findIndex(row => row.respno === transcript.respno);
+
+          if (existingRowIndex !== -1) {
+            // Update existing row - merge the new data with existing data
+            analysis.data[sheetName][existingRowIndex] = {
+              ...analysis.data[sheetName][existingRowIndex],
+              ...rowData,
+              respno: transcript.respno  // Ensure respno is preserved
+            };
+          } else {
+            // Add new row
+            analysis.data[sheetName].push({
+              ...rowData,
+              respno: transcript.respno
+            });
+          }
+        }
+
+        // Update context if available
+        // caResult.context is structured as: { sheetName: { columnName: [context1, context2, ...] } }
+        // We need to store it in a similar format
+        if (caResult.context) {
+          if (!analysis.context) analysis.context = {};
+
+          for (const [sheetName, colContexts] of Object.entries(caResult.context)) {
+            if (!analysis.context[sheetName]) {
+              analysis.context[sheetName] = {};
+            }
+
+            // Store context for this respondent
+            if (!analysis.context[sheetName][transcript.respno]) {
+              analysis.context[sheetName][transcript.respno] = {};
+            }
+
+            // Merge column contexts for this respondent
+            analysis.context[sheetName][transcript.respno] = {
+              ...analysis.context[sheetName][transcript.respno],
+              ...colContexts
+            };
+          }
+        }
+      }
+    }
+
+    // Save the updated analysis
+    analyses[analysisIndex] = analysis;
+    await fs.writeFile(analysesPath, JSON.stringify(analyses, null, 2));
+
+    console.log(`Content analysis generation completed for analysis ${analysisId}`);
+    
+    res.json({ 
+      success: true, 
+      message: `Content analysis generated successfully for ${transcripts.length} transcript(s)`,
+      analysisId: analysisId
+    });
+
+  } catch (error) {
+    console.error('Error in generate-from-transcripts endpoint:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // GET /api/caX/discussion-guide/:projectId - Get discussion guide HTML for a project
 router.get('/discussion-guide/:projectId', async (req, res) => {
@@ -1113,6 +1696,102 @@ function getDiscussionGuide(projectId) {
    - Thank participant
    - Next steps`;
 }
+
+// POST /api/caX/fill-content-analysis - Fill content analysis from cleaned transcript
+router.post('/fill-content-analysis', async (req, res) => {
+  try {
+    console.log('Fill content analysis request received');
+    console.log('Request body:', req.body);
+
+    const { analysisId, transcriptId, projectId, activeSheet, discussionGuide, guideMap: guideMapRaw, messageConceptTesting, messageTestingDetails } = req.body;
+
+    if (!analysisId || !transcriptId) {
+      console.log('Missing required fields:', { analysisId, transcriptId });
+      return res.status(400).json({ error: 'Analysis ID and transcript ID are required' });
+    }
+
+    // Get the analysis data
+    const analysis = savedAnalyses.find(a => a.id === analysisId);
+    if (!analysis) {
+      return res.status(404).json({ error: 'Analysis not found' });
+    }
+
+    // Get the transcript data
+    const transcript = analysis.transcripts?.find(t => t.id === transcriptId);
+    if (!transcript) {
+      return res.status(404).json({ error: 'Transcript not found' });
+    }
+
+    const cleanedTranscript = transcript.cleanedTranscript || transcript.originalTranscript;
+    if (!cleanedTranscript) {
+      return res.status(400).json({ error: 'No transcript content found' });
+    }
+
+    console.log(`Filling content analysis for analysis: ${analysisId}, transcript: ${transcriptId}`);
+    console.log('Cleaned transcript length:', cleanedTranscript.length);
+
+    // Parse guide map
+    let guideMap = {};
+    try { guideMap = typeof guideMapRaw === 'string' ? JSON.parse(guideMapRaw) : (guideMapRaw || {}); } catch {}
+    
+    // Build enriched discussion guide
+    const mappingLines = [];
+    if (guideMap && guideMap.bySheet) {
+      mappingLines.push('=== GUIDE MAPPING BY SHEET/COLUMN ===');
+      for (const [sheetName, colMap] of Object.entries(guideMap.bySheet)) {
+        mappingLines.push(`Sheet: ${sheetName}`);
+        for (const [colName, questions] of Object.entries(colMap || {})) {
+          const qList = Array.isArray(questions) ? questions : [];
+          if (qList.length) {
+            mappingLines.push(`- ${colName}:`);
+            for (const q of qList.slice(0, 5)) mappingLines.push(`  • ${q}`);
+            if (qList.length > 5) mappingLines.push(`  • (+${qList.length - 5} more in guide)`);
+          }
+        }
+      }
+    }
+    const enrichedGuide = [
+      discussionGuide || '',
+      mappingLines.join('\n')
+    ].filter(Boolean).join('\n\n');
+
+    // Process the CLEANED transcript with AI to extract key findings for ALL sheets
+    const messageTestingDetailsParsed = messageTestingDetails ? JSON.parse(messageTestingDetails) : null;
+    const processed = await processTranscriptWithAI(cleanedTranscript, analysis.data, enrichedGuide, messageTestingDetailsParsed);
+
+    console.log('=== CONTENT ANALYSIS FILLING COMPLETED ===');
+
+    // Update the analysis with the new data
+    const updatedAnalysis = {
+      ...analysis,
+      data: processed.data,
+      quotes: processed.quotes,
+      context: processed.context,
+      savedAt: new Date().toISOString()
+    };
+
+    // Update in saved analyses
+    const analysisIndex = savedAnalyses.findIndex(a => a.id === analysisId);
+    if (analysisIndex !== -1) {
+      savedAnalyses[analysisIndex] = updatedAnalysis;
+      await saveAnalysesToFile(savedAnalyses);
+      console.log(`Updated analysis ${analysisId} with filled content`);
+    }
+
+    // Return the updated analysis
+    res.json({
+      success: true,
+      data: processed.data,
+      quotes: processed.quotes,
+      context: processed.context,
+      message: 'Content analysis filled successfully'
+    });
+
+  } catch (error) {
+    console.error('Error filling content analysis:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // Helper function to extract relevant phrases from transcript
 function extractRelevantPhrases(transcriptText, columnName) {
@@ -2451,7 +3130,7 @@ OUTPUT ONLY THE CLEANED TRANSCRIPT - NO explanations, NO preamble, NO meta-comme
 
     // Create OpenAI call with timeout
     const openaiCallPromise = client.chat.completions.create({
-      model: 'gpt-4o',
+      model: 'gpt-4o-mini',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
@@ -2459,7 +3138,7 @@ OUTPUT ONLY THE CLEANED TRANSCRIPT - NO explanations, NO preamble, NO meta-comme
         { role: 'user', content: 'Please proceed with cleaning. Preserve existing Moderator/Respondent labels and do not reassign speakers.' }
       ],
       temperature: 0.1, // Very low temperature for strict rule following
-      max_tokens: 8000, // Increased for longer transcripts (gpt-4o-mini supports 16k)
+      max_tokens: 16384, // Maximum supported by gpt-4o
       seed: Date.now() // Add seed to prevent caching
     });
 
@@ -2659,8 +3338,13 @@ async function processTranscriptWithAI(transcriptText, currentData, discussionGu
     // Check if existing Demographics data has any actual respondent data (not just empty templates)
     const hasActualRespondents = updatedData.Demographics.some(row => {
       const id = row && (row["respno"] ?? row["Respondent ID"]);
-      return id && id.toString().trim() !== '';
+      return id && id.toString().trim() !== '' && !id.toString().startsWith('R000');
     });
+    
+    console.log('Demographics sheet analysis:');
+    console.log('- Total rows:', updatedData.Demographics.length);
+    console.log('- Has actual respondents:', hasActualRespondents);
+    console.log('- Row IDs:', updatedData.Demographics.map(r => r["respno"] ?? r["Respondent ID"]));
 
     // Create the new respondent row for Demographics
     const cols = Object.keys(updatedData.Demographics[0] || {});
@@ -2679,9 +3363,18 @@ async function processTranscriptWithAI(transcriptText, currentData, discussionGu
 
     // If there are no actual respondents, replace the empty template with the new respondent
     // Otherwise, add the new row to the existing data
-    const allDemographics = hasActualRespondents 
-      ? [...updatedData.Demographics, newRow]
-      : [newRow];
+    let allDemographics;
+    if (hasActualRespondents) {
+      // Add the new row to existing data
+      allDemographics = [...updatedData.Demographics, newRow];
+    } else {
+      // Replace empty templates with the new respondent
+      allDemographics = [newRow];
+    }
+    
+    console.log('Demographics after adding new respondent:');
+    console.log('- Total rows:', allDemographics.length);
+    console.log('- Row IDs:', allDemographics.map(r => r["respno"] ?? r["Respondent ID"]));
     
     // Sort chronologically by interview date
     allDemographics.sort((a, b) => {

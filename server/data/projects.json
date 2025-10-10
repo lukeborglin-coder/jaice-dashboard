@@ -767,7 +767,9 @@
           "data": {}
         }
       ],
-      "archived": false
+      "archived": false,
+      "hasDiscussionGuide": true,
+      "discussionGuideUpdatedAt": "2025-10-09T19:01:17.501Z"
     },
     {
       "name": "2025 SMA Adult Activation Qual",
@@ -1493,6 +1495,17 @@
           "status": "pending",
           "phase": "Reporting",
           "dueDate": null
+        },
+        {
+          "id": "task-1760016868780",
+          "description": "test",
+          "assignedTo": [
+            "11",
+            "3"
+          ],
+          "status": "completed",
+          "phase": "Fielding",
+          "dueDate": "2025-10-09"
         }
       ],
       "teamMembers": [
@@ -1521,7 +1534,15 @@
         }
       ],
       "sampleDetails": "Total: n=6 (Treatment Naive: n=3, Discontinued DMT: n=3)",
-      "files": [],
+      "files": [
+        {
+          "id": "file-1760107538204-dg",
+          "name": "Adult Activation Test CA Discussion Guide.docx",
+          "type": "discussion-guide",
+          "url": "/uploads/Discussion_Guide_P-1759172819869_1760107538204.docx",
+          "uploadedAt": "2025-10-10T14:45:38.204Z"
+        }
+      ],
       "segments": [
         {
           "phase": "Kickoff",
@@ -1575,7 +1596,7 @@
       "archivedNotes": [],
       "archived": false,
       "hasDiscussionGuide": true,
-      "discussionGuideUpdatedAt": "2025-10-07T17:56:47.005Z"
+      "discussionGuideUpdatedAt": "2025-10-10T14:45:38.308Z"
     },
     {
       "name": "test",
