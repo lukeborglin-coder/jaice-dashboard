@@ -246,6 +246,18 @@ export async function fillRespondentRowsFromTranscript({ transcript, sheetsColum
 
       json = JSON.parse(content);
       console.log(`✅ Successfully parsed JSON on attempt ${attempt}`);
+      console.log('🔍 Parsed JSON structure:', {
+        hasRows: !!json.rows,
+        hasContext: !!json.context,
+        rowsKeys: json.rows ? Object.keys(json.rows) : 'none',
+        contextKeys: json.context ? Object.keys(json.context) : 'none'
+      });
+      if (json.context) {
+        for (const [sheet, cols] of Object.entries(json.context)) {
+          const filledCols = Object.entries(cols).filter(([k, v]) => Array.isArray(v) && v.length > 0);
+          console.log(`  📝 AI returned context for sheet "${sheet}": ${filledCols.length} columns with data`);
+        }
+      }
       break; // Success - exit retry loop
 
     } catch (e) {

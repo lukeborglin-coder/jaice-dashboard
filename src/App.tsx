@@ -119,10 +119,9 @@ function VendorLibrary({ projects }: { projects: any[] }) {
     contacts: [] as Array<{ name: string; email: string }>
   });
   const [showScheduleModal, setShowScheduleModal] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
-  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
-  const [showConflictMessage, setShowConflictMessage] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [conflictMessage, setConflictMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [showInactiveProjects, setShowInactiveProjects] = useState(false);
   const [scheduleForm, setScheduleForm] = useState({
     startDate: '',
@@ -130,6 +129,34 @@ function VendorLibrary({ projects }: { projects: any[] }) {
     type: 'booked', // 'booked' or 'pending'
     projectName: ''
   });
+
+  const currentVendorSchedule = useMemo(() => {
+    if (!selectedVendor) return [];
+    if (selectedVendor.customSchedule && selectedVendor.customSchedule.length > 0) {
+      return selectedVendor.customSchedule;
+    }
+    if (activeSection === 'moderators') {
+      const match = vendors.moderators?.find((vendor: any) => vendor.id === selectedVendor.id);
+      if (match?.customSchedule) {
+        return match.customSchedule;
+      }
+    }
+    return selectedVendor.customSchedule || [];
+  }, [selectedVendor, vendors, activeSection]);
+
+  const pendingDeletionEntry = useMemo(() => {
+    if (!pendingDeleteId) return null;
+    return currentVendorSchedule.find((entry: any) => {
+      const entryId = entry.id || `${entry.startDate}-${entry.endDate}`;
+      return entryId === pendingDeleteId;
+    }) || null;
+  }, [pendingDeleteId, currentVendorSchedule]);
+
+  useEffect(() => {
+    setPendingDeleteId(null);
+    setConflictMessage('');
+    setSuccessMessage('');
+  }, [selectedVendor?.id]);
 
   // Helper: map section key to API path
   const getVendorsApiPath = (section: 'moderators' | 'sampleVendors' | 'analytics') => {
@@ -410,7 +437,10 @@ function VendorLibrary({ projects }: { projects: any[] }) {
       const path = getVendorsApiPath(sectionKey);
       const token = localStorage.getItem('jaice_token');
 
-      const updatedSchedule = (selectedVendor.customSchedule || []).filter((entry: any) => entry.id !== entryId);
+      const updatedSchedule = (selectedVendor.customSchedule || []).filter((entry: any) => {
+        const key = entry.id || `${entry.startDate}-${entry.endDate}`;
+        return key !== entryId;
+      });
       const resp = await fetch(`${API_BASE_URL}/api/vendors/${path}/${selectedVendor.id}`, {
         method: 'PUT',
         headers: {
@@ -425,6 +455,8 @@ function VendorLibrary({ projects }: { projects: any[] }) {
       }
       await loadVendors();
       setSelectedVendor((prev: any) => prev ? { ...prev, customSchedule: updatedSchedule } : prev);
+      setPendingDeleteId(null);
+      setSuccessMessage('Schedule entry removed.');
     } catch (error) {
       console.error('Error deleting schedule entry:', error);
       alert('Failed to delete schedule entry');
@@ -450,7 +482,8 @@ function VendorLibrary({ projects }: { projects: any[] }) {
     });
 
     if (hasConflict) {
-      setShowConflictMessage(true);
+      setConflictMessage('This date range conflicts with existing bookings. Please select an available range.');
+      setSuccessMessage('');
       return;
     }
 
@@ -484,9 +517,9 @@ function VendorLibrary({ projects }: { projects: any[] }) {
 
       await loadVendors();
       setScheduleForm({ startDate: '', endDate: '', type: 'booked', projectName: '' });
-      setShowScheduleModal(false);
-      setShowSuccessMessage(true);
-      setTimeout(() => setShowSuccessMessage(false), 3000);
+      setConflictMessage('');
+      setPendingDeleteId(null);
+      setSuccessMessage('Schedule entry added successfully.');
     } catch (error) {
       console.error('Error adding schedule entry:', error);
     }
@@ -876,8 +909,8 @@ function VendorLibrary({ projects }: { projects: any[] }) {
       </div>
 
       {/* Add Vendor Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]" style={{ margin: 0, padding: 0, top: 0, left: 0, right: 0, bottom: 0 }}>
+      {showAddModal && createPortal(
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10100]" style={{ margin: 0, padding: 0, top: 0, left: 0, right: 0, bottom: 0 }}>
           <div className="bg-white rounded-lg p-6 w-full max-h-[90vh] overflow-y-auto" style={{ maxWidth: activeSection === 'sampleVendors' ? '600px' : '500px', margin: '2rem' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Add New {activeSection === 'moderators' ? 'Moderator' : activeSection === 'sampleVendors' ? 'Sample Vendor' : 'Analytics Partner'}</h3>
@@ -1155,12 +1188,13 @@ function VendorLibrary({ projects }: { projects: any[] }) {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Vendor Details Modal */}
       {showDetailsModal && selectedVendor && createPortal(
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]" style={{ margin: 0, padding: 0, top: 0, left: 0, right: 0, bottom: 0 }}>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10100]" style={{ margin: 0, padding: 0, top: 0, left: 0, right: 0, bottom: 0 }}>
           <div className="bg-white rounded-lg p-6 w-full h-full max-w-7xl max-h-[95vh] overflow-y-auto" style={{ margin: '2rem' }}>
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-semibold text-gray-900">
@@ -1428,11 +1462,16 @@ function VendorLibrary({ projects }: { projects: any[] }) {
                         <div>
                           <h4 className="text-sm font-medium text-gray-600 uppercase tracking-wide mb-3">Contacts</h4>
                           {selectedVendor.contacts && selectedVendor.contacts.length > 0 ? (
-                            <div className="space-y-3">
+                            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                               {selectedVendor.contacts.map((contact: any, index: number) => (
-                                <div key={index} className="p-3 bg-gray-50 rounded-lg">
+                                <div key={index} className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
                                   <div className="text-sm font-medium text-gray-900">{contact.name}</div>
-                                  <div className="text-sm text-gray-600">{contact.email}</div>
+                                  <a
+                                    href={`mailto:${contact.email}`}
+                                    className="text-xs text-blue-600 break-words hover:underline"
+                                  >
+                                    {contact.email}
+                                  </a>
                                 </div>
                               ))}
                             </div>
@@ -1555,7 +1594,7 @@ function VendorLibrary({ projects }: { projects: any[] }) {
                       <div className="flex items-center justify-between mb-2">
                         <h4 className="text-sm font-medium text-gray-600 uppercase tracking-wide">Current Schedule</h4>
                         <button
-                          onClick={() => setShowScheduleModal(true)}
+                          onClick={() => { setConflictMessage(''); setSuccessMessage(''); setShowScheduleModal(true); }}
                           className="text-sm text-blue-600 hover:text-blue-800 underline"
                         >
                           Add to schedule
@@ -1581,8 +1620,9 @@ function VendorLibrary({ projects }: { projects: any[] }) {
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        setDeleteTargetId(booking.id || `${booking.startDate}-${booking.endDate}`);
-                                        setShowDeleteConfirm(true);
+                                        setPendingDeleteId(booking.id || `${booking.startDate}-${booking.endDate}`);
+                                        setSuccessMessage('');
+                                        setConflictMessage('');
                                       }}
                                       className="p-1 text-red-600 hover:text-red-800 hover:bg-red-100 rounded"
                                       title="Remove from schedule"
@@ -1611,13 +1651,13 @@ function VendorLibrary({ projects }: { projects: any[] }) {
       )}
 
       {/* Schedule Modal */}
-      {showScheduleModal && selectedVendor && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center overflow-y-auto py-8 z-[9999]">
+      {showScheduleModal && selectedVendor && createPortal(
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center overflow-y-auto py-8 z-[10100]">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 my-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Add to Schedule</h3>
               <button
-                onClick={() => setShowScheduleModal(false)}
+                onClick={() => { setShowScheduleModal(false); setConflictMessage(''); setSuccessMessage(''); setPendingDeleteId(null); }}
                 className="text-gray-400 hover:text-gray-600"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1631,12 +1671,44 @@ function VendorLibrary({ projects }: { projects: any[] }) {
                 Adding schedule entry for: <span className="font-medium">{selectedVendor.name}</span>
               </div>
 
+              {conflictMessage && (
+                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+                  {conflictMessage}
+                </div>
+              )}
+
+              {successMessage && (
+                <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+                  {successMessage}
+                </div>
+              )}
+
+              {pendingDeletionEntry && (
+                <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-700 space-y-3">
+                  <p>Remove the hold for <span className="font-semibold">{pendingDeletionEntry.projectName || 'this project'}</span> scheduled {formatDateForDisplay(pendingDeletionEntry.startDate)} - {formatDateForDisplay(pendingDeletionEntry.endDate)}?</p>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => { setPendingDeleteId(null); setSuccessMessage(''); }}
+                      className="flex-1 rounded-md border border-amber-300 px-4 py-2 text-amber-700 hover:bg-amber-100 transition"
+                    >
+                      Keep Booking
+                    </button>
+                    <button
+                      onClick={async () => { if (pendingDeleteId) { await handleDeleteScheduleEntry(pendingDeleteId); } }}
+                      className="flex-1 rounded-md bg-red-600 px-4 py-2 text-white hover:bg-red-700 transition"
+                    >
+                      Remove Booking
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
                 <input
                   type="date"
                   value={scheduleForm.startDate}
-                  onChange={(e) => setScheduleForm({ ...scheduleForm, startDate: e.target.value })}
+                  onChange={(e) => { setScheduleForm({ ...scheduleForm, startDate: e.target.value }); setConflictMessage(''); setSuccessMessage(''); }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
@@ -1646,7 +1718,7 @@ function VendorLibrary({ projects }: { projects: any[] }) {
                 <input
                   type="date"
                   value={scheduleForm.endDate}
-                  onChange={(e) => setScheduleForm({ ...scheduleForm, endDate: e.target.value })}
+                  onChange={(e) => { setScheduleForm({ ...scheduleForm, endDate: e.target.value }); setConflictMessage(''); setSuccessMessage(''); }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
@@ -1655,7 +1727,7 @@ function VendorLibrary({ projects }: { projects: any[] }) {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
                 <select
                   value={scheduleForm.type}
-                  onChange={(e) => setScheduleForm({ ...scheduleForm, type: e.target.value })}
+                  onChange={(e) => { setScheduleForm({ ...scheduleForm, type: e.target.value }); setConflictMessage(''); setSuccessMessage(''); }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="booked">Place HOLD</option>
@@ -1668,7 +1740,7 @@ function VendorLibrary({ projects }: { projects: any[] }) {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Project</label>
                   <select
                     value={scheduleForm.projectName}
-                    onChange={(e) => setScheduleForm({ ...scheduleForm, projectName: e.target.value })}
+                    onChange={(e) => { setScheduleForm({ ...scheduleForm, projectName: e.target.value }); setConflictMessage(''); setSuccessMessage(''); }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">Select a project</option>
@@ -1686,7 +1758,7 @@ function VendorLibrary({ projects }: { projects: any[] }) {
 
               <div className="flex gap-3 pt-4">
                 <button
-                  onClick={() => setShowScheduleModal(false)}
+                  onClick={() => { setShowScheduleModal(false); setConflictMessage(''); setSuccessMessage(''); setPendingDeleteId(null); }}
                   className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition"
                 >
                   Cancel
@@ -1700,87 +1772,12 @@ function VendorLibrary({ projects }: { projects: any[] }) {
               </div>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center overflow-y-auto py-8 z-[10000]">
-          <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4 my-auto">
-            <h3 className="text-lg font-semibold mb-4">Confirm Deletion</h3>
-            <p className="text-gray-600 mb-6">Are you sure you want to remove this schedule entry?</p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setShowDeleteConfirm(false);
-                  setDeleteTargetId(null);
-                }}
-                className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  if (deleteTargetId) {
-                    handleDeleteScheduleEntry(deleteTargetId);
-                  }
-                  setShowDeleteConfirm(false);
-                  setDeleteTargetId(null);
-                }}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Success Message Modal */}
-      {showSuccessMessage && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center overflow-y-auto py-8 z-[10000]">
-          <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4 my-auto">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-semibold">Success!</h3>
-            </div>
-            <p className="text-gray-600 mb-6">Schedule entry has been added successfully.</p>
-            <button
-              onClick={() => setShowSuccessMessage(false)}
-              className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition"
-            >
-              OK
-            </button>
-          </div>
-        </div>
-      )}
 
-      {/* Conflict Message Modal */}
-      {showConflictMessage && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center overflow-y-auto py-8 z-[10000]">
-          <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4 my-auto">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
-                <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-semibold">Schedule Conflict</h3>
-            </div>
-            <p className="text-gray-600 mb-6">This date range conflicts with existing bookings. Please select an available range.</p>
-            <button
-              onClick={() => setShowConflictMessage(false)}
-              className="w-full px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition"
-            >
-              OK
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

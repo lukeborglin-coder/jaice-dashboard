@@ -1,14 +1,66 @@
 [
   {
-    "id": "1760107538204",
+    "id": "1760120323941",
     "projectId": "P-1759172819869",
-    "name": "Adult Activation Test CA",
+    "name": "test2",
     "data": {
       "Demographics": [
         {
           "Respondent ID": "",
           "Interview Date": "",
-          "Interview Time": ""
+          "New Column 23": "",
+          "New Column 22": "",
+          "New Column 21": "",
+          "New Column 20": "",
+          "New Column 19": "",
+          "New Column 18": "",
+          "New Column 17": "",
+          "New Column 16": "",
+          "New Column 15": "",
+          "New Column 14": "",
+          "New Column 13": "",
+          "New Column 12": "",
+          "New Column 11": "",
+          "New Column 10": "",
+          "New Column 9": "",
+          "New Column 8": "",
+          "New Column 7": "",
+          "New Column 6": "",
+          "Interview Time": "",
+          "New Column 5": "",
+          "New Column 4": "",
+          "New Column 3": "",
+          "New Column 2": "",
+          "New Column 1": ""
+        },
+        {
+          "Respondent ID": "R02",
+          "Interview Date": "Oct 2, 2025",
+          "New Column 23": "",
+          "New Column 22": "",
+          "New Column 21": "",
+          "New Column 20": "",
+          "New Column 19": "",
+          "New Column 18": "",
+          "New Column 17": "",
+          "New Column 16": "",
+          "New Column 15": "",
+          "New Column 14": "",
+          "New Column 13": "",
+          "New Column 12": "",
+          "New Column 11": "",
+          "New Column 10": "",
+          "New Column 9": "",
+          "New Column 8": "",
+          "New Column 7": "",
+          "New Column 6": "",
+          "Interview Time": "12:00 PM",
+          "New Column 5": "",
+          "New Column 4": "",
+          "New Column 3": "",
+          "New Column 2": "",
+          "New Column 1": "",
+          "respno": "R02"
         }
       ],
       "BACKGROUND": [
@@ -16,99 +68,174 @@
           "Respondent ID": "",
           "Living Situation": "",
           "Free Time Activities": "",
-          "SMA Journey": "",
+          "Journey with SMA": "",
           "Current Health Description": "",
-          "Seeing HCPs for SMA Care": "",
+          "HCPs for SMA Care": "",
           "Reasons for Not Seeing HCPs": "",
           "Current SMA Management": "",
           "Number of HCPs": "",
           "HCP Involvement in Treatment Decisions": "",
           "Primary SMA Doctor": "",
           "Others Involved in Health Decisions": "",
-          "Extent of Involvement of Others": "",
-          "Reliance on Support System": "",
+          "Support System Involvement": "",
           "Comfort in Making Treatment Decisions": "",
           "Health Goals - Short-term": "",
           "Health Goals - Long-term": "",
           "Personal Aspirations": ""
+        },
+        {
+          "Respondent ID": "R02",
+          "Living Situation": "The respondent, Elsie, is 77 years old and lives in Green, Oregon with her husband and one son. She is in a wheelchair but maintains a high level of independence, performing tasks such as cooking and dressing herself. Despite her mobility limitations, she expresses contentment with her living situation, emphasizing her ability to manage daily activities independently. Elsie does not drive anymore but utilizes online shopping to manage household needs, indicating a well-adapted lifestyle to her current circumstances.",
+          "Free Time Activities": "Elsie spends her free time engaging in activities that she can manage independently, such as cooking and online shopping. She values her independence and strives to maintain it as much as possible. Although she does not participate in SMA communities or groups, she is involved in other activities like protests, indicating her interest in civic engagement. Her focus is on activities that she can control and enjoy, reflecting her optimistic outlook on life.",
+          "Journey with SMA": "Elsie was diagnosed with SMA in 1984 at the age of 36. She experienced a significant decline in mobility around 1998, transitioning from a manual to a motorized wheelchair. Since then, her condition has progressed very slowly, which she does not notice on a daily basis. Elsie does not dwell on her condition, viewing this as a survival mechanism to avoid depression and focus on what she can do rather than what she cannot.",
+          "Current Health Description": "Elsie describes her overall health as good, despite having upper GI problems and the challenges of sitting in a wheelchair all day. She emphasizes the importance of adjusting her position to avoid discomfort. Her health has been stable, with no significant changes in her SMA symptoms recently. Elsie focuses on maintaining her current level of independence and managing her health proactively.",
+          "HCPs for SMA Care": "Elsie rarely sees a neurologist, with her last visit being about a year ago. Her primary care physician does not discuss SMA with her unless there is a significant change or recommendation. Elsie feels there is not much to discuss regarding her SMA unless something is bothering her. She relies on her primary care physician to recommend visits to the neurologist if necessary.",
+          "Reasons for Not Seeing HCPs": "Elsie does not frequently see healthcare providers for her SMA because there have been no significant changes in her condition. She feels there is not much to discuss unless something is bothering her. Her visits to the neurologist are primarily to assess muscle loss and breathing, and she only goes when recommended by her primary care physician.",
+          "Current SMA Management": "Elsie manages her SMA by maintaining her independence and adjusting her daily activities to accommodate her limitations. She does not actively seek treatment or frequent healthcare provider visits unless necessary. Her focus is on staying stable and managing her health through lifestyle adaptations rather than medical interventions.",
+          "Number of HCPs": "Elsie primarily interacts with her primary care physician and occasionally sees a neurologist. She does not have a large team of healthcare providers involved in her SMA care. Her interactions with healthcare providers are limited to necessary visits and recommendations from her primary care physician.",
+          "HCP Involvement in Treatment Decisions": "Elsie's healthcare providers are not heavily involved in her treatment decisions for SMA. She relies on her primary care physician for recommendations and only sees a neurologist when necessary. There is no active discussion about treatment options unless there is a significant change in her condition.",
+          "Primary SMA Doctor": "Elsie's primary SMA doctor is her neurologist, whom she sees infrequently. Her primary care physician also plays a role in her SMA care by recommending visits to the neurologist when necessary. There is no regular engagement with a specific SMA specialist.",
+          "Others Involved in Health Decisions": "Elsie's husband is involved in discussions about her health and treatment options. They have not discussed treatment options recently due to the perceived inaccessibility of treatments. Her husband is her primary support in health-related decisions.",
+          "Support System Involvement": "Elsie's support system primarily consists of her husband, who is involved in discussions about her health. They have not actively pursued treatment options due to cost barriers. Elsie does not engage with SMA communities or support groups for additional support.",
+          "Comfort in Making Treatment Decisions": "Elsie feels comfortable making treatment decisions with the support of her husband. However, the high cost of treatments has deterred them from actively pursuing options. She would consider treatments if they were accessible and recommended by her healthcare providers.",
+          "Health Goals - Short-term": "Elsie's short-term health goal is to maintain her current level of independence and manage her daily activities effectively. She focuses on staying stable and avoiding further progression of her SMA symptoms. Her primary concern is maintaining her quality of life and independence.",
+          "Health Goals - Long-term": "In the long term, Elsie aims to remain as independent as possible and manage her SMA symptoms effectively. She hopes to maintain her current health status and avoid further decline. Her focus is on sustaining her quality of life and independence for as long as possible.",
+          "Personal Aspirations": "Elsie's personal aspirations revolve around maintaining her independence and quality of life. She values her ability to manage daily activities and hopes to continue doing so. Her aspirations are centered on sustaining her current lifestyle and avoiding further progression of her SMA symptoms.",
+          "respno": "R02"
         }
       ],
       "CURRENT PERCEPTIONS & ATTITUDES": [
         {
           "Respondent ID": "",
-          "Awareness of Treatments": "",
-          "Experience with Treatments": "",
+          "Treatments Awareness": "",
+          "Treatments Experience": "",
           "Benefits of Discontinued Treatment": "",
           "Drawbacks of Discontinued Treatment": "",
           "Reasons for Discontinuation": "",
-          "Life Changes Impacting Discontinuation": "",
-          "Insurance Coverage Impact on Discontinuation": "",
-          "Involvement in Decision to Stop Treatment": "",
-          "Considerations for Restarting Treatment": "",
+          "Life Changes Impact on Discontinuation": "",
+          "Insurance Coverage Impact": "",
+          "Restarting Treatment Consideration": "",
           "Impressions of Untaken Treatment": "",
-          "Knowledge about Untaken Treatment": "",
-          "Benefits of Untaken Treatment": "",
-          "Drawbacks of Untaken Treatment": "",
           "Information Source for Untaken Treatment": "",
           "Consideration of Untaken Treatment": "",
           "Discussion with HCP about Untaken Treatment": "",
-          "Impact of HCP on Decision for Untaken Treatment": "",
+          "Impact of HCP on Untaken Treatment Decision": "",
           "Discussion with Others about Untaken Treatment": "",
-          "Likelihood of Considering Untaken Treatment in Future": "",
-          "Drivers for Considering Untaken Treatment in Future": "",
-          "Good Candidate for Untaken Treatment": "",
+          "Consideration of Future Treatment": "",
+          "Drivers for Future Treatment Consideration": "",
+          "Candidate for Future Treatment": "",
           "Awareness of Treatments in Development": "",
           "Impressions of Treatments in Development": "",
-          "Benefits of Treatments in Development": "",
-          "Drawbacks of Treatments in Development": "",
-          "Good Candidate for Treatments in Development": "",
-          "Consideration of Treatments in Development": ""
+          "Candidate for Treatments in Development": "",
+          "Consideration of Treatments in Development": "",
+          "Drivers for Consideration of Treatments in Development": "",
+          "Hesitations for Treatments in Development": ""
+        },
+        {
+          "Respondent ID": "R02",
+          "Treatments Awareness": "Elsie is aware of several SMA treatments, including Evrysdi, Spinraza, and Zolgensma. She knows that Evrysdi is available in liquid form and has heard about a potential tablet version. Her awareness of these treatments is limited to basic information, and she has not explored them further due to cost concerns.",
+          "Treatments Experience": "Elsie has not had any personal experience with SMA treatments. She has not taken any of the available treatments due to concerns about cost and insurance coverage. Her experience with treatments is limited to discussions with her neurologist and information from SMA Cares.",
+          "Benefits of Discontinued Treatment": "",
+          "Drawbacks of Discontinued Treatment": "",
+          "Reasons for Discontinuation": "",
+          "Life Changes Impact on Discontinuation": "",
+          "Insurance Coverage Impact": "Insurance coverage has significantly impacted Elsie's consideration of SMA treatments. Her neurologist informed her that her insurance would not cover Spinraza, which discouraged her from pursuing it further. She assumes similar coverage issues would apply to other treatments like Evrysdi.",
+          "Restarting Treatment Consideration": "",
+          "Impressions of Untaken Treatment": "Elsie has mixed impressions of untaken treatments like Evrysdi and Spinraza. She finds the idea of Spinraza injections intimidating but would consider it if it offered significant benefits. Her impressions are shaped by the high cost and lack of insurance coverage, which make these treatments seem inaccessible.",
+          "Information Source for Untaken Treatment": "Elsie learned about SMA treatments through her neurologist and online resources like SMA Cares. She does not recall exactly how she first heard about them but mentioned discussing Spinraza with her neurologist when she first learned about it. Her information sources are limited and not actively pursued.",
+          "Consideration of Untaken Treatment": "Elsie would consider untaken treatments like Evrysdi and Spinraza if they were accessible and recommended by her healthcare providers. However, the high cost and lack of insurance coverage have deterred her from actively pursuing these options. She remains open to considering treatments if circumstances change.",
+          "Discussion with HCP about Untaken Treatment": "Elsie has discussed Spinraza with her neurologist in the past but has not had recent conversations about untaken treatments. Her discussions were limited by the high cost and insurance coverage issues. She has not brought up Evrysdi with her healthcare providers due to similar concerns.",
+          "Impact of HCP on Untaken Treatment Decision": "Healthcare providers have influenced Elsie's decision not to pursue untaken treatments due to cost and insurance coverage issues. Her neurologist informed her that Spinraza was not covered by her insurance, which discouraged her from considering it further. The lack of proactive recommendations from her providers has also impacted her decision.",
+          "Discussion with Others about Untaken Treatment": "Elsie has only discussed untaken treatments with her husband. They have not talked about it recently due to the perceived inaccessibility of treatments. Their discussions were initially hopeful but were halted by the high cost and lack of insurance coverage.",
+          "Consideration of Future Treatment": "Elsie is open to considering future treatments if they become accessible and are recommended by her healthcare providers. She is interested in treatments that could help her maintain her current level of independence and prevent further progression of her SMA symptoms.",
+          "Drivers for Future Treatment Consideration": "The primary driver for Elsie's consideration of future treatments is the potential to maintain her current health status and independence. She is motivated by the possibility of preventing further progression of her SMA symptoms. Accessibility and insurance coverage would also be significant factors in her decision.",
+          "Candidate for Future Treatment": "Elsie considers herself a candidate for future treatments if they are accessible and recommended by her healthcare providers. She is interested in treatments that could help her maintain her current level of independence and prevent further progression of her SMA symptoms.",
+          "Awareness of Treatments in Development": "Elsie is not aware of any treatments in development for SMA. She has not actively sought information about new treatments and relies on her healthcare providers and SMA Cares for updates. Her awareness is limited to the treatments currently available.",
+          "Impressions of Treatments in Development": "",
+          "Candidate for Treatments in Development": "",
+          "Consideration of Treatments in Development": "",
+          "Drivers for Consideration of Treatments in Development": "",
+          "Hesitations for Treatments in Development": "",
+          "respno": "R02"
         }
       ],
       "BARRIERS TO TREATMENT & UNMET NEEDS": [
         {
           "Respondent ID": "",
           "Reasons for Not Being on Treatment": "",
-          "Factors Driving Consideration for Treatment": "",
-          "Impact of Addressing Muscle Loss": "",
-          "Symptom/Progression Tracking Frequency": "",
-          "Reasons for Not Tracking Symptoms": "",
+          "Factors Driving Treatment Consideration": "",
+          "Symptom Tracking Frequency": "",
+          "Symptom Tracking Methods": "",
           "Discussion with HCP about Treatment Need": "",
           "Emotional Factors": "",
-          "Practical/Logistical Factors": "",
+          "Practical or Logistical Factors": "",
           "Clinical Factors": "",
           "Treatment Benefit Requirement": "",
           "Challenges in Accessing Treatment": "",
-          "Specialized SMA Care Availability Challenges": "",
-          "Trust in SMA Management HCP": "",
-          "Unmet Needs": ""
+          "Unmet Needs": "",
+          "Most Important Unmet Need": ""
+        },
+        {
+          "Respondent ID": "R02",
+          "Reasons for Not Being on Treatment": "Elsie is not on any SMA treatment primarily due to the high cost and lack of insurance coverage. Her neurologist informed her that Spinraza was not covered by her insurance, which discouraged her from pursuing it. She assumes similar issues would apply to other treatments like Evrysdi.",
+          "Factors Driving Treatment Consideration": "The potential to maintain her current health status and independence drives Elsie's consideration of treatment. She is interested in treatments that could prevent further progression of her SMA symptoms. Accessibility and insurance coverage would also be significant factors in her decision.",
+          "Symptom Tracking Frequency": "",
+          "Symptom Tracking Methods": "",
+          "Discussion with HCP about Treatment Need": "Elsie has not had regular discussions with her healthcare providers about her treatment needs. Her interactions with her neurologist are infrequent, and her primary care physician does not discuss SMA with her unless there is a significant change. She relies on her providers to recommend visits and treatment options.",
+          "Emotional Factors": "Elsie views her approach to SMA as a survival mechanism, focusing on what she can do rather than what she cannot. She avoids dwelling on her condition to prevent depression and maintains an optimistic outlook. The high cost of treatments has been disheartening, but she remains hopeful for accessible options.",
+          "Practical or Logistical Factors": "Practical factors such as the high cost of treatments and lack of insurance coverage have been significant barriers for Elsie. She has not actively pursued treatment options due to these issues. Her focus is on maintaining her independence through lifestyle adaptations rather than medical interventions.",
+          "Clinical Factors": "",
+          "Treatment Benefit Requirement": "Elsie would consider treatment if it could help her maintain her current level of independence and prevent further progression of her SMA symptoms. She is interested in treatments that offer significant benefits and are accessible. Her decision would be influenced by recommendations from her healthcare providers.",
+          "Challenges in Accessing Treatment": "The primary challenge Elsie faces in accessing treatment is the high cost and lack of insurance coverage. Her neurologist informed her that Spinraza was not covered by her insurance, which discouraged her from pursuing it. She assumes similar issues would apply to other treatments like Evrysdi.",
+          "Unmet Needs": "Elsie's unmet needs include access to affordable SMA treatments and more information about available options. She is interested in treatments that could help her maintain her independence and prevent further progression of her symptoms. She also desires more proactive engagement from her healthcare providers regarding treatment options.",
+          "Most Important Unmet Need": "The most important unmet need for Elsie is access to affordable SMA treatments. The high cost and lack of insurance coverage have been significant barriers, preventing her from pursuing treatment options. She desires treatments that could help her maintain her independence and prevent further progression of her symptoms.",
+          "respno": "R02"
         }
       ],
       "MOTIVATIONS & FUTURE CONSIDERATION": [
         {
           "Respondent ID": "",
-          "Likelihood of Considering Treatment in Future": "",
+          "Likelihood of Future Treatment Consideration": "",
           "Factors Influencing Future Consideration": "",
-          "Changes/Situations Increasing Consideration": "",
-          "Achievements Expected from Treatment": "",
-          "Influential Decision-makers": "",
-          "Role of Family/Friends/Caregivers": "",
-          "Role of HCPs/PTs/Specialists": "",
-          "Confidence-building Factors for Treatment Decision": ""
+          "Expected Improvements from Treatment": "",
+          "Influential Decision Makers": "",
+          "Confidence Factors in Treatment Decision": ""
+        },
+        {
+          "Respondent ID": "R02",
+          "Likelihood of Future Treatment Consideration": "Elsie is likely to consider future treatments if they become accessible and are recommended by her healthcare providers. She is motivated by the potential to maintain her current health status and independence. The high cost and lack of insurance coverage have been significant barriers, but she remains open to considering treatments if circumstances change.",
+          "Factors Influencing Future Consideration": "Factors influencing Elsie's future treatment consideration include accessibility, insurance coverage, and the potential to maintain her current health status. She is motivated by the possibility of preventing further progression of her SMA symptoms. Recommendations from her healthcare providers would also play a significant role in her decision.",
+          "Expected Improvements from Treatment": "Elsie hopes that treatment would allow her to maintain her current level of independence and prevent further progression of her SMA symptoms. She values her ability to manage daily activities and desires to sustain her quality of life. Her focus is on treatments that offer significant benefits and are accessible.",
+          "Influential Decision Makers": "Elsie's husband is an influential decision maker in her health-related decisions. They have discussed treatment options in the past, but the high cost and lack of insurance coverage have deterred them from pursuing options. Recommendations from her healthcare providers would also influence her decision.",
+          "Confidence Factors in Treatment Decision": "Elsie's confidence in treatment decisions would be influenced by recommendations from her healthcare providers and the potential benefits of the treatment. She values her independence and desires treatments that could help her maintain her current health status. Accessibility and insurance coverage would also be significant factors in her decision.",
+          "respno": "R02"
         }
       ],
       "COMMUNITY ENGAGEMENT & INFO SOURCES": [
         {
           "Respondent ID": "",
           "Connection to SMA Community": "",
-          "Participation in Support Groups": "",
-          "Reasons for Non-involvement in Communities": "",
+          "Participation in SMA Groups": "",
+          "Reasons for Non-involvement in SMA Communities": "",
           "Information Sources on SMA": "",
           "Trusted Information Sources": "",
-          "Untrusted Sources": "",
-          "Discovery of New Treatments/Care Options": "",
-          "Preferred Information Delivery Format": "",
+          "Untrusted Information Sources": "",
+          "Discovery of New Treatments": "",
+          "Preferred Information Format": "",
           "Improving Information Accessibility": ""
+        },
+        {
+          "Respondent ID": "R02",
+          "Connection to SMA Community": "Elsie does not have a strong connection to the SMA community. She has not participated in SMA groups or engaged with other individuals with SMA. Her involvement is limited to receiving information from SMA Cares, an online resource that provides updates on SMA treatments and developments.",
+          "Participation in SMA Groups": "Elsie has not participated in SMA groups or communities. She is not a big group participant and has not engaged with others with SMA. Her involvement is limited to receiving information from SMA Cares, an online resource that provides updates on SMA treatments and developments.",
+          "Reasons for Non-involvement in SMA Communities": "Elsie is not involved in SMA communities because she is not a big group participant. She has not engaged with others with SMA and does not feel a strong need to participate in groups. Her focus is on maintaining her independence and managing her health through lifestyle adaptations.",
+          "Information Sources on SMA": "Elsie receives information about SMA from SMA Cares, an online resource that provides updates on treatments and developments. She also relies on her healthcare providers for information, although her interactions with them are limited. Her information sources are not actively pursued, and she desires more proactive engagement from her providers.",
+          "Trusted Information Sources": "Elsie trusts information from SMA Cares and her healthcare providers. However, her interactions with her providers are limited, and she desires more proactive engagement regarding treatment options. She values reliable information that can help her make informed decisions about her health.",
+          "Untrusted Information Sources": "",
+          "Discovery of New Treatments": "Elsie has not actively discovered new treatments for SMA. She relies on SMA Cares and her healthcare providers for updates, although her awareness is limited. She desires more information about new treatments and developments in the field.",
+          "Preferred Information Format": "",
+          "Improving Information Accessibility": "Elsie desires more accessible information about SMA treatments and developments. She values reliable information from trusted sources like SMA Cares and her healthcare providers. She also desires more proactive engagement from her providers regarding treatment options and accessibility.",
+          "respno": "R02"
         }
       ],
       "Misc.": [
@@ -116,6 +243,12 @@
           "Respondent ID": "",
           "Final Comments": "",
           "Additional Notes": ""
+        },
+        {
+          "Respondent ID": "R02",
+          "Final Comments": "Elsie emphasizes the prohibitive cost of SMA treatments as a significant barrier to access. She desires more affordable options and proactive engagement from healthcare providers regarding treatment accessibility. Her focus is on maintaining her independence and quality of life, and she remains hopeful for accessible treatment options in the future.",
+          "Additional Notes": "",
+          "respno": "R02"
         }
       ]
     },
@@ -123,9 +256,313 @@
       "bySheet": {}
     },
     "quotes": {},
-    "savedAt": "2025-10-10T15:07:55.295Z",
+    "savedAt": "2025-10-10T21:25:19.635Z",
     "savedBy": "You",
-    "context": {},
-    "transcripts": []
+    "context": {
+      "Demographics": {
+        "R02": {
+          "Respondent ID": [],
+          "Interview Date": [],
+          "New Column 23": [],
+          "New Column 22": [],
+          "New Column 21": [],
+          "New Column 20": [],
+          "New Column 19": [],
+          "New Column 18": [],
+          "New Column 17": [],
+          "New Column 16": [],
+          "New Column 15": [],
+          "New Column 14": [],
+          "New Column 13": [],
+          "New Column 12": [],
+          "New Column 11": [],
+          "New Column 10": [],
+          "New Column 9": [],
+          "New Column 8": [],
+          "New Column 7": [],
+          "New Column 6": [],
+          "Interview Time": [],
+          "New Column 5": [],
+          "New Column 4": [],
+          "New Column 3": [],
+          "New Column 2": [],
+          "New Column 1": []
+        }
+      },
+      "BACKGROUND": {
+        "R02": {
+          "Respondent ID": [],
+          "Living Situation": [
+            "I'm 77, and I live with my husband and one more son. I have a dog that you can hear. I do almost everything for myself. I'm in a wheelchair. I don't walk, but I'm fortunate enough to have a chair that elevates and reclines. It does all kinds of great things. So I can still cook for them.",
+            "I do my shopping online, and they do it. I put it away sometimes. Sometimes I have help. I'm able to dress myself and do all that kind of stuff. I'm pretty independent, and hopefully, I can remain that way for as long as possible. I don't drive anymore. But, yeah, I'm pretty content except, you know, for my position."
+          ],
+          "Free Time Activities": [
+            "I do my shopping online, and they do it. I put it away sometimes. Sometimes I have help. I'm able to dress myself and do all that kind of stuff. I'm pretty independent, and hopefully, I can remain that way for as long as possible.",
+            "I'm not really a big group participant. When I got this initial phone call, I'm telling you who I thought it was, I'm going to protest in October against our present government. I didn't know I'd be getting a call about SMA. So that kind of thing, I do participate in."
+          ],
+          "Journey with SMA": [
+            "I was probably 36. I can't remember.",
+            "I just don't know. I became, I was in a wheelchair, I think, 1998 was when I started manual wheelchair.",
+            "And then not long after that, I had to go into the motorized wheelchair, I would say a year or two. So that's when that was the big decline from that time. And, you know, I've remained stable for quite a while. And I have progressed tremendously in the last couple of years. I noticed the change, and I haven't progressed.",
+            "Very, very slow progressing, so it's something that I don't notice, you know, on a daily basis. It's very slow."
+          ],
+          "Current Health Description": [
+            "It's pretty good. I mean, it wasn't good for a while. I was having upper GI problems. And lots of because I'm sitting in the chair all day that I'm in the same position, so I have to remember to adjust my positioning and move more. But, you know, overall, the rest of my health is really good."
+          ],
+          "HCPs for SMA Care": [
+            "It's rare that I see the neurologist.",
+            "It's probably been a year.",
+            "It was usually just to see how far I've progressed, you know, within the SMA, how much my muscle loss has been. So it would be my primary care physician that would recommend it, you know, if I want a neurologist."
+          ],
+          "Reasons for Not Seeing HCPs": [
+            "There's not much to talk about. And I don't know about how I would unless there was something really bothering me, I don't think I'd bring it up. Nothing has changed very much is what I'm saying."
+          ],
+          "Current SMA Management": [
+            "If there is something, if I... if there was something, you know, that they would recommend for me to take that would help me remain stable, that would be some process.",
+            "If it would help me from not progressing anymore, that would be wonderful."
+          ],
+          "Number of HCPs": [
+            "It's rare that I see the neurologist.",
+            "It's probably been a year.",
+            "It was usually just to see how far I've progressed, you know, within the SMA, how much my muscle loss has been. So it would be my primary care physician that would recommend it, you know, if I want a neurologist."
+          ],
+          "HCP Involvement in Treatment Decisions": [
+            "It was usually just to see how far I've progressed, you know, within the SMA, how much my muscle loss has been. So it would be my primary care physician that would recommend it, you know, if I want a neurologist."
+          ],
+          "Primary SMA Doctor": [
+            "It's rare that I see the neurologist.",
+            "It's probably been a year.",
+            "It was usually just to see how far I've progressed, you know, within the SMA, how much my muscle loss has been. So it would be my primary care physician that would recommend it, you know, if I want a neurologist."
+          ],
+          "Others Involved in Health Decisions": [
+            "Well, we haven't talked about it in a while because we thought it was out of our range.",
+            "I would say we've talked about it initially. I never thought it was possible, and then we don't talk about it now."
+          ],
+          "Support System Involvement": [
+            "Well, we haven't talked about it in a while because we thought it was out of our range.",
+            "I would say we've talked about it initially. I never thought it was possible, and then we don't talk about it now."
+          ],
+          "Comfort in Making Treatment Decisions": [
+            "Well, we haven't talked about it in a while because we thought it was out of our range.",
+            "I would say we've talked about it initially. I never thought it was possible, and then we don't talk about it now."
+          ],
+          "Health Goals - Short-term": [
+            "I would hope it would let me remain at the stage I'm in right now, that I'm still able to do many things for myself throughout the day.",
+            "That would be ideal if I could remain at this stage for as long as possible."
+          ],
+          "Health Goals - Long-term": [
+            "I would hope it would let me remain at the stage I'm in right now, that I'm still able to do many things for myself throughout the day.",
+            "That would be ideal if I could remain at this stage for as long as possible."
+          ],
+          "Personal Aspirations": [
+            "I would hope it would let me remain at the stage I'm in right now, that I'm still able to do many things for myself throughout the day.",
+            "That would be ideal if I could remain at this stage for as long as possible."
+          ]
+        }
+      },
+      "CURRENT PERCEPTIONS & ATTITUDES": {
+        "R02": {
+          "Respondent ID": [],
+          "Treatments Awareness": [
+            "Yes. I've heard of Evrysdi and I'm trying to think of the other names. One begins with a Z, and the first and oldest one, I can't think of the name right now of it, but there are three that I've heard of.",
+            "I forgot what the other one was. Zolgensma, I think, is the other one with the Z.",
+            "Well, I think they said they were going to start making a tablet as well, but I noticed the one that they have now is the liquid and keep it in the refrigerator."
+          ],
+          "Treatments Experience": [],
+          "Benefits of Discontinued Treatment": [],
+          "Drawbacks of Discontinued Treatment": [],
+          "Reasons for Discontinuation": [],
+          "Life Changes Impact on Discontinuation": [],
+          "Insurance Coverage Impact": [
+            "I did mention Spinraza to my neurologist when I first heard about it because I was so excited And then he told me What the cost would be, and it's prohibited.",
+            "Well, he said that it was... the cost was very high and that my insurance wouldn't cover it. That was that simple."
+          ],
+          "Restarting Treatment Consideration": [],
+          "Impressions of Untaken Treatment": [
+            "I know that's injected right into the spinal column.",
+            "Yeah. I mean, it's a little bit scary to have something injected, but I would be nervous to do it. But if it was something that was a definite plus, I'd consider it."
+          ],
+          "Information Source for Untaken Treatment": [
+            "I did mention Spinraza to my neurologist when I first heard about it because I was so excited And then he told me What the cost would be, and it's prohibited."
+          ],
+          "Consideration of Untaken Treatment": [
+            "Yeah. I would be happy for it."
+          ],
+          "Discussion with HCP about Untaken Treatment": [
+            "I did mention Spinraza to my neurologist when I first heard about it because I was so excited And then he told me What the cost would be, and it's prohibited.",
+            "Well, he said that it was... the cost was very high and that my insurance wouldn't cover it. That was that simple."
+          ],
+          "Impact of HCP on Untaken Treatment Decision": [
+            "I did mention Spinraza to my neurologist when I first heard about it because I was so excited And then he told me What the cost would be, and it's prohibited.",
+            "Well, he said that it was... the cost was very high and that my insurance wouldn't cover it. That was that simple."
+          ],
+          "Discussion with Others about Untaken Treatment": [
+            "Well, we haven't talked about it in a while because we thought it was out of our range.",
+            "I would say we've talked about it initially. I never thought it was possible, and then we don't talk about it now."
+          ],
+          "Consideration of Future Treatment": [
+            "Yeah. I would be happy for it."
+          ],
+          "Drivers for Future Treatment Consideration": [
+            "If it would help me from not progressing anymore, that would be wonderful."
+          ],
+          "Candidate for Future Treatment": [
+            "If it would help me from not progressing anymore, that would be wonderful."
+          ],
+          "Awareness of Treatments in Development": [],
+          "Impressions of Treatments in Development": [],
+          "Candidate for Treatments in Development": [],
+          "Consideration of Treatments in Development": [],
+          "Drivers for Consideration of Treatments in Development": [],
+          "Hesitations for Treatments in Development": []
+        }
+      },
+      "BARRIERS TO TREATMENT & UNMET NEEDS": {
+        "R02": {
+          "Respondent ID": [],
+          "Reasons for Not Being on Treatment": [
+            "I did mention Spinraza to my neurologist when I first heard about it because I was so excited And then he told me What the cost would be, and it's prohibited.",
+            "Well, he said that it was... the cost was very high and that my insurance wouldn't cover it. That was that simple."
+          ],
+          "Factors Driving Treatment Consideration": [
+            "If it would help me from not progressing anymore, that would be wonderful."
+          ],
+          "Symptom Tracking Frequency": [],
+          "Symptom Tracking Methods": [],
+          "Discussion with HCP about Treatment Need": [
+            "It's rare that I see the neurologist.",
+            "It's probably been a year.",
+            "It was usually just to see how far I've progressed, you know, within the SMA, how much my muscle loss has been. So it would be my primary care physician that would recommend it, you know, if I want a neurologist."
+          ],
+          "Emotional Factors": [
+            "I don't think about it much.",
+            "Okay. And that might be just a survival mechanism. You know, to just feel like I just can't trade on what I have to do during the day and what I do and what I enjoy.",
+            "Well, I think if I pondered on it too much, I would probably get pretty depressed, and to think about the things I can't do as opposed to the things I can do. You know what I'm saying? So I think that is my perspective."
+          ],
+          "Practical or Logistical Factors": [
+            "I did mention Spinraza to my neurologist when I first heard about it because I was so excited And then he told me What the cost would be, and it's prohibited.",
+            "Well, he said that it was... the cost was very high and that my insurance wouldn't cover it. That was that simple."
+          ],
+          "Clinical Factors": [],
+          "Treatment Benefit Requirement": [
+            "If it would help me from not progressing anymore, that would be wonderful."
+          ],
+          "Challenges in Accessing Treatment": [
+            "I did mention Spinraza to my neurologist when I first heard about it because I was so excited And then he told me What the cost would be, and it's prohibited.",
+            "Well, he said that it was... the cost was very high and that my insurance wouldn't cover it. That was that simple."
+          ],
+          "Unmet Needs": [
+            "They should keep in mind that the cost is prohibitive."
+          ],
+          "Most Important Unmet Need": [
+            "They should keep in mind that the cost is prohibitive."
+          ]
+        }
+      },
+      "MOTIVATIONS & FUTURE CONSIDERATION": {
+        "R02": {
+          "Respondent ID": [],
+          "Likelihood of Future Treatment Consideration": [
+            "Yeah. I would be happy for it."
+          ],
+          "Factors Influencing Future Consideration": [
+            "If it would help me from not progressing anymore, that would be wonderful."
+          ],
+          "Expected Improvements from Treatment": [
+            "I would hope it would let me remain at the stage I'm in right now, that I'm still able to do many things for myself throughout the day.",
+            "That would be ideal if I could remain at this stage for as long as possible."
+          ],
+          "Influential Decision Makers": [
+            "Well, we haven't talked about it in a while because we thought it was out of our range.",
+            "I would say we've talked about it initially. I never thought it was possible, and then we don't talk about it now."
+          ],
+          "Confidence Factors in Treatment Decision": [
+            "If it would help me from not progressing anymore, that would be wonderful."
+          ]
+        }
+      },
+      "COMMUNITY ENGAGEMENT & INFO SOURCES": {
+        "R02": {
+          "Respondent ID": [],
+          "Connection to SMA Community": [
+            "Yeah. It was just people talking about what they were going through, and one of them was on it. One of the participants was actually working with Spinraza, I believe.",
+            "I'm sure it was online from SMA Cares, it might have been through them. I don't recall how I did, actually."
+          ],
+          "Participation in SMA Groups": [
+            "Yeah. It was just people talking about what they were going through, and one of them was on it. One of the participants was actually working with Spinraza, I believe.",
+            "I'm sure it was online from SMA Cares, it might have been through them. I don't recall how I did, actually."
+          ],
+          "Reasons for Non-involvement in SMA Communities": [
+            "I'm not really a big group participant.",
+            "When I got this initial phone call, I'm telling you who I thought it was, I'm going to protest in October against our present government. I didn't know I'd be getting a call about SMA. So that kind of thing, I do participate in."
+          ],
+          "Information Sources on SMA": [
+            "This said group, SMA Cares."
+          ],
+          "Trusted Information Sources": [
+            "This said group, SMA Cares."
+          ],
+          "Untrusted Information Sources": [],
+          "Discovery of New Treatments": [],
+          "Preferred Information Format": [],
+          "Improving Information Accessibility": [
+            "They should keep in mind that the cost is prohibitive."
+          ]
+        }
+      },
+      "Misc.": {
+        "R02": {
+          "Respondent ID": [],
+          "Final Comments": [
+            "They should keep in mind that the cost is prohibitive."
+          ],
+          "Additional Notes": []
+        }
+      }
+    },
+    "transcripts": [
+      {
+        "id": "1760127806804",
+        "respno": "R02",
+        "demographics": {
+          "Interview Date": "Oct 2, 2025",
+          "New Column 23": "",
+          "New Column 22": "",
+          "New Column 21": "",
+          "New Column 20": "",
+          "New Column 19": "",
+          "New Column 18": "",
+          "New Column 17": "",
+          "New Column 16": "",
+          "New Column 15": "",
+          "New Column 14": "",
+          "New Column 13": "",
+          "New Column 12": "",
+          "New Column 11": "",
+          "New Column 10": "",
+          "New Column 9": "",
+          "New Column 8": "",
+          "New Column 7": "",
+          "New Column 6": "",
+          "Interview Time": "12:00 PM",
+          "New Column 5": "",
+          "New Column 4": "",
+          "New Column 3": "",
+          "New Column 2": "",
+          "New Column 1": ""
+        },
+        "cleanedTranscript": "2025 SMA Adult Activation Qual Transcript\n\nOct 2, 2025 | 12:00 PM\n\nModerator: Elsie, so yeah, nice to meet you. I really apologize for any of the stress caused by the technology challenges. It can be really frustrating when the technology doesn't cooperate. \n\nRespondent: Exactly. It's okay. \n\nModerator: Good. Well, thank you. By any chance, do you have a little bit of extra time if we need to go over? \n\nRespondent: Not too much. Just that we're starting at, like, you know? I don't know. We'll try to move as efficiently as we can, okay? But I'm here. We'll see. \n\nModerator: Okay. Great. So before we start, I just have to give you a quick introduction, which is, yeah, my name is Nancy. This is what I do for a living. I have absolutely no idea who you are, so let's just don't tell me your last name or the name of any of your doctors just so we can really protect your anonymity because I can't even see your face. \n\nRespondent: You're welcome. \n\nModerator: I have a few lovely research colleagues who are listening in who just really want to understand your experience with SMA, and I just have a lot of questions to ask you, and I just really want to learn from you. We're also recording. It's just for research purposes. Your name doesn't get attached to any of that. If by any chance you mention that you've had a less than ideal experience on a medication my client makes, I have to write up what's called an adverse event report, and I might have a few questions for you about that at the end. And finally, especially because we're starting late, but also just in general, sometimes I do have to interrupt folks as I interview them, and I always feel like I'm being, I'm from Massachusetts, wicked rude, as they would say. So this is my upfront apology for any interruptions. Are you all okay with all that? \n\nRespondent: Yes. I'm from Brooklyn, New York, so I understand. \n\nModerator: Well, I live in Brooklyn, New York too. So it's like we can just be meeting at the park and going for a walk. Okay? Do you still don't tell me your address, but are you still in Brooklyn, or have you moved elsewhere? \n\nRespondent: Green, Oregon. \n\nModerator: Wow. Oh, okay. You're on a different coast. Alright. Can you just tell me a little bit about your life? Like, how old you are, if you live with anybody, how you spend your days? Just wanted to send to who you are, Elsie. \n\nRespondent: Sure. I'm 77, and I live with my husband and one more son. I have a dog that you can hear. I do almost everything for myself. I'm in a wheelchair. I don't walk, but I'm fortunate enough to have a chair that elevates and reclines. It does all kinds of great things. So I can still cook for them. \n\nModerator: Wow. \n\nRespondent: I do my shopping online, and they do it. I put it away sometimes. Sometimes I have help. I'm able to dress myself and do all that kind of stuff. I'm pretty independent, and hopefully, I can remain that way for as long as possible. I don't drive anymore. But, yeah, I'm pretty content except, you know, for my position. \n\nModerator: What do you mean except for your position? \n\nRespondent: That for the things that I can't do. \n\nModerator: I see.  What are the things that you feel like you can't do right now? Like, you mentioned driving. What are the things that are challenging? \n\nRespondent: Yeah. Okay. Well, I don't have the strength that I had, of course. So, I'm trying to think. Well, of course, walking would be nice, but that's not gonna happen. \n\nModerator: Yeah. \n\nRespondent: The things that I can't do, I guess participating in certain events or being spontaneous. I can't be spontaneous. \n\nModerator: I don't know what your mouthpiece situation is. I don't know if you're moving your head or sometimes you're going in and out a teeny bit. \n\nRespondent: I'll reposition my phone if that helps. Is that better? \n\nModerator: That's much better. Thank you, Elsie. Okay. When were you diagnosed with SMA? \n\nRespondent: 1984. \n\nModerator: Okay. My math is not good. So how old do you think you were? Or how old were you? \n\nRespondent: I was probably 36. I can't remember. \n\nModerator: Okay. Interesting. To what extent do you feel like SMA, like, how is what role does SMA play in your life? Like, to what extent do you think about it? \n\nRespondent: I don't think about it much. \n\nModerator: No. \n\nRespondent: Okay. And that might be just a survival mechanism. You know, to just feel like I just can't trade on what I have to do during the day and what I do and what I enjoy. \n\nModerator: Mhmm. \n\nRespondent: I'm a pretty awesome person. \n\nModerator: You're a pretty optimistic person, and so you don't think about the SMA as part of sort of a... and you think it might be a survival mechanism a little bit. \n\nRespondent: Yeah. I do. \n\nModerator: Can you say a little bit more about that? That's really interesting. \n\nRespondent: Well, I think if I pondered on it too much, I would probably get pretty depressed, and to think about the things I can't do as opposed to the things I can do. You know what I'm saying?  So I think that is my perspective. \n\nModerator: Mhmm. Do you... I mean, how would you... I mean, you talked about your mobility. How is your health overall, would you say, these days? \n\nRespondent: It's pretty good. I mean, it wasn't good for a while. I was having upper GI problems. And lots of because I'm sitting in the chair all day that I'm in the same position, so I have to remember to adjust my positioning and move more. But, you know, overall, the rest of my health is really good. \n\nModerator: Okay. \n\nRespondent: Okay. Great. \n\nModerator: Are you seeing any health care providers for any SMA-related care, like a neurologist or primary care physician or physical therapist? \n\nRespondent: It's rare that I see the neurologist. \n\nModerator: And when's the last time you saw the neurologist? \n\nRespondent: It's probably been a year. \n\nModerator: What, talk to me about that. What motivates you to want to see a neurologist? Why do you think you go rarely? What can you tell me about that? \n\nRespondent: It was usually just to see how far I've progressed, you know, within the SMA, how much my muscle loss has been. So it would be my primary care physician that would recommend it, you know, if I want a neurologist. \n\nModerator: And how did you feel typically when you would go to the neurologist? What was that experience like for you? \n\nRespondent: It was a good experience. \n\nModerator: Yeah. \n\nRespondent: I like them very much. And they would check to make sure my breathing was adequate, you know, do those kinds of tests and see how the strength has declined. It wasn't a bad experience at all. \n\nModerator: Okay. How often does the neurologist say they want you to come see them? \n\nRespondent: I would think it was probably once a year. And then if it was recommended, you know, I would go. Or if I wanted to go I could. \n\nModerator: Okay. But so the neurologist wasn't pushing you to come more, that you would just go when it was recommended? Am I understanding that correctly? \n\nRespondent: Correct. \n\nModerator: Okay. And then it sounds like you do you talk to your primary care physician about the SMA? \n\nRespondent: No. Not really. \n\nModerator: Can you say more about that? Why that's not much of what you talk to them about? \n\nRespondent: There's not much to talk about. And I don't know about how I would unless there was something really bothering me, I don't think I'd bring it up. Nothing has changed very much is what I'm saying. \n\nModerator: Yeah. I was wondering if you could describe for me, like, how the SMA has changed for you since '84. I mean, 1984. It was a long time ago, but I think it's almost like forty-one years ago, right? Am I doing my math right or thirty? \n\nRespondent: I just don't know. I became, I was in a wheelchair, I think, 1998 was when I started manual wheelchair. \n\nModerator: Okay. \n\nRespondent: And then not long after that, I had to go into the motorized wheelchair, I would say a year or two. So that's when that was the big decline from that time. And, you know, I've remained stable for quite a while. And I have progressed tremendously in the last couple of years. I noticed the change, and I haven't progressed. \n\nModerator: Yeah. Okay. But so you had a big decline around 1998 when you went into the wheelchair and then the motorized wheelchair. But then since then, how have things changed since, you know, '25 years ago? \n\nRespondent: Very, very slow progressing, so it's something that I don't notice, you know, on a daily basis. It's very slow. \n\nModerator: Okay. Great. Do you ever wish that you were talking to any health care providers about your SMA, or do you feel like you don't really have... \n\nRespondent: If there is something, if I... if there was something, you know, that they would recommend for me to take that would help me remain stable, that would be some process. \n\nModerator: What well, okay. So if there were something that you could take that would allow you that would help you remain stable, that would be something that would appeal to you? \n\nRespondent: If it would help me from not progressing anymore, that would be wonderful. \n\nModerator: Okay. Have you... I mean, I'm speaking of that, are you aware of any treatments that are available for SMA? \n\nRespondent: Yes. I've heard of Evrysdi and I'm trying to think of the other names. One begins with a Z, and the first and oldest one, I can't think of the name right now of it, but there are three that I've heard of. \n\nModerator: Mhmm. Spinraza, the one, the oldest one that you've heard? \n\nRespondent: Yeah. Spinraza. \n\nRespondent: I forgot what the other one was. Zolgensma, I think, is the other one with the Z. \n\nModerator: Right? \n\nRespondent: One of them is a liquid, I think, that you would take every day. I think that was a .. but I'm not sure. \n\nModerator: Mhmm. \n\nRespondent: Yep. \n\nModerator: Yeah. What are your... well, first of all, have you had any experience with any of these treatments? Have you ever taken any of these treatments? \n\nRespondent: No. No. I haven't. \n\nModerator: How do you... what are your impressions of like, let's start with Evrysdi. What are your thoughts about that treatment sort of broadly? What do you know about it, and what are your thoughts about it? \n\nRespondent: Well, I think they said they were going to start making a tablet as well, but I noticed the one that they have now is the liquid and keep it in the refrigerator. \n\nModerator: Mhmm. \n\nRespondent: You take... that's all I know about it. \n\nModerator: Okay. Do you have any positive thoughts about Evrysdi or negative thoughts about Evrysdi? \n\nRespondent: No. I don't know that much about it, you know, if it would help me. That would be a consideration. That's, you know, I really don't know if it would or not. \n\nModerator: Okay. What about Spinraza? Do you have... do you know anything about Spinraza? \n\nRespondent: I know that's injected right into the spinal column. \n\nModerator: Yep. \n\nRespondent: Mhmm. \n\nModerator: Yeah. \n\nRespondent: I don't know if it was a couple of times a year that you had to have it done. \n\nModerator: Mhmm. Any positive or negative thoughts about Spinraza? \n\nRespondent: Yeah. I mean, it's a little bit scary to have something injected, but I would be nervous to do it. But if it was something that was a definite plus, I'd consider it. \n\nModerator: Okay. I just want to take a pause for a second. Are you a part of any, like, SMA communities? Do you know anyone with SMA, or to what extent do you feel... \n\nRespondent: Yeah. No. I don't. \n\nModerator: You don't know anyone else who has SMA? \n\nRespondent: No. \n\nModerator: Have you ever participated in any, like, in-person groups or online groups or gone on to a Facebook group or anything like that? \n\nRespondent: I did at one time. \n\nModerator: Can you tell me about that? \n\nRespondent: Yeah. It was just people talking about what they were going through, and one of them was on it. One of the participants was actually working with Spinraza, I believe. \n\nModerator: How did you get hooked up with this group? \n\nRespondent: I'm sure it was online from SMA Cares, it might have been through them. I don't recall how I did, actually. \n\nModerator: And what was your reaction to listening? Was that something that you were participating in online or was it in person? \n\nRespondent: It was in person. \n\nModerator: Oh, what was that experience like for you going to that group in person? \n\nRespondent: Yeah. It was a good experience. \n\nModerator: Yeah. \n\nRespondent: What did it make you feel like being in that group? \n\nRespondent: It was good just hearing other people's opinions and what they're going through. \n\nModerator: Do you wish you were more involved in any kind of SMA community? Is that something that would appeal to you, or is it something that does not appeal to you or somewhere in between? \n\nRespondent: Yeah. I'm pretty neutral on it. \n\nModerator: Yeah. \n\nRespondent: I would think it will only be for a particular reason that I would want to go. \n\nModerator: Okay. I can come back to that. What is SMA Cares exactly? Do you know what that is? I don't exactly know what that is. I feel like I should, but... \n\nRespondent: It's the group that discusses what's going on with SMA, what's available for treatment. \n\nModerator: Okay. Does it something that you get in the physical mail, or is it like an email that you get? \n\nRespondent: Yeah. It's online. \n\nModerator: Okay. How often? \n\nRespondent: I got an email something happening. \n\nModerator: Do you like getting that information from them or going online? \n\nRespondent: It's... I don't know if there's something new out there. \n\nModerator: Okay. Alright. So let's come back to treatment. So Evrysdi and Spinraza, how do you think you even first heard about these treatments? \n\nRespondent: Good question. I don't recall. \n\nModerator: You don't recall? \n\nRespondent: I did mention Spinraza to my neurologist when I first heard about it because I was so excited And then he told me What the cost would be, and it's prohibited. \n\nModerator: It was prohibited at the time. \n\nRespondent: I don't know if it's...: And I wasn't really sure if my insurance covered it. \n\nModerator: Yeah. So the cost is outrageous still. \n\nRespondent: Yeah. \n\nModerator: What were you excited about when you first heard about Spinraza? \n\nRespondent: By the way, chance I'd be able to improve my motor skills. \n\nModerator: And what did the neurologist say about it besides the cost? Do you remember? \n\nRespondent: No. I don't. \n\nModerator: And when the neurologist brought up the cost, was the... \n\nRespondent: Yes. \n\nModerator: Tell me a little bit more about what was said about the cost and your reaction to it. \n\nRespondent: Well, he said that it was... the cost was very high and that my insurance wouldn't cover it. That was that simple. \n\nModerator: Wow. He said your insurance will not cover it, and that was the end of the story? \n\nRespondent: Right. \n\nModerator: What insurance did you have? Was it Medicare or like... \n\nRespondent: No. I didn't have Medicare at the time. I have Kaiser. \n\nModerator: Interesting. \n\nRespondent: And he said it won't cover it, so end of story. \n\nModerator: Right. How did that make you feel when you found that out? \n\nRespondent: It's disheartening. \n\nModerator: Yeah. Did you ever look at any other... I don't even know if there are other routes to get the medication, but did you ever explore further if anything else about Spinraza and accessing it? \n\nRespondent: I don't know. No. I don't think there are any options that I could think of. \n\nModerator: Okay. And then did you ever talk to a doctor again about Spinraza? Has that ever come up ever again? \n\nRespondent: No. Not lately. \n\nModerator: And why is that? \n\nRespondent: Well, because I haven't heard that anything to see what their cost. \n\nModerator: Okay. So is it fair for me to say you assume that you still wouldn't be able to afford it because the cost is so ridiculously high? Is that fair? \n\nRespondent: Yeah. \n\nModerator: Okay. Have you ever talked to a doctor about Evrysdi? \n\nRespondent: No. I haven't. \n\nModerator: And why is that? Tell me about that. \n\nRespondent: I just... it just didn't come up. I didn't think of it, I guess. \n\nModerator: How can you tell me about that a little bit? Or it's interesting to me that you didn't... like, how would you feel about the possibility of considering Evrysdi, like, being able to possibly take Evrysdi? How would that make you feel? \n\nRespondent: Yeah. I think that'd be great, but it's also a high cost. \n\nModerator: Yeah. So I just don't want... I'm just reluctant to put words in your mouth, Elsie, so I don't want to make any assumptions. \n\nModerator: So were you assuming that... please correct me if I'm wrong. Were you assuming that Evrysdi would also just not be covered by your insurance or it would be too expensive? \n\nRespondent: Yes. \n\nModerator: Okay. Let's imagine, like, some world that exists where this medication was actually accessible to you, like either Evrysdi or Spinraza. How, like, today, now in your life, is that something that you would... how would you feel about the possibility of either one of those treatments being available to you now? \n\nRespondent: Yeah. I would be happy for it. \n\nModerator: Yeah. \n\nRespondent: When you see the neurologist, like, once a year, is it regularly? You'll see that neurologist once a year pretty typically? \n\nRespondent: Yes. \n\nModerator: Is it the same neurologist you first brought up Spinraza to? \n\nRespondent: I'm not sure if he'll be available right now, but I will find out. \n\nModerator: But, I mean, historically, are you... you continue to see that same doctor? \n\nRespondent: Yes. \n\nModerator: Okay. Has he ever mentioned Evrysdi? Has he ever mentioned treatment again to you? \n\nRespondent: No. \n\nModerator: How would you feel if he did bring it up? \n\nRespondent: Alright. Yeah. I would respect his recommendation for sure. \n\nModerator: Have you ever spoken to anyone else about treatment at all, whether it's primary care physician or your husband or someone online or anything? \n\nRespondent: Just my husband. \n\nModerator: What are those conversations like when you and your husband talk about it? \n\nRespondent: Well, we haven't talked about it in a while because we thought it was out of our range. \n\nModerator: Yeah. \n\nRespondent: I would say we've talked about it initially. I never thought it was possible, and then we don't talk about it now. \n\nModerator: Because how does it feel to even talk about something that you feel like is not in your range? \n\nRespondent: Well, it's like saying, how would you like a Mercedes to drive? You know, you just don't talk about it. \n\nModerator: Yeah. \n\nRespondent: Like, why even talk about something that is just not a realistic option? \n\nModerator: And are you still on Kaiser? Is that still your coverage? \n\nRespondent: Yes. \n\nModerator: And it but it's through Medicare, was that right? \n\nRespondent: It's like a Medicare Advantage Plan or something. \n\nModerator: It's always like that? \n\nRespondent: Yeah. \n\nModerator: Nice to hear it. \n\nRespondent: Yeah. \n\nModerator: But I have the Advantage Plan as well. \n\nRespondent: Okay. \n\nModerator: And you've never asked them about Evrysdi or anything like that? You haven't... you just sort of assumed, like, if Spinraza wasn't covered? \n\nRespondent: I will go see if anything has changed, but yeah. \n\nModerator: What do you mean you will? Why will you? \n\nRespondent: Because now I'm curious to see if any changes. I would assume that it would be recommended to me if there have been changes. \n\nModerator: Oh, so you're assuming... Your neurologist would have brought it up to you if he thought it was accessible to you. \n\nModerator: How does it make you feel, Elsie, when you... if you were to read about other SMA patients who do have access to those medications? Like, how does that make you feel when you hear about or read about those patients actually getting to take treatment? \n\nRespondent: I really haven't read about it that much. I think a part of me is like, you know, I talk to lots of different types of people who have SMA and some people are, like, on those Facebook groups every day. Some people are going to conferences and other people don't participate in those groups for whatever reason. And I'm trying to... \n\nModerator: I would love to understand for you if there's anything that sort of keeps you from wanting to participate in those groups. Like, is there anything that makes you feel like it's not a... it doesn't feel good or doesn't feel like you belong? Or I don't know if there are any sort of barriers for you to feel like that's something that you want in your life. \n\nRespondent: I'm not really a big group participant. \n\nModerator: Mhmm. \n\nRespondent: When I got this initial phone call, I'm telling you who I thought it was, I'm going to protest in October against our present government. I didn't know I'd be getting a call about SMA. So that kind of thing, I do participate in. But something like this, I haven't. \n\nModerator: Do you wish that you were receiving more information about SMA and SMA treatments? Is that something that would make you feel good about receiving? \n\nRespondent: Yeah. Definitely. \n\nModerator: Could you give me an example of what kind of information you would like to receive? \n\nRespondent: Well, I have received things saying how it helps people, you know, to what degree, but probably more often and how it might become more available to people if the costs have changed. \n\nModerator: Yeah. \n\nRespondent: Things like that. \n\nModerator: Yeah. Like, I'm speaking out of turn here, but I know certain manufacturers have, like, patient advocacy programs for when medications are not affordable and they provide access to treatment. But I don't know enough about your situation and what the manufacturers provide. But that's not something you ever looked into, right? \n\nRespondent: No. I haven't. \n\nModerator: Would that be of interest to you if that information were provided to you? \n\nRespondent: Of course. \n\nModerator: Yeah. \n\nRespondent: Yeah. \n\nModerator: So just so I'm 100% clear, like, what SMA information even crosses your desk these days, like, or gets into your computer? Do you get any emails from anything SMA related at all? \n\nRespondent: This said group, SMA Cares. \n\nModerator: Okay. \n\nRespondent: And how often does that show up in your email? \n\nRespondent: I don't recall. \n\nModerator: Okay. \n\nRespondent: And do you typically open those? \n\nRespondent: Yeah. \n\nModerator: Okay.  Are there any other ways you wish that you would... I mean, we talked about the kind of information you'd like to get around SMA. Is there any other way you would sort of just like to connect to SMA, the SMA community or what's happening to SMA, like talking to peers about SMA? Would you want to... do you wish you were talking to more peers about SMA, or is that of not that much interest to you? \n\nRespondent: It's only about treatment and how it's going or if they're successful or how they're obtaining treatment. That would be my only interest. \n\nModerator: Okay. \n\nRespondent: Okay. \n\nModerator: Yeah. Why are you less interested in just talking to other SMA patients about their experience? \n\nRespondent: I'm not that interested. \n\nModerator: Yeah. Why is that? Just out of curiosity. Not that you should be. I'm just trying to understand. \n\nRespondent: I don't know. As I said, I would want to know if they're receiving treatment and if it's effective, that I would be interested in. \n\nModerator: Okay. \n\nRespondent: So that's another element too. \n\nModerator: Okay. Great. Are you aware of any future treatment options coming down the pipeline for SMA? \n\nRespondent: No. I'm not. \n\nModerator: Only... Are you the one that might use this tablet? That tablet is available now. I think it's been available... I'm gonna be wrong, but I feel like it might be coming up on a year now. Although, it could be... I could be wrong. Don't quote me on that.  What do you think about the fact that Evrysdi is now a tablet? How much does that matter to you? \n\nRespondent: Well, that'd be great because you can take it with you. It's portable, and you don't have to worry about refrigerating it. \n\nModerator: Yeah. \n\nRespondent: I'd have it with my other medications available every day. \n\nModerator: So... \n\nRespondent: Yeah. \n\nModerator: Okay. I was wrong about the year. It's only been six months. But, yeah, it is something that is available now, the tablet. Does hearing that make any impact on your likelihood to bring it up with your... \n\nRespondent: Definitely. \n\nModerator: Why is that? \n\nRespondent: Because of the convenience. \n\nModerator: Yeah. But even you would bring it up... I mean, even would you assume that the tablet would have the same cost? \n\nRespondent: I don't know. I would have to know more about it. \n\nModerator: And you haven't heard about any other treatments besides that one? \n\nRespondent: What do you mean? Oh, new treatments. \n\nModerator: So there are a couple new treatments on the horizon. One of them is like, they're testing a higher dose of Spinraza, and they're also testing this medication that you would take in combination with Evrysdi or Spinraza. And the category is called an anti-myostatin. I am not an expert on this, but it works directly on the muscles. \n\nRespondent: And so, yeah. Education is paramount. Knowing about all of this is the best. \n\nModerator: Yeah. \n\nRespondent: Okay. \n\nModerator: I mean, I think what's... I mean, you're gonna say, like, what I'm... I'm gonna sound stupid saying this, so I apologize. But it sounds like for you, obviously, initially, the idea of treatment was really exciting, but the cost, it was just like, creates this insurmountable barrier. So it just became something like a Mercedes that you just don't even think about because it's... why torture yourself with something that's not even an option? Is that fair? \n\nModerator: Yeah. \n\nRespondent: Or not fair? \n\nModerator: That's fair. \n\nRespondent: Yeah. \n\nModerator: I love the Mercedes analogy. If there were routes for you to find affordable medication, what would be the best way to communicate that to you? Like, what would be the best way for you to find out about SMA treatment that was actually covered by your insurance? What would be the best way for you to learn about that? \n\nRespondent: Maybe from the manufacturer itself, then from my physician. \n\nModerator: Which physician? \n\nRespondent: My primary care physician and neurologist. Either one of them, if they could, you know, give me that information when it comes, that would be wonderful. But it looks like I have to do the research on my own, really. I have to be my own advocate. So I have to start finding these things out for myself. \n\nModerator: It was striking to me that you said you don't really talk to your primary care physician about the SMA. \n\nRespondent: No. \n\nModerator: I wonder... \n\nRespondent: And she doesn't do that. \n\nRespondent: She doesn't ask me anything about it as well. \n\nModerator: She doesn't ask you about your SMA at all? \n\nRespondent: No. \n\nModerator: How does that make you feel that she doesn't ask you about it? \n\nRespondent: I mean, I'm there in person, so she sees what I can and can't do, not like, you know what I mean? \n\nModerator: Yeah. \n\nRespondent: Do you wish that she spoke to you more directly about your SMA? \n\nRespondent: Not really because I haven't changed. \n\nModerator: You know what I'm saying? \n\nRespondent: Yeah. \n\nModerator: But if treatment were an accessible option for you, how would you feel about her bringing that up to you? \n\nRespondent: Oh, I would think that'd be perfect. \n\nModerator: Yeah. \n\nRespondent: I have a crazy question to ask you, Elsie. Do you think your primary care physician really understands what SMA is? \n\nRespondent: I don't know. \n\nModerator: I'm pretty sure she does. \n\nRespondent: Yeah. \n\nModerator: Okay. I was talking to someone recently whose primary care physician kept talking about the fact that the patient had muscular dystrophy. And so that is the reason that I'm asking them. \n\nRespondent: Okay. \n\nModerator: So, I am just looking through my list of questions to see if there's anything else. \n\nModerator: I guess I know I've asked you this before, but I guess here's like, what if you were to start treatment at this point, like, what would you hope the treatment would do for you? \n\nRespondent: I would hope it would let me remain at the stage I'm in right now, that I'm still able to do many things for myself throughout the day. \n\nModerator: Yeah. \n\nRespondent: That would be ideal if I could remain at this stage for as long as possible. \n\nModerator: Awesome. \n\nModerator: And, like, really, like, focusing on the independence. \n\nRespondent: Exactly. \n\nModerator: Yeah. \n\nRespondent: That's what I could ask for. \n\nModerator: Yeah. \n\nRespondent: Okay. \n\nModerator: Anything else you would want people in the SMA communities, a manufacturer of SMA treatments to know about what they can do to help you or what they can do to help you access treatment? Anything else they should keep in mind about you and your experience? \n\nRespondent: They should keep in mind that the cost is prohibitive. \n\nModerator: Yep. \n\nRespondent: That would be nice. \n\nModerator: Fair enough. \n\nRespondent: Yeah. \n\nModerator: Alrighty. Elsie, thank you so, so much for making the time to do this. \n\n\n\n",
+        "originalTranscript": "2025 SMA Adult Activation Qual Transcript\n\nOct 2, 2025 | 12:00 PM\n\nModerator: Elsie, so yeah, nice to meet you. I really apologize for any of the stress caused by the technology challenges. It can be really frustrating when the technology doesn't cooperate. \n\nRespondent: Exactly. It's okay. \n\nModerator: Good. Well, thank you. By any chance, do you have a little bit of extra time if we need to go over? \n\nRespondent: Not too much. Just that we're starting at, like, you know? I don't know. We'll try to move as efficiently as we can, okay? But I'm here. We'll see. \n\nModerator: Okay. Great. So before we start, I just have to give you a quick introduction, which is, yeah, my name is Nancy. This is what I do for a living. I have absolutely no idea who you are, so let's just don't tell me your last name or the name of any of your doctors just so we can really protect your anonymity because I can't even see your face. \n\nRespondent: You're welcome. \n\nModerator: I have a few lovely research colleagues who are listening in who just really want to understand your experience with SMA, and I just have a lot of questions to ask you, and I just really want to learn from you. We're also recording. It's just for research purposes. Your name doesn't get attached to any of that. If by any chance you mention that you've had a less than ideal experience on a medication my client makes, I have to write up what's called an adverse event report, and I might have a few questions for you about that at the end. And finally, especially because we're starting late, but also just in general, sometimes I do have to interrupt folks as I interview them, and I always feel like I'm being, I'm from Massachusetts, wicked rude, as they would say. So this is my upfront apology for any interruptions. Are you all okay with all that? \n\nRespondent: Yes. I'm from Brooklyn, New York, so I understand. \n\nModerator: Well, I live in Brooklyn, New York too. So it's like we can just be meeting at the park and going for a walk. Okay? Do you still don't tell me your address, but are you still in Brooklyn, or have you moved elsewhere? \n\nRespondent: Green, Oregon. \n\nModerator: Wow. Oh, okay. You're on a different coast. Alright. Can you just tell me a little bit about your life? Like, how old you are, if you live with anybody, how you spend your days? Just wanted to send to who you are, Elsie. \n\nRespondent: Sure. I'm 77, and I live with my husband and one more son. I have a dog that you can hear. I do almost everything for myself. I'm in a wheelchair. I don't walk, but I'm fortunate enough to have a chair that elevates and reclines. It does all kinds of great things. So I can still cook for them. \n\nModerator: Wow. \n\nRespondent: I do my shopping online, and they do it. I put it away sometimes. Sometimes I have help. I'm able to dress myself and do all that kind of stuff. I'm pretty independent, and hopefully, I can remain that way for as long as possible. I don't drive anymore. But, yeah, I'm pretty content except, you know, for my position. \n\nModerator: What do you mean except for your position? \n\nRespondent: That for the things that I can't do. \n\nModerator: I see.  What are the things that you feel like you can't do right now? Like, you mentioned driving. What are the things that are challenging? \n\nRespondent: Yeah. Okay. Well, I don't have the strength that I had, of course. So, I'm trying to think. Well, of course, walking would be nice, but that's not gonna happen. \n\nModerator: Yeah. \n\nRespondent: The things that I can't do, I guess participating in certain events or being spontaneous. I can't be spontaneous. \n\nModerator: I don't know what your mouthpiece situation is. I don't know if you're moving your head or sometimes you're going in and out a teeny bit. \n\nRespondent: I'll reposition my phone if that helps. Is that better? \n\nModerator: That's much better. Thank you, Elsie. Okay. When were you diagnosed with SMA? \n\nRespondent: 1984. \n\nModerator: Okay. My math is not good. So how old do you think you were? Or how old were you? \n\nRespondent: I was probably 36. I can't remember. \n\nModerator: Okay. Interesting. To what extent do you feel like SMA, like, how is what role does SMA play in your life? Like, to what extent do you think about it? \n\nRespondent: I don't think about it much. \n\nModerator: No. \n\nRespondent: Okay. And that might be just a survival mechanism. You know, to just feel like I just can't trade on what I have to do during the day and what I do and what I enjoy. \n\nModerator: Mhmm. \n\nRespondent: I'm a pretty awesome person. \n\nModerator: You're a pretty optimistic person, and so you don't think about the SMA as part of sort of a... and you think it might be a survival mechanism a little bit. \n\nRespondent: Yeah. I do. \n\nModerator: Can you say a little bit more about that? That's really interesting. \n\nRespondent: Well, I think if I pondered on it too much, I would probably get pretty depressed, and to think about the things I can't do as opposed to the things I can do. You know what I'm saying?  So I think that is my perspective. \n\nModerator: Mhmm. Do you... I mean, how would you... I mean, you talked about your mobility. How is your health overall, would you say, these days? \n\nRespondent: It's pretty good. I mean, it wasn't good for a while. I was having upper GI problems. And lots of because I'm sitting in the chair all day that I'm in the same position, so I have to remember to adjust my positioning and move more. But, you know, overall, the rest of my health is really good. \n\nModerator: Okay. \n\nRespondent: Okay. Great. \n\nModerator: Are you seeing any health care providers for any SMA-related care, like a neurologist or primary care physician or physical therapist? \n\nRespondent: It's rare that I see the neurologist. \n\nModerator: And when's the last time you saw the neurologist? \n\nRespondent: It's probably been a year. \n\nModerator: What, talk to me about that. What motivates you to want to see a neurologist? Why do you think you go rarely? What can you tell me about that? \n\nRespondent: It was usually just to see how far I've progressed, you know, within the SMA, how much my muscle loss has been. So it would be my primary care physician that would recommend it, you know, if I want a neurologist. \n\nModerator: And how did you feel typically when you would go to the neurologist? What was that experience like for you? \n\nRespondent: It was a good experience. \n\nModerator: Yeah. \n\nRespondent: I like them very much. And they would check to make sure my breathing was adequate, you know, do those kinds of tests and see how the strength has declined. It wasn't a bad experience at all. \n\nModerator: Okay. How often does the neurologist say they want you to come see them? \n\nRespondent: I would think it was probably once a year. And then if it was recommended, you know, I would go. Or if I wanted to go I could. \n\nModerator: Okay. But so the neurologist wasn't pushing you to come more, that you would just go when it was recommended? Am I understanding that correctly? \n\nRespondent: Correct. \n\nModerator: Okay. And then it sounds like you do you talk to your primary care physician about the SMA? \n\nRespondent: No. Not really. \n\nModerator: Can you say more about that? Why that's not much of what you talk to them about? \n\nRespondent: There's not much to talk about. And I don't know about how I would unless there was something really bothering me, I don't think I'd bring it up. Nothing has changed very much is what I'm saying. \n\nModerator: Yeah. I was wondering if you could describe for me, like, how the SMA has changed for you since '84. I mean, 1984. It was a long time ago, but I think it's almost like forty-one years ago, right? Am I doing my math right or thirty? \n\nRespondent: I just don't know. I became, I was in a wheelchair, I think, 1998 was when I started manual wheelchair. \n\nModerator: Okay. \n\nRespondent: And then not long after that, I had to go into the motorized wheelchair, I would say a year or two. So that's when that was the big decline from that time. And, you know, I've remained stable for quite a while. And I have progressed tremendously in the last couple of years. I noticed the change, and I haven't progressed. \n\nModerator: Yeah. Okay. But so you had a big decline around 1998 when you went into the wheelchair and then the motorized wheelchair. But then since then, how have things changed since, you know, '25 years ago? \n\nRespondent: Very, very slow progressing, so it's something that I don't notice, you know, on a daily basis. It's very slow. \n\nModerator: Okay. Great. Do you ever wish that you were talking to any health care providers about your SMA, or do you feel like you don't really have... \n\nRespondent: If there is something, if I... if there was something, you know, that they would recommend for me to take that would help me remain stable, that would be some process. \n\nModerator: What well, okay. So if there were something that you could take that would allow you that would help you remain stable, that would be something that would appeal to you? \n\nRespondent: If it would help me from not progressing anymore, that would be wonderful. \n\nModerator: Okay. Have you... I mean, I'm speaking of that, are you aware of any treatments that are available for SMA? \n\nRespondent: Yes. I've heard of Evrysdi and I'm trying to think of the other names. One begins with a Z, and the first and oldest one, I can't think of the name right now of it, but there are three that I've heard of. \n\nModerator: Mhmm. Spinraza, the one, the oldest one that you've heard? \n\nRespondent: Yeah. Spinraza. \n\nRespondent: I forgot what the other one was. Zolgensma, I think, is the other one with the Z. \n\nModerator: Right? \n\nRespondent: One of them is a liquid, I think, that you would take every day. I think that was a .. but I'm not sure. \n\nModerator: Mhmm. \n\nRespondent: Yep. \n\nModerator: Yeah. What are your... well, first of all, have you had any experience with any of these treatments? Have you ever taken any of these treatments? \n\nRespondent: No. No. I haven't. \n\nModerator: How do you... what are your impressions of like, let's start with Evrysdi. What are your thoughts about that treatment sort of broadly? What do you know about it, and what are your thoughts about it? \n\nRespondent: Well, I think they said they were going to start making a tablet as well, but I noticed the one that they have now is the liquid and keep it in the refrigerator. \n\nModerator: Mhmm. \n\nRespondent: You take... that's all I know about it. \n\nModerator: Okay. Do you have any positive thoughts about Evrysdi or negative thoughts about Evrysdi? \n\nRespondent: No. I don't know that much about it, you know, if it would help me. That would be a consideration. That's, you know, I really don't know if it would or not. \n\nModerator: Okay. What about Spinraza? Do you have... do you know anything about Spinraza? \n\nRespondent: I know that's injected right into the spinal column. \n\nModerator: Yep. \n\nRespondent: Mhmm. \n\nModerator: Yeah. \n\nRespondent: I don't know if it was a couple of times a year that you had to have it done. \n\nModerator: Mhmm. Any positive or negative thoughts about Spinraza? \n\nRespondent: Yeah. I mean, it's a little bit scary to have something injected, but I would be nervous to do it. But if it was something that was a definite plus, I'd consider it. \n\nModerator: Okay. I just want to take a pause for a second. Are you a part of any, like, SMA communities? Do you know anyone with SMA, or to what extent do you feel... \n\nRespondent: Yeah. No. I don't. \n\nModerator: You don't know anyone else who has SMA? \n\nRespondent: No. \n\nModerator: Have you ever participated in any, like, in-person groups or online groups or gone on to a Facebook group or anything like that? \n\nRespondent: I did at one time. \n\nModerator: Can you tell me about that? \n\nRespondent: Yeah. It was just people talking about what they were going through, and one of them was on it. One of the participants was actually working with Spinraza, I believe. \n\nModerator: How did you get hooked up with this group? \n\nRespondent: I'm sure it was online from SMA Cares, it might have been through them. I don't recall how I did, actually. \n\nModerator: And what was your reaction to listening? Was that something that you were participating in online or was it in person? \n\nRespondent: It was in person. \n\nModerator: Oh, what was that experience like for you going to that group in person? \n\nRespondent: Yeah. It was a good experience. \n\nModerator: Yeah. \n\nRespondent: What did it make you feel like being in that group? \n\nRespondent: It was good just hearing other people's opinions and what they're going through. \n\nModerator: Do you wish you were more involved in any kind of SMA community? Is that something that would appeal to you, or is it something that does not appeal to you or somewhere in between? \n\nRespondent: Yeah. I'm pretty neutral on it. \n\nModerator: Yeah. \n\nRespondent: I would think it will only be for a particular reason that I would want to go. \n\nModerator: Okay. I can come back to that. What is SMA Cares exactly? Do you know what that is? I don't exactly know what that is. I feel like I should, but... \n\nRespondent: It's the group that discusses what's going on with SMA, what's available for treatment. \n\nModerator: Okay. Does it something that you get in the physical mail, or is it like an email that you get? \n\nRespondent: Yeah. It's online. \n\nModerator: Okay. How often? \n\nRespondent: I got an email something happening. \n\nModerator: Do you like getting that information from them or going online? \n\nRespondent: It's... I don't know if there's something new out there. \n\nModerator: Okay. Alright. So let's come back to treatment. So Evrysdi and Spinraza, how do you think you even first heard about these treatments? \n\nRespondent: Good question. I don't recall. \n\nModerator: You don't recall? \n\nRespondent: I did mention Spinraza to my neurologist when I first heard about it because I was so excited And then he told me What the cost would be, and it's prohibited. \n\nModerator: It was prohibited at the time. \n\nRespondent: I don't know if it's...: And I wasn't really sure if my insurance covered it. \n\nModerator: Yeah. So the cost is outrageous still. \n\nRespondent: Yeah. \n\nModerator: What were you excited about when you first heard about Spinraza? \n\nRespondent: By the way, chance I'd be able to improve my motor skills. \n\nModerator: And what did the neurologist say about it besides the cost? Do you remember? \n\nRespondent: No. I don't. \n\nModerator: And when the neurologist brought up the cost, was the... \n\nRespondent: Yes. \n\nModerator: Tell me a little bit more about what was said about the cost and your reaction to it. \n\nRespondent: Well, he said that it was... the cost was very high and that my insurance wouldn't cover it. That was that simple. \n\nModerator: Wow. He said your insurance will not cover it, and that was the end of the story? \n\nRespondent: Right. \n\nModerator: What insurance did you have? Was it Medicare or like... \n\nRespondent: No. I didn't have Medicare at the time. I have Kaiser. \n\nModerator: Interesting. \n\nRespondent: And he said it won't cover it, so end of story. \n\nModerator: Right. How did that make you feel when you found that out? \n\nRespondent: It's disheartening. \n\nModerator: Yeah. Did you ever look at any other... I don't even know if there are other routes to get the medication, but did you ever explore further if anything else about Spinraza and accessing it? \n\nRespondent: I don't know. No. I don't think there are any options that I could think of. \n\nModerator: Okay. And then did you ever talk to a doctor again about Spinraza? Has that ever come up ever again? \n\nRespondent: No. Not lately. \n\nModerator: And why is that? \n\nRespondent: Well, because I haven't heard that anything to see what their cost. \n\nModerator: Okay. So is it fair for me to say you assume that you still wouldn't be able to afford it because the cost is so ridiculously high? Is that fair? \n\nRespondent: Yeah. \n\nModerator: Okay. Have you ever talked to a doctor about Evrysdi? \n\nRespondent: No. I haven't. \n\nModerator: And why is that? Tell me about that. \n\nRespondent: I just... it just didn't come up. I didn't think of it, I guess. \n\nModerator: How can you tell me about that a little bit? Or it's interesting to me that you didn't... like, how would you feel about the possibility of considering Evrysdi, like, being able to possibly take Evrysdi? How would that make you feel? \n\nRespondent: Yeah. I think that'd be great, but it's also a high cost. \n\nModerator: Yeah. So I just don't want... I'm just reluctant to put words in your mouth, Elsie, so I don't want to make any assumptions. \n\nModerator: So were you assuming that... please correct me if I'm wrong. Were you assuming that Evrysdi would also just not be covered by your insurance or it would be too expensive? \n\nRespondent: Yes. \n\nModerator: Okay. Let's imagine, like, some world that exists where this medication was actually accessible to you, like either Evrysdi or Spinraza. How, like, today, now in your life, is that something that you would... how would you feel about the possibility of either one of those treatments being available to you now? \n\nRespondent: Yeah. I would be happy for it. \n\nModerator: Yeah. \n\nRespondent: When you see the neurologist, like, once a year, is it regularly? You'll see that neurologist once a year pretty typically? \n\nRespondent: Yes. \n\nModerator: Is it the same neurologist you first brought up Spinraza to? \n\nRespondent: I'm not sure if he'll be available right now, but I will find out. \n\nModerator: But, I mean, historically, are you... you continue to see that same doctor? \n\nRespondent: Yes. \n\nModerator: Okay. Has he ever mentioned Evrysdi? Has he ever mentioned treatment again to you? \n\nRespondent: No. \n\nModerator: How would you feel if he did bring it up? \n\nRespondent: Alright. Yeah. I would respect his recommendation for sure. \n\nModerator: Have you ever spoken to anyone else about treatment at all, whether it's primary care physician or your husband or someone online or anything? \n\nRespondent: Just my husband. \n\nModerator: What are those conversations like when you and your husband talk about it? \n\nRespondent: Well, we haven't talked about it in a while because we thought it was out of our range. \n\nModerator: Yeah. \n\nRespondent: I would say we've talked about it initially. I never thought it was possible, and then we don't talk about it now. \n\nModerator: Because how does it feel to even talk about something that you feel like is not in your range? \n\nRespondent: Well, it's like saying, how would you like a Mercedes to drive? You know, you just don't talk about it. \n\nModerator: Yeah. \n\nRespondent: Like, why even talk about something that is just not a realistic option? \n\nModerator: And are you still on Kaiser? Is that still your coverage? \n\nRespondent: Yes. \n\nModerator: And it but it's through Medicare, was that right? \n\nRespondent: It's like a Medicare Advantage Plan or something. \n\nModerator: It's always like that? \n\nRespondent: Yeah. \n\nModerator: Nice to hear it. \n\nRespondent: Yeah. \n\nModerator: But I have the Advantage Plan as well. \n\nRespondent: Okay. \n\nModerator: And you've never asked them about Evrysdi or anything like that? You haven't... you just sort of assumed, like, if Spinraza wasn't covered? \n\nRespondent: I will go see if anything has changed, but yeah. \n\nModerator: What do you mean you will? Why will you? \n\nRespondent: Because now I'm curious to see if any changes. I would assume that it would be recommended to me if there have been changes. \n\nModerator: Oh, so you're assuming... Your neurologist would have brought it up to you if he thought it was accessible to you. \n\nModerator: How does it make you feel, Elsie, when you... if you were to read about other SMA patients who do have access to those medications? Like, how does that make you feel when you hear about or read about those patients actually getting to take treatment? \n\nRespondent: I really haven't read about it that much. I think a part of me is like, you know, I talk to lots of different types of people who have SMA and some people are, like, on those Facebook groups every day. Some people are going to conferences and other people don't participate in those groups for whatever reason. And I'm trying to... \n\nModerator: I would love to understand for you if there's anything that sort of keeps you from wanting to participate in those groups. Like, is there anything that makes you feel like it's not a... it doesn't feel good or doesn't feel like you belong? Or I don't know if there are any sort of barriers for you to feel like that's something that you want in your life. \n\nRespondent: I'm not really a big group participant. \n\nModerator: Mhmm. \n\nRespondent: When I got this initial phone call, I'm telling you who I thought it was, I'm going to protest in October against our present government. I didn't know I'd be getting a call about SMA. So that kind of thing, I do participate in. But something like this, I haven't. \n\nModerator: Do you wish that you were receiving more information about SMA and SMA treatments? Is that something that would make you feel good about receiving? \n\nRespondent: Yeah. Definitely. \n\nModerator: Could you give me an example of what kind of information you would like to receive? \n\nRespondent: Well, I have received things saying how it helps people, you know, to what degree, but probably more often and how it might become more available to people if the costs have changed. \n\nModerator: Yeah. \n\nRespondent: Things like that. \n\nModerator: Yeah. Like, I'm speaking out of turn here, but I know certain manufacturers have, like, patient advocacy programs for when medications are not affordable and they provide access to treatment. But I don't know enough about your situation and what the manufacturers provide. But that's not something you ever looked into, right? \n\nRespondent: No. I haven't. \n\nModerator: Would that be of interest to you if that information were provided to you? \n\nRespondent: Of course. \n\nModerator: Yeah. \n\nRespondent: Yeah. \n\nModerator: So just so I'm 100% clear, like, what SMA information even crosses your desk these days, like, or gets into your computer? Do you get any emails from anything SMA related at all? \n\nRespondent: This said group, SMA Cares. \n\nModerator: Okay. \n\nRespondent: And how often does that show up in your email? \n\nRespondent: I don't recall. \n\nModerator: Okay. \n\nRespondent: And do you typically open those? \n\nRespondent: Yeah. \n\nModerator: Okay.  Are there any other ways you wish that you would... I mean, we talked about the kind of information you'd like to get around SMA. Is there any other way you would sort of just like to connect to SMA, the SMA community or what's happening to SMA, like talking to peers about SMA? Would you want to... do you wish you were talking to more peers about SMA, or is that of not that much interest to you? \n\nRespondent: It's only about treatment and how it's going or if they're successful or how they're obtaining treatment. That would be my only interest. \n\nModerator: Okay. \n\nRespondent: Okay. \n\nModerator: Yeah. Why are you less interested in just talking to other SMA patients about their experience? \n\nRespondent: I'm not that interested. \n\nModerator: Yeah. Why is that? Just out of curiosity. Not that you should be. I'm just trying to understand. \n\nRespondent: I don't know. As I said, I would want to know if they're receiving treatment and if it's effective, that I would be interested in. \n\nModerator: Okay. \n\nRespondent: So that's another element too. \n\nModerator: Okay. Great. Are you aware of any future treatment options coming down the pipeline for SMA? \n\nRespondent: No. I'm not. \n\nModerator: Only... Are you the one that might use this tablet? That tablet is available now. I think it's been available... I'm gonna be wrong, but I feel like it might be coming up on a year now. Although, it could be... I could be wrong. Don't quote me on that.  What do you think about the fact that Evrysdi is now a tablet? How much does that matter to you? \n\nRespondent: Well, that'd be great because you can take it with you. It's portable, and you don't have to worry about refrigerating it. \n\nModerator: Yeah. \n\nRespondent: I'd have it with my other medications available every day. \n\nModerator: So... \n\nRespondent: Yeah. \n\nModerator: Okay. I was wrong about the year. It's only been six months. But, yeah, it is something that is available now, the tablet. Does hearing that make any impact on your likelihood to bring it up with your... \n\nRespondent: Definitely. \n\nModerator: Why is that? \n\nRespondent: Because of the convenience. \n\nModerator: Yeah. But even you would bring it up... I mean, even would you assume that the tablet would have the same cost? \n\nRespondent: I don't know. I would have to know more about it. \n\nModerator: And you haven't heard about any other treatments besides that one? \n\nRespondent: What do you mean? Oh, new treatments. \n\nModerator: So there are a couple new treatments on the horizon. One of them is like, they're testing a higher dose of Spinraza, and they're also testing this medication that you would take in combination with Evrysdi or Spinraza. And the category is called an anti-myostatin. I am not an expert on this, but it works directly on the muscles. \n\nRespondent: And so, yeah. Education is paramount. Knowing about all of this is the best. \n\nModerator: Yeah. \n\nRespondent: Okay. \n\nModerator: I mean, I think what's... I mean, you're gonna say, like, what I'm... I'm gonna sound stupid saying this, so I apologize. But it sounds like for you, obviously, initially, the idea of treatment was really exciting, but the cost, it was just like, creates this insurmountable barrier. So it just became something like a Mercedes that you just don't even think about because it's... why torture yourself with something that's not even an option? Is that fair? \n\nModerator: Yeah. \n\nRespondent: Or not fair? \n\nModerator: That's fair. \n\nRespondent: Yeah. \n\nModerator: I love the Mercedes analogy. If there were routes for you to find affordable medication, what would be the best way to communicate that to you? Like, what would be the best way for you to find out about SMA treatment that was actually covered by your insurance? What would be the best way for you to learn about that? \n\nRespondent: Maybe from the manufacturer itself, then from my physician. \n\nModerator: Which physician? \n\nRespondent: My primary care physician and neurologist. Either one of them, if they could, you know, give me that information when it comes, that would be wonderful. But it looks like I have to do the research on my own, really. I have to be my own advocate. So I have to start finding these things out for myself. \n\nModerator: It was striking to me that you said you don't really talk to your primary care physician about the SMA. \n\nRespondent: No. \n\nModerator: I wonder... \n\nRespondent: And she doesn't do that. \n\nRespondent: She doesn't ask me anything about it as well. \n\nModerator: She doesn't ask you about your SMA at all? \n\nRespondent: No. \n\nModerator: How does that make you feel that she doesn't ask you about it? \n\nRespondent: I mean, I'm there in person, so she sees what I can and can't do, not like, you know what I mean? \n\nModerator: Yeah. \n\nRespondent: Do you wish that she spoke to you more directly about your SMA? \n\nRespondent: Not really because I haven't changed. \n\nModerator: You know what I'm saying? \n\nRespondent: Yeah. \n\nModerator: But if treatment were an accessible option for you, how would you feel about her bringing that up to you? \n\nRespondent: Oh, I would think that'd be perfect. \n\nModerator: Yeah. \n\nRespondent: I have a crazy question to ask you, Elsie. Do you think your primary care physician really understands what SMA is? \n\nRespondent: I don't know. \n\nModerator: I'm pretty sure she does. \n\nRespondent: Yeah. \n\nModerator: Okay. I was talking to someone recently whose primary care physician kept talking about the fact that the patient had muscular dystrophy. And so that is the reason that I'm asking them. \n\nRespondent: Okay. \n\nModerator: So, I am just looking through my list of questions to see if there's anything else. \n\nModerator: I guess I know I've asked you this before, but I guess here's like, what if you were to start treatment at this point, like, what would you hope the treatment would do for you? \n\nRespondent: I would hope it would let me remain at the stage I'm in right now, that I'm still able to do many things for myself throughout the day. \n\nModerator: Yeah. \n\nRespondent: That would be ideal if I could remain at this stage for as long as possible. \n\nModerator: Awesome. \n\nModerator: And, like, really, like, focusing on the independence. \n\nRespondent: Exactly. \n\nModerator: Yeah. \n\nRespondent: That's what I could ask for. \n\nModerator: Yeah. \n\nRespondent: Okay. \n\nModerator: Anything else you would want people in the SMA communities, a manufacturer of SMA treatments to know about what they can do to help you or what they can do to help you access treatment? Anything else they should keep in mind about you and your experience? \n\nRespondent: They should keep in mind that the cost is prohibitive. \n\nModerator: Yep. \n\nRespondent: That would be nice. \n\nModerator: Fair enough. \n\nRespondent: Yeah. \n\nModerator: Alrighty. Elsie, thank you so, so much for making the time to do this. \n\n\n\n",
+        "uploadedAt": "2025-10-10T20:23:26.804Z",
+        "originalFilePath": "uploads/existing_1760127680515_original_1760127610454_2025 SMA Adult Activation Qual Transcript_Oct 2 2025_1200pm.docx",
+        "sourceTranscriptId": "T-1760127610454",
+        "originalPath": "uploads\\original_1760127610454_2025 SMA Adult Activation Qual Transcript_Oct 2 2025_1200pm.docx",
+        "cleanedPath": null,
+        "originalFilename": "2025 SMA Adult Activation Qual Transcript_Oct 2 2025_1200pm.docx",
+        "cleanedFilename": null,
+        "isCleaned": false
+      }
+    ],
+    "projectName": "2025 SMA Adult Activation Qual"
   }
 ]

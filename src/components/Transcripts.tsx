@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   DocumentTextIcon,
   CloudArrowUpIcon,
@@ -21,6 +21,8 @@ interface Project {
   archived?: boolean;
   archivedDate?: string;
   client?: string;
+  createdBy?: string;
+  teamMembers?: Array<{ id?: string; email?: string; name?: string }>;
 }
 
 interface Transcript {
@@ -98,12 +100,54 @@ export default function Transcripts() {
     () => archivedProjects.filter(isQualitative),
     [archivedProjects]
   );
-  const allQualProjects = useMemo(
-    () => [...qualActiveProjects, ...qualArchivedProjects],
-    [qualActiveProjects, qualArchivedProjects]
+
+  const filterProjectsByUser = useCallback(
+    (list: Project[]) => {
+      if (!showMyProjectsOnly || !user) return list;
+
+      const uid = String((user as any)?.id || '').toLowerCase();
+      const uemail = String((user as any)?.email || '').toLowerCase();
+      const uname = String((user as any)?.name || '').toLowerCase();
+
+      return list.filter(project => {
+        const createdBy = String((project as any)?.createdBy || '').toLowerCase();
+        const createdByMe =
+          !!createdBy && (createdBy === uid || createdBy === uemail);
+
+        const teamMembers = Array.isArray((project as any)?.teamMembers)
+          ? (project as any).teamMembers
+          : [];
+
+        const inTeam = teamMembers.some((member: any) => {
+          const mid = String(member?.id || '').toLowerCase();
+          const memail = String(member?.email || '').toLowerCase();
+          const mname = String(member?.name || '').toLowerCase();
+          return (uid && mid === uid) || (uemail && memail === uemail) || (uname && mname === uname);
+        });
+
+        return createdByMe || inTeam;
+      });
+    },
+    [showMyProjectsOnly, user]
   );
+
+  const filteredActiveProjects = useMemo(
+    () => filterProjectsByUser(qualActiveProjects),
+    [filterProjectsByUser, qualActiveProjects]
+  );
+
+  const filteredArchivedProjects = useMemo(
+    () => filterProjectsByUser(qualArchivedProjects),
+    [filterProjectsByUser, qualArchivedProjects]
+  );
+
+  const allVisibleProjects = useMemo(
+    () => [...filteredActiveProjects, ...filteredArchivedProjects],
+    [filteredActiveProjects, filteredArchivedProjects]
+  );
+
   const displayProjects =
-    activeTab === 'active' ? qualActiveProjects : qualArchivedProjects;
+    activeTab === 'active' ? filteredActiveProjects : filteredArchivedProjects;
   const isLoadingCurrentTab =
     activeTab === 'active' ? isLoadingProjects : isLoadingArchived;
 
@@ -115,10 +159,7 @@ export default function Transcripts() {
   const loadActiveProjects = async () => {
     try {
       setIsLoadingProjects(true);
-      const endpoint = showMyProjectsOnly
-        ? `${API_BASE_URL}/api/projects/all`
-        : `${API_BASE_URL}/api/projects/all-cognitive`;
-      const response = await fetch(endpoint, {
+      const response = await fetch(`${API_BASE_URL}/api/projects/all`, {
         headers: getAuthHeaders()
       });
       if (response.ok) {
@@ -193,15 +234,43 @@ export default function Transcripts() {
   };
 
   const isTranscriptInAnalysis = (transcriptId: string): boolean => {
-    return savedAnalyses.some(analysis =>
-      analysis.transcripts?.some((t: any) => t.id === transcriptId || t.sourceTranscriptId === transcriptId)
-    );
+    return savedAnalyses.some(analysis => {
+      // Check if transcript is in the transcripts array (primary method)
+      if (analysis.transcripts?.some((t: any) => t.id === transcriptId || t.sourceTranscriptId === transcriptId)) {
+        return true;
+      }
+      
+      // Check if transcript's respno exists in the analysis data (fallback method)
+      if (analysis.data) {
+        const transcript = transcripts[selectedProject?.id || '']?.find(t => t.id === transcriptId);
+        if (transcript?.respno) {
+          // Check if this respno exists in any sheet of the analysis data
+          return Object.values(analysis.data).some((sheetData: any) => 
+            Array.isArray(sheetData) && sheetData.some((row: any) => 
+              row.respno === transcript.respno || row['Respondent ID'] === transcript.respno
+            )
+          );
+        }
+      }
+      
+      return false;
+    });
   };
 
   const getCANameForProject = (projectId: string): string | null => {
     const analysis = savedAnalyses.find(a => a.projectId === projectId);
     return analysis ? analysis.name : null;
   };
+
+  const analysesForSelectedProject = useMemo(
+    () =>
+      savedAnalyses.filter(
+        analysis => analysis.projectId === selectedProject?.id
+      ),
+    [savedAnalyses, selectedProject?.id]
+  );
+
+  const canAddTranscriptToCA = analysesForSelectedProject.length > 0;
 
   const handleAddToCA = async (transcript: Transcript) => {
     if (!selectedProject) return;
@@ -272,7 +341,7 @@ export default function Transcripts() {
 
   useEffect(() => {
     if (!selectedProject) return;
-    const updated = allQualProjects.find(
+    const updated = allVisibleProjects.find(
       project => project.id === selectedProject.id
     );
     if (!updated) {
@@ -282,7 +351,14 @@ export default function Transcripts() {
     if (updated !== selectedProject) {
       setSelectedProject(updated);
     }
-  }, [allQualProjects, selectedProject?.id]);
+  }, [allVisibleProjects, selectedProject?.id]);
+
+  useEffect(() => {
+    if (!canAddTranscriptToCA && addToCA) {
+      setAddToCA(false);
+      setSelectedAnalysisId('');
+    }
+  }, [canAddTranscriptToCA, addToCA]);
 
   const handleUploadTranscript = async () => {
     if (!uploadFile || !selectedProject) {
@@ -342,6 +418,9 @@ export default function Transcripts() {
             if (!caResponse.ok) {
               const error = await caResponse.json();
               alert(`Transcript uploaded but failed to add to CA: ${error.error || 'Unknown error'}`);
+            } else {
+              // Refresh saved analyses to update the checkbox state
+              await loadSavedAnalyses();
             }
           }
         }
@@ -432,7 +511,7 @@ export default function Transcripts() {
         className="flex-1 overflow-y-auto"
         style={{ backgroundColor: BRAND_BG }}
       >
-        <div className="max-w-7xl mx-auto w-full px-6 py-6 space-y-6">
+        <div className="flex-1 p-6 space-y-6 max-w-full overflow-hidden">
           <section className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <button
@@ -519,7 +598,7 @@ export default function Transcripts() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {projectTranscripts.map(transcript => {
                       const displayName = selectedProject ?
-                        `${selectedProject.name} - ${transcript.respno || 'Transcript'} Transcript` :
+                        transcript.originalFilename :
                         transcript.originalFilename;
 
                       return (
@@ -620,7 +699,8 @@ export default function Transcripts() {
                 {isProcessing ? (
                   <div className="flex flex-col items-center justify-center gap-4 py-8 text-center">
                     <svg
-                      className="h-12 w-12 animate-spin text-gray-300"
+                      className="h-12 w-12 animate-spin"
+                      style={{ color: cleanTranscript && addToCA ? '#D14A2D' : '#6B7280' }}
                       viewBox="0 0 24 24"
                     >
                       <circle
@@ -639,13 +719,24 @@ export default function Transcripts() {
                     </svg>
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900">
-                        {cleanTranscript
-                          ? 'Cleaning transcript'
-                          : 'Uploading transcript'}
+                        {cleanTranscript && addToCA
+                          ? 'Cleaning Transcript and Updating Content Analysis'
+                          : cleanTranscript
+                          ? 'Cleaning Transcript'
+                          : 'Uploading Transcript'}
                       </h3>
                       <p className="mt-1 text-sm text-gray-500">
-                        This may take a moment...
+                        {cleanTranscript && addToCA
+                          ? 'This may take a few minutes. Please keep this page open.'
+                          : 'This may take a moment...'}
                       </p>
+                      {cleanTranscript && addToCA && (
+                        <div className="flex items-center justify-center space-x-2 mt-2">
+                          <div className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: '#D14A2D' }}></div>
+                          <div className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: '#D14A2D', animationDelay: '0.1s' }}></div>
+                          <div className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: '#D14A2D', animationDelay: '0.2s' }}></div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ) : (
@@ -686,7 +777,11 @@ export default function Transcripts() {
                     </div>
 
                     <div>
-                      <label className="flex items-center gap-2 text-sm text-gray-700">
+                      <label
+                        className={`flex items-center gap-2 text-sm ${
+                          canAddTranscriptToCA ? 'text-gray-700' : 'text-gray-400'
+                        }`}
+                      >
                         <input
                           type="checkbox"
                           checked={addToCA}
@@ -696,12 +791,20 @@ export default function Transcripts() {
                               setSelectedAnalysisId('');
                             }
                           }}
-                          className="h-4 w-4 rounded border-gray-300"
+                          disabled={!canAddTranscriptToCA}
+                          className={`h-4 w-4 rounded border-gray-300 ${
+                            !canAddTranscriptToCA ? 'cursor-not-allowed opacity-40' : ''
+                          }`}
                           style={{ accentColor: BRAND_ORANGE }}
                         />
                         Add to Content Analysis
                       </label>
-                      {addToCA && (
+                      {!canAddTranscriptToCA && selectedProject && (
+                        <p className="mt-2 text-xs text-gray-500">
+                          No Content Analysis Found For {selectedProject.name}. Please visit the Content Analysis page to generate one.
+                        </p>
+                      )}
+                      {addToCA && canAddTranscriptToCA && (
                         <div className="mt-3 space-y-2">
                           <div>
                             <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -713,13 +816,11 @@ export default function Transcripts() {
                               className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
                             >
                               <option value="">Select an analysis...</option>
-                              {savedAnalyses
-                                .filter(a => a.projectId === selectedProject?.id)
-                                .map(analysis => (
-                                  <option key={analysis.id} value={analysis.id}>
-                                    {analysis.name}
-                                  </option>
-                                ))}
+                              {analysesForSelectedProject.map(analysis => (
+                                <option key={analysis.id} value={analysis.id}>
+                                  {analysis.name}
+                                </option>
+                              ))}
                             </select>
                           </div>
                           {uploadFile && (
@@ -865,7 +966,7 @@ export default function Transcripts() {
       className="flex-1 overflow-y-auto"
       style={{ backgroundColor: BRAND_BG }}
     >
-      <div className="max-w-7xl mx-auto w-full px-6 py-6 space-y-6">
+      <div className="flex-1 p-6 space-y-6 max-w-full overflow-hidden">
         <section className="flex items-center justify-between">
           <div>
             <h2

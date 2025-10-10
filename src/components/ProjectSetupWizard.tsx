@@ -681,6 +681,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
     });
     setShowAddClient(false);
     setNewClientName('');
+    localStorage.removeItem('jaice_project_draft');
   };
 
   // Auto-save function
@@ -1404,7 +1405,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
             <p className="text-sm text-gray-600">Step {currentStep} of 4</p>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleCancel}
             className="text-gray-400 hover:text-gray-600"
           >
             <XMarkIcon className="h-6 w-6" />
