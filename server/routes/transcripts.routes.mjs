@@ -61,47 +61,149 @@ function assignRespnos(transcripts) {
   return sorted;
 }
 
+// Helper functions to normalize date/time strings from transcripts
+function normalizeDateString(dateStr) {
+  if (!dateStr) return null;
+  let value = dateStr.trim();
+  value = value.replace(/(\d{1,2})(st|nd|rd|th)/gi, '$1');
+  value = value.replace(/(\d{1,2}),(\d{4})/, '$1, $2');
+  let parsed = Date.parse(value);
+
+  if (Number.isNaN(parsed)) {
+    const mmdd = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (mmdd) {
+      parsed = Date.parse(`${mmdd[3]}-${mmdd[1]}-${mmdd[2]}`);
+    }
+  }
+
+  if (Number.isNaN(parsed)) {
+    const iso = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (iso) {
+      parsed = Date.parse(value);
+    }
+  }
+
+  if (!Number.isNaN(parsed)) {
+    const date = new Date(parsed);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  return value;
+}
+
+function normalizeTimeString(timeStr) {
+  if (!timeStr) return null;
+  let value = timeStr.trim();
+  value = value.replace(/[��]/g, '-');
+  value = value.replace(/([0-9])\s*(AM|PM)/ig, '$1 $2');
+
+  const timezoneMatch = value.match(/([A-Z]{2,4})$/);
+  let timezone = null;
+  if (timezoneMatch) {
+    timezone = timezoneMatch[1].toUpperCase();
+    value = value.slice(0, timezoneMatch.index).trim();
+  }
+
+  const ampmMatch = value.match(/(AM|PM)$/i);
+  let hours;
+  let minutes;
+
+  if (ampmMatch) {
+    const ampm = ampmMatch[1].toUpperCase();
+    const base = value.slice(0, ampmMatch.index).trim();
+    const parts = base.split(':');
+    hours = parseInt(parts[0], 10);
+    minutes = parseInt(parts[1] || '0', 10);
+
+    if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+      return timeStr.trim();
+    }
+
+    hours = hours % 12 || 12;
+    const formatted = `${hours}:${String(minutes).padStart(2, '0')} ${ampm}`;
+    return timezone ? `${formatted} ${timezone}` : formatted;
+  }
+
+  const parts = value.split(':');
+  hours = parseInt(parts[0], 10);
+  minutes = parseInt(parts[1] || '0', 10);
+
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+    return timeStr.trim();
+  }
+
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12 || 12;
+  const formatted = `${hours}:${String(minutes).padStart(2, '0')} ${ampm}`;
+  return timezone ? `${formatted} ${timezone}` : formatted;
+}
+
 // Helper function to parse date and time from transcript
 function parseDateTimeFromTranscript(transcriptText) {
-  // Common date patterns in transcripts
+  if (!transcriptText) {
+    return { interviewDate: null, interviewTime: null };
+  }
+
+
+  const text = transcriptText.replace(/\n/g, '');
+  let rawDate = null;
+  let rawTime = null;
+
+  const combinedMatch = text.match(/\(?([A-Za-z]+\s+\d{1,2},?\s*\d{4})\s*(?:-|\u2013)\s*(\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm)?(?:\s*[A-Z]{2,4})?)\)?/);
+  if (combinedMatch) {
+    rawDate = combinedMatch[1];
+    rawTime = combinedMatch[2];
+  }
+
   const datePatterns = [
     /(?:Date|Interview Date|Session Date):\s*(\d{1,2}\/\d{1,2}\/\d{4})/i,
     /(?:Date|Interview Date|Session Date):\s*(\d{4}-\d{2}-\d{2})/i,
-    /(?:Date|Interview Date|Session Date):\s*(\w+\s+\d{1,2},?\s+\d{4})/i,
+    /(?:Date|Interview Date|Session Date):\s*(\w+\s+\d{1,2},?\s*\d{4})/i,
+    /\((\w+\s+\d{1,2},?\s*\d{4})\s*-\s*\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm)?\)/i, // Matches "(Oct 3, 2025 - 3:00pm)"
+    // Match date with time separator (like "Oct 6, 2025 | 3:00pm")
+    /(\w+\s+\d{1,2},?\s*\d{4})\s*\|\s*\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm)?/i,
     /(\d{1,2}\/\d{1,2}\/\d{4})/,
     /(\d{4}-\d{2}-\d{2})/,
+    // Match dates but avoid lines with "Transcript" word before the date
+    /(?<!Transcript\s*)(?<![a-zA-Z])([A-Z][a-z]+\s+\d{1,2},?\s*\d{4})(?!\s*Transcript)(?!.*\.docx)(?!.*\.txt)/
   ];
 
   const timePatterns = [
-    /(?:Time|Interview Time|Session Time):\s*(\d{1,2}:\d{2}\s*(?:AM|PM|am|pm))/i,
-    /(?:Time|Interview Time|Session Time):\s*(\d{1,2}:\d{2}:\d{2})/i,
-    /(\d{1,2}:\d{2}\s*(?:AM|PM|am|pm))/,
+    /(?:Time|Interview Time|Session Time):\s*(\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm)?(?:\s*[A-Z]{2,4})?)/i,
+    /\((\w+\s+\d{1,2},?\s*\d{4})\s*-\s*(\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm)?)\)/i, // Matches "(Oct 3, 2025 - 3:00pm)"
+    // Match time with date separator (like "Oct 6, 2025 | 3:00pm")
+    /(\w+\s+\d{1,2},?\s*\d{4})\s*\|\s*(\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm)?)/i,
+    /(\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm)?(?:\s*[A-Z]{2,4})?)/
   ];
 
-  let interviewDate = null;
-  let interviewTime = null;
-
-  // Try to find date
-  for (const pattern of datePatterns) {
-    const match = transcriptText.match(pattern);
-    if (match) {
-      interviewDate = match[1];
-      break;
+  if (!rawDate) {
+    for (const pattern of datePatterns) {
+      const match = text.match(pattern);
+      if (match) {
+        rawDate = match[1];
+        break;
+      }
     }
   }
 
-  // Try to find time
-  for (const pattern of timePatterns) {
-    const match = transcriptText.match(pattern);
-    if (match) {
-      interviewTime = match[1];
-      break;
+  if (!rawTime) {
+    for (const pattern of timePatterns) {
+      const match = text.match(pattern);
+      if (match) {
+        // For the combined date-time pattern, we need match[2] for time
+        // For the pipe separator pattern "Oct 6, 2025 | 3:00pm", match[2] is the time
+        rawTime = match.length > 2 ? match[2] : match[1];
+        break;
+      }
     }
   }
+
+  const interviewDate = normalizeDateString(rawDate);
+  const interviewTime = normalizeTimeString(rawTime);
+
 
   return { interviewDate, interviewTime };
 }
-
 // Helper function to create formatted Word document
 async function createFormattedWordDoc(cleanedText, projectName, respno, interviewDate, interviewTime) {
   const paragraphs = [];
@@ -124,7 +226,7 @@ async function createFormattedWordDoc(cleanedText, projectName, respno, intervie
   // Subtitle: [date] | [time] EST | [respno] Transcript
   const subtitleParts = [];
   if (interviewDate) subtitleParts.push(interviewDate);
-  if (interviewTime) subtitleParts.push(`${interviewTime} EST`);
+  if (interviewTime) subtitleParts.push(interviewTime);
   subtitleParts.push(`${respno} Transcript`);
   const subtitle = subtitleParts.join(' | ');
 
@@ -144,19 +246,51 @@ async function createFormattedWordDoc(cleanedText, projectName, respno, intervie
 
   // Process the cleaned transcript
   const lines = cleanedText.split('\n');
+  let hasStartedContent = false;
 
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
+    const rawLine = lines[i];
+    const trimmedLine = rawLine.trim();
 
-    if (!line) {
-      // Empty line - add spacing
+    if (!hasStartedContent) {
+      if (!trimmedLine) {
+        continue;
+      }
+
+      const normalizedLine = trimmedLine.replace(/\s+/g, ' ').toLowerCase();
+      const normalizedProjectName = projectName.replace(/\s+/g, ' ').toLowerCase();
+      const normalizedSubtitle = subtitle.replace(/\s+/g, ' ').toLowerCase();
+      const respnoLine = `${respno} transcript`.toLowerCase();
+
+      if (normalizedLine === normalizedProjectName) {
+        continue;
+      }
+
+      if (subtitle && normalizedLine === normalizedSubtitle) {
+        continue;
+      }
+
+      if (normalizedLine === respnoLine) {
+        continue;
+      }
+
+      if (/^\(.*\)$/.test(trimmedLine)) {
+        const inner = trimmedLine.slice(1, -1);
+        if (/\d/.test(inner)) {
+          continue;
+        }
+      }
+
+      hasStartedContent = true;
+    }
+
+    if (!trimmedLine) {
       paragraphs.push(new Paragraph({ text: '' }));
       continue;
     }
 
-    // Check if line starts with speaker label
-    const moderatorMatch = line.match(/^(Moderator:)\s*(.*)$/);
-    const respondentMatch = line.match(/^(Respondent:)\s*(.*)$/);
+    const moderatorMatch = trimmedLine.match(/^(Moderator:)\s*(.*)$/);
+    const respondentMatch = trimmedLine.match(/^(Respondent:)\s*(.*)$/);
 
     if (moderatorMatch || respondentMatch) {
       const match = moderatorMatch || respondentMatch;
@@ -180,7 +314,7 @@ async function createFormattedWordDoc(cleanedText, projectName, respno, intervie
       // Regular text (continuation of previous speaker)
       paragraphs.push(
         new Paragraph({
-          text: line,
+          text: trimmedLine,
         })
       );
     }
@@ -274,18 +408,23 @@ router.post('/upload', authenticateToken, upload.single('transcript'), async (re
       const systemPrompt = `You are a professional transcript editor specializing in qualitative research interviews. Clean this transcript by following these rules:
 
 CRITICAL INSTRUCTIONS:
-1. PRESERVE INTERVIEW METADATA AT THE TOP:
-   - If the transcript starts with interview metadata (Date, Time, Interview Date, Interview Time, Session Date, etc.), KEEP IT at the very beginning
+1. REMOVE DUPLICATE HEADER INFORMATION:
+   - If the transcript has duplicate title or project name information, keep only ONE instance
+   - If there are duplicate date/time lines, keep only ONE instance
+   - Remove any redundant header information that appears multiple times
+
+2. PRESERVE INTERVIEW METADATA AT THE TOP:
+   - Keep interview metadata (Date, Time, Interview Date, Interview Time, Session Date, etc.) at the very beginning
    - Preserve the exact format of date and time information (e.g., "Interview Date: 10/15/2024" or "Date: October 15, 2024")
    - This metadata should appear BEFORE any speaker dialogue
 
-2. IDENTIFY SPEAKERS CORRECTLY:
+3. IDENTIFY SPEAKERS CORRECTLY:
    - The MODERATOR asks questions, probes, facilitates the interview (e.g., "Can you tell me...", "How do you feel...", "That's interesting...")
    - The RESPONDENT answers questions, shares experiences, provides opinions (e.g., "I think...", "In my experience...", "I was...")
    - DO NOT simply copy existing speaker labels - they may be WRONG or MISSING
    - READ THE CONTENT to determine who is actually speaking
 
-3. CLEAN UP THE TEXT:
+4. CLEAN UP THE TEXT:
    - Remove timestamps (e.g., (00:00:01 - 00:00:11))
    - Remove filler words (um, uh, like as filler, you know when used as filler)
    - Fix incomplete sentences and sentence fragments
@@ -293,13 +432,13 @@ CRITICAL INSTRUCTIONS:
    - Merge sentence fragments that belong together
    - Remove single-word fragments that don't add meaning (e.g., "This.", "Yeah." as standalone)
 
-4. FORMATTING:
+5. FORMATTING:
    - Use ONLY "Moderator:" and "Respondent:" as speaker labels
    - Put a blank line between each speaker turn
    - Keep each speaker's full turn together (don't split mid-thought)
    - Maintain natural paragraph breaks within long turns
 
-5. PRESERVE CONTENT:
+6. PRESERVE CONTENT:
    - NEVER change meaning or remove substantive content
    - Keep all medical terms, drug names, dates, and specific details
    - Preserve the respondent's actual words and phrasing

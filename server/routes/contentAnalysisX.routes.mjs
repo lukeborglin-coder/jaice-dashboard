@@ -9,6 +9,7 @@ import { generateCAFromDGAsJSON, generateExcelFromJSON, generateGuideMapFromDGTe
 import { fillRespondentRowsFromTranscript } from '../services/transcriptFiller.service.mjs';
 import { fileURLToPath } from 'url';
 import OpenAI from 'openai';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uploadsDir = process.env.FILES_DIR || path.join(process.env.DATA_DIR || path.join(__dirname, '../data'), 'uploads');
@@ -308,20 +309,50 @@ router.post('/update', async (req, res) => {
 // PUT /api/caX/update - Alternative PUT method for updating content analysis
 router.put('/update', async (req, res) => {
   try {
-    const { id, data, name, description, quotes, projectId, projectName, transcripts } = req.body;
+    console.log('📝 PUT /update request received');
+    const { id, data, name, description, quotes, projectId, projectName, transcripts, context } = req.body;
+    
+    console.log('📋 Update request data:', {
+      id,
+      hasData: !!data,
+      hasQuotes: !!quotes,
+      hasContext: !!context,
+      contextKeys: context ? Object.keys(context) : 'none',
+      transcriptCount: transcripts?.length || 0
+    });
+    
     if (!id || !data) {
+      console.log('❌ Missing required fields: id or data');
       return res.status(400).json({ error: 'id and data are required' });
     }
     const analyses = await loadSavedAnalyses();
     const idx = analyses.findIndex(a => a.id === id);
-    if (idx === -1) return res.status(404).json({ error: 'Analysis not found' });
+    if (idx === -1) {
+      console.log('❌ Analysis not found:', id);
+      return res.status(404).json({ error: 'Analysis not found' });
+    }
+    
+    console.log('✅ Found analysis at index:', idx);
 
     const oldProjectId = analyses[idx].projectId;
     const projectChanged = projectId && projectId !== oldProjectId;
 
-    if (name) analyses[idx].name = name; if (description) analyses[idx].description = description; if (projectId) analyses[idx].projectId = projectId; if (projectName) analyses[idx].projectName = projectName; analyses[idx].data = data; if (quotes) analyses[idx].quotes = quotes; if (transcripts) analyses[idx].transcripts = transcripts;
+    if (name) analyses[idx].name = name; 
+    if (description) analyses[idx].description = description; 
+    if (projectId) analyses[idx].projectId = projectId; 
+    if (projectName) analyses[idx].projectName = projectName; 
+    analyses[idx].data = data; 
+    if (quotes) analyses[idx].quotes = quotes; 
+    if (transcripts) analyses[idx].transcripts = transcripts;
+    if (context) {
+      console.log('💾 Saving context for analysis', id, 'with keys:', Object.keys(context));
+      analyses[idx].context = context;
+    }
     analyses[idx].savedAt = new Date().toISOString();
+    
+    console.log('💾 Saving analysis to file...');
     await saveAnalysesToFile(analyses);
+    console.log('✅ Analysis saved successfully');
 
     // If project changed, move the discussion guide file between projects
     if (projectChanged) {
@@ -376,7 +407,7 @@ router.put('/update', async (req, res) => {
       }
     }
 
-    res.json({ success: true });
+    res.json({ success: true, message: 'Analysis updated successfully' });
   } catch (error) {
     console.error('Error in update endpoint:', error);
     res.status(500).json({ error: error.message });
@@ -401,6 +432,14 @@ router.get('/saved/:id', async (req, res) => {
     const analyses = await loadSavedAnalyses();
     const item = analyses.find(a => String(a.id) === String(id));
     if (!item) return res.status(404).json({ error: 'Analysis not found' });
+    console.log(`📖 Loading analysis ${id}, context keys:`, Object.keys(item.context || {}));
+    if (item.context && Object.keys(item.context).length > 0) {
+      for (const [sheet, sheetContext] of Object.entries(item.context)) {
+        console.log(`📖 Sheet "${sheet}" has context for respondents:`, Object.keys(sheetContext));
+      }
+    } else {
+      console.log('📖 No context data found for this analysis');
+    }
     res.json(item);
   } catch (error) {
     console.error('Error in saved/:id endpoint:', error);
@@ -1241,22 +1280,147 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
       console.log('No date/time info extracted to apply');
     }
 
+    // Update the transcript record with the correct date/time if we extracted it
+    if (dateTimeInfo && (dateTimeInfo.date || dateTimeInfo.time)) {
+      try {
+        const transcriptsPath = path.join(process.env.DATA_DIR || path.join(__dirname, '../data'), 'transcripts.json');
+        const transcriptsData = await fs.readFile(transcriptsPath, 'utf8');
+        const transcripts = JSON.parse(transcriptsData);
+        
+        // Find and update the transcript record
+        for (const projectId in transcripts) {
+          const projectTranscripts = transcripts[projectId];
+          const transcriptIndex = projectTranscripts.findIndex(t => t.id === usedTranscriptId);
+          if (transcriptIndex !== -1) {
+            if (dateTimeInfo.date) {
+              transcripts[projectId][transcriptIndex].interviewDate = dateTimeInfo.date;
+            }
+            if (dateTimeInfo.time) {
+              transcripts[projectId][transcriptIndex].interviewTime = dateTimeInfo.time;
+            }
+            console.log('Updated transcript record with correct date/time:', {
+              transcriptId: usedTranscriptId,
+              date: dateTimeInfo.date,
+              time: dateTimeInfo.time
+            });
+            break;
+          }
+        }
+        
+        // Save the updated transcripts
+        await fs.writeFile(transcriptsPath, JSON.stringify(transcripts, null, 2));
+        console.log('Transcript record updated successfully');
+      } catch (error) {
+        console.error('Error updating transcript record:', error);
+        // Don't fail the whole process if transcript update fails
+      }
+    }
+
     // If analysisId is provided, persist the updated data to savedAnalyses
+    console.log('Checking if analysisId exists for context saving:', analysisId);
     if (analysisId) {
+      console.log('AnalysisId found, looking for analysis in savedAnalyses');
       const idx = savedAnalyses.findIndex(a => a.id === analysisId);
+      console.log('Found analysis at index:', idx);
       if (idx !== -1) {
         savedAnalyses[idx].data = processed.data;
         savedAnalyses[idx].quotes = processed.quotes;
+        console.log('Original context keys:', Object.keys(processed.context || {}));
+        console.log('Existing saved context keys:', Object.keys(savedAnalyses[idx].context || {}));
         const mergedContextForPersistence = mergeContextMaps(savedAnalyses[idx].context || {}, processed.context);
         savedAnalyses[idx].context = mergedContextForPersistence;
         processed.context = mergedContextForPersistence;
+        console.log('Merged context keys:', Object.keys(mergedContextForPersistence || {}));
         // Ensure guideMap is preserved if it existed on the saved analysis
         if (!savedAnalyses[idx].guideMap && req.body.guideMap) {
           try { savedAnalyses[idx].guideMap = typeof req.body.guideMap === 'string' ? JSON.parse(req.body.guideMap) : req.body.guideMap; } catch {}
         }
+        
+        // Track which transcript was used in this analysis
+        if (usedTranscriptId && respno) {
+          if (!savedAnalyses[idx].transcripts) {
+            savedAnalyses[idx].transcripts = [];
+          }
+          
+          // Check if this transcript is already tracked
+          const existingTranscript = savedAnalyses[idx].transcripts.find(t => 
+            t.id === usedTranscriptId || t.sourceTranscriptId === usedTranscriptId
+          );
+          
+          if (!existingTranscript) {
+            // Get the full transcript record from the transcripts database
+            const transcriptsPath = path.join(process.env.DATA_DIR || path.join(__dirname, '../data'), 'transcripts.json');
+            const transcriptsData = await fs.readFile(transcriptsPath, 'utf8');
+            const allTranscripts = JSON.parse(transcriptsData);
+            
+            console.log(`Looking for transcript ${usedTranscriptId} in transcripts database`);
+            console.log(`Available projects in transcripts:`, Object.keys(allTranscripts));
+            
+            // Find the full transcript record
+            let fullTranscript = null;
+            for (const projectId in allTranscripts) {
+              const projectTranscripts = allTranscripts[projectId];
+              console.log(`Checking project ${projectId}, has ${projectTranscripts.length} transcripts`);
+              fullTranscript = projectTranscripts.find(t => t.id === usedTranscriptId);
+              if (fullTranscript) {
+                console.log(`Found full transcript record:`, {
+                  id: fullTranscript.id,
+                  originalPath: fullTranscript.originalPath,
+                  cleanedPath: fullTranscript.cleanedPath,
+                  isCleaned: fullTranscript.isCleaned
+                });
+                break;
+              }
+            }
+            
+            if (!fullTranscript) {
+              console.log(`No full transcript record found for ${usedTranscriptId}`);
+              // Try to find by filename or other identifiers
+              for (const projectId in allTranscripts) {
+                const projectTranscripts = allTranscripts[projectId];
+                fullTranscript = projectTranscripts.find(t => 
+                  t.originalFilename === transcriptFilename ||
+                  t.cleanedFilename === transcriptFilename ||
+                  t.id.includes(usedTranscriptId) ||
+                  usedTranscriptId.includes(t.id)
+                );
+                if (fullTranscript) {
+                  console.log(`Found transcript by filename/ID match:`, {
+                    id: fullTranscript.id,
+                    originalFilename: fullTranscript.originalFilename,
+                    cleanedFilename: fullTranscript.cleanedFilename
+                  });
+                  break;
+                }
+              }
+            }
+            
+            // Add transcript tracking information with full details
+            savedAnalyses[idx].transcripts.push({
+              id: usedTranscriptId,
+              sourceTranscriptId: usedTranscriptId,
+              respno: respno,
+              addedAt: new Date().toISOString(),
+              filename: transcriptFilename,
+              originalPath: fullTranscript?.originalPath || null,
+              cleanedPath: fullTranscript?.cleanedPath || null,
+              originalFilename: fullTranscript?.originalFilename || transcriptFilename,
+              cleanedFilename: fullTranscript?.cleanedFilename || null,
+              isCleaned: fullTranscript?.isCleaned || false
+            });
+            console.log(`Added transcript tracking: ${usedTranscriptId} -> ${respno} with paths`);
+          } else {
+            // Update existing transcript with current respno
+            existingTranscript.respno = respno;
+            existingTranscript.addedAt = new Date().toISOString();
+            console.log(`Updated transcript tracking: ${usedTranscriptId} -> ${respno}`);
+          }
+        }
+        
         savedAnalyses[idx].savedAt = new Date().toISOString();
         await saveAnalysesToFile(savedAnalyses);
         console.log(`Persisted updated analysis ${analysisId} with quotes and context`);
+        console.log(`Context keys saved:`, Object.keys(savedAnalyses[idx].context || {}));
       } else {
         console.log(`Analysis ${analysisId} not found to persist`);
       }
@@ -1496,14 +1660,66 @@ router.post('/generate-from-transcripts', async (req, res) => {
 
     const analysis = analyses[analysisIndex];
     
+    console.log('📖 Loaded analysis:', {
+      id: analysis.id,
+      name: analysis.name,
+      hasData: !!analysis.data,
+      hasQuotes: !!analysis.quotes,
+      hasContext: !!analysis.context,
+      dataKeys: analysis.data ? Object.keys(analysis.data) : 'none',
+      contextKeys: analysis.context ? Object.keys(analysis.context) : 'none'
+    });
+    
     // Generate content analysis for each transcript
     for (const transcript of transcripts) {
-      const transcriptText = transcriptType === 'cleaned' ? transcript.cleanedTranscript : transcript.originalTranscript;
+      console.log(`🔍 Processing transcript for ${transcript.respno}:`, {
+        hasCleaned: !!transcript.cleanedTranscript,
+        hasOriginal: !!transcript.originalTranscript,
+        hasTranscriptText: !!transcript.transcriptText,
+        hasText: !!transcript.text,
+        hasContent: !!transcript.content,
+        keys: Object.keys(transcript)
+      });
+      
+      // Try to get transcript text - check both cleaned and original
+      let transcriptText = transcript.cleanedTranscript || transcript.originalTranscript;
+      
+      // If still no text, try to get it from the transcript data structure
+      if (!transcriptText) {
+        // Check if transcript has a different structure
+        if (transcript.transcriptText) {
+          transcriptText = transcript.transcriptText;
+        } else if (transcript.text) {
+          transcriptText = transcript.text;
+        } else if (transcript.content) {
+          transcriptText = transcript.content;
+        }
+      }
+      
+      // If still no text, try to load from file system using filename
+      if (!transcriptText && transcript.filename) {
+        try {
+          const transcriptPath = path.join(process.env.DATA_DIR || path.join(__dirname, '../data'), 'uploads', transcript.filename);
+          console.log(`📁 Attempting to load transcript from file: ${transcriptPath}`);
+          
+          if (await fs.access(transcriptPath).then(() => true).catch(() => false)) {
+            const fileContent = await fs.readFile(transcriptPath, 'utf8');
+            transcriptText = fileContent;
+            console.log(`📄 Loaded transcript from file for ${transcript.respno}, length: ${transcriptText.length}`);
+          } else {
+            console.log(`❌ Transcript file not found: ${transcriptPath}`);
+          }
+        } catch (fileError) {
+          console.error(`❌ Error loading transcript file for ${transcript.respno}:`, fileError.message);
+        }
+      }
       
       if (!transcriptText) {
-        console.warn(`No ${transcriptType} transcript found for respondent ${transcript.respno}`);
+        console.warn(`No transcript text found for respondent ${transcript.respno}. Available keys:`, Object.keys(transcript));
         continue;
       }
+      
+      console.log(`📄 Found transcript text for ${transcript.respno}, length: ${transcriptText.length}`);
 
       console.log(`Processing transcript for respondent ${transcript.respno}`);
 
@@ -1534,6 +1750,15 @@ router.post('/generate-from-transcripts', async (req, res) => {
       });
 
       console.log('CA Result structure:', { hasRows: !!caResult?.rows, hasContext: !!caResult?.context });
+      if (caResult?.context) {
+        console.log('📝 Context generated for sheets:', Object.keys(caResult.context));
+        for (const [sheet, cols] of Object.entries(caResult.context)) {
+          const filledCols = Object.entries(cols).filter(([k, v]) => Array.isArray(v) && v.length > 0);
+          console.log(`  📝 Sheet "${sheet}": ${filledCols.length} columns with context`);
+        }
+      } else {
+        console.log('⚠️ No context generated for transcript', transcript.respno);
+      }
 
       if (caResult && caResult.rows) {
         // caResult.rows is structured as: { sheetName: { columnName: value } }
@@ -1567,6 +1792,7 @@ router.post('/generate-from-transcripts', async (req, res) => {
         // caResult.context is structured as: { sheetName: { columnName: [context1, context2, ...] } }
         // We need to store it in a similar format
         if (caResult.context) {
+          console.log('🔄 Processing context for respondent', transcript.respno);
           if (!analysis.context) analysis.context = {};
 
           for (const [sheetName, colContexts] of Object.entries(caResult.context)) {
@@ -1584,7 +1810,11 @@ router.post('/generate-from-transcripts', async (req, res) => {
               ...analysis.context[sheetName][transcript.respno],
               ...colContexts
             };
+            
+            console.log(`✅ Stored context for ${transcript.respno} in sheet "${sheetName}"`);
           }
+        } else {
+          console.log('⚠️ No context to process for respondent', transcript.respno);
         }
       }
     }
@@ -1594,12 +1824,31 @@ router.post('/generate-from-transcripts', async (req, res) => {
     await fs.writeFile(analysesPath, JSON.stringify(analyses, null, 2));
 
     console.log(`Content analysis generation completed for analysis ${analysisId}`);
+    console.log('📤 Final analysis state:', {
+      hasData: !!analysis.data,
+      hasQuotes: !!analysis.quotes,
+      hasContext: !!analysis.context,
+      dataKeys: analysis.data ? Object.keys(analysis.data) : 'none',
+      contextKeys: analysis.context ? Object.keys(analysis.context) : 'none',
+      quotesKeys: analysis.quotes ? Object.keys(analysis.quotes) : 'none'
+    });
     
-    res.json({ 
+    const responseData = { 
       success: true, 
       message: `Content analysis generated successfully for ${transcripts.length} transcript(s)`,
-      analysisId: analysisId
+      analysisId: analysisId,
+      data: analysis.data,
+      quotes: analysis.quotes,
+      context: analysis.context
+    };
+    
+    console.log('📤 Sending response with data:', {
+      hasData: !!responseData.data,
+      hasQuotes: !!responseData.quotes,
+      hasContext: !!responseData.context
     });
+    
+    res.json(responseData);
 
   } catch (error) {
     console.error('Error in generate-from-transcripts endpoint:', error);
@@ -2994,9 +3243,26 @@ function extractDateTimeFromTranscript(transcriptText) {
   // Get first 500 characters where date/time info is usually located
   const header = transcriptText.substring(0, 500);
 
+  // Try to match the clean transcript format: "(Oct 3, 2025 - 3:00pm)"
+  const combinedMatch = header.match(/\((\w+\s+\d{1,2},?\s*\d{4})\s*-\s*(\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm)?)\)/i);
+  if (combinedMatch) {
+    result.date = combinedMatch[1];
+    result.time = combinedMatch[2];
+    return result;
+  }
+
+  // Try to match the pipe separator format: "Oct 6, 2025 | 3:00pm"
+  const pipeMatch = header.match(/(\w+\s+\d{1,2},?\s*\d{4})\s*\|\s*(\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm)?)/i);
+  if (pipeMatch) {
+    result.date = pipeMatch[1];
+    result.time = pipeMatch[2];
+    return result;
+  }
+
   // Try to match common date formats
   // Format: Oct 1, 2025 (abbreviated month)
-  const dateMatch1 = header.match(/\b((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2},\s+\d{4})\b/i);
+  // Avoid matching lines that contain "Transcript" to prevent picking up the subtitle
+  const dateMatch1 = header.match(/\b((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2},\s+\d{4})\b(?!\s*\|[^|]*Transcript)/i);
   if (dateMatch1) {
     result.date = dateMatch1[1];
   }
@@ -3028,6 +3294,7 @@ function extractDateTimeFromTranscript(transcriptText) {
     const ampm = timeMatch2[0].match(/AM|PM|am|pm/i)[0].toUpperCase();
     result.time = `${timeParts[0]}:${timeParts[1]} ${ampm}`;
   }
+
 
   return result;
 }
@@ -3468,6 +3735,7 @@ async function processTranscriptWithAI(transcriptText, currentData, discussionGu
     }
   }
 
+  // Process existing context from currentData
   if (currentData.context) {
     for (const [sheetName, sheetContext] of Object.entries(currentData.context)) {
       if (!contextBySheetAndResp[sheetName]) contextBySheetAndResp[sheetName] = {};
@@ -3478,10 +3746,699 @@ async function processTranscriptWithAI(transcriptText, currentData, discussionGu
     }
   }
 
+  // Process new context from AI result
+  if (aiContextBySheet && Object.keys(aiContextBySheet).length > 0) {
+    console.log('Processing AI-generated context for sheets:', Object.keys(aiContextBySheet));
+    for (const [sheetName, sheetContext] of Object.entries(aiContextBySheet)) {
+      if (!contextBySheetAndResp[sheetName]) contextBySheetAndResp[sheetName] = {};
+      for (const [columnName, columnContext] of Object.entries(sheetContext)) {
+        if (!contextBySheetAndResp[sheetName][newRespno]) {
+          contextBySheetAndResp[sheetName][newRespno] = {};
+        }
+        contextBySheetAndResp[sheetName][newRespno][columnName] = columnContext;
+      }
+    }
+    console.log('AI context processed for respondent:', newRespno);
+  }
+
   console.log('Processed sheets:', processedSheets);
   console.log('Total sheets updated:', processedSheets.length);
   console.log('Respondent ID reassignments applied:', Array.from(idMapping.entries()));
   return { data: updatedData, quotes: quotesBySheetAndResp, context: contextBySheetAndResp };
 }
+
+// Get verbatim quotes from transcript for a specific cell
+router.post('/get-verbatim-quotes', async (req, res) => {
+  try {
+    const { analysisId, respondentId, columnName, sheetName, keyFinding } = req.body;
+    
+    // Initialize OpenAI
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    
+    if (!analysisId || !respondentId || !columnName || !sheetName) {
+      return res.status(400).json({ error: 'Missing required parameters' });
+    }
+
+    console.log(`Getting verbatim quotes for ${respondentId} - ${columnName} in ${sheetName}`);
+
+    // Load the analysis
+    const analysesPath = path.join(process.env.DATA_DIR || path.join(__dirname, '../data'), 'savedAnalyses.json');
+    const analysesData = await fs.readFile(analysesPath, 'utf8');
+    const analyses = JSON.parse(analysesData);
+    
+    const analysis = analyses.find(a => a.id === analysisId);
+    if (!analysis) {
+      return res.status(404).json({ error: 'Analysis not found' });
+    }
+
+    // Find the transcript for this respondent
+    console.log(`Looking for transcript for respondent: ${respondentId}`);
+    console.log(`Available transcripts in analysis:`, analysis.transcripts?.map(t => ({
+      id: t.id,
+      respno: t.respno,
+      sourceTranscriptId: t.sourceTranscriptId,
+      hasOriginalPath: !!t.originalPath,
+      hasCleanedPath: !!t.cleanedPath
+    })));
+    
+    const transcript = analysis.transcripts?.find(t => 
+      t.respno === respondentId || 
+      t.id === respondentId ||
+      t.sourceTranscriptId === respondentId
+    );
+
+    if (!transcript) {
+      console.log(`No transcript found for respondent ${respondentId}`);
+      return res.status(404).json({ error: 'Transcript not found for this respondent' });
+    }
+    
+    console.log(`Found transcript:`, {
+      id: transcript.id,
+      respno: transcript.respno,
+      originalPath: transcript.originalPath,
+      cleanedPath: transcript.cleanedPath,
+      isCleaned: transcript.isCleaned,
+      hasCleanedTranscript: !!transcript.cleanedTranscript,
+      hasOriginalTranscript: !!transcript.originalTranscript,
+      cleanedTranscriptLength: transcript.cleanedTranscript?.length || 0,
+      originalTranscriptLength: transcript.originalTranscript?.length || 0
+    });
+
+    // Load transcript text (prioritize cleaned over original)
+    let transcriptText = '';
+    let transcriptType = '';
+
+    // First try to get transcript text from database (prioritize cleaned over original)
+    if (transcript.cleanedTranscript) {
+      transcriptText = transcript.cleanedTranscript;
+      transcriptType = 'cleaned';
+      console.log(`Loaded cleaned transcript from database for ${respondentId}, length: ${transcriptText.length}`);
+    } else if (transcript.originalTranscript) {
+      transcriptText = transcript.originalTranscript;
+      transcriptType = 'original';
+      console.log(`Loaded original transcript from database for ${respondentId}, length: ${transcriptText.length}`);
+    }
+
+    // Fallback to file system if not found in database
+    if (!transcriptText && transcript.cleanedPath) {
+      try {
+        const cleanedPath = path.join(process.env.DATA_DIR || path.join(__dirname, '../data'), transcript.cleanedPath);
+        if (await fs.access(cleanedPath).then(() => true).catch(() => false)) {
+          const result = await mammoth.extractRawText({ path: cleanedPath });
+          transcriptText = result.value;
+          transcriptType = 'cleaned';
+          console.log(`Loaded cleaned transcript from file for ${respondentId}, length: ${transcriptText.length}`);
+        }
+      } catch (error) {
+        console.log(`Failed to load cleaned transcript from file: ${error.message}`);
+      }
+    }
+
+    // Fallback to original transcript from file
+    if (!transcriptText && transcript.originalPath) {
+      try {
+        const originalPath = path.join(process.env.DATA_DIR || path.join(__dirname, '../data'), transcript.originalPath);
+        if (await fs.access(originalPath).then(() => true).catch(() => false)) {
+          const result = await mammoth.extractRawText({ path: originalPath });
+          transcriptText = result.value;
+          transcriptType = 'original';
+          console.log(`Loaded original transcript from file for ${respondentId}, length: ${transcriptText.length}`);
+        }
+      } catch (error) {
+        console.log(`Failed to load original transcript from file: ${error.message}`);
+      }
+    }
+
+    // If still no transcript text and we have a filename, try to find the file in uploads
+    if (!transcriptText && transcript.filename) {
+      console.log(`Trying to load transcript from filename: ${transcript.filename}`);
+      try {
+        const uploadsDir = path.join(process.env.DATA_DIR || path.join(__dirname, '../data'), 'uploads');
+        const possiblePaths = [
+          path.join(uploadsDir, transcript.filename),
+          path.join(uploadsDir, `cleaned_${transcript.id}_${transcript.filename}`),
+          path.join(uploadsDir, `original_${transcript.id}_${transcript.filename}`),
+          path.join(uploadsDir, `cleaned_${transcript.filename}`),
+          path.join(uploadsDir, `original_${transcript.filename}`)
+        ];
+        
+        for (const filePath of possiblePaths) {
+          if (await fs.access(filePath).then(() => true).catch(() => false)) {
+            const result = await mammoth.extractRawText({ path: filePath });
+            transcriptText = result.value;
+            transcriptType = 'found_by_filename';
+            console.log(`Loaded transcript from filename: ${filePath}, length: ${transcriptText.length}`);
+            break;
+          }
+        }
+      } catch (error) {
+        console.log(`Failed to load transcript from filename: ${error.message}`);
+      }
+    }
+
+    if (!transcriptText) {
+      return res.status(404).json({ error: 'No transcript text available' });
+    }
+
+    // Use AI to find relevant sections that support the key finding
+    const systemPrompt = `You are an expert at analyzing interview transcripts to find verbatim quotes that support specific findings.
+
+Your task is to find 2-3 relevant sections from the transcript that directly support the given key finding. Return ONLY the exact verbatim text from the transcript - do not summarize, paraphrase, or modify the text in any way.
+
+Return the quotes in this exact JSON format:
+{
+  "quotes": [
+    {
+      "text": "Exact verbatim text from transcript",
+      "context": "Brief context about what this quote shows (1-2 sentences)"
+    }
+  ]
+}
+
+Guidelines:
+- Find quotes that directly relate to the key finding
+- Include the full conversation context (both moderator questions and respondent answers)
+- Preserve the exact wording, punctuation, and formatting from the transcript
+- Each quote should be a complete thought or exchange
+- Focus on the most relevant and impactful quotes`;
+
+    const userPrompt = `Key Finding: ${keyFinding}
+
+Column: ${columnName}
+Sheet: ${sheetName}
+Respondent: ${respondentId}
+
+Please find 2-3 verbatim quotes from this transcript that support the key finding:
+
+${transcriptText.substring(0, 8000)}`; // Limit to first 8000 chars to stay within token limits
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      temperature: 0.1,
+    });
+
+    const aiResponse = response.choices[0].message.content;
+    console.log('AI response for verbatim quotes:', aiResponse.substring(0, 500));
+
+    // Parse the AI response
+    let quotes = [];
+    try {
+      // Clean the response by removing markdown code fences if present
+      let cleanedResponse = aiResponse.trim();
+
+      // Remove ```json ... ``` or ``` ... ``` wrappers
+      if (cleanedResponse.startsWith('```')) {
+        cleanedResponse = cleanedResponse.replace(/^```(?:json)?\s*\n/, '').replace(/\n```\s*$/, '');
+      }
+
+      const parsed = JSON.parse(cleanedResponse);
+      quotes = parsed.quotes || [];
+    } catch (error) {
+      console.error('Failed to parse AI response:', error);
+      console.error('Raw AI response:', aiResponse);
+      // Fallback: return the raw response as a single quote
+      quotes = [{
+        text: aiResponse,
+        context: "AI-generated response (parsing failed)"
+      }];
+    }
+
+    res.json({
+      success: true,
+      quotes: quotes,
+      transcriptType: transcriptType,
+      respondentId: respondentId,
+      columnName: columnName,
+      sheetName: sheetName
+    });
+
+  } catch (error) {
+    console.error('Error getting verbatim quotes:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Context regeneration endpoint
+router.post('/regenerate-context', async (req, res) => {
+  try {
+    console.log('🔄 Context regeneration request received');
+    const { analysisId, projectId, transcripts } = req.body;
+    
+    if (!analysisId || !transcripts || !Array.isArray(transcripts)) {
+      return res.status(400).json({ error: 'Analysis ID and transcripts are required' });
+    }
+
+    // Load the existing analysis
+    const analyses = await loadSavedAnalyses();
+    const analysis = analyses.find(a => String(a.id) === String(analysisId));
+    if (!analysis) {
+      return res.status(404).json({ error: 'Analysis not found' });
+    }
+
+    console.log('📖 Found analysis:', analysis.name);
+    console.log('📋 Processing', transcripts.length, 'transcripts');
+
+    // Generate context for each transcript
+    const contextBySheetAndRespondent = {};
+    
+    for (const transcript of transcripts) {
+      if (!transcript.cleanedTranscript && !transcript.originalTranscript) {
+        console.log('⚠️ Skipping transcript without content:', transcript.id);
+        continue;
+      }
+
+      const transcriptText = transcript.cleanedTranscript || transcript.originalTranscript;
+      const respno = transcript.respno;
+
+      console.log(`🔄 Processing transcript ${transcript.id} for respondent ${respno}`);
+
+      try {
+        // Get discussion guide if available
+        let discussionGuide = null;
+        if (projectId) {
+          try {
+            const dgPath = path.join(filesDir, `discussion_guide_${projectId}.docx`);
+            if (fsSync.existsSync(dgPath)) {
+              const { extractDocx } = await import('docx-text-to-json');
+              const dg = await extractDocx(dgPath);
+              discussionGuide = dg.paragraphs.join('\n');
+            }
+          } catch (error) {
+            console.log('No discussion guide found for project:', projectId);
+          }
+        }
+
+        // Get sheet columns from existing analysis data
+        const sheetsColumns = {};
+        for (const [sheetName, sheetData] of Object.entries(analysis.data || {})) {
+          if (sheetName === 'Demographics' || !Array.isArray(sheetData) || sheetData.length === 0) continue;
+          const cols = Object.keys(sheetData[0] || {});
+          sheetsColumns[sheetName] = cols;
+        }
+
+        if (Object.keys(sheetsColumns).length === 0) {
+          console.log('⚠️ No sheet columns found for context generation');
+          continue;
+        }
+
+        // Generate context using AI
+        const { fillRespondentRowsFromTranscript } = await import('../services/transcriptFiller.service.mjs');
+        const aiResult = await fillRespondentRowsFromTranscript({
+          transcript: transcriptText,
+          sheetsColumns,
+          discussionGuide: discussionGuide,
+          messageTestingDetails: null,
+        });
+
+        // Process the context result
+        for (const [sheetName, columnContext] of Object.entries(aiResult.context || {})) {
+          if (!contextBySheetAndRespondent[sheetName]) {
+            contextBySheetAndRespondent[sheetName] = {};
+          }
+
+          const cleanedColumns = {};
+          for (const [colName, contexts] of Object.entries(columnContext || {})) {
+            cleanedColumns[colName] = Array.isArray(contexts) ? contexts : [];
+          }
+
+          contextBySheetAndRespondent[sheetName][respno] = cleanedColumns;
+        }
+
+        console.log(`✅ Generated context for ${respno} in sheets:`, Object.keys(aiResult.context || {}));
+
+      } catch (error) {
+        console.error(`❌ Error processing transcript ${transcript.id}:`, error);
+      }
+    }
+
+    // Update the analysis with new context
+    analysis.context = contextBySheetAndRespondent;
+    analysis.savedAt = new Date().toISOString();
+
+    // Save the updated analysis
+    const analysisIndex = analyses.findIndex(a => a.id === analysisId);
+    if (analysisIndex !== -1) {
+      analyses[analysisIndex] = analysis;
+      await saveAnalysesToFile(analyses);
+    }
+
+    console.log('✅ Context regeneration completed');
+    console.log('📤 Returning context with keys:', Object.keys(contextBySheetAndRespondent));
+
+    res.json({
+      success: true,
+      context: contextBySheetAndRespondent,
+      message: `Context regenerated for ${transcripts.length} transcript(s)`
+    });
+
+  } catch (error) {
+    console.error('❌ Error regenerating context:', error);
+    res.status(500).json({ error: 'Failed to regenerate context' });
+  }
+});
+
+// Storyboard generation endpoints
+router.post('/estimate-storyboard-cost', async (req, res) => {
+  try {
+    const { selectedFiles, analysisId, projectId } = req.body;
+    
+    if (!selectedFiles || !Array.isArray(selectedFiles)) {
+      return res.status(400).json({ error: 'Selected files array is required' });
+    }
+
+    let totalInputTokens = 0;
+    let estimatedOutputTokens = 0;
+
+    // Estimate tokens for content analysis data
+    if (selectedFiles.includes('content_analysis') && analysisId) {
+      try {
+        const analyses = await loadSavedAnalyses();
+        const analysisData = analyses.find(a => String(a.id) === String(analysisId));
+        if (analysisData) {
+          const analysisText = JSON.stringify(analysisData, null, 2);
+          totalInputTokens += Math.ceil(analysisText.length / 4); // Rough token estimation
+        }
+      } catch (error) {
+        console.error('Error loading analysis data for cost estimation:', error);
+      }
+    }
+
+    // Estimate tokens for discussion guide
+    if (selectedFiles.includes('discussion_guide') && projectId) {
+      try {
+        const dgPath = path.join(filesDir, `discussion_guide_${projectId}.docx`);
+        if (fsSync.existsSync(dgPath)) {
+          const { extractDocx } = await import('docx-text-to-json');
+          const dg = await extractDocx(dgPath);
+          const dgText = dg.paragraphs.join('\n');
+          totalInputTokens += Math.ceil(dgText.length / 4);
+        }
+      } catch (error) {
+        console.error('Error loading discussion guide for cost estimation:', error);
+      }
+    }
+
+    // Estimate tokens for selected transcripts
+    const transcriptFiles = selectedFiles.filter(f => f !== 'content_analysis' && f !== 'discussion_guide');
+    for (const transcriptId of transcriptFiles) {
+      try {
+        const transcriptPath = path.join(filesDir, `cleaned_${transcriptId}.docx`);
+        if (fsSync.existsSync(transcriptPath)) {
+          const { extractDocx } = await import('docx-text-to-json');
+          const transcript = await extractDocx(transcriptPath);
+          const transcriptText = transcript.paragraphs.join('\n');
+          totalInputTokens += Math.ceil(transcriptText.length / 4);
+        }
+      } catch (error) {
+        console.error(`Error loading transcript ${transcriptId} for cost estimation:`, error);
+      }
+    }
+
+    // Estimate output tokens (storyboard will be substantial)
+    estimatedOutputTokens = Math.max(4000, Math.ceil(totalInputTokens * 0.1)); // At least 4k tokens, or 10% of input
+
+    // Calculate cost using GPT-4 pricing
+    const inputCost = (totalInputTokens / 1000000) * 2.50; // $2.50 per 1M input tokens
+    const outputCost = (estimatedOutputTokens / 1000000) * 10.00; // $10.00 per 1M output tokens
+    const totalCost = inputCost + outputCost;
+
+    res.json({
+      inputTokens: totalInputTokens,
+      outputTokens: estimatedOutputTokens,
+      cost: totalCost,
+      formattedCost: `$${totalCost.toFixed(2)}`
+    });
+  } catch (error) {
+    console.error('Error estimating storyboard cost:', error);
+    res.status(500).json({ error: 'Failed to estimate cost' });
+  }
+});
+
+router.post('/generate-storyboard', async (req, res) => {
+  try {
+    console.log('🎬 Storyboard generation request received');
+    const { analysisId, projectId, selectedFiles, costEstimate } = req.body;
+    
+    console.log('📋 Request data:', { analysisId, projectId, selectedFiles: selectedFiles?.length, costEstimate });
+    
+    if (!analysisId || !selectedFiles || !Array.isArray(selectedFiles)) {
+      console.log('❌ Missing required fields');
+      return res.status(400).json({ error: 'Analysis ID and selected files are required' });
+    }
+
+    // Load analysis data
+    console.log('📖 Loading analysis data...');
+    const analyses = await loadSavedAnalyses();
+    const analysisData = analyses.find(a => String(a.id) === String(analysisId));
+    if (!analysisData) {
+      console.log('❌ Analysis not found:', analysisId);
+      return res.status(404).json({ error: 'Analysis not found' });
+    }
+    
+    console.log('✅ Analysis found:', analysisData.name);
+
+    // Prepare content for AI
+    let contentForAI = '';
+    
+    // Add content analysis data
+    if (selectedFiles.includes('content_analysis')) {
+      contentForAI += '=== CONTENT ANALYSIS DATA ===\n';
+      contentForAI += JSON.stringify(analysisData, null, 2) + '\n\n';
+    }
+
+    // Add discussion guide
+    if (selectedFiles.includes('discussion_guide') && projectId) {
+      console.log('📖 Discussion guide selected - attempting to load...');
+      console.log('📖 Project ID:', projectId);
+      try {
+        const dgPath = path.join(filesDir, `discussion_guide_${projectId}.docx`);
+        console.log('📖 Discussion guide path:', dgPath);
+        console.log('📖 File exists:', fsSync.existsSync(dgPath));
+        if (fsSync.existsSync(dgPath)) {
+          const { extractDocx } = await import('docx-text-to-json');
+          const dg = await extractDocx(dgPath);
+          const dgText = dg.paragraphs.join('\n');
+          console.log('📖 Discussion guide loaded, length:', dgText.length);
+          contentForAI += '=== DISCUSSION GUIDE ===\n';
+          contentForAI += dgText + '\n\n';
+        } else {
+          console.warn('⚠️ Discussion guide file not found at:', dgPath);
+        }
+      } catch (error) {
+        console.error('Error loading discussion guide:', error);
+      }
+    } else {
+      console.log('📖 Discussion guide NOT in selectedFiles or no projectId');
+      console.log('📖 selectedFiles:', selectedFiles);
+      console.log('📖 projectId:', projectId);
+    }
+
+    // Add selected transcripts
+    const transcriptFiles = selectedFiles.filter(f => f !== 'content_analysis' && f !== 'discussion_guide');
+    for (const transcriptId of transcriptFiles) {
+      try {
+        const transcriptPath = path.join(filesDir, `cleaned_${transcriptId}.docx`);
+        if (fsSync.existsSync(transcriptPath)) {
+          const { extractDocx } = await import('docx-text-to-json');
+          const transcript = await extractDocx(transcriptPath);
+          const transcriptText = transcript.paragraphs.join('\n');
+          contentForAI += `=== TRANSCRIPT ${transcriptId} ===\n`;
+          contentForAI += transcriptText + '\n\n';
+        }
+      } catch (error) {
+        console.error(`Error loading transcript ${transcriptId}:`, error);
+      }
+    }
+
+    // Generate storyboard using AI
+    console.log('🤖 Starting AI storyboard generation...');
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    
+    const systemPrompt = `You are a senior market research analyst creating a comprehensive storyboard for a qualitative research report. Your task is to analyze the provided research data and create a detailed storyboard that outlines the structure, key findings, and recommendations for a client presentation.
+
+The storyboard should include:
+1. Executive Summary
+2. Research Objectives & Methodology
+3. Key Findings (prioritized by importance and research objectives)
+4. Detailed Insights by Theme/Topic
+5. Supporting Evidence & Quotes
+6. Recommendations
+7. Next Steps
+
+Format the storyboard as a structured document with clear sections, bullet points, and actionable insights. Focus on insights that directly address the research objectives from the discussion guide.`;
+
+    const userPrompt = `Please create a comprehensive storyboard based on the following research data:
+
+${contentForAI}
+
+Create a detailed storyboard that prioritizes findings based on the research objectives and provides clear, actionable insights for the client.`;
+
+    console.log('📝 Content length for AI:', contentForAI.length);
+    console.log('🔤 Sending request to OpenAI...');
+    
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      temperature: 0.3,
+      max_tokens: 4000
+    });
+
+    console.log('✅ AI response received');
+    const storyboardContent = response.choices[0].message.content;
+
+    // Create Word document
+    console.log('📄 Creating Word document...');
+    const doc = new Document({
+      sections: [{
+        properties: {},
+        children: [
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: "Research Storyboard",
+                bold: true,
+                size: 32
+              })
+            ],
+            heading: HeadingLevel.TITLE,
+            alignment: AlignmentType.CENTER
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: `Generated on ${new Date().toLocaleDateString()}`,
+                size: 20
+              })
+            ],
+            alignment: AlignmentType.CENTER
+          }),
+          new Paragraph({
+            children: [new TextRun({ text: "" })]
+          }),
+          ...storyboardContent.split('\n').map(line => {
+            const trimmed = line.trim();
+
+            // Empty line
+            if (trimmed === '') {
+              return new Paragraph({ children: [new TextRun({ text: "" })] });
+            }
+
+            // Heading 1 (# )
+            if (trimmed.startsWith('# ')) {
+              return new Paragraph({
+                children: [
+                  new TextRun({
+                    text: trimmed.substring(2),
+                    bold: true,
+                    size: 32
+                  })
+                ],
+                heading: HeadingLevel.HEADING_1
+              });
+            }
+
+            // Heading 2 (## )
+            if (trimmed.startsWith('## ')) {
+              return new Paragraph({
+                children: [
+                  new TextRun({
+                    text: trimmed.substring(3),
+                    bold: true,
+                    size: 28
+                  })
+                ],
+                heading: HeadingLevel.HEADING_2
+              });
+            }
+
+            // Heading 3 (### )
+            if (trimmed.startsWith('### ')) {
+              return new Paragraph({
+                children: [
+                  new TextRun({
+                    text: trimmed.substring(4),
+                    bold: true,
+                    size: 24
+                  })
+                ],
+                heading: HeadingLevel.HEADING_3
+              });
+            }
+
+            // Bullet point (- )
+            if (trimmed.startsWith('- ')) {
+              const text = trimmed.substring(2);
+              const children = [];
+
+              // Parse **bold** text within the line
+              const parts = text.split(/(\*\*.*?\*\*)/g);
+              parts.forEach(part => {
+                if (part.startsWith('**') && part.endsWith('**')) {
+                  children.push(new TextRun({
+                    text: part.substring(2, part.length - 2),
+                    bold: true,
+                    size: 22
+                  }));
+                } else if (part) {
+                  children.push(new TextRun({
+                    text: part,
+                    size: 22
+                  }));
+                }
+              });
+
+              return new Paragraph({
+                children: children,
+                bullet: { level: 0 }
+              });
+            }
+
+            // Regular paragraph with possible **bold** text
+            const children = [];
+            const parts = trimmed.split(/(\*\*.*?\*\*)/g);
+            parts.forEach(part => {
+              if (part.startsWith('**') && part.endsWith('**')) {
+                children.push(new TextRun({
+                  text: part.substring(2, part.length - 2),
+                  bold: true,
+                  size: 22
+                }));
+              } else if (part) {
+                children.push(new TextRun({
+                  text: part,
+                  size: 22
+                }));
+              }
+            });
+
+            return new Paragraph({ children });
+          })
+        ]
+      }]
+    });
+
+    // Generate and send the document
+    console.log('💾 Generating Word document buffer...');
+    const buffer = await Packer.toBuffer(doc);
+    
+    console.log('📤 Sending document to client...');
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    res.setHeader('Content-Disposition', 'attachment; filename="storyboard.docx"');
+    res.send(buffer);
+    
+    console.log('✅ Storyboard generation completed successfully');
+
+  } catch (error) {
+    console.error('Error generating storyboard:', error);
+    res.status(500).json({ error: 'Failed to generate storyboard' });
+  }
+});
 
 export default router;

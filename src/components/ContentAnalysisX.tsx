@@ -7,6 +7,7 @@ import { IconDeviceFloppy, IconFileArrowRight } from '@tabler/icons-react';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
 import ExcelJS from 'exceljs';
 import { renderAsync } from 'docx-preview';
+import StoryboardModal from './StoryboardModal';
 
 type CostEstimate = {
   inputTokens: number;
@@ -22,6 +23,167 @@ interface ContentAnalysisXProps {
   onProjectsChange?: () => void;
   analysisToLoad?: string | null;
   onAnalysisLoaded?: () => void;
+}
+
+interface VerbatimQuote {
+  text: string;
+  context: string;
+}
+
+interface VerbatimQuotesSectionProps {
+  analysisId: string;
+  respondentId: string;
+  columnName: string;
+  sheetName: string;
+  keyFinding: string;
+}
+
+// Helper function to format quote text with bold speaker tags
+function formatQuoteText(text: string) {
+  // Split by lines and format each line with speaker tags
+  const lines = text.split('\n');
+  const formattedLines = lines.map((line, index) => {
+    // Match "Speaker: " pattern at the start of a line
+    const match = line.match(/^(Moderator|Respondent|Interviewer|Participant):\s*/);
+    if (match) {
+      const speaker = match[1];
+      const rest = line.substring(match[0].length);
+      return (
+        <React.Fragment key={index}>
+          <strong>{speaker}:</strong> {rest}
+          {index < lines.length - 1 && <br />}
+        </React.Fragment>
+      );
+    }
+    return (
+      <React.Fragment key={index}>
+        {line}
+        {index < lines.length - 1 && <br />}
+      </React.Fragment>
+    );
+  });
+  return <>{formattedLines}</>;
+}
+
+// Verbatim Quotes Section Component
+function VerbatimQuotesSection({ analysisId, respondentId, columnName, sheetName, keyFinding }: VerbatimQuotesSectionProps) {
+  const [quotes, setQuotes] = useState<VerbatimQuote[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [transcriptType, setTranscriptType] = useState<string>('');
+
+  useEffect(() => {
+    if (analysisId && respondentId && columnName && sheetName && keyFinding) {
+      fetchVerbatimQuotes();
+    }
+  }, [analysisId, respondentId, columnName, sheetName, keyFinding]);
+
+  const fetchVerbatimQuotes = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/caX/get-verbatim-quotes`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+        },
+        body: JSON.stringify({
+          analysisId,
+          respondentId,
+          columnName,
+          sheetName,
+          keyFinding
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setQuotes(data.quotes || []);
+        setTranscriptType(data.transcriptType || '');
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || 'Failed to fetch quotes');
+      }
+    } catch (err) {
+      setError('Network error while fetching quotes');
+      console.error('Error fetching verbatim quotes:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h3 className="text-sm font-semibold text-blue-900 mb-2">Loading Supporting Quotes...</h3>
+        <div className="flex items-center space-x-2">
+          <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+          <span className="text-sm text-gray-600">Finding relevant quotes from transcript...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+        <h3 className="text-sm font-semibold text-red-900 mb-2">Error Loading Quotes</h3>
+        <p className="text-sm text-red-700">{error}</p>
+        <button 
+          onClick={fetchVerbatimQuotes}
+          className="mt-2 text-xs text-red-600 hover:text-red-800 underline"
+        >
+          Try Again
+        </button>
+      </div>
+    );
+  }
+
+  if (quotes.length === 0) {
+    return (
+      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+        <h3 className="text-sm font-semibold text-yellow-900 mb-2">No Supporting Quotes Found</h3>
+        <p className="text-sm text-gray-600">
+          No relevant quotes were found in the transcript for this key finding.
+        </p>
+        {transcriptType && (
+          <p className="text-xs text-gray-500 mt-1">
+            Source: {transcriptType} transcript
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-semibold text-blue-900">Supporting Quotes</h3>
+        {transcriptType && (
+          <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">
+            {transcriptType} transcript
+          </span>
+        )}
+      </div>
+      
+      <div className="space-y-4">
+        {quotes.map((quote, index) => (
+          <div key={index} className="bg-white rounded-lg p-4 border-l-4 border-blue-500">
+            <div className="text-sm text-gray-800 leading-relaxed">
+              {formatQuoteText(quote.text)}
+            </div>
+            {quote.context && (
+              <div className="mt-2 text-xs text-gray-600 italic">
+                {quote.context}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export default function ContentAnalysisX({ projects = [], onNavigate, onNavigateToProject, onProjectsChange, analysisToLoad, onAnalysisLoaded }: ContentAnalysisXProps) {
@@ -64,6 +226,9 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
   const transcriptFileInputRef = useRef<HTMLInputElement | null>(null);
   // Transcript upload modal state
   const [showTranscriptUploadModal, setShowTranscriptUploadModal] = useState(false);
+  // Storyboard modal state
+  const [showStoryboardModal, setShowStoryboardModal] = useState(false);
+  const [generatingStoryboard, setGeneratingStoryboard] = useState(false);
   const [transcriptFile, setTranscriptFile] = useState<File | null>(null);
   // Transcripts state - stores cleaned transcripts with demographic info
   const [transcripts, setTranscripts] = useState<Array<{
@@ -692,6 +857,53 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
     window.URL.revokeObjectURL(url);
   };
 
+
+  // Handler for storyboard generation
+  const handleGenerateStoryboard = async (selectedFiles: string[], costEstimate: CostEstimate) => {
+    console.log('🚀 Starting storyboard generation with files:', selectedFiles);
+    setGeneratingStoryboard(true);
+    try {
+      const response = await fetch('/api/caX/generate-storyboard', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+        },
+        body: JSON.stringify({
+          analysisId: currentAnalysis?.id,
+          projectId: currentAnalysis?.projectId,
+          selectedFiles,
+          costEstimate
+        })
+      });
+
+      console.log('📡 Storyboard response status:', response.status);
+      
+      if (response.ok) {
+        console.log('✅ Storyboard generated successfully');
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `Storyboard_${currentAnalysis?.name || 'Analysis'}_${new Date().toISOString().split('T')[0]}.docx`;
+        link.click();
+        window.URL.revokeObjectURL(url);
+        
+        setShowStoryboardModal(false);
+      } else {
+        const errorText = await response.text();
+        console.error('❌ Failed to generate storyboard:', response.status, errorText);
+        alert(`Failed to generate storyboard: ${response.status} ${errorText}`);
+      }
+    } catch (error) {
+      console.error('❌ Error generating storyboard:', error);
+      alert(`Error generating storyboard: ${error.message}`);
+    } finally {
+      console.log('🏁 Storyboard generation finished');
+      setGeneratingStoryboard(false);
+    }
+  };
+
   // Handler for cell click to show quotes
   const handleCellClick = (row: any, columnKey: string) => {
     // Skip Demographics and respno column
@@ -712,119 +924,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
   };
 
   // Handler for deleting a respondent
-  // Reusable function to reorder respondents by date
-  const reorderRespondentsByDate = (data: any, quotes: any, context: any, transcripts: any) => {
-    if (!data.Demographics || !Array.isArray(data.Demographics)) {
-      return { data, quotes, context, transcripts };
-    }
 
-    // Sort by interview date ascending (earliest first)
-    const sortedDemographics = [...data.Demographics].sort((a: any, b: any) => {
-        const dateA = a['Interview Date'] || a['Date'] || '';
-        const dateB = b['Interview Date'] || b['Date'] || '';
-
-        if (dateA && dateB) {
-          const parsedA = new Date(dateA);
-          const parsedB = new Date(dateB);
-          if (!isNaN(parsedA.getTime()) && !isNaN(parsedB.getTime())) {
-          return parsedA.getTime() - parsedB.getTime();
-          }
-        }
-        return 0;
-      });
-
-      // Create mapping from old IDs to new IDs
-      const idMapping: Record<string, string> = {};
-      sortedDemographics.forEach((row: any, index: number) => {
-        const oldId = row['Respondent ID'] || row['respno'];
-        if (oldId && String(oldId).startsWith('R')) {
-          const newId = `R${String(index + 1).padStart(3, '0')}`;
-          idMapping[oldId] = newId;
-          row['Respondent ID'] = newId;
-          if (row['respno']) row['respno'] = newId;
-        }
-      });
-
-      // Update respondent IDs in all other sheets
-    const updatedData = { ...data };
-      Object.keys(updatedData).forEach(sheetName => {
-        if (sheetName !== 'Demographics' && Array.isArray(updatedData[sheetName])) {
-          updatedData[sheetName].forEach((row: any) => {
-            const oldId = row['Respondent ID'] || row['respno'];
-            if (oldId && idMapping[oldId]) {
-              row['Respondent ID'] = idMapping[oldId];
-              if (row['respno']) row['respno'] = idMapping[oldId];
-            }
-          });
-        }
-      });
-
-    // Update the data with sorted demographics
-    updatedData.Demographics = sortedDemographics;
-
-      // Rebuild quotes with new IDs
-      const updatedQuotes: any = {};
-    Object.keys(quotes || {}).forEach(sheetName => {
-        updatedQuotes[sheetName] = {};
-      const sheetQuotes = quotes[sheetName] || {};
-        Object.keys(sheetQuotes).forEach(oldId => {
-            const newId = idMapping[oldId] || oldId;
-            updatedQuotes[sheetName][newId] = sheetQuotes[oldId];
-        });
-      });
-
-      // Rebuild context with new IDs
-      const updatedContext: any = {};
-    Object.keys(context || {}).forEach(sheetName => {
-        updatedContext[sheetName] = {};
-      const sheetContext = context[sheetName] || {};
-        Object.keys(sheetContext).forEach(oldId => {
-            const newId = idMapping[oldId] || oldId;
-            updatedContext[sheetName][newId] = sheetContext[oldId];
-        });
-      });
-
-      // Update transcripts with new IDs
-    const updatedTranscripts = transcripts.map(t => {
-          if (idMapping[t.respno]) {
-            return { ...t, respno: idMapping[t.respno] };
-          }
-          return t;
-        });
-
-    return { data: updatedData, quotes: updatedQuotes, context: updatedContext, transcripts: updatedTranscripts };
-  };
-
-  const handleReorderByDate = async () => {
-    if (!currentAnalysis) return;
-
-    const { data, quotes, context, transcripts: updatedTranscripts } = reorderRespondentsByDate(
-      currentAnalysis.data,
-      currentAnalysis.quotes,
-      currentAnalysis.context,
-      transcripts
-    );
-
-    // Update the analysis
-      setCurrentAnalysis({
-        ...currentAnalysis,
-      data,
-      quotes,
-      context
-    });
-
-    // Update transcripts
-    setTranscripts(updatedTranscripts);
-
-    // Save to localStorage
-    const updatedAnalyses = savedAnalyses.map(a => 
-      a.id === currentAnalysis.id 
-        ? { ...currentAnalysis, data, quotes, context }
-        : a
-    );
-    setSavedAnalyses(updatedAnalyses);
-    localStorage.setItem('contentAnalyses', JSON.stringify(updatedAnalyses));
-  };
 
   const handleDeleteRespondent = async (respondentId: string) => {
     if (!currentAnalysis) return;
@@ -1085,44 +1185,50 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
     analysis.project || analysis.projectName || projects.find(p => p.id === analysis.projectId)?.name || 'Unknown Project'
   );
 
-  const filtered = useMemo(() => {
-    if (!showMyProjectsOnly) return withProjectOnly;
-    const uid = user?.id;
-    const uemail = (user as any)?.email?.toLowerCase?.();
-    const uname = (user as any)?.name?.toLowerCase?.();
-    return withProjectOnly.filter((a: any) => {
-      const p = projects.find((p: any) => p.id === a.projectId);
-      if (!p) return false;
-      const createdByMe = (p as any).createdBy && (p as any).createdBy === uid;
-      const inTeam = (p.teamMembers || []).some((m: any) =>
-        m?.id === uid ||
-        (m?.email && uemail && String(m.email).toLowerCase() === uemail) ||
-        (m?.name && uname && String(m.name).toLowerCase() === uname)
-      );
+  const matchesUserMembership = useCallback(
+    (project: any) => {
+      if (!showMyProjectsOnly || !user) return true;
+
+      const uid = String((user as any)?.id || '').toLowerCase();
+      const uemail = String((user as any)?.email || '').toLowerCase();
+      const uname = String((user as any)?.name || '').toLowerCase();
+
+      const createdBy = String((project as any)?.createdBy || '').toLowerCase();
+      const createdByMe =
+        createdBy && (createdBy === uid || createdBy === uemail);
+
+      const teamMembers = Array.isArray(project?.teamMembers)
+        ? project.teamMembers
+        : [];
+
+      const inTeam = teamMembers.some((member: any) => {
+        const mid = String(member?.id || '').toLowerCase();
+        const memail = String(member?.email || '').toLowerCase();
+        const mname = String(member?.name || '').toLowerCase();
+        return (uid && mid === uid) || (uemail && memail === uemail) || (uname && mname === uname);
+      });
+
       return createdByMe || inTeam;
-    });
-  }, [showMyProjectsOnly, withProjectOnly, projects, user?.id]);
+    },
+    [showMyProjectsOnly, user]
+  );
+
+  const filtered = useMemo(
+    () =>
+      withProjectOnly.filter((analysis: any) => {
+        const project = projects.find((p: any) => p.id === analysis.projectId);
+        return project ? matchesUserMembership(project) : false;
+      }),
+    [withProjectOnly, projects, matchesUserMembership]
+  );
 
   const filteredProjects = useMemo(() => {
-    // Filter for qualitative projects only
-    const qualProjects = projects.filter(p => !p.archived && p.methodologyType === 'Qualitative');
+    const qualProjects = projects.filter(
+      p => !p.archived && p.methodologyType === 'Qualitative'
+    );
 
-    if (!showMyProjectsOnly) return qualProjects;
-
-    const uid = user?.id;
-    const uemail = (user as any)?.email?.toLowerCase?.();
-    const uname = (user as any)?.name?.toLowerCase?.();
-
-    return qualProjects.filter((p: any) => {
-      const createdByMe = p.createdBy && p.createdBy === uid;
-      const inTeam = (p.teamMembers || []).some((m: any) =>
-        m?.id === uid ||
-        (m?.email && uemail && String(m.email).toLowerCase() === uemail) ||
-        (m?.name && uname && String(m.name).toLowerCase() === uname)
-      );
-      return createdByMe || inTeam;
-    });
-  }, [showMyProjectsOnly, projects, user?.id]);
+    return qualProjects.filter(matchesUserMembership);
+  }, [projects, matchesUserMembership]);
 
   const getRespondentCount = (analysis: any) => {
     if (!analysis.data || !analysis.data.Demographics) return 0;
@@ -1738,6 +1844,23 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
         
         setCurrentAnalysis(updatedAnalysis);
         
+        // Reload the analysis from the server to ensure we have the latest saved data with context
+        if (currentAnalysis?.id) {
+          try {
+            const token = localStorage.getItem('token');
+            const reloadResponse = await fetch(`${API_BASE_URL}/api/caX/saved/${currentAnalysis.id}`, {
+              headers: token ? { 'Authorization': `Bearer ${token}` } : undefined,
+            });
+            if (reloadResponse.ok) {
+              const reloadedAnalysis = await reloadResponse.json();
+              console.log('Reloaded analysis with context:', reloadedAnalysis);
+              setCurrentAnalysis(reloadedAnalysis);
+            }
+          } catch (e) {
+            console.error('Failed to reload analysis:', e);
+          }
+        }
+        
         // Show success message
         setShowSuccessMessage(true);
         setTimeout(() => setShowSuccessMessage(false), 3000);
@@ -2020,6 +2143,15 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                     <IconFileArrowRight className="h-4 w-4" />
                     <span>Export as Excel</span>
                   </button>
+                  {/* Generate Storyboard button - always visible */}
+                  <button
+                    onClick={() => setShowStoryboardModal(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-white text-xs font-medium rounded-md hover:opacity-90 transition-colors cursor-pointer shadow-sm"
+                    style={{ backgroundColor: '#7c3aed' }}
+                  >
+                    <DocumentTextIcon className="h-4 w-4" />
+                    <span>Generate Storyboard</span>
+                  </button>
                 </div>
               </>
             ) : (
@@ -2275,18 +2407,6 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                   </button>
                 ) : (
                   <>
-                    {/* Reorder by Date button - only show if there are multiple respondents */}
-                    {currentAnalysis.data?.Demographics && Array.isArray(currentAnalysis.data.Demographics) && currentAnalysis.data.Demographics.length > 1 && (
-                  <button
-                        onClick={handleReorderByDate}
-                        className="p-2 text-gray-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
-                        title="Reorder respondents by interview date (earliest first)"
-                      >
-                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-                        </svg>
-                  </button>
-                    )}
                   </>
                 )}
               </div>
@@ -2746,32 +2866,35 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
         document.body
       )}
 
-      {/* Success Message Toast */}
+      {/* Download Links - Simple notification */}
       {showSuccessMessage && (
-        <div className="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50">
-          <div className="flex items-center gap-2 mb-3">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-            <span className="font-medium">Transcript processed successfully!</span>
-          </div>
-          <div className="flex gap-2">
-            {transcriptFilePaths.original && (
-              <button
-                onClick={handleDownloadOriginal}
-                className="px-3 py-1 bg-white text-green-600 rounded text-sm font-medium hover:bg-gray-100 transition-colors"
-              >
-                📄 Download Original
-              </button>
-            )}
-            {transcriptFilePaths.cleaned && (
-              <button
-                onClick={handleDownloadCleaned}
-                className="px-3 py-1 bg-white text-green-600 rounded text-sm font-medium hover:bg-gray-100 transition-colors"
-              >
-                📝 Download Cleaned
-              </button>
-            )}
+        <div className="fixed top-4 right-4 bg-white border border-gray-200 px-4 py-3 rounded-lg shadow-lg z-50">
+          <div className="flex items-center gap-3">
+            <div className="text-sm text-gray-600">Transcript processed:</div>
+            <div className="flex gap-2">
+              {transcriptFilePaths.original && (
+                <button
+                  onClick={handleDownloadOriginal}
+                  className="px-3 py-1 bg-blue-500 text-white rounded text-sm font-medium hover:bg-blue-600 transition-colors"
+                >
+                  📄 Original
+                </button>
+              )}
+              {transcriptFilePaths.cleaned && (
+                <button
+                  onClick={handleDownloadCleaned}
+                  className="px-3 py-1 bg-green-500 text-white rounded text-sm font-medium hover:bg-green-600 transition-colors"
+                >
+                  📝 Cleaned
+                </button>
+              )}
+            </div>
+            <button
+              onClick={() => setShowSuccessMessage(false)}
+              className="text-gray-400 hover:text-gray-600 ml-2"
+            >
+              ✕
+            </button>
           </div>
         </div>
       )}
@@ -2819,62 +2942,14 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                 </div>
               )}
 
-              {/* Support Section - Shows verbatim quotes from respondent */}
-              {(() => {
-                const sheetContext = currentAnalysis?.context?.[selectedCellInfo.sheet]?.[selectedCellInfo.respondent]?.[selectedCellInfo.column];
-
-                if (!sheetContext || !Array.isArray(sheetContext) || sheetContext.length === 0) {
-                  return null;
-                }
-
-                // Parse quote to separate moderator and respondent if both are present
-                const parseQuote = (quote: string) => {
-                  const parts = [];
-
-                  // Check if quote contains "Moderator:" or "Respondent:" labels
-                  if (quote.includes('Moderator:') || quote.includes('Respondent:')) {
-                    const lines = quote.split(/(?=Moderator:|Respondent:)/);
-                    lines.forEach(line => {
-                      const trimmed = line.trim();
-                      if (trimmed.startsWith('Moderator:')) {
-                        parts.push({ speaker: 'Moderator', text: trimmed.replace('Moderator:', '').trim() });
-                      } else if (trimmed.startsWith('Respondent:')) {
-                        parts.push({ speaker: 'Respondent', text: trimmed.replace('Respondent:', '').trim() });
-                      }
-                    });
-                  } else {
-                    // No labels - just respondent quote
-                    parts.push({ speaker: 'Respondent', text: quote.trim() });
-                  }
-
-                  return parts;
-                };
-
-                return (
-                  <div>
-                    <h3 className="text-sm font-semibold text-gray-700 mb-3">Supporting Quotes</h3>
-                    <div className="space-y-3">
-                      {sheetContext.map((quote, idx) => {
-                        const parsedParts = parseQuote(quote);
-                        return (
-                          <div key={idx} className="bg-blue-50 rounded-lg p-4 border-l-4 border-blue-500">
-                            <div className="text-sm leading-relaxed space-y-3">
-                              {parsedParts.map((part, partIdx) => (
-                                <div key={partIdx}>
-                                  <div className={`font-bold ${part.speaker === 'Moderator' ? 'text-gray-900' : 'text-blue-700'}`}>
-                                    {part.speaker}:
-                                  </div>
-                                  <div className="text-gray-800 mt-1">{part.text}</div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })()}
+              {/* Verbatim Quotes Section - Shows actual transcript quotes */}
+              <VerbatimQuotesSection 
+                analysisId={currentAnalysis?.id}
+                respondentId={selectedCellInfo.respondent}
+                columnName={selectedCellInfo.column}
+                sheetName={selectedCellInfo.sheet}
+                keyFinding={selectedCellInfo.summary}
+              />
 
             </div>
 
@@ -2891,11 +2966,21 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                     const demographics = Object.entries(demoRow)
                       .filter(([key, value]) => {
                         const keyLower = key.toLowerCase();
-                        return value &&
-                               !keyLower.includes('respondent') &&
-                               !keyLower.includes('respno') &&
-                               !keyLower.includes('date') &&
-                               !keyLower.includes('time');
+                        // Only show meaningful demographic fields
+                        return value && 
+                               (keyLower.includes('interview date') || 
+                                keyLower.includes('interview time') ||
+                                keyLower.includes('age') ||
+                                keyLower.includes('gender') ||
+                                keyLower.includes('location') ||
+                                keyLower.includes('education') ||
+                                keyLower.includes('occupation') ||
+                                keyLower.includes('income') ||
+                                keyLower.includes('ethnicity') ||
+                                keyLower.includes('race') ||
+                                keyLower.includes('marital') ||
+                                keyLower.includes('children') ||
+                                keyLower.includes('household'));
                       })
                       .map(([key, value]) => `${key}: ${value}`)
                       .join(' | ');
@@ -3222,6 +3307,20 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
         document.body
       )}
 
+      {/* Storyboard Modal */}
+      <StoryboardModal
+        isOpen={showStoryboardModal}
+        onClose={() => setShowStoryboardModal(false)}
+        onGenerate={handleGenerateStoryboard}
+        currentAnalysis={currentAnalysis}
+        projectTranscripts={projectTranscriptsForUpload}
+        discussionGuidePath={
+          currentAnalysis?.projectId && projects.find(p => p.id === currentAnalysis.projectId)?.hasDiscussionGuide
+            ? `/api/caX/discussion-guide/${currentAnalysis.projectId}/download`
+            : undefined
+        }
+        generating={generatingStoryboard}
+      />
 
     </div>
   );
