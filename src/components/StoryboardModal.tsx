@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { XMarkIcon, DocumentTextIcon, BookOpenIcon, ChatBubbleLeftRightIcon, ExclamationTriangleIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
+import { API_BASE_URL } from '../config';
 
 interface FileOption {
   id: string;
@@ -86,7 +87,7 @@ export default function StoryboardModal({
   const calculateCostEstimate = async () => {
     setCalculatingCost(true);
     try {
-      const response = await fetch('/api/caX/estimate-storyboard-cost', {
+      const response = await fetch(`${API_BASE_URL}/api/caX/estimate-storyboard-cost`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
