@@ -22,6 +22,12 @@ const router = express.Router();
 // In-memory job store for background processing
 const uploadJobs = new Map();
 
+// Debug middleware to log all requests
+router.use((req, res, next) => {
+  console.log(`🔍 ContentAnalysisX route hit: ${req.method} ${req.path}`);
+  next();
+});
+
 // Enforce auth + company access for all CA-X endpoints
 router.use(authenticateToken, requireCognitiveOrAdmin);
 
@@ -4197,8 +4203,11 @@ router.post('/regenerate-context', async (req, res) => {
 
 // Storyboard generation endpoints
 router.post('/estimate-storyboard-cost', async (req, res) => {
+  console.log('📊 === STORYBOARD COST ESTIMATION STARTED ===');
+  console.log('Request headers:', req.headers);
+  console.log('Request body:', req.body);
+
   try {
-    console.log('📊 Storyboard cost estimation request:', req.body);
     const { selectedFiles, analysisId, projectId } = req.body;
 
     if (!selectedFiles || !Array.isArray(selectedFiles)) {
