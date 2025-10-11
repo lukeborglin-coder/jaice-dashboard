@@ -1,10 +1,18 @@
 // API Configuration
-// TEMPORARY FIX: Hardcoded backend URL to bypass Render caching issue
-// TODO: Revert to dynamic detection once Render rebuild works
+// Debug logging to troubleshoot URL issue
+console.log('🔧 Config Debug:', {
+  hostname: window.location.hostname,
+  isProduction: window.location.hostname === 'jaice-dashboard.onrender.com'
+});
+
 const isProduction = window.location.hostname === 'jaice-dashboard.onrender.com';
-export const API_BASE_URL = isProduction
+const backendURL = isProduction
   ? 'https://jaice-dashboard-backend.onrender.com'
   : 'http://localhost:3005';
+
+console.log('🌐 API_BASE_URL set to:', backendURL);
+
+export const API_BASE_URL = backendURL;
 
 // API endpoints
 export const API_ENDPOINTS = {
