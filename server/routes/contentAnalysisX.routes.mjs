@@ -866,16 +866,40 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
     } else {
       try {
         const transcriptsPath = path.join(process.env.DATA_DIR || path.join(__dirname, '../data'), 'transcripts.json');
+
+        // Small delay to ensure file write has completed
+        await new Promise(resolve => setTimeout(resolve, 100));
+
         let transcriptsData = {};
         if (await fs.access(transcriptsPath).then(() => true).catch(() => false)) {
           const raw = await fs.readFile(transcriptsPath, 'utf8');
           transcriptsData = JSON.parse(raw || '{}');
+          console.log('📁 Loaded transcripts.json for project:', projectId);
+        } else {
+          console.warn('⚠️ transcripts.json file not found');
         }
 
         const projectTranscripts = Array.isArray(transcriptsData[projectId]) ? transcriptsData[projectId] : [];
-        const existingTranscript = projectTranscripts.find(t => String(t.id) === String(transcriptId));
+        console.log(`📋 Found ${projectTranscripts.length} transcripts for project ${projectId}`);
+        let existingTranscript = projectTranscripts.find(t => String(t.id) === String(transcriptId));
+
+        // If not found in transcripts.json, check if it's in the current analysis data
+        if (!existingTranscript && currentData && currentData.transcripts) {
+          console.log('⚠️ Transcript not found in transcripts.json, checking currentAnalysis.transcripts');
+          existingTranscript = currentData.transcripts.find(t => String(t.id) === String(transcriptId));
+          if (existingTranscript) {
+            console.log('✅ Found transcript in currentAnalysis.transcripts:', transcriptId);
+          }
+        }
 
         if (!existingTranscript) {
+          console.error('❌ Transcript not found:', {
+            transcriptId,
+            projectId,
+            availableInTranscriptsJson: projectTranscripts.map(t => t.id),
+            hasCurrentDataTranscripts: !!(currentData && currentData.transcripts),
+            currentDataTranscriptIds: currentData?.transcripts?.map(t => t.id) || []
+          });
           return res.status(404).json({ error: 'Transcript not found for this project' });
         }
 
