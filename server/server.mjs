@@ -21,6 +21,9 @@ config({ path: path.join(__dirname, '.env') });
 const app = express();
 const PORT = process.env.PORT || 3005;
 
+// Trust proxy - required for rate limiting behind Render proxy
+app.set('trust proxy', 1);
+
 // Middleware
 // Security headers
 app.use(helmet({
