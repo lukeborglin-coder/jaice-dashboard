@@ -1,10 +1,10 @@
 // API Configuration
-// Use backend URL in production, localhost in development
-// CACHE BUST: 2025-10-11-v2
-export const API_BASE_URL = import.meta.env.VITE_API_URL ||
-  (window.location.hostname === 'jaice-dashboard.onrender.com'
-    ? 'https://jaice-dashboard-backend.onrender.com'
-    : 'http://localhost:3005');
+// TEMPORARY FIX: Hardcoded backend URL to bypass Render caching issue
+// TODO: Revert to dynamic detection once Render rebuild works
+const isProduction = window.location.hostname === 'jaice-dashboard.onrender.com';
+export const API_BASE_URL = isProduction
+  ? 'https://jaice-dashboard-backend.onrender.com'
+  : 'http://localhost:3005';
 
 // API endpoints
 export const API_ENDPOINTS = {
