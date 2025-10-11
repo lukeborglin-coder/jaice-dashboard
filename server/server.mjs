@@ -83,6 +83,9 @@ const apiLimiter = rateLimit({
   message: 'Too many requests, please try again later',
   standardHeaders: true,
   legacyHeaders: false,
+  // Skip rate limiting if there's an error (prevents crashes)
+  skipFailedRequests: true,
+  skipSuccessfulRequests: false
 });
 
 // Routes
