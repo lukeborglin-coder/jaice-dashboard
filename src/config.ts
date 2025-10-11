@@ -1,5 +1,6 @@
 // API Configuration
 // Use backend URL in production, localhost in development
+// CACHE BUST: 2025-10-11-v2
 export const API_BASE_URL = import.meta.env.VITE_API_URL ||
   (window.location.hostname === 'jaice-dashboard.onrender.com'
     ? 'https://jaice-dashboard-backend.onrender.com'
