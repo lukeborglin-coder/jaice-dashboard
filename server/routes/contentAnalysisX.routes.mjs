@@ -4198,12 +4198,15 @@ router.post('/regenerate-context', async (req, res) => {
 // Storyboard generation endpoints
 router.post('/estimate-storyboard-cost', async (req, res) => {
   try {
+    console.log('📊 Storyboard cost estimation request:', req.body);
     const { selectedFiles, analysisId, projectId } = req.body;
-    
+
     if (!selectedFiles || !Array.isArray(selectedFiles)) {
+      console.error('❌ No selected files array provided');
       return res.status(400).json({ error: 'Selected files array is required' });
     }
 
+    console.log(`📋 Estimating cost for ${selectedFiles.length} files:`, selectedFiles);
     let totalInputTokens = 0;
     let estimatedOutputTokens = 0;
 
@@ -4260,15 +4263,19 @@ router.post('/estimate-storyboard-cost', async (req, res) => {
     const outputCost = (estimatedOutputTokens / 1000000) * 10.00; // $10.00 per 1M output tokens
     const totalCost = inputCost + outputCost;
 
-    res.json({
+    const estimate = {
       inputTokens: totalInputTokens,
       outputTokens: estimatedOutputTokens,
       cost: totalCost,
       formattedCost: `$${totalCost.toFixed(2)}`
-    });
+    };
+
+    console.log('✅ Cost estimate calculated:', estimate);
+    res.json(estimate);
   } catch (error) {
-    console.error('Error estimating storyboard cost:', error);
-    res.status(500).json({ error: 'Failed to estimate cost' });
+    console.error('❌ Error estimating storyboard cost:', error);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ error: 'Failed to estimate cost', details: error.message });
   }
 });
 
