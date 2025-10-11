@@ -3880,12 +3880,19 @@ router.post('/get-verbatim-quotes', async (req, res) => {
     // Fallback to file system if not found in database
     if (!transcriptText && transcript.cleanedPath) {
       try {
-        const cleanedPath = path.join(process.env.DATA_DIR || path.join(__dirname, '../data'), transcript.cleanedPath);
+        // Check if path is absolute (already includes DATA_DIR) or relative
+        const cleanedPath = path.isAbsolute(transcript.cleanedPath)
+          ? transcript.cleanedPath
+          : path.join(process.env.DATA_DIR || path.join(__dirname, '../data'), transcript.cleanedPath);
+
+        console.log(`Trying to load cleaned transcript from: ${cleanedPath}`);
         if (await fs.access(cleanedPath).then(() => true).catch(() => false)) {
           const result = await mammoth.extractRawText({ path: cleanedPath });
           transcriptText = result.value;
           transcriptType = 'cleaned';
-          console.log(`Loaded cleaned transcript from file for ${respondentId}, length: ${transcriptText.length}`);
+          console.log(`✅ Loaded cleaned transcript from file for ${respondentId}, length: ${transcriptText.length}`);
+        } else {
+          console.log(`❌ Cleaned transcript file not found at: ${cleanedPath}`);
         }
       } catch (error) {
         console.log(`Failed to load cleaned transcript from file: ${error.message}`);
@@ -3895,12 +3902,19 @@ router.post('/get-verbatim-quotes', async (req, res) => {
     // Fallback to original transcript from file
     if (!transcriptText && transcript.originalPath) {
       try {
-        const originalPath = path.join(process.env.DATA_DIR || path.join(__dirname, '../data'), transcript.originalPath);
+        // Check if path is absolute (already includes DATA_DIR) or relative
+        const originalPath = path.isAbsolute(transcript.originalPath)
+          ? transcript.originalPath
+          : path.join(process.env.DATA_DIR || path.join(__dirname, '../data'), transcript.originalPath);
+
+        console.log(`Trying to load original transcript from: ${originalPath}`);
         if (await fs.access(originalPath).then(() => true).catch(() => false)) {
           const result = await mammoth.extractRawText({ path: originalPath });
           transcriptText = result.value;
           transcriptType = 'original';
-          console.log(`Loaded original transcript from file for ${respondentId}, length: ${transcriptText.length}`);
+          console.log(`✅ Loaded original transcript from file for ${respondentId}, length: ${transcriptText.length}`);
+        } else {
+          console.log(`❌ Original transcript file not found at: ${originalPath}`);
         }
       } catch (error) {
         console.log(`Failed to load original transcript from file: ${error.message}`);

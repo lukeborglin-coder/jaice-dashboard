@@ -460,12 +460,21 @@ Output ONLY the cleaned transcript. No explanations or notes.`;
 
       // Save cleaned filename and path (will regenerate with correct respno later)
       cleanedFilename = `cleaned_${Date.now()}_${req.file.originalname.replace(/\.(txt|docx)$/i, '.docx')}`;
-      cleanedPath = path.join('./uploads', cleanedFilename);
+      cleanedPath = path.join(DATA_DIR, 'uploads', cleanedFilename);
     }
 
     // Save original transcript with permanent name
+    const uploadsDir = path.join(DATA_DIR, 'uploads');
+
+    // Ensure uploads directory exists
+    try {
+      await fs.mkdir(uploadsDir, { recursive: true });
+    } catch (error) {
+      console.log('Uploads directory already exists or created');
+    }
+
     const originalFilename = `original_${Date.now()}_${req.file.originalname}`;
-    const originalPath = path.join('./uploads', originalFilename);
+    const originalPath = path.join(uploadsDir, originalFilename);
     await fs.rename(req.file.path, originalPath);
 
     // Add transcript with temp respno
