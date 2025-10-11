@@ -14,8 +14,9 @@ const router = express.Router();
 const upload = multer({ dest: './uploads/' });
 
 // Storage path for transcripts
-const TRANSCRIPTS_PATH = path.join(__dirname, '../data/transcripts.json');
-const PROJECTS_PATH = path.join(__dirname, '../data/projects.json');
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '../data');
+const TRANSCRIPTS_PATH = path.join(DATA_DIR, 'transcripts.json');
+const PROJECTS_PATH = path.join(DATA_DIR, 'projects.json');
 
 // Initialize transcripts file if it doesn't exist
 async function initTranscriptsFile() {
