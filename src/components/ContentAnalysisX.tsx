@@ -857,7 +857,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
     console.log('🚀 Starting storyboard generation with files:', selectedFiles);
     setGeneratingStoryboard(true);
     try {
-      const response = await fetch('/api/caX/generate-storyboard', {
+      const response = await fetch(`${API_BASE_URL}/api/caX/generate-storyboard`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
