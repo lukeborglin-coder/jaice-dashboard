@@ -33,7 +33,7 @@ app.use(helmet({
       scriptSrc: ["'self'", "'unsafe-inline'"], // unsafe-inline needed for Vite in dev
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", "http://localhost:*"]
+      connectSrc: ["'self'", "http://localhost:*", "https://jaice-dashboard-backend.onrender.com", "https://jaice-dashboard.onrender.com"]
     }
   },
   hsts: {
