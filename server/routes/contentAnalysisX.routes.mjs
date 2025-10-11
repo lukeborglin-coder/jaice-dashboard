@@ -947,25 +947,39 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
         usedTranscriptId = existingTranscript.id;
 
         const timestamp = Date.now();
+        console.log('📝 Copying existing transcript files...');
+        console.log('   Original path:', resolvedOriginalPath);
+        console.log('   Cleaned path:', resolvedCleanedPath);
+        console.log('   Uploads dir:', uploadsDir);
+
         if (resolvedOriginalPath) {
           const originalCopyName = `existing_${timestamp}_${path.basename(resolvedOriginalPath)}`;
           const destination = path.join(uploadsDir, originalCopyName);
+          console.log('   Copying original to:', destination);
           await fs.copyFile(resolvedOriginalPath, destination);
           storedOriginalFilePath = destination;
+          console.log('   ✅ Original copied successfully');
         }
         if (resolvedCleanedPath) {
           const cleanedCopyName = `existing_${timestamp}_cleaned_${path.basename(resolvedCleanedPath)}`;
           const cleanedDestination = path.join(uploadsDir, cleanedCopyName);
+          console.log('   Copying cleaned to:', cleanedDestination);
           await fs.copyFile(resolvedCleanedPath, cleanedDestination);
           storedCleanedFilePath = cleanedDestination;
+          console.log('   ✅ Cleaned copied successfully');
         }
 
         if (!storedOriginalFilePath && storedCleanedFilePath) {
           storedOriginalFilePath = storedCleanedFilePath;
         }
       } catch (error) {
-        console.error('Failed to load existing transcript:', error);
-        return res.status(500).json({ error: 'Failed to load stored transcript' });
+        console.error('❌ Failed to load existing transcript:', error);
+        console.error('   Error details:', {
+          message: error.message,
+          code: error.code,
+          path: error.path
+        });
+        return res.status(500).json({ error: 'Failed to load stored transcript', details: error.message });
       }
     }
 
