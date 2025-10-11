@@ -475,7 +475,10 @@ Output ONLY the cleaned transcript. No explanations or notes.`;
 
     const originalFilename = `original_${Date.now()}_${req.file.originalname}`;
     const originalPath = path.join(uploadsDir, originalFilename);
-    await fs.rename(req.file.path, originalPath);
+
+    // Use copyFile + unlink instead of rename to handle cross-device scenarios
+    await fs.copyFile(req.file.path, originalPath);
+    await fs.unlink(req.file.path);
 
     // Add transcript with temp respno
     const transcriptRecord = {
