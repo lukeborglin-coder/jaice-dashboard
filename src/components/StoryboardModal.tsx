@@ -100,10 +100,16 @@ export default function StoryboardModal({
       });
 
       if (response.ok) {
-        const estimate = await response.json();
-        setCostEstimate(estimate);
+        const text = await response.text();
+        if (text) {
+          const estimate = JSON.parse(text);
+          setCostEstimate(estimate);
+        } else {
+          console.error('Empty response from server');
+        }
       } else {
-        console.error('Failed to calculate cost estimate');
+        const errorText = await response.text();
+        console.error('Failed to calculate cost estimate:', response.status, errorText);
       }
     } catch (error) {
       console.error('Error calculating cost estimate:', error);
@@ -155,7 +161,7 @@ export default function StoryboardModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">

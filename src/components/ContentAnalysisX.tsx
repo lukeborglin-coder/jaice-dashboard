@@ -526,20 +526,14 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
       const rowKeys = Object.keys(row);
       const newRow: any = {};
 
-      let insertedNewColumn = false;
+      // Insert columns in order, adding new column after the specified index
       rowKeys.forEach((key, index) => {
         newRow[key] = row[key];
-        // Insert new column after the specified position
+        // Insert new column after this position
         if (index === afterColumnIndex) {
           newRow[newColumnName] = '';
-          insertedNewColumn = true;
         }
       });
-
-      // If position is at the end, add it there
-      if (!insertedNewColumn) {
-        newRow[newColumnName] = '';
-      }
 
       return newRow;
     });
@@ -2190,7 +2184,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                   <tr>
                     <td colSpan={5} className="px-6 py-6">
                       <div className="flex items-center gap-2 text-gray-700">
-                        <img src="/Circle.png" alt="Loading" className="w-4 h-4 animate-spin" />
+                        <div className="w-4 h-4 border-2 border-orange-600 border-t-transparent rounded-full animate-spin"></div>
                         <span className="text-sm">Loading...</span>
                       </div>
                     </td>
@@ -2342,7 +2336,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
 
       {viewMode === 'viewer' && loadingSavedView && (
         <div className="p-8 flex items-center justify-center">
-          <img src="/Circle.png" alt="Loading" className="w-5 h-5 animate-spin" />
+          <div className="w-5 h-5 border-2 border-orange-600 border-t-transparent rounded-full animate-spin"></div>
           <span className="ml-2 text-sm text-gray-700">Loading analysis...</span>
         </div>
       )}
