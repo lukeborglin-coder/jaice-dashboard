@@ -1,7 +1,9 @@
 // API Configuration
-// In production, VITE_API_URL will be set in Render environment variables
-// In development, it falls back to localhost
-export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3005';
+// Use backend URL in production, localhost in development
+export const API_BASE_URL = import.meta.env.VITE_API_URL ||
+  (window.location.hostname === 'jaice-dashboard.onrender.com'
+    ? 'https://jaice-dashboard-backend.onrender.com'
+    : 'http://localhost:3005');
 
 // API endpoints
 export const API_ENDPOINTS = {
