@@ -3823,11 +3823,39 @@ router.post('/get-verbatim-quotes', async (req, res) => {
     const analysesPath = path.join(process.env.DATA_DIR || path.join(__dirname, '../data'), 'savedAnalyses.json');
     const analysesData = await fs.readFile(analysesPath, 'utf8');
     const analyses = JSON.parse(analysesData);
-    
-    const analysis = analyses.find(a => a.id === analysisId);
-    if (!analysis) {
+
+    const analysisIndex = analyses.findIndex(a => a.id === analysisId);
+    if (analysisIndex === -1) {
       return res.status(404).json({ error: 'Analysis not found' });
     }
+    const analysis = analyses[analysisIndex];
+
+    // Check if we already have cached quotes for this cell
+    if (!analysis.verbatimQuotes) {
+      analysis.verbatimQuotes = {};
+    }
+    if (!analysis.verbatimQuotes[sheetName]) {
+      analysis.verbatimQuotes[sheetName] = {};
+    }
+    if (!analysis.verbatimQuotes[sheetName][respondentId]) {
+      analysis.verbatimQuotes[sheetName][respondentId] = {};
+    }
+
+    const cachedQuotes = analysis.verbatimQuotes[sheetName]?.[respondentId]?.[columnName];
+    if (cachedQuotes && cachedQuotes.quotes && cachedQuotes.quotes.length > 0) {
+      console.log(`✅ Returning cached quotes for ${respondentId} - ${columnName} (saved ${cachedQuotes.savedAt})`);
+      return res.json({
+        success: true,
+        quotes: cachedQuotes.quotes,
+        transcriptType: cachedQuotes.transcriptType || 'unknown',
+        respondentId: respondentId,
+        columnName: columnName,
+        sheetName: sheetName,
+        cached: true
+      });
+    }
+
+    console.log(`🆕 No cached quotes found, generating new quotes for ${respondentId} - ${columnName}`);
 
     // Find the transcript for this respondent
     console.log(`Looking for transcript for respondent: ${respondentId}`);
@@ -4019,13 +4047,27 @@ ${transcriptText.substring(0, 8000)}`; // Limit to first 8000 chars to stay with
       }];
     }
 
+    // Cache the quotes for future requests
+    analysis.verbatimQuotes[sheetName][respondentId][columnName] = {
+      quotes: quotes,
+      transcriptType: transcriptType,
+      savedAt: new Date().toISOString(),
+      keyFinding: keyFinding
+    };
+
+    // Save the updated analysis
+    analyses[analysisIndex] = analysis;
+    await fs.writeFile(analysesPath, JSON.stringify(analyses, null, 2));
+    console.log(`💾 Cached quotes for ${respondentId} - ${columnName} in ${sheetName}`);
+
     res.json({
       success: true,
       quotes: quotes,
       transcriptType: transcriptType,
       respondentId: respondentId,
       columnName: columnName,
-      sheetName: sheetName
+      sheetName: sheetName,
+      cached: false
     });
 
   } catch (error) {
