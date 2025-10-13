@@ -99,10 +99,15 @@ async function getCAData(projectId) {
     const data = await fs.readFile(CAX_PATH, 'utf8');
     const allCA = JSON.parse(data);
     const projectCA = allCA.find(ca => ca.projectId === projectId);
-    return projectCA ? JSON.stringify(projectCA.data || {}, null, 2) : '{}';
+    if (!projectCA) return { data: {}, quotes: {} };
+    
+    return {
+      data: projectCA.data || {},
+      quotes: projectCA.quotes || {}
+    };
   } catch (error) {
     console.error('Error getting CA data:', error);
-    return '{}';
+    return { data: {}, quotes: {} };
   }
 }
 
@@ -155,13 +160,13 @@ router.post('/:projectId/key-findings/generate', authenticateToken, async (req, 
     }
 
     const transcriptsText = await getTranscriptsText(projectId);
-    const caData = await getCAData(projectId);
+    const caDataObj = await getCAData(projectId);
 
     if (!transcriptsText.trim()) {
       return res.status(400).json({ error: 'No transcript data available for this project' });
     }
 
-    const findings = await generateKeyFindings(projectId, strategicQuestions, transcriptsText, caData);
+    const findings = await generateKeyFindings(projectId, strategicQuestions, transcriptsText, caDataObj);
 
     projectData.keyFindings = {
       ...findings,
@@ -187,13 +192,13 @@ router.post('/:projectId/storyboard/generate', authenticateToken, async (req, re
     const { detailLevel = 'moderate', quoteLevel = 'moderate' } = req.body;
 
     const transcriptsText = await getTranscriptsText(projectId);
-    const caData = await getCAData(projectId);
+    const caDataObj = await getCAData(projectId);
 
     if (!transcriptsText.trim()) {
       return res.status(400).json({ error: 'No transcript data available for this project' });
     }
 
-    const storyboard = await generateStoryboard(projectId, transcriptsText, caData, detailLevel, quoteLevel);
+    const storyboard = await generateStoryboard(projectId, transcriptsText, caDataObj, detailLevel, quoteLevel);
 
     const projectData = await loadProjectStorytelling(projectId);
     storyboard.id = `SB-${Date.now()}`;
@@ -343,7 +348,7 @@ router.post('/:projectId/ask', authenticateToken, async (req, res) => {
     }
 
     const transcriptsText = await getTranscriptsText(projectId);
-    const caData = await getCAData(projectId);
+    const caDataObj = await getCAData(projectId);
 
     if (!transcriptsText.trim()) {
       return res.status(400).json({ error: 'No transcript data available for this project' });
@@ -354,7 +359,7 @@ router.post('/:projectId/ask', authenticateToken, async (req, res) => {
       projectId,
       question,
       transcriptsText,
-      caData,
+      caDataObj,
       projectData.keyFindings,
       detailLevel,
       quoteLevel
@@ -394,9 +399,9 @@ router.post('/:projectId/estimate', authenticateToken, async (req, res) => {
     const { detailLevel = 'moderate', quoteLevel = 'moderate' } = req.body;
 
     const transcriptsText = await getTranscriptsText(projectId);
-    const caData = await getCAData(projectId);
+    const caDataObj = await getCAData(projectId);
 
-    const estimate = estimateStorytellingCost(transcriptsText, caData, detailLevel, quoteLevel);
+    const estimate = estimateStorytellingCost(transcriptsText, caDataObj, detailLevel, quoteLevel);
 
     res.json(estimate);
   } catch (error) {

@@ -12,6 +12,45 @@ function estimateTokens(text) {
   return Math.ceil(text.length / 4);
 }
 
+// Extract relevant quotes from content analysis data based on question
+function extractRelevantQuotes(quotesData, question) {
+  if (!quotesData || typeof quotesData !== 'object') return [];
+  
+  const allQuotes = [];
+  const questionLower = question.toLowerCase();
+  
+  // Extract quotes from all sheets and respondents
+  for (const [sheetName, sheetQuotes] of Object.entries(quotesData)) {
+    if (!sheetQuotes || typeof sheetQuotes !== 'object') continue;
+    
+    for (const [respondentId, respondentQuotes] of Object.entries(sheetQuotes)) {
+      if (!respondentQuotes || typeof respondentQuotes !== 'object') continue;
+      
+      for (const [columnName, columnQuotes] of Object.entries(respondentQuotes)) {
+        if (!Array.isArray(columnQuotes)) continue;
+        
+        // Filter quotes that might be relevant to the question
+        for (const quote of columnQuotes) {
+          if (typeof quote === 'string' && quote.trim()) {
+            const quoteLower = quote.toLowerCase();
+            // Simple relevance check - look for key terms from the question
+            const questionWords = questionLower.split(/\s+/).filter(word => word.length > 3);
+            const hasRelevantTerms = questionWords.some(word => quoteLower.includes(word));
+            
+            if (hasRelevantTerms || questionWords.length === 0) {
+              allQuotes.push(quote.trim());
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  // Remove duplicates and return up to 10 most relevant quotes
+  const uniqueQuotes = [...new Set(allQuotes)];
+  return uniqueQuotes.slice(0, 10);
+}
+
 /**
  * Estimate cost for a storytelling operation
  * @param {string} transcriptsText - Combined transcript text
@@ -20,7 +59,7 @@ function estimateTokens(text) {
  * @param {string} quoteLevel - none/few/moderate/many
  * @returns {object} - Cost estimate with inputTokens, outputTokens, cost, formattedCost
  */
-export function estimateStorytellingCost(transcriptsText, caData, detailLevel = 'moderate', quoteLevel = 'moderate') {
+export function estimateStorytellingCost(transcriptsText, caDataObj, detailLevel = 'moderate', quoteLevel = 'moderate') {
   // For cost estimation, use a reasonable sample size instead of full data
   // This prevents massive cost estimates for large datasets
   const maxSampleSize = 50000; // ~12,500 tokens max
@@ -29,9 +68,10 @@ export function estimateStorytellingCost(transcriptsText, caData, detailLevel = 
     ? transcriptsText.substring(0, maxSampleSize) + '...[truncated]'
     : transcriptsText;
     
-  const sampleCAData = caData.length > 20000 
-    ? caData.substring(0, 20000) + '...[truncated]'
-    : caData;
+  const caDataString = JSON.stringify(caDataObj.data || {}, null, 2);
+  const sampleCAData = caDataString.length > 20000 
+    ? caDataString.substring(0, 20000) + '...[truncated]'
+    : caDataString;
     
   const inputText = sampleTranscripts + sampleCAData;
   const inputTokens = estimateTokens(inputText);
@@ -56,7 +96,7 @@ export function estimateStorytellingCost(transcriptsText, caData, detailLevel = 
   // Debug logging
   console.log('💰 Cost Estimation Debug:', {
     originalTranscriptLength: transcriptsText.length,
-    originalCADataLength: caData.length,
+    originalCADataLength: caDataString.length,
     sampleTranscriptLength: sampleTranscripts.length,
     sampleCADataLength: sampleCAData.length,
     inputTokens,
@@ -80,7 +120,7 @@ export function estimateStorytellingCost(transcriptsText, caData, detailLevel = 
  * @param {string} caData - Content analysis data as JSON string
  * @returns {Promise<object>} - Key findings with answers to each question
  */
-export async function generateKeyFindings(projectId, strategicQuestions, transcriptsText, caData) {
+export async function generateKeyFindings(projectId, strategicQuestions, transcriptsText, caDataObj) {
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
   const systemPrompt = `You are a senior qualitative research analyst specializing in healthcare and pharmaceutical market research.
@@ -103,7 +143,7 @@ TRANSCRIPT DATA:
 ${transcriptsText.substring(0, 50000)} ${transcriptsText.length > 50000 ? '...[truncated]' : ''}
 
 CONTENT ANALYSIS DATA:
-${caData.substring(0, 20000)} ${caData.length > 20000 ? '...[truncated]' : ''}
+${JSON.stringify(caDataObj.data, null, 2).substring(0, 20000)} ${JSON.stringify(caDataObj.data).length > 20000 ? '...[truncated]' : ''}
 
 For each question, provide:
 1. A clear, concise answer (2-4 sentences)
@@ -158,7 +198,7 @@ Return your response as a JSON object with this structure:
  * @param {string} quoteLevel - none/few/moderate/many
  * @returns {Promise<object>} - Storyboard with sections and content
  */
-export async function generateStoryboard(projectId, transcriptsText, caData, detailLevel = 'moderate', quoteLevel = 'moderate') {
+export async function generateStoryboard(projectId, transcriptsText, caDataObj, detailLevel = 'moderate', quoteLevel = 'moderate') {
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
   // Adjust system prompt based on detail level
@@ -196,7 +236,7 @@ TRANSCRIPT DATA:
 ${transcriptsText.substring(0, 50000)} ${transcriptsText.length > 50000 ? '...[truncated]' : ''}
 
 CONTENT ANALYSIS DATA:
-${caData.substring(0, 20000)} ${caData.length > 20000 ? '...[truncated]' : ''}
+${JSON.stringify(caDataObj.data, null, 2).substring(0, 20000)} ${JSON.stringify(caDataObj.data).length > 20000 ? '...[truncated]' : ''}
 
 Structure your storyboard with these sections:
 1. Executive Summary
@@ -255,9 +295,12 @@ Return your response as a JSON object with this structure:
  * @param {string} quoteLevel - none/few/moderate/many
  * @returns {Promise<object>} - Answer with quotes and insights
  */
-export async function answerQuestion(projectId, question, transcriptsText, caData, existingFindings = null, detailLevel = 'moderate', quoteLevel = 'moderate') {
+export async function answerQuestion(projectId, question, transcriptsText, caDataObj, existingFindings = null, detailLevel = 'moderate', quoteLevel = 'moderate') {
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
+  // Extract real quotes from content analysis data
+  const realQuotes = extractRelevantQuotes(caDataObj.quotes, question);
+  
   let detailInstruction = 'Provide a moderate level of detail.';
   if (detailLevel === 'straightforward') {
     detailInstruction = 'Be concise and to the point.';
@@ -281,12 +324,17 @@ Guidelines:
 - ${quoteInstruction}
 - Be clear, accurate, and evidence-based
 - Note when data is insufficient to answer fully
-- Provide actionable insights when possible`;
+- Provide actionable insights when possible
+- Use the provided verbatim quotes to support your answer`;
 
   let contextSection = '';
   if (existingFindings && existingFindings.findings) {
     contextSection = `\n\nPREVIOUSLY GENERATED KEY FINDINGS:\n${JSON.stringify(existingFindings.findings, null, 2)}`;
   }
+
+  const quotesSection = realQuotes.length > 0 
+    ? `\n\nRELEVANT VERBATIM QUOTES:\n${realQuotes.map((q, i) => `${i + 1}. "${q}"`).join('\n')}`
+    : '';
 
   const userPrompt = `Answer this question based on the research data:
 
@@ -296,7 +344,7 @@ TRANSCRIPT DATA:
 ${transcriptsText.substring(0, 50000)} ${transcriptsText.length > 50000 ? '...[truncated]' : ''}
 
 CONTENT ANALYSIS DATA:
-${caData.substring(0, 20000)} ${caData.length > 20000 ? '...[truncated]' : ''}${contextSection}
+${JSON.stringify(caDataObj.data, null, 2).substring(0, 20000)} ${JSON.stringify(caDataObj.data).length > 20000 ? '...[truncated]' : ''}${contextSection}${quotesSection}
 
 Return your response as a JSON object with this structure:
 {
@@ -318,6 +366,11 @@ Return your response as a JSON object with this structure:
   });
 
   const result = JSON.parse(response.choices[0].message.content);
+
+  // If we have real quotes, use them instead of AI-generated ones
+  if (realQuotes.length > 0 && quoteLevel !== 'none') {
+    result.quotes = realQuotes.slice(0, quoteLevel === 'few' ? 2 : quoteLevel === 'many' ? 8 : 4);
+  }
 
   // Log cost
   if (response.usage) {
