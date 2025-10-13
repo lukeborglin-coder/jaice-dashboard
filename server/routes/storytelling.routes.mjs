@@ -146,19 +146,7 @@ async function getCAData(projectId) {
 // GET /api/storytelling/projects - Get all projects with content analysis data and respondent counts
 router.get('/projects', authenticateToken, async (req, res) => {
   try {
-    // Read all projects
-    const projectsData = readProjectsData();
-    const allProjects = [];
-    
-    // Collect all projects from all users
-    Object.keys(projectsData).forEach(userId => {
-      if (!userId.endsWith('_archived')) {
-        const userProjects = projectsData[userId] || [];
-        allProjects.push(...userProjects);
-      }
-    });
-
-    // Get content analysis data to count respondents
+    // Get content analysis data directly - this is our source of truth
     let caData = [];
     try {
       console.log('🔍 CA File Debug:', {
@@ -168,27 +156,20 @@ router.get('/projects', authenticateToken, async (req, res) => {
       
       const caDataContent = await fs.readFile(CAX_PATH, 'utf8');
       console.log('🔍 CA File Content Length:', caDataContent.length);
-      console.log('🔍 CA File Content Preview:', caDataContent.substring(0, 500));
       
       caData = JSON.parse(caDataContent);
       console.log('🔍 CA Data Structure Debug:', {
         totalAnalyses: caData.length,
         isArray: Array.isArray(caData),
-        firstAnalysis: caData[0] ? {
-          projectId: caData[0].projectId,
-          hasData: !!caData[0].data,
-          hasQuotes: !!caData[0].quotes,
-          hasVerbatimQuotes: !!caData[0].verbatimQuotes,
-          verbatimQuotesKeys: caData[0].verbatimQuotes ? Object.keys(caData[0].verbatimQuotes) : [],
-          verbatimQuotesStructure: caData[0].verbatimQuotes ? 
-            Object.keys(caData[0].verbatimQuotes).map(key => ({
-              sheet: key,
-              respondentCount: caData[0].verbatimQuotes[key] ? Object.keys(caData[0].verbatimQuotes[key]).length : 0
-            })) : [],
-          dataKeys: caData[0].data ? Object.keys(caData[0].data) : [],
-          quotesKeys: caData[0].quotes ? Object.keys(caData[0].quotes) : [],
-          fullDataStructure: caData[0].data ? caData[0].data : null
-        } : null
+        analyses: caData.map(ca => ({
+          id: ca.id,
+          projectId: ca.projectId,
+          name: ca.name,
+          hasData: !!ca.data,
+          hasQuotes: !!ca.quotes,
+          hasVerbatimQuotes: !!ca.verbatimQuotes,
+          dataKeys: ca.data ? Object.keys(ca.data) : []
+        }))
       });
     } catch (error) {
       console.log('🔍 CA Data Loading Error:', {
@@ -198,138 +179,115 @@ router.get('/projects', authenticateToken, async (req, res) => {
       });
     }
 
-    // Filter projects that have content analysis data and add respondent counts
-    console.log('🔍 Projects Debug:', {
-      totalProjects: allProjects.length,
-      projectIds: allProjects.map(p => p.id),
-      caProjectIds: caData.map(ca => ca.projectId)
-    });
+    // Helper function to check if a string is a valid respondent ID
+    const isValidRespondentId = (id) => {
+      return typeof id === 'string' && 
+             id.trim() !== '' && 
+             id.trim() !== 'Respondent ID' && // Not the header
+             (id.startsWith('R') || id.match(/^[A-Za-z]/)); // Starts with letter
+    };
 
-    const projectsWithCA = allProjects.filter(project => {
-      const projectCA = caData.find(ca => ca.projectId === project.id);
-      // Check for main data structure instead of just verbatimQuotes
-      const hasCA = projectCA && projectCA.data && Object.keys(projectCA.data).length > 0;
+    // Helper function to count respondents from content analysis data
+    const countRespondents = (caItem) => {
+      const allRespondents = new Set();
       
-      console.log(`🔍 Project ${project.id} (${project.name}):`, {
-        foundCA: !!projectCA,
-        hasData: projectCA ? !!projectCA.data : false,
-        hasVerbatimQuotes: projectCA ? !!projectCA.verbatimQuotes : false,
-        dataKeys: projectCA && projectCA.data ? Object.keys(projectCA.data) : [],
-        verbatimQuotesKeys: projectCA && projectCA.verbatimQuotes ? Object.keys(projectCA.verbatimQuotes) : [],
-        willInclude: hasCA
-      });
-      
-      return hasCA;
-    }).map(project => {
-      const projectCA = caData.find(ca => ca.projectId === project.id);
-      let respondentCount = 0;
-      
-      if (projectCA) {
-        // Count unique respondents from all data structures (verbatimQuotes, data, quotes)
-        const allRespondents = new Set();
-        
-        console.log(`🔍 Respondent Count Debug for ${project.id}:`, {
-          verbatimQuotesKeys: projectCA.verbatimQuotes ? Object.keys(projectCA.verbatimQuotes) : [],
-          dataKeys: projectCA.data ? Object.keys(projectCA.data) : [],
-          quotesKeys: projectCA.quotes ? Object.keys(projectCA.quotes) : [],
-          verbatimQuotesStructure: projectCA.verbatimQuotes ? 
-            Object.keys(projectCA.verbatimQuotes).map(sheet => ({
-              sheet,
-              respondentIds: projectCA.verbatimQuotes[sheet] ? Object.keys(projectCA.verbatimQuotes[sheet]) : []
-            })) : [],
-          dataStructure: projectCA.data ? 
-            Object.keys(projectCA.data).map(sheet => ({
-              sheet,
-              respondentIds: projectCA.data[sheet] ? Object.keys(projectCA.data[sheet]) : []
-            })) : [],
-          quotesStructure: projectCA.quotes ? 
-            Object.keys(projectCA.quotes).map(sheet => ({
-              sheet,
-              respondentIds: projectCA.quotes[sheet] ? Object.keys(projectCA.quotes[sheet]) : []
-            })) : []
-        });
-        
-        // Helper function to check if a string is a valid respondent ID
-        const isValidRespondentId = (id) => {
-          return typeof id === 'string' && 
-                 id.trim() !== '' && 
-                 !/^\d+$/.test(id) && // Not just numbers
-                 (id.startsWith('R') || id.match(/^[A-Za-z]/)); // Starts with letter
-        };
-        
-        // Count from main data structure first (this has all respondents)
-        if (projectCA.data) {
-          Object.values(projectCA.data).forEach(sheetData => {
-            if (Array.isArray(sheetData)) {
-              // For array data, look for respondent IDs in the data objects
-              sheetData.forEach(row => {
-                if (row && typeof row === 'object') {
-                  // Look for common respondent ID fields
-                  const respondentId = row['Respondent ID'] || row['respno'] || row['ID'] || row['id'];
-                  if (isValidRespondentId(respondentId)) {
-                    allRespondents.add(respondentId);
-                  }
-                }
-              });
-            } else if (sheetData && typeof sheetData === 'object') {
-              // For object data, use keys as respondent IDs
-              Object.keys(sheetData).forEach(respondentId => {
+      // Count from main data structure (this has all respondents)
+      if (caItem.data) {
+        Object.values(caItem.data).forEach(sheetData => {
+          if (Array.isArray(sheetData)) {
+            // For array data, look for respondent IDs in the data objects
+            sheetData.forEach(row => {
+              if (row && typeof row === 'object') {
+                // Look for common respondent ID fields
+                const respondentId = row['Respondent ID'] || row['respno'] || row['ID'] || row['id'];
                 if (isValidRespondentId(respondentId)) {
                   allRespondents.add(respondentId);
                 }
-              });
-            }
-          });
-        }
-        
-        // Also count from verbatimQuotes (for respondents who have had quotes generated)
-        if (projectCA.verbatimQuotes) {
-          Object.values(projectCA.verbatimQuotes).forEach(sheetData => {
-            if (sheetData && typeof sheetData === 'object') {
-              Object.keys(sheetData).forEach(respondentId => {
-                if (isValidRespondentId(respondentId)) {
-                  allRespondents.add(respondentId);
-                }
-              });
-            }
-          });
-        }
-        
-        // Count from quotes structure
-        if (projectCA.quotes) {
-          Object.values(projectCA.quotes).forEach(sheetData => {
-            if (sheetData && typeof sheetData === 'object') {
-              Object.keys(sheetData).forEach(respondentId => {
-                if (isValidRespondentId(respondentId)) {
-                  allRespondents.add(respondentId);
-                }
-              });
-            }
-          });
-        }
-        
-        respondentCount = allRespondents.size;
-        
-        console.log(`🔍 Final respondent count for ${project.id}:`, {
-          allRespondents: Array.from(allRespondents),
-          count: respondentCount,
-          sources: {
-            verbatimQuotes: projectCA.verbatimQuotes ? 'yes' : 'no',
-            data: projectCA.data ? 'yes' : 'no',
-            quotes: projectCA.quotes ? 'yes' : 'no'
+              }
+            });
+          } else if (sheetData && typeof sheetData === 'object') {
+            // For object data, use keys as respondent IDs
+            Object.keys(sheetData).forEach(respondentId => {
+              if (isValidRespondentId(respondentId)) {
+                allRespondents.add(respondentId);
+              }
+            });
           }
         });
       }
+      
+      // Also count from verbatimQuotes (for respondents who have had quotes generated)
+      if (caItem.verbatimQuotes) {
+        Object.values(caItem.verbatimQuotes).forEach(sheetData => {
+          if (sheetData && typeof sheetData === 'object') {
+            Object.keys(sheetData).forEach(respondentId => {
+              if (isValidRespondentId(respondentId)) {
+                allRespondents.add(respondentId);
+              }
+            });
+          }
+        });
+      }
+      
+      // Count from quotes structure
+      if (caItem.quotes) {
+        Object.values(caItem.quotes).forEach(sheetData => {
+          if (sheetData && typeof sheetData === 'object') {
+            Object.keys(sheetData).forEach(respondentId => {
+              if (isValidRespondentId(respondentId)) {
+                allRespondents.add(respondentId);
+              }
+            });
+          }
+        });
+      }
+      
+      return allRespondents.size;
+    };
+
+    // Process each content analysis and create project entries
+    const projectsWithCA = caData.filter(caItem => {
+      // Check if this content analysis has actual data and respondents
+      const hasData = caItem.data && Object.keys(caItem.data).length > 0;
+      const respondentCount = countRespondents(caItem);
+      const hasRespondents = respondentCount > 0;
+      
+      console.log(`🔍 CA Item ${caItem.id} (${caItem.name || 'Unnamed'}):`, {
+        projectId: caItem.projectId,
+        hasData,
+        respondentCount,
+        hasRespondents,
+        willInclude: hasData && hasRespondents
+      });
+      
+      return hasData && hasRespondents;
+    }).map(caItem => {
+      const respondentCount = countRespondents(caItem);
+      
+      console.log(`🔍 Final processing for CA ${caItem.id}:`, {
+        projectId: caItem.projectId,
+        name: caItem.name,
+        respondentCount,
+        dataKeys: caItem.data ? Object.keys(caItem.data) : []
+      });
 
       return {
-        ...project,
-        respondentCount
+        id: caItem.projectId,
+        name: caItem.name || `Content Analysis ${caItem.id}`,
+        respondentCount,
+        analysisId: caItem.id,
+        createdAt: caItem.createdAt || new Date().toISOString()
       };
     });
 
     console.log('🔍 Final Result:', {
       projectsWithCA: projectsWithCA.length,
-      projects: projectsWithCA.map(p => ({ id: p.id, name: p.name, respondentCount: p.respondentCount }))
+      projects: projectsWithCA.map(p => ({ 
+        id: p.id, 
+        name: p.name, 
+        respondentCount: p.respondentCount,
+        analysisId: p.analysisId
+      }))
     });
 
     res.json({ projects: projectsWithCA });
