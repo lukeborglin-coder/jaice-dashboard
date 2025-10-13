@@ -583,6 +583,15 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
     setQuotesCached(false);
 
     try {
+      const quotesAnalysisId = selectedProject?.analysisId || analysisId;
+      console.log('🎭 Quotes request debug:', { 
+        selectedProject, 
+        selectedProjectAnalysisId: selectedProject?.analysisId,
+        propAnalysisId: analysisId,
+        quotesAnalysisId,
+        projectId: selectedProject?.id
+      });
+      
       const response = await fetch(`${API_BASE_URL}/api/storytelling/${selectedProject?.id}/quotes`, {
         method: 'POST',
         headers: {
@@ -592,7 +601,7 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
         body: JSON.stringify({
           question: message.question,
           answer: message.answer,
-          analysisId: selectedProject?.analysisId || analysisId
+          analysisId: quotesAnalysisId
         })
       });
 
