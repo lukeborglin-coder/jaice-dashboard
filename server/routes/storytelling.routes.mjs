@@ -1,5 +1,6 @@
 import express from 'express';
 import fs from 'fs/promises';
+import fsSync from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { Document, Paragraph, TextRun, HeadingLevel, AlignmentType, Packer } from 'docx';
@@ -10,6 +11,21 @@ import {
   generateStoryboard,
   answerQuestion
 } from '../services/storytelling.service.mjs';
+
+// Import readProjectsData from projects.routes.mjs
+const readProjectsData = () => {
+  try {
+    const dataPath = path.join(process.env.DATA_DIR || '/server/data', 'projects.json');
+    if (fsSync.existsSync(dataPath)) {
+      const data = fsSync.readFileSync(dataPath, 'utf8');
+      return JSON.parse(data);
+    }
+    return {};
+  } catch (error) {
+    console.error('Error reading projects data:', error);
+    return {};
+  }
+};
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const router = express.Router();
@@ -122,6 +138,64 @@ async function getCAData(projectId) {
     return { data: {}, quotes: {}, verbatimQuotes: {} };
   }
 }
+
+// GET /api/storytelling/projects - Get all projects with content analysis data and respondent counts
+router.get('/projects', authenticateToken, async (req, res) => {
+  try {
+    // Read all projects
+    const projectsData = readProjectsData();
+    const allProjects = [];
+    
+    // Collect all projects from all users
+    Object.keys(projectsData).forEach(userId => {
+      if (!userId.endsWith('_archived')) {
+        const userProjects = projectsData[userId] || [];
+        allProjects.push(...userProjects);
+      }
+    });
+
+    // Get content analysis data to count respondents
+    let caData = {};
+    try {
+      const caDataContent = await fs.readFile(CAX_PATH, 'utf8');
+      caData = JSON.parse(caDataContent);
+    } catch (error) {
+      console.log('No content analysis data found');
+    }
+
+    // Filter projects that have content analysis data and add respondent counts
+    const projectsWithCA = allProjects.filter(project => {
+      const projectCA = caData.find(ca => ca.projectId === project.id);
+      return projectCA && projectCA.verbatimQuotes && Object.keys(projectCA.verbatimQuotes).length > 0;
+    }).map(project => {
+      const projectCA = caData.find(ca => ca.projectId === project.id);
+      let respondentCount = 0;
+      
+      if (projectCA && projectCA.verbatimQuotes) {
+        // Count unique respondents across all sheets
+        const allRespondents = new Set();
+        Object.values(projectCA.verbatimQuotes).forEach(sheetData => {
+          if (sheetData && typeof sheetData === 'object') {
+            Object.keys(sheetData).forEach(respondentId => {
+              allRespondents.add(respondentId);
+            });
+          }
+        });
+        respondentCount = allRespondents.size;
+      }
+
+      return {
+        ...project,
+        respondentCount
+      };
+    });
+
+    res.json({ projects: projectsWithCA });
+  } catch (error) {
+    console.error('Error loading storytelling projects:', error);
+    res.status(500).json({ error: 'Failed to load storytelling projects' });
+  }
+});
 
 // GET /api/storytelling/:projectId - Get storytelling data for a project
 router.get('/:projectId', authenticateToken, async (req, res) => {

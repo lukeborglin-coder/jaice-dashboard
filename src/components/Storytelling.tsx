@@ -95,7 +95,7 @@ export default function Storytelling() {
   const loadProjects = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/api/projects/all`, {
+      const response = await fetch(`${API_BASE_URL}/api/storytelling/projects`, {
         headers: getAuthHeaders()
       });
       if (response.ok) {
@@ -761,6 +761,9 @@ export default function Storytelling() {
                       Client
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Respondents
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
@@ -777,6 +780,11 @@ export default function Storytelling() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">{project.client || '-'}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        <div className="text-sm font-medium text-gray-900">
+                          {project.respondentCount || 0}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
                         <button
