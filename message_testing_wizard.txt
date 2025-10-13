@@ -1,0 +1,52 @@
+              {/* Message/Concept Testing Section - Multi-Step Wizard */}
+              <div className="border-t pt-6">
+                <div className="flex items-center space-x-2 mb-4">
+                  <input
+                    type="checkbox"
+                    id="message-testing-checkbox"
+                    checked={createFormData.isMessageTesting}
+                    onChange={(e) => {
+                      setCreateFormData({ ...createFormData, isMessageTesting: e.target.checked });
+                      if (!e.target.checked) {
+                        setMessageTestingStep(1);
+                      }
+                    }}
+                    className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="message-testing-checkbox" className="text-sm font-medium text-gray-700">
+                    Message/Concept Testing
+                  </label>
+                </div>
+              </div>
+
+              {/* Multi-Step Form */}
+              <div className="flex justify-end pt-4 space-x-3">
+                {createFormData.isMessageTesting && messageTestingStep > 1 && (
+                  <button
+                    onClick={() => setMessageTestingStep(messageTestingStep - 1)}
+                    className="px-6 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+                  >
+                    Back
+                  </button>
+                )}
+
+                {createFormData.isMessageTesting && messageTestingStep < 3 ? (
+                  <button
+                    onClick={() => setMessageTestingStep(messageTestingStep + 1)}
+                    disabled={messageTestingStep === 2 && createFormData.messageCategories.length === 0}
+                    className="px-6 py-2 text-sm text-white rounded-lg hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ backgroundColor: '#D14A2D' }}
+                  >
+                    Next
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleCreateFormSubmit}
+                    disabled={!createFormData.title || !createFormData.discussionGuide}
+                    className="px-6 py-2 text-sm text-white rounded-lg hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ backgroundColor: '#D14A2D' }}
+                  >
+                    Generate Analysis
+                  </button>
+                )}
+              </div>

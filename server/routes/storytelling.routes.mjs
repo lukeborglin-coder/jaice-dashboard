@@ -15,11 +15,15 @@ import {
 // Import readProjectsData from projects.routes.mjs
 const readProjectsData = () => {
   try {
-    const dataPath = path.join(process.env.DATA_DIR || '/server/data', 'projects.json');
+    const dataPath = path.join(__dirname, '..', 'data', 'projects.json');
+    console.log('🔍 Projects file path:', dataPath);
     if (fsSync.existsSync(dataPath)) {
       const data = fsSync.readFileSync(dataPath, 'utf8');
-      return JSON.parse(data);
+      const parsed = JSON.parse(data);
+      console.log('🔍 Projects data loaded:', Object.keys(parsed).length, 'users');
+      return parsed;
     }
+    console.log('🔍 Projects file not found at:', dataPath);
     return {};
   } catch (error) {
     console.error('Error reading projects data:', error);

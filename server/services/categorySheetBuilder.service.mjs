@@ -1,0 +1,166 @@
+/**
+ * Builds category sheets with proper 3-row header structure matching actual CA format
+ */
+
+/**
+ * Standard questions for Detailed Message Review section
+ */
+const STANDARD_DETAIL_QUESTIONS = [
+  'Initial thoughts/ perceptions?',
+  'Attention-grabbing language? Anything unclear?',
+  'How motivating is this statement? Differentiating? Believable?',
+  'Thoughts on headline/ subhead? Work together? Add value?',
+  'Patient type? Resonate with naïve/Evrysdi/ Spinraza users?',
+  'Anything to change? Headline/ subhead switches?'
+];
+
+/**
+ * Build a category sheet structure with single header row
+ * @param {Object} category - Category info {category, categoryName, messages: [{label, headline, subhead}]}
+ * @returns {Array<Array>} - Array of rows, first row is header
+ */
+export function buildCategorySheet(category) {
+  const rows = [];
+
+  // Initialize single header row
+  const headerRow = [];
+
+  // METADATA COLUMNS
+  headerRow.push('respno');
+
+  // SECTION 1: INITIAL RANKING & IMPRESSIONS
+  headerRow.push('Overall reaction? Any surprising/new information?');
+  headerRow.push('Why did you rank them in this order?');
+  headerRow.push('MOST preferred explanation?');
+  headerRow.push('LEAST preferred explanation?');
+
+  // Empty column
+  headerRow.push('');
+
+  // SECTION 2: DETAILED MESSAGE REVIEW
+  // For each message, add all standard detail questions
+  category.messages.forEach((msg, msgIdx) => {
+    STANDARD_DETAIL_QUESTIONS.forEach((question, qIdx) => {
+      headerRow.push(`${msg.label}: ${question}`);
+    });
+  });
+
+  // Empty column
+  headerRow.push('');
+
+  // SECTION 3: MESSAGE RANKING
+  category.messages.forEach((msg, idx) => {
+    headerRow.push(`MESSAGE RANKING: ${msg.label}`);
+  });
+
+  // Empty column
+  headerRow.push('');
+
+  // SECTION 4: MESSAGE RATINGS
+  // For each message: Motivation + Differentiation
+  category.messages.forEach((msg, msgIdx) => {
+    headerRow.push(`${msg.label}: Motivation to prescribe? (7-point scale)`);
+    headerRow.push(`${msg.label}: Differentiation (7-point scale)`);
+  });
+
+  // Rating explanations
+  headerRow.push('Rating explanations');
+
+  // Empty column
+  headerRow.push('');
+
+  // SECTION 5: OVERALL IMPRESSIONS
+  headerRow.push('Main takeaway? Comparison to other SMA treatments?');
+  headerRow.push('Capture main idea of the category? Match importance?');
+
+  // Empty column
+  headerRow.push('');
+
+  headerRow.push('Miscellaneous');
+
+  // Add header row to output
+  rows.push(headerRow);
+
+  // Add template data rows (3-5 empty rows for manual entry)
+  for (let i = 0; i < 3; i++) {
+    const dataRow = new Array(headerRow.length).fill('');
+    rows.push(dataRow);
+  }
+
+  return rows;
+}
+
+/**
+ * Get flattened column names for transcript filling (no hierarchy, just the leaf column names)
+ * @param {Array<Array>} sheetData - The 3-row header sheet data
+ * @returns {Array<string>} - Array of column names
+ */
+export function getColumnNamesFromSheet(sheetData) {
+  if (!sheetData || sheetData.length < 3) return [];
+
+  const headerRow1 = sheetData[0];
+  const headerRow2 = sheetData[1];
+  const headerRow3 = sheetData[2];
+
+  const columns = [];
+
+  for (let i = 0; i < headerRow3.length; i++) {
+    // Build hierarchical column name for clarity
+    const parts = [];
+
+    if (headerRow1[i]) parts.push(headerRow1[i]);
+    if (headerRow2[i]) parts.push(headerRow2[i]);
+    if (headerRow3[i]) parts.push(headerRow3[i]);
+
+    // Use the most specific name available, or construct from parts
+    if (parts.length === 0) {
+      columns.push(''); // Empty column
+    } else if (parts.length === 1) {
+      columns.push(parts[0]);
+    } else {
+      // For multi-level, use the last part as primary but keep context
+      // E.g., "C-W" under "MESSAGE RANKING" becomes "C-W (MESSAGE RANKING)"
+      // Or "Initial thoughts/ perceptions?" under "C-W" under "Detailed Message Review"
+      // becomes "C-W: Initial thoughts/ perceptions?"
+
+      if (parts.length === 2) {
+        columns.push(`${parts[1]} (${parts[0]})`);
+      } else if (parts.length === 3) {
+        // For 3 levels: Section > Message > Question
+        // E.g., "Detailed Message Review > C-W > Initial thoughts?"
+        columns.push(`${parts[1]}: ${parts[2]}`);
+      } else {
+        columns.push(parts.join(' > '));
+      }
+    }
+  }
+
+  return columns;
+}
+
+/**
+ * Build all standard sheets for non-message-testing CA
+ * @param {string} dgText - Discussion guide text
+ * @returns {Object} - Sheet name -> array of rows
+ */
+export function buildStandardSheets(dgText) {
+  // For now, return empty structure - this would be filled by AI analysis of DG
+  return {
+    'Demographics': [
+      ['Respondent ID', 'Interview Date', 'Interview Time', 'Specialty'],
+      ['', '', '', ''],
+      ['', '', '', '']
+    ],
+    'Background & SMA Management': [
+      ['', '', '', '', '', 'Background', '', '', '', 'Current Treatment Practices'],
+      // ... more rows would be generated by AI
+    ]
+  };
+}
+
+export default {
+  buildCategorySheet,
+  getColumnNamesFromSheet,
+  buildStandardSheets,
+  STANDARD_DETAIL_QUESTIONS
+};

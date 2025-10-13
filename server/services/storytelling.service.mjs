@@ -396,6 +396,34 @@ Return your response as a JSON object with this structure:
  * @param {string} quoteLevel - none/few/moderate/many
  * @returns {Promise<object>} - Answer with quotes and insights
  */
+async function findAnalysisIdForProject(projectId) {
+  try {
+    const CAX_PATH = path.join(process.env.DATA_DIR || '/server/data', 'savedAnalyses.json');
+    const caDataContent = await fs.readFile(CAX_PATH, 'utf8');
+    const caData = JSON.parse(caDataContent);
+    
+    const analysis = caData.find(ca => ca.projectId === projectId);
+    return analysis ? analysis.id : null;
+  } catch (error) {
+    console.error('Error finding analysis ID for project:', error);
+    return null;
+  }
+}
+
+async function generateQuotesForQuestion(analysisId, question, caDataObj) {
+  try {
+    const quotes = [];
+    
+    // For now, return empty array - this would need to be implemented
+    // to generate quotes on-demand for specific questions
+    console.log('🔍 Quote generation for question not yet implemented');
+    return quotes;
+  } catch (error) {
+    console.error('Error generating quotes for question:', error);
+    return [];
+  }
+}
+
 export async function answerQuestion(projectId, question, transcriptsText, caDataObj, existingFindings = null, detailLevel = 'moderate', quoteLevel = 'moderate') {
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
