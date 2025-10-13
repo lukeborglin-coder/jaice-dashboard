@@ -87,17 +87,7 @@ async function generateQuotesForCell(analysisId, respondentId, columnName, sheet
 function cleanQuoteText(quoteText) {
   if (!quoteText || typeof quoteText !== 'string') return '';
   
-  console.log(`🔍 Cleaning quote: "${quoteText.substring(0, 100)}..."`);
-  
-  // Check if this is a moderator question (starts with question words)
-  const isModeratorQuestion = /^(Moderator|Interviewer|Facilitator|Researcher):\s*(What|How|When|Where|Why|Do|Are|Have|Can|Would|Could|If|Tell me|Can you|What do you think|How do you feel)/i.test(quoteText);
-  
-  if (isModeratorQuestion) {
-    console.log(`🔍 Skipping moderator question: "${quoteText.substring(0, 50)}..."`);
-    return '';
-  }
-  
-  // Remove common speaker labels
+  // Simply remove speaker labels - let AI decide what's relevant
   let cleaned = quoteText
     .replace(/^(Respondent|Interviewer|Moderator|Facilitator|Researcher):\s*/i, '')
     .replace(/^R\d+:\s*/i, '') // Remove R01:, R02:, etc.
@@ -108,77 +98,17 @@ function cleanQuoteText(quoteText) {
   // Remove trailing speaker labels
   cleaned = cleaned.replace(/\s*\(Respondent|Interviewer|Moderator|Facilitator|Researcher\)$/i, '');
   
-  // Check if the cleaned text is still a question or too short
-  if (cleaned.length < 30 || cleaned.endsWith('?')) {
-    console.log(`🔍 Skipping short text or question: "${cleaned}"`);
-    return '';
-  }
-  
-  console.log(`🔍 Cleaned quote: "${cleaned.substring(0, 100)}..."`);
-  
   return cleaned;
 }
 
-// Check if a quote is relevant to the specific question
+// Check if a quote is relevant to the specific question - simplified to let AI decide
 function isQuoteRelevantToQuestion(quoteText, question) {
-  const quoteLower = quoteText.toLowerCase();
-  const questionLower = question.toLowerCase();
+  // Just basic filtering - let AI do the intelligent selection
+  if (!quoteText || quoteText.trim().length < 10) return false;
   
-  // Skip if it's clearly a moderator question
-  if (quoteLower.startsWith('what') || quoteLower.startsWith('how') || quoteLower.startsWith('when') || 
-      quoteLower.startsWith('where') || quoteLower.startsWith('why') || quoteLower.startsWith('do you') ||
-      quoteLower.startsWith('are you') || quoteLower.startsWith('have you') || quoteLower.startsWith('can you') ||
-      quoteLower.startsWith('would you') || quoteLower.startsWith('could you') || quoteLower.startsWith('if ') ||
-      quoteLower.startsWith('tell me') || quoteLower.startsWith('what do you think') || quoteLower.startsWith('how do you feel')) {
-    return false;
-  }
+  // Only exclude obvious non-content (empty or just punctuation)
+  if (quoteText.trim().length < 10) return false;
   
-  // Extract key terms from the question
-  const questionWords = questionLower
-    .split(/\s+/)
-    .filter(word => word.length > 3)
-    .map(word => word.replace(/[^\w]/g, '')); // Remove punctuation
-  
-  // Define question-specific keywords for better matching
-  const questionKeywords = {
-    'barriers': ['barrier', 'obstacle', 'challenge', 'difficulty', 'problem', 'issue', 'hinder', 'prevent', 'stop', 'block', 'hard', 'tough', 'struggle', 'can\'t', 'cannot', 'unable', 'won\'t', 'refuse', 'avoid', 'skip', 'miss'],
-    'treatment': ['treatment', 'therapy', 'medication', 'drug', 'medicine', 'care', 'medical', 'healthcare', 'evrysdi', 'spinraza', 'zolgensma'],
-    'cost': ['cost', 'price', 'expensive', 'afford', 'insurance', 'money', 'financial', 'pay', 'budget', 'cheap', 'free', 'covered', 'coverage'],
-    'benefits': ['benefit', 'help', 'improve', 'effective', 'work', 'useful', 'value', 'worth', 'good', 'bad', 'better', 'worse', 'improvement', 'progress'],
-    'access': ['access', 'available', 'get', 'obtain', 'find', 'reach', 'available', 'doctor', 'specialist', 'visit', 'appointment'],
-    'decision': ['decide', 'choice', 'choose', 'consider', 'think', 'opinion', 'view', 'believe', 'feel', 'want', 'need']
-  };
-  
-  // Get relevant keywords based on question content
-  const relevantKeywords = [];
-  for (const [key, keywords] of Object.entries(questionKeywords)) {
-    if (questionLower.includes(key)) {
-      relevantKeywords.push(...keywords);
-    }
-  }
-  
-  // For barriers questions, look for specific barrier-related content
-  if (questionLower.includes('barrier')) {
-    const barrierKeywords = ['cost', 'expensive', 'afford', 'insurance', 'money', 'financial', 'doctor', 'visit', 'appointment', 'specialist', 'benefit', 'help', 'work', 'effective', 'discontinued', 'stopped', 'quit', 'concerned', 'worried', 'scared', 'afraid', 'intimidating', 'injection', 'injection', 'pain', 'side effect'];
-    const hasBarrierContent = barrierKeywords.some(keyword => quoteLower.includes(keyword));
-    if (hasBarrierContent) return true;
-  }
-  
-  // If we have specific keywords, check for them
-  if (relevantKeywords.length > 0) {
-    const hasRelevantKeyword = relevantKeywords.some(keyword => quoteLower.includes(keyword));
-    if (hasRelevantKeyword) return true;
-  }
-  
-  // Fallback to general word matching
-  const hasQuestionWords = questionWords.some(word => quoteLower.includes(word));
-  
-  // For very specific questions, require at least some word match
-  if (questionWords.length > 0) {
-    return hasQuestionWords;
-  }
-  
-  // For general questions, be more lenient
   return true;
 }
 
@@ -248,10 +178,10 @@ function extractVerbatimQuotes(verbatimQuotesData, question) {
     }
   }
   
-  // Remove duplicates and return up to 10 most relevant quotes
+  // Remove duplicates and return more quotes for AI to choose from
   const uniqueQuotes = [...new Set(allQuotes)];
   console.log(`🔍 Extracted ${uniqueQuotes.length} unique verbatim quotes`);
-  return uniqueQuotes.slice(0, 10);
+  return uniqueQuotes.slice(0, 20); // Give AI more options to choose from
 }
 
 /**
@@ -620,7 +550,10 @@ Guidelines:
 - Provide actionable insights when possible
 - Do NOT include quotes in your answer text - quotes will be provided separately
 - Focus on analysis, insights, and findings without embedding quotes
-- Base your analysis on the provided data but present it as clean analysis text`;
+- Base your analysis on the provided data but present it as clean analysis text
+- When selecting quotes, choose only those that directly support and strengthen your answer
+- Prioritize respondent answers over moderator questions
+- Select quotes that provide specific evidence for the points you make in your answer`;
 
   let contextSection = '';
   if (existingFindings && existingFindings.findings) {
@@ -628,7 +561,11 @@ Guidelines:
   }
 
   const quotesSection = realQuotes.length > 0 
-    ? `\n\nRELEVANT VERBATIM QUOTES:\n${realQuotes.map((q, i) => `${i + 1}. "${q}"`).join('\n')}`
+    ? `\n\nAVAILABLE VERBATIM QUOTES (select the most relevant ones that directly support your answer):
+${realQuotes.map((q, i) => `${i + 1}. "${q}"`).join('\n')}
+
+IMPORTANT: Select only the quotes that directly support and strengthen your answer. Choose quotes that provide specific evidence for the points you make. Do not include moderator questions or irrelevant content.`
+
     : '';
 
   // Use only content analysis data, no transcripts
@@ -643,7 +580,7 @@ Return your response as a JSON object with this structure:
 {
   "question": "${question}",
   "answer": "your answer here",
-  "quotes": ["supporting quote 1", "supporting quote 2"],
+  "quotes": ["select only the most relevant quotes that directly support your answer"],
   "confidence": "high/medium/low",
   "note": "any caveats or additional context"
 }`;
