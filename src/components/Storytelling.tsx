@@ -73,7 +73,7 @@ function formatQuoteText(text: string) {
       // Multiple speakers on same line - split them
       let lastIndex = 0;
       matches.forEach((match, matchIndex) => {
-        const speaker = match[1];
+      const speaker = match[1];
         const startPos = match.index!;
         const endPos = matchIndex < matches.length - 1 ? matches[matchIndex + 1].index! : line.length;
         const content = line.substring(startPos + match[0].length, endPos).trim();
@@ -87,8 +87,8 @@ function formatQuoteText(text: string) {
         allElements.push(
           <React.Fragment key={key++}>
             <strong>{speaker.charAt(0).toUpperCase() + speaker.slice(1).toLowerCase()}:</strong> <em>{content}</em>
-          </React.Fragment>
-        );
+        </React.Fragment>
+      );
       });
     } else if (matches.length === 1) {
       // Single speaker on line
@@ -105,9 +105,9 @@ function formatQuoteText(text: string) {
       // No speaker pattern - regular text
       allElements.push(
         <React.Fragment key={key++}>
-          {line}
-        </React.Fragment>
-      );
+        {line}
+      </React.Fragment>
+    );
     }
     
     // Add line break between different lines
@@ -252,6 +252,8 @@ interface StorytellingProps {
 
 export default function Storytelling({ analysisId, projectId }: StorytellingProps) {
   const { user } = useAuth();
+  
+  console.log('🎭 Storytelling component props:', { analysisId, projectId });
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [activeTab, setActiveTab] = useState<'key-findings' | 'storyboard' | 'ask'>('key-findings');
@@ -336,6 +338,8 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
         ? `${API_BASE_URL}/api/storytelling/${projectId}?analysisId=${analysisId}`
         : `${API_BASE_URL}/api/storytelling/${projectId}`;
       
+      console.log('🎭 Loading storytelling data:', { projectId, analysisId, url });
+      
       const response = await fetch(url, {
         headers: getAuthHeaders()
       });
@@ -363,7 +367,7 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
       const project = projects.find(p => p.id === projectId);
       if (project) {
         setSelectedProject(project);
-      }
+    }
     }
   }, [selectedProject, projectId, projects]);
 
@@ -515,7 +519,7 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
           ...getAuthHeaders(),
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ question: currentQuestion, detailLevel })
+        body: JSON.stringify({ question: currentQuestion, detailLevel, analysisId })
       });
 
       if (response.ok) {
@@ -798,16 +802,16 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Generate New Storyboard</h3>
 
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Detail Level</label>
-                  <select
-                    value={detailLevel}
-                    onChange={e => setDetailLevel(e.target.value as any)}
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Detail Level</label>
+                    <select
+                      value={detailLevel}
+                      onChange={e => setDetailLevel(e.target.value as any)}
                     className="w-full max-w-xs border border-gray-300 rounded px-3 py-2 text-sm"
-                  >
-                    <option value="straightforward">Straightforward</option>
-                    <option value="moderate">Moderate</option>
-                    <option value="max">Max Detail</option>
-                  </select>
+                    >
+                      <option value="straightforward">Straightforward</option>
+                      <option value="moderate">Moderate</option>
+                      <option value="max">Max Detail</option>
+                    </select>
                 </div>
 
                 <button
