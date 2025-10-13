@@ -14,175 +14,10 @@ function estimateTokens(text) {
   return Math.ceil(text.length / 4);
 }
 
-// Extract relevant verbatim quotes from content analysis data based on question
-function extractRelevantQuotes(quotesData, question) {
-  if (!quotesData || typeof quotesData !== 'object') return [];
-  
-  const allQuotes = [];
-  const questionLower = question.toLowerCase();
-  
-  // Extract verbatim quotes from all sheets and respondents
-  for (const [sheetName, sheetQuotes] of Object.entries(quotesData)) {
-    if (!sheetQuotes || typeof sheetQuotes !== 'object') continue;
-    
-    for (const [respondentId, respondentQuotes] of Object.entries(sheetQuotes)) {
-      if (!respondentQuotes || typeof respondentQuotes !== 'object') continue;
-      
-      for (const [columnName, columnQuotes] of Object.entries(respondentQuotes)) {
-        if (!Array.isArray(columnQuotes)) continue;
-        
-        // Filter quotes that might be relevant to the question
-        for (const quote of columnQuotes) {
-          if (typeof quote === 'string' && quote.trim()) {
-            const quoteLower = quote.toLowerCase();
-            // Simple relevance check - look for key terms from the question
-            const questionWords = questionLower.split(/\s+/).filter(word => word.length > 3);
-            const hasRelevantTerms = questionWords.some(word => quoteLower.includes(word));
-            
-            if (hasRelevantTerms || questionWords.length === 0) {
-              allQuotes.push(quote.trim());
-            }
-          }
-        }
-      }
-    }
-  }
-  
-  // Remove duplicates and return up to 10 most relevant quotes
-  const uniqueQuotes = [...new Set(allQuotes)];
-  return uniqueQuotes.slice(0, 10);
-}
 
-// Generate quotes on-demand for specific cells (same as content analysis)
-async function generateQuotesForCell(analysisId, respondentId, columnName, sheetName, keyFinding) {
-  try {
-    const response = await fetch(`${process.env.API_BASE_URL || 'http://localhost:3005'}/api/content-analysis/get-verbatim-quotes`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        analysisId,
-        respondentId,
-        columnName,
-        sheetName,
-        keyFinding
-      })
-    });
 
-    if (!response.ok) {
-      console.error(`Failed to generate quotes for ${respondentId} - ${columnName}:`, response.status);
-      return [];
-    }
 
-    const result = await response.json();
-    return result.quotes || [];
-  } catch (error) {
-    console.error('Error generating quotes for cell:', error);
-    return [];
-  }
-}
 
-// Clean quote text by removing speaker labels and formatting
-function cleanQuoteText(quoteText) {
-  if (!quoteText || typeof quoteText !== 'string') return '';
-  
-  // Simply remove speaker labels - let AI decide what's relevant
-  let cleaned = quoteText
-    .replace(/^(Respondent|Interviewer|Moderator|Facilitator|Researcher):\s*/i, '')
-    .replace(/^R\d+:\s*/i, '') // Remove R01:, R02:, etc.
-    .replace(/^\[.*?\]\s*/g, '') // Remove [bracketed content]
-    .replace(/^\(.*?\)\s*/g, '') // Remove (parenthetical content) at start
-    .trim();
-  
-  // Remove trailing speaker labels
-  cleaned = cleaned.replace(/\s*\(Respondent|Interviewer|Moderator|Facilitator|Researcher\)$/i, '');
-  
-  return cleaned;
-}
-
-// Check if a quote is relevant to the specific question - simplified to let AI decide
-function isQuoteRelevantToQuestion(quoteText, question) {
-  // Just basic filtering - let AI do the intelligent selection
-  if (!quoteText || quoteText.trim().length < 10) return false;
-  
-  // Only exclude obvious non-content (empty or just punctuation)
-  if (quoteText.trim().length < 10) return false;
-  
-  return true;
-}
-
-// Extract verbatim quotes from the verbatimQuotes structure (same as content analysis popups)
-function extractVerbatimQuotes(verbatimQuotesData, question) {
-  if (!verbatimQuotesData || typeof verbatimQuotesData !== 'object') return [];
-  
-  const allQuotes = [];
-  const questionLower = question.toLowerCase();
-  
-  console.log('🔍 Extracting verbatim quotes for question:', question);
-  console.log('🔍 Verbatim quotes data keys:', Object.keys(verbatimQuotesData));
-  
-  // Extract verbatim quotes from the same structure used by content analysis popups
-  for (const [sheetName, sheetQuotes] of Object.entries(verbatimQuotesData)) {
-    if (!sheetQuotes || typeof sheetQuotes !== 'object') continue;
-    
-    for (const [respondentId, respondentQuotes] of Object.entries(sheetQuotes)) {
-      if (!respondentQuotes || typeof respondentQuotes !== 'object') continue;
-      
-      for (const [columnName, quoteData] of Object.entries(respondentQuotes)) {
-        if (!quoteData || !Array.isArray(quoteData.quotes)) continue;
-        
-        // Filter quotes that might be relevant to the question and are respondent direct quotes
-        for (const quote of quoteData.quotes) {
-          if (quote && typeof quote.text === 'string' && quote.text.trim()) {
-            let quoteText = quote.text.trim();
-            
-            // Clean up the quote text - remove speaker labels and formatting
-            quoteText = cleanQuoteText(quoteText);
-            
-            if (quoteText.length < 30) continue; // Skip very short quotes
-            
-            const quoteLower = quoteText.toLowerCase();
-            
-            // Filter out speaker notes and non-respondent content
-            const isSpeakerNote = 
-              quoteLower.startsWith('interviewer:') ||
-              quoteLower.startsWith('moderator:') ||
-              quoteLower.startsWith('facilitator:') ||
-              quoteLower.startsWith('researcher:') ||
-              quoteLower.startsWith('note:') ||
-              quoteLower.startsWith('observation:') ||
-              quoteLower.startsWith('respondent:') ||
-              quoteLower.startsWith('[') && quoteLower.endsWith(']') ||
-              quoteLower.includes('(laughs)') ||
-              quoteLower.includes('(pauses)') ||
-              quoteLower.includes('(coughs)') ||
-              quoteLower.includes('(inaudible)') ||
-              quoteLower.includes('(unclear)') ||
-              quoteLower.includes('(background noise)') ||
-              quoteLower.includes('respondent:') ||
-              quoteText.length < 30;
-            
-            if (!isSpeakerNote) {
-              // Check relevance to the specific question
-              const isRelevant = isQuoteRelevantToQuestion(quoteText, question);
-              
-              if (isRelevant) {
-                allQuotes.push(quoteText);
-                console.log(`🔍 Added relevant quote from ${respondentId} - ${columnName}: ${quoteText.substring(0, 50)}...`);
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-  
-  // Remove duplicates and return more quotes for AI to choose from
-  const uniqueQuotes = [...new Set(allQuotes)];
-  console.log(`🔍 Extracted ${uniqueQuotes.length} unique verbatim quotes`);
-  return uniqueQuotes.slice(0, 20); // Give AI more options to choose from
-}
 
 /**
  * Estimate cost for a storytelling operation
@@ -274,9 +109,9 @@ Your task is to analyze transcripts and content analysis data to answer strategi
 Guidelines:
 - Be concise and actionable
 - Focus on the "why" and "so what" - surface insights, not just observations
-- Support answers with brief quote excerpts when relevant (keep quotes to 1-2 sentences)
 - Identify patterns, themes, and contradictions
-- Highlight surprising or unexpected findings`;
+- Highlight surprising or unexpected findings
+- Present findings as clear analysis without including direct quotes`;
 
   const userPrompt = `Analyze the following research data and answer each strategic question.
 
@@ -291,16 +126,14 @@ ${JSON.stringify(caDataObj.data, null, 2).substring(0, 20000)} ${JSON.stringify(
 
 For each question, provide:
 1. A clear, concise answer (2-4 sentences)
-2. Supporting quotes (1-3 brief excerpts)
-3. Key insight or recommendation
+2. Key insight or recommendation
 
 Return your response as a JSON object with this structure:
 {
   "findings": [
     {
       "question": "the question text",
-      "answer": "concise answer",
-      "quotes": ["quote 1", "quote 2"],
+      "answer": "concise answer with analysis and findings",
       "insight": "key takeaway or recommendation"
     }
   ]
@@ -353,13 +186,13 @@ export async function generateStoryboard(projectId, transcriptsText, caDataObj, 
     detailInstruction = 'Provide comprehensive detail with deep analysis and context.';
   }
 
-  let quoteInstruction = 'Include a moderate number of relevant quotes (2-4 per section).';
+  let quoteInstruction = 'Focus on synthesized findings and analysis without including direct quotes.';
   if (quoteLevel === 'none') {
-    quoteInstruction = 'Do not include any quotes. Focus on synthesized findings only.';
+    quoteInstruction = 'Focus on synthesized findings only without any quotes.';
   } else if (quoteLevel === 'few') {
-    quoteInstruction = 'Include a few key quotes (1-2 per section) for critical points only.';
+    quoteInstruction = 'Focus on synthesized findings with minimal illustrative examples.';
   } else if (quoteLevel === 'many') {
-    quoteInstruction = 'Include many supporting quotes (5-8 per section) to richly illustrate findings.';
+    quoteInstruction = 'Focus on comprehensive synthesized findings with detailed analysis.';
   }
 
   const systemPrompt = `You are a senior qualitative research analyst creating a professional research storyboard.
@@ -372,7 +205,8 @@ Style Guidelines:
 - Use clear headers and bullet points
 - Present findings in a logical narrative flow
 - Highlight key themes, patterns, and insights
-- Note contradictions and nuances`;
+- Note contradictions and nuances
+- Focus on analysis and synthesis rather than direct quotes`;
 
   const userPrompt = `Create a research storyboard from the following data.
 
@@ -396,7 +230,7 @@ Return your response as a JSON object with this structure:
   "sections": [
     {
       "title": "section title",
-      "content": "markdown formatted content with headers, bullets, and quotes in italics"
+      "content": "markdown formatted content with headers, bullets, and analysis"
     }
   ]
 }`;
@@ -453,94 +287,9 @@ async function findAnalysisIdForProject(projectId) {
   }
 }
 
-async function generateQuotesForQuestion(analysisId, question, caDataObj) {
-  try {
-    console.log('🔍 Generating quotes on-demand for question:', question);
-    
-    // Extract quotes directly from the content analysis data
-    const allQuotes = [];
-    const questionLower = question.toLowerCase();
-    
-    // Look through all data sheets and find relevant quotes
-    if (caDataObj.data) {
-      for (const [sheetName, sheetData] of Object.entries(caDataObj.data)) {
-        if (Array.isArray(sheetData)) {
-          for (const row of sheetData) {
-            if (row && typeof row === 'object') {
-              const respondentId = row['Respondent ID'] || row['respno'] || row['ID'] || row['id'];
-              if (respondentId && respondentId.trim() !== '' && respondentId.trim() !== 'Respondent ID') {
-                // For each column in the row, extract relevant content as quotes
-                for (const [columnName, cellValue] of Object.entries(row)) {
-                  if (columnName !== 'Respondent ID' && columnName !== 'respno' && columnName !== 'ID' && columnName !== 'id' && 
-                      typeof cellValue === 'string' && cellValue.trim() !== '') {
-                    
-                    // Check if this cell content might be relevant to the question
-                    const cellLower = cellValue.toLowerCase();
-                    const questionWords = questionLower.split(/\s+/).filter(word => word.length > 3);
-                    const hasRelevantTerms = questionWords.some(word => cellLower.includes(word));
-                    
-                    if (hasRelevantTerms || questionWords.length === 0) {
-                      // Clean and filter the cell content as a potential quote
-                      const cleanedQuote = cleanQuoteText(cellValue);
-                      if (cleanedQuote.length >= 50 && isQuoteRelevantToQuestion(cleanedQuote, question)) {
-                        allQuotes.push(cleanedQuote);
-                        console.log(`🔍 Added quote from ${respondentId} - ${columnName}: ${cleanedQuote.substring(0, 50)}...`);
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-    
-    // Remove duplicates and return up to 10 most relevant quotes
-    const uniqueQuotes = [...new Set(allQuotes)];
-    console.log(`🔍 Generated ${uniqueQuotes.length} quotes for question`);
-    return uniqueQuotes.slice(0, 10);
-  } catch (error) {
-    console.error('Error generating quotes for question:', error);
-    return [];
-  }
-}
 
 export async function answerQuestion(projectId, question, transcriptsText, caDataObj, existingFindings = null, detailLevel = 'moderate', quoteLevel = 'moderate') {
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-  // Let AI search through the content analysis data to find relevant quotes
-  let realQuotes = [];
-  
-  // Extract all available quotes from content analysis data
-  if (caDataObj.data) {
-    const allQuotes = [];
-    
-    for (const [sheetName, sheetData] of Object.entries(caDataObj.data)) {
-      if (Array.isArray(sheetData)) {
-        for (const row of sheetData) {
-          if (row && typeof row === 'object') {
-            const respondentId = row['Respondent ID'] || row['respno'] || row['ID'] || row['id'];
-            if (respondentId && respondentId.trim() !== '' && respondentId.trim() !== 'Respondent ID') {
-              // Collect all cell content as potential quotes
-              for (const [columnName, cellValue] of Object.entries(row)) {
-                if (columnName !== 'Respondent ID' && columnName !== 'respno' && columnName !== 'ID' && columnName !== 'id' && 
-                    typeof cellValue === 'string' && cellValue.trim() !== '') {
-                  const cleanedQuote = cleanQuoteText(cellValue);
-                  if (cleanedQuote.length > 20) {
-                    allQuotes.push(cleanedQuote);
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-    
-    realQuotes = [...new Set(allQuotes)]; // Remove duplicates
-    console.log(`🔍 Found ${realQuotes.length} total quotes from content analysis data`);
-  }
   
   let detailInstruction = 'Provide a moderate level of detail.';
   if (detailLevel === 'straightforward') {
@@ -549,13 +298,13 @@ export async function answerQuestion(projectId, question, transcriptsText, caDat
     detailInstruction = 'Provide comprehensive detail and context.';
   }
 
-  let quoteInstruction = 'Include a moderate number of supporting quotes.';
+  let quoteInstruction = 'Focus on synthesized analysis and findings without including direct quotes.';
   if (quoteLevel === 'none') {
-    quoteInstruction = 'Do not include quotes. Provide synthesized answer only.';
+    quoteInstruction = 'Provide synthesized answer only without any quotes.';
   } else if (quoteLevel === 'few') {
-    quoteInstruction = 'Include just a few key quotes.';
+    quoteInstruction = 'Focus on synthesized analysis with minimal illustrative examples.';
   } else if (quoteLevel === 'many') {
-    quoteInstruction = 'Include many supporting quotes to richly illustrate the answer.';
+    quoteInstruction = 'Provide comprehensive synthesized analysis with detailed findings.';
   }
 
   const systemPrompt = `You are a senior qualitative research analyst answering questions about research findings.
@@ -565,12 +314,9 @@ Guidelines:
 - Be clear, accurate, and evidence-based
 - Note when data is insufficient to answer fully
 - Provide actionable insights when possible
-- Do NOT include quotes in your answer text - quotes will be provided separately
-- Focus on analysis, insights, and findings without embedding quotes
-- Base your analysis on the provided data but present it as clean analysis text
-- When selecting quotes, choose only those that directly support and strengthen your answer
-- Prioritize respondent answers over moderator questions
-- Select quotes that provide specific evidence for the points you make in your answer`;
+- Focus on analysis, insights, and findings without including direct quotes
+- Base your analysis on the provided data and present it as clean analysis text
+- Synthesize findings into clear, actionable insights`;
 
   let contextSection = '';
   if (existingFindings && existingFindings.findings) {
@@ -585,13 +331,10 @@ QUESTION: ${question}
 CONTENT ANALYSIS DATA:
 ${JSON.stringify(caDataObj.data, null, 2).substring(0, 30000)} ${JSON.stringify(caDataObj.data).length > 30000 ? '...[truncated]' : ''}${contextSection}
 
-IMPORTANT: Search through the content analysis data above to find specific quotes that directly support your answer. Look for respondent responses (not moderator questions) that provide evidence for the points you make. Select 2-4 of the most relevant quotes that strengthen your answer.
-
 Return your response as a JSON object with this structure:
 {
   "question": "${question}",
-  "answer": "your answer here",
-  "quotes": ["search through the data and select the most relevant quotes that directly support your answer"],
+  "answer": "your synthesized analysis and findings here",
   "confidence": "high/medium/low",
   "note": "any caveats or additional context"
 }`;
@@ -607,9 +350,6 @@ Return your response as a JSON object with this structure:
   });
 
   const result = JSON.parse(response.choices[0].message.content);
-
-  // AI has already selected the most relevant quotes from the data
-  console.log(`🔍 AI selected ${result.quotes ? result.quotes.length : 0} quotes for the response`);
 
   // Log cost
   if (response.usage) {

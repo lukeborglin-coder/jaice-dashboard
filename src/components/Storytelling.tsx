@@ -29,7 +29,6 @@ interface Project {
 interface Finding {
   question: string;
   answer: string;
-  quotes: string[];
   insight: string;
 }
 
@@ -49,10 +48,14 @@ interface ChatMessage {
   id: string;
   question: string;
   answer: string;
-  quotes?: string[];
   confidence?: string;
   note?: string;
   timestamp: string;
+}
+
+interface VerbatimQuote {
+  text: string;
+  context: string;
 }
 
 export default function Storytelling() {
@@ -84,6 +87,13 @@ export default function Storytelling() {
   const [quoteLevel, setQuoteLevel] = useState<'none' | 'few' | 'moderate' | 'many'>('moderate');
   const [currentQuestion, setCurrentQuestion] = useState('');
   const [showOldStoryboards, setShowOldStoryboards] = useState(false);
+  
+  // Quotes modal state
+  const [showQuotesModal, setShowQuotesModal] = useState(false);
+  const [selectedAnswer, setSelectedAnswer] = useState<ChatMessage | null>(null);
+  const [quotes, setQuotes] = useState<VerbatimQuote[]>([]);
+  const [loadingQuotes, setLoadingQuotes] = useState(false);
+  const [quotesError, setQuotesError] = useState<string | null>(null);
 
   const qualProjects = useMemo(
     () => {
@@ -345,6 +355,40 @@ export default function Storytelling() {
     }
   };
 
+  const handleAnswerClick = async (message: ChatMessage) => {
+    setSelectedAnswer(message);
+    setShowQuotesModal(true);
+    setLoadingQuotes(true);
+    setQuotesError(null);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/storytelling/${selectedProject?.id}/quotes`, {
+        method: 'POST',
+        headers: {
+          ...getAuthHeaders(),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          question: message.question,
+          answer: message.answer
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setQuotes(data.quotes || []);
+      } else {
+        const errorData = await response.json();
+        setQuotesError(errorData.error || 'Failed to fetch quotes');
+      }
+    } catch (error) {
+      console.error('Error fetching quotes:', error);
+      setQuotesError('Network error while fetching quotes');
+    } finally {
+      setLoadingQuotes(false);
+    }
+  };
+
   if (selectedProject) {
     return (
       <main className="flex-1 overflow-y-auto" style={{ backgroundColor: BRAND_BG }}>
@@ -487,13 +531,6 @@ export default function Storytelling() {
                     <div key={idx} className="bg-white shadow-sm border border-gray-200 rounded-lg p-6">
                       <h4 className="font-semibold text-gray-900 mb-2">{finding.question}</h4>
                       <p className="text-sm text-gray-700 mb-3">{finding.answer}</p>
-                      {finding.quotes && finding.quotes.length > 0 && (
-                        <div className="border-l-4 border-gray-300 pl-4 mb-3 space-y-2">
-                          {finding.quotes.map((quote, qidx) => (
-                            <p key={qidx} className="text-sm italic text-gray-600">"{quote}"</p>
-                          ))}
-                        </div>
-                      )}
                       {finding.insight && (
                         <div className="mt-3 p-3 bg-orange-50 rounded">
                           <p className="text-sm font-medium" style={{ color: BRAND_ORANGE }}>
@@ -648,14 +685,16 @@ export default function Storytelling() {
                 {chatHistory.slice().reverse().map(msg => (
                   <div key={msg.id} className="bg-white shadow-sm border border-gray-200 rounded-lg p-6">
                     <p className="font-semibold text-gray-900 mb-2">Q: {msg.question}</p>
-                    <p className="text-sm text-gray-700 mb-3">A: {msg.answer}</p>
-                    {msg.quotes && msg.quotes.length > 0 && (
-                      <div className="border-l-4 border-gray-300 pl-4 mb-3 space-y-1">
-                        {msg.quotes.map((quote, idx) => (
-                          <p key={idx} className="text-xs italic text-gray-600">"{quote}"</p>
-                        ))}
+                    <div 
+                      className="text-sm text-gray-700 mb-3 cursor-pointer hover:bg-gray-50 p-2 rounded border-l-4 border-transparent hover:border-orange-300 transition-colors"
+                      onClick={() => handleAnswerClick(msg)}
+                      title="Click to view supporting quotes"
+                    >
+                      <div className="flex items-start justify-between">
+                        <span className="flex-1">A: {msg.answer}</span>
+                        <span className="text-xs text-gray-400 ml-2">Click for quotes</span>
                       </div>
-                    )}
+                    </div>
                     <div className="flex items-center justify-between text-xs text-gray-500">
                       <span>{new Date(msg.timestamp).toLocaleString()}</span>
                       {msg.confidence && <span>Confidence: {msg.confidence}</span>}
@@ -704,6 +743,83 @@ export default function Storytelling() {
                 >
                   Confirm
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Quotes Modal */}
+        {showQuotesModal && selectedAnswer && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[99999] p-4" onClick={() => setShowQuotesModal(false)}>
+            <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Supporting Quotes</h3>
+                  <p className="text-sm text-gray-600 mt-1">Question: {selectedAnswer.question}</p>
+                </div>
+                <button
+                  onClick={() => setShowQuotesModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="space-y-6 overflow-y-auto flex-1">
+                {/* Answer Section */}
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                  <h4 className="text-sm font-semibold text-orange-900 mb-2">Answer</h4>
+                  <p className="text-sm text-gray-800 leading-relaxed">{selectedAnswer.answer}</p>
+                </div>
+
+                {/* Quotes Section */}
+                {loadingQuotes ? (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h4 className="text-sm font-semibold text-blue-900 mb-2">Loading Supporting Quotes...</h4>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                      <span className="text-sm text-gray-600">Searching transcripts for relevant quotes...</span>
+                    </div>
+                  </div>
+                ) : quotesError ? (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <h4 className="text-sm font-semibold text-red-900 mb-2">Error Loading Quotes</h4>
+                    <p className="text-sm text-red-700">{quotesError}</p>
+                    <button 
+                      onClick={() => selectedAnswer && handleAnswerClick(selectedAnswer)}
+                      className="mt-2 text-xs text-red-600 hover:text-red-800 underline"
+                    >
+                      Try Again
+                    </button>
+                  </div>
+                ) : quotes.length === 0 ? (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <h4 className="text-sm font-semibold text-yellow-900 mb-2">No Supporting Quotes Found</h4>
+                    <p className="text-sm text-gray-600">
+                      No relevant quotes were found in the transcripts for this answer.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h4 className="text-sm font-semibold text-blue-900 mb-3">Supporting Quotes</h4>
+                    <div className="space-y-4">
+                      {quotes.map((quote, index) => (
+                        <div key={index} className="bg-white rounded-lg p-4 border-l-4 border-blue-500">
+                          <div className="text-sm text-gray-800 leading-relaxed">
+                            {quote.text}
+                          </div>
+                          {quote.context && (
+                            <div className="mt-2 text-xs text-gray-600 italic">
+                              {quote.context}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

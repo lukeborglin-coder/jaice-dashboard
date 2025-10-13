@@ -4,6 +4,7 @@ import fsSync from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { Document, Paragraph, TextRun, HeadingLevel, AlignmentType, Packer } from 'docx';
+import OpenAI from 'openai';
 import { authenticateToken } from '../middleware/auth.middleware.mjs';
 import {
   estimateStorytellingCost,
@@ -486,18 +487,6 @@ router.get('/:projectId/storyboard/:storyboardId/download', authenticateToken, a
             })
           );
         }
-        // Italic quote
-        else if (trimmed.startsWith('_') && trimmed.endsWith('_')) {
-          const text = trimmed.substring(1, trimmed.length - 1);
-          paragraphs.push(
-            new Paragraph({
-              children: [
-                new TextRun({ text: `"${text}"`, italics: true })
-              ],
-              indent: { left: 720 }
-            })
-          );
-        }
         // Regular paragraph
         else {
           paragraphs.push(new Paragraph({ text: trimmed }));
@@ -555,7 +544,6 @@ router.post('/:projectId/ask', authenticateToken, async (req, res) => {
       id: `Q-${Date.now()}`,
       question,
       answer: answer.answer,
-      quotes: answer.quotes || [],
       confidence: answer.confidence,
       note: answer.note,
       timestamp: new Date().toISOString(),
@@ -574,6 +562,103 @@ router.post('/:projectId/ask', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error answering question:', error);
     res.status(500).json({ error: 'Failed to answer question', message: error.message });
+  }
+});
+
+// POST /api/storytelling/:projectId/quotes - Get supporting quotes for a Q&A answer
+router.post('/:projectId/quotes', authenticateToken, async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const { question, answer } = req.body;
+
+    if (!question || !answer) {
+      return res.status(400).json({ error: 'Question and answer are required' });
+    }
+
+    // Get transcripts for this project
+    const transcriptsText = await getTranscriptsText(projectId);
+    if (!transcriptsText) {
+      return res.status(404).json({ error: 'No transcripts available for this project' });
+    }
+
+    // Initialize OpenAI
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+    // Use AI to find relevant sections that support the answer
+    const systemPrompt = `You are an expert at analyzing interview transcripts to find verbatim quotes that support specific answers.
+
+Your task is to find 2-3 relevant sections from the transcript that directly support the given answer. Return ONLY the exact verbatim text from the transcript - do not summarize, paraphrase, or modify the text in any way.
+
+Return the quotes in this exact JSON format:
+{
+  "quotes": [
+    {
+      "text": "Exact verbatim text from transcript",
+      "context": "Brief context about what this quote shows (1-2 sentences)"
+    }
+  ]
+}
+
+Guidelines:
+- Find quotes that directly relate to the answer
+- Include the full conversation context (both moderator questions and respondent answers)
+- Preserve the exact wording, punctuation, and formatting from the transcript
+- Each quote should be a complete thought or exchange
+- Focus on the most relevant and impactful quotes`;
+
+    const userPrompt = `Question: ${question}
+
+Answer: ${answer}
+
+Please find 2-3 verbatim quotes from this transcript that support the answer:
+
+${transcriptsText.substring(0, 8000)}`; // Limit to first 8000 chars to stay within token limits
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      temperature: 0.1,
+    });
+
+    const aiResponse = response.choices[0].message.content;
+    console.log('AI response for storytelling quotes:', aiResponse.substring(0, 500));
+
+    // Parse the AI response
+    let quotes = [];
+    try {
+      // Clean the response by removing markdown code fences if present
+      let cleanedResponse = aiResponse.trim();
+
+      // Remove ```json ... ``` or ``` ... ``` wrappers
+      if (cleanedResponse.startsWith('```')) {
+        cleanedResponse = cleanedResponse.replace(/^```(?:json)?\s*\n/, '').replace(/\n```\s*$/, '');
+      }
+
+      const parsed = JSON.parse(cleanedResponse);
+      quotes = parsed.quotes || [];
+    } catch (error) {
+      console.error('Failed to parse AI response:', error);
+      console.error('Raw AI response:', aiResponse);
+      // Fallback: return the raw response as a single quote
+      quotes = [{
+        text: aiResponse,
+        context: "AI-generated response (parsing failed)"
+      }];
+    }
+
+    res.json({
+      success: true,
+      quotes: quotes,
+      question: question,
+      answer: answer
+    });
+
+  } catch (error) {
+    console.error('Error getting quotes for storytelling:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 
