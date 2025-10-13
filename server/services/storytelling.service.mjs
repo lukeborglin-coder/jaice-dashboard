@@ -1,5 +1,7 @@
 import OpenAI from 'openai';
 import { logCost, COST_CATEGORIES } from './costTracking.service.mjs';
+import fs from 'fs/promises';
+import path from 'path';
 
 /**
  * Storytelling Service
@@ -88,6 +90,9 @@ function extractVerbatimQuotes(verbatimQuotesData, question) {
   const allQuotes = [];
   const questionLower = question.toLowerCase();
   
+  console.log('🔍 Extracting verbatim quotes for question:', question);
+  console.log('🔍 Verbatim quotes data keys:', Object.keys(verbatimQuotesData));
+  
   // Extract verbatim quotes from the same structure used by content analysis popups
   for (const [sheetName, sheetQuotes] of Object.entries(verbatimQuotesData)) {
     if (!sheetQuotes || typeof sheetQuotes !== 'object') continue;
@@ -122,12 +127,13 @@ function extractVerbatimQuotes(verbatimQuotesData, question) {
               quoteText.length < 20; // Very short quotes are likely speaker notes
             
             if (!isSpeakerNote) {
-              // Simple relevance check - look for key terms from the question
-              const questionWords = questionLower.split(/\s+/).filter(word => word.length > 3);
-              const hasRelevantTerms = questionWords.some(word => quoteLower.includes(word));
+              // More lenient relevance check - if no specific question terms, include more quotes
+              const questionWords = questionLower.split(/\s+/).filter(word => word.length > 2);
+              const hasRelevantTerms = questionWords.length === 0 || questionWords.some(word => quoteLower.includes(word));
               
-              if (hasRelevantTerms || questionWords.length === 0) {
+              if (hasRelevantTerms) {
                 allQuotes.push(quoteText);
+                console.log(`🔍 Added quote from ${respondentId} - ${columnName}: ${quoteText.substring(0, 50)}...`);
               }
             }
           }
@@ -138,6 +144,7 @@ function extractVerbatimQuotes(verbatimQuotesData, question) {
   
   // Remove duplicates and return up to 10 most relevant quotes
   const uniqueQuotes = [...new Set(allQuotes)];
+  console.log(`🔍 Extracted ${uniqueQuotes.length} unique verbatim quotes`);
   return uniqueQuotes.slice(0, 10);
 }
 
@@ -412,12 +419,51 @@ async function findAnalysisIdForProject(projectId) {
 
 async function generateQuotesForQuestion(analysisId, question, caDataObj) {
   try {
-    const quotes = [];
+    console.log('🔍 Generating quotes on-demand for question:', question);
     
-    // For now, return empty array - this would need to be implemented
-    // to generate quotes on-demand for specific questions
-    console.log('🔍 Quote generation for question not yet implemented');
-    return quotes;
+    // Use the existing generateQuotesForCell function to get quotes from relevant cells
+    const allQuotes = [];
+    const questionLower = question.toLowerCase();
+    
+    // Look through all data sheets and find relevant quotes
+    if (caDataObj.data) {
+      for (const [sheetName, sheetData] of Object.entries(caDataObj.data)) {
+        if (Array.isArray(sheetData)) {
+          for (const row of sheetData) {
+            if (row && typeof row === 'object') {
+              const respondentId = row['Respondent ID'] || row['respno'] || row['ID'] || row['id'];
+              if (respondentId && respondentId.trim() !== '' && respondentId.trim() !== 'Respondent ID') {
+                // For each column in the row, try to generate quotes
+                for (const [columnName, cellValue] of Object.entries(row)) {
+                  if (columnName !== 'Respondent ID' && columnName !== 'respno' && columnName !== 'ID' && columnName !== 'id' && 
+                      typeof cellValue === 'string' && cellValue.trim() !== '') {
+                    
+                    // Check if this cell content might be relevant to the question
+                    const cellLower = cellValue.toLowerCase();
+                    const questionWords = questionLower.split(/\s+/).filter(word => word.length > 3);
+                    const hasRelevantTerms = questionWords.some(word => cellLower.includes(word));
+                    
+                    if (hasRelevantTerms || questionWords.length === 0) {
+                      try {
+                        const quotes = await generateQuotesForCell(analysisId, respondentId, columnName, sheetName, cellValue);
+                        allQuotes.push(...quotes);
+                      } catch (error) {
+                        console.log(`🔍 Could not generate quotes for ${respondentId} - ${columnName}:`, error.message);
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    // Remove duplicates and return up to 10 most relevant quotes
+    const uniqueQuotes = [...new Set(allQuotes)];
+    console.log(`🔍 Generated ${uniqueQuotes.length} quotes for question`);
+    return uniqueQuotes.slice(0, 10);
   } catch (error) {
     console.error('Error generating quotes for question:', error);
     return [];
@@ -429,6 +475,7 @@ export async function answerQuestion(projectId, question, transcriptsText, caDat
 
   // First try to extract existing verbatim quotes
   let realQuotes = extractVerbatimQuotes(caDataObj.verbatimQuotes || {}, question);
+  console.log(`🔍 Found ${realQuotes.length} existing verbatim quotes for question: ${question}`);
   
   // If no quotes found and quoteLevel is not 'none', generate quotes on-demand
   if (realQuotes.length === 0 && quoteLevel !== 'none') {
