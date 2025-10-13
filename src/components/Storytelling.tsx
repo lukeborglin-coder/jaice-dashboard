@@ -254,6 +254,12 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
   const { user } = useAuth();
   
   console.log('🎭 Storytelling component props:', { analysisId, projectId });
+  console.log('🎭 Storytelling component props (detailed):', { 
+    analysisId: analysisId, 
+    projectId: projectId,
+    analysisIdType: typeof analysisId,
+    projectIdType: typeof projectId
+  });
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [activeTab, setActiveTab] = useState<'key-findings' | 'storyboard' | 'ask'>('key-findings');
@@ -322,6 +328,11 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
         const projectsArray = Array.isArray(data.projects) ? data.projects : [];
         console.log('🔍 Storytelling: Setting projects to:', projectsArray);
         console.log('🔍 Storytelling: First project analysisId:', projectsArray[0]?.analysisId);
+        console.log('🔍 Storytelling: All projects with analysisId:', projectsArray.map(p => ({ 
+          name: p.name, 
+          analysisId: p.analysisId, 
+          id: p.id 
+        })));
         setProjects(projectsArray);
       } else {
         console.error('🔍 Storytelling: API response not ok:', response.status, await response.text());
@@ -343,6 +354,15 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
         selectedProjectAnalysisId: selectedProject?.analysisId,
         propAnalysisId: analysisId,
         currentAnalysisId 
+      });
+      console.log('🎭 Debug selectedProject (detailed):', {
+        selectedProjectName: selectedProject?.name,
+        selectedProjectId: selectedProject?.id,
+        selectedProjectAnalysisId: selectedProject?.analysisId,
+        propAnalysisId: analysisId,
+        currentAnalysisId: currentAnalysisId,
+        selectedProjectType: typeof selectedProject,
+        analysisIdType: typeof analysisId
       });
       
       const url = currentAnalysisId 
@@ -1141,6 +1161,12 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
                       className="hover:bg-gray-50 cursor-pointer transition-colors"
                       onClick={() => {
                         console.log('🎭 Project clicked:', project);
+                        console.log('🎭 Project clicked (detailed):', {
+                          name: project.name,
+                          id: project.id,
+                          analysisId: project.analysisId,
+                          respondentCount: project.respondentCount
+                        });
                         setSelectedProject(project);
                       }}
                     >
