@@ -321,6 +321,7 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
         console.log('🔍 Storytelling: API response data:', data);
         const projectsArray = Array.isArray(data.projects) ? data.projects : [];
         console.log('🔍 Storytelling: Setting projects to:', projectsArray);
+        console.log('🔍 Storytelling: First project analysisId:', projectsArray[0]?.analysisId);
         setProjects(projectsArray);
       } else {
         console.error('🔍 Storytelling: API response not ok:', response.status, await response.text());
@@ -1138,7 +1139,10 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
                     <tr
                       key={project.id}
                       className="hover:bg-gray-50 cursor-pointer transition-colors"
-                      onClick={() => setSelectedProject(project)}
+                      onClick={() => {
+                        console.log('🎭 Project clicked:', project);
+                        setSelectedProject(project);
+                      }}
                     >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">{project.name}</div>
