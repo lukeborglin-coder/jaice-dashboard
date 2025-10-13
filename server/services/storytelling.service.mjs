@@ -21,7 +21,19 @@ function estimateTokens(text) {
  * @returns {object} - Cost estimate with inputTokens, outputTokens, cost, formattedCost
  */
 export function estimateStorytellingCost(transcriptsText, caData, detailLevel = 'moderate', quoteLevel = 'moderate') {
-  const inputText = transcriptsText + caData;
+  // For cost estimation, use a reasonable sample size instead of full data
+  // This prevents massive cost estimates for large datasets
+  const maxSampleSize = 50000; // ~12,500 tokens max
+  
+  const sampleTranscripts = transcriptsText.length > maxSampleSize 
+    ? transcriptsText.substring(0, maxSampleSize) + '...[truncated]'
+    : transcriptsText;
+    
+  const sampleCAData = caData.length > 20000 
+    ? caData.substring(0, 20000) + '...[truncated]'
+    : caData;
+    
+  const inputText = sampleTranscripts + sampleCAData;
   const inputTokens = estimateTokens(inputText);
 
   // Estimate output tokens based on detail level
@@ -40,6 +52,17 @@ export function estimateStorytellingCost(transcriptsText, caData, detailLevel = 
   const inputCost = (inputTokens / 1_000_000) * 2.50;
   const outputCost = (outputTokens / 1_000_000) * 10.00;
   const totalCost = inputCost + outputCost;
+
+  // Debug logging
+  console.log('💰 Cost Estimation Debug:', {
+    originalTranscriptLength: transcriptsText.length,
+    originalCADataLength: caData.length,
+    sampleTranscriptLength: sampleTranscripts.length,
+    sampleCADataLength: sampleCAData.length,
+    inputTokens,
+    outputTokens,
+    totalCost: totalCost.toFixed(4)
+  });
 
   return {
     inputTokens,
