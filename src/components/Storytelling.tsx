@@ -58,6 +58,33 @@ interface VerbatimQuote {
   context: string;
 }
 
+// Helper function to format quote text with bold speaker tags
+function formatQuoteText(text: string) {
+  // Split by lines and format each line with speaker tags
+  const lines = text.split('\n');
+  const formattedLines = lines.map((line, index) => {
+    // Match "Speaker: " pattern at the start of a line
+    const match = line.match(/^(Moderator|Respondent|Interviewer|Participant):\s*/);
+    if (match) {
+      const speaker = match[1];
+      const rest = line.substring(match[0].length);
+      return (
+        <React.Fragment key={index}>
+          <strong>{speaker}:</strong> {rest}
+          {index < lines.length - 1 && <br />}
+        </React.Fragment>
+      );
+    }
+    return (
+      <React.Fragment key={index}>
+        {line}
+        {index < lines.length - 1 && <br />}
+      </React.Fragment>
+    );
+  });
+  return <>{formattedLines}</>;
+}
+
 export default function Storytelling() {
   const { user } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
@@ -94,6 +121,7 @@ export default function Storytelling() {
   const [quotes, setQuotes] = useState<VerbatimQuote[]>([]);
   const [loadingQuotes, setLoadingQuotes] = useState(false);
   const [quotesError, setQuotesError] = useState<string | null>(null);
+  const [quotesCached, setQuotesCached] = useState(false);
 
   const qualProjects = useMemo(
     () => {
@@ -236,7 +264,11 @@ export default function Storytelling() {
     try {
       const response = await fetch(`${API_BASE_URL}/api/storytelling/${selectedProject.id}/key-findings/generate`, {
         method: 'POST',
-        headers: getAuthHeaders()
+        headers: {
+          ...getAuthHeaders(),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ detailLevel })
       });
 
       if (response.ok) {
@@ -360,6 +392,7 @@ export default function Storytelling() {
     setShowQuotesModal(true);
     setLoadingQuotes(true);
     setQuotesError(null);
+    setQuotesCached(false);
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/storytelling/${selectedProject?.id}/quotes`, {
@@ -377,6 +410,7 @@ export default function Storytelling() {
       if (response.ok) {
         const data = await response.json();
         setQuotes(data.quotes || []);
+        setQuotesCached(data.cached || false);
       } else {
         const errorData = await response.json();
         setQuotesError(errorData.error || 'Failed to fetch quotes');
@@ -387,6 +421,18 @@ export default function Storytelling() {
     } finally {
       setLoadingQuotes(false);
     }
+  };
+
+  const handleKeyFindingClick = async (finding: Finding) => {
+    // Create a mock ChatMessage object for key findings
+    const mockMessage: ChatMessage = {
+      id: `KF-${Date.now()}`,
+      question: finding.question,
+      answer: finding.answer,
+      timestamp: new Date().toISOString()
+    };
+    
+    await handleAnswerClick(mockMessage);
   };
 
   if (selectedProject) {
@@ -507,16 +553,35 @@ export default function Storytelling() {
               </div>
 
               {strategicQuestions.length > 0 && (
-                <div className="flex items-center justify-between">
-                  <button
-                    onClick={handleGenerateFindings}
-                    disabled={generatingFindings}
-                    className="px-6 py-3 rounded-lg text-white font-medium flex items-center gap-2 disabled:opacity-50"
-                    style={{ backgroundColor: BRAND_ORANGE }}
-                  >
-                    {generatingFindings ? 'Generating...' : 'Generate Key Findings'}
-                    <SparklesIcon className="h-5 w-5" />
-                  </button>
+                <div className="space-y-4">
+                  <div className="bg-white shadow-sm border border-gray-200 rounded-lg p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Generate Key Findings</h3>
+
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Detail Level</label>
+                        <select
+                          value={detailLevel}
+                          onChange={e => setDetailLevel(e.target.value as any)}
+                          className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+                        >
+                          <option value="straightforward">Straightforward</option>
+                          <option value="moderate">Moderate</option>
+                          <option value="max">Max Detail</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={handleGenerateFindings}
+                      disabled={generatingFindings}
+                      className="px-6 py-3 rounded-lg text-white font-medium flex items-center gap-2 disabled:opacity-50"
+                      style={{ backgroundColor: BRAND_ORANGE }}
+                    >
+                      {generatingFindings ? 'Generating...' : 'Generate Key Findings'}
+                      <SparklesIcon className="h-5 w-5" />
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -530,7 +595,13 @@ export default function Storytelling() {
                   {keyFindings.findings.map((finding, idx) => (
                     <div key={idx} className="bg-white shadow-sm border border-gray-200 rounded-lg p-6">
                       <h4 className="font-semibold text-gray-900 mb-2">{finding.question}</h4>
-                      <p className="text-sm text-gray-700 mb-3">{finding.answer}</p>
+                      <div 
+                        className="text-sm text-gray-700 mb-3 cursor-pointer hover:bg-gray-50 p-2 rounded border-l-4 border-transparent hover:border-orange-300 transition-colors"
+                        onClick={() => handleKeyFindingClick(finding)}
+                        title="Click to view supporting quotes"
+                      >
+                        {finding.answer}
+                      </div>
                       {finding.insight && (
                         <div className="mt-3 p-3 bg-orange-50 rounded">
                           <p className="text-sm font-medium" style={{ color: BRAND_ORANGE }}>
@@ -690,10 +761,7 @@ export default function Storytelling() {
                       onClick={() => handleAnswerClick(msg)}
                       title="Click to view supporting quotes"
                     >
-                      <div className="flex items-start justify-between">
-                        <span className="flex-1">A: {msg.answer}</span>
-                        <span className="text-xs text-gray-400 ml-2">Click for quotes</span>
-                      </div>
+                      A: {msg.answer}
                     </div>
                     <div className="flex items-center justify-between text-xs text-gray-500">
                       <span>{new Date(msg.timestamp).toLocaleString()}</span>
@@ -803,12 +871,19 @@ export default function Storytelling() {
                   </div>
                 ) : (
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <h4 className="text-sm font-semibold text-blue-900 mb-3">Supporting Quotes</h4>
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm font-semibold text-blue-900">Supporting Quotes</h4>
+                      {quotesCached && (
+                        <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">
+                          Cached
+                        </span>
+                      )}
+                    </div>
                     <div className="space-y-4">
                       {quotes.map((quote, index) => (
                         <div key={index} className="bg-white rounded-lg p-4 border-l-4 border-blue-500">
                           <div className="text-sm text-gray-800 leading-relaxed">
-                            {quote.text}
+                            {formatQuoteText(quote.text)}
                           </div>
                           {quote.context && (
                             <div className="mt-2 text-xs text-gray-600 italic">

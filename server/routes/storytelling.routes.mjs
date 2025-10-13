@@ -61,7 +61,8 @@ async function loadProjectStorytelling(projectId) {
       strategicQuestions: [],
       keyFindings: null,
       storyboards: [],
-      chatHistory: []
+      chatHistory: [],
+      quotesCache: {}
     };
   } catch (error) {
     console.error('Error loading storytelling data:', error);
@@ -69,7 +70,8 @@ async function loadProjectStorytelling(projectId) {
       strategicQuestions: [],
       keyFindings: null,
       storyboards: [],
-      chatHistory: []
+      chatHistory: [],
+      quotesCache: {}
     };
   }
 }
@@ -338,6 +340,7 @@ router.post('/:projectId/strategic-questions', authenticateToken, async (req, re
 router.post('/:projectId/key-findings/generate', authenticateToken, async (req, res) => {
   try {
     const { projectId } = req.params;
+    const { detailLevel = 'moderate' } = req.body;
 
     const projectData = await loadProjectStorytelling(projectId);
     const strategicQuestions = projectData.strategicQuestions;
@@ -353,11 +356,12 @@ router.post('/:projectId/key-findings/generate', authenticateToken, async (req, 
       return res.status(400).json({ error: 'No transcript data available for this project' });
     }
 
-    const findings = await generateKeyFindings(projectId, strategicQuestions, transcriptsText, caDataObj);
+    const findings = await generateKeyFindings(projectId, strategicQuestions, transcriptsText, caDataObj, detailLevel);
 
     projectData.keyFindings = {
       ...findings,
       generatedAt: new Date().toISOString(),
+      detailLevel: detailLevel,
       version: (projectData.keyFindings?.version || 0) + 1
     };
 
@@ -575,6 +579,27 @@ router.post('/:projectId/quotes', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Question and answer are required' });
     }
 
+    // Load project storytelling data to check cache
+    const projectData = await loadProjectStorytelling(projectId);
+    
+    // Create a cache key based on question and answer
+    const cacheKey = `${question}|${answer}`;
+    
+    // Check if we already have cached quotes for this question/answer combination
+    if (projectData.quotesCache && projectData.quotesCache[cacheKey]) {
+      const cachedQuotes = projectData.quotesCache[cacheKey];
+      console.log(`✅ Returning cached quotes for storytelling (saved ${cachedQuotes.savedAt})`);
+      return res.json({
+        success: true,
+        quotes: cachedQuotes.quotes,
+        question: question,
+        answer: answer,
+        cached: true
+      });
+    }
+
+    console.log(`🆕 No cached quotes found, generating new quotes for storytelling`);
+
     // Get transcripts for this project
     const transcriptsText = await getTranscriptsText(projectId);
     if (!transcriptsText) {
@@ -649,11 +674,28 @@ ${transcriptsText.substring(0, 8000)}`; // Limit to first 8000 chars to stay wit
       }];
     }
 
+    // Cache the quotes for future requests
+    if (!projectData.quotesCache) {
+      projectData.quotesCache = {};
+    }
+    
+    projectData.quotesCache[cacheKey] = {
+      quotes: quotes,
+      question: question,
+      answer: answer,
+      savedAt: new Date().toISOString()
+    };
+
+    // Save the updated project data
+    await saveProjectStorytelling(projectId, projectData);
+    console.log(`💾 Cached quotes for storytelling: ${cacheKey}`);
+
     res.json({
       success: true,
       quotes: quotes,
       question: question,
-      answer: answer
+      answer: answer,
+      cached: false
     });
 
   } catch (error) {

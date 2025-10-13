@@ -99,19 +99,30 @@ export function estimateStorytellingCost(transcriptsText, caDataObj, detailLevel
  * @param {string} caData - Content analysis data as JSON string
  * @returns {Promise<object>} - Key findings with answers to each question
  */
-export async function generateKeyFindings(projectId, strategicQuestions, transcriptsText, caDataObj) {
+export async function generateKeyFindings(projectId, strategicQuestions, transcriptsText, caDataObj, detailLevel = 'moderate') {
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+  // Use same detail level system as Ask a Question
+  let detailInstruction = 'Provide a moderate level of detail.';
+  if (detailLevel === 'straightforward') {
+    detailInstruction = 'Be concise and to the point.';
+  } else if (detailLevel === 'max') {
+    detailInstruction = 'Provide comprehensive detail and context.';
+  }
 
   const systemPrompt = `You are a senior qualitative research analyst specializing in healthcare and pharmaceutical market research.
 
 Your task is to analyze transcripts and content analysis data to answer strategic research questions.
 
 Guidelines:
-- Be concise and actionable
+- ${detailInstruction}
+- Be clear, accurate, and evidence-based
 - Focus on the "why" and "so what" - surface insights, not just observations
 - Identify patterns, themes, and contradictions
 - Highlight surprising or unexpected findings
-- Present findings as clear analysis without including direct quotes`;
+- Present findings as clear analysis without including direct quotes
+- Base your analysis on the provided data and present it as clean analysis text
+- Synthesize findings into clear, actionable insights`;
 
   const userPrompt = `Analyze the following research data and answer each strategic question.
 
@@ -125,7 +136,7 @@ CONTENT ANALYSIS DATA:
 ${JSON.stringify(caDataObj.data, null, 2).substring(0, 20000)} ${JSON.stringify(caDataObj.data).length > 20000 ? '...[truncated]' : ''}
 
 For each question, provide:
-1. A clear, concise answer (2-4 sentences)
+1. A clear, comprehensive answer with analysis and findings
 2. Key insight or recommendation
 
 Return your response as a JSON object with this structure:
@@ -133,7 +144,7 @@ Return your response as a JSON object with this structure:
   "findings": [
     {
       "question": "the question text",
-      "answer": "concise answer with analysis and findings",
+      "answer": "your synthesized analysis and findings here",
       "insight": "key takeaway or recommendation"
     }
   ]
