@@ -89,6 +89,14 @@ function cleanQuoteText(quoteText) {
   
   console.log(`🔍 Cleaning quote: "${quoteText.substring(0, 100)}..."`);
   
+  // Check if this is a moderator question (starts with question words)
+  const isModeratorQuestion = /^(Moderator|Interviewer|Facilitator|Researcher):\s*(What|How|When|Where|Why|Do|Are|Have|Can|Would|Could|If|Tell me|Can you|What do you think|How do you feel)/i.test(quoteText);
+  
+  if (isModeratorQuestion) {
+    console.log(`🔍 Skipping moderator question: "${quoteText.substring(0, 50)}..."`);
+    return '';
+  }
+  
   // Remove common speaker labels
   let cleaned = quoteText
     .replace(/^(Respondent|Interviewer|Moderator|Facilitator|Researcher):\s*/i, '')
@@ -100,6 +108,12 @@ function cleanQuoteText(quoteText) {
   // Remove trailing speaker labels
   cleaned = cleaned.replace(/\s*\(Respondent|Interviewer|Moderator|Facilitator|Researcher\)$/i, '');
   
+  // Check if the cleaned text is still a question or too short
+  if (cleaned.length < 30 || cleaned.endsWith('?')) {
+    console.log(`🔍 Skipping short text or question: "${cleaned}"`);
+    return '';
+  }
+  
   console.log(`🔍 Cleaned quote: "${cleaned.substring(0, 100)}..."`);
   
   return cleaned;
@@ -110,6 +124,15 @@ function isQuoteRelevantToQuestion(quoteText, question) {
   const quoteLower = quoteText.toLowerCase();
   const questionLower = question.toLowerCase();
   
+  // Skip if it's clearly a moderator question
+  if (quoteLower.startsWith('what') || quoteLower.startsWith('how') || quoteLower.startsWith('when') || 
+      quoteLower.startsWith('where') || quoteLower.startsWith('why') || quoteLower.startsWith('do you') ||
+      quoteLower.startsWith('are you') || quoteLower.startsWith('have you') || quoteLower.startsWith('can you') ||
+      quoteLower.startsWith('would you') || quoteLower.startsWith('could you') || quoteLower.startsWith('if ') ||
+      quoteLower.startsWith('tell me') || quoteLower.startsWith('what do you think') || quoteLower.startsWith('how do you feel')) {
+    return false;
+  }
+  
   // Extract key terms from the question
   const questionWords = questionLower
     .split(/\s+/)
@@ -118,12 +141,12 @@ function isQuoteRelevantToQuestion(quoteText, question) {
   
   // Define question-specific keywords for better matching
   const questionKeywords = {
-    'barriers': ['barrier', 'obstacle', 'challenge', 'difficulty', 'problem', 'issue', 'hinder', 'prevent', 'stop', 'block'],
-    'treatment': ['treatment', 'therapy', 'medication', 'drug', 'medicine', 'care', 'medical', 'healthcare'],
-    'cost': ['cost', 'price', 'expensive', 'afford', 'insurance', 'money', 'financial', 'pay', 'budget'],
-    'benefits': ['benefit', 'help', 'improve', 'effective', 'work', 'useful', 'value', 'worth'],
-    'access': ['access', 'available', 'get', 'obtain', 'find', 'reach', 'available'],
-    'decision': ['decide', 'choice', 'choose', 'consider', 'think', 'opinion', 'view']
+    'barriers': ['barrier', 'obstacle', 'challenge', 'difficulty', 'problem', 'issue', 'hinder', 'prevent', 'stop', 'block', 'hard', 'tough', 'struggle', 'can\'t', 'cannot', 'unable', 'won\'t', 'refuse', 'avoid', 'skip', 'miss'],
+    'treatment': ['treatment', 'therapy', 'medication', 'drug', 'medicine', 'care', 'medical', 'healthcare', 'evrysdi', 'spinraza', 'zolgensma'],
+    'cost': ['cost', 'price', 'expensive', 'afford', 'insurance', 'money', 'financial', 'pay', 'budget', 'cheap', 'free', 'covered', 'coverage'],
+    'benefits': ['benefit', 'help', 'improve', 'effective', 'work', 'useful', 'value', 'worth', 'good', 'bad', 'better', 'worse', 'improvement', 'progress'],
+    'access': ['access', 'available', 'get', 'obtain', 'find', 'reach', 'available', 'doctor', 'specialist', 'visit', 'appointment'],
+    'decision': ['decide', 'choice', 'choose', 'consider', 'think', 'opinion', 'view', 'believe', 'feel', 'want', 'need']
   };
   
   // Get relevant keywords based on question content
@@ -132,6 +155,13 @@ function isQuoteRelevantToQuestion(quoteText, question) {
     if (questionLower.includes(key)) {
       relevantKeywords.push(...keywords);
     }
+  }
+  
+  // For barriers questions, look for specific barrier-related content
+  if (questionLower.includes('barrier')) {
+    const barrierKeywords = ['cost', 'expensive', 'afford', 'insurance', 'money', 'financial', 'doctor', 'visit', 'appointment', 'specialist', 'benefit', 'help', 'work', 'effective', 'discontinued', 'stopped', 'quit', 'concerned', 'worried', 'scared', 'afraid', 'intimidating', 'injection', 'injection', 'pain', 'side effect'];
+    const hasBarrierContent = barrierKeywords.some(keyword => quoteLower.includes(keyword));
+    if (hasBarrierContent) return true;
   }
   
   // If we have specific keywords, check for them
@@ -634,13 +664,13 @@ Return your response as a JSON object with this structure:
   console.log(`🔍 Final quote processing:`, {
     realQuotesCount: realQuotes.length,
     quoteLevel,
-    realQuotes: realQuotes.map(q => q.substring(0, 100) + '...')
+    realQuotes: realQuotes
   });
   
   if (realQuotes.length > 0 && quoteLevel !== 'none') {
     const maxQuotes = quoteLevel === 'few' ? 2 : quoteLevel === 'many' ? 8 : 4;
     result.quotes = realQuotes.slice(0, maxQuotes);
-    console.log(`🔍 Final quotes for response:`, result.quotes.map(q => q.substring(0, 100) + '...'));
+    console.log(`🔍 Final quotes for response:`, result.quotes);
   } else if (quoteLevel !== 'none') {
     result.quotes = [];
   }
