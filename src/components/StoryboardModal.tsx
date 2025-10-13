@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { XMarkIcon, DocumentTextIcon, BookOpenIcon, ChatBubbleLeftRightIcon, ExclamationTriangleIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 import { API_BASE_URL } from '../config';
 
@@ -65,11 +66,18 @@ export default function StoryboardModal({
     }))
   ], [discussionGuidePath, projectTranscripts]);
 
-  // Initialize with required files
+  // Initialize with required files and auto-select discussion guide
   useEffect(() => {
     if (isOpen) {
       const requiredFiles = fileOptions.filter(f => f.required).map(f => f.id);
-      setSelectedFiles(requiredFiles);
+      const discussionGuideFile = fileOptions.find(f => f.type === 'discussion_guide');
+
+      // Auto-select required files and discussion guide if available
+      const initialFiles = discussionGuideFile
+        ? [...requiredFiles, discussionGuideFile.id]
+        : requiredFiles;
+
+      setSelectedFiles(initialFiles);
     }
   }, [isOpen]); // Only reset when modal opens, not when fileOptions changes
 
@@ -161,7 +169,7 @@ export default function StoryboardModal({
 
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden">
         {/* Header */}
@@ -290,6 +298,7 @@ export default function StoryboardModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

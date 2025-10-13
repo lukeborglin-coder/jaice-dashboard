@@ -54,6 +54,7 @@ import {
 import { IconCalendarShare, IconCalendarWeek, IconBallAmericanFootball, IconRocket, IconFileAnalyticsFilled, IconLayoutSidebarFilled } from "@tabler/icons-react";
 import ContentAnalysisX from "./components/ContentAnalysisX";
 import Transcripts from "./components/Transcripts";
+import Storytelling from "./components/Storytelling";
 import AuthWrapper from "./components/AuthWrapper";
 import TopBar from "./components/TopBar";
 import Feedback from "./components/Feedback";
@@ -1784,7 +1785,7 @@ function VendorLibrary({ projects }: { projects: any[] }) {
 
 // Admin Center Component
 function AdminCenter() {
-  const [activeTab, setActiveTab] = useState<'users' | 'feature-requests' | 'bug-reports'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'cost-tracker' | 'feature-requests' | 'bug-reports'>('users');
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateUser, setShowCreateUser] = useState(false);
@@ -1800,6 +1801,25 @@ function AdminCenter() {
   const [featureRequests, setFeatureRequests] = useState<any[]>([]);
   const [bugReports, setBugReports] = useState<any[]>([]);
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
+
+  // Cost Tracker state
+  const [costData, setCostData] = useState<any[]>([]);
+  const [expandedProject, setExpandedProject] = useState<string | null>(null);
+  const [costFilter, setCostFilter] = useState<'all' | 'active' | 'archived'>('all');
+  const loadCostData = useCallback(async () => {
+    try {
+      const headers: any = { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` };
+      const resp = await fetch(`${API_BASE_URL}/api/costs`, { headers });
+      if (resp.ok) {
+        const data = await resp.json();
+        setCostData(Array.isArray(data.costs) ? data.costs : []);
+      }
+    } catch (e) {
+      console.error('Error loading cost data:', e);
+      setCostData([]);
+    }
+  }, []);
+
   const loadAdminFeedback = useCallback(async () => {
     try {
       const headers: any = { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` };
@@ -1861,10 +1881,12 @@ function AdminCenter() {
   }, [loadUsers]);
 
   useEffect(() => {
-    if (activeTab === 'feature-requests' || activeTab === 'bug-reports') {
+    if (activeTab === 'cost-tracker') {
+      loadCostData();
+    } else if (activeTab === 'feature-requests' || activeTab === 'bug-reports') {
       loadAdminFeedback();
     }
-  }, [activeTab, loadAdminFeedback]);
+  }, [activeTab, loadCostData, loadAdminFeedback]);
 
   // Create new user
   const handleCreateUser = async (e: React.FormEvent) => {
@@ -2127,6 +2149,20 @@ function AdminCenter() {
             <div className="flex items-center gap-2">
               <UserGroupIcon className="w-5 h-5" />
               User Management
+            </div>
+          </button>
+          <button
+            onClick={() => setActiveTab('cost-tracker')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'cost-tracker'
+                ? 'text-gray-900'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+            style={activeTab === 'cost-tracker' ? { borderBottomColor: '#D14A2D', color: '#D14A2D' } : {}}
+          >
+            <div className="flex items-center gap-2">
+              <ChartBarIcon className="w-5 h-5" />
+              Cost Tracker
             </div>
           </button>
           <button
@@ -2496,6 +2532,129 @@ function AdminCenter() {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'cost-tracker' && (
+        <div className="bg-white shadow-sm rounded-lg border border-gray-200 p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-semibold text-gray-900">API Cost Tracker</h3>
+            <div className="flex items-center gap-3">
+              <select
+                value={costFilter}
+                onChange={(e) => setCostFilter(e.target.value as 'all' | 'active' | 'archived')}
+                className="text-sm border border-gray-300 rounded px-3 py-1.5 focus:ring-2 focus:border-gray-300"
+                style={{ '--tw-ring-color': '#D14A2D' } as React.CSSProperties}
+              >
+                <option value="all">All Projects</option>
+                <option value="active">Active Projects</option>
+                <option value="archived">Archived Projects</option>
+              </select>
+            </div>
+          </div>
+
+          {costData.length === 0 ? (
+            <div className="text-center py-12">
+              <ChartBarIcon className="mx-auto h-12 w-12 text-gray-400" />
+              <h3 className="mt-2 text-sm font-medium text-gray-900">No cost data yet</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Cost tracking will begin when API calls are made for projects.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Summary Stats */}
+              <div className="grid grid-cols-3 gap-4 mb-6">
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="text-sm text-gray-600">Total Projects</div>
+                  <div className="text-2xl font-bold text-gray-900">
+                    {costData.filter(p => costFilter === 'all' || (costFilter === 'active' && !p.archived) || (costFilter === 'archived' && p.archived)).length}
+                  </div>
+                </div>
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="text-sm text-gray-600">Total Cost</div>
+                  <div className="text-2xl font-bold" style={{ color: '#D14A2D' }}>
+                    ${costData.filter(p => costFilter === 'all' || (costFilter === 'active' && !p.archived) || (costFilter === 'archived' && p.archived)).reduce((sum, p) => sum + p.total, 0).toFixed(2)}
+                  </div>
+                </div>
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="text-sm text-gray-600">Total API Calls</div>
+                  <div className="text-2xl font-bold text-gray-900">
+                    {costData.filter(p => costFilter === 'all' || (costFilter === 'active' && !p.archived) || (costFilter === 'archived' && p.archived)).reduce((sum, p) => sum + p.entryCount, 0)}
+                  </div>
+                </div>
+              </div>
+
+              {/* Projects List */}
+              <div className="space-y-3">
+                {costData
+                  .filter(project => {
+                    if (costFilter === 'active') return !project.archived;
+                    if (costFilter === 'archived') return project.archived;
+                    return true;
+                  })
+                  .map((project) => (
+                    <div key={project.projectId} className="border rounded-lg overflow-hidden">
+                      <div
+                        className="p-4 hover:bg-gray-50 cursor-pointer transition-colors"
+                        onClick={() => setExpandedProject(expandedProject === project.projectId ? null : project.projectId)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <h4 className="text-base font-medium text-gray-900">{project.projectName}</h4>
+                              {project.archived && (
+                                <span className="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded">Archived</span>
+                              )}
+                            </div>
+                            <div className="text-sm text-gray-500 mt-1">
+                              {project.entryCount} API call{project.entryCount !== 1 ? 's' : ''}
+                              {project.lastUpdated && ` • Last updated ${new Date(project.lastUpdated).toLocaleString()}`}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <div className="text-right">
+                              <div className="text-lg font-bold" style={{ color: '#D14A2D' }}>
+                                ${project.total.toFixed(2)}
+                              </div>
+                            </div>
+                            <ChevronDownIcon
+                              className={`w-5 h-5 text-gray-400 transition-transform ${
+                                expandedProject === project.projectId ? 'transform rotate-180' : ''
+                              }`}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Expanded Details */}
+                      {expandedProject === project.projectId && (
+                        <div className="border-t bg-gray-50 p-4">
+                          <h5 className="text-sm font-semibold text-gray-700 mb-3">Cost Breakdown by Category</h5>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            {Object.entries(project.breakdown).map(([category, cost]: [string, any]) => (
+                              <div key={category} className="bg-white p-3 rounded border border-gray-200">
+                                <div className="text-xs text-gray-600 mb-1">{category}</div>
+                                <div className="text-lg font-semibold text-gray-900">${cost.toFixed(4)}</div>
+                              </div>
+                            ))}
+                          </div>
+                          {Object.keys(project.breakdown).length === 0 && (
+                            <div className="text-sm text-gray-500 text-center py-4">No cost breakdown available</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+              </div>
+
+              {costData.filter(p => costFilter === 'all' || (costFilter === 'active' && !p.archived) || (costFilter === 'archived' && p.archived)).length === 0 && (
+                <div className="text-center py-8">
+                  <p className="text-sm text-gray-500">No projects match the selected filter</p>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -3361,6 +3520,7 @@ export default function App() {
     () => [
       { name: "Transcripts", icon: DocumentTextIcon },
       { name: "Content Analysis", icon: DocumentChartBarIcon },
+      { name: "Storytelling", icon: DocumentTextIcon },
       { name: "QNR", icon: ClipboardDocumentListIcon },
       { name: "Data QA", icon: CheckBadgeIcon },
     ],
@@ -3546,6 +3706,8 @@ export default function App() {
         <ContentAnalysisX projects={projects} onNavigate={setRoute} onNavigateToProject={handleProjectView} />
       ) : route === "Transcripts" ? (
         <Transcripts />
+      ) : route === "Storytelling" ? (
+        <Storytelling />
       ) : (
         <main className="flex-1 overflow-visible min-w-0" style={{ background: BRAND.bg }}>
           {/* Mobile menu button - only visible on very small screens */}
@@ -4669,7 +4831,7 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
         </div>
 
         <div className="p-4">
-          <ModeratorTimeline projects={sortedProjects} onDateRangeChange={setModeratorDateRange} />
+          <ModeratorTimeline projects={sortedProjects} moderators={vendorsData?.moderators} onDateRangeChange={setModeratorDateRange} />
         </div>
       </Card>
 
@@ -5119,9 +5281,12 @@ function ProjectTimeline({ projects, onDateRangeChange, maxWeeks }: { projects: 
                             const dayWidth = 100 / totalDays;
                             const leftPercent = (dayIndex / totalDays) * 100;
                             
+                            // Calculate the center position of each day
+                            const iconLeft = leftPercent + (dayWidth / 2);
+                            
                             return (
-                              <div key={`icon-${dayIndex}`} className="absolute top-1/2 transform -translate-y-1/2 z-[100]" style={{
-                                left: `${leftPercent + (dayWidth / 2)}%`,
+                              <div key={`icon-${dayIndex}`} className="absolute top-1/2 z-[100]" style={{
+                                left: `${iconLeft}%`,
                                 transform: 'translateX(-50%) translateY(-50%)'
                               }}>
                                 {phase === 'Kickoff' && (
@@ -5130,7 +5295,7 @@ function ProjectTimeline({ projects, onDateRangeChange, maxWeeks }: { projects: 
                                     style={{ opacity: 1 }}
                                   />
                                 )}
-                                {phase === 'Fielding' && dayIndex > 0 && allPhases[dayIndex - 1] !== 'Fielding' && (
+                                {phase === 'Fielding' && (dayIndex === 0 || allPhases[dayIndex - 1] !== 'Fielding') && (
                                   <IconRocket 
                                     className="w-6 h-6 text-white drop-shadow-lg" 
                                     style={{ opacity: 1 }}
@@ -5198,7 +5363,7 @@ function ProjectTimeline({ projects, onDateRangeChange, maxWeeks }: { projects: 
 }
 
 // Moderator Timeline Component
-function ModeratorTimeline({ projects, onDateRangeChange }: { projects: Project[]; onDateRangeChange?: (dateRange: string) => void }) {
+function ModeratorTimeline({ projects, moderators, onDateRangeChange }: { projects: Project[]; moderators?: any[]; onDateRangeChange?: (dateRange: string) => void }) {
   const [currentWeekOffset, setCurrentWeekOffset] = useState(0);
   const [isScrolling, setIsScrolling] = useState(false);
   const [visibleWeeks, setVisibleWeeks] = useState(5);
@@ -5323,22 +5488,8 @@ function ModeratorTimeline({ projects, onDateRangeChange }: { projects: Project[
     }
   }, [weeks, onDateRangeChange]);
 
-  // Load moderators from localStorage
-  const loadModerators = () => {
-    try {
-      const vendorsData = localStorage.getItem('jaice_vendors');
-      if (vendorsData) {
-        const vendors = JSON.parse(vendorsData);
-        return vendors.moderators || [];
-      }
-      return [];
-    } catch (error) {
-      console.error('Error loading moderators:', error);
-      return [];
-    }
-  };
-
-  const moderators = loadModerators();
+  // Use moderators from props, fallback to empty array
+  const moderatorsList = moderators || [];
 
   // Navigation functions
   const goToPreviousWeek = () => {
@@ -5496,7 +5647,7 @@ function ModeratorTimeline({ projects, onDateRangeChange }: { projects: Project[
 
             {/* Moderator Rows */}
             <div className="space-y-0">
-              {moderators.length === 0 ? (
+              {moderatorsList.length === 0 ? (
                 <div className="flex items-center justify-center py-8 text-gray-500">
                   <div className="text-center">
                     <div className="text-sm">No moderators found</div>
@@ -5504,7 +5655,7 @@ function ModeratorTimeline({ projects, onDateRangeChange }: { projects: Project[
                   </div>
                 </div>
               ) : (
-                moderators.map((moderator: any) => (
+                moderatorsList.map((moderator: any) => (
                     <div key={moderator.id} className="flex items-stretch border-b border-gray-100 hover:bg-gray-25">
                     {/* Moderator Name Column */}
                     <div className="w-24 sm:w-32 md:w-40 flex-shrink-0 py-3 flex flex-col justify-center">
