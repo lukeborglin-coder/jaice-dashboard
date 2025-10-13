@@ -217,31 +217,69 @@ router.get('/projects', authenticateToken, async (req, res) => {
       const projectCA = caData.find(ca => ca.projectId === project.id);
       let respondentCount = 0;
       
-      if (projectCA && projectCA.verbatimQuotes) {
-        // Count unique respondents across all sheets
+      if (projectCA) {
+        // Count unique respondents from all data structures (verbatimQuotes, data, quotes)
         const allRespondents = new Set();
+        
         console.log(`🔍 Respondent Count Debug for ${project.id}:`, {
-          verbatimQuotesKeys: Object.keys(projectCA.verbatimQuotes),
-          verbatimQuotesStructure: Object.keys(projectCA.verbatimQuotes).map(sheet => ({
-            sheet,
-            respondentIds: projectCA.verbatimQuotes[sheet] ? Object.keys(projectCA.verbatimQuotes[sheet]) : [],
-            fullStructure: projectCA.verbatimQuotes[sheet] ? projectCA.verbatimQuotes[sheet] : null
-          })),
-          fullVerbatimQuotes: projectCA.verbatimQuotes
+          verbatimQuotesKeys: projectCA.verbatimQuotes ? Object.keys(projectCA.verbatimQuotes) : [],
+          dataKeys: projectCA.data ? Object.keys(projectCA.data) : [],
+          quotesKeys: projectCA.quotes ? Object.keys(projectCA.quotes) : [],
+          verbatimQuotesStructure: projectCA.verbatimQuotes ? 
+            Object.keys(projectCA.verbatimQuotes).map(sheet => ({
+              sheet,
+              respondentIds: projectCA.verbatimQuotes[sheet] ? Object.keys(projectCA.verbatimQuotes[sheet]) : []
+            })) : [],
+          dataStructure: projectCA.data ? 
+            Object.keys(projectCA.data).map(sheet => ({
+              sheet,
+              respondentIds: projectCA.data[sheet] ? Object.keys(projectCA.data[sheet]) : []
+            })) : []
         });
         
-        Object.values(projectCA.verbatimQuotes).forEach(sheetData => {
-          if (sheetData && typeof sheetData === 'object') {
-            Object.keys(sheetData).forEach(respondentId => {
-              allRespondents.add(respondentId);
-            });
-          }
-        });
+        // Count from verbatimQuotes
+        if (projectCA.verbatimQuotes) {
+          Object.values(projectCA.verbatimQuotes).forEach(sheetData => {
+            if (sheetData && typeof sheetData === 'object') {
+              Object.keys(sheetData).forEach(respondentId => {
+                allRespondents.add(respondentId);
+              });
+            }
+          });
+        }
+        
+        // Count from main data structure
+        if (projectCA.data) {
+          Object.values(projectCA.data).forEach(sheetData => {
+            if (sheetData && typeof sheetData === 'object') {
+              Object.keys(sheetData).forEach(respondentId => {
+                allRespondents.add(respondentId);
+              });
+            }
+          });
+        }
+        
+        // Count from quotes structure
+        if (projectCA.quotes) {
+          Object.values(projectCA.quotes).forEach(sheetData => {
+            if (sheetData && typeof sheetData === 'object') {
+              Object.keys(sheetData).forEach(respondentId => {
+                allRespondents.add(respondentId);
+              });
+            }
+          });
+        }
+        
         respondentCount = allRespondents.size;
         
         console.log(`🔍 Final respondent count for ${project.id}:`, {
           allRespondents: Array.from(allRespondents),
-          count: respondentCount
+          count: respondentCount,
+          sources: {
+            verbatimQuotes: projectCA.verbatimQuotes ? 'yes' : 'no',
+            data: projectCA.data ? 'yes' : 'no',
+            quotes: projectCA.quotes ? 'yes' : 'no'
+          }
         });
       }
 
