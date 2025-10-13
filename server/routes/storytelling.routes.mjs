@@ -109,9 +109,23 @@ async function getTranscriptsText(projectId, analysisId = null) {
     const transcripts = JSON.parse(data);
     let projectTranscripts = transcripts[projectId] || [];
 
+    console.log('🔍 getTranscriptsText debug:', {
+      projectId,
+      analysisId,
+      totalProjectTranscripts: projectTranscripts.length,
+      transcriptAnalysisIds: projectTranscripts.map(t => t.analysisId)
+    });
+
     // Filter by analysisId if provided
     if (analysisId) {
+      const beforeFilter = projectTranscripts.length;
       projectTranscripts = projectTranscripts.filter(t => t.analysisId === analysisId);
+      console.log('🔍 Transcript filtering:', {
+        analysisId,
+        beforeFilter,
+        afterFilter: projectTranscripts.length,
+        filteredTranscripts: projectTranscripts.map(t => ({ id: t.id, analysisId: t.analysisId, respno: t.respno }))
+      });
     }
 
     let combinedText = '';
@@ -126,6 +140,15 @@ async function getTranscriptsText(projectId, analysisId = null) {
         }
       }
     }
+
+    console.log('🔍 getTranscriptsText result:', {
+      projectId,
+      analysisId,
+      finalTranscriptCount: projectTranscripts.length,
+      combinedTextLength: combinedText.length,
+      hasContent: combinedText.length > 0
+    });
+
     return combinedText;
   } catch (error) {
     console.error('Error getting transcripts text:', error);
