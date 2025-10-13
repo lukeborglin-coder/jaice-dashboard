@@ -599,7 +599,7 @@ router.post('/:projectId/ask', authenticateToken, async (req, res) => {
 router.post('/:projectId/quotes', authenticateToken, async (req, res) => {
   try {
     const { projectId } = req.params;
-    const { question, answer } = req.body;
+    const { question, answer, analysisId } = req.body;
 
     if (!question || !answer) {
       return res.status(400).json({ error: 'Question and answer are required' });
@@ -627,7 +627,7 @@ router.post('/:projectId/quotes', authenticateToken, async (req, res) => {
     console.log(`🆕 No cached quotes found, generating new quotes for storytelling`);
 
     // Get transcripts for this project
-    const transcriptsText = await getTranscriptsText(projectId);
+    const transcriptsText = await getTranscriptsText(projectId, analysisId);
     if (!transcriptsText) {
       return res.status(404).json({ error: 'No transcripts available for this project' });
     }

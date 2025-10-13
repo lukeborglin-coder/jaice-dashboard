@@ -577,7 +577,8 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
         },
         body: JSON.stringify({
           question: message.question,
-          answer: message.answer
+          answer: message.answer,
+          analysisId
         })
       });
 
