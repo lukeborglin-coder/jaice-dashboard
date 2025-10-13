@@ -7,7 +7,7 @@ services:
     region: oregon
     plan: free
     buildCommand: cd server && npm install
-    startCommand: sh -c "cd server && exec node server.mjs"
+    startCommand: node server/server.mjs
     envVars:
       - key: NODE_ENV
         value: production
