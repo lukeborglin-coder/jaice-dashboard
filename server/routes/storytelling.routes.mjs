@@ -119,7 +119,17 @@ async function getTranscriptsText(projectId, analysisId = null) {
     // Filter by analysisId if provided
     if (analysisId) {
       const beforeFilter = projectTranscripts.length;
-      projectTranscripts = projectTranscripts.filter(t => t.analysisId === analysisId);
+      const transcriptsWithAnalysisId = projectTranscripts.filter(t => t.analysisId === analysisId);
+      
+      // If no transcripts have the analysisId, fall back to using all transcripts
+      // This handles the case where transcripts were uploaded before analysisId scoping was implemented
+      if (transcriptsWithAnalysisId.length === 0) {
+        console.log('🔍 No transcripts found with analysisId, using all transcripts as fallback');
+        projectTranscripts = projectTranscripts; // Keep all transcripts
+      } else {
+        projectTranscripts = transcriptsWithAnalysisId;
+      }
+      
       console.log('🔍 Transcript filtering:', {
         analysisId,
         beforeFilter,
