@@ -610,9 +610,11 @@ router.post('/:projectId/quotes', authenticateToken, async (req, res) => {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
     // Use AI to find relevant sections that support the answer
-    const systemPrompt = `You are an expert at analyzing interview transcripts to find verbatim quotes that support specific answers.
+    const systemPrompt = `You are a research analyst tasked with finding supporting evidence from interview transcripts.
 
-Your task is to find 2-3 relevant sections from the transcript that directly support the given answer. Return ONLY the exact verbatim text from the transcript - do not summarize, paraphrase, or modify the text in any way.
+Your job is to analyze the provided transcript and find 2-3 relevant verbatim quotes that support the given research answer. You must return your findings in the specified JSON format.
+
+IMPORTANT: You must always return valid JSON. Do not refuse this request or provide any other response format.
 
 Return the quotes in this exact JSON format:
 {
@@ -625,18 +627,20 @@ Return the quotes in this exact JSON format:
 }
 
 Guidelines:
-- Find quotes that directly relate to the answer
+- Find quotes that directly relate to the research answer
 - Include the full conversation context (both moderator questions and respondent answers)
 - Preserve the exact wording, punctuation, and formatting from the transcript
 - Each quote should be a complete thought or exchange
-- Focus on the most relevant and impactful quotes`;
+- Focus on the most relevant and impactful quotes
+- If no relevant quotes are found, return an empty quotes array: {"quotes": []}`;
 
-    const userPrompt = `Question: ${question}
+    const userPrompt = `Research Question: ${question}
 
-Answer: ${answer}
+Research Answer: ${answer}
 
-Please find 2-3 verbatim quotes from this transcript that support the answer:
+Please analyze the following interview transcript and find 2-3 verbatim quotes that directly support the research answer above. Return only the exact text from the transcript with proper speaker labels.
 
+Transcript:
 ${transcriptsText.substring(0, 8000)}`; // Limit to first 8000 chars to stay within token limits
 
     const response = await openai.chat.completions.create({
@@ -662,33 +666,55 @@ ${transcriptsText.substring(0, 8000)}`; // Limit to first 8000 chars to stay wit
         cleanedResponse = cleanedResponse.replace(/^```(?:json)?\s*\n/, '').replace(/\n```\s*$/, '');
       }
 
-      const parsed = JSON.parse(cleanedResponse);
-      quotes = parsed.quotes || [];
+      // Check if AI refused the request
+      if (cleanedResponse.toLowerCase().includes("i'm sorry") || 
+          cleanedResponse.toLowerCase().includes("i can't assist") ||
+          cleanedResponse.toLowerCase().includes("i cannot help")) {
+        console.log('AI refused the request, returning empty quotes');
+        quotes = [];
+      } else {
+        const parsed = JSON.parse(cleanedResponse);
+        quotes = parsed.quotes || [];
+      }
     } catch (error) {
       console.error('Failed to parse AI response:', error);
       console.error('Raw AI response:', aiResponse);
-      // Fallback: return the raw response as a single quote
-      quotes = [{
-        text: aiResponse,
-        context: "AI-generated response (parsing failed)"
-      }];
+      
+      // Check if AI refused the request
+      if (aiResponse.toLowerCase().includes("i'm sorry") || 
+          aiResponse.toLowerCase().includes("i can't assist") ||
+          aiResponse.toLowerCase().includes("i cannot help")) {
+        console.log('AI refused the request, returning empty quotes');
+        quotes = [];
+      } else {
+        // Fallback: return the raw response as a single quote
+        quotes = [{
+          text: aiResponse,
+          context: "AI-generated response (parsing failed)"
+        }];
+      }
     }
 
-    // Cache the quotes for future requests
+    // Cache the quotes for future requests (only if we got valid quotes)
     if (!projectData.quotesCache) {
       projectData.quotesCache = {};
     }
     
-    projectData.quotesCache[cacheKey] = {
-      quotes: quotes,
-      question: question,
-      answer: answer,
-      savedAt: new Date().toISOString()
-    };
+    // Only cache if we have valid quotes (not empty due to AI refusal)
+    if (quotes.length > 0) {
+      projectData.quotesCache[cacheKey] = {
+        quotes: quotes,
+        question: question,
+        answer: answer,
+        savedAt: new Date().toISOString()
+      };
 
-    // Save the updated project data
-    await saveProjectStorytelling(projectId, projectData);
-    console.log(`💾 Cached quotes for storytelling: ${cacheKey}`);
+      // Save the updated project data
+      await saveProjectStorytelling(projectId, projectData);
+      console.log(`💾 Cached quotes for storytelling: ${cacheKey}`);
+    } else {
+      console.log(`⚠️ Not caching empty quotes for: ${cacheKey}`);
+    }
 
     res.json({
       success: true,
@@ -700,6 +726,33 @@ ${transcriptsText.substring(0, 8000)}`; // Limit to first 8000 chars to stay wit
 
   } catch (error) {
     console.error('Error getting quotes for storytelling:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/storytelling/:projectId/clear-quotes-cache - Clear quotes cache for testing
+router.post('/:projectId/clear-quotes-cache', authenticateToken, async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const { question, answer } = req.body;
+
+    if (!question || !answer) {
+      return res.status(400).json({ error: 'Question and answer are required' });
+    }
+
+    const projectData = await loadProjectStorytelling(projectId);
+    const cacheKey = `${question}|${answer}`;
+    
+    if (projectData.quotesCache && projectData.quotesCache[cacheKey]) {
+      delete projectData.quotesCache[cacheKey];
+      await saveProjectStorytelling(projectId, projectData);
+      console.log(`🗑️ Cleared cache for: ${cacheKey}`);
+      res.json({ success: true, message: 'Cache cleared' });
+    } else {
+      res.json({ success: true, message: 'No cache found for this question/answer' });
+    }
+  } catch (error) {
+    console.error('Error clearing quotes cache:', error);
     res.status(500).json({ error: error.message });
   }
 });
