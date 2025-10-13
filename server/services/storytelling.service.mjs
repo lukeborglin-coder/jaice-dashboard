@@ -509,20 +509,37 @@ async function generateQuotesForQuestion(analysisId, question, caDataObj) {
 export async function answerQuestion(projectId, question, transcriptsText, caDataObj, existingFindings = null, detailLevel = 'moderate', quoteLevel = 'moderate') {
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-  // First try to extract existing verbatim quotes
-  let realQuotes = extractVerbatimQuotes(caDataObj.verbatimQuotes || {}, question);
-  console.log(`🔍 Found ${realQuotes.length} existing verbatim quotes for question: ${question}`);
+  // Let AI search through the content analysis data to find relevant quotes
+  let realQuotes = [];
   
-  // If no quotes found and quoteLevel is not 'none', generate quotes on-demand
-  if (realQuotes.length === 0 && quoteLevel !== 'none') {
-    console.log('🔍 No existing quotes found, generating quotes on-demand for question:', question);
+  // Extract all available quotes from content analysis data
+  if (caDataObj.data) {
+    const allQuotes = [];
     
-    // Find the analysis ID for this project
-    const analysisId = await findAnalysisIdForProject(projectId);
-    if (analysisId) {
-      // Generate quotes for relevant cells
-      realQuotes = await generateQuotesForQuestion(analysisId, question, caDataObj);
+    for (const [sheetName, sheetData] of Object.entries(caDataObj.data)) {
+      if (Array.isArray(sheetData)) {
+        for (const row of sheetData) {
+          if (row && typeof row === 'object') {
+            const respondentId = row['Respondent ID'] || row['respno'] || row['ID'] || row['id'];
+            if (respondentId && respondentId.trim() !== '' && respondentId.trim() !== 'Respondent ID') {
+              // Collect all cell content as potential quotes
+              for (const [columnName, cellValue] of Object.entries(row)) {
+                if (columnName !== 'Respondent ID' && columnName !== 'respno' && columnName !== 'ID' && columnName !== 'id' && 
+                    typeof cellValue === 'string' && cellValue.trim() !== '') {
+                  const cleanedQuote = cleanQuoteText(cellValue);
+                  if (cleanedQuote.length > 20) {
+                    allQuotes.push(cleanedQuote);
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
+    
+    realQuotes = [...new Set(allQuotes)]; // Remove duplicates
+    console.log(`🔍 Found ${realQuotes.length} total quotes from content analysis data`);
   }
   
   let detailInstruction = 'Provide a moderate level of detail.';
@@ -560,27 +577,21 @@ Guidelines:
     contextSection = `\n\nPREVIOUSLY GENERATED KEY FINDINGS:\n${JSON.stringify(existingFindings.findings, null, 2)}`;
   }
 
-  const quotesSection = realQuotes.length > 0 
-    ? `\n\nAVAILABLE VERBATIM QUOTES (select the most relevant ones that directly support your answer):
-${realQuotes.map((q, i) => `${i + 1}. "${q}"`).join('\n')}
-
-IMPORTANT: Select only the quotes that directly support and strengthen your answer. Choose quotes that provide specific evidence for the points you make. Do not include moderator questions or irrelevant content.`
-
-    : '';
-
   // Use only content analysis data, no transcripts
   const userPrompt = `Answer this question based on the research data:
 
 QUESTION: ${question}
 
 CONTENT ANALYSIS DATA:
-${JSON.stringify(caDataObj.data, null, 2).substring(0, 30000)} ${JSON.stringify(caDataObj.data).length > 30000 ? '...[truncated]' : ''}${contextSection}${quotesSection}
+${JSON.stringify(caDataObj.data, null, 2).substring(0, 30000)} ${JSON.stringify(caDataObj.data).length > 30000 ? '...[truncated]' : ''}${contextSection}
+
+IMPORTANT: Search through the content analysis data above to find specific quotes that directly support your answer. Look for respondent responses (not moderator questions) that provide evidence for the points you make. Select 2-4 of the most relevant quotes that strengthen your answer.
 
 Return your response as a JSON object with this structure:
 {
   "question": "${question}",
   "answer": "your answer here",
-  "quotes": ["select only the most relevant quotes that directly support your answer"],
+  "quotes": ["search through the data and select the most relevant quotes that directly support your answer"],
   "confidence": "high/medium/low",
   "note": "any caveats or additional context"
 }`;
@@ -597,20 +608,8 @@ Return your response as a JSON object with this structure:
 
   const result = JSON.parse(response.choices[0].message.content);
 
-  // Always use the real verbatim quotes instead of AI-generated ones
-  console.log(`🔍 Final quote processing:`, {
-    realQuotesCount: realQuotes.length,
-    quoteLevel,
-    realQuotes: realQuotes
-  });
-  
-  if (realQuotes.length > 0 && quoteLevel !== 'none') {
-    const maxQuotes = quoteLevel === 'few' ? 2 : quoteLevel === 'many' ? 8 : 4;
-    result.quotes = realQuotes.slice(0, maxQuotes);
-    console.log(`🔍 Final quotes for response:`, result.quotes);
-  } else if (quoteLevel !== 'none') {
-    result.quotes = [];
-  }
+  // AI has already selected the most relevant quotes from the data
+  console.log(`🔍 AI selected ${result.quotes ? result.quotes.length : 0} quotes for the response`);
 
   // Log cost
   if (response.usage) {
