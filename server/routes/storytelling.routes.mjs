@@ -234,15 +234,30 @@ router.get('/projects', authenticateToken, async (req, res) => {
             Object.keys(projectCA.data).map(sheet => ({
               sheet,
               respondentIds: projectCA.data[sheet] ? Object.keys(projectCA.data[sheet]) : []
+            })) : [],
+          quotesStructure: projectCA.quotes ? 
+            Object.keys(projectCA.quotes).map(sheet => ({
+              sheet,
+              respondentIds: projectCA.quotes[sheet] ? Object.keys(projectCA.quotes[sheet]) : []
             })) : []
         });
+        
+        // Helper function to check if a string is a valid respondent ID
+        const isValidRespondentId = (id) => {
+          return typeof id === 'string' && 
+                 id.trim() !== '' && 
+                 !/^\d+$/.test(id) && // Not just numbers
+                 (id.startsWith('R') || id.match(/^[A-Za-z]/)); // Starts with letter
+        };
         
         // Count from verbatimQuotes
         if (projectCA.verbatimQuotes) {
           Object.values(projectCA.verbatimQuotes).forEach(sheetData => {
             if (sheetData && typeof sheetData === 'object') {
               Object.keys(sheetData).forEach(respondentId => {
-                allRespondents.add(respondentId);
+                if (isValidRespondentId(respondentId)) {
+                  allRespondents.add(respondentId);
+                }
               });
             }
           });
@@ -253,7 +268,9 @@ router.get('/projects', authenticateToken, async (req, res) => {
           Object.values(projectCA.data).forEach(sheetData => {
             if (sheetData && typeof sheetData === 'object') {
               Object.keys(sheetData).forEach(respondentId => {
-                allRespondents.add(respondentId);
+                if (isValidRespondentId(respondentId)) {
+                  allRespondents.add(respondentId);
+                }
               });
             }
           });
@@ -264,7 +281,9 @@ router.get('/projects', authenticateToken, async (req, res) => {
           Object.values(projectCA.quotes).forEach(sheetData => {
             if (sheetData && typeof sheetData === 'object') {
               Object.keys(sheetData).forEach(respondentId => {
-                allRespondents.add(respondentId);
+                if (isValidRespondentId(respondentId)) {
+                  allRespondents.add(respondentId);
+                }
               });
             }
           });
