@@ -86,7 +86,16 @@ export default function Storytelling() {
   const [showOldStoryboards, setShowOldStoryboards] = useState(false);
 
   const qualProjects = useMemo(
-    () => projects.filter(p => !p.archived),
+    () => {
+      const filtered = projects.filter(p => !p.archived);
+      console.log('🔍 Storytelling: qualProjects calculation:', {
+        totalProjects: projects.length,
+        filteredProjects: filtered.length,
+        projects: projects,
+        qualProjects: filtered
+      });
+      return filtered;
+    },
     [projects]
   );
 
@@ -98,15 +107,22 @@ export default function Storytelling() {
   const loadProjects = async () => {
     try {
       setLoading(true);
+      console.log('🔍 Storytelling: Loading projects from API...');
       const response = await fetch(`${API_BASE_URL}/api/storytelling/projects`, {
         headers: getAuthHeaders()
       });
+      console.log('🔍 Storytelling: API response status:', response.status);
       if (response.ok) {
         const data = await response.json();
-        setProjects(Array.isArray(data.projects) ? data.projects : []);
+        console.log('🔍 Storytelling: API response data:', data);
+        const projectsArray = Array.isArray(data.projects) ? data.projects : [];
+        console.log('🔍 Storytelling: Setting projects to:', projectsArray);
+        setProjects(projectsArray);
+      } else {
+        console.error('🔍 Storytelling: API response not ok:', response.status, await response.text());
       }
     } catch (error) {
-      console.error('Failed to load projects:', error);
+      console.error('🔍 Storytelling: Failed to load projects:', error);
     } finally {
       setLoading(false);
     }
