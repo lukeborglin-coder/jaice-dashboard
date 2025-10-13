@@ -390,7 +390,7 @@ export default function Storytelling() {
           ...getAuthHeaders(),
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ detailLevel, quoteLevel })
+        body: JSON.stringify({ detailLevel })
       });
 
       console.log('💰 Cost estimate response status:', response.status);
