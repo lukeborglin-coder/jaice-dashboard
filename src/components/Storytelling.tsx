@@ -377,7 +377,7 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
           ...getAuthHeaders(),
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ questions: tempQuestions })
+        body: JSON.stringify({ questions: tempQuestions, analysisId })
       });
 
       if (response.ok) {

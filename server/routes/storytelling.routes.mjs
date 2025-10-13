@@ -53,11 +53,15 @@ async function initStorytellingFile() {
 initStorytellingFile();
 
 // Helper: Load project's storytelling data
-async function loadProjectStorytelling(projectId) {
+async function loadProjectStorytelling(projectId, analysisId = null) {
   try {
     const data = await fs.readFile(STORYTELLING_PATH, 'utf8');
     const allData = JSON.parse(data);
-    return allData[projectId] || {
+    
+    // If analysisId is provided, use it as the key, otherwise use projectId for backward compatibility
+    const key = analysisId ? `${projectId}-${analysisId}` : projectId;
+    
+    return allData[key] || {
       strategicQuestions: [],
       keyFindings: null,
       storyboards: [],
@@ -77,11 +81,15 @@ async function loadProjectStorytelling(projectId) {
 }
 
 // Helper: Save project's storytelling data
-async function saveProjectStorytelling(projectId, projectData) {
+async function saveProjectStorytelling(projectId, projectData, analysisId = null) {
   try {
     const data = await fs.readFile(STORYTELLING_PATH, 'utf8');
     const allData = JSON.parse(data);
-    allData[projectId] = projectData;
+    
+    // If analysisId is provided, use it as the key, otherwise use projectId for backward compatibility
+    const key = analysisId ? `${projectId}-${analysisId}` : projectId;
+    
+    allData[key] = projectData;
     await fs.writeFile(STORYTELLING_PATH, JSON.stringify(allData, null, 2));
     return true;
   } catch (error) {
@@ -316,23 +324,7 @@ router.get('/:projectId', authenticateToken, async (req, res) => {
     const { projectId } = req.params;
     const { analysisId } = req.query;
     
-    const data = await loadProjectStorytelling(projectId);
-    
-    // If analysisId is provided, filter the data to only include that analysis
-    if (analysisId) {
-      // Filter transcripts to only include those from the specific analysis
-      if (data.transcripts) {
-        data.transcripts = data.transcripts.filter(t => t.analysisId === analysisId);
-      }
-      
-      // Filter content analysis data to only include the specific analysis
-      if (data.caData) {
-        // This would need to be implemented based on how caData is structured
-        // For now, we'll pass the analysisId to the client for filtering
-        data.analysisId = analysisId;
-      }
-    }
-    
+    const data = await loadProjectStorytelling(projectId, analysisId);
     res.json(data);
   } catch (error) {
     console.error('Error loading storytelling data:', error);
@@ -344,16 +336,16 @@ router.get('/:projectId', authenticateToken, async (req, res) => {
 router.post('/:projectId/strategic-questions', authenticateToken, async (req, res) => {
   try {
     const { projectId } = req.params;
-    const { questions } = req.body;
+    const { questions, analysisId } = req.body;
 
     if (!Array.isArray(questions)) {
       return res.status(400).json({ error: 'Questions must be an array' });
     }
 
-    const data = await loadProjectStorytelling(projectId);
+    const data = await loadProjectStorytelling(projectId, analysisId);
     data.strategicQuestions = questions;
 
-    if (await saveProjectStorytelling(projectId, data)) {
+    if (await saveProjectStorytelling(projectId, data, analysisId)) {
       res.json({ message: 'Strategic questions updated', questions });
     } else {
       res.status(500).json({ error: 'Failed to save questions' });
@@ -370,7 +362,7 @@ router.post('/:projectId/key-findings/generate', authenticateToken, async (req, 
     const { projectId } = req.params;
     const { detailLevel = 'moderate', analysisId } = req.body;
 
-    const projectData = await loadProjectStorytelling(projectId);
+    const projectData = await loadProjectStorytelling(projectId, analysisId);
     const strategicQuestions = projectData.strategicQuestions;
 
     if (!strategicQuestions || strategicQuestions.length === 0) {
@@ -393,7 +385,7 @@ router.post('/:projectId/key-findings/generate', authenticateToken, async (req, 
       version: (projectData.keyFindings?.version || 0) + 1
     };
 
-    if (await saveProjectStorytelling(projectId, projectData)) {
+    if (await saveProjectStorytelling(projectId, projectData, analysisId)) {
       res.json(projectData.keyFindings);
     } else {
       res.status(500).json({ error: 'Failed to save key findings' });
@@ -419,13 +411,13 @@ router.post('/:projectId/storyboard/generate', authenticateToken, async (req, re
 
     const storyboard = await generateStoryboard(projectId, transcriptsText, caDataObj, detailLevel);
 
-    const projectData = await loadProjectStorytelling(projectId);
+    const projectData = await loadProjectStorytelling(projectId, analysisId);
     storyboard.id = `SB-${Date.now()}`;
     storyboard.detailLevel = detailLevel;
 
     projectData.storyboards.unshift(storyboard); // Add to beginning (newest first)
 
-    if (await saveProjectStorytelling(projectId, projectData)) {
+    if (await saveProjectStorytelling(projectId, projectData, analysisId)) {
       res.json(storyboard);
     } else {
       res.status(500).json({ error: 'Failed to save storyboard' });
@@ -559,7 +551,7 @@ router.post('/:projectId/ask', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'No content analysis data available for this project' });
     }
 
-    const projectData = await loadProjectStorytelling(projectId);
+    const projectData = await loadProjectStorytelling(projectId, analysisId);
     const answer = await answerQuestion(
       projectId,
       question,
@@ -577,8 +569,7 @@ router.post('/:projectId/ask', authenticateToken, async (req, res) => {
       confidence: answer.confidence,
       note: answer.note,
       timestamp: new Date().toISOString(),
-      detailLevel,
-      quoteLevel
+      detailLevel
     });
 
     // Keep last 50 Q&A pairs
@@ -586,7 +577,7 @@ router.post('/:projectId/ask', authenticateToken, async (req, res) => {
       projectData.chatHistory = projectData.chatHistory.slice(-50);
     }
 
-    await saveProjectStorytelling(projectId, projectData);
+    await saveProjectStorytelling(projectId, projectData, analysisId);
 
     res.json(answer);
   } catch (error) {

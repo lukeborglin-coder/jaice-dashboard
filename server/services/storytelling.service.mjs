@@ -122,7 +122,13 @@ Guidelines:
 - Highlight surprising or unexpected findings
 - Present findings as clear analysis without including direct quotes
 - Base your analysis on the provided data and present it as clean analysis text
-- Synthesize findings into clear, actionable insights`;
+- Synthesize findings into clear, actionable insights
+
+IMPORTANT - ANONYMIZATION REQUIREMENTS:
+- NEVER use actual respondent names (like "Tara", "John", "Sarah", etc.) in your analysis
+- ALWAYS refer to respondents as "Respondent" or "Participant" 
+- If you see actual names in the transcript data, replace them with generic terms in your analysis
+- Maintain anonymity and confidentiality in all findings`;
 
   const userPrompt = `Analyze the following research data and answer each strategic question.
 
@@ -217,7 +223,13 @@ Style Guidelines:
 - Present findings in a logical narrative flow
 - Highlight key themes, patterns, and insights
 - Note contradictions and nuances
-- Focus on analysis and synthesis rather than direct quotes`;
+- Focus on analysis and synthesis rather than direct quotes
+
+IMPORTANT - ANONYMIZATION REQUIREMENTS:
+- NEVER use actual respondent names (like "Tara", "John", "Sarah", etc.) in your storyboard
+- ALWAYS refer to respondents as "Respondent" or "Participant" 
+- If you see actual names in the transcript data, replace them with generic terms in your storyboard
+- Maintain anonymity and confidentiality in all content`;
 
   const userPrompt = `Create a research storyboard from the following data.
 
@@ -327,7 +339,13 @@ Guidelines:
 - Provide actionable insights when possible
 - Focus on analysis, insights, and findings without including direct quotes
 - Base your analysis on the provided data and present it as clean analysis text
-- Synthesize findings into clear, actionable insights`;
+- Synthesize findings into clear, actionable insights
+
+IMPORTANT - ANONYMIZATION REQUIREMENTS:
+- NEVER use actual respondent names (like "Tara", "John", "Sarah", etc.) in your answers
+- ALWAYS refer to respondents as "Respondent" or "Participant" 
+- If you see actual names in the data, replace them with generic terms in your analysis
+- Maintain anonymity and confidentiality in all responses`;
 
   let contextSection = '';
   if (existingFindings && existingFindings.findings) {
