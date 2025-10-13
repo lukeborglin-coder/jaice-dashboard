@@ -13,6 +13,8 @@ import projectsRouter from './routes/projects.routes.mjs';
 import vendorsRouter from './routes/vendors.routes.mjs';
 import feedbackRouter from './routes/feedback.routes.mjs';
 import aeTrainingRouter from './routes/aeTraining.routes.mjs';
+import costsRouter from './routes/costs.routes.mjs';
+import storytellingRouter from './routes/storytelling.routes.mjs';
 
 // Load environment variables
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -97,6 +99,8 @@ app.use('/api/caX', apiLimiter, contentAnalysisXRouter);
 app.use('/api/transcripts', apiLimiter, transcriptsRouter);
 app.use('/api/feedback', apiLimiter, feedbackRouter);
 app.use('/api/ae-training', apiLimiter, aeTrainingRouter);
+app.use('/api/costs', apiLimiter, costsRouter);
+app.use('/api/storytelling', apiLimiter, storytellingRouter);
 
 // Health check
 app.get('/health', (req, res) => {
