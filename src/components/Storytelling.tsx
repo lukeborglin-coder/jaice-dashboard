@@ -334,11 +334,14 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
 
   const loadStorytellingData = async (projectId: string) => {
     try {
-      const url = analysisId 
-        ? `${API_BASE_URL}/api/storytelling/${projectId}?analysisId=${analysisId}`
+      // Use analysisId from selectedProject if available, otherwise use the prop
+      const currentAnalysisId = selectedProject?.analysisId || analysisId;
+      
+      const url = currentAnalysisId 
+        ? `${API_BASE_URL}/api/storytelling/${projectId}?analysisId=${currentAnalysisId}`
         : `${API_BASE_URL}/api/storytelling/${projectId}`;
       
-      console.log('🎭 Loading storytelling data:', { projectId, analysisId, url });
+      console.log('🎭 Loading storytelling data:', { projectId, analysisId: currentAnalysisId, url });
       
       const response = await fetch(url, {
         headers: getAuthHeaders()
@@ -381,7 +384,7 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
           ...getAuthHeaders(),
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ questions: tempQuestions, analysisId })
+        body: JSON.stringify({ questions: tempQuestions, analysisId: selectedProject?.analysisId || analysisId })
       });
 
       if (response.ok) {
@@ -409,7 +412,7 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
           ...getAuthHeaders(),
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ detailLevel, analysisId })
+        body: JSON.stringify({ detailLevel, analysisId: selectedProject?.analysisId || analysisId })
       });
 
       console.log('💰 Cost estimate response status:', response.status);
@@ -446,7 +449,7 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
           ...getAuthHeaders(),
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ detailLevel, analysisId })
+        body: JSON.stringify({ detailLevel, analysisId: selectedProject?.analysisId || analysisId })
       });
 
       if (response.ok) {
@@ -483,7 +486,7 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
           ...getAuthHeaders(),
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ detailLevel, analysisId })
+        body: JSON.stringify({ detailLevel, analysisId: selectedProject?.analysisId || analysisId })
       });
 
       if (response.ok) {
@@ -519,7 +522,7 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
           ...getAuthHeaders(),
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ question: currentQuestion, detailLevel, analysisId })
+        body: JSON.stringify({ question: currentQuestion, detailLevel, analysisId: selectedProject?.analysisId || analysisId })
       });
 
       if (response.ok) {
@@ -582,7 +585,7 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
         body: JSON.stringify({
           question: message.question,
           answer: message.answer,
-          analysisId
+          analysisId: selectedProject?.analysisId || analysisId
         })
       });
 
