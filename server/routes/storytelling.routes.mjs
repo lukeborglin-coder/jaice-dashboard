@@ -155,18 +155,48 @@ router.get('/projects', authenticateToken, async (req, res) => {
     });
 
     // Get content analysis data to count respondents
-    let caData = {};
+    let caData = [];
     try {
       const caDataContent = await fs.readFile(CAX_PATH, 'utf8');
       caData = JSON.parse(caDataContent);
+      console.log('🔍 CA Data Structure Debug:', {
+        totalAnalyses: caData.length,
+        firstAnalysis: caData[0] ? {
+          projectId: caData[0].projectId,
+          hasData: !!caData[0].data,
+          hasQuotes: !!caData[0].quotes,
+          hasVerbatimQuotes: !!caData[0].verbatimQuotes,
+          verbatimQuotesKeys: caData[0].verbatimQuotes ? Object.keys(caData[0].verbatimQuotes) : [],
+          verbatimQuotesStructure: caData[0].verbatimQuotes ? 
+            Object.keys(caData[0].verbatimQuotes).map(key => ({
+              sheet: key,
+              respondentCount: caData[0].verbatimQuotes[key] ? Object.keys(caData[0].verbatimQuotes[key]).length : 0
+            })) : []
+        } : null
+      });
     } catch (error) {
-      console.log('No content analysis data found');
+      console.log('No content analysis data found:', error.message);
     }
 
     // Filter projects that have content analysis data and add respondent counts
+    console.log('🔍 Projects Debug:', {
+      totalProjects: allProjects.length,
+      projectIds: allProjects.map(p => p.id),
+      caProjectIds: caData.map(ca => ca.projectId)
+    });
+
     const projectsWithCA = allProjects.filter(project => {
       const projectCA = caData.find(ca => ca.projectId === project.id);
-      return projectCA && projectCA.verbatimQuotes && Object.keys(projectCA.verbatimQuotes).length > 0;
+      const hasCA = projectCA && projectCA.verbatimQuotes && Object.keys(projectCA.verbatimQuotes).length > 0;
+      
+      console.log(`🔍 Project ${project.id} (${project.name}):`, {
+        foundCA: !!projectCA,
+        hasVerbatimQuotes: projectCA ? !!projectCA.verbatimQuotes : false,
+        verbatimQuotesKeys: projectCA && projectCA.verbatimQuotes ? Object.keys(projectCA.verbatimQuotes) : [],
+        willInclude: hasCA
+      });
+      
+      return hasCA;
     }).map(project => {
       const projectCA = caData.find(ca => ca.projectId === project.id);
       let respondentCount = 0;
@@ -188,6 +218,11 @@ router.get('/projects', authenticateToken, async (req, res) => {
         ...project,
         respondentCount
       };
+    });
+
+    console.log('🔍 Final Result:', {
+      projectsWithCA: projectsWithCA.length,
+      projects: projectsWithCA.map(p => ({ id: p.id, name: p.name, respondentCount: p.respondentCount }))
     });
 
     res.json({ projects: projectsWithCA });
