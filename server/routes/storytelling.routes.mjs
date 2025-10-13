@@ -180,7 +180,10 @@ router.get('/projects', authenticateToken, async (req, res) => {
             Object.keys(caData[0].verbatimQuotes).map(key => ({
               sheet: key,
               respondentCount: caData[0].verbatimQuotes[key] ? Object.keys(caData[0].verbatimQuotes[key]).length : 0
-            })) : []
+            })) : [],
+          dataKeys: caData[0].data ? Object.keys(caData[0].data) : [],
+          quotesKeys: caData[0].quotes ? Object.keys(caData[0].quotes) : [],
+          fullDataStructure: caData[0].data ? caData[0].data : null
         } : null
       });
     } catch (error) {
@@ -221,8 +224,10 @@ router.get('/projects', authenticateToken, async (req, res) => {
           verbatimQuotesKeys: Object.keys(projectCA.verbatimQuotes),
           verbatimQuotesStructure: Object.keys(projectCA.verbatimQuotes).map(sheet => ({
             sheet,
-            respondentIds: projectCA.verbatimQuotes[sheet] ? Object.keys(projectCA.verbatimQuotes[sheet]) : []
-          }))
+            respondentIds: projectCA.verbatimQuotes[sheet] ? Object.keys(projectCA.verbatimQuotes[sheet]) : [],
+            fullStructure: projectCA.verbatimQuotes[sheet] ? projectCA.verbatimQuotes[sheet] : null
+          })),
+          fullVerbatimQuotes: projectCA.verbatimQuotes
         });
         
         Object.values(projectCA.verbatimQuotes).forEach(sheetData => {
