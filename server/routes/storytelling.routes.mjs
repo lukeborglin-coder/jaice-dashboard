@@ -103,11 +103,12 @@ async function getCAData(projectId) {
     
     return {
       data: projectCA.data || {},
-      quotes: projectCA.quotes || {}
+      quotes: projectCA.quotes || {},
+      verbatimQuotes: projectCA.verbatimQuotes || {}
     };
   } catch (error) {
     console.error('Error getting CA data:', error);
-    return { data: {}, quotes: {} };
+    return { data: {}, quotes: {}, verbatimQuotes: {} };
   }
 }
 
@@ -401,7 +402,7 @@ router.post('/:projectId/estimate', authenticateToken, async (req, res) => {
     const transcriptsText = await getTranscriptsText(projectId);
     const caDataObj = await getCAData(projectId);
 
-    const estimate = estimateStorytellingCost(transcriptsText, caDataObj, detailLevel, quoteLevel);
+    const estimate = estimateStorytellingCost(transcriptsText, caDataObj, detailLevel, quoteLevel, 'qa');
 
     res.json(estimate);
   } catch (error) {

@@ -12,14 +12,14 @@ function estimateTokens(text) {
   return Math.ceil(text.length / 4);
 }
 
-// Extract relevant quotes from content analysis data based on question
+// Extract relevant verbatim quotes from content analysis data based on question
 function extractRelevantQuotes(quotesData, question) {
   if (!quotesData || typeof quotesData !== 'object') return [];
   
   const allQuotes = [];
   const questionLower = question.toLowerCase();
   
-  // Extract quotes from all sheets and respondents
+  // Extract verbatim quotes from all sheets and respondents
   for (const [sheetName, sheetQuotes] of Object.entries(quotesData)) {
     if (!sheetQuotes || typeof sheetQuotes !== 'object') continue;
     
@@ -51,6 +51,45 @@ function extractRelevantQuotes(quotesData, question) {
   return uniqueQuotes.slice(0, 10);
 }
 
+// Extract verbatim quotes from the verbatimQuotes structure (same as content analysis popups)
+function extractVerbatimQuotes(verbatimQuotesData, question) {
+  if (!verbatimQuotesData || typeof verbatimQuotesData !== 'object') return [];
+  
+  const allQuotes = [];
+  const questionLower = question.toLowerCase();
+  
+  // Extract verbatim quotes from the same structure used by content analysis popups
+  for (const [sheetName, sheetQuotes] of Object.entries(verbatimQuotesData)) {
+    if (!sheetQuotes || typeof sheetQuotes !== 'object') continue;
+    
+    for (const [respondentId, respondentQuotes] of Object.entries(sheetQuotes)) {
+      if (!respondentQuotes || typeof respondentQuotes !== 'object') continue;
+      
+      for (const [columnName, quoteData] of Object.entries(respondentQuotes)) {
+        if (!quoteData || !Array.isArray(quoteData.quotes)) continue;
+        
+        // Filter quotes that might be relevant to the question
+        for (const quote of quoteData.quotes) {
+          if (quote && typeof quote.text === 'string' && quote.text.trim()) {
+            const quoteLower = quote.text.toLowerCase();
+            // Simple relevance check - look for key terms from the question
+            const questionWords = questionLower.split(/\s+/).filter(word => word.length > 3);
+            const hasRelevantTerms = questionWords.some(word => quoteLower.includes(word));
+            
+            if (hasRelevantTerms || questionWords.length === 0) {
+              allQuotes.push(quote.text.trim());
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  // Remove duplicates and return up to 10 most relevant quotes
+  const uniqueQuotes = [...new Set(allQuotes)];
+  return uniqueQuotes.slice(0, 10);
+}
+
 /**
  * Estimate cost for a storytelling operation
  * @param {string} transcriptsText - Combined transcript text
@@ -59,21 +98,32 @@ function extractRelevantQuotes(quotesData, question) {
  * @param {string} quoteLevel - none/few/moderate/many
  * @returns {object} - Cost estimate with inputTokens, outputTokens, cost, formattedCost
  */
-export function estimateStorytellingCost(transcriptsText, caDataObj, detailLevel = 'moderate', quoteLevel = 'moderate') {
-  // For cost estimation, use a reasonable sample size instead of full data
-  // This prevents massive cost estimates for large datasets
-  const maxSampleSize = 50000; // ~12,500 tokens max
+export function estimateStorytellingCost(transcriptsText, caDataObj, detailLevel = 'moderate', quoteLevel = 'moderate', operationType = 'general') {
+  // For Q&A operations, don't include transcripts since we only use CA data
+  let inputText = '';
   
-  const sampleTranscripts = transcriptsText.length > maxSampleSize 
-    ? transcriptsText.substring(0, maxSampleSize) + '...[truncated]'
-    : transcriptsText;
+  if (operationType === 'qa') {
+    // Q&A operations only use content analysis data
+    const caDataString = JSON.stringify(caDataObj.data || {}, null, 2);
+    inputText = caDataString.length > 30000 
+      ? caDataString.substring(0, 30000) + '...[truncated]'
+      : caDataString;
+  } else {
+    // Other operations (key findings, storyboard) use both transcripts and CA data
+    const maxSampleSize = 50000; // ~12,500 tokens max
     
-  const caDataString = JSON.stringify(caDataObj.data || {}, null, 2);
-  const sampleCAData = caDataString.length > 20000 
-    ? caDataString.substring(0, 20000) + '...[truncated]'
-    : caDataString;
-    
-  const inputText = sampleTranscripts + sampleCAData;
+    const sampleTranscripts = transcriptsText.length > maxSampleSize 
+      ? transcriptsText.substring(0, maxSampleSize) + '...[truncated]'
+      : transcriptsText;
+      
+    const caDataString = JSON.stringify(caDataObj.data || {}, null, 2);
+    const sampleCAData = caDataString.length > 20000 
+      ? caDataString.substring(0, 20000) + '...[truncated]'
+      : caDataString;
+      
+    inputText = sampleTranscripts + sampleCAData;
+  }
+  
   const inputTokens = estimateTokens(inputText);
 
   // Estimate output tokens based on detail level
@@ -95,10 +145,10 @@ export function estimateStorytellingCost(transcriptsText, caDataObj, detailLevel
 
   // Debug logging
   console.log('💰 Cost Estimation Debug:', {
+    operationType,
     originalTranscriptLength: transcriptsText.length,
-    originalCADataLength: caDataString.length,
-    sampleTranscriptLength: sampleTranscripts.length,
-    sampleCADataLength: sampleCAData.length,
+    originalCADataLength: JSON.stringify(caDataObj.data || {}).length,
+    inputTextLength: inputText.length,
     inputTokens,
     outputTokens,
     totalCost: totalCost.toFixed(4)
@@ -298,8 +348,8 @@ Return your response as a JSON object with this structure:
 export async function answerQuestion(projectId, question, transcriptsText, caDataObj, existingFindings = null, detailLevel = 'moderate', quoteLevel = 'moderate') {
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-  // Extract real quotes from content analysis data
-  const realQuotes = extractRelevantQuotes(caDataObj.quotes, question);
+  // Extract real verbatim quotes from content analysis data (same as popups)
+  const realQuotes = extractVerbatimQuotes(caDataObj.verbatimQuotes || {}, question);
   
   let detailInstruction = 'Provide a moderate level of detail.';
   if (detailLevel === 'straightforward') {
@@ -325,7 +375,8 @@ Guidelines:
 - Be clear, accurate, and evidence-based
 - Note when data is insufficient to answer fully
 - Provide actionable insights when possible
-- Use the provided verbatim quotes to support your answer`;
+- Use ONLY the provided verbatim quotes to support your answer
+- Do not generate or paraphrase quotes - use only the exact quotes provided`;
 
   let contextSection = '';
   if (existingFindings && existingFindings.findings) {
@@ -336,15 +387,13 @@ Guidelines:
     ? `\n\nRELEVANT VERBATIM QUOTES:\n${realQuotes.map((q, i) => `${i + 1}. "${q}"`).join('\n')}`
     : '';
 
+  // Use only content analysis data, no transcripts
   const userPrompt = `Answer this question based on the research data:
 
 QUESTION: ${question}
 
-TRANSCRIPT DATA:
-${transcriptsText.substring(0, 50000)} ${transcriptsText.length > 50000 ? '...[truncated]' : ''}
-
 CONTENT ANALYSIS DATA:
-${JSON.stringify(caDataObj.data, null, 2).substring(0, 20000)} ${JSON.stringify(caDataObj.data).length > 20000 ? '...[truncated]' : ''}${contextSection}${quotesSection}
+${JSON.stringify(caDataObj.data, null, 2).substring(0, 30000)} ${JSON.stringify(caDataObj.data).length > 30000 ? '...[truncated]' : ''}${contextSection}${quotesSection}
 
 Return your response as a JSON object with this structure:
 {
@@ -367,9 +416,11 @@ Return your response as a JSON object with this structure:
 
   const result = JSON.parse(response.choices[0].message.content);
 
-  // If we have real quotes, use them instead of AI-generated ones
+  // Always use the real verbatim quotes instead of AI-generated ones
   if (realQuotes.length > 0 && quoteLevel !== 'none') {
     result.quotes = realQuotes.slice(0, quoteLevel === 'few' ? 2 : quoteLevel === 'many' ? 8 : 4);
+  } else if (quoteLevel !== 'none') {
+    result.quotes = [];
   }
 
   // Log cost
