@@ -164,6 +164,9 @@ export default function Storytelling() {
   const estimateCost = async () => {
     if (!selectedProject) return;
 
+    console.log('💰 Estimating cost for project:', selectedProject.id);
+    console.log('💰 API URL:', `${API_BASE_URL}/api/storytelling/${selectedProject.id}/estimate`);
+
     try {
       const response = await fetch(`${API_BASE_URL}/api/storytelling/${selectedProject.id}/estimate`, {
         method: 'POST',
@@ -174,10 +177,16 @@ export default function Storytelling() {
         body: JSON.stringify({ detailLevel, quoteLevel })
       });
 
+      console.log('💰 Cost estimate response status:', response.status);
+
       if (response.ok) {
         const estimate = await response.json();
+        console.log('💰 Cost estimate received:', estimate);
         setCostEstimate(estimate);
         setShowCostModal(true);
+      } else {
+        const errorText = await response.text();
+        console.error('💰 Cost estimate failed:', response.status, errorText);
       }
     } catch (error) {
       console.error('Failed to estimate cost:', error);
@@ -217,6 +226,7 @@ export default function Storytelling() {
   };
 
   const handleGenerateStoryboard = async () => {
+    console.log('🎬 Generate Storyboard clicked');
     setPendingAction('storyboard');
     await estimateCost();
   };
