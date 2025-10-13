@@ -37,7 +37,6 @@ interface Storyboard {
   title: string;
   generatedAt: string;
   detailLevel: string;
-  quoteLevel: string;
   sections: Array<{
     title: string;
     content: string;
@@ -63,15 +62,20 @@ function formatQuoteText(text: string) {
   // Split by lines and format each line with speaker tags
   const lines = text.split('\n');
   const formattedLines = lines.map((line, index) => {
-    // Match "Speaker: " pattern at the start of a line
-    const match = line.match(/^(Moderator|Respondent|Interviewer|Participant):\s*/);
+    // Match "Speaker: " pattern at the start of a line (case insensitive)
+    const match = line.match(/^(Moderator|Respondent|Interviewer|Participant):\s*/i);
     if (match) {
       const speaker = match[1];
       const rest = line.substring(match[0].length);
       return (
         <React.Fragment key={index}>
-          <strong>{speaker}:</strong> {rest}
-          {index < lines.length - 1 && <br />}
+          <strong>{speaker}:</strong> <em>{rest}</em>
+          {index < lines.length - 1 && (
+            <>
+              <br />
+              <br />
+            </>
+          )}
         </React.Fragment>
       );
     }
@@ -83,6 +87,61 @@ function formatQuoteText(text: string) {
     );
   });
   return <>{formattedLines}</>;
+}
+
+// Helper function to parse and render Markdown content
+function parseMarkdownContent(content: string) {
+  const lines = content.split('\n');
+  const elements: JSX.Element[] = [];
+  let key = 0;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    
+    if (!line) {
+      elements.push(<br key={key++} />);
+      continue;
+    }
+
+    // Heading 3 (### )
+    if (line.startsWith('### ')) {
+      const text = line.substring(4);
+      elements.push(
+        <h4 key={key++} className="text-sm font-semibold text-gray-900 mt-4 mb-2">
+          {text}
+        </h4>
+      );
+    }
+    // Bold text (**text**)
+    else if (line.startsWith('**') && line.endsWith('**') && line.length > 4) {
+      const text = line.substring(2, line.length - 2);
+      elements.push(
+        <p key={key++} className="text-sm text-gray-700 mb-2">
+          <strong>{text}</strong>
+        </p>
+      );
+    }
+    // Bullet point (- )
+    else if (line.startsWith('- ')) {
+      const text = line.substring(2);
+      elements.push(
+        <div key={key++} className="flex items-start mb-1">
+          <span className="text-gray-500 mr-2 mt-1">•</span>
+          <span className="text-sm text-gray-700 flex-1">{text}</span>
+        </div>
+      );
+    }
+    // Regular paragraph
+    else {
+      elements.push(
+        <p key={key++} className="text-sm text-gray-700 mb-2">
+          {line}
+        </p>
+      );
+    }
+  }
+
+  return <div className="space-y-1">{elements}</div>;
 }
 
 export default function Storytelling() {
@@ -111,7 +170,6 @@ export default function Storytelling() {
   const [editingQuestions, setEditingQuestions] = useState(false);
   const [tempQuestions, setTempQuestions] = useState<string[]>([]);
   const [detailLevel, setDetailLevel] = useState<'straightforward' | 'moderate' | 'max'>('moderate');
-  const [quoteLevel, setQuoteLevel] = useState<'none' | 'few' | 'moderate' | 'many'>('moderate');
   const [currentQuestion, setCurrentQuestion] = useState('');
   const [showOldStoryboards, setShowOldStoryboards] = useState(false);
   
@@ -305,7 +363,7 @@ export default function Storytelling() {
           ...getAuthHeaders(),
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ detailLevel, quoteLevel })
+        body: JSON.stringify({ detailLevel })
       });
 
       if (response.ok) {
@@ -341,7 +399,7 @@ export default function Storytelling() {
           ...getAuthHeaders(),
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ question: currentQuestion, detailLevel, quoteLevel })
+        body: JSON.stringify({ question: currentQuestion, detailLevel })
       });
 
       if (response.ok) {
@@ -622,32 +680,17 @@ export default function Storytelling() {
               <div className="bg-white shadow-sm border border-gray-200 rounded-lg p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Generate New Storyboard</h3>
 
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Detail Level</label>
-                    <select
-                      value={detailLevel}
-                      onChange={e => setDetailLevel(e.target.value as any)}
-                      className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-                    >
-                      <option value="straightforward">Straightforward</option>
-                      <option value="moderate">Moderate</option>
-                      <option value="max">Max Detail</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Quotes</label>
-                    <select
-                      value={quoteLevel}
-                      onChange={e => setQuoteLevel(e.target.value as any)}
-                      className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-                    >
-                      <option value="none">None</option>
-                      <option value="few">A Few</option>
-                      <option value="moderate">Moderate</option>
-                      <option value="many">Many</option>
-                    </select>
-                  </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Detail Level</label>
+                  <select
+                    value={detailLevel}
+                    onChange={e => setDetailLevel(e.target.value as any)}
+                    className="w-full max-w-xs border border-gray-300 rounded px-3 py-2 text-sm"
+                  >
+                    <option value="straightforward">Straightforward</option>
+                    <option value="moderate">Moderate</option>
+                    <option value="max">Max Detail</option>
+                  </select>
                 </div>
 
                 <button
@@ -675,13 +718,13 @@ export default function Storytelling() {
                       </button>
                     </div>
                     <p className="text-xs text-gray-500 mb-4">
-                      Generated: {new Date(storyboards[0].generatedAt).toLocaleString()} • {storyboards[0].detailLevel} detail • {storyboards[0].quoteLevel} quotes
+                      Generated: {new Date(storyboards[0].generatedAt).toLocaleString()} • {storyboards[0].detailLevel} detail
                     </p>
                     <div className="prose prose-sm max-w-none">
                       {storyboards[0].sections?.map((section, idx) => (
                         <div key={idx} className="mb-6">
                           <h3 className="text-base font-bold text-gray-900 mb-2">{section.title}</h3>
-                          <div className="text-sm text-gray-700 whitespace-pre-wrap">{section.content}</div>
+                          {parseMarkdownContent(section.content)}
                         </div>
                       ))}
                     </div>
@@ -704,7 +747,7 @@ export default function Storytelling() {
                                 <div>
                                   <p className="text-sm font-medium text-gray-900">{sb.title}</p>
                                   <p className="text-xs text-gray-500">
-                                    {new Date(sb.generatedAt).toLocaleString()} • {sb.detailLevel} detail • {sb.quoteLevel} quotes
+                                    {new Date(sb.generatedAt).toLocaleString()} • {sb.detailLevel} detail
                                   </p>
                                 </div>
                                 <button

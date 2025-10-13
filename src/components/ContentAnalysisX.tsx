@@ -43,15 +43,20 @@ function formatQuoteText(text: string) {
   // Split by lines and format each line with speaker tags
   const lines = text.split('\n');
   const formattedLines = lines.map((line, index) => {
-    // Match "Speaker: " pattern at the start of a line
-    const match = line.match(/^(Moderator|Respondent|Interviewer|Participant):\s*/);
+    // Match "Speaker: " pattern at the start of a line (case insensitive)
+    const match = line.match(/^(Moderator|Respondent|Interviewer|Participant):\s*/i);
     if (match) {
       const speaker = match[1];
       const rest = line.substring(match[0].length);
       return (
         <React.Fragment key={index}>
-          <strong>{speaker}:</strong> {rest}
-          {index < lines.length - 1 && <br />}
+          <strong>{speaker}:</strong> <em>{rest}</em>
+          {index < lines.length - 1 && (
+            <>
+              <br />
+              <br />
+            </>
+          )}
         </React.Fragment>
       );
     }
