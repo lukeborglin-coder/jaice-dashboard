@@ -337,6 +337,13 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
       // Use analysisId from selectedProject if available, otherwise use the prop
       const currentAnalysisId = selectedProject?.analysisId || analysisId;
       
+      console.log('🎭 Debug selectedProject:', { 
+        selectedProject, 
+        selectedProjectAnalysisId: selectedProject?.analysisId,
+        propAnalysisId: analysisId,
+        currentAnalysisId 
+      });
+      
       const url = currentAnalysisId 
         ? `${API_BASE_URL}/api/storytelling/${projectId}?analysisId=${currentAnalysisId}`
         : `${API_BASE_URL}/api/storytelling/${projectId}`;
