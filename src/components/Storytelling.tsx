@@ -59,34 +59,64 @@ interface VerbatimQuote {
 
 // Helper function to format quote text with bold speaker tags
 function formatQuoteText(text: string) {
-  // Split by lines and format each line with speaker tags
+  // First, split by lines
   const lines = text.split('\n');
-  const formattedLines = lines.map((line, index) => {
-    // Match "Speaker: " pattern at the start of a line (case insensitive)
-    const match = line.match(/^(Moderator|Respondent|Interviewer|Participant):\s*/i);
-    if (match) {
+  const allElements: JSX.Element[] = [];
+  let key = 0;
+
+  lines.forEach((line, lineIndex) => {
+    // Check if line contains multiple speakers (e.g., "Moderator: ... Respondent: ...")
+    const speakerPattern = /(Moderator|Respondent|Interviewer|Participant):\s*/gi;
+    const matches = [...line.matchAll(speakerPattern)];
+    
+    if (matches.length > 1) {
+      // Multiple speakers on same line - split them
+      let lastIndex = 0;
+      matches.forEach((match, matchIndex) => {
+        const speaker = match[1];
+        const startPos = match.index!;
+        const endPos = matchIndex < matches.length - 1 ? matches[matchIndex + 1].index! : line.length;
+        const content = line.substring(startPos + match[0].length, endPos).trim();
+        
+        // Add line break before each speaker except the first
+        if (matchIndex > 0) {
+          allElements.push(<br key={key++} />);
+          allElements.push(<br key={key++} />);
+        }
+        
+        allElements.push(
+          <React.Fragment key={key++}>
+            <strong>{speaker.charAt(0).toUpperCase() + speaker.slice(1).toLowerCase()}:</strong> <em>{content}</em>
+          </React.Fragment>
+        );
+      });
+    } else if (matches.length === 1) {
+      // Single speaker on line
+      const match = matches[0];
       const speaker = match[1];
-      const rest = line.substring(match[0].length);
-      return (
-        <React.Fragment key={index}>
-          <strong>{speaker}:</strong> <em>{rest}</em>
-          {index < lines.length - 1 && (
-            <>
-              <br />
-              <br />
-            </>
-          )}
+      const content = line.substring(match[0].length).trim();
+      
+      allElements.push(
+        <React.Fragment key={key++}>
+          <strong>{speaker.charAt(0).toUpperCase() + speaker.slice(1).toLowerCase()}:</strong> <em>{content}</em>
+        </React.Fragment>
+      );
+    } else {
+      // No speaker pattern - regular text
+      allElements.push(
+        <React.Fragment key={key++}>
+          {line}
         </React.Fragment>
       );
     }
-    return (
-      <React.Fragment key={index}>
-        {line}
-        {index < lines.length - 1 && <br />}
-      </React.Fragment>
-    );
+    
+    // Add line break between different lines
+    if (lineIndex < lines.length - 1) {
+      allElements.push(<br key={key++} />);
+    }
   });
-  return <>{formattedLines}</>;
+
+  return <>{allElements}</>;
 }
 
 // Helper function to parse and render Markdown content
@@ -94,6 +124,66 @@ function parseMarkdownContent(content: string) {
   const lines = content.split('\n');
   const elements: JSX.Element[] = [];
   let key = 0;
+
+  // Helper function to parse inline markdown (bold, italic)
+  const parseInlineMarkdown = (text: string) => {
+    const parts: (string | JSX.Element)[] = [];
+    let currentText = text;
+    let partKey = 0;
+
+    // Handle bold text (**text**)
+    const boldRegex = /\*\*(.*?)\*\*/g;
+    let lastIndex = 0;
+    let match;
+
+    while ((match = boldRegex.exec(text)) !== null) {
+      // Add text before the bold
+      if (match.index > lastIndex) {
+        parts.push(currentText.substring(lastIndex, match.index));
+      }
+      
+      // Add bold text
+      parts.push(<strong key={`bold-${partKey++}`}>{match[1]}</strong>);
+      lastIndex = match.index + match[0].length;
+    }
+
+    // Add remaining text
+    if (lastIndex < text.length) {
+      parts.push(currentText.substring(lastIndex));
+    }
+
+    // Handle italic text (*text*)
+    const italicParts: (string | JSX.Element)[] = [];
+    partKey = 0;
+
+    parts.forEach((part, index) => {
+      if (typeof part === 'string') {
+        const italicRegex = /\*(.*?)\*/g;
+        let lastItalicIndex = 0;
+        let italicMatch;
+
+        while ((italicMatch = italicRegex.exec(part)) !== null) {
+          // Add text before the italic
+          if (italicMatch.index > lastItalicIndex) {
+            italicParts.push(part.substring(lastItalicIndex, italicMatch.index));
+          }
+          
+          // Add italic text
+          italicParts.push(<em key={`italic-${partKey++}`}>{italicMatch[1]}</em>);
+          lastItalicIndex = italicMatch.index + italicMatch[0].length;
+        }
+
+        // Add remaining text
+        if (lastItalicIndex < part.length) {
+          italicParts.push(part.substring(lastItalicIndex));
+        }
+      } else {
+        italicParts.push(part);
+      }
+    });
+
+    return italicParts.length > 0 ? italicParts : [text];
+  };
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
@@ -103,8 +193,17 @@ function parseMarkdownContent(content: string) {
       continue;
     }
 
+    // Heading 4 (#### )
+    if (line.startsWith('#### ')) {
+      const text = line.substring(5);
+      elements.push(
+        <h5 key={key++} className="text-sm font-semibold text-gray-900 mt-3 mb-2">
+          {text}
+        </h5>
+      );
+    }
     // Heading 3 (### )
-    if (line.startsWith('### ')) {
+    else if (line.startsWith('### ')) {
       const text = line.substring(4);
       elements.push(
         <h4 key={key++} className="text-sm font-semibold text-gray-900 mt-4 mb-2">
@@ -124,18 +223,20 @@ function parseMarkdownContent(content: string) {
     // Bullet point (- )
     else if (line.startsWith('- ')) {
       const text = line.substring(2);
+      const parsedText = parseInlineMarkdown(text);
       elements.push(
         <div key={key++} className="flex items-start mb-1">
           <span className="text-gray-500 mr-2 mt-1">•</span>
-          <span className="text-sm text-gray-700 flex-1">{text}</span>
+          <span className="text-sm text-gray-700 flex-1">{parsedText}</span>
         </div>
       );
     }
     // Regular paragraph
     else {
+      const parsedText = parseInlineMarkdown(line);
       elements.push(
         <p key={key++} className="text-sm text-gray-700 mb-2">
-          {line}
+          {parsedText}
         </p>
       );
     }
