@@ -51,6 +51,36 @@ function extractRelevantQuotes(quotesData, question) {
   return uniqueQuotes.slice(0, 10);
 }
 
+// Generate quotes on-demand for specific cells (same as content analysis)
+async function generateQuotesForCell(analysisId, respondentId, columnName, sheetName, keyFinding) {
+  try {
+    const response = await fetch(`${process.env.API_BASE_URL || 'http://localhost:3005'}/api/content-analysis/get-verbatim-quotes`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        analysisId,
+        respondentId,
+        columnName,
+        sheetName,
+        keyFinding
+      })
+    });
+
+    if (!response.ok) {
+      console.error(`Failed to generate quotes for ${respondentId} - ${columnName}:`, response.status);
+      return [];
+    }
+
+    const result = await response.json();
+    return result.quotes || [];
+  } catch (error) {
+    console.error('Error generating quotes for cell:', error);
+    return [];
+  }
+}
+
 // Extract verbatim quotes from the verbatimQuotes structure (same as content analysis popups)
 function extractVerbatimQuotes(verbatimQuotesData, question) {
   if (!verbatimQuotesData || typeof verbatimQuotesData !== 'object') return [];
@@ -369,8 +399,20 @@ Return your response as a JSON object with this structure:
 export async function answerQuestion(projectId, question, transcriptsText, caDataObj, existingFindings = null, detailLevel = 'moderate', quoteLevel = 'moderate') {
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-  // Extract real verbatim quotes from content analysis data (same as popups)
-  const realQuotes = extractVerbatimQuotes(caDataObj.verbatimQuotes || {}, question);
+  // First try to extract existing verbatim quotes
+  let realQuotes = extractVerbatimQuotes(caDataObj.verbatimQuotes || {}, question);
+  
+  // If no quotes found and quoteLevel is not 'none', generate quotes on-demand
+  if (realQuotes.length === 0 && quoteLevel !== 'none') {
+    console.log('🔍 No existing quotes found, generating quotes on-demand for question:', question);
+    
+    // Find the analysis ID for this project
+    const analysisId = await findAnalysisIdForProject(projectId);
+    if (analysisId) {
+      // Generate quotes for relevant cells
+      realQuotes = await generateQuotesForQuestion(analysisId, question, caDataObj);
+    }
+  }
   
   let detailInstruction = 'Provide a moderate level of detail.';
   if (detailLevel === 'straightforward') {

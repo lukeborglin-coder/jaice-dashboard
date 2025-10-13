@@ -203,11 +203,14 @@ router.get('/projects', authenticateToken, async (req, res) => {
 
     const projectsWithCA = allProjects.filter(project => {
       const projectCA = caData.find(ca => ca.projectId === project.id);
-      const hasCA = projectCA && projectCA.verbatimQuotes && Object.keys(projectCA.verbatimQuotes).length > 0;
+      // Check for main data structure instead of just verbatimQuotes
+      const hasCA = projectCA && projectCA.data && Object.keys(projectCA.data).length > 0;
       
       console.log(`🔍 Project ${project.id} (${project.name}):`, {
         foundCA: !!projectCA,
+        hasData: projectCA ? !!projectCA.data : false,
         hasVerbatimQuotes: projectCA ? !!projectCA.verbatimQuotes : false,
+        dataKeys: projectCA && projectCA.data ? Object.keys(projectCA.data) : [],
         verbatimQuotesKeys: projectCA && projectCA.verbatimQuotes ? Object.keys(projectCA.verbatimQuotes) : [],
         willInclude: hasCA
       });
@@ -250,10 +253,22 @@ router.get('/projects', authenticateToken, async (req, res) => {
                  (id.startsWith('R') || id.match(/^[A-Za-z]/)); // Starts with letter
         };
         
-        // Count from verbatimQuotes
-        if (projectCA.verbatimQuotes) {
-          Object.values(projectCA.verbatimQuotes).forEach(sheetData => {
-            if (sheetData && typeof sheetData === 'object') {
+        // Count from main data structure first (this has all respondents)
+        if (projectCA.data) {
+          Object.values(projectCA.data).forEach(sheetData => {
+            if (Array.isArray(sheetData)) {
+              // For array data, look for respondent IDs in the data objects
+              sheetData.forEach(row => {
+                if (row && typeof row === 'object') {
+                  // Look for common respondent ID fields
+                  const respondentId = row['Respondent ID'] || row['respno'] || row['ID'] || row['id'];
+                  if (isValidRespondentId(respondentId)) {
+                    allRespondents.add(respondentId);
+                  }
+                }
+              });
+            } else if (sheetData && typeof sheetData === 'object') {
+              // For object data, use keys as respondent IDs
               Object.keys(sheetData).forEach(respondentId => {
                 if (isValidRespondentId(respondentId)) {
                   allRespondents.add(respondentId);
@@ -263,9 +278,9 @@ router.get('/projects', authenticateToken, async (req, res) => {
           });
         }
         
-        // Count from main data structure
-        if (projectCA.data) {
-          Object.values(projectCA.data).forEach(sheetData => {
+        // Also count from verbatimQuotes (for respondents who have had quotes generated)
+        if (projectCA.verbatimQuotes) {
+          Object.values(projectCA.verbatimQuotes).forEach(sheetData => {
             if (sheetData && typeof sheetData === 'object') {
               Object.keys(sheetData).forEach(respondentId => {
                 if (isValidRespondentId(respondentId)) {
