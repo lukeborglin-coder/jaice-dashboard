@@ -61,6 +61,8 @@ async function loadProjectStorytelling(projectId, analysisId = null) {
     // If analysisId is provided, use it as the key, otherwise use projectId for backward compatibility
     const key = analysisId ? `${projectId}-${analysisId}` : projectId;
     
+    console.log('🔍 Loading storytelling data:', { projectId, analysisId, key, availableKeys: Object.keys(allData) });
+    
     return allData[key] || {
       strategicQuestions: [],
       keyFindings: null,
@@ -88,6 +90,8 @@ async function saveProjectStorytelling(projectId, projectData, analysisId = null
     
     // If analysisId is provided, use it as the key, otherwise use projectId for backward compatibility
     const key = analysisId ? `${projectId}-${analysisId}` : projectId;
+    
+    console.log('💾 Saving storytelling data:', { projectId, analysisId, key, strategicQuestionsCount: projectData.strategicQuestions?.length || 0 });
     
     allData[key] = projectData;
     await fs.writeFile(STORYTELLING_PATH, JSON.stringify(allData, null, 2));
@@ -337,6 +341,8 @@ router.post('/:projectId/strategic-questions', authenticateToken, async (req, re
   try {
     const { projectId } = req.params;
     const { questions, analysisId } = req.body;
+
+    console.log('📝 Strategic questions update:', { projectId, analysisId, questionsCount: questions?.length || 0 });
 
     if (!Array.isArray(questions)) {
       return res.status(400).json({ error: 'Questions must be an array' });
