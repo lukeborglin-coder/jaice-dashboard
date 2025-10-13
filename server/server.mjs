@@ -15,6 +15,7 @@ import feedbackRouter from './routes/feedback.routes.mjs';
 import aeTrainingRouter from './routes/aeTraining.routes.mjs';
 // import costsRouter from './routes/costs.routes.mjs';
 import storytellingRouter from './routes/storytelling.routes.mjs';
+import migrateTranscriptsRouter from './routes/migrate-transcripts.mjs';
 
 // Load environment variables
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -101,6 +102,7 @@ app.use('/api/feedback', apiLimiter, feedbackRouter);
 app.use('/api/ae-training', apiLimiter, aeTrainingRouter);
 // app.use('/api/costs', apiLimiter, costsRouter);
 app.use('/api/storytelling', apiLimiter, storytellingRouter);
+app.use('/api/migrate', apiLimiter, migrateTranscriptsRouter);
 
 // Health check
 app.get('/health', (req, res) => {
