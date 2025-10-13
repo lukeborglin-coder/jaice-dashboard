@@ -83,6 +83,69 @@ async function generateQuotesForCell(analysisId, respondentId, columnName, sheet
   }
 }
 
+// Clean quote text by removing speaker labels and formatting
+function cleanQuoteText(quoteText) {
+  // Remove common speaker labels
+  let cleaned = quoteText
+    .replace(/^(Respondent|Interviewer|Moderator|Facilitator|Researcher):\s*/i, '')
+    .replace(/^R\d+:\s*/i, '') // Remove R01:, R02:, etc.
+    .replace(/^\[.*?\]\s*/g, '') // Remove [bracketed content]
+    .replace(/^\(.*?\)\s*/g, '') // Remove (parenthetical content) at start
+    .trim();
+  
+  // Remove trailing speaker labels
+  cleaned = cleaned.replace(/\s*\(Respondent|Interviewer|Moderator|Facilitator|Researcher\)$/i, '');
+  
+  return cleaned;
+}
+
+// Check if a quote is relevant to the specific question
+function isQuoteRelevantToQuestion(quoteText, question) {
+  const quoteLower = quoteText.toLowerCase();
+  const questionLower = question.toLowerCase();
+  
+  // Extract key terms from the question
+  const questionWords = questionLower
+    .split(/\s+/)
+    .filter(word => word.length > 3)
+    .map(word => word.replace(/[^\w]/g, '')); // Remove punctuation
+  
+  // Define question-specific keywords for better matching
+  const questionKeywords = {
+    'barriers': ['barrier', 'obstacle', 'challenge', 'difficulty', 'problem', 'issue', 'hinder', 'prevent', 'stop', 'block'],
+    'treatment': ['treatment', 'therapy', 'medication', 'drug', 'medicine', 'care', 'medical', 'healthcare'],
+    'cost': ['cost', 'price', 'expensive', 'afford', 'insurance', 'money', 'financial', 'pay', 'budget'],
+    'benefits': ['benefit', 'help', 'improve', 'effective', 'work', 'useful', 'value', 'worth'],
+    'access': ['access', 'available', 'get', 'obtain', 'find', 'reach', 'available'],
+    'decision': ['decide', 'choice', 'choose', 'consider', 'think', 'opinion', 'view']
+  };
+  
+  // Get relevant keywords based on question content
+  const relevantKeywords = [];
+  for (const [key, keywords] of Object.entries(questionKeywords)) {
+    if (questionLower.includes(key)) {
+      relevantKeywords.push(...keywords);
+    }
+  }
+  
+  // If we have specific keywords, check for them
+  if (relevantKeywords.length > 0) {
+    const hasRelevantKeyword = relevantKeywords.some(keyword => quoteLower.includes(keyword));
+    if (hasRelevantKeyword) return true;
+  }
+  
+  // Fallback to general word matching
+  const hasQuestionWords = questionWords.some(word => quoteLower.includes(word));
+  
+  // For very specific questions, require at least some word match
+  if (questionWords.length > 0) {
+    return hasQuestionWords;
+  }
+  
+  // For general questions, be more lenient
+  return true;
+}
+
 // Extract verbatim quotes from the verbatimQuotes structure (same as content analysis popups)
 function extractVerbatimQuotes(verbatimQuotesData, question) {
   if (!verbatimQuotesData || typeof verbatimQuotesData !== 'object') return [];
@@ -106,10 +169,16 @@ function extractVerbatimQuotes(verbatimQuotesData, question) {
         // Filter quotes that might be relevant to the question and are respondent direct quotes
         for (const quote of quoteData.quotes) {
           if (quote && typeof quote.text === 'string' && quote.text.trim()) {
-            const quoteText = quote.text.trim();
+            let quoteText = quote.text.trim();
+            
+            // Clean up the quote text - remove speaker labels and formatting
+            quoteText = cleanQuoteText(quoteText);
+            
+            if (quoteText.length < 30) continue; // Skip very short quotes
+            
             const quoteLower = quoteText.toLowerCase();
             
-            // Filter out speaker notes - look for common speaker note patterns
+            // Filter out speaker notes and non-respondent content
             const isSpeakerNote = 
               quoteLower.startsWith('interviewer:') ||
               quoteLower.startsWith('moderator:') ||
@@ -117,6 +186,7 @@ function extractVerbatimQuotes(verbatimQuotesData, question) {
               quoteLower.startsWith('researcher:') ||
               quoteLower.startsWith('note:') ||
               quoteLower.startsWith('observation:') ||
+              quoteLower.startsWith('respondent:') ||
               quoteLower.startsWith('[') && quoteLower.endsWith(']') ||
               quoteLower.includes('(laughs)') ||
               quoteLower.includes('(pauses)') ||
@@ -124,16 +194,16 @@ function extractVerbatimQuotes(verbatimQuotesData, question) {
               quoteLower.includes('(inaudible)') ||
               quoteLower.includes('(unclear)') ||
               quoteLower.includes('(background noise)') ||
-              quoteText.length < 20; // Very short quotes are likely speaker notes
+              quoteLower.includes('respondent:') ||
+              quoteText.length < 30;
             
             if (!isSpeakerNote) {
-              // More lenient relevance check - if no specific question terms, include more quotes
-              const questionWords = questionLower.split(/\s+/).filter(word => word.length > 2);
-              const hasRelevantTerms = questionWords.length === 0 || questionWords.some(word => quoteLower.includes(word));
+              // Check relevance to the specific question
+              const isRelevant = isQuoteRelevantToQuestion(quoteText, question);
               
-              if (hasRelevantTerms) {
+              if (isRelevant) {
                 allQuotes.push(quoteText);
-                console.log(`🔍 Added quote from ${respondentId} - ${columnName}: ${quoteText.substring(0, 50)}...`);
+                console.log(`🔍 Added relevant quote from ${respondentId} - ${columnName}: ${quoteText.substring(0, 50)}...`);
               }
             }
           }
@@ -446,7 +516,11 @@ async function generateQuotesForQuestion(analysisId, question, caDataObj) {
                     if (hasRelevantTerms || questionWords.length === 0) {
                       try {
                         const quotes = await generateQuotesForCell(analysisId, respondentId, columnName, sheetName, cellValue);
-                        allQuotes.push(...quotes);
+                        // Clean and filter the generated quotes
+                        const cleanedQuotes = quotes
+                          .map(quote => cleanQuoteText(quote))
+                          .filter(quote => quote.length >= 30 && isQuoteRelevantToQuestion(quote, question));
+                        allQuotes.push(...cleanedQuotes);
                       } catch (error) {
                         console.log(`🔍 Could not generate quotes for ${respondentId} - ${columnName}:`, error.message);
                       }
