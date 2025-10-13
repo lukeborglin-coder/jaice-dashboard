@@ -245,7 +245,12 @@ function parseMarkdownContent(content: string) {
   return <div className="space-y-1">{elements}</div>;
 }
 
-export default function Storytelling() {
+interface StorytellingProps {
+  analysisId?: string;
+  projectId?: string;
+}
+
+export default function Storytelling({ analysisId, projectId }: StorytellingProps) {
   const { user } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
@@ -327,7 +332,11 @@ export default function Storytelling() {
 
   const loadStorytellingData = async (projectId: string) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/storytelling/${projectId}`, {
+      const url = analysisId 
+        ? `${API_BASE_URL}/api/storytelling/${projectId}?analysisId=${analysisId}`
+        : `${API_BASE_URL}/api/storytelling/${projectId}`;
+      
+      const response = await fetch(url, {
         headers: getAuthHeaders()
       });
       if (response.ok) {
@@ -349,8 +358,14 @@ export default function Storytelling() {
   useEffect(() => {
     if (selectedProject) {
       loadStorytellingData(selectedProject.id);
+    } else if (projectId) {
+      // If we have a specific projectId, load that project directly
+      const project = projects.find(p => p.id === projectId);
+      if (project) {
+        setSelectedProject(project);
+      }
     }
-  }, [selectedProject]);
+  }, [selectedProject, projectId, projects]);
 
   const handleSaveQuestions = async () => {
     if (!selectedProject) return;
@@ -390,7 +405,7 @@ export default function Storytelling() {
           ...getAuthHeaders(),
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ detailLevel })
+        body: JSON.stringify({ detailLevel, analysisId })
       });
 
       console.log('💰 Cost estimate response status:', response.status);
@@ -427,7 +442,7 @@ export default function Storytelling() {
           ...getAuthHeaders(),
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ detailLevel })
+        body: JSON.stringify({ detailLevel, analysisId })
       });
 
       if (response.ok) {
@@ -464,7 +479,7 @@ export default function Storytelling() {
           ...getAuthHeaders(),
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ detailLevel })
+        body: JSON.stringify({ detailLevel, analysisId })
       });
 
       if (response.ok) {

@@ -2968,6 +2968,8 @@ export default function App() {
   const [toolsDropdownOpen, setToolsDropdownOpen] = useState(true);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loadingProjects, setLoadingProjects] = useState(false);
+  const [currentAnalysisId, setCurrentAnalysisId] = useState<string | null>(null);
+  const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const [isNavigatingToProject, setIsNavigatingToProject] = useState(false);
   const [projectToNavigate, setProjectToNavigate] = useState<Project | null>(null);
   const [savedContentAnalyses, setSavedContentAnalyses] = useState<any[]>([]);
@@ -3703,11 +3705,20 @@ export default function App() {
       </aside>
 
       {route === "Content Analysis" ? (
-        <ContentAnalysisX projects={projects} onNavigate={setRoute} onNavigateToProject={handleProjectView} />
+        <ContentAnalysisX 
+          projects={projects} 
+          onNavigate={setRoute} 
+          onNavigateToProject={handleProjectView}
+          onNavigateToStorytelling={(analysisId, projectId) => {
+            setCurrentAnalysisId(analysisId);
+            setCurrentProjectId(projectId);
+            setRoute("Storytelling");
+          }}
+        />
       ) : route === "Transcripts" ? (
         <Transcripts />
       ) : route === "Storytelling" ? (
-        <Storytelling />
+        <Storytelling analysisId={currentAnalysisId} projectId={currentProjectId} />
       ) : (
         <main className="flex-1 overflow-visible min-w-0" style={{ background: BRAND.bg }}>
           {/* Mobile menu button - only visible on very small screens */}

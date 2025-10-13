@@ -91,11 +91,16 @@ async function saveProjectStorytelling(projectId, projectData) {
 }
 
 // Helper: Get transcripts text for a project
-async function getTranscriptsText(projectId) {
+async function getTranscriptsText(projectId, analysisId = null) {
   try {
     const data = await fs.readFile(TRANSCRIPTS_PATH, 'utf8');
     const transcripts = JSON.parse(data);
-    const projectTranscripts = transcripts[projectId] || [];
+    let projectTranscripts = transcripts[projectId] || [];
+
+    // Filter by analysisId if provided
+    if (analysisId) {
+      projectTranscripts = projectTranscripts.filter(t => t.analysisId === analysisId);
+    }
 
     let combinedText = '';
     for (const transcript of projectTranscripts) {
@@ -117,11 +122,16 @@ async function getTranscriptsText(projectId) {
 }
 
 // Helper: Get CA data for a project
-async function getCAData(projectId) {
+async function getCAData(projectId, analysisId = null) {
   try {
     const data = await fs.readFile(CAX_PATH, 'utf8');
     const allCA = JSON.parse(data);
-    const projectCA = allCA.find(ca => ca.projectId === projectId);
+    let projectCA = allCA.find(ca => ca.projectId === projectId);
+    
+    // If analysisId is provided, filter to only that specific analysis
+    if (analysisId && projectCA) {
+      projectCA = allCA.find(ca => ca.projectId === projectId && ca.id === analysisId);
+    }
     console.log('🔍 CA Data Debug:', {
       projectId,
       totalAnalyses: allCA.length,
@@ -304,7 +314,25 @@ router.get('/projects', authenticateToken, async (req, res) => {
 router.get('/:projectId', authenticateToken, async (req, res) => {
   try {
     const { projectId } = req.params;
+    const { analysisId } = req.query;
+    
     const data = await loadProjectStorytelling(projectId);
+    
+    // If analysisId is provided, filter the data to only include that analysis
+    if (analysisId) {
+      // Filter transcripts to only include those from the specific analysis
+      if (data.transcripts) {
+        data.transcripts = data.transcripts.filter(t => t.analysisId === analysisId);
+      }
+      
+      // Filter content analysis data to only include the specific analysis
+      if (data.caData) {
+        // This would need to be implemented based on how caData is structured
+        // For now, we'll pass the analysisId to the client for filtering
+        data.analysisId = analysisId;
+      }
+    }
+    
     res.json(data);
   } catch (error) {
     console.error('Error loading storytelling data:', error);
@@ -340,7 +368,7 @@ router.post('/:projectId/strategic-questions', authenticateToken, async (req, re
 router.post('/:projectId/key-findings/generate', authenticateToken, async (req, res) => {
   try {
     const { projectId } = req.params;
-    const { detailLevel = 'moderate' } = req.body;
+    const { detailLevel = 'moderate', analysisId } = req.body;
 
     const projectData = await loadProjectStorytelling(projectId);
     const strategicQuestions = projectData.strategicQuestions;
@@ -349,8 +377,8 @@ router.post('/:projectId/key-findings/generate', authenticateToken, async (req, 
       return res.status(400).json({ error: 'No strategic questions defined for this project' });
     }
 
-    const transcriptsText = await getTranscriptsText(projectId);
-    const caDataObj = await getCAData(projectId);
+    const transcriptsText = await getTranscriptsText(projectId, analysisId);
+    const caDataObj = await getCAData(projectId, analysisId);
 
     if (!transcriptsText.trim()) {
       return res.status(400).json({ error: 'No transcript data available for this project' });
@@ -380,10 +408,10 @@ router.post('/:projectId/key-findings/generate', authenticateToken, async (req, 
 router.post('/:projectId/storyboard/generate', authenticateToken, async (req, res) => {
   try {
     const { projectId } = req.params;
-    const { detailLevel = 'moderate' } = req.body;
+    const { detailLevel = 'moderate', analysisId } = req.body;
 
-    const transcriptsText = await getTranscriptsText(projectId);
-    const caDataObj = await getCAData(projectId);
+    const transcriptsText = await getTranscriptsText(projectId, analysisId);
+    const caDataObj = await getCAData(projectId, analysisId);
 
     if (!transcriptsText.trim()) {
       return res.status(400).json({ error: 'No transcript data available for this project' });
@@ -519,13 +547,13 @@ router.get('/:projectId/storyboard/:storyboardId/download', authenticateToken, a
 router.post('/:projectId/ask', authenticateToken, async (req, res) => {
   try {
     const { projectId } = req.params;
-    const { question, detailLevel = 'moderate' } = req.body;
+    const { question, detailLevel = 'moderate', analysisId } = req.body;
 
     if (!question || !question.trim()) {
       return res.status(400).json({ error: 'Question is required' });
     }
 
-    const caDataObj = await getCAData(projectId);
+    const caDataObj = await getCAData(projectId, analysisId);
 
     if (!caDataObj || !caDataObj.data || Object.keys(caDataObj.data).length === 0) {
       return res.status(400).json({ error: 'No content analysis data available for this project' });
@@ -759,10 +787,10 @@ router.post('/:projectId/clear-quotes-cache', authenticateToken, async (req, res
 router.post('/:projectId/estimate', authenticateToken, async (req, res) => {
   try {
     const { projectId } = req.params;
-    const { detailLevel = 'moderate' } = req.body;
+    const { detailLevel = 'moderate', analysisId } = req.body;
 
-    const transcriptsText = await getTranscriptsText(projectId);
-    const caDataObj = await getCAData(projectId);
+    const transcriptsText = await getTranscriptsText(projectId, analysisId);
+    const caDataObj = await getCAData(projectId, analysisId);
 
     const estimate = estimateStorytellingCost(transcriptsText, caDataObj, detailLevel, 'moderate', 'qa');
 
