@@ -380,7 +380,7 @@ router.post('/:projectId/key-findings/generate', authenticateToken, async (req, 
 router.post('/:projectId/storyboard/generate', authenticateToken, async (req, res) => {
   try {
     const { projectId } = req.params;
-    const { detailLevel = 'moderate', quoteLevel = 'moderate' } = req.body;
+    const { detailLevel = 'moderate' } = req.body;
 
     const transcriptsText = await getTranscriptsText(projectId);
     const caDataObj = await getCAData(projectId);
@@ -389,12 +389,11 @@ router.post('/:projectId/storyboard/generate', authenticateToken, async (req, re
       return res.status(400).json({ error: 'No transcript data available for this project' });
     }
 
-    const storyboard = await generateStoryboard(projectId, transcriptsText, caDataObj, detailLevel, quoteLevel);
+    const storyboard = await generateStoryboard(projectId, transcriptsText, caDataObj, detailLevel);
 
     const projectData = await loadProjectStorytelling(projectId);
     storyboard.id = `SB-${Date.now()}`;
     storyboard.detailLevel = detailLevel;
-    storyboard.quoteLevel = quoteLevel;
 
     projectData.storyboards.unshift(storyboard); // Add to beginning (newest first)
 
@@ -520,7 +519,7 @@ router.get('/:projectId/storyboard/:storyboardId/download', authenticateToken, a
 router.post('/:projectId/ask', authenticateToken, async (req, res) => {
   try {
     const { projectId } = req.params;
-    const { question, detailLevel = 'moderate', quoteLevel = 'moderate' } = req.body;
+    const { question, detailLevel = 'moderate' } = req.body;
 
     if (!question || !question.trim()) {
       return res.status(400).json({ error: 'Question is required' });
@@ -539,8 +538,7 @@ router.post('/:projectId/ask', authenticateToken, async (req, res) => {
       '', // No transcripts needed for Q&A
       caDataObj,
       projectData.keyFindings,
-      detailLevel,
-      quoteLevel
+      detailLevel
     );
 
     // Add to chat history
@@ -761,12 +759,12 @@ router.post('/:projectId/clear-quotes-cache', authenticateToken, async (req, res
 router.post('/:projectId/estimate', authenticateToken, async (req, res) => {
   try {
     const { projectId } = req.params;
-    const { detailLevel = 'moderate', quoteLevel = 'moderate' } = req.body;
+    const { detailLevel = 'moderate' } = req.body;
 
     const transcriptsText = await getTranscriptsText(projectId);
     const caDataObj = await getCAData(projectId);
 
-    const estimate = estimateStorytellingCost(transcriptsText, caDataObj, detailLevel, quoteLevel, 'qa');
+    const estimate = estimateStorytellingCost(transcriptsText, caDataObj, detailLevel, 'moderate', 'qa');
 
     res.json(estimate);
   } catch (error) {
