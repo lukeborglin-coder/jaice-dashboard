@@ -21,6 +21,9 @@ interface Project {
   methodologyType?: string;
   archived?: boolean;
   client?: string;
+  respondentCount?: number;
+  analysisId?: string;
+  createdAt?: string;
 }
 
 interface Finding {
@@ -83,7 +86,7 @@ export default function Storytelling() {
   const [showOldStoryboards, setShowOldStoryboards] = useState(false);
 
   const qualProjects = useMemo(
-    () => projects.filter(p => (p.methodologyType || '').toLowerCase() === 'qualitative' && !p.archived),
+    () => projects.filter(p => !p.archived),
     [projects]
   );
 
