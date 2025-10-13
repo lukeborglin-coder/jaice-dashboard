@@ -68,16 +68,37 @@ function extractVerbatimQuotes(verbatimQuotesData, question) {
       for (const [columnName, quoteData] of Object.entries(respondentQuotes)) {
         if (!quoteData || !Array.isArray(quoteData.quotes)) continue;
         
-        // Filter quotes that might be relevant to the question
+        // Filter quotes that might be relevant to the question and are respondent direct quotes
         for (const quote of quoteData.quotes) {
           if (quote && typeof quote.text === 'string' && quote.text.trim()) {
-            const quoteLower = quote.text.toLowerCase();
-            // Simple relevance check - look for key terms from the question
-            const questionWords = questionLower.split(/\s+/).filter(word => word.length > 3);
-            const hasRelevantTerms = questionWords.some(word => quoteLower.includes(word));
+            const quoteText = quote.text.trim();
+            const quoteLower = quoteText.toLowerCase();
             
-            if (hasRelevantTerms || questionWords.length === 0) {
-              allQuotes.push(quote.text.trim());
+            // Filter out speaker notes - look for common speaker note patterns
+            const isSpeakerNote = 
+              quoteLower.startsWith('interviewer:') ||
+              quoteLower.startsWith('moderator:') ||
+              quoteLower.startsWith('facilitator:') ||
+              quoteLower.startsWith('researcher:') ||
+              quoteLower.startsWith('note:') ||
+              quoteLower.startsWith('observation:') ||
+              quoteLower.startsWith('[') && quoteLower.endsWith(']') ||
+              quoteLower.includes('(laughs)') ||
+              quoteLower.includes('(pauses)') ||
+              quoteLower.includes('(coughs)') ||
+              quoteLower.includes('(inaudible)') ||
+              quoteLower.includes('(unclear)') ||
+              quoteLower.includes('(background noise)') ||
+              quoteText.length < 20; // Very short quotes are likely speaker notes
+            
+            if (!isSpeakerNote) {
+              // Simple relevance check - look for key terms from the question
+              const questionWords = questionLower.split(/\s+/).filter(word => word.length > 3);
+              const hasRelevantTerms = questionWords.some(word => quoteLower.includes(word));
+              
+              if (hasRelevantTerms || questionWords.length === 0) {
+                allQuotes.push(quoteText);
+              }
             }
           }
         }
@@ -371,12 +392,12 @@ export async function answerQuestion(projectId, question, transcriptsText, caDat
 
 Guidelines:
 - ${detailInstruction}
-- ${quoteInstruction}
 - Be clear, accurate, and evidence-based
 - Note when data is insufficient to answer fully
 - Provide actionable insights when possible
-- Use ONLY the provided verbatim quotes to support your answer
-- Do not generate or paraphrase quotes - use only the exact quotes provided`;
+- Do NOT include quotes in your answer text - quotes will be provided separately
+- Focus on analysis, insights, and findings without embedding quotes
+- Base your analysis on the provided data but present it as clean analysis text`;
 
   let contextSection = '';
   if (existingFindings && existingFindings.findings) {

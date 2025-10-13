@@ -217,6 +217,14 @@ router.get('/projects', authenticateToken, async (req, res) => {
       if (projectCA && projectCA.verbatimQuotes) {
         // Count unique respondents across all sheets
         const allRespondents = new Set();
+        console.log(`🔍 Respondent Count Debug for ${project.id}:`, {
+          verbatimQuotesKeys: Object.keys(projectCA.verbatimQuotes),
+          verbatimQuotesStructure: Object.keys(projectCA.verbatimQuotes).map(sheet => ({
+            sheet,
+            respondentIds: projectCA.verbatimQuotes[sheet] ? Object.keys(projectCA.verbatimQuotes[sheet]) : []
+          }))
+        });
+        
         Object.values(projectCA.verbatimQuotes).forEach(sheetData => {
           if (sheetData && typeof sheetData === 'object') {
             Object.keys(sheetData).forEach(respondentId => {
@@ -225,6 +233,11 @@ router.get('/projects', authenticateToken, async (req, res) => {
           }
         });
         respondentCount = allRespondents.size;
+        
+        console.log(`🔍 Final respondent count for ${project.id}:`, {
+          allRespondents: Array.from(allRespondents),
+          count: respondentCount
+        });
       }
 
       return {
