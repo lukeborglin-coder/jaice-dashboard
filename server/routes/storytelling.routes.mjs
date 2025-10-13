@@ -34,7 +34,7 @@ const router = express.Router();
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '../data');
 const STORYTELLING_PATH = path.join(DATA_DIR, 'storytelling.json');
 const TRANSCRIPTS_PATH = path.join(DATA_DIR, 'transcripts.json');
-const CAX_PATH = path.join(DATA_DIR, 'contentAnalysisX.json');
+const CAX_PATH = path.join(DATA_DIR, 'savedAnalyses.json');
 
 // Initialize storytelling data file
 async function initStorytellingFile() {
@@ -157,10 +157,19 @@ router.get('/projects', authenticateToken, async (req, res) => {
     // Get content analysis data to count respondents
     let caData = [];
     try {
+      console.log('🔍 CA File Debug:', {
+        caPath: CAX_PATH,
+        fileExists: await fs.access(CAX_PATH).then(() => true).catch(() => false)
+      });
+      
       const caDataContent = await fs.readFile(CAX_PATH, 'utf8');
+      console.log('🔍 CA File Content Length:', caDataContent.length);
+      console.log('🔍 CA File Content Preview:', caDataContent.substring(0, 500));
+      
       caData = JSON.parse(caDataContent);
       console.log('🔍 CA Data Structure Debug:', {
         totalAnalyses: caData.length,
+        isArray: Array.isArray(caData),
         firstAnalysis: caData[0] ? {
           projectId: caData[0].projectId,
           hasData: !!caData[0].data,
@@ -175,7 +184,11 @@ router.get('/projects', authenticateToken, async (req, res) => {
         } : null
       });
     } catch (error) {
-      console.log('No content analysis data found:', error.message);
+      console.log('🔍 CA Data Loading Error:', {
+        error: error.message,
+        stack: error.stack,
+        caPath: CAX_PATH
+      });
     }
 
     // Filter projects that have content analysis data and add respondent counts
