@@ -85,6 +85,10 @@ async function generateQuotesForCell(analysisId, respondentId, columnName, sheet
 
 // Clean quote text by removing speaker labels and formatting
 function cleanQuoteText(quoteText) {
+  if (!quoteText || typeof quoteText !== 'string') return '';
+  
+  console.log(`🔍 Cleaning quote: "${quoteText.substring(0, 100)}..."`);
+  
   // Remove common speaker labels
   let cleaned = quoteText
     .replace(/^(Respondent|Interviewer|Moderator|Facilitator|Researcher):\s*/i, '')
@@ -95,6 +99,8 @@ function cleanQuoteText(quoteText) {
   
   // Remove trailing speaker labels
   cleaned = cleaned.replace(/\s*\(Respondent|Interviewer|Moderator|Facilitator|Researcher\)$/i, '');
+  
+  console.log(`🔍 Cleaned quote: "${cleaned.substring(0, 100)}..."`);
   
   return cleaned;
 }
@@ -491,7 +497,7 @@ async function generateQuotesForQuestion(analysisId, question, caDataObj) {
   try {
     console.log('🔍 Generating quotes on-demand for question:', question);
     
-    // Use the existing generateQuotesForCell function to get quotes from relevant cells
+    // Extract quotes directly from the content analysis data
     const allQuotes = [];
     const questionLower = question.toLowerCase();
     
@@ -503,7 +509,7 @@ async function generateQuotesForQuestion(analysisId, question, caDataObj) {
             if (row && typeof row === 'object') {
               const respondentId = row['Respondent ID'] || row['respno'] || row['ID'] || row['id'];
               if (respondentId && respondentId.trim() !== '' && respondentId.trim() !== 'Respondent ID') {
-                // For each column in the row, try to generate quotes
+                // For each column in the row, extract relevant content as quotes
                 for (const [columnName, cellValue] of Object.entries(row)) {
                   if (columnName !== 'Respondent ID' && columnName !== 'respno' && columnName !== 'ID' && columnName !== 'id' && 
                       typeof cellValue === 'string' && cellValue.trim() !== '') {
@@ -514,15 +520,11 @@ async function generateQuotesForQuestion(analysisId, question, caDataObj) {
                     const hasRelevantTerms = questionWords.some(word => cellLower.includes(word));
                     
                     if (hasRelevantTerms || questionWords.length === 0) {
-                      try {
-                        const quotes = await generateQuotesForCell(analysisId, respondentId, columnName, sheetName, cellValue);
-                        // Clean and filter the generated quotes
-                        const cleanedQuotes = quotes
-                          .map(quote => cleanQuoteText(quote))
-                          .filter(quote => quote.length >= 30 && isQuoteRelevantToQuestion(quote, question));
-                        allQuotes.push(...cleanedQuotes);
-                      } catch (error) {
-                        console.log(`🔍 Could not generate quotes for ${respondentId} - ${columnName}:`, error.message);
+                      // Clean and filter the cell content as a potential quote
+                      const cleanedQuote = cleanQuoteText(cellValue);
+                      if (cleanedQuote.length >= 50 && isQuoteRelevantToQuestion(cleanedQuote, question)) {
+                        allQuotes.push(cleanedQuote);
+                        console.log(`🔍 Added quote from ${respondentId} - ${columnName}: ${cleanedQuote.substring(0, 50)}...`);
                       }
                     }
                   }
@@ -629,8 +631,16 @@ Return your response as a JSON object with this structure:
   const result = JSON.parse(response.choices[0].message.content);
 
   // Always use the real verbatim quotes instead of AI-generated ones
+  console.log(`🔍 Final quote processing:`, {
+    realQuotesCount: realQuotes.length,
+    quoteLevel,
+    realQuotes: realQuotes.map(q => q.substring(0, 100) + '...')
+  });
+  
   if (realQuotes.length > 0 && quoteLevel !== 'none') {
-    result.quotes = realQuotes.slice(0, quoteLevel === 'few' ? 2 : quoteLevel === 'many' ? 8 : 4);
+    const maxQuotes = quoteLevel === 'few' ? 2 : quoteLevel === 'many' ? 8 : 4;
+    result.quotes = realQuotes.slice(0, maxQuotes);
+    console.log(`🔍 Final quotes for response:`, result.quotes.map(q => q.substring(0, 100) + '...'));
   } else if (quoteLevel !== 'none') {
     result.quotes = [];
   }

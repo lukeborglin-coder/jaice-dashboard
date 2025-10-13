@@ -623,34 +623,6 @@ export default function Storytelling() {
               <div className="bg-white shadow-sm border border-gray-200 rounded-lg p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Ask a Question</h3>
 
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Detail Level</label>
-                    <select
-                      value={detailLevel}
-                      onChange={e => setDetailLevel(e.target.value as any)}
-                      className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-                    >
-                      <option value="straightforward">Straightforward</option>
-                      <option value="moderate">Moderate</option>
-                      <option value="max">Max Detail</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Quotes</label>
-                    <select
-                      value={quoteLevel}
-                      onChange={e => setQuoteLevel(e.target.value as any)}
-                      className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-                    >
-                      <option value="none">None</option>
-                      <option value="few">A Few</option>
-                      <option value="moderate">Moderate</option>
-                      <option value="many">Many</option>
-                    </select>
-                  </div>
-                </div>
-
                 <div className="flex gap-2">
                   <input
                     type="text"
