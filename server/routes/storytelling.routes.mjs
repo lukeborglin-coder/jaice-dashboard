@@ -99,7 +99,18 @@ async function getCAData(projectId) {
     const data = await fs.readFile(CAX_PATH, 'utf8');
     const allCA = JSON.parse(data);
     const projectCA = allCA.find(ca => ca.projectId === projectId);
-    if (!projectCA) return { data: {}, quotes: {} };
+    console.log('🔍 CA Data Debug:', {
+      projectId,
+      totalAnalyses: allCA.length,
+      foundProject: !!projectCA,
+      hasData: projectCA ? !!projectCA.data : false,
+      hasQuotes: projectCA ? !!projectCA.quotes : false,
+      hasVerbatimQuotes: projectCA ? !!projectCA.verbatimQuotes : false,
+      dataKeys: projectCA && projectCA.data ? Object.keys(projectCA.data) : [],
+      quotesKeys: projectCA && projectCA.quotes ? Object.keys(projectCA.quotes) : []
+    });
+    
+    if (!projectCA) return { data: {}, quotes: {}, verbatimQuotes: {} };
     
     return {
       data: projectCA.data || {},
@@ -348,18 +359,17 @@ router.post('/:projectId/ask', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Question is required' });
     }
 
-    const transcriptsText = await getTranscriptsText(projectId);
     const caDataObj = await getCAData(projectId);
 
-    if (!transcriptsText.trim()) {
-      return res.status(400).json({ error: 'No transcript data available for this project' });
+    if (!caDataObj || !caDataObj.data || Object.keys(caDataObj.data).length === 0) {
+      return res.status(400).json({ error: 'No content analysis data available for this project' });
     }
 
     const projectData = await loadProjectStorytelling(projectId);
     const answer = await answerQuestion(
       projectId,
       question,
-      transcriptsText,
+      '', // No transcripts needed for Q&A
       caDataObj,
       projectData.keyFindings,
       detailLevel,
