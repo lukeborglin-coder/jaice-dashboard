@@ -1,158 +1,207 @@
 {
   "Quantitative": {
-    "Kickoff": [
-      "Create Kick Off (KO) deck",
-      "Create detailed timeline",
-      "Hold Internal Pre-Kick Off: Talk through study overview, roles, deadlines, and any other key project info prior to KO with client.",
-      "Create or review Proposal based on RFP (Request For Proposal)",
-      "Bid project out to vendors",
-      "Create a job folder for the study in the 'Proposals' folder (within appropriate client folder)",
-      "Save vendors' bids to job folder",
-      "Ensure any new vendors you are bringing on board have signed the NDA",
-      "Create Internal Cost Worksheet, send to supervisor",
-      "Move study docs from 'Proposals' folder to main client folder",
-      "Set up Invoice Schedule & Worksheet (Reference PO/SOW for client specific invoice timeline)",
-      "Alert sample/programming vendor that the project is moving forward",
-      "After client KO call, confirm final sample quotas with vendor",
-    ],
-    "Pre-Field": [
-      "Draft QNR",
-      "Proof QNR",
-      "Send QNR to client",
-      "Add AE submission forms & contact info to job folder",
-      "Update folder name with job #",
-      "Submit first client invoice request to accounting",
-      "Make necessary revisions to QNR from client review",
-      "Send final QNR to vendor (after client sign off)",
-      "If advanced analytics needed: create specs & engage statistician",
-      "Ensure signed/final documents are saved to job folder",
-      "Test survey program",
-      "If translations: review translations in survey program",
-      "Send translations to client-approved translators",
-      "If requested: send tested survey link to client",
-      "Coordinate translation comments",
-      "Create data quality check plan",
-      "Create AE check plan",
-      "Approve survey for soft launch"
-    ],
-    "Fielding": [
-      "Soft data quality check (10% of total sample), continue quality checks throughout",
-      "Create report shell based on questionnaire, proposal, feedback from client",
-      "Share fielding updates with client - minimum of twice a week",
-      "Copy cost tracker shell to job folder and update",
-      "Create tab banner plan",
-      "Have tab banner plan reviewed",
-      "Send tab banner plan to vendor",
-      "If coding: share questions and required codes with vendor",
-      "Monitor open end comments for AEs and submit within 24 hours",
-      "Request invoice if required by client schedule",
-      "Monitor completes and update quotas as needed",
-      "Ensure timely completion of field, troubleshoot as needed",
-      "Request prelim tables (if needed)",
-      "Check prelim tables (if needed)"
-    ],
-    "Post-Field Analysis": [
-      "Internal download: lessons learned and notes",
-      "Final data quality check",
-      "Save final raw data files to folder: raw excel file, SPSS file, verbatim file, etc.",
-      "Send final verbatim file to vendor for coding (if needed)",
-      "Request final tables",
-      "Send SPSS file to statistician (if applicable)",
-      "Check final tables",
-      "Clean project folder: move drafts, save finals",
-      "Submit AE Reconciliation",
-    ],
-    "Reporting": [
-      "Post data into report shell",
-      "Write findings & exec summary",
-      "Have data proofed",
-      "Have exec summary and headlines proofed",
-      "Have full final report proofed",
-      "Have full final report have a final reviw (for final sign off)",
-      "Send report to client",
-      "Update report based on client comments",
-      "Save vendor invoices, compare to bids, confirm costs",
-      "Approve final vendor invoices",
-      "Send final invoices to Sharon",
-      "Fill out Cost Tracker with final invoices from vendors"
-    ]
+    "Kickoff": {
+      "Tasks": [
+        "Create Kick Off (KO) deck",
+        "Create detailed timeline",
+        "Hold Internal Pre-Kick Off: Talk through study overview, roles, deadlines, and any other key project info prior to KO with client.",
+        "Create or review Proposal based on RFP (Request For Proposal)",
+        "Bid project out to vendors",
+        "Create a job folder for the study in the 'Proposals' folder (within appropriate client folder)",
+        "Save vendors' bids to job folder",
+        "Ensure any new vendors you are bringing on board have signed the NDA",
+        "Create Internal Cost Worksheet, send to supervisor",
+        "Move study docs from 'Proposals' folder to main client folder",
+        "Set up Invoice Schedule & Worksheet (Reference PO/SOW for client specific invoice timeline)",
+        "Alert sample/programming vendor that the project is moving forward",
+        "After client KO call, confirm final sample quotas with vendor"
+      ],
+      "Ongoing": [
+        "Keep internal team aligned on roles, deliverables, and client expectations throughout kickoff."
+      ]
+    },
+    "Pre-Field": {
+      "Tasks": [
+        "Draft QNR",
+        "Proof QNR",
+        "Send QNR to client",
+        "Add AE submission forms & contact info to job folder",
+        "Update folder name with job #",
+        "Submit first client invoice request to accounting",
+        "Make necessary revisions to QNR from client review",
+        "Send final QNR to vendor (after client sign off)",
+        "If advanced analytics needed: create specs & engage statistician",
+        "Ensure signed/final documents are saved to job folder",
+        "Test survey program",
+        "If translations: review translations in survey program",
+        "Send translations to client-approved translators",
+        "If requested: send tested survey link to client",
+        "Coordinate translation comments",
+        "Create data quality check plan",
+        "Create AE check plan",
+        "Approve survey for soft launch"
+      ],
+      "Ongoing": [
+        "Confirm all client expectations are documented before launch",
+        "Ensure version control across QNR revisions"
+      ]
+    },
+    "Fielding": {
+      "Tasks": [
+        "Create report shell based on questionnaire, proposal, feedback from client",
+        "Share fielding updates with client - minimum of twice a week",
+        "Copy cost tracker shell to job folder and update",
+        "Create tab banner plan",
+        "Have tab banner plan reviewed",
+        "Send tab banner plan to vendor",
+        "If coding: share questions and required codes with vendor",
+        "Request invoice if required by client schedule",
+        "Request prelim tables (if needed)",
+        "Check prelim tables (if needed)"
+      ],
+      "Ongoing": [
+        "Soft data quality check (10% of total sample), continue quality checks throughout",
+        "Monitor completes and update quotas as needed",
+        "Monitor open end comments for AEs and submit within 24 hours",
+        "Ensure timely completion of field, troubleshoot as needed"
+      ]
+    },
+    "Post-Field Analysis": {
+      "Tasks": [
+        "Internal download: lessons learned and notes",
+        "Final data quality check",
+        "Save final raw data files to folder: raw excel file, SPSS file, verbatim file, etc.",
+        "Send final verbatim file to vendor for coding (if needed)",
+        "Request final tables",
+        "Send SPSS file to statistician (if applicable)",
+        "Check final tables",
+        "Clean project folder: move drafts, save finals",
+        "Submit AE Reconciliation"
+      ],
+      "Ongoing": [
+        "Confirm all deliverables are complete and documented for handoff to reporting"
+      ]
+    },
+    "Reporting": {
+      "Tasks": [
+        "Post data into report shell",
+        "Write findings & exec summary",
+        "Have data proofed",
+        "Have exec summary and headlines proofed",
+        "Have full final report proofed",
+        "Have full final report have a final review (for final sign off)",
+        "Send report to client",
+        "Update report based on client comments",
+        "Save vendor invoices, compare to bids, confirm costs",
+        "Approve final vendor invoices",
+        "Send final invoices to Sharon",
+        "Fill out Cost Tracker with final invoices from vendors"
+      ],
+      "Ongoing": [
+        "Maintain consistent story flow and formatting across deliverables"
+      ]
+    }
   },
   "Qualitative": {
-    "Kickoff": [
-      "Create Kick Off (KO) deck",
-      "Create detailed timeline",
-      "Hold Internal Pre-Kick Off: Talk through study overview, roles, deadlines, and any other key project info prior to KO with client.",
-      "Create or review Proposal based on RFP (Request For Proposal)",
-      "Bid project out to vendors/moderators",
-      "Get moderator availability",
-      "Create a job folder for the study in the 'Proposals' folder (within appropriate client folder)",
-      "Save vendors' bids to job folder",
-      "Ensure any new vendors have signed the NDA",
-      "Create Internal Cost Worksheet, send to supervisor",
-      "Move study docs from 'Proposals' folder to main client folder",
-      "Update folder name with job #",
-      "Add AE submission forms & contact info to job folder",
-      "Set up Invoice Schedule & Worksheet",
-      "Alert recruiter and moderator that project is moving forward"
-      "Draft screener",
-      "Draft discussion guide",
-      "Start Discuss.io project",
-      "Send screener to client", 
-      "Send discussion guide draft to client",
-      "Schedule KO with moderator", 
-    ],
-    "Pre-Field": [
-      "Create respondent grid for recruiters",
-      "Create shared/client respondent grid",
-      "Get screener approval from client",
-      "Alert moderator and confirm availability",
-      "Submit first invoice request",
-      "Ensure signed documents are saved to job folder",
-      "Schedule DG walk-through with client and moderator",
-      "Copy Cost Tracker shell to job folder",
-      "Coordinate discussion guide updates from client",
-      "Confirm attendee list with client",
-      "Get and finalize stimuli",
-      "Monitor recruits and update quotas",
-      "Create invite template",
-      "Create Content Analysis (CA)",
-      "Send Outlook invites with respondent details and observer login info",
-      "Brief moderator",
-      "Create notetaking schedule and align team",
-      "Set up ShareFile folder",
-      "Send final stimuli/workbooks/guide to moderator"
-      "Schedule client debrief after first 1-2 interviews"
-    ],
-    "Fielding": [
-      "Create report shell based on discussion guide and objectives",
-      "Engage transcriptionist (if needed)",
-      "Request invoice (if needed)",
-      "Continue updating report shell with interview content",
-      "Submit AE reports within 24 hours",
-      "Download audio files and transcripts daily",
-      "Manage stimuli changes",
-      "Track high-level findings for client",
-      "Ensure objectives are being met",
-      "Engage with moderator and ask probes"
-      "Schedule second client debrief (if needed)"
-
-    ],
-    "Post-Field Analysis": [
-      "Clean project folder",
-      "Internal download: all audio files, CA, transcripts, lessons, and notes",
-      "Submit AE reconciliation (if needed)",
-    ],
-    "Reporting": [
-      "Write findings",
-      "Write executive summary",
-      "Have report proofed",
-      "Have report reviewed internally",
-      "Send report to client",
-      "Update report based on client comments",
-      "Request invoice (if needed)",
-      "Save vendor invoices and submit to accounting",
-      "Reconcile with client-specific finance process",
-      "Fill out Cost Tracker"
-    ]
+    "Kickoff": {
+      "Tasks": [
+        "Create Kick Off (KO) deck",
+        "Create detailed timeline",
+        "Hold Internal Pre-Kick Off: Talk through study overview, roles, deadlines, and any other key project info prior to KO with client.",
+        "Create or review Proposal based on RFP (Request For Proposal)",
+        "Bid project out to vendors/moderators",
+        "Get moderator availability",
+        "Create a job folder for the study in the 'Proposals' folder (within appropriate client folder)",
+        "Save vendors' bids to job folder",
+        "Ensure any new vendors have signed the NDA",
+        "Create Internal Cost Worksheet, send to supervisor",
+        "Move study docs from 'Proposals' folder to main client folder",
+        "Update folder name with job #",
+        "Add AE submission forms & contact info to job folder",
+        "Set up Invoice Schedule & Worksheet",
+        "Alert recruiter and moderator that project is moving forward",
+        "Draft screener",
+        "Draft discussion guide",
+        "Start Discuss.io project",
+        "Send screener to client",
+        "Send discussion guide draft to client",
+        "Schedule KO with moderator"
+      ],
+      "Ongoing": [
+        "Ensure alignment between internal team, moderator, and recruiter on study objectives"
+      ]
+    },
+    "Pre-Field": {
+      "Tasks": [
+        "Create respondent grid for recruiters",
+        "Create shared/client respondent grid",
+        "Get screener approval from client",
+        "Alert moderator and confirm availability",
+        "Submit first invoice request",
+        "Ensure signed documents are saved to job folder",
+        "Schedule DG walk-through with client and moderator",
+        "Copy Cost Tracker shell to job folder",
+        "Coordinate discussion guide updates from client",
+        "Confirm attendee list with client",
+        "Get and finalize stimuli",
+        "Monitor recruits and update quotas",
+        "Create invite template",
+        "Create Content Analysis (CA)",
+        "Send Outlook invites with respondent details and observer login info",
+        "Brief moderator",
+        "Create notetaking schedule and align team",
+        "Set up ShareFile folder",
+        "Send final stimuli/workbooks/guide to moderator",
+        "Schedule client debrief after first 1-2 interviews"
+      ],
+      "Ongoing": [
+        "Ensure communication between client, recruiter, and moderator stays open and current"
+      ]
+    },
+    "Fielding": {
+      "Tasks": [
+        "Create report shell based on discussion guide and objectives",
+        "Engage transcriptionist (if needed)",
+        "Request invoice (if needed)",
+        "Schedule second client debrief (if needed)"
+      ],
+      "Ongoing": [
+        "Continue updating report shell with interview content",
+        "Submit AE reports within 24 hours",
+        "Manage stimuli changes",
+        "Download audio files and transcripts daily",
+        "Track high-level findings for client",
+        "Ensure objectives are being met",
+        "Engage with moderator and ask probes"
+      ]
+    },
+    "Post-Field Analysis": {
+      "Tasks": [
+        "Clean project folder",
+        "Internal download: all audio files, CA, transcripts, lessons, and notes",
+        "Submit AE reconciliation (if needed)"
+      ],
+      "Ongoing": [
+        "Document learnings and summarize key qualitative themes"
+      ]
+    },
+    "Reporting": {
+      "Tasks": [
+        "Write findings",
+        "Write executive summary",
+        "Have report proofed",
+        "Have report reviewed internally",
+        "Send report to client",
+        "Update report based on client comments",
+        "Request invoice (if needed)",
+        "Save vendor invoices and submit to accounting",
+        "Reconcile with client-specific finance process",
+        "Fill out Cost Tracker"
+      ],
+      "Ongoing": [
+        "Focus on storytelling clarity and actionable insights",
+        "Ensure findings tie back to research objectives"
+      ]
+    }
   }
 }

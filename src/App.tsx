@@ -2817,6 +2817,10 @@ type Task = {
   status: 'pending' | 'in-progress' | 'completed';
   dueDate?: string;
   phase?: Phase;
+  // Ongoing task support
+  isOngoing?: boolean; // True for ongoing tasks that span the entire phase
+  phaseStartDate?: string; // When the phase starts (for ongoing task assignment)
+  phaseEndDate?: string; // When the phase ends (for ongoing task assignment)
   // Legacy schema compatibility
   content?: string;
   completed?: boolean;
@@ -4682,6 +4686,73 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
 
         {/* Right Column - Sidebar */}
         <div className="lg:col-span-1">
+          {/* Ongoing Tasks Box */}
+          <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Ongoing Tasks</h3>
+            <div className="space-y-3">
+              {(() => {
+                // Get ongoing tasks for current phase
+                const currentPhase = 'Fielding'; // This should be dynamic based on project phase
+                const ongoingTasks = sourceProjects.flatMap(project => {
+                  if (!project.tasks) return [];
+                  return project.tasks
+                    .filter(task => task.isOngoing && task.phase === currentPhase)
+                    .map(task => ({
+                      ...task,
+                      projectName: project.name,
+                      projectId: project.id
+                    }));
+                });
+
+                if (ongoingTasks.length === 0) {
+                  return (
+                    <div className="text-center py-4 text-gray-500">
+                      <p className="text-sm">No ongoing tasks for current phase</p>
+                    </div>
+                  );
+                }
+
+                return ongoingTasks.map((task, index) => {
+                  const isAssignedToMe = task.assignedTo?.includes(user?.id || '');
+                  const assignedMembers = task.assignedTo?.map(id => {
+                    const member = sourceProjects.find(p => p.id === task.projectId)?.teamMembers?.find(m => m.id === id);
+                    return member?.name || 'Unknown';
+                  }) || [];
+
+                  return (
+                    <div 
+                      key={`${task.id}-${index}`}
+                      className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                        isAssignedToMe 
+                          ? 'bg-orange-50 border-orange-200' 
+                          : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
+                      }`}
+                      onClick={() => {
+                        const project = sourceProjects.find(p => p.id === task.projectId);
+                        if (project && onNavigateToProject) {
+                          onNavigateToProject(project);
+                        }
+                      }}
+                    >
+                      <div className={`text-sm font-medium mb-1 ${isAssignedToMe ? 'text-orange-900' : 'text-gray-900'}`}>
+                        {task.description || task.content}
+                        {isAssignedToMe && <span className="ml-2 text-xs font-bold">(YOU)</span>}
+                      </div>
+                      <div className="text-xs text-gray-600 mb-1">
+                        {task.projectName}
+                      </div>
+                      {assignedMembers.length > 0 && (
+                        <div className="text-xs text-gray-500">
+                          Assigned to: {assignedMembers.join(', ')}
+                        </div>
+                      )}
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+          </div>
+
           {/* Calendar Widget */}
           <div className="bg-white rounded-lg border border-gray-200 p-4 mt-8">
             <div className="flex items-center justify-between mb-4">
@@ -8677,13 +8748,14 @@ function ProjectForm({
         description: newTask.description,
         assignedTo: newTask.assignedTo.length > 0 ? newTask.assignedTo : undefined,
         status: newTask.status,
-        dueDate: newTask.dueDate && newTask.dueDate.trim() ? newTask.dueDate : null
+        dueDate: (newTask as any).isOngoing ? undefined : (newTask.dueDate && newTask.dueDate.trim() ? newTask.dueDate : null),
+        isOngoing: (newTask as any).isOngoing || false
       };
       setFormData(prev => ({
         ...prev,
         tasks: [...prev.tasks, task]
       }));
-      setNewTask({ description: "", assignedTo: [], status: "pending", dueDate: "" });
+      setNewTask({ description: "", assignedTo: [], status: "pending", dueDate: "", isOngoing: false });
       setShowNewTask(false);
     }
   };
@@ -9875,10 +9947,11 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
         assignedTo: newTask.assignedTo.length > 0 ? newTask.assignedTo : undefined,
         status: newTask.status,
         phase: activePhase,
-        dueDate: newTask.dueDate && newTask.dueDate.trim() ? newTask.dueDate : null
+        dueDate: (newTask as any).isOngoing ? undefined : (newTask.dueDate && newTask.dueDate.trim() ? newTask.dueDate : null),
+        isOngoing: (newTask as any).isOngoing || false
       };
       setProjectTasks(prevTasks => [...prevTasks, task]);
-      setNewTask({ description: "", assignedTo: [], status: "pending", dueDate: "" });
+      setNewTask({ description: "", assignedTo: [], status: "pending", dueDate: "", isOngoing: false });
       setShowAddTask(false);
     }
   };
@@ -11738,48 +11811,65 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                 {/* Add Task Form at top */}
                 {showAddTask && (
                   <div className="mb-3 p-3 border rounded-lg bg-gray-50">
-                    <div className="flex gap-2 items-center">
-                      <input
-                        type="text"
-                        value={newTask.description}
-                        onChange={(e) => setNewTask(prev => ({ ...prev, description: e.target.value }))}
-                        placeholder="Task description"
-                        className="flex-1 text-xs border rounded px-0.5 sm:px-1 md:px-2 py-1 outline-none focus:ring-2 focus:ring-orange-200"
-                      />
-                      <input
-                        type="date"
-                        value={(newTask as any).dueDate || ''}
-                        onChange={(e) => setNewTask(prev => ({ ...prev, dueDate: e.target.value as any }))}
-                        className="text-xs border rounded px-0.5 sm:px-1 md:px-2 py-1 outline-none focus:ring-2 focus:ring-orange-200"
-                        title="Due date"
-                      />
-                      <select
-                        value={newTask.assignedTo.length > 0 ? newTask.assignedTo[0] : ''}
-                        onChange={(e) => {
-                          const selectedValue = e.target.value;
-                          if (selectedValue) {
-                            setNewTask(prev => ({ ...prev, assignedTo: [selectedValue] }));
-                          } else {
-                            setNewTask(prev => ({ ...prev, assignedTo: [] }));
-                          }
-                        }}
-                        className="text-xs border rounded px-0.5 sm:px-1 md:px-2 py-1 outline-none focus:ring-2 focus:ring-orange-200"
-                      >
-                        <option value="">Select assignee...</option>
-                        {project.teamMembers.map(member => (
-                          <option key={member.id} value={member.id}>{member.name}</option>
-                        ))}
-                      </select>
-                      {newTask.description.trim() && (
-                        <button 
-                          onClick={handleAddTask} 
-                          className="px-2 py-1 text-xs text-white rounded hover:opacity-90 transition-colors"
-                          style={{ backgroundColor: BRAND.orange }}
+                    <div className="space-y-2">
+                      <div className="flex gap-2 items-center">
+                        <input
+                          type="text"
+                          value={newTask.description}
+                          onChange={(e) => setNewTask(prev => ({ ...prev, description: e.target.value }))}
+                          placeholder="Task description"
+                          className="flex-1 text-xs border rounded px-0.5 sm:px-1 md:px-2 py-1 outline-none focus:ring-2 focus:ring-orange-200"
+                        />
+                        <select
+                          value={newTask.assignedTo.length > 0 ? newTask.assignedTo[0] : ''}
+                          onChange={(e) => {
+                            const selectedValue = e.target.value;
+                            if (selectedValue) {
+                              setNewTask(prev => ({ ...prev, assignedTo: [selectedValue] }));
+                            } else {
+                              setNewTask(prev => ({ ...prev, assignedTo: [] }));
+                            }
+                          }}
+                          className="text-xs border rounded px-0.5 sm:px-1 md:px-2 py-1 outline-none focus:ring-2 focus:ring-orange-200"
                         >
-                          Add
-                        </button>
-                      )}
-                      <button onClick={() => setShowAddTask(false)} className="px-2 py-1 text-xs border rounded hover:bg-gray-100">Cancel</button>
+                          <option value="">Select assignee...</option>
+                          {project.teamMembers.map(member => (
+                            <option key={member.id} value={member.id}>{member.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="flex gap-2 items-center">
+                        <label className="flex items-center gap-1 text-xs">
+                          <input
+                            type="checkbox"
+                            checked={(newTask as any).isOngoing || false}
+                            onChange={(e) => setNewTask(prev => ({ ...prev, isOngoing: e.target.checked }))}
+                            className="rounded"
+                          />
+                          <span>Ongoing task (spans entire phase)</span>
+                        </label>
+                        {!((newTask as any).isOngoing) && (
+                          <input
+                            type="date"
+                            value={(newTask as any).dueDate || ''}
+                            onChange={(e) => setNewTask(prev => ({ ...prev, dueDate: e.target.value as any }))}
+                            className="text-xs border rounded px-0.5 sm:px-1 md:px-2 py-1 outline-none focus:ring-2 focus:ring-orange-200"
+                            title="Due date"
+                          />
+                        )}
+                      </div>
+                      <div className="flex gap-2 items-center">
+                        {newTask.description.trim() && (
+                          <button 
+                            onClick={handleAddTask} 
+                            className="px-2 py-1 text-xs text-white rounded hover:opacity-90 transition-colors"
+                            style={{ backgroundColor: BRAND.orange }}
+                          >
+                            Add
+                          </button>
+                        )}
+                        <button onClick={() => setShowAddTask(false)} className="px-2 py-1 text-xs border rounded hover:bg-gray-100">Cancel</button>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -11829,9 +11919,18 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                         </div>
                       </div>
 
-                      {/* Calendar Icon for Due Date */}
+                      {/* Calendar Icon for Due Date or Ongoing Indicator */}
                       <div className="relative justify-self-center ml-1">
-                        {task.dueDate ? (
+                        {task.isOngoing ? (
+                          <div className="w-full flex items-center justify-center">
+                            <div
+                              className="px-0.5 sm:px-1 md:px-2 py-1 rounded-full text-xs font-medium text-white opacity-80"
+                              style={{ backgroundColor: '#10B981' }}
+                            >
+                              Ongoing
+                            </div>
+                          </div>
+                        ) : task.dueDate ? (
                           <div className="w-full flex items-center justify-center">
                             <div
                               className={`px-0.5 sm:px-1 md:px-2 py-1 rounded-full text-xs font-medium ${isTaskOverdue(task) ? 'text-red-600' : 'text-white opacity-60'}`}
@@ -14017,10 +14116,11 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
         assignedTo: newTask.assignedTo.length > 0 ? newTask.assignedTo : undefined,
         status: newTask.status,
         phase: activePhase,
-        dueDate: newTask.dueDate && newTask.dueDate.trim() ? newTask.dueDate : null
+        dueDate: (newTask as any).isOngoing ? undefined : (newTask.dueDate && newTask.dueDate.trim() ? newTask.dueDate : null),
+        isOngoing: (newTask as any).isOngoing || false
       };
       setProjectTasks(prevTasks => [...prevTasks, task]);
-      setNewTask({ description: "", assignedTo: [], status: "pending", dueDate: "" });
+      setNewTask({ description: "", assignedTo: [], status: "pending", dueDate: "", isOngoing: false });
       setShowAddTask(false);
     }
   };
