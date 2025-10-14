@@ -2821,6 +2821,13 @@ type Task = {
   isOngoing?: boolean; // True for ongoing tasks that span the entire phase
   phaseStartDate?: string; // When the phase starts (for ongoing task assignment)
   phaseEndDate?: string; // When the phase ends (for ongoing task assignment)
+  // Ongoing task assignment tracking
+  ongoingAssignment?: {
+    assignedTo: string[]; // Who it's assigned to during the phase
+    phaseStart: string; // When the phase starts
+    phaseEnd: string; // When the phase ends
+    assignedDate: string; // When it was assigned
+  };
   // Legacy schema compatibility
   content?: string;
   completed?: boolean;
@@ -3358,10 +3365,42 @@ export default function App() {
           }));
         };
 
+        // Mark ongoing tasks based on their descriptions
+        const markOngoingTasks = (projects: Project[]) => {
+          const ongoingTaskDescriptions = [
+            "Keep internal team aligned on roles, deliverables, and client expectations throughout kickoff.",
+            "Confirm all client expectations are documented before launch",
+            "Ensure version control across QNR revisions",
+            "Soft data quality check (10% of total sample), continue quality checks throughout",
+            "Monitor completes and update quotas as needed",
+            "Monitor open end comments for AEs and submit within 24 hours",
+            "Ensure timely completion of field, troubleshoot as needed",
+            "Confirm all deliverables are complete and documented for handoff to reporting",
+            "Maintain consistent story flow and formatting across deliverables"
+          ];
+
+          return projects.map(project => ({
+            ...project,
+            tasks: project.tasks.map((task: any) => {
+              const taskDescription = task.description || task.content || '';
+              const isOngoingTask = ongoingTaskDescriptions.some(ongoingDesc => 
+                taskDescription.toLowerCase().includes(ongoingDesc.toLowerCase()) ||
+                ongoingDesc.toLowerCase().includes(taskDescription.toLowerCase())
+              );
+              
+              return {
+                ...task,
+                isOngoing: isOngoingTask || task.isOngoing || false
+              };
+            })
+          }));
+        };
+
         // Fix timezone issues and regenerate key dates for all projects
         const projectsWithCA = addDemoContentAnalyses(data.projects || []);
         const projectsWithMigratedTasks = migrateTaskAssignees(projectsWithCA);
-        const projectsWithCorrectedTasks = updateProjectsWithCorrectedTasks(projectsWithMigratedTasks);
+        const projectsWithOngoingTasks = markOngoingTasks(projectsWithMigratedTasks);
+        const projectsWithCorrectedTasks = updateProjectsWithCorrectedTasks(projectsWithOngoingTasks);
         const updatedProjects = projectsWithCorrectedTasks.map(project => {
           const fixedProject = fixProjectSegments(project);
           const fixedFieldingSegment = fixedProject.segments?.find(s => s.phase === 'Fielding');
@@ -4400,7 +4439,7 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
 
   // State for the new design
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
-  const [taskFilter, setTaskFilter] = useState<'today' | 'later'>('today');
+  const [taskFilter, setTaskFilter] = useState<'ongoing' | 'today' | 'later'>('ongoing');
 
   // Get user's first name
   const firstName = user?.name?.split(' ')[0] || 'User';
@@ -4409,7 +4448,7 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
     <div className="space-y-6 w-full max-w-full overflow-x-hidden">
       {/* Header with greeting */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Hello {firstName}!</h1>
+        <h1 className="text-3xl font-bold" style={{ color: BRAND.gray }}>Hello {firstName}!</h1>
         <p className="text-lg text-gray-600 mt-1">Welcome Back!</p>
       </div>
 
@@ -4418,14 +4457,364 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
 
 
 
-      {/* Main Content Layout - Exact Copy of TASKIE Design */}
+      {/* Main Content Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column - Main Content */}
+        {/* Left Column - Key Dates, My Tasks, and Projects */}
         <div className="lg:col-span-2 space-y-6">
+          {/* Key Dates and My Tasks Boxes */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Key Dates Box */}
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 h-80">
+              <div className="mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Key Dates <span className="text-xs italic text-gray-500">(over the next 2 weeks)</span></h3>
+                <div className="w-full h-0.5 mt-2" style={{ backgroundColor: BRAND.gray }}></div>
+              </div>
+              <div className="h-48 overflow-y-auto">
+                <div>
+                {(() => {
+                  const today = new Date();
+                  const twoWeeksFromNow = new Date();
+                  twoWeeksFromNow.setDate(today.getDate() + 14);
+                  
+                  const keyDates: Array<{
+                    project: string;
+                    label: string;
+                    date: string;
+                    isToday: boolean;
+                    isOverdue: boolean;
+                    daysUntil: number;
+                  }> = [];
+                  
+                  projects.forEach(project => {
+                    if (project.keyDeadlines) {
+                      project.keyDeadlines.forEach(deadline => {
+                        const deadlineDate = new Date(deadline.date);
+                        if (deadlineDate >= today && deadlineDate <= twoWeeksFromNow) {
+                          const daysUntil = Math.ceil((deadlineDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                          keyDates.push({
+                            project: project.name,
+                            label: deadline.label,
+                            date: deadline.date,
+                            isToday: daysUntil === 0,
+                            isOverdue: daysUntil < 0,
+                            daysUntil: daysUntil
+                          });
+                        }
+                      });
+                    }
+                  });
+                  
+                  // Sort by date (soonest first)
+                  keyDates.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+                  
+                  const displayDates = keyDates;
+                  
+                  if (displayDates.length === 0) {
+                    return (
+                      <div className="flex items-center justify-center h-full text-gray-500 text-sm">
+                        No key dates in the next 2 weeks
+                      </div>
+                    );
+                  }
+                  
+                  return (
+                    <div className="space-y-1">
+                      {displayDates.map((keyDate, index) => (
+                        <div 
+                          key={index} 
+                          className="flex items-center justify-between p-2 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
+                          onClick={() => {
+                            const project = projects.find(p => p.name === keyDate.project);
+                            if (project && onNavigateToProject) {
+                              onNavigateToProject(project);
+                            }
+                          }}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs font-medium text-gray-900 truncate">
+                              {keyDate.label}
+                            </div>
+                            <div className="text-[10px] text-gray-500 truncate">
+                              {keyDate.project}
+                            </div>
+                          </div>
+                          <div className="flex-shrink-0 ml-2 text-right">
+                            <div className={`text-xs font-medium ${
+                              keyDate.isToday ? 'text-orange-600' : 
+                              keyDate.isOverdue ? 'text-red-600' : 
+                              'text-gray-900'
+                            }`}>
+                              {keyDate.isToday ? 'Today' : 
+                               keyDate.isOverdue ? 'Overdue' : 
+                               `${keyDate.daysUntil} day${keyDate.daysUntil !== 1 ? 's' : ''}`}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+                </div>
+              </div>
+            </div>
+
+            {/* My Tasks Box */}
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 h-80">
+              {(() => {
+                // Calculate task counts for each tab
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                
+                let ongoingCount = 0;
+                let todayCount = 0;
+                let laterCount = 0;
+                
+                projects.forEach(project => {
+                  // Get current phase of the project
+                  const getCurrentPhase = (project: Project) => {
+                    if (!project.segments || project.segments.length === 0) {
+                      return project.phase; // Fallback
+                    }
+                    
+                    const today = new Date();
+                    const todayStr = today.toISOString().split('T')[0];
+                    
+                    const currentSegment = project.segments.find(segment => 
+                      todayStr >= segment.startDate && todayStr <= segment.endDate
+                    );
+                    
+                    return currentSegment ? currentSegment.phase : project.phase;
+                  };
+                  
+                  const currentPhase = getCurrentPhase(project);
+                  
+                  project.tasks.forEach(task => {
+                    const isAssignedToMe = task.assignedTo?.includes(user?.id || '') || false;
+                    
+                    if (isAssignedToMe && task.status !== 'completed') {
+                      if (task.isOngoing && task.phase === currentPhase) {
+                        ongoingCount++;
+                      } else if (task.dueDate && !task.isOngoing) {
+                        const taskDate = new Date(task.dueDate + 'T00:00:00');
+                        const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                        if (taskDate.getTime() === todayDate.getTime()) {
+                          todayCount++;
+                        } else {
+                          const daysUntil = Math.ceil((taskDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                          if (daysUntil > 0 && daysUntil <= 7) {
+                            laterCount++;
+                          }
+                        }
+                      }
+                    }
+                  });
+                });
+
+                return (
+                  <>
+                    <div className="mb-4">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-semibold text-gray-900">My Tasks</h3>
+                      <div className="flex bg-gray-100 rounded-lg p-1">
+                        <button
+                          onClick={() => setTaskFilter('ongoing')}
+                          className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
+                            taskFilter === 'ongoing'
+                              ? 'bg-white text-gray-900 shadow-sm'
+                              : 'text-gray-600 hover:text-gray-900'
+                          }`}
+                        >
+                          Ongoing ({ongoingCount})
+                        </button>
+                        <button
+                          onClick={() => setTaskFilter('today')}
+                          className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
+                            taskFilter === 'today'
+                              ? 'bg-white text-gray-900 shadow-sm'
+                              : 'text-gray-600 hover:text-gray-900'
+                          }`}
+                        >
+                          Today ({todayCount})
+                        </button>
+                        <button
+                          onClick={() => setTaskFilter('later')}
+                          className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
+                            taskFilter === 'later'
+                              ? 'bg-white text-gray-900 shadow-sm'
+                              : 'text-gray-600 hover:text-gray-900'
+                          }`}
+                        >
+                          Later ({laterCount})
+                        </button>
+                      </div>
+                      </div>
+                      <div className="w-full h-0.5 mt-2" style={{ backgroundColor: BRAND.gray }}></div>
+                    </div>
+                  </>
+                );
+              })()}
+              <div className="h-48 overflow-y-auto">
+                <div>
+                {(() => {
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  
+                  let myTasks: Array<{
+                    id: string;
+                    description: string;
+                    project: string;
+                    dueDate?: string;
+                    isOngoing: boolean;
+                    isOverdue: boolean;
+                    daysUntil: number;
+                  }> = [];
+                  
+                  projects.forEach(project => {
+                    // Get current phase of the project
+                    const getCurrentPhase = (project: Project) => {
+                      if (!project.segments || project.segments.length === 0) {
+                        return project.phase; // Fallback
+                      }
+                      
+                      const today = new Date();
+                      const todayStr = today.toISOString().split('T')[0];
+                      
+                      const currentSegment = project.segments.find(segment => 
+                        todayStr >= segment.startDate && todayStr <= segment.endDate
+                      );
+                      
+                      return currentSegment ? currentSegment.phase : project.phase;
+                    };
+                    
+                    const currentPhase = getCurrentPhase(project);
+                    
+                    project.tasks.forEach(task => {
+                      const isAssignedToMe = task.assignedTo?.includes(user?.id || '') || false;
+                      
+                      if (isAssignedToMe && task.status !== 'completed') {
+                        if (taskFilter === 'ongoing') {
+                          // Show only ongoing tasks that are in the current phase
+                          if (task.isOngoing && task.phase === currentPhase) {
+                            myTasks.push({
+                              id: task.id,
+                              description: task.description || task.content || 'Untitled task',
+                              project: project.name,
+                              dueDate: task.dueDate,
+                              isOngoing: true,
+                              isOverdue: false,
+                              daysUntil: 0
+                            });
+                          }
+                        } else if (taskFilter === 'today') {
+                          // Show tasks due today (excluding ongoing tasks)
+                          if (task.dueDate && !task.isOngoing) {
+                            const taskDate = new Date(task.dueDate + 'T00:00:00');
+                            const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                            if (taskDate.getTime() === todayDate.getTime()) {
+                              const daysUntil = Math.ceil((taskDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                              
+                              myTasks.push({
+                                id: task.id,
+                                description: task.description || task.content || 'Untitled task',
+                                project: project.name,
+                                dueDate: task.dueDate,
+                                isOngoing: false,
+                                isOverdue: daysUntil < 0,
+                                daysUntil: daysUntil
+                              });
+                            }
+                          }
+                        } else {
+                          // Show tasks for later this week
+                          if (task.dueDate && !task.isOngoing) {
+                            const taskDate = new Date(task.dueDate);
+                            const daysUntil = Math.ceil((taskDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                            
+                            if (daysUntil > 0 && daysUntil <= 7) {
+                              myTasks.push({
+                                id: task.id,
+                                description: task.description || task.content || 'Untitled task',
+                                project: project.name,
+                                dueDate: task.dueDate,
+                                isOngoing: false,
+                                isOverdue: false,
+                                daysUntil: daysUntil
+                              });
+                            }
+                          }
+                        }
+                      }
+                    });
+                  });
+                  
+                  // Sort by due date
+                  myTasks.sort((a, b) => {
+                    if (a.isOngoing && !b.isOngoing) return -1;
+                    if (!a.isOngoing && b.isOngoing) return 1;
+                    if (a.dueDate && b.dueDate) {
+                      return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+                    }
+                    return 0;
+                  });
+                  
+                  const displayTasks = myTasks;
+                  
+                  if (displayTasks.length === 0) {
+                    return (
+                      <div className="flex items-center justify-center h-full text-gray-500 text-sm">
+                        {taskFilter === 'ongoing' ? 'No ongoing tasks' : 
+                         taskFilter === 'today' ? 'No tasks for today' : 'No tasks for later this week'}
+                      </div>
+                    );
+                  }
+                  
+                  return (
+                    <div className="space-y-1">
+                      {displayTasks.map((task) => (
+                        <div 
+                          key={task.id} 
+                          className="flex items-center justify-between p-2 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
+                          onClick={() => {
+                            const project = projects.find(p => p.name === task.project);
+                            if (project && onNavigateToProject) {
+                              onNavigateToProject(project);
+                            }
+                          }}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs font-medium text-gray-900 truncate">
+                              {task.description}
+                            </div>
+                            <div className="text-[10px] text-gray-500 truncate">
+                              {task.project}
+                            </div>
+                          </div>
+                          <div className="flex-shrink-0 ml-2 text-right">
+                            {!task.isOngoing && (
+                              <div className={`text-xs font-medium ${
+                                task.isOverdue ? 'text-red-600' : 
+                                task.daysUntil === 0 ? 'text-orange-600' : 
+                                'text-gray-900'
+                              }`}>
+                                {task.isOverdue ? 'Overdue' : 
+                                 task.daysUntil === 0 ? 'Today' : 
+                                 `${task.daysUntil} day${task.daysUntil !== 1 ? 's' : ''}`}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+                </div>
+              </div>
+            </div>
+          </div>
 
           {/* Project Section (My Projects) */}
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Project</h3>
+            <h3 className="text-lg font-semibold mb-4" style={{ color: BRAND.gray }}>PROJECTS</h3>
             <div className="space-y-2">
               {filteredProjects
                 .map((project) => {
@@ -4686,75 +5075,8 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
 
         {/* Right Column - Sidebar */}
         <div className="lg:col-span-1">
-          {/* Ongoing Tasks Box */}
-          <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Ongoing Tasks</h3>
-            <div className="space-y-3">
-              {(() => {
-                // Get ongoing tasks for current phase
-                const currentPhase = 'Fielding'; // This should be dynamic based on project phase
-                const ongoingTasks = sourceProjects.flatMap(project => {
-                  if (!project.tasks) return [];
-                  return project.tasks
-                    .filter(task => task.isOngoing && task.phase === currentPhase)
-                    .map(task => ({
-                      ...task,
-                      projectName: project.name,
-                      projectId: project.id
-                    }));
-                });
-
-                if (ongoingTasks.length === 0) {
-                  return (
-                    <div className="text-center py-4 text-gray-500">
-                      <p className="text-sm">No ongoing tasks for current phase</p>
-                    </div>
-                  );
-                }
-
-                return ongoingTasks.map((task, index) => {
-                  const isAssignedToMe = task.assignedTo?.includes(user?.id || '');
-                  const assignedMembers = task.assignedTo?.map(id => {
-                    const member = sourceProjects.find(p => p.id === task.projectId)?.teamMembers?.find(m => m.id === id);
-                    return member?.name || 'Unknown';
-                  }) || [];
-
-                  return (
-                    <div 
-                      key={`${task.id}-${index}`}
-                      className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                        isAssignedToMe 
-                          ? 'bg-orange-50 border-orange-200' 
-                          : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
-                      }`}
-                      onClick={() => {
-                        const project = sourceProjects.find(p => p.id === task.projectId);
-                        if (project && onNavigateToProject) {
-                          onNavigateToProject(project);
-                        }
-                      }}
-                    >
-                      <div className={`text-sm font-medium mb-1 ${isAssignedToMe ? 'text-orange-900' : 'text-gray-900'}`}>
-                        {task.description || task.content}
-                        {isAssignedToMe && <span className="ml-2 text-xs font-bold">(YOU)</span>}
-                      </div>
-                      <div className="text-xs text-gray-600 mb-1">
-                        {task.projectName}
-                      </div>
-                      {assignedMembers.length > 0 && (
-                        <div className="text-xs text-gray-500">
-                          Assigned to: {assignedMembers.join(', ')}
-                        </div>
-                      )}
-                    </div>
-                  );
-                });
-              })()}
-            </div>
-          </div>
-
           {/* Calendar Widget */}
-          <div className="bg-white rounded-lg border border-gray-200 p-4 mt-8">
+          <div className="bg-white rounded-lg border border-gray-200 p-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">
                 {new Date(currentYear, currentMonth).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
@@ -4847,6 +5169,9 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
               })()}
             </div>
           </div>
+
+          {/* Spacing between calendar and task list */}
+          <div className="mt-4"></div>
 
           {/* Overdue Tasks Section */}
           {(() => {
@@ -4973,7 +5298,7 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
           })()}
 
           {/* Tasks Section */}
-          <div className="bg-white rounded-lg border border-gray-200 p-4 mt-4">
+          <div className="bg-white rounded-lg border border-gray-200 p-4">
             <div className="space-y-4">
               {(() => {
                 // Get all tasks from projects, sorted by due date
@@ -5079,7 +5404,7 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
                       tasksForThisDayRender.push(
                         <div
                           key={`${task.id}-${dateKey}`}
-                          className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer ${
+                          className={`flex items-center gap-3 p-1.5 rounded-lg cursor-pointer mb-1 ${
                             isTaskAssignedToMe 
                               ? 'border' 
                               : 'hover:bg-gray-50'
@@ -5097,7 +5422,7 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
                           <div
                             className="w-1 h-8 rounded-full"
                             style={{
-                              backgroundColor: isOverdue ? '#DC2626' : phaseColor,
+                              backgroundColor: phaseColor,
                               opacity: 0.8
                             }}
                           ></div>
@@ -5987,7 +6312,7 @@ function ModeratorTimeline({ projects, moderators, onDateRangeChange }: { projec
                 </div>
               ) : (
                 moderatorsList.map((moderator: any) => (
-                    <div key={moderator.id} className="flex items-stretch border-b border-gray-100 hover:bg-gray-25">
+                    <div key={moderator.id} className="flex items-stretch border-b border-gray-100 hover:bg-gray-50">
                     {/* Moderator Name Column */}
                     <div className="w-24 sm:w-32 md:w-40 flex-shrink-0 py-3 flex flex-col justify-center">
                       <div className="text-sm font-medium text-gray-900 truncate">
@@ -9102,17 +9427,28 @@ function ProjectForm({
                       <option value="in-progress">In Progress</option>
                       <option value="completed">Completed</option>
                     </select>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedTaskForDate('newTask');
-                        setShowDatePickerForTask(true);
-                      }}
-                      className={`p-2 rounded-lg ${newTask.dueDate ? 'text-orange-600 ' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}`}
-                      title={newTask.dueDate ? `Due: ${new Date(newTask.dueDate).toLocaleDateString()}` : 'Set due date'}
-                    >
-                      <CalendarIcon className="h-4 w-4" />
-                    </button>
+                    <label className="flex items-center gap-1 text-xs">
+                      <input
+                        type="checkbox"
+                        checked={(newTask as any).isOngoing || false}
+                        onChange={(e) => setNewTask(prev => ({ ...prev, isOngoing: e.target.checked }))}
+                        className="rounded"
+                      />
+                      <span>Ongoing</span>
+                    </label>
+                    {!((newTask as any).isOngoing) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedTaskForDate('newTask');
+                          setShowDatePickerForTask(true);
+                        }}
+                        className={`p-2 rounded-lg ${newTask.dueDate ? 'text-orange-600 ' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}`}
+                        title={newTask.dueDate ? `Due: ${new Date(newTask.dueDate).toLocaleDateString()}` : 'Set due date'}
+                      >
+                        <CalendarIcon className="h-4 w-4" />
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={addTask}
@@ -11442,8 +11778,8 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
 
   return (
     <div className="space-y-6">
-      {/* Top Row: Today + Later This Week + Project Details */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Top Row: Today + Later This Week + Ongoing Tasks + Project Details */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Today Box */}
         <Card className="!p-0 overflow-hidden rounded-none h-64">
           <div className="px-4 py-3 flex items-center gap-2">
@@ -11641,8 +11977,96 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
           </div>
         </Card>
 
+        {/* Ongoing Tasks Box */}
+        <Card className="!p-0 overflow-hidden rounded-none h-64">
+          <div className="px-4 py-3 flex items-center gap-2">
+            <div className="flex-shrink-0">
+              <svg className="w-10 h-10 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-base font-semibold text-gray-900">Ongoing Tasks</h3>
+              <p className="text-[10px] text-gray-500">{getPhaseDisplayName(currentPhase)}</p>
+            </div>
+          </div>
+          <div className="border-b border-gray-200"></div>
+
+          {/* Ongoing Tasks - Single List */}
+          <div className="px-4 pb-4 pt-2 h-48 overflow-hidden relative">
+            <div className="h-full overflow-y-auto">
+              {(() => {
+                // Get ongoing tasks for the current phase
+                const ongoingTasks = projectTasks.filter(task => {
+                  return task.isOngoing === true && 
+                         task.phase === currentPhase && 
+                         task.status !== 'completed' &&
+                         task.assignedTo && task.assignedTo.length > 0;
+                });
+
+                // Sort with assigned to me first and bolded
+                const sortedOngoingTasks = ongoingTasks.sort((a, b) => {
+                  const aAssignedToMe = isAssignedToCurrentUser(a);
+                  const bAssignedToMe = isAssignedToCurrentUser(b);
+                  if (aAssignedToMe && !bAssignedToMe) return -1;
+                  if (!aAssignedToMe && bAssignedToMe) return 1;
+                  return 0;
+                });
+
+                if (sortedOngoingTasks.length === 0) {
+                  return (
+                    <div className="flex items-center justify-center h-full text-gray-500 text-sm">
+                      No ongoing tasks assigned
+                    </div>
+                  );
+                }
+
+                // Limit to first 8 tasks to prevent overflow
+                const maxTasks = 8;
+                const tasksToShow = sortedOngoingTasks.slice(0, maxTasks);
+                const remainingCount = sortedOngoingTasks.length - maxTasks;
+
+                return (
+                  <div className="space-y-1">
+                    {tasksToShow.map(task => {
+                      const isAssignedToMe = isAssignedToCurrentUser(task);
+                      const assignedMembers = task.assignedTo?.map(id => 
+                        project.teamMembers.find(member => member.id === id)?.name || 'Unknown'
+                      ).join(', ') || 'Unassigned';
+
+                      return (
+                        <div key={task.id} className="flex items-start gap-2 text-xs text-gray-800">
+                          <div 
+                            className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0" 
+                            style={{ backgroundColor: PHASE_COLORS[task.phase] || '#6B7280' }}
+                          ></div>
+                          <div className="flex-1 min-w-0">
+                            <div className={`${isAssignedToMe ? 'font-bold' : 'font-normal'} truncate`}>
+                              {task.description || task.content || 'Untitled task'}
+                            </div>
+                            <div className="text-[10px] text-gray-500 truncate">
+                              {assignedMembers}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {remainingCount > 0 && (
+                      <div className="text-[10px] text-gray-500 text-center pt-1">
+                        +{remainingCount} more ongoing task{remainingCount !== 1 ? 's' : ''}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+            {/* Gradient overlay to indicate more content */}
+            <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white to-transparent pointer-events-none"></div>
+          </div>
+        </Card>
+
         {/* Project Details - Three Boxes Left, Sample Details Right */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:col-span-1">
           {/* Left Column - Client, Methodology, Moderator */}
           <div className={`flex flex-col ${project.methodologyType === 'Quantitative' ? 'justify-end' : 'justify-between'} h-64`}>
             {/* Client Box */}
@@ -11881,6 +12305,10 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                   if (a.status === 'completed' && b.status !== 'completed') return 1;
                   if (a.status !== 'completed' && b.status === 'completed') return -1;
 
+                  // Sort ongoing tasks to top (among non-completed tasks)
+                  if (a.isOngoing && !b.isOngoing) return -1;
+                  if (!a.isOngoing && b.isOngoing) return 1;
+
                   // Tasks with dates should come before tasks without dates
                   if (a.dueDate && !b.dueDate) return -1;
                   if (!a.dueDate && b.dueDate) return 1;
@@ -11925,7 +12353,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                           <div className="w-full flex items-center justify-center">
                             <div
                               className="px-0.5 sm:px-1 md:px-2 py-1 rounded-full text-xs font-medium text-white opacity-80"
-                              style={{ backgroundColor: '#10B981' }}
+                              style={{ backgroundColor: PHASE_COLORS[activePhase] || '#6B7280' }}
                             >
                               Ongoing
                             </div>
@@ -14303,7 +14731,7 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
           </div>
 
           {/* Project Overview */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
             <Card>
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold">Project Overview</h3>
@@ -14334,6 +14762,61 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
                   <span className="text-gray-600">Team Members:</span>
                   <span className="text-sm">{project.teamMembers?.length || 0}</span>
                 </div>
+              </div>
+            </Card>
+
+            <Card>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold">Ongoing Tasks</h3>
+                <button 
+                  onClick={() => console.log('Add Ongoing Task')}
+                  className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                >
+                  <PlusIcon className="h-3 w-3" />
+                  add
+                </button>
+              </div>
+              <div className="space-y-2">
+                {(() => {
+                  const ongoingTasks = project.tasks?.filter(task => task.isOngoing && task.phase === currentPhase) || [];
+                  
+                  if (ongoingTasks.length === 0) {
+                    return (
+                      <div className="text-center py-4 text-gray-500">
+                        <p className="text-sm">No ongoing tasks for {currentPhase} phase</p>
+                      </div>
+                    );
+                  }
+
+                  return ongoingTasks.map((task, index) => {
+                    const isAssignedToMe = task.assignedTo?.includes(user?.id || '');
+                    const assignedMembers = task.assignedTo?.map(id => {
+                      const member = project.teamMembers?.find(m => m.id === id);
+                      return member?.name || 'Unknown';
+                    }) || [];
+
+                    return (
+                      <div 
+                        key={`${task.id}-${index}`}
+                        className={`p-2 rounded-lg border cursor-pointer transition-colors ${
+                          isAssignedToMe 
+                            ? 'bg-orange-50 border-orange-200' 
+                            : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
+                        }`}
+                      >
+                        <div className={`text-sm font-medium mb-1 ${isAssignedToMe ? 'text-orange-900' : 'text-gray-900'}`}>
+                          {task.description || task.content}
+                          {isAssignedToMe && <span className="ml-2 text-xs font-bold">(YOU)</span>}
+                        </div>
+                        {assignedMembers.length > 0 && (
+                          <div className="text-xs text-gray-500">
+                            Assigned to: {assignedMembers.join(', ')}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  });
+                })()}
               </div>
             </Card>
 

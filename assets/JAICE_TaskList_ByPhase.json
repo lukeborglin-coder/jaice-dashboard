@@ -17,7 +17,11 @@
         "After client KO call, confirm final sample quotas with vendor"
       ],
       "Ongoing": [
-        "Keep internal team aligned on roles, deliverables, and client expectations throughout kickoff."
+        {
+          "task": "Keep internal team aligned on roles, deliverables, and client expectations throughout kickoff.",
+          "isOngoing": true,
+          "description": "Maintain team alignment and communication throughout the kickoff phase"
+        }
       ]
     },
     "Pre-Field": {
@@ -42,8 +46,16 @@
         "Approve survey for soft launch"
       ],
       "Ongoing": [
-        "Confirm all client expectations are documented before launch",
-        "Ensure version control across QNR revisions"
+        {
+          "task": "Confirm all client expectations are documented before launch",
+          "isOngoing": true,
+          "description": "Maintain documentation of client expectations throughout pre-field phase"
+        },
+        {
+          "task": "Ensure version control across QNR revisions",
+          "isOngoing": true,
+          "description": "Maintain version control and document management throughout QNR development"
+        }
       ]
     },
     "Fielding": {
@@ -60,10 +72,26 @@
         "Check prelim tables (if needed)"
       ],
       "Ongoing": [
-        "Soft data quality check (10% of total sample), continue quality checks throughout",
-        "Monitor completes and update quotas as needed",
-        "Monitor open end comments for AEs and submit within 24 hours",
-        "Ensure timely completion of field, troubleshoot as needed"
+        {
+          "task": "Soft data quality check (10% of total sample), continue quality checks throughout",
+          "isOngoing": true,
+          "description": "Continuous data quality monitoring and validation throughout fielding"
+        },
+        {
+          "task": "Monitor completes and update quotas as needed",
+          "isOngoing": true,
+          "description": "Ongoing quota management and completion monitoring"
+        },
+        {
+          "task": "Monitor open end comments for AEs and submit within 24 hours",
+          "isOngoing": true,
+          "description": "Continuous AE monitoring and timely reporting"
+        },
+        {
+          "task": "Ensure timely completion of field, troubleshoot as needed",
+          "isOngoing": true,
+          "description": "Ongoing field management and issue resolution"
+        }
       ]
     },
     "Post-Field Analysis": {
@@ -79,7 +107,11 @@
         "Submit AE Reconciliation"
       ],
       "Ongoing": [
-        "Confirm all deliverables are complete and documented for handoff to reporting"
+        {
+          "task": "Confirm all deliverables are complete and documented for handoff to reporting",
+          "isOngoing": true,
+          "description": "Ongoing deliverable tracking and documentation for reporting handoff"
+        }
       ]
     },
     "Reporting": {
@@ -98,7 +130,11 @@
         "Fill out Cost Tracker with final invoices from vendors"
       ],
       "Ongoing": [
-        "Maintain consistent story flow and formatting across deliverables"
+        {
+          "task": "Maintain consistent story flow and formatting across deliverables",
+          "isOngoing": true,
+          "description": "Ongoing quality control for story consistency and formatting"
+        }
       ]
     }
   },
@@ -128,7 +164,11 @@
         "Schedule KO with moderator"
       ],
       "Ongoing": [
-        "Ensure alignment between internal team, moderator, and recruiter on study objectives"
+        {
+          "task": "Ensure alignment between internal team, moderator, and recruiter on study objectives",
+          "isOngoing": true,
+          "description": "Maintain team alignment and objective clarity throughout kickoff"
+        }
       ]
     },
     "Pre-Field": {
@@ -155,7 +195,11 @@
         "Schedule client debrief after first 1-2 interviews"
       ],
       "Ongoing": [
-        "Ensure communication between client, recruiter, and moderator stays open and current"
+        {
+          "task": "Ensure communication between client, recruiter, and moderator stays open and current",
+          "isOngoing": true,
+          "description": "Maintain open communication channels throughout pre-field phase"
+        }
       ]
     },
     "Fielding": {
@@ -166,13 +210,41 @@
         "Schedule second client debrief (if needed)"
       ],
       "Ongoing": [
-        "Continue updating report shell with interview content",
-        "Submit AE reports within 24 hours",
-        "Manage stimuli changes",
-        "Download audio files and transcripts daily",
-        "Track high-level findings for client",
-        "Ensure objectives are being met",
-        "Engage with moderator and ask probes"
+        {
+          "task": "Continue updating report shell with interview content",
+          "isOngoing": true,
+          "description": "Ongoing report shell updates with interview content"
+        },
+        {
+          "task": "Submit AE reports within 24 hours",
+          "isOngoing": true,
+          "description": "Continuous AE monitoring and timely reporting"
+        },
+        {
+          "task": "Manage stimuli changes",
+          "isOngoing": true,
+          "description": "Ongoing stimuli management and updates"
+        },
+        {
+          "task": "Download audio files and transcripts daily",
+          "isOngoing": true,
+          "description": "Daily audio and transcript management"
+        },
+        {
+          "task": "Track high-level findings for client",
+          "isOngoing": true,
+          "description": "Continuous findings tracking and client updates"
+        },
+        {
+          "task": "Ensure objectives are being met",
+          "isOngoing": true,
+          "description": "Ongoing objective monitoring and validation"
+        },
+        {
+          "task": "Engage with moderator and ask probes",
+          "isOngoing": true,
+          "description": "Continuous moderator engagement and probing"
+        }
       ]
     },
     "Post-Field Analysis": {
@@ -182,7 +254,11 @@
         "Submit AE reconciliation (if needed)"
       ],
       "Ongoing": [
-        "Document learnings and summarize key qualitative themes"
+        {
+          "task": "Document learnings and summarize key qualitative themes",
+          "isOngoing": true,
+          "description": "Ongoing documentation of learnings and theme identification"
+        }
       ]
     },
     "Reporting": {
@@ -199,8 +275,16 @@
         "Fill out Cost Tracker"
       ],
       "Ongoing": [
-        "Focus on storytelling clarity and actionable insights",
-        "Ensure findings tie back to research objectives"
+        {
+          "task": "Focus on storytelling clarity and actionable insights",
+          "isOngoing": true,
+          "description": "Ongoing focus on clear storytelling and actionable insights"
+        },
+        {
+          "task": "Ensure findings tie back to research objectives",
+          "isOngoing": true,
+          "description": "Continuous alignment of findings with research objectives"
+        }
       ]
     }
   }

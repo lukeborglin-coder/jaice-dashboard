@@ -79,7 +79,8 @@
           ],
           "status": "completed",
           "phase": "Kickoff",
-          "dueDate": "2025-10-07"
+          "dueDate": "2025-10-07",
+          "isOngoing": false
         },
         {
           "id": "t2",
@@ -88,7 +89,8 @@
             ""
           ],
           "status": "pending",
-          "phase": "Kickoff"
+          "phase": "Kickoff",
+          "isOngoing": false
         },
         {
           "id": "t3",
@@ -98,7 +100,8 @@
           ],
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t4",
@@ -108,7 +111,8 @@
           ],
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t5",
@@ -118,7 +122,8 @@
           ],
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t6",
@@ -128,7 +133,8 @@
           ],
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t7",
@@ -138,7 +144,8 @@
           ],
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t8",
@@ -148,7 +155,8 @@
           ],
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t9",
@@ -158,7 +166,8 @@
           ],
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t10",
@@ -168,7 +177,8 @@
           ],
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t11",
@@ -178,7 +188,8 @@
           ],
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t12",
@@ -188,7 +199,8 @@
           ],
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t13",
@@ -198,7 +210,8 @@
           ],
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t14",
@@ -208,7 +221,8 @@
           ],
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t15",
@@ -218,7 +232,8 @@
           ],
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t16",
@@ -228,7 +243,8 @@
           ],
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t17",
@@ -238,7 +254,8 @@
           ],
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t18",
@@ -248,7 +265,8 @@
           ],
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t19",
@@ -258,7 +276,8 @@
           ],
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t20",
@@ -268,7 +287,8 @@
           ],
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t21",
@@ -278,7 +298,8 @@
           ],
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t22",
@@ -288,7 +309,8 @@
           ],
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t23",
@@ -298,7 +320,8 @@
           ],
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t24",
@@ -308,7 +331,8 @@
           ],
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t25",
@@ -318,7 +342,8 @@
           ],
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t26",
@@ -328,7 +353,8 @@
           ],
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t27",
@@ -338,7 +364,8 @@
           ],
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t28",
@@ -348,7 +375,8 @@
           ],
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t29",
@@ -358,7 +386,8 @@
           ],
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t30",
@@ -368,7 +397,8 @@
           ],
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t31",
@@ -378,7 +408,8 @@
           ],
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t32",
@@ -388,7 +419,8 @@
           ],
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t33",
@@ -398,7 +430,8 @@
           ],
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t34",
@@ -408,7 +441,8 @@
           ],
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t35",
@@ -418,7 +452,8 @@
           ],
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t36",
@@ -428,7 +463,8 @@
           ],
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t37",
@@ -438,7 +474,8 @@
           ],
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t38",
@@ -448,7 +485,8 @@
           ],
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t39",
@@ -458,7 +496,8 @@
           ],
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t40",
@@ -468,7 +507,8 @@
           ],
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t41",
@@ -478,7 +518,8 @@
           ],
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t42",
@@ -488,7 +529,8 @@
           ],
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t43",
@@ -498,7 +540,8 @@
           ],
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t44",
@@ -508,7 +551,8 @@
           ],
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t45",
@@ -518,7 +562,8 @@
           ],
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t46",
@@ -528,7 +573,8 @@
           ],
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t47",
@@ -538,7 +584,8 @@
           ],
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t48",
@@ -548,7 +595,8 @@
           ],
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t49",
@@ -558,7 +606,8 @@
           ],
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t50",
@@ -568,7 +617,8 @@
           ],
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t51",
@@ -578,7 +628,8 @@
           ],
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t52",
@@ -588,7 +639,8 @@
           ],
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t53",
@@ -598,7 +650,8 @@
           ],
           "status": "pending",
           "phase": "Post-Field Analysis",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t54",
@@ -608,7 +661,8 @@
           ],
           "status": "pending",
           "phase": "Post-Field Analysis",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t55",
@@ -618,7 +672,8 @@
           ],
           "status": "pending",
           "phase": "Post-Field Analysis",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t56",
@@ -628,7 +683,8 @@
           ],
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t57",
@@ -638,7 +694,8 @@
           ],
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t58",
@@ -648,7 +705,8 @@
           ],
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t59",
@@ -658,7 +716,8 @@
           ],
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t60",
@@ -668,7 +727,8 @@
           ],
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t61",
@@ -678,7 +738,8 @@
           ],
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t62",
@@ -688,7 +749,8 @@
           ],
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t63",
@@ -698,7 +760,8 @@
           ],
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t64",
@@ -708,7 +771,8 @@
           ],
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t65",
@@ -718,7 +782,8 @@
           ],
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         }
       ],
       "teamMembers": [
@@ -855,7 +920,8 @@
           ],
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t2",
@@ -865,7 +931,8 @@
           ],
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t3",
@@ -875,7 +942,8 @@
           ],
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t4",
@@ -885,7 +953,8 @@
           ],
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t5",
@@ -895,7 +964,8 @@
           ],
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t6",
@@ -905,7 +975,8 @@
           ],
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t7",
@@ -915,7 +986,8 @@
           ],
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t8",
@@ -925,7 +997,8 @@
           ],
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t9",
@@ -935,7 +1008,8 @@
           ],
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t10",
@@ -945,7 +1019,8 @@
           ],
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t11",
@@ -955,7 +1030,8 @@
           ],
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t12",
@@ -965,7 +1041,8 @@
           ],
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t13",
@@ -975,7 +1052,8 @@
           ],
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t14",
@@ -985,7 +1063,8 @@
           ],
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t15",
@@ -995,7 +1074,8 @@
           ],
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t16",
@@ -1005,7 +1085,8 @@
           ],
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t17",
@@ -1015,7 +1096,8 @@
           ],
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t18",
@@ -1025,7 +1107,8 @@
           ],
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t19",
@@ -1035,7 +1118,8 @@
           ],
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t20",
@@ -1045,7 +1129,8 @@
           ],
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t21",
@@ -1055,7 +1140,8 @@
           ],
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t22",
@@ -1065,7 +1151,8 @@
           "assignedTo": [
             "3"
           ],
-          "dueDate": "2025-10-08"
+          "dueDate": "2025-10-08",
+          "isOngoing": false
         },
         {
           "id": "t23",
@@ -1077,28 +1164,32 @@
             "12",
             "14"
           ],
-          "dueDate": "2025-10-08"
+          "dueDate": "2025-10-08",
+          "isOngoing": false
         },
         {
           "id": "t24",
           "description": "Get screener approval from client",
           "status": "completed",
           "phase": "Pre-Field",
-          "dueDate": "2025-10-08"
+          "dueDate": "2025-10-08",
+          "isOngoing": false
         },
         {
           "id": "t25",
           "description": "Alert moderator and confirm availability",
           "status": "completed",
           "phase": "Pre-Field",
-          "dueDate": "2025-10-08"
+          "dueDate": "2025-10-08",
+          "isOngoing": false
         },
         {
           "id": "t26",
           "description": "Submit first invoice request",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": "2025-10-14"
+          "dueDate": "2025-10-14",
+          "isOngoing": false
         },
         {
           "id": "t27",
@@ -1107,7 +1198,8 @@
             ""
           ],
           "status": "pending",
-          "phase": "Pre-Field"
+          "phase": "Pre-Field",
+          "isOngoing": false
         },
         {
           "id": "t28",
@@ -1117,7 +1209,8 @@
           ],
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t29",
@@ -1127,7 +1220,8 @@
           ],
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t30",
@@ -1137,7 +1231,8 @@
           ],
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t31",
@@ -1147,7 +1242,8 @@
           ],
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t32",
@@ -1157,7 +1253,8 @@
           ],
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t33",
@@ -1167,7 +1264,8 @@
           ],
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t34",
@@ -1177,7 +1275,8 @@
           ],
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t35",
@@ -1187,7 +1286,8 @@
           ],
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t36",
@@ -1197,7 +1297,8 @@
           ],
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t37",
@@ -1207,7 +1308,8 @@
           ],
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t38",
@@ -1217,7 +1319,8 @@
           ],
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t39",
@@ -1227,7 +1330,8 @@
           ],
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t40",
@@ -1237,7 +1341,8 @@
           ],
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t41",
@@ -1247,7 +1352,8 @@
           ],
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t42",
@@ -1257,7 +1363,8 @@
           "assignedTo": [
             "3"
           ],
-          "dueDate": "2025-10-08"
+          "dueDate": "2025-10-08",
+          "isOngoing": false
         },
         {
           "id": "t43",
@@ -1269,7 +1376,8 @@
             "12",
             "3"
           ],
-          "dueDate": "2025-10-08"
+          "dueDate": "2025-10-08",
+          "isOngoing": false
         },
         {
           "id": "t44",
@@ -1280,7 +1388,8 @@
           ],
           "status": "completed",
           "phase": "Fielding",
-          "dueDate": "2025-10-08"
+          "dueDate": "2025-10-08",
+          "isOngoing": false
         },
         {
           "id": "t45",
@@ -1292,7 +1401,8 @@
           ],
           "status": "completed",
           "phase": "Fielding",
-          "dueDate": "2025-10-08"
+          "dueDate": "2025-10-08",
+          "isOngoing": false
         },
         {
           "id": "t46",
@@ -1302,7 +1412,8 @@
           ],
           "status": "completed",
           "phase": "Fielding",
-          "dueDate": "2025-10-09"
+          "dueDate": "2025-10-09",
+          "isOngoing": false
         },
         {
           "id": "t47",
@@ -1313,7 +1424,8 @@
           ],
           "status": "completed",
           "phase": "Fielding",
-          "dueDate": "2025-10-08"
+          "dueDate": "2025-10-08",
+          "isOngoing": false
         },
         {
           "id": "t48",
@@ -1323,7 +1435,8 @@
           ],
           "status": "completed",
           "phase": "Fielding",
-          "dueDate": "2025-10-07"
+          "dueDate": "2025-10-07",
+          "isOngoing": false
         },
         {
           "id": "t49",
@@ -1334,7 +1447,8 @@
           ],
           "status": "completed",
           "phase": "Fielding",
-          "dueDate": "2025-10-08"
+          "dueDate": "2025-10-08",
+          "isOngoing": false
         },
         {
           "id": "t50",
@@ -1345,7 +1459,8 @@
           ],
           "status": "completed",
           "phase": "Fielding",
-          "dueDate": "2025-10-08"
+          "dueDate": "2025-10-08",
+          "isOngoing": false
         },
         {
           "id": "t51",
@@ -1355,7 +1470,8 @@
             "11"
           ],
           "status": "completed",
-          "phase": "Fielding"
+          "phase": "Fielding",
+          "isOngoing": false
         },
         {
           "id": "t52",
@@ -1365,7 +1481,8 @@
             "3"
           ],
           "status": "completed",
-          "phase": "Fielding"
+          "phase": "Fielding",
+          "isOngoing": false
         },
         {
           "id": "t53",
@@ -1375,7 +1492,7 @@
           ],
           "status": "pending",
           "phase": "Post-Field Analysis",
-          "dueDate": "2025-10-16"
+          "isOngoing": false
         },
         {
           "id": "t54",
@@ -1386,7 +1503,8 @@
           ],
           "status": "pending",
           "phase": "Post-Field Analysis",
-          "dueDate": "2025-10-15"
+          "dueDate": "2025-10-15",
+          "isOngoing": false
         },
         {
           "id": "t55",
@@ -1396,7 +1514,8 @@
           ],
           "status": "pending",
           "phase": "Post-Field Analysis",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t56",
@@ -1406,7 +1525,8 @@
           ],
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t57",
@@ -1416,7 +1536,8 @@
           ],
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t58",
@@ -1426,7 +1547,8 @@
           ],
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t59",
@@ -1436,7 +1558,8 @@
           ],
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t60",
@@ -1446,7 +1569,8 @@
           ],
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t61",
@@ -1456,7 +1580,8 @@
           ],
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t62",
@@ -1466,7 +1591,8 @@
           ],
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t63",
@@ -1476,7 +1602,8 @@
           ],
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t64",
@@ -1486,7 +1613,8 @@
           ],
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t65",
@@ -1496,7 +1624,8 @@
           ],
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "task-1760016868780",
@@ -1507,7 +1636,8 @@
           ],
           "status": "completed",
           "phase": "Fielding",
-          "dueDate": "2025-10-09"
+          "dueDate": "2025-10-09",
+          "isOngoing": false
         }
       ],
       "teamMembers": [
@@ -1663,434 +1793,496 @@
           "dueDate": "2025-10-08",
           "assignedTo": [
             "3"
-          ]
+          ],
+          "isOngoing": false
         },
         {
           "id": "t2",
           "description": "Create detailed timeline",
           "status": "completed",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t3",
           "description": "Hold Internal Pre-Kick Off: Talk through study overview, roles, deadlines, and any other key project info prior to KO with client.",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t4",
           "description": "Create or review Proposal based on RFP (Request For Proposal)",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t5",
           "description": "Bid project out to vendors",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t6",
           "description": "Create a job folder for the study in the 'Proposals' folder (within appropriate client folder)",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t7",
           "description": "Save vendors' bids to job folder",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t8",
           "description": "Ensure any new vendors you are bringing on board have signed the NDA",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t9",
           "description": "Create Internal Cost Worksheet, send to supervisor",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t10",
           "description": "Move study docs from 'Proposals' folder to main client folder",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t11",
           "description": "Set up Invoice Schedule & Worksheet (Reference PO/SOW for client specific invoice timeline)",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t12",
           "description": "Alert sample/programming vendor that the project is moving forward",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t13",
           "description": "After client KO call, confirm final sample quotas with vendor",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t14",
           "description": "Draft QNR",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t15",
           "description": "Proof QNR",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t16",
           "description": "Send QNR to client",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t17",
           "description": "Add AE submission forms & contact info to job folder",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t18",
           "description": "Update folder name with job #",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t19",
           "description": "Submit first client invoice request to accounting",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t20",
           "description": "Make necessary revisions to QNR from client review",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t21",
           "description": "Send final QNR to vendor (after client sign off)",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t22",
           "description": "If advanced analytics needed: create specs & engage statistician",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t23",
           "description": "Ensure signed/final documents are saved to job folder",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t24",
           "description": "Test survey program",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t25",
           "description": "If translations: review translations in survey program",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t26",
           "description": "Send translations to client-approved translators",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t27",
           "description": "If requested: send tested survey link to client",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t28",
           "description": "Coordinate translation comments",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t29",
           "description": "Create data quality check plan",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t30",
           "description": "Create AE check plan",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t31",
           "description": "Approve survey for soft launch",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t32",
           "description": "Soft data quality check (10% of total sample), continue quality checks throughout",
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": true
         },
         {
           "id": "t33",
           "description": "Create report shell based on questionnaire, proposal, feedback from client",
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t34",
           "description": "Share fielding updates with client - minimum of twice a week",
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t35",
           "description": "Copy cost tracker shell to job folder and update",
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t36",
           "description": "Create tab banner plan",
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t37",
           "description": "Have tab banner plan reviewed",
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t38",
           "description": "Send tab banner plan to vendor",
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t39",
           "description": "If coding: share questions and required codes with vendor",
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t40",
           "description": "Monitor open end comments for AEs and submit within 24 hours",
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": true
         },
         {
           "id": "t41",
           "description": "Request invoice if required by client schedule",
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t42",
           "description": "Monitor completes and update quotas as needed",
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": true
         },
         {
           "id": "t43",
           "description": "Ensure timely completion of field, troubleshoot as needed",
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": true
         },
         {
           "id": "t44",
           "description": "Request prelim tables (if needed)",
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t45",
           "description": "Check prelim tables (if needed)",
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t46",
           "description": "Clean project folder, delete old drafts, save finals",
           "status": "pending",
           "phase": "Post-Field Analysis",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t47",
           "description": "Save vendor invoices, compare to bids, send to accounting",
           "status": "pending",
           "phase": "Post-Field Analysis",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t48",
           "description": "Download & proof banner tables",
           "status": "pending",
           "phase": "Post-Field Analysis",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t49",
           "description": "Submit AE Reconciliation",
           "status": "pending",
           "phase": "Post-Field Analysis",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t50",
           "description": "Internal download: lessons learned and notes",
           "status": "pending",
           "phase": "Post-Field Analysis",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t51",
           "description": "Download and review verbatim file",
           "status": "pending",
           "phase": "Post-Field Analysis",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t52",
           "description": "Write findings & exec summary, team review",
           "status": "pending",
           "phase": "Post-Field Analysis",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t53",
           "description": "Send SPSS file to statistician if applicable",
           "status": "pending",
           "phase": "Post-Field Analysis",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t54",
           "description": "Post data into report shell",
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t55",
           "description": "Write findings & exec summary",
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t56",
           "description": "Have data proofed",
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t57",
           "description": "Have exec summary and headlines proofed",
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t58",
           "description": "Have full final report proofed",
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t59",
           "description": "Send report to client",
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t60",
           "description": "Update report based on client comments",
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t61",
           "description": "Approve final vendor invoices",
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t62",
           "description": "Fill out Cost Tracker with final invoices from vendors",
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         }
       ],
       "teamMembers": [
@@ -2139,7 +2331,7 @@
     {
       "name": "testset",
       "client": "Genentech",
-      "methodologyType": "Quantitative",
+      "methodologyType": "Quant",
       "methodology": "ATU (Awareness, Trial, Usage)",
       "startDate": "",
       "endDate": "",
@@ -2148,14 +2340,14 @@
       "kickoffDeck": null,
       "sampleSize": 0,
       "subgroups": [],
-      "moderator": "",
+      "moderator": "-",
       "sampleProvider": "",
       "requireAdvancedAnalytics": false,
       "analyticsPartner": "",
       "usePreloadedTasks": true,
       "customTasks": [],
       "id": "P-1759946810566",
-      "phase": "Kickoff",
+      "phase": "Fielding",
       "methodologyDisplay": "Quantitative - ATU (Awareness, Trial, Usage)",
       "phaseTimeline": {
         "Kickoff": {
@@ -2201,434 +2393,523 @@
           "description": "Create Kick Off (KO) deck",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t2",
           "description": "Create detailed timeline",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t3",
           "description": "Hold Internal Pre-Kick Off: Talk through study overview, roles, deadlines, and any other key project info prior to KO with client.",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t4",
           "description": "Create or review Proposal based on RFP (Request For Proposal)",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t5",
           "description": "Bid project out to vendors",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t6",
           "description": "Create a job folder for the study in the 'Proposals' folder (within appropriate client folder)",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t7",
           "description": "Save vendors' bids to job folder",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t8",
           "description": "Ensure any new vendors you are bringing on board have signed the NDA",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t9",
           "description": "Create Internal Cost Worksheet, send to supervisor",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t10",
           "description": "Move study docs from 'Proposals' folder to main client folder",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t11",
           "description": "Set up Invoice Schedule & Worksheet (Reference PO/SOW for client specific invoice timeline)",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t12",
           "description": "Alert sample/programming vendor that the project is moving forward",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t13",
           "description": "After client KO call, confirm final sample quotas with vendor",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t14",
           "description": "Draft QNR",
           "status": "completed",
           "phase": "Pre-Field",
-          "dueDate": "2025-10-09"
+          "dueDate": "2025-10-09",
+          "isOngoing": false
         },
         {
           "id": "t15",
           "description": "Proof QNR",
           "status": "completed",
           "phase": "Pre-Field",
-          "dueDate": "2025-10-08"
+          "dueDate": "2025-10-08",
+          "isOngoing": false
         },
         {
           "id": "t16",
           "description": "Send QNR to client",
           "status": "completed",
           "phase": "Pre-Field",
-          "dueDate": "2025-10-08"
+          "dueDate": "2025-10-08",
+          "isOngoing": false
         },
         {
           "id": "t17",
           "description": "Add AE submission forms & contact info to job folder",
           "status": "completed",
           "phase": "Pre-Field",
-          "dueDate": "2025-10-08"
+          "dueDate": "2025-10-08",
+          "isOngoing": false
         },
         {
           "id": "t18",
           "description": "Update folder name with job #",
           "status": "completed",
           "phase": "Pre-Field",
-          "dueDate": "2025-10-08"
+          "dueDate": "2025-10-08",
+          "isOngoing": false
         },
         {
           "id": "t19",
           "description": "Submit first client invoice request to accounting",
           "status": "completed",
           "phase": "Pre-Field",
-          "dueDate": "2025-10-08"
+          "dueDate": "2025-10-08",
+          "isOngoing": false
         },
         {
           "id": "t20",
           "description": "Make necessary revisions to QNR from client review",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t21",
           "description": "Send final QNR to vendor (after client sign off)",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t22",
           "description": "If advanced analytics needed: create specs & engage statistician",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t23",
           "description": "Ensure signed/final documents are saved to job folder",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t24",
           "description": "Test survey program",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t25",
           "description": "If translations: review translations in survey program",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t26",
           "description": "Send translations to client-approved translators",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t27",
           "description": "If requested: send tested survey link to client",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t28",
           "description": "Coordinate translation comments",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t29",
           "description": "Create data quality check plan",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t30",
           "description": "Create AE check plan",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t31",
           "description": "Approve survey for soft launch",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t32",
           "description": "Soft data quality check (10% of total sample), continue quality checks throughout",
           "status": "completed",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": true
         },
         {
           "id": "t33",
           "description": "Create report shell based on questionnaire, proposal, feedback from client",
           "status": "completed",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t34",
           "description": "Share fielding updates with client - minimum of twice a week",
           "status": "completed",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t35",
           "description": "Copy cost tracker shell to job folder and update",
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": "2025-10-14",
+          "isOngoing": false,
+          "assignedTo": [
+            "3"
+          ]
         },
         {
           "id": "t36",
           "description": "Create tab banner plan",
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": "2025-10-14",
+          "isOngoing": false,
+          "assignedTo": [
+            "3"
+          ]
         },
         {
           "id": "t37",
           "description": "Have tab banner plan reviewed",
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": "2025-10-14",
+          "isOngoing": false,
+          "assignedTo": [
+            "3"
+          ]
         },
         {
           "id": "t38",
           "description": "Send tab banner plan to vendor",
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": "2025-10-14",
+          "isOngoing": false,
+          "assignedTo": [
+            "3"
+          ]
         },
         {
           "id": "t39",
           "description": "If coding: share questions and required codes with vendor",
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": "2025-10-14",
+          "isOngoing": false,
+          "assignedTo": [
+            "3"
+          ]
         },
         {
           "id": "t40",
           "description": "Monitor open end comments for AEs and submit within 24 hours",
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": true,
+          "assignedTo": [
+            "3"
+          ]
         },
         {
           "id": "t41",
           "description": "Request invoice if required by client schedule",
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": "2025-10-14",
+          "isOngoing": false,
+          "assignedTo": [
+            "3"
+          ]
         },
         {
           "id": "t42",
           "description": "Monitor completes and update quotas as needed",
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": true,
+          "assignedTo": [
+            "3"
+          ]
         },
         {
           "id": "t43",
           "description": "Ensure timely completion of field, troubleshoot as needed",
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": true,
+          "assignedTo": [
+            "3"
+          ]
         },
         {
           "id": "t44",
           "description": "Request prelim tables (if needed)",
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t45",
           "description": "Check prelim tables (if needed)",
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t46",
           "description": "Clean project folder, delete old drafts, save finals",
           "status": "pending",
           "phase": "Post-Field Analysis",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t47",
           "description": "Save vendor invoices, compare to bids, send to accounting",
           "status": "pending",
           "phase": "Post-Field Analysis",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t48",
           "description": "Download & proof banner tables",
           "status": "pending",
           "phase": "Post-Field Analysis",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t49",
           "description": "Submit AE Reconciliation",
           "status": "pending",
           "phase": "Post-Field Analysis",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t50",
           "description": "Internal download: lessons learned and notes",
           "status": "pending",
           "phase": "Post-Field Analysis",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t51",
           "description": "Download and review verbatim file",
           "status": "pending",
           "phase": "Post-Field Analysis",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t52",
           "description": "Write findings & exec summary, team review",
           "status": "pending",
           "phase": "Post-Field Analysis",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t53",
           "description": "Send SPSS file to statistician if applicable",
           "status": "pending",
           "phase": "Post-Field Analysis",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t54",
           "description": "Post data into report shell",
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t55",
           "description": "Write findings & exec summary",
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t56",
           "description": "Have data proofed",
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t57",
           "description": "Have exec summary and headlines proofed",
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t58",
           "description": "Have full final report proofed",
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t59",
           "description": "Send report to client",
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t60",
           "description": "Update report based on client comments",
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t61",
           "description": "Approve final vendor invoices",
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t62",
           "description": "Fill out Cost Tracker with final invoices from vendors",
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         }
       ],
       "teamMembers": [
@@ -2638,7 +2919,7 @@
           "role": "Project Manager"
         }
       ],
-      "sampleDetails": "",
+      "sampleDetails": "TBD",
       "files": [],
       "segments": [
         {
@@ -2667,7 +2948,11 @@
           "endDate": "2025-10-31"
         }
       ],
-      "archived": false
+      "archived": false,
+      "phaseColor": "#7C3AED",
+      "fieldworkRange": "10/13/25",
+      "reportDeadline": "10/31/25",
+      "teamMembersText": "Luke Borglin"
     },
     {
       "name": "lsat one",
@@ -2734,322 +3019,370 @@
           "description": "Create Kick Off (KO) deck",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t2",
           "description": "Create detailed timeline",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t3",
           "description": "Hold Internal Pre-Kick Off: Talk through study overview, roles, deadlines, and any other key project info prior to KO with client.",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t4",
           "description": "Create or review Proposal based on RFP (Request For Proposal)",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t5",
           "description": "Bid project out to vendors",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t6",
           "description": "Create a job folder for the study in the 'Proposals' folder (within appropriate client folder)",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t7",
           "description": "Save vendors' bids to job folder",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t8",
           "description": "Ensure any new vendors you are bringing on board have signed the NDA",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t9",
           "description": "Create Internal Cost Worksheet, send to supervisor",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t10",
           "description": "Move study docs from 'Proposals' folder to main client folder",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t11",
           "description": "Set up Invoice Schedule & Worksheet (Reference PO/SOW for client specific invoice timeline)",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t12",
           "description": "Alert sample/programming vendor that the project is moving forward",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t13",
           "description": "After client KO call, confirm final sample quotas with vendor",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t14",
           "description": "Draft QNR",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t15",
           "description": "Proof QNR",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t16",
           "description": "Send QNR to client",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t17",
           "description": "Add AE submission forms & contact info to job folder",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t18",
           "description": "Update folder name with job #",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t19",
           "description": "Submit first client invoice request to accounting",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t20",
           "description": "Make necessary revisions to QNR from client review",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t21",
           "description": "Send final QNR to vendor (after client sign off)",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t22",
           "description": "If advanced analytics needed: create specs & engage statistician",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t23",
           "description": "Ensure signed/final documents are saved to job folder",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t24",
           "description": "Test survey program",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t25",
           "description": "If translations: review translations in survey program",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t26",
           "description": "Send translations to client-approved translators",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t27",
           "description": "If requested: send tested survey link to client",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t28",
           "description": "Coordinate translation comments",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t29",
           "description": "Create data quality check plan",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t30",
           "description": "Create AE check plan",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t31",
           "description": "Approve survey for soft launch",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t32",
           "description": "Soft data quality check (10% of total sample), continue quality checks throughout",
           "status": "completed",
           "phase": "Fielding",
-          "dueDate": "2025-10-08"
+          "dueDate": "2025-10-08",
+          "isOngoing": true
         },
         {
           "id": "t33",
           "description": "Create report shell based on questionnaire, proposal, feedback from client",
           "status": "completed",
           "phase": "Fielding",
-          "dueDate": "2025-10-08"
+          "dueDate": "2025-10-08",
+          "isOngoing": false
         },
         {
           "id": "t34",
           "description": "Share fielding updates with client - minimum of twice a week",
           "status": "completed",
           "phase": "Fielding",
-          "dueDate": "2025-10-08"
+          "dueDate": "2025-10-08",
+          "isOngoing": false
         },
         {
           "id": "t35",
           "description": "Copy cost tracker shell to job folder and update",
           "status": "completed",
           "phase": "Fielding",
-          "dueDate": "2025-10-08"
+          "dueDate": "2025-10-08",
+          "isOngoing": false
         },
         {
           "id": "t36",
           "description": "Create tab banner plan",
           "status": "completed",
           "phase": "Fielding",
-          "dueDate": "2025-10-08"
+          "dueDate": "2025-10-08",
+          "isOngoing": false
         },
         {
           "id": "t37",
           "description": "Have tab banner plan reviewed",
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t38",
           "description": "Send tab banner plan to vendor",
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t39",
           "description": "If coding: share questions and required codes with vendor",
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t40",
           "description": "Monitor open end comments for AEs and submit within 24 hours",
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": true
         },
         {
           "id": "t41",
           "description": "Request invoice if required by client schedule",
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t42",
           "description": "Monitor completes and update quotas as needed",
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "isOngoing": true
         },
         {
           "id": "t43",
           "description": "Ensure timely completion of field, troubleshoot as needed",
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": true,
+          "assignedTo": [
+            "3"
+          ]
         },
         {
           "id": "t44",
           "description": "Request prelim tables (if needed)",
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t45",
           "description": "Check prelim tables (if needed)",
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t46",
           "description": "Clean project folder, delete old drafts, save finals",
           "status": "completed",
           "phase": "Post-Field Analysis",
-          "dueDate": "2025-10-08"
+          "dueDate": "2025-10-08",
+          "isOngoing": false
         },
         {
           "id": "t47",
@@ -3059,14 +3392,16 @@
           "dueDate": "2025-10-07",
           "assignedTo": [
             "3"
-          ]
+          ],
+          "isOngoing": false
         },
         {
           "id": "t48",
           "description": "Download & proof banner tables",
           "status": "completed",
           "phase": "Post-Field Analysis",
-          "dueDate": "2025-10-09"
+          "dueDate": "2025-10-09",
+          "isOngoing": false
         },
         {
           "id": "t49",
@@ -3076,98 +3411,112 @@
           "dueDate": "2025-10-09",
           "assignedTo": [
             "3"
-          ]
+          ],
+          "isOngoing": false
         },
         {
           "id": "t50",
           "description": "Internal download: lessons learned and notes",
           "status": "completed",
           "phase": "Post-Field Analysis",
-          "dueDate": "2025-10-08"
+          "dueDate": "2025-10-08",
+          "isOngoing": false
         },
         {
           "id": "t51",
           "description": "Download and review verbatim file",
           "status": "completed",
           "phase": "Post-Field Analysis",
-          "dueDate": "2025-10-08"
+          "dueDate": "2025-10-08",
+          "isOngoing": false
         },
         {
           "id": "t52",
           "description": "Write findings & exec summary, team review",
           "status": "completed",
           "phase": "Post-Field Analysis",
-          "dueDate": "2025-10-08"
+          "dueDate": "2025-10-08",
+          "isOngoing": false
         },
         {
           "id": "t53",
           "description": "Send SPSS file to statistician if applicable",
           "status": "completed",
           "phase": "Post-Field Analysis",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t54",
           "description": "Post data into report shell",
           "status": "completed",
           "phase": "Reporting",
-          "dueDate": "2025-10-16"
+          "dueDate": "2025-10-16",
+          "isOngoing": false
         },
         {
           "id": "t55",
           "description": "Write findings & exec summary",
           "status": "completed",
           "phase": "Reporting",
-          "dueDate": "2025-10-15"
+          "dueDate": "2025-10-15",
+          "isOngoing": false
         },
         {
           "id": "t56",
           "description": "Have data proofed",
           "status": "completed",
           "phase": "Reporting",
-          "dueDate": "2025-10-14"
+          "dueDate": "2025-10-14",
+          "isOngoing": false
         },
         {
           "id": "t57",
           "description": "Have exec summary and headlines proofed",
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t58",
           "description": "Have full final report proofed",
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t59",
           "description": "Send report to client",
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t60",
           "description": "Update report based on client comments",
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t61",
           "description": "Approve final vendor invoices",
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t62",
           "description": "Fill out Cost Tracker with final invoices from vendors",
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         }
       ],
       "teamMembers": [
@@ -3206,9 +3555,9 @@
           "endDate": "2025-10-10"
         }
       ],
-      "phaseColor": "#DC2626",
+      "phaseColor": "#10B981",
       "fieldworkRange": "9/10/25",
-      "reportDeadline": "10/24/25",
+      "reportDeadline": "10/10/25",
       "teamMembersText": "Luke Borglin",
       "calculatedProgress": 100
     }

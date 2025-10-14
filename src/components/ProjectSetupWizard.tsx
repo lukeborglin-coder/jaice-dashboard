@@ -1361,7 +1361,45 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
           assignedTo: undefined,
           status: 'pending',
           phase: phase,
-          dueDate: null
+          dueDate: null,
+          isOngoing: false
+        });
+      });
+    });
+
+    // Add ongoing tasks for each phase
+    const ongoingTasksByPhase: { [key: string]: string[] } = {
+      "Kickoff": [
+        "Keep internal team aligned on roles, deliverables, and client expectations throughout kickoff."
+      ],
+      "Pre-Field": [
+        "Confirm all client expectations are documented before launch",
+        "Ensure version control across QNR revisions"
+      ],
+      "Fielding": [
+        "Soft data quality check (10% of total sample), continue quality checks throughout",
+        "Monitor completes and update quotas as needed",
+        "Monitor open end comments for AEs and submit within 24 hours",
+        "Ensure timely completion of field, troubleshoot as needed"
+      ],
+      "Post-Field Analysis": [
+        "Confirm all deliverables are complete and documented for handoff to reporting"
+      ],
+      "Reporting": [
+        "Maintain consistent story flow and formatting across deliverables"
+      ]
+    };
+
+    Object.entries(ongoingTasksByPhase).forEach(([phase, ongoingTasks]) => {
+      ongoingTasks.forEach((taskDescription: string) => {
+        tasks.push({
+          id: `t${taskId++}`,
+          description: taskDescription,
+          assignedTo: undefined,
+          status: 'pending',
+          phase: phase,
+          dueDate: null,
+          isOngoing: true
         });
       });
     });
