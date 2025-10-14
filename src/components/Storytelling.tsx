@@ -52,6 +52,39 @@ interface ChatMessage {
   timestamp: string;
 }
 
+function getClientName(project: any): string | undefined {
+  if (!project) return undefined;
+  return (
+    project.project?.client ||
+    project.client ||
+    project.clientName ||
+    project.client_name ||
+    project.customer ||
+    project.account ||
+    (typeof project.client === 'object' && project.client?.name) ||
+    project?.meta?.client ||
+    undefined
+  );
+}
+
+function formatDateTimeNoSeconds(value: string | number | Date): string {
+  const date = new Date(value);
+  const datePart = date.toLocaleDateString();
+  const timePart = date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  return `${datePart}, ${timePart}`;
+}
+
+function getProjectName(project: any): string | undefined {
+  if (!project) return undefined;
+  return (
+    project.project?.name ||
+    project.projectName ||
+    project.project_name ||
+    project.name ||
+    undefined
+  );
+}
+
 interface VerbatimQuote {
   text: string;
   context: string;
@@ -78,15 +111,14 @@ function formatQuoteText(text: string) {
         const endPos = matchIndex < matches.length - 1 ? matches[matchIndex + 1].index! : line.length;
         const content = line.substring(startPos + match[0].length, endPos).trim();
         
-        // Add line break before each speaker except the first
+        // Add a single line break before each speaker except the first
         if (matchIndex > 0) {
-          allElements.push(<br key={key++} />);
           allElements.push(<br key={key++} />);
         }
         
         allElements.push(
           <React.Fragment key={key++}>
-            <strong>{speaker.charAt(0).toUpperCase() + speaker.slice(1).toLowerCase()}:</strong> <em>{content}</em>
+            <strong>{(speaker.toLowerCase() === 'interviewer' ? 'Moderator' : speaker).charAt(0).toUpperCase() + (speaker.toLowerCase() === 'interviewer' ? 'moderator' : speaker.toLowerCase()).slice(1)}:</strong> <em>{content}</em>
         </React.Fragment>
       );
       });
@@ -98,7 +130,7 @@ function formatQuoteText(text: string) {
       
       allElements.push(
         <React.Fragment key={key++}>
-          <strong>{speaker.charAt(0).toUpperCase() + speaker.slice(1).toLowerCase()}:</strong> <em>{content}</em>
+          <strong>{(speaker.toLowerCase() === 'interviewer' ? 'Moderator' : speaker).charAt(0).toUpperCase() + (speaker.toLowerCase() === 'interviewer' ? 'moderator' : speaker.toLowerCase()).slice(1)}:</strong> <em>{content}</em>
         </React.Fragment>
       );
     } else {
@@ -225,9 +257,9 @@ function parseMarkdownContent(content: string) {
       const text = line.substring(2);
       const parsedText = parseInlineMarkdown(text);
       elements.push(
-        <div key={key++} className="flex items-start mb-1">
-          <span className="text-gray-500 mr-2 mt-1">•</span>
-          <span className="text-sm text-gray-700 flex-1">{parsedText}</span>
+        <div key={key++} className="flex mb-1">
+          <span className="text-gray-500 mr-2 leading-6">•</span>
+          <span className="text-sm text-gray-700 flex-1 leading-6">{parsedText}</span>
         </div>
       );
     }
@@ -252,16 +284,11 @@ interface StorytellingProps {
 
 export default function Storytelling({ analysisId, projectId }: StorytellingProps) {
   const { user } = useAuth();
-  
-  console.log('🎭 Storytelling component props:', { analysisId, projectId });
-  console.log('🎭 Storytelling component props (detailed):', { 
-    analysisId: analysisId, 
-    projectId: projectId,
-    analysisIdType: typeof analysisId,
-    projectIdType: typeof projectId
-  });
   const [projects, setProjects] = useState<Project[]>([]);
+  const [allProjects, setAllProjects] = useState<any[]>([]);
+  const [projectMap, setProjectMap] = useState<Record<string, any>>({});
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [forceListView, setForceListView] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'key-findings' | 'storyboard' | 'ask'>('key-findings');
   const [loading, setLoading] = useState(false);
 
@@ -295,15 +322,112 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
   const [quotesError, setQuotesError] = useState<string | null>(null);
   const [quotesCached, setQuotesCached] = useState(false);
 
+  // Details modal state for storyboard sections
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [detailsItems, setDetailsItems] = useState<Array<{ bullet: string; details?: string; quotes?: VerbatimQuote[] }>>([]);
+  const [detailsTitle, setDetailsTitle] = useState<string>('');
+
+  const extractBulletsFromMarkdown = (markdown: string): string[] => {
+    if (!markdown) return [];
+    const lines = markdown.split('\n').map(l => l.trim());
+    const bullets: string[] = [];
+    for (const line of lines) {
+      // Support '-', '*', '•', and numbered lists like '1.'
+      if (line.startsWith('- ') || line.startsWith('* ') || line.startsWith('• ')) {
+        bullets.push(line.substring(2).trim());
+      } else {
+        const numMatch = line.match(/^\d+\.[\s]+(.*)$/);
+        if (numMatch && numMatch[1]) bullets.push(numMatch[1].trim());
+      }
+    }
+    // De-duplicate and limit to first 5 to keep requests light
+    return Array.from(new Set(bullets)).filter(Boolean).slice(0, 5);
+  };
+
+  const generateDetailsForBullet = async (bullet: string): Promise<string | undefined> => {
+    if (!selectedProject) return undefined;
+    try {
+      const ctrl = new AbortController();
+      const to = setTimeout(() => ctrl.abort(), 10000);
+      const response = await fetch(`${API_BASE_URL}/api/storytelling/${selectedProject.id}/ask`, {
+        method: 'POST',
+        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question: `Expand with 2-3 sentences and context for this point, keeping it concise and actionable: ${bullet}`,
+          detailLevel,
+          analysisId: selectedProject?.analysisId || analysisId
+        }),
+        signal: ctrl.signal
+      });
+      clearTimeout(to);
+      if (response.ok) {
+        const result = await response.json();
+        return result?.answer || result?.text || undefined;
+      }
+    } catch (e) {}
+    return undefined;
+  };
+
+  const fetchQuotesForBullet = async (bullet: string): Promise<VerbatimQuote[] | undefined> => {
+    if (!selectedProject) return undefined;
+    try {
+      const quotesAnalysisId = selectedProject?.analysisId || analysisId;
+      const ctrl = new AbortController();
+      const to = setTimeout(() => ctrl.abort(), 10000);
+      const response = await fetch(`${API_BASE_URL}/api/storytelling/${selectedProject.id}/quotes`, {
+        method: 'POST',
+        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: bullet, answer: bullet, analysisId: quotesAnalysisId }),
+        signal: ctrl.signal
+      });
+      clearTimeout(to);
+      if (response.ok) {
+        const data = await response.json();
+        return data.quotes || [];
+      }
+    } catch (e) {}
+    return undefined;
+  };
+
+  // Simple in-memory cache keyed by section title + first 50 chars of content
+  const detailsCacheRef = React.useRef<Map<string, Array<{ bullet: string; details?: string; quotes?: VerbatimQuote[] }>>>(new Map());
+
+  const openDetailsForSection = async (title: string, content: string) => {
+    const cacheKey = `${title}::${(content || '').slice(0, 50)}`;
+    if (detailsCacheRef.current.has(cacheKey)) {
+      setDetailsTitle(title);
+      setDetailsItems(detailsCacheRef.current.get(cacheKey) || []);
+      setShowDetailsModal(true);
+      setDetailsLoading(false);
+      return;
+    }
+    setDetailsTitle(title);
+    setShowDetailsModal(true);
+    setDetailsLoading(true);
+    // Safety timeout in case network hangs
+    const safety = setTimeout(() => setDetailsLoading(false), 15000);
+    const bullets = extractBulletsFromMarkdown(content);
+    const initialItems = bullets.map(b => ({ bullet: b }));
+    setDetailsItems(initialItems);
+
+    const results: Array<{ bullet: string; details?: string; quotes?: VerbatimQuote[] }> = [];
+    for (const b of bullets) {
+      const [details, quotes] = await Promise.all([
+        generateDetailsForBullet(b),
+        fetchQuotesForBullet(b)
+      ]);
+      results.push({ bullet: b, details, quotes });
+      setDetailsItems(results.slice());
+    }
+    clearTimeout(safety);
+    setDetailsLoading(false);
+    detailsCacheRef.current.set(cacheKey, results);
+  };
+
   const qualProjects = useMemo(
     () => {
       const filtered = projects.filter(p => !p.archived);
-      console.log('🔍 Storytelling: qualProjects calculation:', {
-        totalProjects: projects.length,
-        filteredProjects: filtered.length,
-        projects: projects,
-        qualProjects: filtered
-      });
       return filtered;
     },
     [projects]
@@ -317,28 +441,28 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
   const loadProjects = async () => {
     try {
       setLoading(true);
-      console.log('🔍 Storytelling: Loading projects from API...');
       const response = await fetch(`${API_BASE_URL}/api/storytelling/projects`, {
         headers: getAuthHeaders()
       });
-      console.log('🔍 Storytelling: API response status:', response.status);
       if (response.ok) {
         const data = await response.json();
-        console.log('🔍 Storytelling: API response data:', data);
         const projectsArray = Array.isArray(data.projects) ? data.projects : [];
-        console.log('🔍 Storytelling: Setting projects to:', projectsArray);
-        console.log('🔍 Storytelling: First project analysisId:', projectsArray[0]?.analysisId);
-        console.log('🔍 Storytelling: All projects with analysisId:', projectsArray.map(p => ({ 
-          name: p.name, 
-          analysisId: p.analysisId, 
-          id: p.id 
-        })));
         setProjects(projectsArray);
+        // Also load master projects list to resolve real project names/clients
+        try {
+          const pRes = await fetch(`${API_BASE_URL}/api/projects/all`, { headers: getAuthHeaders() });
+          if (pRes.ok) {
+            const pData = await pRes.json();
+            const list = Array.isArray(pData.projects) ? pData.projects : [];
+            setAllProjects(list);
+            const map: Record<string, any> = {};
+            list.forEach((p: any) => { if (p?.id) map[p.id] = p; });
+            setProjectMap(map);
+          }
+        } catch {}
       } else {
-        console.error('🔍 Storytelling: API response not ok:', response.status, await response.text());
       }
     } catch (error) {
-      console.error('🔍 Storytelling: Failed to load projects:', error);
     } finally {
       setLoading(false);
     }
@@ -348,28 +472,9 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
     try {
       // Use analysisId from selectedProject if available, otherwise use the prop
       const currentAnalysisId = selectedProject?.analysisId || analysisId;
-      
-      console.log('🎭 Debug selectedProject:', { 
-        selectedProject, 
-        selectedProjectAnalysisId: selectedProject?.analysisId,
-        propAnalysisId: analysisId,
-        currentAnalysisId 
-      });
-      console.log('🎭 Debug selectedProject (detailed):', {
-        selectedProjectName: selectedProject?.name,
-        selectedProjectId: selectedProject?.id,
-        selectedProjectAnalysisId: selectedProject?.analysisId,
-        propAnalysisId: analysisId,
-        currentAnalysisId: currentAnalysisId,
-        selectedProjectType: typeof selectedProject,
-        analysisIdType: typeof analysisId
-      });
-      
       const url = currentAnalysisId 
         ? `${API_BASE_URL}/api/storytelling/${projectId}?analysisId=${currentAnalysisId}`
         : `${API_BASE_URL}/api/storytelling/${projectId}`;
-      
-      console.log('🎭 Loading storytelling data:', { projectId, analysisId: currentAnalysisId, url });
       
       const response = await fetch(url, {
         headers: getAuthHeaders()
@@ -382,7 +487,6 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
         setChatHistory(data.chatHistory || []);
       }
     } catch (error) {
-      console.error('Failed to load storytelling data:', error);
     }
   };
 
@@ -393,7 +497,7 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
   useEffect(() => {
     if (selectedProject) {
       loadStorytellingData(selectedProject.id);
-    } else if (projectId) {
+    } else if (projectId && !forceListView) {
       // If we have a specific projectId, load that project directly
       const project = projects.find(p => p.id === projectId);
       if (project) {
@@ -422,7 +526,6 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
         alert('Failed to save questions');
       }
     } catch (error) {
-      console.error('Failed to save questions:', error);
       alert('Failed to save questions');
     }
   };
@@ -430,8 +533,6 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
   const estimateCost = async () => {
     if (!selectedProject) return;
 
-    console.log('💰 Estimating cost for project:', selectedProject.id);
-    console.log('💰 API URL:', `${API_BASE_URL}/api/storytelling/${selectedProject.id}/estimate`);
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/storytelling/${selectedProject.id}/estimate`, {
@@ -443,19 +544,14 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
         body: JSON.stringify({ detailLevel, analysisId: selectedProject?.analysisId || analysisId })
       });
 
-      console.log('💰 Cost estimate response status:', response.status);
-
       if (response.ok) {
         const estimate = await response.json();
-        console.log('💰 Cost estimate received:', estimate);
         setCostEstimate(estimate);
         setShowCostModal(true);
       } else {
         const errorText = await response.text();
-        console.error('💰 Cost estimate failed:', response.status, errorText);
       }
     } catch (error) {
-      console.error('Failed to estimate cost:', error);
     }
   };
 
@@ -488,7 +584,6 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
         alert(`Failed to generate findings: ${error.error}`);
       }
     } catch (error) {
-      console.error('Failed to generate findings:', error);
       alert('Failed to generate findings');
     } finally {
       setGeneratingFindings(false);
@@ -496,7 +591,6 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
   };
 
   const handleGenerateStoryboard = async () => {
-    console.log('🎬 Generate Storyboard clicked');
     setPendingAction('storyboard');
     await estimateCost();
   };
@@ -525,7 +619,6 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
         alert(`Failed to generate storyboard: ${error.error}`);
       }
     } catch (error) {
-      console.error('Failed to generate storyboard:', error);
       alert('Failed to generate storyboard');
     } finally {
       setGeneratingStoryboard(false);
@@ -561,7 +654,6 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
         alert(`Failed to answer question: ${error.error}`);
       }
     } catch (error) {
-      console.error('Failed to ask question:', error);
       alert('Failed to ask question');
     } finally {
       setAskingQuestion(false);
@@ -572,13 +664,23 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
     if (!selectedProject) return;
 
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/storytelling/${selectedProject.id}/storyboard/${storyboard.id}/download`,
-        { headers: getAuthHeaders() }
-      );
+      const analysisQuery = selectedProject?.analysisId || analysisId ? `?analysisId=${encodeURIComponent(selectedProject?.analysisId || (analysisId as string))}` : '';
+      const urlWithAnalysis = `${API_BASE_URL}/api/storytelling/${selectedProject.id}/storyboard/${storyboard.id}/download${analysisQuery}`;
+      const urlNoAnalysis = `${API_BASE_URL}/api/storytelling/${selectedProject.id}/storyboard/${storyboard.id}/download`;
+
+      let response = await fetch(urlWithAnalysis, { headers: getAuthHeaders() });
+      if (!response.ok) {
+        response = await fetch(urlNoAnalysis, { headers: getAuthHeaders() });
+      }
 
       if (response.ok) {
         const blob = await response.blob();
+        // If server returned HTML error page as blob, treat as failure
+        if ((response.headers.get('Content-Type') || '').includes('text/html')) {
+          const text = await blob.text();
+          alert(`Failed to download storyboard: ${text}`);
+          return;
+        }
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -588,10 +690,42 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
       } else {
-        alert('Failed to download storyboard');
+        // Attempt fallback: fetch server's storyboard list and find matching latest id
+        try {
+          const listRes = await fetch(`${API_BASE_URL}/api/storytelling/${selectedProject.id}/storyboards${analysisQuery}`, { headers: getAuthHeaders() });
+          if (listRes.ok) {
+            const listJson = await listRes.json();
+            const serverBoards: any[] = Array.isArray(listJson?.storyboards) ? listJson.storyboards : Array.isArray(listJson) ? listJson : [];
+            // Match by generatedAt timestamp (nearest) or take first
+            let match = serverBoards.find(sb => sb.id === (storyboard as any).id);
+            if (!match) {
+              match = serverBoards.find(sb => new Date(sb.generatedAt).getTime() === new Date(storyboard.generatedAt).getTime());
+            }
+            if (!match && serverBoards.length > 0) {
+              match = serverBoards[0];
+            }
+            if (match?.id) {
+              const dl = await fetch(`${API_BASE_URL}/api/storytelling/${selectedProject.id}/storyboard/${match.id}/download${analysisQuery}`, { headers: getAuthHeaders() });
+              if (dl.ok) {
+                const blob = await dl.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `Storyboard_${new Date(match.generatedAt || storyboard.generatedAt).toLocaleDateString()}.docx`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                return;
+              }
+            }
+          }
+        } catch {}
+
+        const msg = await response.text().catch(() => '');
+        alert(`Failed to download storyboard${msg ? `: ${msg}` : ''}`);
       }
     } catch (error) {
-      console.error('Failed to download:', error);
       alert('Failed to download storyboard');
     }
   };
@@ -605,14 +739,6 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
 
     try {
       const quotesAnalysisId = selectedProject?.analysisId || analysisId;
-      console.log('🎭 Quotes request debug:', { 
-        selectedProject, 
-        selectedProjectAnalysisId: selectedProject?.analysisId,
-        propAnalysisId: analysisId,
-        quotesAnalysisId,
-        projectId: selectedProject?.id
-      });
-      
       const response = await fetch(`${API_BASE_URL}/api/storytelling/${selectedProject?.id}/quotes`, {
         method: 'POST',
         headers: {
@@ -635,7 +761,6 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
         setQuotesError(errorData.error || 'Failed to fetch quotes');
       }
     } catch (error) {
-      console.error('Error fetching quotes:', error);
       setQuotesError('Network error while fetching quotes');
     } finally {
       setLoadingQuotes(false);
@@ -661,7 +786,10 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
           <section className="flex items-center justify-between">
             <div>
               <button
-                onClick={() => setSelectedProject(null)}
+                onClick={() => {
+                  setForceListView(true);
+                  setSelectedProject(null);
+                }}
                 className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition mb-2"
               >
                 <ArrowLeftIcon className="h-4 w-4" />
@@ -674,6 +802,29 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
                 {selectedProject.client && <span>{selectedProject.client} • </span>}
                 AI-powered research insights
               </p>
+              <p className="text-sm text-gray-500 mt-1">
+                From n={projectMap[selectedProject.id]?.respondentCount ?? selectedProject.respondentCount ?? 0} respondents added to the 
+                <button
+                  onClick={() => {
+                    // Deep link the specific analysis via custom event used by ContentAnalysisX
+                    const analysis = selectedProject.analysisId;
+                    if (!analysis) return;
+                    // Set route
+                    const url = `${window.location.pathname}?route=Content%20Analysis`;
+                    window.history.pushState({}, '', url);
+                    // Dispatch event to load analysis when CA mounts
+                    setTimeout(() => {
+                      window.dispatchEvent(new CustomEvent('loadContentAnalysis', { detail: { analysisId: analysis } }));
+                    }, 50);
+                    // Force route change by reloading
+                    window.location.reload();
+                  }}
+                  className="ml-1 underline"
+                  style={{ color: BRAND_ORANGE }}
+                >
+                  content analysis
+                </button>
+              </p>
             </div>
           </section>
 
@@ -683,7 +834,7 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
               {[
                 { id: 'key-findings', label: 'Key Findings', icon: SparklesIcon },
                 { id: 'storyboard', label: 'Storyboard', icon: DocumentTextIcon },
-                { id: 'ask', label: 'Ask a Question', icon: ChatBubbleLeftRightIcon }
+                { id: 'ask', label: 'Q&A', icon: ChatBubbleLeftRightIcon }
               ].map(tab => (
                 <button
                   key={tab.id}
@@ -808,7 +959,7 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
                 <div className="space-y-4">
                   {keyFindings.generatedAt && (
                     <p className="text-xs text-gray-500">
-                      Last updated: {new Date(keyFindings.generatedAt).toLocaleString()}
+                      Last updated: {formatDateTimeNoSeconds(keyFindings.generatedAt)}
                     </p>
                   )}
                   {keyFindings.findings.map((finding, idx) => (
@@ -860,16 +1011,47 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
                   className="px-6 py-3 rounded-lg text-white font-medium flex items-center gap-2 disabled:opacity-50"
                   style={{ backgroundColor: BRAND_ORANGE }}
                 >
-                  {generatingStoryboard ? 'Generating...' : 'Generate Storyboard'}
+                  {generatingStoryboard ? (
+                    <>
+                      <span>Generating...</span>
+                      <span className="mx-1 h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white inline-block"></span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Generate Storyboard</span>
                   <DocumentTextIcon className="h-5 w-5" />
+                    </>
+                  )}
                 </button>
               </div>
 
               {storyboards.length > 0 && (
                 <div className="space-y-4">
+                  {/* Current Storyboard Display */}
                   <div className="bg-white shadow-sm border border-gray-200 rounded-lg p-6">
                     <div className="flex items-center justify-between mb-4">
-                      <h4 className="font-semibold text-gray-900">Latest Storyboard</h4>
+                      <h4 className="font-semibold text-gray-900">{selectedProject?.name} - Storyboard</h4>
+                      <div className="flex items-center gap-3">
+                        {storyboards.length > 1 && (
+                          <select
+                            value={storyboards[0].id}
+                            onChange={(e) => {
+                              const selectedStoryboard = storyboards.find(sb => sb.id === e.target.value);
+                              if (selectedStoryboard) {
+                                // Move the selected storyboard to the front
+                                const otherStoryboards = storyboards.filter(sb => sb.id !== e.target.value);
+                                setStoryboards([selectedStoryboard, ...otherStoryboards]);
+                              }
+                            }}
+                            className="text-sm border border-gray-300 rounded px-3 py-1"
+                          >
+                            {storyboards.map((sb, index) => (
+                              <option key={sb.id} value={sb.id}>
+                                {index === 0 ? 'Latest' : `Previous ${index}`} - {new Date(sb.generatedAt).toLocaleDateString()}
+                              </option>
+                            ))}
+                          </select>
+                        )}
                       <button
                         onClick={() => handleDownloadStoryboard(storyboards[0])}
                         className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
@@ -877,53 +1059,43 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
                         <ArrowDownTrayIcon className="h-4 w-4" />
                         Download Word
                       </button>
+                      </div>
                     </div>
                     <p className="text-xs text-gray-500 mb-4">
-                      Generated: {new Date(storyboards[0].generatedAt).toLocaleString()} • {storyboards[0].detailLevel} detail
+                      Generated: {formatDateTimeNoSeconds(storyboards[0].generatedAt)} • {storyboards[0].detailLevel} detail
                     </p>
-                    <div className="prose prose-sm max-w-none">
-                      {storyboards[0].sections?.map((section, idx) => (
-                        <div key={idx} className="mb-6">
-                          <h3 className="text-base font-bold text-gray-900 mb-2">{section.title}</h3>
-                          {parseMarkdownContent(section.content)}
+                    
+                    {/* Storyboard sections in individual boxes */}
+                    <div className="space-y-4">
+                      {storyboards[0].sections?.map((section, idx) => {
+                        const bulletsForSection = extractBulletsFromMarkdown(section.content);
+                        return (
+                          <div key={idx} className="bg-gray-50 border border-gray-200 rounded-lg p-4 shadow-sm">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <h3 className="text-lg font-semibold text-gray-900 mb-2 truncate">{section.title}</h3>
+                                </div>
+                              {bulletsForSection.length > 0 && (
+                                <button
+                                  onClick={() => openDetailsForSection(section.title, section.content)}
+                                  className="text-xs px-2 py-1 rounded border border-gray-300 text-gray-700 hover:bg-gray-50 whitespace-nowrap"
+                                >
+                                  Learn more
+                                </button>
+                              )}
+                              </div>
+                            {/* Under-title thin underline */}
+                            <div className="h-px bg-gray-200 -mx-4 mb-3" />
+                            <div className="prose prose-sm max-w-none">
+                              {parseMarkdownContent(section.content)}
+                            </div>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
 
-                  {storyboards.length > 1 && (
-                    <div>
-                      <button
-                        onClick={() => setShowOldStoryboards(!showOldStoryboards)}
-                        className="text-sm text-gray-600 hover:text-gray-900 mb-3"
-                      >
-                        {showOldStoryboards ? 'Hide' : 'Show'} Old Storyboards ({storyboards.length - 1})
-                      </button>
-
-                      {showOldStoryboards && (
-                        <div className="space-y-3">
-                          {storyboards.slice(1).map(sb => (
-                            <div key={sb.id} className="bg-white shadow-sm border border-gray-200 rounded-lg p-4">
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <p className="text-sm font-medium text-gray-900">{sb.title}</p>
-                                  <p className="text-xs text-gray-500">
-                                    {new Date(sb.generatedAt).toLocaleString()} • {sb.detailLevel} detail
-                                  </p>
-                                </div>
-                                <button
-                                  onClick={() => handleDownloadStoryboard(sb)}
-                                  className="text-sm text-gray-600 hover:text-gray-900"
-                                >
-                                  <ArrowDownTrayIcon className="h-4 w-4" />
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
+                  {/* Past Storyboards list removed (dropdown at top handles history) */}
                 </div>
               )}
             </div>
@@ -1103,6 +1275,60 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
             </div>
           </div>
         )}
+
+        {/* Details Modal */}
+        {showDetailsModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4" onClick={() => setShowDetailsModal(false)}>
+            <div className="w-full max-w-3xl rounded-xl bg-white shadow-xl p-6" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">{detailsTitle} — Expanded Details</h3>
+                  <p className="text-xs text-gray-500 mt-1">Additional context and supporting quotes for each point</p>
+                </div>
+                <button
+                  onClick={() => setShowDetailsModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {detailsLoading ? (
+                <div className="py-10 text-center">
+                  <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-gray-200 border-t-[#D14A2D]"></div>
+                  <div className="text-sm text-gray-600">Loading additional details...</div>
+                </div>
+              ) : detailsItems.length === 0 ? (
+                <div className="py-6 text-sm text-gray-600">No bullet points detected to expand.</div>
+              ) : (
+                <div className="space-y-4 max-h-[60vh] overflow-y-auto">
+                  {detailsItems.map((item, i) => (
+                    <div key={i} className="bg-gray-50 border border-gray-200 rounded p-3">
+                      <p className="text-sm font-medium text-gray-900 mb-1">{item.bullet}</p>
+                      {item.details && (
+                        <p className="text-sm text-gray-700 mb-2">{item.details}</p>
+                      )}
+                      {Array.isArray(item.quotes) && item.quotes.length > 0 && (
+                        <div className="space-y-2">
+                          {item.quotes.map((q, qi) => (
+                            <div key={qi} className="bg-blue-50 border border-blue-200 rounded p-2 text-sm text-gray-800">
+                              {formatQuoteText(q.text)}
+                              {q.context && (
+                                <div className="mt-1 text-xs text-gray-600 italic">{q.context}</div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </main>
     );
   }
@@ -1144,13 +1370,13 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
                       Project
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Content Analysis
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Client
                     </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Respondents
-                    </th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
                     </th>
                   </tr>
                 </thead>
@@ -1171,27 +1397,16 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
                       }}
                     >
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{project.name}</div>
+                        <div className="text-sm font-medium text-gray-900">{projectMap[project.projectId || project.id]?.name || getProjectName(project) || '-'}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{project.client || '-'}</div>
+                        <div className="text-sm text-gray-900">{project?.name || '-'}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{getClientName(projectMap[project.projectId || project.id]) || getClientName(project) || '-'}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <div className="text-sm font-medium text-gray-900">
-                          {project.respondentCount || 0}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <button
-                          onClick={e => {
-                            e.stopPropagation();
-                            setSelectedProject(project);
-                          }}
-                          className="text-sm font-medium"
-                          style={{ color: BRAND_ORANGE }}
-                        >
-                          Open
-                        </button>
+                        <div className="text-sm font-medium text-gray-900">{project.respondentCount ?? projectMap[project.projectId || project.id]?.respondentCount ?? 0}</div>
                       </td>
                     </tr>
                   ))}

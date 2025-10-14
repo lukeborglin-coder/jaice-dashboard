@@ -203,6 +203,17 @@ export async function generateStoryboard(projectId, transcriptsText, caDataObj, 
     detailInstruction = 'Provide comprehensive detail with deep analysis and context.';
   }
 
+  // Explicit output shaping by detail level
+  let bulletsPerSection = '3-4';
+  let sentencesPerBullet = '1-2';
+  if (detailLevel === 'straightforward') {
+    bulletsPerSection = '2-3';
+    sentencesPerBullet = '1';
+  } else if (detailLevel === 'max') {
+    bulletsPerSection = '6-8';
+    sentencesPerBullet = '2-3';
+  }
+
   let quoteInstruction = 'Focus on synthesized findings and analysis without including direct quotes.';
   if (quoteLevel === 'none') {
     quoteInstruction = 'Focus on synthesized findings only without any quotes.';
@@ -224,6 +235,11 @@ Style Guidelines:
 - Highlight key themes, patterns, and insights
 - Note contradictions and nuances
 - Focus on analysis and synthesis rather than direct quotes
+
+ Output Constraints (very important):
+ - For each section, include ${bulletsPerSection} bullets
+ - Each bullet must be ${sentencesPerBullet} sentence(s) long
+ - Use markdown-style headings (### for sub-section titles) without numbering; we'll convert these later
 
 IMPORTANT - ANONYMIZATION REQUIREMENTS:
 - NEVER use actual respondent names (like "Tara", "John", "Sarah", etc.) in your storyboard

@@ -1,5 +1,5 @@
 import express from 'express';
-import { authenticateToken, requireAdmin } from '../../middleware/auth.middleware.mjs';
+import { authenticateToken, requireCognitiveOrAdmin } from '../middleware/auth.middleware.mjs';
 import {
   getProjectCosts,
   getAllProjectCosts,
@@ -28,7 +28,7 @@ async function readProjectsData() {
 }
 
 // GET /api/costs - Get all project costs (admin only)
-router.get('/', authenticateToken, requireAdmin, async (req, res) => {
+router.get('/', authenticateToken, requireCognitiveOrAdmin, async (req, res) => {
   try {
     const costSummaries = await getAllProjectCosts();
     const projectsData = await readProjectsData();
@@ -79,7 +79,7 @@ router.get('/:projectId', authenticateToken, async (req, res) => {
 });
 
 // DELETE /api/costs/:projectId - Delete costs for a project (admin only)
-router.delete('/:projectId', authenticateToken, requireAdmin, async (req, res) => {
+router.delete('/:projectId', authenticateToken, requireCognitiveOrAdmin, async (req, res) => {
   try {
     const { projectId } = req.params;
     const success = await deleteProjectCosts(projectId);

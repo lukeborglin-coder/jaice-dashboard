@@ -1,0 +1,167 @@
+{
+  "Basic_Question_Types": [
+    {
+      "Type": "Single Select",
+      "Description": "Respondents pick one option. Can be one-dimensional or two-dimensional (rows × columns)."
+    },
+    {
+      "Type": "Multi-Select",
+      "Description": "Respondents pick one or more options. Supports exclusive options that deselect others when chosen."
+    },
+    {
+      "Type": "Dropdown Menu",
+      "Description": "A drop-down list where respondents choose from a list of options; supports up to three dimensions."
+    },
+    {
+      "Type": "Button Single Select",
+      "Description": "Single-select question presented as buttons for mobile-friendly selection."
+    },
+    {
+      "Type": "Single Select Grid",
+      "Description": "Matrix-style grid where each row allows one column selection."
+    },
+    {
+      "Type": "Button Single Select Grid",
+      "Description": "Grid with button-based single selections for touch-friendly interaction."
+    },
+    {
+      "Type": "Multi-Select Grid",
+      "Description": "Grid where respondents can select multiple answers per row or cell."
+    },
+    {
+      "Type": "Button Multi-Select / Grid",
+      "Description": "Multi-select question using buttons, including grid variants."
+    },
+    {
+      "Type": "Text / Open-Ended",
+      "Description": "Allows respondents to enter freeform alphanumeric text."
+    },
+    {
+      "Type": "Number Question",
+      "Description": "Restricts respondents to entering numeric values only."
+    }
+  ],
+  "Dynamic_Advanced_Types": [
+    {
+      "Type": "Autosuggest",
+      "Description": "As respondents type, suggestions appear from a predefined list."
+    },
+    {
+      "Type": "Button Rating",
+      "Description": "A numeric rating scale shown as buttons (e.g., 1–5)."
+    },
+    {
+      "Type": "Card Rating",
+      "Description": "Respondents rate items presented as visual cards."
+    },
+    {
+      "Type": "Card Sort",
+      "Description": "Respondents drag and drop cards into categories or priority buckets."
+    },
+    {
+      "Type": "Date Picker",
+      "Description": "Respondents choose a date from a calendar widget."
+    },
+    {
+      "Type": "DCM Conjoint",
+      "Description": "Choice-based conjoint module showing profiles to select between."
+    },
+    {
+      "Type": "Image Map",
+      "Description": "Respondents click on specific image areas (hotspots) to respond."
+    },
+    {
+      "Type": "Media Evaluator",
+      "Description": "Respondents view/listen to media and rate or give timed feedback."
+    },
+    {
+      "Type": "Media Testimonial",
+      "Description": "Allows respondents to record or upload video/audio responses."
+    },
+    {
+      "Type": "Open Assist",
+      "Description": "AI-assisted open-ended question encouraging richer responses."
+    },
+    {
+      "Type": "Rating Scale (Dynamic)",
+      "Description": "Visually enhanced rating scale, often animated or graphical."
+    },
+    {
+      "Type": "Shopping Cart",
+      "Description": "Simulates e-commerce cart behavior for product choice exercises."
+    },
+    {
+      "Type": "Slider / Slider Rating",
+      "Description": "A draggable slider used to select a numeric or percentage value."
+    },
+    {
+      "Type": "Star Rating",
+      "Description": "A visual 1–5 or 1–10 star-based rating control."
+    },
+    {
+      "Type": "Text Highlighter",
+      "Description": "Respondents highlight parts of a passage to indicate emphasis or meaning."
+    },
+    {
+      "Type": "This or That",
+      "Description": "Two-option comparison where respondents choose between two concepts."
+    },
+    {
+      "Type": "Video / Audio Player",
+      "Description": "Embedded media with optional follow-up questions."
+    },
+    {
+      "Type": "Heat-Click",
+      "Description": "Tracks clicks or focus points on an image to visualize interest areas."
+    },
+    {
+      "Type": "Virtual Magazine / Page Timer",
+      "Description": "Displays timed or paginated content to track engagement duration."
+    },
+    {
+      "Type": "Image Upload",
+      "Description": "Allows respondents to upload images as responses."
+    }
+  ],
+  "Structural_Elements": [
+    {
+      "Type": "Descriptive Content",
+      "Description": "Static text or instructions displayed to respondents."
+    },
+    {
+      "Type": "Section",
+      "Description": "Used to organize questions into logical groups or pages."
+    },
+    {
+      "Type": "Note",
+      "Description": "Internal comment or annotation; not visible to respondents."
+    },
+    {
+      "Type": "Skip",
+      "Description": "Logic control element used to route respondents to another section."
+    },
+    {
+      "Type": "Terminate",
+      "Description": "Ends the survey or disqualifies respondents based on logic conditions."
+    },
+    {
+      "Type": "Quota",
+      "Description": "Controls completion limits for respondent groups or conditions."
+    },
+    {
+      "Type": "Reusable Answer List",
+      "Description": "Reusable set of response options shared across multiple questions."
+    },
+    {
+      "Type": "Exec",
+      "Description": "Hidden element executing embedded Python or custom logic."
+    },
+    {
+      "Type": "Import Data",
+      "Description": "Brings in external variables or preloaded data for piping or logic."
+    }
+  ],
+  "Notes": {
+    "Summary": "Forsta supports over 80 question types including dynamic and media-based variants. Many dynamic types are graphical extensions of standard types. Variants (button, grid, etc.) alter appearance but share core logic."
+  }
+}

@@ -7,6 +7,7 @@ import {
   ArrowLeftIcon,
   CheckCircleIcon
 } from '@heroicons/react/24/outline';
+import { IconScript } from '@tabler/icons-react';
 import { API_BASE_URL } from '../config';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -1051,20 +1052,17 @@ export default function Transcripts() {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="pl-6 pr-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-0 whitespace-nowrap">
                       Project
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="pl-2 pr-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
                       Client
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
                       Methodology
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
                       Transcripts
-                    </th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
                     </th>
                   </tr>
                 </thead>
@@ -1077,31 +1075,20 @@ export default function Transcripts() {
                         className="hover:bg-gray-50 cursor-pointer transition-colors"
                         onClick={() => setSelectedProject(project)}
                       >
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">{project.name}</div>
+                        <td className="pl-6 pr-2 py-4 whitespace-nowrap w-0">
+                          <div className="inline-block text-sm font-medium text-gray-900">{project.name}</div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{project.client || '-'}</div>
+                        <td className="pl-2 pr-6 py-4 whitespace-nowrap w-32">
+                          <div className="text-sm text-gray-900 truncate">{project.client || '-'}</div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-6 py-4 whitespace-nowrap text-center w-24">
                           <div className="text-sm text-gray-900">{project.methodologyType || '-'}</div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center gap-1 text-sm text-gray-900">
-                            <DocumentTextIcon className="h-4 w-4 text-gray-400" />
+                        <td className="px-6 py-4 whitespace-nowrap text-center w-20">
+                          <div className="flex items-center justify-center gap-1 text-sm text-gray-900">
+                            <IconScript className="h-4 w-4 text-gray-400" />
                             {projectTranscripts.length}
                           </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedProject(project);
-                            }}
-                            className="text-[#D14A2D] hover:text-[#A03824] text-sm font-medium"
-                          >
-                            View
-                          </button>
                         </td>
                       </tr>
                     );

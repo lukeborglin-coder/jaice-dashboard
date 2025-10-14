@@ -455,6 +455,10 @@ router.post('/:projectId/storyboard/generate', authenticateToken, async (req, re
     storyboard.detailLevel = detailLevel;
 
     projectData.storyboards.unshift(storyboard); // Add to beginning (newest first)
+    // Keep only the 5 most recent storyboards
+    if (projectData.storyboards.length > 5) {
+      projectData.storyboards = projectData.storyboards.slice(0, 5);
+    }
 
     if (await saveProjectStorytelling(projectId, projectData, analysisId)) {
       res.json(storyboard);
@@ -471,9 +475,17 @@ router.post('/:projectId/storyboard/generate', authenticateToken, async (req, re
 router.get('/:projectId/storyboard/:storyboardId/download', authenticateToken, async (req, res) => {
   try {
     const { projectId, storyboardId } = req.params;
+    const { analysisId } = req.query || {};
 
-    const projectData = await loadProjectStorytelling(projectId);
-    const storyboard = projectData.storyboards.find(sb => sb.id === storyboardId);
+    // Try loading with analysisId first (newer storage scheme), then fallback to legacy key
+    let projectData = await loadProjectStorytelling(projectId, analysisId);
+    let storyboard = projectData.storyboards.find(sb => sb.id === storyboardId);
+
+    if (!storyboard && analysisId) {
+      // Fallback to legacy storage without analysisId
+      projectData = await loadProjectStorytelling(projectId, null);
+      storyboard = projectData.storyboards.find(sb => sb.id === storyboardId);
+    }
 
     if (!storyboard) {
       return res.status(404).json({ error: 'Storyboard not found' });
@@ -525,6 +537,27 @@ router.get('/:projectId/storyboard/:storyboardId/download', authenticateToken, a
         const trimmed = line.trim();
         if (!trimmed) {
           paragraphs.push(new Paragraph({ text: '' }));
+          continue;
+        }
+
+        // Markdown-style headings (generic)
+        // Normalize common markdown heading prefixes
+        const normalized = trimmed.replace(/^\*{3,}\s*/, '### ').replace(/^\-\-\-+\s*/, '### ');
+        const headingMatch = normalized.match(/^(#{1,6})\s*(.*)$/);
+        if (headingMatch) {
+          const level = headingMatch[1].length; // number of #
+          const text = headingMatch[2].trim();
+          let headingLevel = HeadingLevel.HEADING_1;
+          if (level >= 4) headingLevel = HeadingLevel.HEADING_3;
+          else if (level === 3) headingLevel = HeadingLevel.HEADING_2;
+          else if (level === 2) headingLevel = HeadingLevel.HEADING_1;
+          paragraphs.push(
+            new Paragraph({
+              text: text || '',
+              heading: headingLevel,
+              spacing: { before: 300, after: 150 }
+            })
+          );
           continue;
         }
 
@@ -611,9 +644,9 @@ router.post('/:projectId/ask', authenticateToken, async (req, res) => {
       detailLevel
     });
 
-    // Keep last 50 Q&A pairs
-    if (projectData.chatHistory.length > 50) {
-      projectData.chatHistory = projectData.chatHistory.slice(-50);
+    // Keep last 10 Q&A pairs only
+    if (projectData.chatHistory.length > 10) {
+      projectData.chatHistory = projectData.chatHistory.slice(-10);
     }
 
     await saveProjectStorytelling(projectId, projectData, analysisId);

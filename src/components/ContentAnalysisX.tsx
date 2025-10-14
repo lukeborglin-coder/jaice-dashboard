@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { CloudArrowUpIcon, TrashIcon, CalendarIcon, UserGroupIcon, UserIcon, BookOpenIcon, BeakerIcon, LightBulbIcon, ChartBarIcon, TrophyIcon, ChatBubbleLeftRightIcon, ExclamationTriangleIcon, ExclamationCircleIcon, ArrowTrendingUpIcon, UsersIcon, DocumentMagnifyingGlassIcon, CheckCircleIcon, EllipsisHorizontalCircleIcon, DocumentTextIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
-import { IconDeviceFloppy, IconFileArrowRight } from '@tabler/icons-react';
+import { IconDeviceFloppy, IconFileArrowRight, IconBook2 } from '@tabler/icons-react';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
 import ExcelJS from 'exceljs';
 import { renderAsync } from 'docx-preview';
@@ -2086,7 +2086,18 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
       <div className="space-y-5">
         {/* Header */}
         <section className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold" style={{ color: '#5D5F62' }}>Content Analysis</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-2xl font-bold" style={{ color: '#5D5F62' }}>Content Analysis</h2>
+            {onNavigateToStorytelling && currentAnalysis?.id && !currentAnalysis.id.startsWith('temp-') && (
+              <button
+                onClick={() => onNavigateToStorytelling(currentAnalysis.id, currentAnalysis.projectId)}
+                className="text-blue-600 hover:text-blue-700 transition-colors"
+                title="Open Storytelling"
+              >
+                <IconBook2 className="h-6 w-6" />
+              </button>
+            )}
+          </div>
           {viewMode !== 'viewer' && (
             <div className="flex items-center gap-2">
               <span className="text-sm text-gray-600">Current View:</span>
@@ -2157,8 +2168,8 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                           }
                         }, 100);
                       }}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-white text-xs font-medium rounded-md hover:opacity-90 transition-colors cursor-pointer shadow-sm"
-                      style={{ backgroundColor: '#2563eb' }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-gray-700 text-xs font-medium rounded-md hover:bg-gray-50 transition-colors cursor-pointer shadow-sm border border-gray-300"
+                      style={{ backgroundColor: 'white' }}
                     >
                       <BookOpenIcon className="h-4 w-4" />
                       <span>View Discussion Guide</span>
@@ -2167,20 +2178,11 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                   {/* Export to Excel button - always visible */}
                   <button
                     onClick={handleExportToExcel}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-white text-xs font-medium rounded-md hover:opacity-90 transition-colors cursor-pointer shadow-sm"
-                    style={{ backgroundColor: '#16a34a' }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-gray-700 text-xs font-medium rounded-md hover:bg-gray-50 transition-colors cursor-pointer shadow-sm border border-gray-300"
+                    style={{ backgroundColor: 'white' }}
                   >
                     <IconFileArrowRight className="h-4 w-4" />
                     <span>Export as Excel</span>
-                  </button>
-                  {/* Generate Storyboard button - always visible */}
-                  <button
-                    onClick={() => setShowStoryboardModal(true)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-white text-xs font-medium rounded-md hover:opacity-90 transition-colors cursor-pointer shadow-sm"
-                    style={{ backgroundColor: '#7c3aed' }}
-                  >
-                    <DocumentTextIcon className="h-4 w-4" />
-                    <span>Generate Storyboard</span>
                   </button>
                 </div>
               </>
@@ -2437,18 +2439,6 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                   </button>
                 ) : (
                   <>
-                    {/* Storytelling Button */}
-                    {onNavigateToStorytelling && currentAnalysis.id && !currentAnalysis.id.startsWith('temp-') && (
-                      <button
-                        onClick={() => onNavigateToStorytelling(currentAnalysis.id, currentAnalysis.projectId)}
-                        className="text-blue-600 hover:text-blue-700 transition-colors"
-                        title="Open Storytelling"
-                      >
-                        <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                      </button>
-                    )}
                   </>
                 )}
               </div>

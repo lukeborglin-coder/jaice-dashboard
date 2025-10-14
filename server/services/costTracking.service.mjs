@@ -33,6 +33,7 @@ export const COST_CATEGORIES = {
   STORYBOARD_GENERATION: 'Storyboard Generation',
   STORYTELLING: 'Storytelling',
   WORKBOOK_PARSING: 'Workbook Parsing',
+  QUESTIONNAIRE_PARSING: 'Questionnaire Parsing',
   OTHER: 'Other API Calls'
 };
 

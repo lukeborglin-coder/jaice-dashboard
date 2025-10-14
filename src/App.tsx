@@ -51,10 +51,11 @@ import {
   RocketLaunchIcon as RocketLaunchIconSolid,
   PlayIcon as PlayIconSolid
 } from "@heroicons/react/24/solid";
-import { IconCalendarShare, IconCalendarWeek, IconBallAmericanFootball, IconRocket, IconFileAnalyticsFilled, IconLayoutSidebarFilled } from "@tabler/icons-react";
+import { IconCalendarShare, IconCalendarWeek, IconBallAmericanFootball, IconRocket, IconFileAnalyticsFilled, IconLayoutSidebarFilled, IconTable, IconCheckbox, IconDatabaseExclamation, IconBook2, IconScript } from "@tabler/icons-react";
 import ContentAnalysisX from "./components/ContentAnalysisX";
 import Transcripts from "./components/Transcripts";
 import Storytelling from "./components/Storytelling";
+import QuestionnaireParser from "./components/QuestionnaireParser";
 import AuthWrapper from "./components/AuthWrapper";
 import TopBar from "./components/TopBar";
 import Feedback from "./components/Feedback";
@@ -3518,13 +3519,19 @@ export default function App() {
     []
   );
 
-  const toolsNav = useMemo(
+  const qualitativeTools = useMemo(
     () => [
-      { name: "Transcripts", icon: DocumentTextIcon },
-      { name: "Content Analysis", icon: DocumentChartBarIcon },
-      { name: "Storytelling", icon: DocumentTextIcon },
-      { name: "QNR", icon: ClipboardDocumentListIcon },
-      { name: "Data QA", icon: CheckBadgeIcon },
+      { name: "Transcripts", icon: IconScript },
+      { name: "Content Analysis", icon: IconTable },
+      { name: "Storytelling", icon: IconBook2 },
+    ],
+    []
+  );
+
+  const quantitativeTools = useMemo(
+    () => [
+      { name: "QNR", icon: IconCheckbox },
+      { name: "Data QA", icon: IconDatabaseExclamation },
     ],
     []
   );
@@ -3536,10 +3543,11 @@ export default function App() {
 
   // Auto-open tools dropdown when a tool is selected
   useEffect(() => {
-    if (toolsNav.some(item => route === item.name)) {
+    const allTools = [...qualitativeTools, ...quantitativeTools];
+    if (allTools.some(item => route === item.name)) {
       setToolsDropdownOpen(true);
     }
-  }, [route, toolsNav]);
+  }, [route, qualitativeTools, quantitativeTools]);
 
   return (
     <AuthWrapper>
@@ -3588,18 +3596,18 @@ export default function App() {
             </button>
           ))}
 
-          {/* Tools Dropdown */}
+          {/* Qualitative Tools Dropdown */}
           <div className="space-y-1">
             <button
               onClick={() => setToolsDropdownOpen(!toolsDropdownOpen)}
               className={`w-full flex items-center gap-3 rounded-xl px-3 py-2 hover:bg-gray-100 transition ${
-                toolsNav.some(item => route === item.name) ? "bg-gray-100" : ""
+                qualitativeTools.some(item => route === item.name) ? "bg-gray-100" : ""
               } ${!sidebarOpen ? 'justify-center' : ''}`}
             >
               <WrenchScrewdriverIcon className="h-5 w-5" />
               {sidebarOpen && (
                 <>
-                  <span className="text-sm font-medium">Tools</span>
+                  <span className="text-sm font-medium">Qualitative Tools</span>
                   {toolsDropdownOpen ? (
                     <ChevronUpIcon className="h-4 w-4 ml-auto" />
                   ) : (
@@ -3609,10 +3617,50 @@ export default function App() {
               )}
             </button>
             
-            {/* Tools Dropdown Items */}
+            {/* Qualitative Tools Dropdown Items */}
             {sidebarOpen && toolsDropdownOpen && (
               <div className="ml-4 space-y-1">
-                {toolsNav.map((item) => (
+                {qualitativeTools.map((item) => (
+                  <button
+                    key={item.name}
+                    onClick={() => setRoute(item.name)}
+                    className={`w-full flex items-center gap-3 rounded-xl px-3 py-2 hover:bg-gray-100 transition ${
+                      route === item.name ? "bg-gray-100" : ""
+                    }`}
+                  >
+                    <item.icon className="h-4 w-4" />
+                    <span className="text-sm font-medium">{item.name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Quantitative Tools Dropdown */}
+          <div className="space-y-1">
+            <button
+              onClick={() => setToolsDropdownOpen(!toolsDropdownOpen)}
+              className={`w-full flex items-center gap-3 rounded-xl px-3 py-2 hover:bg-gray-100 transition ${
+                quantitativeTools.some(item => route === item.name) ? "bg-gray-100" : ""
+              } ${!sidebarOpen ? 'justify-center' : ''}`}
+            >
+              <WrenchScrewdriverIcon className="h-5 w-5" />
+              {sidebarOpen && (
+                <>
+                  <span className="text-sm font-medium">Quantitative Tools</span>
+                  {toolsDropdownOpen ? (
+                    <ChevronUpIcon className="h-4 w-4 ml-auto" />
+                  ) : (
+                    <ChevronDownIcon className="h-4 w-4 ml-auto" />
+                  )}
+                </>
+              )}
+            </button>
+            
+            {/* Quantitative Tools Dropdown Items */}
+            {sidebarOpen && toolsDropdownOpen && (
+              <div className="ml-4 space-y-1">
+                {quantitativeTools.map((item) => (
                   <button
                     key={item.name}
                     onClick={() => setRoute(item.name)}
@@ -3752,7 +3800,8 @@ export default function App() {
             )}
             {route === "Vendor Library" && <VendorLibrary projects={projects} />}
             {route === "Admin Center" && <AdminCenter />}
-            {route !== "Home" && route !== "Project Hub" && route !== "Content Analysis" && route !== "Vendor Library" && route !== "Admin Center" && route !== "Feedback" && <Placeholder name={route} />}
+            {route === "QNR" && <QuestionnaireParser projects={projects} />}
+            {route !== "Home" && route !== "Project Hub" && route !== "Content Analysis" && route !== "Vendor Library" && route !== "Admin Center" && route !== "Feedback" && route !== "QNR" && <Placeholder name={route} />}
           </div>
         </main>
       )}
