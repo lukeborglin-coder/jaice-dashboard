@@ -563,7 +563,7 @@
           "status": "pending",
           "phase": "Fielding",
           "dueDate": null,
-          "isOngoing": false
+          "isOngoing": true
         },
         {
           "id": "t46",
@@ -574,7 +574,7 @@
           "status": "pending",
           "phase": "Fielding",
           "dueDate": null,
-          "isOngoing": false
+          "isOngoing": true
         },
         {
           "id": "t47",
@@ -585,7 +585,7 @@
           "status": "pending",
           "phase": "Fielding",
           "dueDate": null,
-          "isOngoing": false
+          "isOngoing": true
         },
         {
           "id": "t48",
@@ -596,7 +596,7 @@
           "status": "pending",
           "phase": "Fielding",
           "dueDate": null,
-          "isOngoing": false
+          "isOngoing": true
         },
         {
           "id": "t49",
@@ -607,7 +607,7 @@
           "status": "pending",
           "phase": "Fielding",
           "dueDate": null,
-          "isOngoing": false
+          "isOngoing": true
         },
         {
           "id": "t50",
@@ -618,7 +618,7 @@
           "status": "pending",
           "phase": "Fielding",
           "dueDate": null,
-          "isOngoing": false
+          "isOngoing": true
         },
         {
           "id": "t51",
@@ -629,7 +629,7 @@
           "status": "pending",
           "phase": "Fielding",
           "dueDate": null,
-          "isOngoing": false
+          "isOngoing": true
         },
         {
           "id": "t52",
@@ -1402,7 +1402,7 @@
           "status": "completed",
           "phase": "Fielding",
           "dueDate": "2025-10-08",
-          "isOngoing": false
+          "isOngoing": true
         },
         {
           "id": "t46",
@@ -1413,7 +1413,7 @@
           "status": "completed",
           "phase": "Fielding",
           "dueDate": "2025-10-09",
-          "isOngoing": false
+          "isOngoing": true
         },
         {
           "id": "t47",
@@ -1425,7 +1425,7 @@
           "status": "completed",
           "phase": "Fielding",
           "dueDate": "2025-10-08",
-          "isOngoing": false
+          "isOngoing": true
         },
         {
           "id": "t48",
@@ -1436,7 +1436,7 @@
           "status": "completed",
           "phase": "Fielding",
           "dueDate": "2025-10-07",
-          "isOngoing": false
+          "isOngoing": true
         },
         {
           "id": "t49",
@@ -1448,7 +1448,7 @@
           "status": "completed",
           "phase": "Fielding",
           "dueDate": "2025-10-08",
-          "isOngoing": false
+          "isOngoing": true
         },
         {
           "id": "t50",
@@ -1460,7 +1460,7 @@
           "status": "completed",
           "phase": "Fielding",
           "dueDate": "2025-10-08",
-          "isOngoing": false
+          "isOngoing": true
         },
         {
           "id": "t51",
@@ -1471,7 +1471,7 @@
           ],
           "status": "completed",
           "phase": "Fielding",
-          "isOngoing": false
+          "isOngoing": true
         },
         {
           "id": "t52",
@@ -2731,7 +2731,7 @@
           "description": "Request invoice if required by client schedule",
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": "2025-10-14",
+          "dueDate": "2025-10-13",
           "isOngoing": false,
           "assignedTo": [
             "3"

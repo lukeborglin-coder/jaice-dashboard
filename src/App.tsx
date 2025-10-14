@@ -3365,8 +3365,9 @@ export default function App() {
           }));
         };
 
-        // Mark ongoing tasks based on their descriptions
+        // Mark ongoing tasks based on their descriptions from the JSON file
         const markOngoingTasks = (projects: Project[]) => {
+          // Get ongoing task descriptions from the JSON file
           const ongoingTaskDescriptions = [
             "Keep internal team aligned on roles, deliverables, and client expectations throughout kickoff.",
             "Confirm all client expectations are documented before launch",
@@ -3376,7 +3377,19 @@ export default function App() {
             "Monitor open end comments for AEs and submit within 24 hours",
             "Ensure timely completion of field, troubleshoot as needed",
             "Confirm all deliverables are complete and documented for handoff to reporting",
-            "Maintain consistent story flow and formatting across deliverables"
+            "Maintain consistent story flow and formatting across deliverables",
+            "Ensure alignment between internal team, moderator, and recruiter on study objectives",
+            "Ensure communication between client, recruiter, and moderator stays open and current",
+            "Continue updating report shell with interview content",
+            "Submit AE reports within 24 hours",
+            "Manage stimuli changes",
+            "Download audio files and transcripts daily",
+            "Track high-level findings for client",
+            "Ensure objectives are being met",
+            "Engage with moderator and ask probes",
+            "Document learnings and summarize key qualitative themes",
+            "Focus on storytelling clarity and actionable insights",
+            "Ensure findings tie back to research objectives"
           ];
 
           return projects.map(project => ({
@@ -4439,7 +4452,8 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
 
   // State for the new design
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
-  const [taskFilter, setTaskFilter] = useState<'ongoing' | 'today' | 'later'>('ongoing');
+  const [taskFilter, setTaskFilter] = useState<'ongoing' | 'today' | 'later' | 'overdue'>('ongoing');
+  const [hasAutoSelectedOverdue, setHasAutoSelectedOverdue] = useState(false);
 
   // Get user's first name
   const firstName = user?.name?.split(' ')[0] || 'User';
@@ -4462,12 +4476,12 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
         {/* Left Column - Key Dates, My Tasks, and Projects */}
         <div className="lg:col-span-2 space-y-6">
           {/* Key Dates and My Tasks Boxes */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Key Dates Box */}
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 h-80">
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 h-80 lg:col-span-1">
               <div className="mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Key Dates <span className="text-xs italic text-gray-500">(over the next 2 weeks)</span></h3>
-                <div className="w-full h-0.5 mt-2" style={{ backgroundColor: BRAND.gray }}></div>
+                <h3 className="text-lg font-semibold text-gray-900">Key Dates <span className="text-[10px] italic text-gray-500">(next 2 weeks)</span></h3>
+                <div className="w-full h-px mt-2" style={{ backgroundColor: BRAND.gray }}></div>
               </div>
               <div className="h-48 overflow-y-auto">
                 <div>
@@ -4559,7 +4573,7 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
             </div>
 
             {/* My Tasks Box */}
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 h-80">
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 h-80 lg:col-span-2">
               {(() => {
                 // Calculate task counts for each tab
                 const today = new Date();
@@ -4568,6 +4582,7 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
                 let ongoingCount = 0;
                 let todayCount = 0;
                 let laterCount = 0;
+                let overdueCount = 0;
                 
                 projects.forEach(project => {
                   // Get current phase of the project
@@ -4597,18 +4612,25 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
                       } else if (task.dueDate && !task.isOngoing) {
                         const taskDate = new Date(task.dueDate + 'T00:00:00');
                         const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-                        if (taskDate.getTime() === todayDate.getTime()) {
+                        const daysUntil = Math.ceil((taskDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                        
+                        if (daysUntil < 0) {
+                          overdueCount++;
+                        } else if (taskDate.getTime() === todayDate.getTime()) {
                           todayCount++;
-                        } else {
-                          const daysUntil = Math.ceil((taskDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-                          if (daysUntil > 0 && daysUntil <= 7) {
-                            laterCount++;
-                          }
+                        } else if (daysUntil > 0 && daysUntil <= 7) {
+                          laterCount++;
                         }
                       }
                     }
                   });
                 });
+
+                // Auto-select overdue tab if there are overdue tasks and we haven't auto-selected yet
+                if (overdueCount > 0 && !hasAutoSelectedOverdue && taskFilter === 'ongoing') {
+                  setTaskFilter('overdue');
+                  setHasAutoSelectedOverdue(true);
+                }
 
                 return (
                   <>
@@ -4616,6 +4638,18 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
                       <div className="flex items-center justify-between">
                         <h3 className="text-lg font-semibold text-gray-900">My Tasks</h3>
                       <div className="flex bg-gray-100 rounded-lg p-1">
+                        {overdueCount > 0 && (
+                          <button
+                            onClick={() => setTaskFilter('overdue')}
+                            className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
+                              taskFilter === 'overdue'
+                                ? 'bg-white text-gray-900 shadow-sm'
+                                : 'text-gray-600 hover:text-gray-900'
+                            }`}
+                          >
+                            Overdue ({overdueCount})
+                          </button>
+                        )}
                         <button
                           onClick={() => setTaskFilter('ongoing')}
                           className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
@@ -4648,7 +4682,7 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
                         </button>
                       </div>
                       </div>
-                      <div className="w-full h-0.5 mt-2" style={{ backgroundColor: BRAND.gray }}></div>
+                      <div className="w-full h-px mt-2" style={{ backgroundColor: BRAND.gray }}></div>
                     </div>
                   </>
                 );
@@ -4724,6 +4758,24 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
                               });
                             }
                           }
+                        } else if (taskFilter === 'overdue') {
+                          // Show overdue tasks (excluding ongoing tasks)
+                          if (task.dueDate && !task.isOngoing) {
+                            const taskDate = new Date(task.dueDate + 'T00:00:00');
+                            const daysUntil = Math.ceil((taskDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                            
+                            if (daysUntil < 0) {
+                              myTasks.push({
+                                id: task.id,
+                                description: task.description || task.content || 'Untitled task',
+                                project: project.name,
+                                dueDate: task.dueDate,
+                                isOngoing: false,
+                                isOverdue: true,
+                                daysUntil: daysUntil
+                              });
+                            }
+                          }
                         } else {
                           // Show tasks for later this week
                           if (task.dueDate && !task.isOngoing) {
@@ -4763,7 +4815,8 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
                     return (
                       <div className="flex items-center justify-center h-full text-gray-500 text-sm">
                         {taskFilter === 'ongoing' ? 'No ongoing tasks' : 
-                         taskFilter === 'today' ? 'No tasks for today' : 'No tasks for later this week'}
+                         taskFilter === 'today' ? 'No tasks for today' : 
+                         taskFilter === 'overdue' ? 'No overdue tasks' : 'No tasks for later this week'}
                       </div>
                     );
                   }
@@ -4790,7 +4843,7 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
                             </div>
                           </div>
                           <div className="flex-shrink-0 ml-2 text-right">
-                            {!task.isOngoing && (
+                            {!task.isOngoing && taskFilter !== 'today' && (
                               <div className={`text-xs font-medium ${
                                 task.isOverdue ? 'text-red-600' : 
                                 task.daysUntil === 0 ? 'text-orange-600' : 
@@ -5220,7 +5273,7 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
             }
 
             return (
-              <div className="bg-white rounded-lg border border-gray-200 p-4 mb-4 mt-4 relative">
+              <div className="bg-red-50 rounded-lg border border-red-200 p-4 mb-4 mt-4 relative">
                 <div className="absolute top-3 right-3">
                   <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-red-100 text-red-800">
                     OVERDUE
@@ -11856,7 +11909,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                       const isBold = isOverdue || isAssignedToMe;
                       
                       return (
-                        <div key={task.id} className="flex items-start gap-2 text-xs">
+                        <div key={task.id} className={`flex items-start gap-2 text-xs p-1 rounded ${isOverdue ? 'bg-red-50' : ''}`}>
                           <span className="mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: BRAND.orange }}></span>
                           <span className="flex-1">
                             <span className={isBold ? "font-bold" : ""} style={{ color: isOverdue ? "#DC2626" : "#1F2937" }}>
@@ -12352,8 +12405,8 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                         {task.isOngoing ? (
                           <div className="w-full flex items-center justify-center">
                             <div
-                              className="px-0.5 sm:px-1 md:px-2 py-1 rounded-full text-xs font-medium text-white opacity-80"
-                              style={{ backgroundColor: PHASE_COLORS[activePhase] || '#6B7280' }}
+                              className="px-1 py-0.5 rounded-full text-[10px] font-medium text-white"
+                              style={{ backgroundColor: PHASE_COLORS[activePhase] || '#6B7280', opacity: 0.8 }}
                             >
                               Ongoing
                             </div>
