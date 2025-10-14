@@ -8,7 +8,6 @@ import {
   PlusIcon,
   MagnifyingGlassIcon,
   CalendarIcon,
-  CalendarDaysIcon,
   ClipboardDocumentListIcon,
   DocumentChartBarIcon,
   PresentationChartBarIcon,
@@ -98,6 +97,7 @@ function VendorLibrary({ projects }: { projects: any[] }) {
   const [activeSection, setActiveSection] = useState<'moderators' | 'sampleVendors' | 'analytics'>('moderators');
   const [vendors, setVendors] = useState<any>({ moderators: [], sampleVendors: [], analytics: [] });
   const [loading, setLoading] = useState(true);
+  const [moderatorDateRange, setModeratorDateRange] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedVendor, setSelectedVendor] = useState<any>(null);
@@ -816,7 +816,14 @@ function VendorLibrary({ projects }: { projects: any[] }) {
                   </td>
                 </tr>
               ) : (
-                currentVendors.map((vendor: any) => (
+                currentVendors
+                  .sort((a: any, b: any) => {
+                    if (activeSection === 'moderators') {
+                      return a.name.localeCompare(b.name);
+                    }
+                    return 0;
+                  })
+                  .map((vendor: any) => (
                   <tr
                     key={vendor.id}
                     className="hover:bg-gray-50 cursor-pointer"
@@ -909,6 +916,28 @@ function VendorLibrary({ projects }: { projects: any[] }) {
           </table>
         </div>
       </div>
+
+      {/* Moderator Schedule - only show for moderators section */}
+      {activeSection === 'moderators' && (
+        <div className="mt-6">
+          <Card className="!p-0 overflow-hidden flex flex-col">
+            {/* Full-width header bar inside card */}
+            <div style={{ backgroundColor: BRAND.gray }} className="text-white">
+              <div className="flex items-center justify-between px-4 py-2">
+                <div className="flex items-center gap-2">
+                  <UserGroupIcon className="h-6 w-6 text-white" />
+                  <span className="text-lg font-semibold">Moderator Schedule</span>
+                </div>
+                <span className="text-sm font-medium italic text-white/90">{moderatorDateRange}</span>
+              </div>
+            </div>
+
+            <div className="p-4">
+              <ModeratorTimeline projects={projects} moderators={vendors?.moderators} onDateRangeChange={setModeratorDateRange} />
+            </div>
+          </Card>
+        </div>
+      )}
 
       {/* Add Vendor Modal */}
       {showAddModal && createPortal(
@@ -3820,7 +3849,6 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
   const [showAllProjects, setShowAllProjects] = useState(false);
   const [showMyProjectsOnly, setShowMyProjectsOnly] = useState(true);
   const [moderatorDateRange, setModeratorDateRange] = useState('');
-  const [projectTimelineDateRange, setProjectTimelineDateRange] = useState('');
   const [vendorsData, setVendorsData] = useState<any>(null);
   const [expandedTaskSections, setExpandedTaskSections] = useState<{
     todayMy: boolean;
@@ -4374,281 +4402,12 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
         </div>
       </div>
 
-      {/* All Projects Summary Table */}
-      <div className="bg-white shadow-sm border border-gray-200 rounded-lg overflow-hidden">
-        {loadingAllProjects ? (
-          <div className="text-center py-8">
-            <div className="w-8 h-8 flex items-center justify-center mx-auto mb-2">
-              <svg className="animate-spin" width="32" height="32" viewBox="0 0 48 48">
-                <circle cx="24" cy="24" r="20" fill="none" stroke="#D14A2D" strokeWidth="4" strokeDasharray="50 75.4" strokeDashoffset="0" />
-                <circle cx="24" cy="24" r="20" fill="none" stroke="#5D5F62" strokeWidth="4" strokeDasharray="50 75.4" strokeDashoffset="-62.7" />
-              </svg>
-            </div>
-            <p className="text-sm text-gray-500">Loading projects...</p>
-            </div>
-        ) : filteredProjects.length === 0 ? (
-          <div className="text-center py-8">
-            <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-              <FolderIcon className="h-6 w-6 text-gray-400" />
-                  </div>
-            <p className="text-sm text-gray-500">
-              {showMyProjectsOnly ? 'No projects found where you are a team member' : 'No active projects found'}
-            </p>
-              </div>
-        ) : (
-          <>
-            <div className="overflow-x-auto w-full">
-              <table className="w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Project Name</th>
-                    <th className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
-                    <th className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Team</th>
-                    <th className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                    <th className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Methodology</th>
-                    <th className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sample</th>
-                    <th className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Moderator</th>
-                    <th className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fieldwork</th>
-                    <th className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Report</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {displayedProjects.map((project) => {
-                    // Get current phase
-                    const getCurrentPhase = (project: Project): string => {
-                      if (!project.segments || project.segments.length === 0) {
-                        return project.phase;
-                      }
-                      const today = new Date();
-                      const todayStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format
-                      for (const segment of project.segments) {
-                        if (todayStr >= segment.startDate && todayStr <= segment.endDate) {
-                          return segment.phase;
-                        }
-                      }
-                      if (todayStr < project.segments[0].startDate) {
-                        return project.segments[0].phase;
-                      }
-                      if (todayStr > project.segments[project.segments.length - 1].endDate) {
-                        return project.segments[project.segments.length - 1].phase;
-                      }
-                      return project.phase;
-                    };
-
-                    const currentPhase = getCurrentPhase(project);
-                    const phaseColor = PHASE_COLORS[currentPhase] || PHASE_COLORS['Kickoff'];
-                    
-                    // Get fieldwork range
-                    const fieldworkSegment = project.segments?.find(s => s.phase === 'Fielding');
-                    const fieldworkRange = fieldworkSegment && fieldworkSegment.startDate && fieldworkSegment.endDate
-                      ? `${formatDateForDisplay(fieldworkSegment.startDate)} - ${formatDateForDisplay(fieldworkSegment.endDate)}`
-                      : 'TBD';
-
-                    // Get report deadline
-                    const reportDeadline = project.keyDeadlines?.find(kd => kd.label.includes('Report'))?.date || 
-                                         project.keyDeadlines?.find(kd => kd.label.includes('Final'))?.date || 
-                                         new Date(project.endDate + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' });
-
-                    // Get methodology type
-                    const methodologyType = project.methodologyType ||
-                                          (project.methodology?.includes('Focus') || project.methodology?.includes('Interview') ? 'Qualitative' : 'Quantitative');
-                    const displayMethodologyType = methodologyType === 'Quantitative' ? 'Quant' : methodologyType === 'Qualitative' ? 'Qual' : methodologyType;
-
-                    // Get sample details from sampleSize and subgroups
-                    let sampleDetails = 'TBD';
-                    if (project.sampleSize && project.sampleSize > 0) {
-                      const totalSample = project.sampleSize;
-                      const subgroups = project.subgroups || [];
-                      if (subgroups.length > 0) {
-                        const subgroupText = subgroups.map(sg => `${sg.name} (${sg.size})`).join(', ');
-                        sampleDetails = `n=${totalSample} (${subgroupText})`;
-                      } else {
-                        sampleDetails = `n=${totalSample}`;
-                      }
-                    }
-
-                    // Get moderator - look up by ID to get the name
-                    let moderator = 'TBD';
-                    if (project.moderator) {
-                      // First try to find by ID (new format)
-                      const moderatorData = vendorsData?.moderators?.find((m: any) => m.id === project.moderator);
-                      if (moderatorData) {
-                        moderator = moderatorData.name;
-                      } else {
-                        // Fallback to direct name for old projects
-                        moderator = project.moderator;
-                      }
-                    }
-                    // Show '-' for Quant projects instead of 'TBD'
-                    if (methodologyType === 'Quantitative' && moderator === 'TBD') {
-                      moderator = '-';
-                    }
-                    // Remove 'internal' tag from moderator names
-                    if (moderator && moderator !== 'TBD' && moderator !== '-') {
-                      moderator = moderator.replace(/\s*\(internal\)/gi, '').trim();
-                    }
-
-                    const isArchived = project.archived === true;
-                    
-                    return (
-                      <tr 
-                        key={project.id} 
-                        className={`hover:bg-gray-50 cursor-pointer ${isArchived ? 'opacity-60 bg-gray-50' : ''}`}
-                        onClick={() => onNavigateToProject?.(project)}
-                      >
-                        <td className="px-0.5 sm:px-1 md:px-2 py-3 text-sm font-medium text-gray-900 max-w-[180px]">
-                          <div>
-                            {project.name}
-                            {isArchived && <span className="ml-2 text-xs text-gray-500">(Archived)</span>}
-                          </div>
-                        </td>
-                        <td className="px-0.5 sm:px-1 md:px-2 py-3 text-sm text-gray-500 italic max-w-[150px]">
-                          <div className="truncate">{project.client}</div>
-                        </td>
-                        <td className="px-0.5 sm:px-1 md:px-2 py-3">
-                          <span
-                            className="inline-flex items-center justify-center w-24 px-0.5 sm:px-1 md:px-2 py-1 rounded-full text-xs font-medium text-white"
-                            style={{ 
-                              backgroundColor: isArchived ? '#6B7280' : phaseColor,
-                              opacity: 0.6
-                            }}
-                          >
-                            {isArchived ? 'Archived' : getPhaseDisplayName(currentPhase)}
-                          </span>
-                        </td>
-                        <td className="px-0.5 sm:px-1 md:px-2 py-3 text-sm text-gray-500">
-                          <div className="flex items-center">
-                            {project.teamMembers?.slice(0, 3).map((member, index) => (
-                              <div
-                                key={`${project.id}-${member.id}-${index}`}
-                                className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-medium border-2 border-white"
-                                style={{
-                                  backgroundColor: getMemberColor(member.id || member.name, project.teamMembers),
-                                  marginLeft: index > 0 ? '-4px' : '0',
-                                  zIndex: 10 - index
-                                }}
-                                title={member.name}
-                              >
-                                {member.name.split(' ').map(n => n[0]).join('').toUpperCase()}
-                              </div>
-                            ))}
-                            {project.teamMembers && project.teamMembers.length > 3 && (
-                              <div
-                                className="w-6 h-6 rounded-full flex items-center justify-center text-gray-700 text-[10px] font-medium border-2 border-white bg-gray-200"
-                                style={{ marginLeft: '-4px', zIndex: 7 }}
-                              >
-                                +{project.teamMembers.length - 3}
-                              </div>
-                            )}
-                            {(!project.teamMembers || project.teamMembers.length === 0) && (
-                              <span className="text-gray-400">No team</span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-0.5 sm:px-1 md:px-2 py-3 text-xs text-gray-500 max-w-[100px]">
-                          <div className="truncate">{displayMethodologyType}</div>
-                        </td>
-                        <td className="px-0.5 sm:px-1 md:px-2 py-3 text-xs text-gray-500 max-w-[120px]">
-                          <div className="truncate">{project.methodology}</div>
-                        </td>
-                        <td className="px-0.5 sm:px-1 md:px-2 py-3 text-xs text-gray-500 max-w-[150px]">
-                          {(() => {
-                            if (!sampleDetails || sampleDetails === 'TBD') {
-                              return <div className="text-xs text-gray-500">TBD</div>;
-                            }
-                            const match = String(sampleDetails).match(/^(.+?)\s*\((.+?)\)$/);
-                            const baseTotal = match ? match[1].trim() : String(sampleDetails);
-                            // Normalize to display as n=XX
-                            let displayTotal = baseTotal;
-                            const nMatch = baseTotal.match(/n\s*=\s*(\d+)/i);
-                            if (nMatch) {
-                              displayTotal = `n=${nMatch[1]}`;
-                            } else {
-                              const numMatch = baseTotal.replace(/total\s*:/i, '').match(/(\d+)/);
-                              displayTotal = numMatch ? `n=${numMatch[1]}` : baseTotal;
-                            }
-                            const subgroupText = match ? match[2] : '';
-                            const subgroups = subgroupText ? subgroupText.split(',').map(s => s.trim()) : [];
-                            return (
-                              <div
-                                className="inline-block"
-                                onMouseEnter={(e) => {
-                                  if (subgroups.length === 0) return;
-                                  setSampleTooltip({ visible: true, x: e.clientX + 12, y: e.clientY - 12, items: subgroups });
-                                }}
-                                onMouseMove={(e) => {
-                                  if (!subgroups.length) return;
-                                  setSampleTooltip({ visible: true, x: e.clientX + 12, y: e.clientY - 12, items: subgroups });
-                                }}
-                                onMouseLeave={() => setSampleTooltip(null)}
-                              >
-                                <div className="text-xs text-gray-700 truncate">{displayTotal}</div>
-                              </div>
-                            );
-                          })()}
-                        </td>
-                        <td className="px-0.5 sm:px-1 md:px-2 py-3 text-xs text-gray-500 max-w-[120px]">
-                          <div className="truncate">{moderator}</div>
-                        </td>
-                        <td className="px-0.5 sm:px-1 md:px-2 py-3 text-xs text-gray-500 truncate">{fieldworkRange}</td>
-                        <td className="px-0.5 sm:px-1 md:px-2 py-3 text-xs text-gray-500 truncate">{reportDeadline}</td>
-                      </tr>
-                    );
-                  })}
-              </tbody>
-            </table>
-          </div>
-          {sampleTooltip && sampleTooltip.visible && createPortal(
-            <div
-              style={{ position: 'fixed', left: sampleTooltip.x, top: Math.max(8, sampleTooltip.y - 8), zIndex: 99999 }}
-              className="bg-white border border-gray-200 shadow-lg rounded-md p-2 w-56"
-            >
-              <div className="text-xs font-semibold text-gray-600 mb-1">Sub-groups</div>
-              <ul className="list-disc list-inside space-y-0.5 text-xs text-gray-700">
-                {sampleTooltip.items.map((sg, idx) => (
-                  <li key={idx}>{sg}</li>
-                ))}
-              </ul>
-            </div>,
-            document.body
-          )}
-          
-          {/* Show More/Less Button */}
-          {filteredProjects.length > 5 && (
-            <div className="mt-4 text-center">
-              <button
-                onClick={() => setShowAllProjects(!showAllProjects)}
-                className="text-[10px] text-blue-600 hover:text-blue-800 font-medium"
-              >
-                {showAllProjects ? 'Show less' : `Show more (${filteredProjects.length - 5} more)`}
-              </button>
-            </div>
-          )}
-          </>
-        )}
-      </div>
 
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Project Timeline */}
-        <Card className="!p-0 overflow-hidden flex flex-col">
-          {/* Full-width header */}
-          <div style={{ backgroundColor: BRAND.orange }} className="text-white">
-            <div className="flex items-center px-4 py-2">
-              <div className="flex items-center gap-2">
-                <CalendarDaysIcon className="h-6 w-6 text-white" />
-                <span className="text-lg font-semibold">Project Timelines</span>
-              </div>
-            </div>
-          </div>
 
-          {/* Body */}
-          <div className="flex-1 flex flex-col">
-            <ProjectTimeline projects={sortedProjects} onDateRangeChange={setProjectTimelineDateRange} maxWeeks={2} />
-          </div>
-        </Card>
 
+
+      <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
         {/* This Week Card */}
         <Card className="!p-0 overflow-hidden flex flex-col">
           {/* Full-width header bar inside card */}
@@ -4877,35 +4636,16 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
         </Card>
       </div>
 
-      {/* Moderator Schedule */}
-      <Card className="!p-0 overflow-hidden flex flex-col">
-        {/* Full-width header bar inside card */}
-        <div style={{ backgroundColor: BRAND.gray }} className="text-white">
-          <div className="flex items-center justify-between px-4 py-2">
-            <div className="flex items-center gap-2">
-              <UserGroupIcon className="h-6 w-6 text-white" />
-              <span className="text-lg font-semibold">Moderator Schedule</span>
-            </div>
-            <span className="text-sm font-medium italic text-white/90">{moderatorDateRange}</span>
-          </div>
-        </div>
-
-        <div className="p-4">
-          <ModeratorTimeline projects={sortedProjects} moderators={vendorsData?.moderators} onDateRangeChange={setModeratorDateRange} />
-        </div>
-      </Card>
 
           </div>
   );
 }
 
 // Project Timeline Component
-function ProjectTimeline({ projects, onDateRangeChange, maxWeeks }: { projects: Project[]; onDateRangeChange?: (dateRange: string) => void; maxWeeks?: number }) {
+function ProjectTimeline({ projects, onDateRangeChange, maxWeeks, onProjectClick }: { projects: Project[]; onDateRangeChange?: (dateRange: string) => void; maxWeeks?: number; onProjectClick?: (project: Project) => void }) {
   const [currentWeekOffset, setCurrentWeekOffset] = useState(0); // Start with current week like Moderator Schedule
   const [isScrolling, setIsScrolling] = useState(false);
   const [visibleWeeks, setVisibleWeeks] = useState(maxWeeks || 5);
-  const [showAllProjects, setShowAllProjects] = useState(false);
-  const [maxVisibleProjects, setMaxVisibleProjects] = useState(5);
   const timelineRef = useRef<HTMLDivElement>(null);
 
   // Helper function to check if a date is today
@@ -5211,8 +4951,8 @@ function ProjectTimeline({ projects, onDateRangeChange, maxWeeks }: { projects: 
 
             {/* Project Rows */}
             <div className="space-y-0 overflow-y-auto">
-              {projects.slice(0, showAllProjects ? projects.length : maxVisibleProjects).map((project, projectIndex) => (
-                <div key={project.id} className="flex items-stretch border-b border-gray-100 hover:bg-gray-25">
+              {projects.map((project, projectIndex) => (
+                <div key={project.id} className="flex items-stretch border-b border-gray-100 hover:bg-gray-100 cursor-pointer transition-colors duration-150" onClick={() => onProjectClick?.(project)}>
                   {/* Project Name Column */}
                   <div className="w-24 sm:w-32 md:w-40 flex-shrink-0 py-3 flex flex-col justify-center">
                     <div className="text-sm font-medium text-gray-900 truncate">
@@ -5226,7 +4966,7 @@ function ProjectTimeline({ projects, onDateRangeChange, maxWeeks }: { projects: 
                   {/* Timeline Area */}
                   <div className="flex-1 flex items-center relative py-2">
                     {/* Background grid with vertical lines */}
-                    <div className="absolute inset-0 flex overflow-hidden">
+                    <div className="absolute inset-0 flex overflow-hidden pointer-events-none">
                       {weeks.map((week, weekIndex) => (
                         <div key={weekIndex} className={`flex relative ${week.isCurrentWeek ? 'bg-orange-50' : ''}`} style={{ width: `${100 / weeks.length}%` }}>
                           {week.days.map((day, dayIndex) => {
@@ -5255,7 +4995,7 @@ function ProjectTimeline({ projects, onDateRangeChange, maxWeeks }: { projects: 
                         return (
                           <div
                             key={`timeline-week-divider-${weekIndex}`}
-                            className="absolute top-0 bottom-0 w-0.5 bg-gray-300 z-30"
+                            className="absolute top-0 bottom-0 w-0.5 bg-gray-300 z-30 pointer-events-none"
                             style={{ left: `${leftPosition}%` }}
                           ></div>
                         );
@@ -5320,7 +5060,7 @@ function ProjectTimeline({ projects, onDateRangeChange, maxWeeks }: { projects: 
                             return (
                               <div
                                 key={rangeIndex}
-                                className="absolute rounded-full"
+                                className="absolute rounded-full pointer-events-none"
                                 style={{
                                   backgroundColor: range.color,
                                   opacity: 0.6,
@@ -5378,23 +5118,12 @@ function ProjectTimeline({ projects, onDateRangeChange, maxWeeks }: { projects: 
           ))}
                 </div>
                 
-                {/* Show More/Less Button for Projects */}
-                {projects.length > maxVisibleProjects && (
-                  <div className="px-4 py-2 border-t border-gray-200 text-center">
-                    <button
-                      onClick={() => setShowAllProjects(!showAllProjects)}
-                      className="text-[10px] text-blue-600 hover:text-blue-800 font-medium"
-                    >
-                      {showAllProjects ? 'Show less' : `Show more (${projects.length - maxVisibleProjects} more)`}
-                    </button>
-                  </div>
-                )}
                 
         </div>
         </div>
       </div>
       {/* Footer with phase key */}
-      <div className="border-t border-gray-200 bg-gray-50 px-4 py-4">
+      <div className="border-t border-gray-200 px-4 py-4">
         <div className="flex flex-wrap gap-4 text-xs justify-center">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded" style={{ backgroundColor: PHASE_COLORS.Kickoff, opacity: 0.6 }}></div>
@@ -7136,6 +6865,36 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
   const [localTeamMembers, setLocalTeamMembers] = useState<Array<{ id: string; name: string; role: string; email?: string }>>([]);
   const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
   const [showMyProjectsOnly, setShowMyProjectsOnly] = useState(true);
+  const [vendorsData, setVendorsData] = useState<any>(null);
+  const [viewMode, setViewMode] = useState<'list' | 'timeline'>('list');
+
+  // Sorting and filtering state
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+  const [filters, setFilters] = useState({
+    projectName: '',
+    client: '',
+    status: '',
+    team: '',
+    type: '',
+    methodology: '',
+    sample: '',
+    moderator: '',
+    fieldwork: '',
+    report: ''
+  });
+
+  // Load vendors data
+  const loadVendorsData = useCallback(() => {
+    try {
+      const storedVendors = localStorage.getItem('jaice_vendors');
+      if (storedVendors) {
+        const data = JSON.parse(storedVendors);
+        setVendorsData(data);
+      }
+    } catch (error) {
+      console.error('Error loading vendors data:', error);
+    }
+  }, []);
 
   // Load archived projects
   const loadArchivedProjects = async () => {
@@ -7163,6 +6922,11 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
   useEffect(() => {
     loadArchivedProjects();
   }, [user?.id]);
+
+  // Load vendors data on mount
+  useEffect(() => {
+    loadVendorsData();
+  }, [loadVendorsData]);
 
   // Helper function to get final report date from project
   const getFinalReportDate = (project: Project): Date | null => {
@@ -7255,28 +7019,220 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
     return tabProjects;
   };
 
-  // Show all projects with calculated current phase and sort by final report date
-  const filteredProjects = getCurrentTabProjects()
-    .map(project => ({
-    ...project,
-    phase: getCurrentPhase(project) // Use calculated current phase
-    }))
-    .sort((a, b) => {
-      const dateA = getFinalReportDate(a);
-      const dateB = getFinalReportDate(b);
-
-      // If both have dates, sort by date (closest first)
-      if (dateA && dateB) {
-        return dateA.getTime() - dateB.getTime();
+  // Helper function to get project status with special statuses
+  const getProjectStatus = (project: Project) => {
+    const today = new Date();
+    
+    // Check if project is before KO date
+    const kickoffDate = project.keyDeadlines?.find(kd => 
+      kd.label.toLowerCase().includes('kickoff') || 
+      kd.label.toLowerCase().includes('ko')
+    )?.date;
+    
+    if (kickoffDate && kickoffDate !== 'Invalid Date') {
+      const koDate = new Date(kickoffDate);
+      if (today < koDate) {
+        return { phase: 'Awaiting KO', color: '#9CA3AF' };
       }
-      
-      // If only one has a date, prioritize the one with a date
-      if (dateA && !dateB) return -1;
-      if (!dateA && dateB) return 1;
-      
-      // If neither has a date, maintain original order
-      return 0;
+    }
+    
+    // Check if project is after final report date
+    const finalReportDate = project.keyDeadlines?.find(kd => 
+      kd.label.toLowerCase().includes('final') && kd.label.toLowerCase().includes('report')
+    )?.date;
+    
+    if (finalReportDate && finalReportDate !== 'Invalid Date') {
+      const reportDate = new Date(finalReportDate);
+      if (today > reportDate) {
+        return { phase: 'Complete', color: '#10B981' };
+      }
+    }
+    
+    // Default to current phase
+    const currentPhase = getCurrentPhase(project);
+    return { phase: currentPhase, color: PHASE_COLORS[currentPhase] || PHASE_COLORS['Kickoff'] };
+  };
+
+  // Helper function to get project data for filtering/sorting
+  const getProjectData = (project: Project) => {
+    const projectStatus = getProjectStatus(project);
+    const currentPhase = projectStatus.phase;
+    const phaseColor = projectStatus.color;
+    
+    // Get methodology type
+    const methodologyType = project.methodologyType ||
+                          (project.methodology?.includes('Focus') || project.methodology?.includes('Interview') ? 'Qualitative' : 'Quantitative');
+    const displayMethodologyType = methodologyType === 'Quantitative' ? 'Quant' : methodologyType === 'Qualitative' ? 'Qual' : methodologyType;
+
+    // Get sample details
+    let sampleDetails = 'TBD';
+    if (project.sampleSize && project.sampleSize > 0) {
+      const totalSample = project.sampleSize;
+      const subgroups = project.subgroups || [];
+      if (subgroups.length > 0) {
+        const subgroupText = subgroups.map(sg => `${sg.name} (${sg.size})`).join(', ');
+        sampleDetails = `n=${totalSample} (${subgroupText})`;
+      } else {
+        sampleDetails = `n=${totalSample}`;
+      }
+    }
+
+    // Get moderator
+    let moderator = 'TBD';
+    if (project.moderator) {
+      const moderatorData = vendorsData?.moderators?.find((m: any) => m.id === project.moderator);
+      if (moderatorData) {
+        moderator = moderatorData.name;
+      } else {
+        moderator = project.moderator;
+      }
+    }
+    if (methodologyType === 'Quantitative' && moderator === 'TBD') {
+      moderator = '-';
+    }
+    if (moderator && moderator !== 'TBD' && moderator !== '-') {
+      moderator = moderator.replace(/\s*\(internal\)/gi, '').trim();
+    }
+
+    // Get fieldwork range
+    const fieldworkStart = project.keyDeadlines?.find(kd => kd.label.includes('Fieldwork'))?.date || 
+                          project.keyDeadlines?.find(kd => kd.label.includes('Field'))?.date;
+    const fieldworkEnd = project.keyDeadlines?.find(kd => kd.label.includes('Fieldwork End'))?.date || 
+                        project.keyDeadlines?.find(kd => kd.label.includes('Field End'))?.date;
+    const fieldworkRange = fieldworkStart && fieldworkEnd ? 
+                          `${formatDateForDisplay(fieldworkStart)} - ${formatDateForDisplay(fieldworkEnd)}` : 
+                          fieldworkStart ? formatDateForDisplay(fieldworkStart) : 'TBD';
+
+    // Get report deadline
+    const reportDeadline = project.keyDeadlines?.find(kd => kd.label.includes('Report'))?.date || 
+                         project.keyDeadlines?.find(kd => kd.label.includes('Final'))?.date || 
+                         new Date(project.endDate + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' });
+
+    return {
+      ...project,
+      phase: currentPhase,
+      phaseColor,
+      methodologyType: displayMethodologyType,
+      sampleDetails,
+      moderator,
+      fieldworkRange,
+      reportDeadline,
+      teamMembersText: project.teamMembers?.map(m => m.name).join(', ') || 'No team'
+    };
+  };
+
+  // Apply filters and sorting
+  const filteredProjects = useMemo(() => {
+    let projects = getCurrentTabProjects().map(getProjectData);
+
+    // Apply filters
+    if (filters.projectName) {
+      projects = projects.filter(p => p.name.toLowerCase().includes(filters.projectName.toLowerCase()));
+    }
+    if (filters.client) {
+      projects = projects.filter(p => p.client.toLowerCase().includes(filters.client.toLowerCase()));
+    }
+    if (filters.status) {
+      projects = projects.filter(p => p.phase.toLowerCase().includes(filters.status.toLowerCase()));
+    }
+    if (filters.team) {
+      projects = projects.filter(p => p.teamMembersText.toLowerCase().includes(filters.team.toLowerCase()));
+    }
+    if (filters.type) {
+      projects = projects.filter(p => p.methodologyType.toLowerCase().includes(filters.type.toLowerCase()));
+    }
+    if (filters.methodology) {
+      projects = projects.filter(p => p.methodology.toLowerCase().includes(filters.methodology.toLowerCase()));
+    }
+    if (filters.sample) {
+      projects = projects.filter(p => p.sampleDetails.toLowerCase().includes(filters.sample.toLowerCase()));
+    }
+    if (filters.moderator) {
+      projects = projects.filter(p => p.moderator.toLowerCase().includes(filters.moderator.toLowerCase()));
+    }
+    if (filters.fieldwork) {
+      projects = projects.filter(p => p.fieldworkRange.toLowerCase().includes(filters.fieldwork.toLowerCase()));
+    }
+    if (filters.report) {
+      projects = projects.filter(p => p.reportDeadline.toLowerCase().includes(filters.report.toLowerCase()));
+    }
+
+    // Apply sorting
+    if (sortConfig) {
+      projects.sort((a, b) => {
+        let aValue = a[sortConfig.key as keyof typeof a];
+        let bValue = b[sortConfig.key as keyof typeof b];
+
+        // Special handling for phase sorting
+        if (sortConfig.key === 'phase') {
+          const phaseOrder = {
+            'Awaiting KO': 0,
+            'Kickoff': 1,
+            'Pre-Field': 2,
+            'Fielding': 3,
+            'Post-Field Analysis': 4,
+            'Reporting': 5,
+            'Complete': 6
+          };
+          
+          const aPhaseOrder = phaseOrder[aValue as keyof typeof phaseOrder] ?? 999;
+          const bPhaseOrder = phaseOrder[bValue as keyof typeof phaseOrder] ?? 999;
+          
+          if (aPhaseOrder < bPhaseOrder) {
+            return sortConfig.direction === 'asc' ? -1 : 1;
+          }
+          if (aPhaseOrder > bPhaseOrder) {
+            return sortConfig.direction === 'asc' ? 1 : -1;
+          }
+          return 0;
+        }
+
+        // Handle different data types for other columns
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+          aValue = aValue.toLowerCase();
+          bValue = bValue.toLowerCase();
+        }
+
+        if (aValue < bValue) {
+          return sortConfig.direction === 'asc' ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === 'asc' ? 1 : -1;
+        }
+        return 0;
+      });
+    } else {
+      // Default sort by final report date
+      projects.sort((a, b) => {
+        const dateA = getFinalReportDate(a);
+        const dateB = getFinalReportDate(b);
+
+        if (dateA && dateB) {
+          return dateA.getTime() - dateB.getTime();
+        }
+        if (dateA && !dateB) return -1;
+        if (!dateA && dateB) return 1;
+        return 0;
+      });
+    }
+
+    return projects;
+  }, [getCurrentTabProjects, filters, sortConfig, vendorsData]);
+
+  // Handle sorting
+  const handleSort = (key: string) => {
+    setSortConfig(prev => {
+      if (prev?.key === key) {
+        return prev.direction === 'asc' ? { key, direction: 'desc' } : null;
+      }
+      return { key, direction: 'asc' };
     });
+  };
+
+  // Handle filter changes
+  const handleFilterChange = (key: string, value: string) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+  };
 
 
   const handleEditProject = (updatedProject: Project) => {
@@ -7515,8 +7471,8 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                 <h2 className="text-2xl font-bold" style={{ color: "#5D5F62" }}>
                   {selectedProject.name}
                 </h2>
-                <span className="px-3 py-1 rounded-full text-sm font-medium text-white shadow-sm opacity-60" style={{ background: PHASE_COLORS[getCurrentPhase(selectedProject)] }}>
-                  {getPhaseDisplayName(getCurrentPhase(selectedProject))}
+                <span className="px-3 py-1 rounded-full text-sm font-medium text-white shadow-sm opacity-60" style={{ background: getProjectStatus(selectedProject).color }}>
+                  {getPhaseDisplayName(getProjectStatus(selectedProject).phase)}
                 </span>
               </div>
             </div>
@@ -7603,15 +7559,23 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-600">Current View:</span>
             <button
-              onClick={() => setShowMyProjectsOnly(!showMyProjectsOnly)}
+              onClick={() => {
+                const newViewMode = viewMode === 'list' ? 'timeline' : 'list';
+                setViewMode(newViewMode);
+                // Clear filters when switching to timeline view except project name
+                if (newViewMode === 'timeline') {
+                  setFilterPhase('All');
+                  setSearchTerm('');
+                }
+              }}
               className={`px-3 py-1 text-xs rounded-lg shadow-sm transition-colors ${
-                showMyProjectsOnly
+                viewMode === 'timeline'
                   ? 'text-white hover:opacity-90'
                   : 'bg-white border border-gray-300 hover:bg-gray-50'
               }`}
-              style={showMyProjectsOnly ? { backgroundColor: BRAND.orange } : {}}
+              style={viewMode === 'timeline' ? { backgroundColor: BRAND.orange } : {}}
             >
-              {showMyProjectsOnly ? 'Only My Projects' : 'All Cognitive Projects'}
+              {viewMode === 'list' ? 'List View' : 'Timeline View'}
             </button>
           </div>
         </section>
@@ -7654,53 +7618,197 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
           </div>
         </div>
 
-        {/* Projects Table */}
-        <div className="bg-white shadow-sm border border-gray-200 rounded-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
+        {/* Projects Table - List View */}
+        {viewMode === 'list' && (
+          <div className="bg-white shadow-sm border border-gray-200 rounded-lg overflow-hidden">
+          <div className="overflow-x-auto w-full">
+            <table className="w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
+                {/* Header row with sortable columns */}
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Project
+                  <th 
+                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleSort('name')}
+                  >
+                    <div className="flex items-center gap-1">
+                      Project
+                      {sortConfig?.key === 'name' && (
+                        <span className="text-blue-600">
+                          {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                        </span>
+                      )}
+                    </div>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Team
+                  <th 
+                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleSort('client')}
+                  >
+                    <div className="flex items-center gap-1">
+                      Client
+                      {sortConfig?.key === 'client' && (
+                        <span className="text-blue-600">
+                          {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                        </span>
+                      )}
+                    </div>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
+                  <th 
+                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleSort('phase')}
+                  >
+                    <div className="flex items-center gap-1">
+                      Status
+                      {sortConfig?.key === 'phase' && (
+                        <span className="text-blue-600">
+                          {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                        </span>
+                      )}
+                    </div>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Fieldwork
+                  <th 
+                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleSort('teamMembersText')}
+                  >
+                    <div className="flex items-center gap-1">
+                      Team
+                      {sortConfig?.key === 'teamMembersText' && (
+                        <span className="text-blue-600">
+                          {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                        </span>
+                      )}
+                    </div>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Report
+                  <th 
+                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleSort('methodologyType')}
+                  >
+                    <div className="flex items-center gap-1">
+                      Type
+                      {sortConfig?.key === 'methodologyType' && (
+                        <span className="text-blue-600">
+                          {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                        </span>
+                      )}
+                    </div>
                   </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
+                  <th 
+                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleSort('methodology')}
+                  >
+                    <div className="flex items-center gap-1">
+                      Methodology
+                      {sortConfig?.key === 'methodology' && (
+                        <span className="text-blue-600">
+                          {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                        </span>
+                      )}
+                    </div>
                   </th>
+                  <th 
+                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleSort('sampleDetails')}
+                  >
+                    <div className="flex items-center gap-1">
+                      Sample
+                      {sortConfig?.key === 'sampleDetails' && (
+                        <span className="text-blue-600">
+                          {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                        </span>
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleSort('moderator')}
+                  >
+                    <div className="flex items-center gap-1">
+                      Moderator
+                      {sortConfig?.key === 'moderator' && (
+                        <span className="text-blue-600">
+                          {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                        </span>
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleSort('fieldworkRange')}
+                  >
+                    <div className="flex items-center gap-1">
+                      Fieldwork
+                      {sortConfig?.key === 'fieldworkRange' && (
+                        <span className="text-blue-600">
+                          {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                        </span>
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleSort('reportDeadline')}
+                  >
+                    <div className="flex items-center gap-1">
+                      Report
+                      {sortConfig?.key === 'reportDeadline' && (
+                        <span className="text-blue-600">
+                          {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                        </span>
+                      )}
+                    </div>
+                  </th>
+                  <th className="px-0.5 sm:px-1 md:px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredProjects.map((project) => (
+                {filteredProjects.map((project) => {
+                  // Use pre-computed data from getProjectData
+                  const currentPhase = project.phase;
+                  const phaseColor = project.phaseColor;
+                  
+                  // Use pre-computed data
+                  const fieldworkRange = project.fieldworkRange;
+                  const reportDeadline = project.reportDeadline;
+                  const displayMethodologyType = project.methodologyType;
+                  const sampleDetails = project.sampleDetails;
+                  const moderator = project.moderator;
+
+                  const isArchived = project.archived === true;
+                  
+                  return (
                   <tr
                     key={project.id}
-                    className="hover:bg-gray-50 cursor-pointer"
+                      className={`hover:bg-gray-50 cursor-pointer ${isArchived ? 'opacity-60 bg-gray-50' : ''}`}
                     onClick={() => handleProjectView(project)}
                   >
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">{project.name}</div>
-                        <div className="text-sm text-gray-500">{project.client}</div>
+                      <td className="px-0.5 sm:px-1 md:px-2 py-3 text-sm font-medium text-gray-900 max-w-[180px] h-16 align-middle">
+                      <div className="line-clamp-2">
+                          {project.name}
+                          {isArchived && <span className="ml-2 text-xs text-gray-500">(Archived)</span>}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex -space-x-2">
-                        {project.teamMembers?.slice(0, 4).map((member, index) => (
-                          <div
-                            key={`${project.id}-${member.id || member.name}-${index}`}
-                            className="w-8 h-8 rounded-full border-2 border-white flex items-center justify-center text-xs font-medium text-white"
+                      <td className="px-0.5 sm:px-1 md:px-2 py-3 text-sm text-gray-500 italic max-w-[150px] h-16 align-middle">
+                        <div className="truncate">{project.client}</div>
+                      </td>
+                      <td className="px-0.5 sm:px-1 md:px-2 py-3 h-16 align-middle">
+                        <span
+                          className="inline-flex items-center justify-center w-24 px-0.5 sm:px-1 md:px-2 py-1 rounded-full text-xs font-medium text-white"
+                          style={{ 
+                            backgroundColor: isArchived ? '#6B7280' : phaseColor,
+                            opacity: 0.6
+                          }}
+                        >
+                          {isArchived ? 'Archived' : getPhaseDisplayName(currentPhase)}
+                        </span>
+                      </td>
+                      <td className="px-0.5 sm:px-1 md:px-2 py-3 text-sm text-gray-500 h-16 align-middle">
+                        <div className="flex items-center">
+                          {project.teamMembers?.slice(0, 3).map((member, index) => (
+                            <div
+                              key={`${project.id}-${member.id}-${index}`}
+                              className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-medium border-2 border-white"
                             style={{
                               backgroundColor: getMemberColor(member.id || member.name, project.teamMembers),
+                                marginLeft: index > 0 ? '-4px' : '0',
                               zIndex: 10 - index
                             }}
                             title={member.name}
@@ -7708,34 +7816,66 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                             {member.name.split(' ').map(n => n[0]).join('').toUpperCase()}
                           </div>
                         ))}
-                        {project.teamMembers && project.teamMembers.length > 4 && (
-                          <div className="w-8 h-8 rounded-full bg-gray-300 border-2 border-white flex items-center justify-center text-xs font-medium text-gray-600">
-                            +{project.teamMembers.length - 4}
+                          {project.teamMembers && project.teamMembers.length > 3 && (
+                            <div
+                              className="w-6 h-6 rounded-full flex items-center justify-center text-gray-700 text-[10px] font-medium border-2 border-white bg-gray-200"
+                              style={{ marginLeft: '-4px', zIndex: 7 }}
+                            >
+                              +{project.teamMembers.length - 3}
                           </div>
                         )}
+                          {(!project.teamMembers || project.teamMembers.length === 0) && (
+                            <span className="text-gray-400">No team</span>
+                          )}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center justify-center w-20 px-0.5 sm:px-1 md:px-2 py-1 rounded-full text-xs font-medium text-white opacity-60 ${
-                        project.phase === 'Kickoff' ? 'bg-gray-500' :
-                        project.phase === 'Pre-Field' ? 'bg-blue-500' :
-                        project.phase === 'Fielding' ? 'bg-purple-500' :
-                        project.phase === 'Post-Field Analysis' ? 'bg-orange-500' :
-                        project.phase === 'Reporting' ? 'bg-red-500' :
-                        project.phase === 'Awaiting KO' ? 'bg-yellow-500' :
-                        project.phase === 'Complete' ? 'bg-green-500' :
-                        'bg-gray-500'
-                      }`}>
-                        {project.phase === 'Post-Field Analysis' ? 'Analysis' : project.phase}
-                      </span>
+                      <td className="px-0.5 sm:px-1 md:px-2 py-3 text-xs text-gray-500 max-w-[100px] h-16 align-middle">
+                        <div className="truncate">{displayMethodologyType}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {getFieldworkRange(project)}
+                      <td className="px-0.5 sm:px-1 md:px-2 py-3 text-xs text-gray-500 max-w-[120px] h-16 align-middle">
+                        <div className="truncate">{project.methodology}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {getReportDate(project)}
+                      <td className="px-0.5 sm:px-1 md:px-2 py-3 text-xs text-gray-500 max-w-[150px] h-16 align-middle">
+                        {(() => {
+                          if (!sampleDetails || sampleDetails === 'TBD') {
+                            return <div className="text-xs text-gray-500">TBD</div>;
+                          }
+                          const match = String(sampleDetails).match(/^(.+?)\s*\((.+?)\)$/);
+                          const baseTotal = match ? match[1].trim() : String(sampleDetails);
+                          // Normalize to display as n=XX
+                          let displayTotal = baseTotal;
+                          const nMatch = baseTotal.match(/n\s*=\s*(\d+)/i);
+                          if (nMatch) {
+                            displayTotal = `n=${nMatch[1]}`;
+                          } else {
+                            // If it doesn't start with n=, add it
+                            const numMatch = baseTotal.match(/(\d+)/);
+                            if (numMatch) {
+                              displayTotal = `n=${numMatch[1]}`;
+                            }
+                          }
+                          return (
+                            <div className="text-xs text-gray-500">
+                              <div className="truncate">{displayTotal}</div>
+                              {match && (
+                                <div className="text-[10px] text-gray-400 truncate">
+                                  {match[2]}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <td className="px-0.5 sm:px-1 md:px-2 py-3 text-xs text-gray-500 max-w-[120px] h-16 align-middle">
+                        <div className="truncate">{moderator}</div>
+                      </td>
+                      <td className="px-0.5 sm:px-1 md:px-2 py-3 text-xs text-gray-500 max-w-[150px] h-16 align-middle">
+                        <div className="truncate">{fieldworkRange}</div>
+                      </td>
+                      <td className="px-0.5 sm:px-1 md:px-2 py-3 text-xs text-gray-500 max-w-[100px] h-16 align-middle">
+                        <div className="truncate">{reportDeadline}</div>
+                      </td>
+                      <td className="px-0.5 sm:px-1 md:px-2 py-3 text-right text-sm font-medium h-16 align-middle">
                       <div className="flex items-center justify-center gap-2">
                         {activeTab === 'archived' ? (
                           <>
@@ -7766,14 +7906,25 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
         </div>
+        )}
 
-        {/* Empty State */}
-        {filteredProjects.length === 0 && (
+        {/* Timeline View */}
+        {viewMode === 'timeline' && (
+          <div className="bg-white shadow-sm border border-gray-200 rounded-lg overflow-hidden">
+            <div className="p-4">
+              <ProjectTimeline projects={filteredProjects} maxWeeks={5} onProjectClick={handleProjectView} />
+            </div>
+          </div>
+        )}
+
+        {/* Empty State - Only show in list view */}
+        {viewMode === 'list' && filteredProjects.length === 0 && (
           <div className="text-center py-12">
             <FolderIcon className="h-16 w-16 mx-auto mb-4 text-gray-300" />
             <h3 className="text-lg font-medium mb-2">
