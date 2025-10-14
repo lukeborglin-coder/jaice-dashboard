@@ -8,6 +8,16 @@
         {
           "Respondent ID": "",
           "Interview Date": "",
+          "New Column 33": "",
+          "New Column 29": "",
+          "New Column 32": "",
+          "New Column 31": "",
+          "New Column 30": "",
+          "New Column 24": "",
+          "New Column 28": "",
+          "New Column 25": "",
+          "New Column 27": "",
+          "New Column 26": "",
           "New Column 23": "",
           "New Column 22": "",
           "New Column 21": "",
@@ -36,6 +46,16 @@
         {
           "Respondent ID": "R02",
           "Interview Date": "Oct 2, 2025",
+          "New Column 33": "",
+          "New Column 29": "",
+          "New Column 32": "",
+          "New Column 31": "",
+          "New Column 30": "",
+          "New Column 24": "",
+          "New Column 28": "",
+          "New Column 25": "",
+          "New Column 27": "",
+          "New Column 26": "",
           "New Column 23": "",
           "New Column 22": "",
           "New Column 21": "",
@@ -256,7 +276,7 @@
       "bySheet": {}
     },
     "quotes": {},
-    "savedAt": "2025-10-10T21:25:19.635Z",
+    "savedAt": "2025-10-14T17:24:56.448Z",
     "savedBy": "You",
     "context": {
       "Demographics": {

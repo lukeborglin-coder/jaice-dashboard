@@ -3822,7 +3822,7 @@ export default function App() {
               </div>
             ) : (
               <>
-                {route === "Home" && <Dashboard projects={projects} loading={loadingProjects} onProjectCreated={handleProjectCreated} onNavigateToProject={handleProjectView} />}
+                {route === "Home" && <Dashboard projects={projects} loading={loadingProjects} onProjectCreated={handleProjectCreated} onNavigateToProject={handleProjectView} setRoute={setRoute} />}
                 {route === "Feedback" && <Feedback defaultType={(new URLSearchParams(window.location.search).get('type') as any) || 'bug'} />}
                 {route === "Project Hub" && <ProjectHub projects={projects} onProjectCreated={handleProjectCreated} onArchive={handleArchiveProject} setProjects={setProjects} savedContentAnalyses={savedContentAnalyses} setRoute={setRoute} initialProject={projectToNavigate} />}
               </>
@@ -3841,7 +3841,7 @@ export default function App() {
 }
 
 // Dashboard component defined outside App
-function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }: { projects: Project[]; loading?: boolean; onProjectCreated?: (project: Project) => void; onNavigateToProject?: (project: Project) => void }) {
+function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, setRoute }: { projects: Project[]; loading?: boolean; onProjectCreated?: (project: Project) => void; onNavigateToProject?: (project: Project) => void; setRoute?: (route: string) => void }) {
   const { user } = useAuth();
   const [showProjectWizard, setShowProjectWizard] = useState(false);
   const [allProjects, setAllProjects] = useState<Project[]>([]);
@@ -3850,6 +3850,39 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
   const [showMyProjectsOnly, setShowMyProjectsOnly] = useState(true);
   const [moderatorDateRange, setModeratorDateRange] = useState('');
   const [vendorsData, setVendorsData] = useState<any>(null);
+  
+  // Calendar state
+  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
+  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [taskListStartDate, setTaskListStartDate] = useState<Date>(new Date());
+  
+  
+  // Calendar navigation functions
+  const navigateMonth = (direction: 'prev' | 'next') => {
+    if (direction === 'prev') {
+      if (currentMonth === 0) {
+        setCurrentMonth(11);
+        setCurrentYear(currentYear - 1);
+      } else {
+        setCurrentMonth(currentMonth - 1);
+      }
+    } else {
+      if (currentMonth === 11) {
+        setCurrentMonth(0);
+        setCurrentYear(currentYear + 1);
+      } else {
+        setCurrentMonth(currentMonth + 1);
+      }
+    }
+  };
+  
+  const handleDateClick = (day: number) => {
+    const clickedDate = new Date(currentYear, currentMonth, day);
+    setSelectedDate(clickedDate);
+    setTaskListStartDate(clickedDate);
+  };
+  
   const [expandedTaskSections, setExpandedTaskSections] = useState<{
     todayMy: boolean;
     todayAdditional: boolean;
@@ -3954,29 +3987,9 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
 
   // Calculate project priorities and sort
   const prioritizedProjects = useMemo(() => {
-    const currentWeek = 0;
     const now = new Date();
-    
+    // Include ALL projects regardless of phase - show Complete and Awaiting KO phases
     return projects
-      .filter(p => {
-        const currentPhaseSegment = p.segments?.find(s => {
-          if (typeof s.startDay !== 'number' || typeof s.endDay !== 'number') return false;
-          return currentWeek >= s.startDay && currentWeek <= s.endDay;
-        });
-        const isCurrentlyActive = !!currentPhaseSegment;
-
-        const firstSegment = p.segments && p.segments.length > 0 ? p.segments[0] : undefined;
-        const isWithinKickoffBuffer = firstSegment && typeof firstSegment.startDay === 'number' && typeof firstSegment.endDay === 'number'
-          ? currentWeek >= (firstSegment.startDay - 7) && currentWeek <= (firstSegment.endDay + 7)
-          : false;
-
-        const lastSegment = p.segments && p.segments.length > 0 ? p.segments[p.segments.length - 1] : undefined;
-        const isWithinCompletionBuffer = lastSegment && typeof lastSegment.startDay === 'number' && typeof lastSegment.endDay === 'number'
-          ? currentWeek >= (lastSegment.startDay - 7) && currentWeek <= (lastSegment.endDay + 7)
-          : false;
-
-        return isCurrentlyActive || isWithinKickoffBuffer || isWithinCompletionBuffer;
-      })
       .map(project => {
         // Get current phase based on timeline
         const getCurrentPhase = (project: Project): string => {
@@ -4381,25 +4394,19 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
   // Get projects to display (first 5 or all if showAllProjects is true)
   const displayedProjects = showAllProjects ? sortedProjects : sortedProjects.slice(0, 5);
 
+  // State for the new design
+  const [selectedProject, setSelectedProject] = useState<string | null>(null);
+  const [taskFilter, setTaskFilter] = useState<'today' | 'later'>('today');
+
+  // Get user's first name
+  const firstName = user?.name?.split(' ')[0] || 'User';
+
   return (
     <div className="space-y-6 w-full max-w-full overflow-x-hidden">
-      {/* Global Filter Controls */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold" style={{ color: BRAND.gray }}>Project Dashboard</h2>
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-600">Current View:</span>
-          <button
-            onClick={() => setShowMyProjectsOnly(!showMyProjectsOnly)}
-            className={`px-3 py-1 text-xs rounded-lg shadow-sm transition-colors ${
-              showMyProjectsOnly
-                ? 'text-white hover:opacity-90'
-                : 'bg-white border border-gray-300 hover:bg-gray-50'
-            }`}
-            style={showMyProjectsOnly ? { backgroundColor: BRAND.orange } : {}}
-          >
-            {showMyProjectsOnly ? 'Only My Projects' : 'All Cognitive Projects'}
-          </button>
-        </div>
+      {/* Header with greeting */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900">Hello {firstName}!</h1>
+        <p className="text-lg text-gray-600 mt-1">Welcome Back!</p>
       </div>
 
 
@@ -4407,236 +4414,700 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject }:
 
 
 
-      <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
-        {/* This Week Card */}
-        <Card className="!p-0 overflow-hidden flex flex-col">
-          {/* Full-width header bar inside card */}
-          <div style={{ backgroundColor: BRAND.orange }} className="text-white">
-            <div className="flex items-center justify-between px-4 py-2">
-              <div className="flex items-center gap-2">
-                <CalendarIcon className="h-6 w-6 text-white" />
-                <span className="text-lg font-semibold">This Week</span>
-              </div>
-              <span className="text-sm font-medium italic text-white/90">{currentWeekLabel}</span>
-            </div>
-          </div>
+      {/* Main Content Layout - Exact Copy of TASKIE Design */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column - Main Content */}
+        <div className="lg:col-span-2 space-y-6">
 
-        <div className="p-4 space-y-4 flex-1 flex flex-col">
-          {/* Overdue Tasks Banner */}
-          {overdueTasksAll.length > 0 && (
-            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2">
-              <div className="mb-2">
-                <h4 className="text-sm font-semibold text-red-800">Overdue Tasks ({overdueTasksAll.length})</h4>
-              </div>
-              <div className="space-y-1">
-                {(() => {
-                  // Sort tasks: assigned to me first, then others
-                  const sortedOverdueTasks = [...overdueTasksAll].sort((a, b) => {
-                    const aAssignedToMe = isAssignedToMe(a);
-                    const bAssignedToMe = isAssignedToMe(b);
-                    if (aAssignedToMe && !bAssignedToMe) return -1;
-                    if (!aAssignedToMe && bAssignedToMe) return 1;
-                    return 0;
-                  });
+          {/* Project Section (My Projects) */}
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Project</h3>
+            <div className="space-y-2">
+              {filteredProjects
+                .map((project) => {
+                  // Calculate progress using KO date and Report date from keyDeadlines
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  
+                  let progress = 0;
+                  
+                  // Get KO date and Report date from keyDeadlines
+                  const koDeadline = project.keyDeadlines?.find(d => 
+                    d.label.toLowerCase().includes('kickoff') || 
+                    d.label.toLowerCase().includes('ko')
+                  );
+                  const reportDeadline = project.keyDeadlines?.find(d => 
+                    d.label.toLowerCase().includes('report') || 
+                    d.label.toLowerCase().includes('final')
+                  );
+                  
+                  if (koDeadline?.date && reportDeadline?.date) {
+                    const startDate = new Date(koDeadline.date);
+                    const endDate = new Date(reportDeadline.date);
+                    startDate.setHours(0, 0, 0, 0);
+                    endDate.setHours(0, 0, 0, 0);
+                    
+                    if (!isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
+                      if (today >= startDate && today < endDate) {
+                        const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+                        const daysElapsed = Math.ceil((today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+                        progress = Math.min(100, Math.max(0, Math.round((daysElapsed / totalDays) * 100)));
+                      } else if (today >= endDate) {
+                        progress = 100;
+                      }
+                    }
+                  } else {
+                    // Fallback to phase-based progress if keyDeadlines not found
+                    const phaseProgress: { [key: string]: number } = {
+                      'Kickoff': 10,
+                      'Pre-Field': 25,
+                      'Fielding': 50,
+                      'Post-Field Analysis': 75,
+                      'Reporting': 90,
+                      'Complete': 100,
+                      'Awaiting KO': 5
+                    };
+                    progress = phaseProgress[project.phase] || 20;
+                  }
+                  
+                  return { ...project, calculatedProgress: progress };
+                })
+                .sort((a, b) => {
+                  // Get current phase using the same logic as Project Hub
+                  const getCurrentPhase = (project: Project): string => {
+                    if (!project.segments || project.segments.length === 0) {
+                      return project.phase; // Fallback to stored phase
+                    }
 
-                  // Show max 5 tasks, then "show more" if there are more
-                  const maxTasks = 5;
-                  const tasksToShow = sortedOverdueTasks.slice(0, maxTasks);
-                  const hasMore = sortedOverdueTasks.length > maxTasks;
+                    const today = new Date();
+                    const todayStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format
 
-                  if (sortedOverdueTasks.length === 0) {
-                    return <div className="text-[10px] italic text-red-700">No overdue tasks</div>;
+                    // Find which phase today falls into
+                    for (const segment of project.segments) {
+                      if (todayStr >= segment.startDate && todayStr <= segment.endDate) {
+                        return segment.phase;
+                      }
+                    }
+
+                    // If today is before the first phase, return the first phase
+                    if (todayStr < project.segments[0].startDate) {
+                      return project.segments[0].phase;
+                    }
+
+                    // If today is after the last phase, return the last phase
+                    if (todayStr > project.segments[project.segments.length - 1].endDate) {
+                      return project.segments[project.segments.length - 1].phase;
+                    }
+
+                    return project.phase; // Fallback
+                  };
+
+                  const aPhase = getCurrentPhase(a);
+                  const bPhase = getCurrentPhase(b);
+                  
+                  const phaseOrder = {
+                    'Awaiting KO': 0,
+                    'Kickoff': 1,
+                    'Pre-Field': 2,
+                    'Fielding': 3,
+                    'Post-Field Analysis': 4,
+                    'Reporting': 5,
+                    'Complete': 6
+                  };
+                  
+                  const aPhaseOrder = phaseOrder[aPhase as keyof typeof phaseOrder] ?? 999;
+                  const bPhaseOrder = phaseOrder[bPhase as keyof typeof phaseOrder] ?? 999;
+                  
+                  // Sort by phase (latest first)
+                  if (aPhaseOrder !== bPhaseOrder) {
+                    return bPhaseOrder - aPhaseOrder; // Reverse order for latest first
+                  }
+                  
+                  // If same phase, sort by progress percentage (highest first)
+                  return b.calculatedProgress - a.calculatedProgress;
+                })
+                .map((project, index) => {
+                // Use the already calculated progress from sorting
+                const progress = project.calculatedProgress;
+                const endDate = new Date(project.endDate);
+                const today = new Date();
+                const daysLeft = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                
+                // Get current phase using the same logic as Project Hub
+                const getCurrentPhase = (project: Project): string => {
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  
+                  // Check if project is completed (day after report deadline)
+                  const reportDeadline = project.keyDeadlines?.find(d => 
+                    d.label.toLowerCase().includes('report') || 
+                    d.label.toLowerCase().includes('final')
+                  );
+                  
+                  if (reportDeadline?.date) {
+                    const reportDate = new Date(reportDeadline.date);
+                    reportDate.setHours(0, 0, 0, 0);
+                    
+                    // If today is after the report deadline, project is complete
+                    if (today > reportDate) {
+                      return 'Complete';
+                    }
+                  }
+                  
+                  if (!project.segments || project.segments.length === 0) {
+                    return project.phase; // Fallback to stored phase
                   }
 
-                  return (
-                    <>
-                      {tasksToShow.map((t, index) => (
-                        <div key={`od-${t.id}-${t.projectName}-${index}`} className="text-xs text-red-900 flex items-start gap-2">
-                          <span className="mt-1 w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0"></span>
-                          <span className="flex-1 flex justify-between items-start">
-                            <div className="flex items-center gap-1">
-                              <span className="font-medium">{t.description || t.content || 'Untitled task'}</span>
-                            </div>
-                            <span className="text-[10px] text-red-700">{t.projectName}</span>
-                          </span>
-                        </div>
-                      ))}
-                      {hasMore && (
-                        <div className="text-[10px] text-red-600 italic mt-2">
-                          ({sortedOverdueTasks.length - maxTasks} additional overdue tasks)
-                        </div>
-                      )}
-                    </>
-                  );
-                })()}
-              </div>
-            </div>
-          )}
+                  const todayStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format
 
-          {/* Today and Later This Week Boxes */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Today's Tasks */}
-            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden flex flex-col" style={{ height: '280px' }}>
-              <div className="px-4 py-3 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  {/* Calendar tile icon for Today */}
-                  <div className="flex-shrink-0 w-10 h-10 bg-white border border-gray-300 rounded-lg overflow-hidden flex flex-col">
-                    <div className="h-3 text-white text-[9px] leading-3 flex items-center justify-center font-semibold" style={{ backgroundColor: BRAND.orange }}>
-                      {new Date().toLocaleDateString('en-US', { month: 'short' }).toUpperCase()}
+                  // Find which phase today falls into
+                  for (const segment of project.segments) {
+                    if (todayStr >= segment.startDate && todayStr <= segment.endDate) {
+                      return segment.phase;
+                    }
+                  }
+
+                  // If today is before the first phase, return the first phase
+                  if (todayStr < project.segments[0].startDate) {
+                    return project.segments[0].phase;
+                  }
+
+                  // If today is after the last phase, return the last phase
+                  if (todayStr > project.segments[project.segments.length - 1].endDate) {
+                    return project.segments[project.segments.length - 1].phase;
+                  }
+
+                  return project.phase; // Fallback
+                };
+
+                const currentPhase = getCurrentPhase(project);
+                
+                // Get color based on current phase - match timeline view colors exactly
+                const getPhaseColor = (phase: string) => {
+                  const phaseColors: { [key: string]: string } = {
+                    'Kickoff': '#6B7280',        // Grey - matches PHASE_COLORS
+                    'Pre-Field': '#1D4ED8',      // Blue - matches PHASE_COLORS
+                    'Fielding': '#7C3AED',       // Purple - matches PHASE_COLORS
+                    'Post-Field Analysis': '#F97316', // Orange - matches PHASE_COLORS
+                    'Reporting': '#DC2626',      // Red - matches PHASE_COLORS
+                    'Complete': '#10B981',       // Green - matches PHASE_COLORS
+                    'Awaiting KO': '#9CA3AF'     // Neutral grey - matches PHASE_COLORS
+                  };
+                  return phaseColors[phase] || '#6B7280';
+                };
+                
+                // Get team members for this project - show ALL members
+                const teamMembers = project.teamMembers || [];
+
+                // Get project type/category
+                const getProjectType = (project: any) => {
+                  if (project.methodologyType) {
+                    return project.methodologyType;
+                  }
+                  if (project.name?.toLowerCase().includes('qual')) return 'Qualitative Research';
+                  if (project.name?.toLowerCase().includes('quant')) return 'Quantitative Research';
+                  if (project.name?.toLowerCase().includes('survey')) return 'Survey Research';
+                  return 'Research Project';
+                };
+
+                  return (
+                  <div
+                    key={`project-${project.id}`}
+                    className="p-3 rounded-lg border border-gray-200 bg-white hover:shadow-sm transition-shadow cursor-pointer"
+                    onClick={() => onNavigateToProject?.(project)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="min-w-0 flex-1">
+                            <h4 className="font-medium text-gray-900 truncate text-sm">{project.name}</h4>
+                            <p className="text-xs text-gray-500 truncate">{getProjectType(project)}</p>
+                            </div>
+                          <div className="flex-shrink-0 ml-2">
+                            <div className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                              currentPhase === 'Kickoff' ? 'bg-gray-100 text-gray-800' :
+                              currentPhase === 'Pre-Field' ? 'bg-blue-100 text-blue-800' :
+                              currentPhase === 'Fielding' ? 'bg-purple-100 text-purple-800' :
+                              currentPhase === 'Post-Field Analysis' ? 'bg-orange-100 text-orange-800' :
+                              currentPhase === 'Reporting' ? 'bg-red-100 text-red-800' :
+                              currentPhase === 'Complete' ? 'bg-green-100 text-green-800' :
+                              currentPhase === 'Awaiting KO' ? 'bg-gray-100 text-gray-600' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {currentPhase || 'Unknown'}
+                        </div>
+                        </div>
+              </div>
+                        <div className="w-full bg-gray-200 rounded-full h-1.5 mb-1.5">
+                          <div 
+                            className="h-1.5 rounded-full"
+                            style={{ 
+                              width: `${progress}%`,
+                              backgroundColor: getPhaseColor(currentPhase),
+                              opacity: 0.8
+                            }}
+                          ></div>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex -space-x-1">
+                            {teamMembers.slice(0, 4).map((member: any, i: number) => (
+                              <div 
+                                key={`project-${project.id}-member-${member.id || member.name || i}-${i}`} 
+                                className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[9px] font-medium border border-white relative group"
+                                style={{ 
+                                  backgroundColor: getMemberColor(member.id || member.name, teamMembers),
+                                  zIndex: teamMembers.length - i // Leftmost icon in front
+                                }}
+                                title={member.name}
+                              >
+                                {getInitials(member.name || member.email || 'U')}
                     </div>
-                    <div className="flex-1 flex items-center justify-center">
-                      <span className="text-sm font-bold text-gray-900">{new Date().getDate()}</span>
+                            ))}
+                            {teamMembers.length > 4 && (
+                              <div className="w-5 h-5 rounded-full flex items-center justify-center text-gray-600 text-[9px] font-medium border border-white bg-gray-100">
+                                +{teamMembers.length - 4}
+                              </div>
+                            )}
                     </div>
                   </div>
-                  <div>
-                    <h3 className="text-base font-semibold text-gray-900">Today's Tasks</h3>
-                    <p className="text-[10px] text-gray-500 italic">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}</p>
                   </div>
                 </div>
               </div>
-              <div ref={todayTasksRef} className="px-4 pb-4 space-y-1 flex-1">
-                {(() => {
-                  // Combine all today's tasks and sort with assigned to me first
-                  const allTodayTasks = [...todayMyTasks, ...todayAdditionalTasks];
-                  // Remove duplicates based on task ID
-                  const uniqueTodayTasks = allTodayTasks.filter((task, index, self) => 
-                    index === self.findIndex(t => t.id === task.id)
-                  );
-                  
-                  const sortedTodayTasks = uniqueTodayTasks.sort((a, b) => {
-                    const aAssignedToMe = isAssignedToMe(a);
-                    const bAssignedToMe = isAssignedToMe(b);
-                    if (aAssignedToMe && !bAssignedToMe) return -1;
-                    if (!aAssignedToMe && bAssignedToMe) return 1;
-                    return 0;
-                  });
+                );
+              })}
+            </div>
+          </div>
 
-                  if (sortedTodayTasks.length === 0) {
-                    return <div className="text-[10px] italic text-gray-500">No tasks for today</div>;
+              </div>
+
+        {/* Right Column - Sidebar */}
+        <div className="lg:col-span-1">
+          {/* Calendar Widget */}
+          <div className="bg-white rounded-lg border border-gray-200 p-4 mt-8">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">
+                {new Date(currentYear, currentMonth).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+              </h3>
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => navigateMonth('prev')}
+                  className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                </button>
+                <button 
+                  onClick={() => navigateMonth('next')}
+                  className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div className="grid grid-cols-7 gap-1 text-xs">
+              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
+                <div key={`day-${index}`} className="text-center text-gray-500 py-1">{day}</div>
+              ))}
+              {(() => {
+                const today = new Date();
+                const todayDate = today.getDate();
+                const todayMonth = today.getMonth();
+                const todayYear = today.getFullYear();
+                
+                // Get first day of the month and how many days in the month
+                const firstDay = new Date(currentYear, currentMonth, 1);
+                const lastDay = new Date(currentYear, currentMonth + 1, 0);
+                const daysInMonth = lastDay.getDate();
+                const startingDayOfWeek = firstDay.getDay(); // 0 = Sunday, 1 = Monday, etc.
+                
+                // Create array of days for the month
+                const days = [];
+                
+                // Add empty cells for days before the first day of the month
+                for (let i = 0; i < startingDayOfWeek; i++) {
+                  days.push(null);
+                }
+                
+                // Add days of the month
+                for (let day = 1; day <= daysInMonth; day++) {
+                  days.push(day);
+                }
+                
+                return days.map((day, index) => {
+                  if (day === null) {
+                    return <div key={`empty-${index}`} className="text-center py-1"></div>;
                   }
-
-                  // Calculate max tasks based on fixed container height (280px)
-                  const maxTasks = calculateMaxTasksFixed(280);
-                  const tasksToShow = sortedTodayTasks.slice(0, maxTasks);
-                  const remainingCount = sortedTodayTasks.length - maxTasks;
-
+                  
+                  const isToday = day === todayDate && currentMonth === todayMonth && currentYear === todayYear;
+                  const isSelected = selectedDate && 
+                    selectedDate.getDate() === day && 
+                    selectedDate.getMonth() === currentMonth && 
+                    selectedDate.getFullYear() === currentYear;
+                  
+                  // Determine if current date should be transparent (when another date is selected)
+                  const isCurrentDateTransparent = isToday && selectedDate && !isSelected;
+                  
                   return (
-                    <>
-                      {tasksToShow.map(t => {
-                        const isTaskAssignedToMe = isAssignedToMe(t);
-                        return (
-                        <div key={`td-${t.id}`} className="flex items-start gap-2 text-xs text-gray-800">
-                          <span className="mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: BRAND.orange }}></span>
-                          <span className="flex-1">
-                              <span className={`font-medium ${isTaskAssignedToMe ? 'font-bold text-red-600' : ''}`}>
-                                {t.description || t.content || 'Untitled task'}
-                              </span>
-                              <span className={`text-[10px] ${isTaskAssignedToMe ? 'text-red-500' : 'text-gray-500'}`}> ({t.projectName})</span>
-                          </span>
-                        </div>
-                        );
-                      })}
-                      {remainingCount > 0 && (
-                        <div className="text-[10px] text-gray-500 italic">
-                          +{remainingCount} more tasks
-                        </div>
-                      )}
-                    </>
+                    <div 
+                      key={day} 
+                      onClick={() => handleDateClick(day)}
+                      className={`text-center py-1 rounded-full cursor-pointer transition-colors ${
+                        isToday 
+                          ? 'text-white font-semibold' 
+                          : isSelected
+                          ? 'text-white font-semibold'
+                          : 'hover:bg-gray-100'
+                      }`}
+                      style={{
+                        backgroundColor: isToday 
+                          ? (isCurrentDateTransparent ? 'rgba(220, 38, 38, 0.5)' : '#DC2626') // 50% transparent red or solid red
+                          : isSelected
+                          ? '#D14A2D' // Branded orange
+                          : 'transparent'
+                      }}
+                    >
+                      {day}
+                    </div>
                   );
-                })()}
-              </div>
-        </div>
-
-            {/* Later This Week / Next Week */}
-            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden flex flex-col" style={{ height: '280px' }}>
-          <div className="px-4 py-3 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="flex-shrink-0 w-10 h-10 flex items-center justify-center">
-                <IconCalendarShare className="w-8 h-8 text-blue-500" stroke={1.5} />
-              </div>
-              <div>
-                <h3 className="text-base font-semibold text-gray-900">{isNextWeek ? 'Next Week' : 'Later This Week'}</h3>
-                <p className="text-[10px] text-gray-500 italic">
-                  {(() => {
-                    const today = new Date();
-                    const dow = today.getDay();
-                    if (isNextWeek) {
-                      // Next week: Monday-Friday
-                      const nextMonday = new Date(today);
-                      const daysUntilNextMonday = dow === 0 ? 1 : (8 - dow);
-                      nextMonday.setDate(today.getDate() + daysUntilNextMonday);
-                      const nextFriday = new Date(nextMonday);
-                      nextFriday.setDate(nextMonday.getDate() + 4);
-                      return `${nextMonday.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${nextFriday.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
-                    } else {
-                      // Later this week: through Friday
-                      const friday = new Date(today);
-                      const offsetToFriday = (dow === 0 ? 5 : 5 - dow);
-                      friday.setDate(today.getDate() + offsetToFriday);
-                      return `Through ${friday.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
-                    }
-                  })()}
-                </p>
-              </div>
+                });
+              })()}
             </div>
           </div>
-          <div ref={laterWeekTasksRef} className="px-4 pb-4 space-y-1 flex-1">
-            {(() => {
-              // Combine all later this week tasks and sort with assigned to me first
-              const allLaterWeekTasks = [...laterWeekMyTasks, ...laterWeekAdditionalTasks];
-              // Remove duplicates based on task ID
-              const uniqueLaterWeekTasks = allLaterWeekTasks.filter((task, index, self) => 
-                index === self.findIndex(t => t.id === task.id)
-              );
-              const sortedLaterWeekTasks = uniqueLaterWeekTasks.sort((a, b) => {
-                const aAssignedToMe = isAssignedToMe(a);
-                const bAssignedToMe = isAssignedToMe(b);
-                if (aAssignedToMe && !bAssignedToMe) return -1;
-                if (!aAssignedToMe && bAssignedToMe) return 1;
-                return 0;
+
+          {/* Overdue Tasks Section */}
+          {(() => {
+            // Get overdue tasks
+            const overdueTasks = sourceProjects.flatMap(project => 
+              (project.tasks || [])
+                .filter(task => {
+                  if (!task.dueDate || task.status === 'completed') return false;
+                  // Parse the date string properly to avoid timezone issues
+                  const dueDate = new Date(task.dueDate + 'T00:00:00');
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  return dueDate < today;
+                })
+                .map(task => ({
+                  ...task,
+                  projectName: project.name,
+                  projectId: project.id
+                }))
+            ).sort((a, b) => {
+              const dateA = new Date(a.dueDate! + 'T00:00:00');
+              const dateB = new Date(b.dueDate! + 'T00:00:00');
+              return dateA.getTime() - dateB.getTime();
+            });
+
+            // Group overdue tasks by date
+            const overdueTasksByDate = overdueTasks.reduce((acc, task) => {
+              // Parse the date string properly to avoid timezone issues
+              const dueDate = new Date(task.dueDate! + 'T00:00:00');
+              const dateKey = dueDate.toLocaleDateString('en-US', { 
+                day: 'numeric', 
+                month: 'long' 
               });
-
-              if (sortedLaterWeekTasks.length === 0) {
-                return <div className="text-[10px] italic text-gray-500">{isNextWeek ? 'No tasks for next week' : 'No tasks later this week'}</div>;
+              
+              if (!acc[dateKey]) {
+                acc[dateKey] = [];
               }
+              acc[dateKey].push(task);
+              return acc;
+            }, {} as Record<string, typeof overdueTasks>);
 
-              // Calculate max tasks based on fixed container height (280px)
-              const maxTasks = calculateMaxTasksFixed(280);
-              const tasksToShow = sortedLaterWeekTasks.slice(0, maxTasks);
-              const remainingCount = sortedLaterWeekTasks.length - maxTasks;
+            const overdueDates = Object.entries(overdueTasksByDate);
 
-              return (
-                <>
-                  {tasksToShow.map(t => {
-                    const isTaskAssignedToMe = isAssignedToMe(t);
-                    return (
-                    <div key={`lw-${t.id}`} className="flex items-start gap-2 text-xs text-gray-800">
-                      <span className="mt-1 w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0"></span>
-                      <span className="flex-1">
-                          <span className={`font-medium ${isTaskAssignedToMe ? 'font-bold text-blue-600' : ''}`}>
-                            {t.description || t.content || 'Untitled task'}
-                          </span>
-                          <span className={`text-[10px] ${isTaskAssignedToMe ? 'text-blue-500' : 'text-gray-500'}`}> ({t.projectName}) · {new Date(t.dueDate + 'T00:00:00').toLocaleDateString()}</span>
-                      </span>
-                    </div>
-                    );
-                  })}
-                  {remainingCount > 0 && (
-                    <div className="text-[10px] text-gray-500 italic">
-                      +{remainingCount} more tasks
-                    </div>
-                  )}
-                </>
-              );
-            })()}
-          </div>
+            if (overdueDates.length === 0) {
+              return null;
+            }
+
+            return (
+              <div className="bg-white rounded-lg border border-gray-200 p-4 mb-4 mt-4 relative">
+                <div className="absolute top-3 right-3">
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-red-100 text-red-800">
+                    OVERDUE
+                  </span>
+                </div>
+                <div className="space-y-4">
+                  {overdueDates.map(([date, tasks]) => (
+                    <div key={date} className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-medium text-red-600">{date}</h4>
+                      </div>
+                      <div className="space-y-2">
+                        {tasks.slice(0, 3).map((task, index) => {
+                          const dueDate = new Date(task.dueDate!);
+                          const isOverdue = true; // All overdue tasks are overdue
+                          
+                          // Get the project for this task to get its phase color
+                          const project = sourceProjects.find(p => p.id === task.projectId);
+                          const projectPhase = project?.phase || 'Kickoff';
+                          const phaseColor = PHASE_COLORS[projectPhase] || PHASE_COLORS['Kickoff'];
+
+                          const isTaskAssignedToMe = isAssignedToMe(task);
+                          const phaseColorLight = `${phaseColor}20`; // 20% opacity for light background
+                          
+                          return (
+                            <div 
+                              key={`overdue-${task.id}-${index}`} 
+                              className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer border ${
+                                isTaskAssignedToMe 
+                                  ? 'border-2' 
+                                  : 'border-red-200'
+                              }`}
+                              style={{
+                                backgroundColor: isTaskAssignedToMe ? phaseColorLight : '#fef2f2', // red-50
+                                borderColor: isTaskAssignedToMe ? phaseColor : '#fecaca' // red-200
+                              }}
+                              onClick={() => {
+                                if (project && onNavigateToProject) {
+                                  onNavigateToProject(project);
+                                }
+                              }}
+                            >
+                              <div 
+                                className="w-1 h-8 rounded-full"
+                                style={{ 
+                                  backgroundColor: '#DC2626', // Always red for overdue
+                                  opacity: 0.8
+                                }}
+                              ></div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm text-gray-900 truncate">
+                                  {task.content || task.description || 'Untitled task'}
+                                </div>
+                                <div className="text-xs text-gray-500 truncate">
+                                  {task.projectName}
+                                  {isTaskAssignedToMe && (
+                                    <span className="text-gray-500"> • Assigned to you</span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {tasks.length > 3 && (
+                          <div className="text-xs text-red-600 font-medium text-center py-2">
+                            {tasks.length - 3} more overdue tasks
+                          </div>
+                        )}
+                      </div>
+                </div>
+              ))}
             </div>
           </div>
+            );
+          })()}
+
+          {/* Tasks Section */}
+          <div className="bg-white rounded-lg border border-gray-200 p-4 mt-4">
+            <div className="space-y-4">
+              {(() => {
+                // Get all tasks from projects, sorted by due date
+                const allTasks = sourceProjects.flatMap(project => 
+                  (project.tasks || [])
+                    .filter(task => task.dueDate && task.status !== 'completed')
+                    .map(task => ({
+                      ...task,
+                      projectName: project.name,
+                      projectId: project.id
+                    }))
+                ).sort((a, b) => {
+                  const dateA = new Date(a.dueDate! + 'T00:00:00');
+                  const dateB = new Date(b.dueDate! + 'T00:00:00');
+                  return dateA.getTime() - dateB.getTime();
+                });
+
+                // Group tasks by date
+                const tasksByDate = allTasks.reduce((acc, task) => {
+                  // Parse the date string properly to avoid timezone issues
+                  const dueDate = new Date(task.dueDate! + 'T00:00:00');
+                  const dateKey = dueDate.toLocaleDateString('en-US', { 
+                    day: 'numeric', 
+                    month: 'long' 
+                  });
+                  
+                  if (!acc[dateKey]) {
+                    acc[dateKey] = [];
+                  }
+                  acc[dateKey].push(task);
+                  return acc;
+                }, {} as Record<string, typeof allTasks>);
+
+                // Generate the next 5 weekdays starting from selected date (or today if none selected)
+                const startDate = taskListStartDate;
+                const nextWeekdays = [];
+                let currentDate = new Date(startDate);
+                let daysAdded = 0;
+                
+                // Start from selected date and find the next 5 weekdays
+                while (daysAdded < 5) {
+                  const dayOfWeek = currentDate.getDay();
+                  // Only include weekdays (Monday = 1, Tuesday = 2, ..., Friday = 5)
+                  if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+                    const dateKey = currentDate.toLocaleDateString('en-US', { 
+                      day: 'numeric', 
+                      month: 'long' 
+                    });
+                    
+                    const tasksForDate = tasksByDate[dateKey] || [];
+                    nextWeekdays.push([dateKey, tasksForDate]);
+                    daysAdded++;
+                  }
+                  // Move to next day
+                  currentDate.setDate(currentDate.getDate() + 1);
+                }
+
+                if (nextWeekdays.length === 0) {
+                  return (
+                    <div className="text-center py-4 text-gray-500">
+                      <p className="text-sm">No upcoming tasks</p>
+            </div>
+                  );
+                }
+
+                // Always show exactly 8 items total (tasks or "No tasks" notes)
+                const maxContentItems = 8;
+                let currentContentItemCount = 0;
+                const finalRenderedBlocks: JSX.Element[] = [];
+
+                let tempCurrentDate = new Date(startDate);
+                let daysIterated = 0;
+                const maxDaysToLookAhead = 20; // Safety limit to prevent infinite loops
+
+                // Phase 1: Add actual tasks and "no tasks" for naturally empty days
+                while (currentContentItemCount < maxContentItems && daysIterated < maxDaysToLookAhead) {
+                  const dayOfWeek = tempCurrentDate.getDay();
+                  if (dayOfWeek >= 1 && dayOfWeek <= 5) { // Only include weekdays (Monday-Friday)
+                    const dateKey = tempCurrentDate.toLocaleDateString('en-US', {
+                      day: 'numeric',
+                      month: 'long'
+                    });
+                    const tasksForDate = tasksByDate[dateKey] || [];
+
+                    const tasksForThisDayRender: JSX.Element[] = [];
+                    let dayContentAddedCount = 0;
+
+                    const remainingOverallSlots = maxContentItems - currentContentItemCount;
+
+                    // Render tasks for this day, slicing to fit remaining slots
+                    const tasksToConsider = tasksForDate.slice(0, remainingOverallSlots);
+                    for (const task of tasksToConsider) {
+                      const dueDate = new Date(task.dueDate! + 'T00:00:00');
+                      const isOverdue = dueDate < new Date();
+
+                      const project = sourceProjects.find(p => p.id === task.projectId);
+                      const projectPhase = project?.phase || 'Kickoff';
+                      const phaseColor = PHASE_COLORS[projectPhase] || PHASE_COLORS['Kickoff'];
+
+                      const isTaskAssignedToMe = isAssignedToMe(task);
+                      const phaseColorLight = `${phaseColor}20`; // 20% opacity for light background
+                      
+                      tasksForThisDayRender.push(
+                        <div
+                          key={`${task.id}-${dateKey}`}
+                          className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer ${
+                            isTaskAssignedToMe 
+                              ? 'border' 
+                              : 'hover:bg-gray-50'
+                          }`}
+                          style={{
+                            backgroundColor: isTaskAssignedToMe ? phaseColorLight : 'transparent',
+                            borderColor: isTaskAssignedToMe ? phaseColor : 'transparent'
+                          }}
+                          onClick={() => {
+                            if (project && onNavigateToProject) {
+                              onNavigateToProject(project);
+                            }
+                          }}
+                        >
+                          <div
+                            className="w-1 h-8 rounded-full"
+                            style={{
+                              backgroundColor: isOverdue ? '#DC2626' : phaseColor,
+                              opacity: 0.8
+                            }}
+                          ></div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm text-gray-900 truncate">
+                              {task.content || task.description || 'Untitled task'}
+                            </div>
+                            <div className="text-xs text-gray-500 truncate">
+                              {task.projectName}
+                              {isTaskAssignedToMe && (
+                                <span className="text-gray-500"> • Assigned to you</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                      dayContentAddedCount++;
+                    }
+
+                    // If no tasks were added for this day, and we still have slots, add a "No tasks" note
+                    if (dayContentAddedCount === 0 && remainingOverallSlots > 0) {
+                      tasksForThisDayRender.push(
+                        <div key={`${dateKey}-no-tasks`} className="text-xs text-gray-400">
+                          No tasks
+                        </div>
+                      );
+                      dayContentAddedCount++;
+                    }
+
+                    // Only add the date block if it has content (tasks or "no tasks")
+                    if (tasksForThisDayRender.length > 0) {
+                      finalRenderedBlocks.push(
+                        <div key={dateKey} className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-sm font-medium text-gray-900">{dateKey}</h4>
+                          </div>
+                          <div>
+                            {tasksForThisDayRender}
+                          </div>
+                        </div>
+                      );
+                      currentContentItemCount += dayContentAddedCount;
+                    }
+                  }
+                  tempCurrentDate.setDate(tempCurrentDate.getDate() + 1);
+                  daysIterated++;
+                }
+
+                // Phase 2: Fill remaining slots with "No tasks" notes under new weekday dates
+                while (currentContentItemCount < maxContentItems) {
+                  const dayOfWeek = tempCurrentDate.getDay();
+                  if (dayOfWeek >= 1 && dayOfWeek <= 5) { // Only include weekdays
+                    const dateKey = tempCurrentDate.toLocaleDateString('en-US', {
+                      day: 'numeric',
+                      month: 'long'
+                    });
+
+                    finalRenderedBlocks.push(
+                      <div key={`${dateKey}-fill`} className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-sm font-medium text-gray-900">{dateKey}</h4>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-400">
+                            No tasks
+                          </div>
+                        </div>
+                      </div>
+                    );
+                    currentContentItemCount++;
+                  }
+                  tempCurrentDate.setDate(tempCurrentDate.getDate() + 1);
+                }
+
+                return finalRenderedBlocks;
+              })()}
+            </div>
+          </div>
+
         </div>
-        </Card>
       </div>
-
-
           </div>
   );
 }
@@ -6864,7 +7335,7 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
   const [showAddTeamMember, setShowAddTeamMember] = useState(false);
   const [localTeamMembers, setLocalTeamMembers] = useState<Array<{ id: string; name: string; role: string; email?: string }>>([]);
   const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
-  const [showMyProjectsOnly, setShowMyProjectsOnly] = useState(true);
+  const [showMyProjectsOnly, setShowMyProjectsOnly] = useState(false);
   const [vendorsData, setVendorsData] = useState<any>(null);
   const [viewMode, setViewMode] = useState<'list' | 'timeline'>('list');
 
@@ -7017,6 +7488,27 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
     }
     
     return tabProjects;
+  };
+
+  // Helper function to check if project belongs to current user
+  const isUserProject = (project: Project) => {
+    if (!user) return false;
+    
+    const uid = String((user as any)?.id || '').toLowerCase();
+    const uemail = String((user as any)?.email || '').toLowerCase();
+    const uname = String((user as any)?.name || '').toLowerCase();
+    
+    const createdBy = String((project as any).createdBy || '').toLowerCase();
+    const createdByMe = createdBy && (createdBy === uid || createdBy === uemail);
+    
+    const inTeam = (project.teamMembers || []).some((member: any) => {
+      const mid = String(member?.id || '').toLowerCase();
+      const memail = String(member?.email || '').toLowerCase();
+      const mname = String(member?.name || '').toLowerCase();
+      return mid === uid || memail === uemail || mname === uname;
+    });
+    
+    return createdByMe || inTeam;
   };
 
   // Helper function to get project status with special statuses
@@ -7202,8 +7694,119 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
         return 0;
       });
     } else {
-      // Default sort by final report date
+      // Default sort: user projects first (by status), then other projects (by final report date)
       projects.sort((a, b) => {
+        const aIsUserProject = isUserProject(a);
+        const bIsUserProject = isUserProject(b);
+        
+        // If one is user project and other isn't, user project comes first
+        if (aIsUserProject && !bIsUserProject) return -1;
+        if (!aIsUserProject && bIsUserProject) return 1;
+        
+        // If both are user projects, sort by phase (latest first) then by progress
+        if (aIsUserProject && bIsUserProject) {
+          // Get current phase using the same logic as Dashboard
+          const getCurrentPhase = (project: Project): string => {
+            if (!project.segments || project.segments.length === 0) {
+              return project.phase; // Fallback to stored phase
+            }
+
+            const today = new Date();
+            const todayStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+
+            // Find which phase today falls into
+            for (const segment of project.segments) {
+              if (todayStr >= segment.startDate && todayStr <= segment.endDate) {
+                return segment.phase;
+              }
+            }
+
+            // If today is before the first phase, return the first phase
+            if (todayStr < project.segments[0].startDate) {
+              return project.segments[0].phase;
+            }
+
+            // If today is after the last phase, return the last phase
+            if (todayStr > project.segments[project.segments.length - 1].endDate) {
+              return project.segments[project.segments.length - 1].phase;
+            }
+
+            return project.phase; // Fallback
+          };
+
+          const aPhase = getCurrentPhase(a);
+          const bPhase = getCurrentPhase(b);
+          
+          const phaseOrder = {
+            'Awaiting KO': 0,
+            'Kickoff': 1,
+            'Pre-Field': 2,
+            'Fielding': 3,
+            'Post-Field Analysis': 4,
+            'Reporting': 5,
+            'Complete': 6
+          };
+          
+          const aPhaseOrder = phaseOrder[aPhase as keyof typeof phaseOrder] ?? 999;
+          const bPhaseOrder = phaseOrder[bPhase as keyof typeof phaseOrder] ?? 999;
+          
+          // Sort by phase (latest first)
+          if (aPhaseOrder !== bPhaseOrder) {
+            return bPhaseOrder - aPhaseOrder; // Reverse order for latest first
+          }
+          
+          // If same phase, sort by progress percentage (highest first)
+          const getProgressFromTimeline = (project: Project) => {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            // Get KO date and Report date from keyDeadlines
+            const koDeadline = project.keyDeadlines?.find(d => 
+              d.label.toLowerCase().includes('kickoff') || 
+              d.label.toLowerCase().includes('ko')
+            );
+            const reportDeadline = project.keyDeadlines?.find(d => 
+              d.label.toLowerCase().includes('report') || 
+              d.label.toLowerCase().includes('final')
+            );
+            
+            if (koDeadline?.date && reportDeadline?.date) {
+              const startDate = new Date(koDeadline.date);
+              const endDate = new Date(reportDeadline.date);
+              startDate.setHours(0, 0, 0, 0);
+              endDate.setHours(0, 0, 0, 0);
+              
+              if (!isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
+                if (today >= startDate && today < endDate) {
+                  const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+                  const daysElapsed = Math.ceil((today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+                  return Math.min(100, Math.max(0, Math.round((daysElapsed / totalDays) * 100)));
+                } else if (today >= endDate) {
+                  return 100;
+                }
+              }
+            }
+            
+            // Fallback to phase-based progress
+            const phaseProgress: { [key: string]: number } = {
+              'Kickoff': 10,
+              'Pre-Field': 25,
+              'Fielding': 50,
+              'Post-Field Analysis': 75,
+              'Reporting': 90,
+              'Complete': 100,
+              'Awaiting KO': 5
+            };
+            return phaseProgress[aPhase] || 20;
+          };
+          
+          const aProgress = getProgressFromTimeline(a);
+          const bProgress = getProgressFromTimeline(b);
+          
+          return bProgress - aProgress; // Highest progress first
+        }
+        
+        // If neither are user projects, sort by final report date
         const dateA = getFinalReportDate(a);
         const dateB = getFinalReportDate(b);
 
@@ -7217,7 +7820,7 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
     }
 
     return projects;
-  }, [getCurrentTabProjects, filters, sortConfig, vendorsData]);
+  }, [getCurrentTabProjects, filters, sortConfig, vendorsData, user]);
 
   // Handle sorting
   const handleSort = (key: string) => {
@@ -7623,140 +8226,140 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
           <div className="bg-white shadow-sm border border-gray-200 rounded-lg overflow-hidden">
           <div className="overflow-x-auto w-full">
             <table className="w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+              <thead style={{ backgroundColor: BRAND.orange }}>
                 {/* Header row with sortable columns */}
                 <tr>
                   <th 
-                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-orange-600"
                     onClick={() => handleSort('name')}
                   >
                     <div className="flex items-center gap-1">
                       Project
                       {sortConfig?.key === 'name' && (
-                        <span className="text-blue-600">
+                        <span className="text-white">
                           {sortConfig.direction === 'asc' ? '↑' : '↓'}
                         </span>
                       )}
                     </div>
                   </th>
                   <th 
-                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-orange-600"
                     onClick={() => handleSort('client')}
                   >
                     <div className="flex items-center gap-1">
                       Client
                       {sortConfig?.key === 'client' && (
-                        <span className="text-blue-600">
+                        <span className="text-white">
                           {sortConfig.direction === 'asc' ? '↑' : '↓'}
                         </span>
                       )}
                     </div>
                   </th>
                   <th 
-                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-orange-600"
                     onClick={() => handleSort('phase')}
                   >
                     <div className="flex items-center gap-1">
                       Status
                       {sortConfig?.key === 'phase' && (
-                        <span className="text-blue-600">
+                        <span className="text-white">
                           {sortConfig.direction === 'asc' ? '↑' : '↓'}
                         </span>
                       )}
                     </div>
                   </th>
                   <th 
-                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-orange-600"
                     onClick={() => handleSort('teamMembersText')}
                   >
                     <div className="flex items-center gap-1">
                       Team
                       {sortConfig?.key === 'teamMembersText' && (
-                        <span className="text-blue-600">
+                        <span className="text-white">
                           {sortConfig.direction === 'asc' ? '↑' : '↓'}
                         </span>
                       )}
                     </div>
                   </th>
                   <th 
-                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-orange-600"
                     onClick={() => handleSort('methodologyType')}
                   >
                     <div className="flex items-center gap-1">
                       Type
                       {sortConfig?.key === 'methodologyType' && (
-                        <span className="text-blue-600">
+                        <span className="text-white">
                           {sortConfig.direction === 'asc' ? '↑' : '↓'}
                         </span>
                       )}
                     </div>
                   </th>
                   <th 
-                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-orange-600"
                     onClick={() => handleSort('methodology')}
                   >
                     <div className="flex items-center gap-1">
                       Methodology
                       {sortConfig?.key === 'methodology' && (
-                        <span className="text-blue-600">
+                        <span className="text-white">
                           {sortConfig.direction === 'asc' ? '↑' : '↓'}
                         </span>
                       )}
                     </div>
                   </th>
                   <th 
-                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-orange-600"
                     onClick={() => handleSort('sampleDetails')}
                   >
                     <div className="flex items-center gap-1">
                       Sample
                       {sortConfig?.key === 'sampleDetails' && (
-                        <span className="text-blue-600">
+                        <span className="text-white">
                           {sortConfig.direction === 'asc' ? '↑' : '↓'}
                         </span>
                       )}
                     </div>
                   </th>
                   <th 
-                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-orange-600"
                     onClick={() => handleSort('moderator')}
                   >
                     <div className="flex items-center gap-1">
                       Moderator
                       {sortConfig?.key === 'moderator' && (
-                        <span className="text-blue-600">
+                        <span className="text-white">
                           {sortConfig.direction === 'asc' ? '↑' : '↓'}
                         </span>
                       )}
                     </div>
                   </th>
                   <th 
-                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-orange-600"
                     onClick={() => handleSort('fieldworkRange')}
                   >
                     <div className="flex items-center gap-1">
                       Fieldwork
                       {sortConfig?.key === 'fieldworkRange' && (
-                        <span className="text-blue-600">
+                        <span className="text-white">
                           {sortConfig.direction === 'asc' ? '↑' : '↓'}
                         </span>
                       )}
                     </div>
                   </th>
                   <th 
-                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-orange-600"
                     onClick={() => handleSort('reportDeadline')}
                   >
                     <div className="flex items-center gap-1">
                       Report
                       {sortConfig?.key === 'reportDeadline' && (
-                        <span className="text-blue-600">
+                        <span className="text-white">
                           {sortConfig.direction === 'asc' ? '↑' : '↓'}
                         </span>
                       )}
                     </div>
                   </th>
-                  <th className="px-0.5 sm:px-1 md:px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  <th className="px-0.5 sm:px-1 md:px-2 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -7773,11 +8376,12 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                   const moderator = project.moderator;
 
                   const isArchived = project.archived === true;
+                  const isUserProjectRow = isUserProject(project);
                   
                   return (
                   <tr
                     key={project.id}
-                      className={`hover:bg-gray-50 cursor-pointer ${isArchived ? 'opacity-60 bg-gray-50' : ''}`}
+                      className={`hover:bg-gray-50 cursor-pointer ${isArchived ? 'opacity-60 bg-gray-50' : ''} ${isUserProjectRow ? 'bg-orange-50' : ''}`}
                     onClick={() => handleProjectView(project)}
                   >
                       <td className="px-0.5 sm:px-1 md:px-2 py-3 text-sm font-medium text-gray-900 max-w-[180px] h-16 align-middle">

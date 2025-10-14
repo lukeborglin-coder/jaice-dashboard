@@ -2592,7 +2592,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                     {dynamicHeaders.map((h, idx) => (
                       <React.Fragment key={h}>
                         <th className={`px-2 py-2 font-medium border-r border-gray-300 last:border-r-0 align-top ${h === 'Original Transcript' || h === 'Cleaned Transcript' || h === 'Populate C.A.' ? 'text-center' : 'text-left'}`} style={{ whiteSpace: (h === 'Respondent ID' || h === 'Original Transcript' || h === 'Cleaned Transcript' || h === 'Populate C.A.') ? 'nowrap' : 'normal', minWidth: (h === 'Original Transcript' || h === 'Cleaned Transcript' || h === 'Populate C.A.') ? 'auto' : (h === 'Respondent ID' ? 'auto' : '180px'), lineHeight: '1.3', width: (h === 'Respondent ID' || h === 'Original Transcript' || h === 'Cleaned Transcript' || h === 'Populate C.A.') ? '1%' : 'auto' }}>
-                          {activeSheet === 'Demographics' && h !== 'Respondent ID' && h !== 'respno' && h !== 'Original Transcript' && h !== 'Cleaned Transcript' && h !== 'Populate C.A.' ? (
+                          {activeSheet === 'Demographics' && h !== 'Respondent ID' && h !== 'respno' && h !== 'Interview Date' && h !== 'Interview Time' && h !== 'Original Transcript' && h !== 'Cleaned Transcript' && h !== 'Populate C.A.' ? (
                             <div className="flex items-center gap-1">
                               {editingColumnName === h ? (
                                 <input
