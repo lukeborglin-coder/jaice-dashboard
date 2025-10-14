@@ -63,13 +63,23 @@ async function loadProjectStorytelling(projectId, analysisId = null) {
     
     console.log('🔍 Loading storytelling data:', { projectId, analysisId, key, availableKeys: Object.keys(allData) });
     
-    return allData[key] || {
+    const projectData = allData[key] || {
       strategicQuestions: [],
       keyFindings: null,
       storyboards: [],
       chatHistory: [],
       quotesCache: {}
     };
+    
+    // Clean up chat history to keep only last 10 entries
+    if (projectData.chatHistory && projectData.chatHistory.length > 10) {
+      projectData.chatHistory = projectData.chatHistory.slice(-10);
+      // Save the cleaned data
+      allData[key] = projectData;
+      await fs.writeFile(STORYTELLING_PATH, JSON.stringify(allData, null, 2));
+    }
+    
+    return projectData;
   } catch (error) {
     console.error('Error loading storytelling data:', error);
     return {
@@ -658,6 +668,40 @@ router.post('/:projectId/ask', authenticateToken, async (req, res) => {
   }
 });
 
+// POST /api/storytelling/:projectId/expand-bullet - Expand a bullet point (internal use, doesn't add to chat history)
+router.post('/:projectId/expand-bullet', authenticateToken, async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const { bullet, detailLevel = 'moderate', analysisId } = req.body;
+
+    if (!bullet || !bullet.trim()) {
+      return res.status(400).json({ error: 'Bullet text is required' });
+    }
+
+    const caDataObj = await getCAData(projectId, analysisId);
+
+    if (!caDataObj || !caDataObj.data || Object.keys(caDataObj.data).length === 0) {
+      return res.status(400).json({ error: 'No content analysis data available for this project' });
+    }
+
+    const projectData = await loadProjectStorytelling(projectId, analysisId);
+    const answer = await answerQuestion(
+      projectId,
+      `Expand with 2-3 sentences and context for this point, keeping it concise and actionable: ${bullet}`,
+      '', // No transcripts needed for bullet expansion
+      caDataObj,
+      projectData.keyFindings,
+      detailLevel
+    );
+
+    // Don't add to chat history - this is internal use only
+    res.json(answer);
+  } catch (error) {
+    console.error('Error expanding bullet:', error);
+    res.status(500).json({ error: 'Failed to expand bullet', message: error.message });
+  }
+});
+
 // POST /api/storytelling/:projectId/quotes - Get supporting quotes for a Q&A answer
 router.post('/:projectId/quotes', authenticateToken, async (req, res) => {
   try {
@@ -721,13 +765,15 @@ Guidelines:
 - Preserve the exact wording, punctuation, and formatting from the transcript
 - Each quote should be a complete thought or exchange
 - Focus on the most relevant and impactful quotes
+- IMPORTANT: Always include the specific respondent ID (e.g., "R01:", "R02:", "R03:") in the quote text when available
+- Use the exact respondent IDs as they appear in the transcript (R01, R02, etc.)
 - If no relevant quotes are found, return an empty quotes array: {"quotes": []}`;
 
     const userPrompt = `Research Question: ${question}
 
 Research Answer: ${answer}
 
-Please analyze the following interview transcript and find 2-3 verbatim quotes that directly support the research answer above. Return only the exact text from the transcript with proper speaker labels.
+Please analyze the following interview transcript and find 2-3 verbatim quotes that directly support the research answer above. Return only the exact text from the transcript with proper speaker labels (use "Moderator:" for interviewer/moderator and "Respondent:" for all participants).
 
 Transcript:
 ${transcriptsText.substring(0, 8000)}`; // Limit to first 8000 chars to stay within token limits
@@ -743,6 +789,7 @@ ${transcriptsText.substring(0, 8000)}`; // Limit to first 8000 chars to stay wit
 
     const aiResponse = response.choices[0].message.content;
     console.log('AI response for storytelling quotes:', aiResponse.substring(0, 500));
+    console.log('🔍 Full AI response for debugging:', aiResponse);
 
     // Parse the AI response
     let quotes = [];
@@ -783,6 +830,7 @@ ${transcriptsText.substring(0, 8000)}`; // Limit to first 8000 chars to stay wit
         }];
       }
     }
+
 
     // Cache the quotes for future requests (only if we got valid quotes)
     if (!projectData.quotesCache) {

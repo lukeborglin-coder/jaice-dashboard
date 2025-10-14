@@ -96,10 +96,11 @@ function formatQuoteText(text: string) {
   const lines = text.split('\n');
   const allElements: JSX.Element[] = [];
   let key = 0;
+  
 
   lines.forEach((line, lineIndex) => {
     // Check if line contains multiple speakers (e.g., "Moderator: ... Respondent: ...")
-    const speakerPattern = /(Moderator|Respondent|Interviewer|Participant):\s*/gi;
+    const speakerPattern = /([A-Za-z0-9]+):\s*/gi;
     const matches = [...line.matchAll(speakerPattern)];
     
     if (matches.length > 1) {
@@ -116,9 +117,18 @@ function formatQuoteText(text: string) {
           allElements.push(<br key={key++} />);
         }
         
+        // Normalize speaker names - ONLY Moderator/Interviewer stay as Moderator, everything else becomes Respondent
+        let normalizedSpeaker = speaker;
+        if (speaker.toLowerCase() === 'interviewer' || speaker.toLowerCase() === 'moderator') {
+          normalizedSpeaker = 'Moderator';
+        } else {
+          // ALL other speakers (R01, R02, actual names like "Elsie", etc.) become "Respondent"
+          normalizedSpeaker = 'Respondent';
+        }
+        
         allElements.push(
           <React.Fragment key={key++}>
-            <strong>{(speaker.toLowerCase() === 'interviewer' ? 'Moderator' : speaker).charAt(0).toUpperCase() + (speaker.toLowerCase() === 'interviewer' ? 'moderator' : speaker.toLowerCase()).slice(1)}:</strong> <em>{content}</em>
+            <strong>{normalizedSpeaker}:</strong> <em>{content}</em>
         </React.Fragment>
       );
       });
@@ -128,9 +138,18 @@ function formatQuoteText(text: string) {
       const speaker = match[1];
       const content = line.substring(match[0].length).trim();
       
+      // Normalize speaker names - ONLY Moderator/Interviewer stay as Moderator, everything else becomes Respondent
+      let normalizedSpeaker = speaker;
+      if (speaker.toLowerCase() === 'interviewer' || speaker.toLowerCase() === 'moderator') {
+        normalizedSpeaker = 'Moderator';
+      } else {
+        // ALL other speakers (R01, R02, actual names like "Elsie", etc.) become "Respondent"
+        normalizedSpeaker = 'Respondent';
+      }
+      
       allElements.push(
         <React.Fragment key={key++}>
-          <strong>{(speaker.toLowerCase() === 'interviewer' ? 'Moderator' : speaker).charAt(0).toUpperCase() + (speaker.toLowerCase() === 'interviewer' ? 'moderator' : speaker.toLowerCase()).slice(1)}:</strong> <em>{content}</em>
+          <strong>{normalizedSpeaker}:</strong> <em>{content}</em>
         </React.Fragment>
       );
     } else {
@@ -325,7 +344,7 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
   // Details modal state for storyboard sections
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [detailsLoading, setDetailsLoading] = useState(false);
-  const [detailsItems, setDetailsItems] = useState<Array<{ bullet: string; details?: string; quotes?: VerbatimQuote[] }>>([]);
+  const [detailsItems, setDetailsItems] = useState<Array<{ bullet: string; details?: string; quotes?: VerbatimQuote[]; expanded?: boolean; loading?: boolean }>>([]);
   const [detailsTitle, setDetailsTitle] = useState<string>('');
 
   const extractBulletsFromMarkdown = (markdown: string): string[] => {
@@ -350,11 +369,11 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
     try {
       const ctrl = new AbortController();
       const to = setTimeout(() => ctrl.abort(), 10000);
-      const response = await fetch(`${API_BASE_URL}/api/storytelling/${selectedProject.id}/ask`, {
+      const response = await fetch(`${API_BASE_URL}/api/storytelling/${selectedProject.id}/expand-bullet`, {
         method: 'POST',
         headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          question: `Expand with 2-3 sentences and context for this point, keeping it concise and actionable: ${bullet}`,
+          bullet,
           detailLevel,
           analysisId: selectedProject?.analysisId || analysisId
         }),
@@ -390,39 +409,59 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
     return undefined;
   };
 
-  // Simple in-memory cache keyed by section title + first 50 chars of content
-  const detailsCacheRef = React.useRef<Map<string, Array<{ bullet: string; details?: string; quotes?: VerbatimQuote[] }>>>(new Map());
+  // Simple in-memory cache keyed by bullet text for individual bullets
+  const detailsCacheRef = React.useRef<Map<string, { details: string; quotes: VerbatimQuote[] }>>(new Map());
 
   const openDetailsForSection = async (title: string, content: string) => {
-    const cacheKey = `${title}::${(content || '').slice(0, 50)}`;
-    if (detailsCacheRef.current.has(cacheKey)) {
-      setDetailsTitle(title);
-      setDetailsItems(detailsCacheRef.current.get(cacheKey) || []);
-      setShowDetailsModal(true);
-      setDetailsLoading(false);
-      return;
-    }
     setDetailsTitle(title);
     setShowDetailsModal(true);
-    setDetailsLoading(true);
-    // Safety timeout in case network hangs
-    const safety = setTimeout(() => setDetailsLoading(false), 15000);
-    const bullets = extractBulletsFromMarkdown(content);
-    const initialItems = bullets.map(b => ({ bullet: b }));
-    setDetailsItems(initialItems);
-
-    const results: Array<{ bullet: string; details?: string; quotes?: VerbatimQuote[] }> = [];
-    for (const b of bullets) {
-      const [details, quotes] = await Promise.all([
-        generateDetailsForBullet(b),
-        fetchQuotesForBullet(b)
-      ]);
-      results.push({ bullet: b, details, quotes });
-      setDetailsItems(results.slice());
-    }
-    clearTimeout(safety);
     setDetailsLoading(false);
-    detailsCacheRef.current.set(cacheKey, results);
+    const bullets = extractBulletsFromMarkdown(content);
+    const initialItems = bullets.map(b => ({ bullet: b, expanded: false }));
+    setDetailsItems(initialItems);
+  };
+
+  const expandBullet = async (index: number) => {
+    const item = detailsItems[index];
+    if (item.details && item.quotes) return; // Already expanded
+    
+    // Check if any other bullet is currently loading
+    const isAnyLoading = detailsItems.some((item, idx) => idx !== index && item.loading);
+    if (isAnyLoading) return; // Don't allow clicking if another is loading
+    
+    // Check cache first
+    const cacheKey = item.bullet;
+    if (detailsCacheRef.current.has(cacheKey)) {
+      const cached = detailsCacheRef.current.get(cacheKey)!;
+      const updatedItems = [...detailsItems];
+      updatedItems[index] = { ...item, details: cached.details, quotes: cached.quotes, expanded: true, loading: false };
+      setDetailsItems([...updatedItems]);
+      return;
+    }
+    
+    // Set this specific item as expanded and loading
+    const updatedItems = [...detailsItems];
+    updatedItems[index] = { ...item, expanded: true, loading: true };
+    setDetailsItems([...updatedItems]);
+    
+    try {
+      const [details, quotes] = await Promise.all([
+        generateDetailsForBullet(item.bullet),
+        fetchQuotesForBullet(item.bullet)
+      ]);
+      
+      // Cache the results
+      detailsCacheRef.current.set(cacheKey, { details, quotes });
+      
+      // Update with the loaded data
+      updatedItems[index] = { ...item, details, quotes, expanded: true, loading: false };
+      setDetailsItems([...updatedItems]);
+    } catch (error) {
+      console.error('Error expanding bullet:', error);
+      // Set loading to false even on error
+      updatedItems[index] = { ...item, expanded: true, loading: false };
+      setDetailsItems([...updatedItems]);
+    }
   };
 
   const qualProjects = useMemo(
@@ -484,7 +523,9 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
         setStrategicQuestions(data.strategicQuestions || []);
         setKeyFindings(data.keyFindings);
         setStoryboards(data.storyboards || []);
-        setChatHistory(data.chatHistory || []);
+        // Ensure we only show the last 10 Q&A entries
+        const chatHistory = data.chatHistory || [];
+        setChatHistory(chatHistory.slice(-10));
       }
     } catch (error) {
     }
@@ -964,7 +1005,7 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
                   )}
                   {keyFindings.findings.map((finding, idx) => (
                     <div key={idx} className="bg-white shadow-sm border border-gray-200 rounded-lg p-6">
-                      <h4 className="font-semibold text-gray-900 mb-2">{finding.question}</h4>
+                      <h4 className="font-semibold text-gray-900 mb-2">{idx + 1}. {finding.question}</h4>
                       <div 
                         className="text-sm text-gray-700 mb-3 cursor-pointer hover:bg-gray-50 p-2 rounded border-l-4 border-transparent hover:border-orange-300 transition-colors"
                         onClick={() => handleKeyFindingClick(finding)}
@@ -1255,14 +1296,15 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
                         </span>
                       )}
                     </div>
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                       {quotes.map((quote, index) => (
-                        <div key={index} className="bg-white rounded-lg p-4 border-l-4 border-blue-500">
-                          <div className="text-sm text-gray-800 leading-relaxed">
+                        <div key={index} className="space-y-2">
+                          <div className="bg-white border-l-4 border-blue-500 rounded p-3 text-sm text-gray-800">
+                            {/* Quote text */}
                             {formatQuoteText(quote.text)}
                           </div>
                           {quote.context && (
-                            <div className="mt-2 text-xs text-gray-600 italic">
+                            <div className="text-xs text-gray-600 italic">
                               {quote.context}
                             </div>
                           )}
@@ -1282,8 +1324,8 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
             <div className="w-full max-w-3xl rounded-xl bg-white shadow-xl p-6" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-start justify-between mb-4">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">{detailsTitle} — Expanded Details</h3>
-                  <p className="text-xs text-gray-500 mt-1">Additional context and supporting quotes for each point</p>
+                  <h3 className="text-lg font-semibold text-black">{detailsTitle} — Expanded Details</h3>
+                  <p className="text-sm text-black mt-1">Additional context and supporting quotes for each point</p>
                 </div>
                 <button
                   onClick={() => setShowDetailsModal(false)}
@@ -1294,32 +1336,56 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
                   </svg>
                 </button>
               </div>
-
-              {detailsLoading ? (
-                <div className="py-10 text-center">
-                  <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-gray-200 border-t-[#D14A2D]"></div>
-                  <div className="text-sm text-gray-600">Loading additional details...</div>
-                </div>
-              ) : detailsItems.length === 0 ? (
+              {detailsItems.length === 0 ? (
                 <div className="py-6 text-sm text-gray-600">No bullet points detected to expand.</div>
               ) : (
-                <div className="space-y-4 max-h-[60vh] overflow-y-auto">
+                <div className="space-y-3 max-h-[60vh] overflow-y-auto">
                   {detailsItems.map((item, i) => (
-                    <div key={i} className="bg-gray-50 border border-gray-200 rounded p-3">
-                      <p className="text-sm font-medium text-gray-900 mb-1">{item.bullet}</p>
-                      {item.details && (
-                        <p className="text-sm text-gray-700 mb-2">{item.details}</p>
-                      )}
-                      {Array.isArray(item.quotes) && item.quotes.length > 0 && (
-                        <div className="space-y-2">
-                          {item.quotes.map((q, qi) => (
-                            <div key={qi} className="bg-blue-50 border border-blue-200 rounded p-2 text-sm text-gray-800">
-                              {formatQuoteText(q.text)}
-                              {q.context && (
-                                <div className="mt-1 text-xs text-gray-600 italic">{q.context}</div>
+                    <div key={i} className="border border-gray-200 rounded-lg">
+                      <button
+                        onClick={() => expandBullet(i)}
+                        disabled={item.expanded || detailsItems.some((otherItem, idx) => idx !== i && otherItem.loading)}
+                        className="w-full p-4 text-left hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed [&:disabled]:opacity-100"
+                      >
+                        <p className="text-sm font-medium text-gray-900 [&:disabled]:text-gray-900">{item.bullet}</p>
+                      </button>
+                      
+                      {item.expanded && (
+                        <div className="px-4 pb-4 border-t border-gray-200 bg-white">
+                          <div className="mt-3">
+                            {item.loading ? (
+                              <div className="py-8 text-center">
+                                <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-[#D14A2D]"></div>
+                                <div className="mt-2 text-sm text-gray-600">Loading details...</div>
+                              </div>
+                            ) : (
+                              <>
+                                {item.details && (
+                                  <p className="text-sm text-gray-700 mb-3">{item.details}</p>
+                                )}
+                              
+                              {Array.isArray(item.quotes) && item.quotes.length > 0 && (
+                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                  <h4 className="text-sm font-semibold text-blue-900 mb-3">Supporting Quotes</h4>
+                                  <div className="space-y-3">
+                                    {item.quotes.map((q, qi) => (
+                                      <div key={qi} className="space-y-2">
+                                        <div className="bg-white border-l-4 border-blue-500 rounded p-3 text-sm text-gray-800">
+                                          {formatQuoteText(q.text)}
+                                        </div>
+                                        {q.context && (
+                                          <div className="text-xs text-gray-600 italic">
+                                            {q.context}
+                                          </div>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
                               )}
-                            </div>
-                          ))}
+                            </>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>
