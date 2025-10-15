@@ -226,6 +226,8 @@ export async function fillRespondentRowsFromTranscript({ transcript, sheetsColum
 
   let resp;
   let json;
+  let usagePromptTokens = 0;
+  let usageCompletionTokens = 0;
   let lastError;
 
   // Retry up to 3 times if JSON parsing fails
@@ -245,6 +247,11 @@ export async function fillRespondentRowsFromTranscript({ transcript, sheetsColum
       console.log('🔍 Raw AI response (last 500 chars):', content?.substring(content.length - 500));
 
       json = JSON.parse(content);
+      // Capture usage if provided
+      if (resp?.usage) {
+        usagePromptTokens += resp.usage.prompt_tokens || 0;
+        usageCompletionTokens += resp.usage.completion_tokens || 0;
+      }
       console.log(`✅ Successfully parsed JSON on attempt ${attempt}`);
       console.log('🔍 Parsed JSON structure:', {
         hasRows: !!json.rows,
@@ -310,6 +317,10 @@ export async function fillRespondentRowsFromTranscript({ transcript, sheetsColum
         const content2 = resp2.choices?.[0]?.message?.content || '';
         console.log('dY"? Fallback AI response (first 300 chars):', content2.substring(0, 300));
         json = JSON.parse(content2);
+        if (resp2?.usage) {
+          usagePromptTokens += resp2.usage.prompt_tokens || 0;
+          usageCompletionTokens += resp2.usage.completion_tokens || 0;
+        }
         console.log('�o. Successfully parsed JSON via schema fallback');
         break; // Success - exit retry loop
       } catch (e2) {
@@ -422,5 +433,5 @@ export async function fillRespondentRowsFromTranscript({ transcript, sheetsColum
     }
   }
 
-  return { rows: rowsOut, context: contextOut };
+  return { rows: rowsOut, context: contextOut, usage: { prompt_tokens: usagePromptTokens, completion_tokens: usageCompletionTokens } };
 }

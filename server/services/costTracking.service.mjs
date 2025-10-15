@@ -9,8 +9,8 @@ const COSTS_PATH = path.join(DATA_DIR, 'costs.json');
 // OpenAI API pricing (as of current rates)
 const PRICING = {
   'gpt-4o': {
-    input: 2.50 / 1_000_000,  // $2.50 per 1M input tokens
-    output: 10.00 / 1_000_000  // $10.00 per 1M output tokens
+    input: 5.00 / 1_000_000,   // $5.00 per 1M input tokens (updated)
+    output: 15.00 / 1_000_000  // $15.00 per 1M output tokens (updated)
   },
   'gpt-4o-mini': {
     input: 0.150 / 1_000_000,  // $0.15 per 1M input tokens
