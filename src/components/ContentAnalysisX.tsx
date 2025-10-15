@@ -349,15 +349,25 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
     }
   }, [currentAnalysis]);
 
-  const linkedTranscriptIds = useMemo(() => {
+  // Transcripts already linked to ANY content analysis for this project
+  // Disable them in the picker so a single project transcript cannot be
+  // added to multiple content analyses
+  const allProjectLinkedTranscriptIds = useMemo(() => {
     const ids = new Set<string>();
-    transcripts.forEach(transcript => {
-      if (transcript.sourceTranscriptId) {
-        ids.add(String(transcript.sourceTranscriptId));
-      }
-    });
+    const projectId = currentAnalysis?.projectId;
+    if (!projectId) return ids;
+
+    // Look across all saved analyses for this project
+    (savedAnalyses || [])
+      .filter(a => a?.projectId === projectId)
+      .forEach(analysis => {
+        (analysis?.transcripts || []).forEach((t: any) => {
+          if (t?.sourceTranscriptId) ids.add(String(t.sourceTranscriptId));
+          if (t?.id) ids.add(String(t.id));
+        });
+      });
     return ids;
-  }, [transcripts]);
+  }, [savedAnalyses, currentAnalysis?.projectId]);
 
   const projectTranscriptsById = useMemo(() => {
     const map = new Map<string, {
@@ -377,7 +387,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
 
   const transcriptDropdownOptions = useMemo(() => {
     return projectTranscriptsForUpload.map(record => {
-      const disabled = linkedTranscriptIds.has(record.id);
+      const disabled = allProjectLinkedTranscriptIds.has(record.id);
       const labelParts = [record.originalFilename || 'Transcript'];
       if (record.hasCleanedVersion) {
         labelParts.push('cleaned available');
@@ -391,7 +401,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
         disabled
       };
     });
-  }, [projectTranscriptsForUpload, linkedTranscriptIds]);
+  }, [projectTranscriptsForUpload, allProjectLinkedTranscriptIds]);
 
   useEffect(() => {
     if (!showTranscriptUploadModal || !currentAnalysis?.projectId) {
@@ -401,10 +411,10 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
   }, [showTranscriptUploadModal, currentAnalysis?.projectId, fetchProjectTranscripts]);
 
   useEffect(() => {
-    if (selectedExistingTranscriptId && linkedTranscriptIds.has(selectedExistingTranscriptId)) {
+    if (selectedExistingTranscriptId && allProjectLinkedTranscriptIds.has(selectedExistingTranscriptId)) {
       setSelectedExistingTranscriptId('');
     }
-  }, [selectedExistingTranscriptId, linkedTranscriptIds]);
+  }, [selectedExistingTranscriptId, allProjectLinkedTranscriptIds]);
 
   useEffect(() => {
     if (!selectedExistingTranscriptId) {
