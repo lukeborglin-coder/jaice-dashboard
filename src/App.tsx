@@ -2667,10 +2667,45 @@ function AdminCenter() {
                             {Object.entries(project.breakdown).map(([category, cost]: [string, any]) => (
                               <div key={category} className="bg-white p-3 rounded border border-gray-200">
                                 <div className="text-xs text-gray-600 mb-1">{category}</div>
-                                <div className="text-lg font-semibold text-gray-900">${cost.toFixed(4)}</div>
+                                <div className="text-lg font-semibold text-gray-900">${Number(cost).toFixed(4)}</div>
                               </div>
                             ))}
                           </div>
+                          {Object.keys(project.breakdown).length === 0 && (
+                            <div className="text-sm text-gray-500 text-center py-4">No cost breakdown available</div>
+                          )}
+
+                          {/* Raw entries table */}
+                          {project.entries && project.entries.length > 0 && (
+                            <div className="mt-4 bg-white rounded border border-gray-200 overflow-x-auto">
+                              <table className="min-w-full text-xs">
+                                <thead className="bg-gray-50">
+                                  <tr>
+                                    <th className="px-3 py-2 text-left text-gray-600 font-medium">Timestamp</th>
+                                    <th className="px-3 py-2 text-left text-gray-600 font-medium">Category</th>
+                                    <th className="px-3 py-2 text-left text-gray-600 font-medium">Model</th>
+                                    <th className="px-3 py-2 text-right text-gray-600 font-medium">Input</th>
+                                    <th className="px-3 py-2 text-right text-gray-600 font-medium">Output</th>
+                                    <th className="px-3 py-2 text-right text-gray-600 font-medium">Cost</th>
+                                    <th className="px-3 py-2 text-left text-gray-600 font-medium">Description</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {project.entries.map((e: any) => (
+                                    <tr key={e.id} className="border-t">
+                                      <td className="px-3 py-2 whitespace-nowrap">{new Date(e.timestamp).toLocaleString()}</td>
+                                      <td className="px-3 py-2">{e.category}</td>
+                                      <td className="px-3 py-2">{e.model}</td>
+                                      <td className="px-3 py-2 text-right">{e.inputTokens}</td>
+                                      <td className="px-3 py-2 text-right">{e.outputTokens}</td>
+                                      <td className="px-3 py-2 text-right">${Number(e.cost).toFixed(4)}</td>
+                                      <td className="px-3 py-2">{e.description || '-'}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
                           {Object.keys(project.breakdown).length === 0 && (
                             <div className="text-sm text-gray-500 text-center py-4">No cost breakdown available</div>
                           )}

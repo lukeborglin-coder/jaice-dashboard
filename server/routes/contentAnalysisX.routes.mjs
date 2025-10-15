@@ -9,6 +9,7 @@ import { generateCAFromDGAsJSON, generateExcelFromJSON, generateGuideMapFromDGTe
 import { fillRespondentRowsFromTranscript } from '../services/transcriptFiller.service.mjs';
 import { fileURLToPath } from 'url';
 import OpenAI from 'openai';
+import { logCost, COST_CATEGORIES } from '../services/costTracking.service.mjs';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -1573,7 +1574,22 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
           }
         }
 
-        // Return the processed result directly
+    // Log AI cost if usage available; otherwise estimate based on text length
+    try {
+      const inputTokens = caResult?.usage?.prompt_tokens || 0;
+      const outputTokens = caResult?.usage?.completion_tokens || 0;
+      if (inputTokens > 0 && outputTokens > 0) {
+        await logCost(projectId, COST_CATEGORIES.CONTENT_ANALYSIS, 'gpt-4o', inputTokens, outputTokens, 'Process transcript into CA');
+      } else if (transcriptText) {
+        const estInput = Math.ceil((transcriptText.length + JSON.stringify(sheetsColumns || {}).length) / 4);
+        const estOutput = Math.ceil(estInput * 0.3);
+        await logCost(projectId, COST_CATEGORIES.CONTENT_ANALYSIS, 'gpt-4o', estInput, estOutput, 'Process transcript into CA (estimated)');
+      }
+    } catch (e) {
+      console.warn('Failed to log CA processing cost:', e.message);
+    }
+
+    // Return the processed result directly
         const clientOriginalPath = storedOriginalFilePath ? storedOriginalFilePath.split(path.sep).join('/') : null;
         const clientCleanedPath = (storedCleanedFilePath || cleanedFilePath) ? (storedCleanedFilePath || cleanedFilePath).split(path.sep).join('/') : null;
 
@@ -1715,6 +1731,8 @@ router.post('/generate-from-transcripts', async (req, res) => {
     });
     
     // Generate content analysis for each transcript
+    let totalInputTokens = 0;
+    let totalOutputTokens = 0;
     for (const transcript of transcripts) {
       console.log(`🔍 Processing transcript for ${transcript.respno}:`, {
         hasCleaned: !!transcript.cleanedTranscript,
@@ -1792,6 +1810,18 @@ router.post('/generate-from-transcripts', async (req, res) => {
         discussionGuide: discussionGuideText,
         messageTestingDetails: null
       });
+
+      // Accumulate usage if service exposes it
+      if (caResult?.usage) {
+        totalInputTokens += caResult.usage.prompt_tokens || 0;
+        totalOutputTokens += caResult.usage.completion_tokens || 0;
+      } else if (transcriptText) {
+        // Estimate if no usage provided
+        const estInput = Math.ceil((transcriptText.length + JSON.stringify(sheetsColumns || {}).length) / 4);
+        const estOutput = Math.ceil(estInput * 0.3);
+        totalInputTokens += estInput;
+        totalOutputTokens += estOutput;
+      }
 
       console.log('CA Result structure:', { hasRows: !!caResult?.rows, hasContext: !!caResult?.context });
       if (caResult?.context) {
@@ -1892,6 +1922,15 @@ router.post('/generate-from-transcripts', async (req, res) => {
       hasContext: !!responseData.context
     });
     
+    // Log aggregated AI cost for this generation
+    try {
+      if (totalInputTokens > 0 && totalOutputTokens > 0) {
+        await logCost(projectId, COST_CATEGORIES.CONTENT_ANALYSIS, 'gpt-4o', totalInputTokens, totalOutputTokens, 'Generate Content Analysis from transcripts');
+      }
+    } catch (e) {
+      console.warn('Failed to log CA generate cost:', e.message);
+    }
+
     res.json(responseData);
 
   } catch (error) {

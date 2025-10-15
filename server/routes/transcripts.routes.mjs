@@ -3,6 +3,7 @@ import multer from 'multer';
 import fs from 'fs/promises';
 import path from 'path';
 import OpenAI from 'openai';
+import { logCost, COST_CATEGORIES } from '../services/costTracking.service.mjs';
 import mammoth from 'mammoth';
 import { fileURLToPath } from 'url';
 import { authenticateToken } from '../middleware/auth.middleware.mjs';
@@ -457,6 +458,24 @@ Output ONLY the cleaned transcript. No explanations or notes.`;
       });
 
       cleanedText = response.choices[0].message.content;
+
+      // Log AI cost for transcript cleaning (exact tokens when available)
+      try {
+        const inputTokens = response.usage?.prompt_tokens || 0;
+        const outputTokens = response.usage?.completion_tokens || 0;
+        if (inputTokens > 0 && outputTokens > 0) {
+          await logCost(
+            projectId,
+            COST_CATEGORIES.TRANSCRIPT_CLEANING,
+            'gpt-4o',
+            inputTokens,
+            outputTokens,
+            'Transcript cleaning during upload'
+          );
+        }
+      } catch (e) {
+        console.warn('Failed to log cleaning cost:', e.message);
+      }
 
       // Save cleaned filename and path (will regenerate with correct respno later)
       cleanedFilename = `cleaned_${Date.now()}_${req.file.originalname.replace(/\.(txt|docx)$/i, '.docx')}`;

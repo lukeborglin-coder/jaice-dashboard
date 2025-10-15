@@ -3,6 +3,7 @@ import multer from 'multer';
 import fs from 'fs/promises';
 import path from 'path';
 import OpenAI from 'openai';
+import { logCost, COST_CATEGORIES } from '../services/costTracking.service.mjs';
 import mammoth from 'mammoth';
 import { fileURLToPath } from 'url';
 import { authenticateToken } from '../middleware/auth.middleware.mjs';
@@ -135,6 +136,25 @@ Output ONLY the cleaned transcript. No explanations, no comments.`;
     });
 
     const cleanedText = response.choices[0].message.content;
+
+    // Log AI cost for transcript cleaner (exact tokens when available)
+    try {
+      const inputTokens = response.usage?.prompt_tokens || 0;
+      const outputTokens = response.usage?.completion_tokens || 0;
+      const projectId = req.body?.projectId;
+      if (inputTokens > 0 && outputTokens > 0 && projectId) {
+        await logCost(
+          projectId,
+          COST_CATEGORIES.TRANSCRIPT_CLEANING,
+          'gpt-4o-mini',
+          inputTokens,
+          outputTokens,
+          'Transcript Cleaner - AI cleaning'
+        );
+      }
+    } catch (e) {
+      console.warn('Failed to log transcript cleaner cost:', e.message);
+    }
 
     // Save cleaned transcript
     const cleanedFilename = `cleaned_${Date.now()}_${req.file.originalname.replace('.docx', '.txt')}`;

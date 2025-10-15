@@ -2101,10 +2101,11 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
             {onNavigateToStorytelling && currentAnalysis?.id && !currentAnalysis.id.startsWith('temp-') && (
               <button
                 onClick={() => onNavigateToStorytelling(currentAnalysis.id, currentAnalysis.projectId)}
-                className="text-blue-600 hover:text-blue-700 transition-colors"
+                className="flex items-center justify-center h-8 w-8 rounded-full transition-colors"
+                style={{ backgroundColor: 'rgba(37, 99, 235, 0.3)' }}
                 title="Open Storytelling"
               >
-                <IconBook2 className="h-6 w-6" />
+                <IconBook2 className="h-4 w-4 text-white" />
               </button>
             )}
           </div>
