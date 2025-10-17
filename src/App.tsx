@@ -4330,8 +4330,8 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
 
   // Select which projects to source tasks from to stay live with edits
   const sourceProjects = useMemo(() => {
-    return showMyProjectsOnly ? projects : filteredProjects;
-  }, [showMyProjectsOnly, projects, filteredProjects]);
+    return showMyProjectsOnly ? filteredProjects : allProjects;
+  }, [showMyProjectsOnly, filteredProjects, allProjects]);
 
   // Sort projects by final report delivery date (closest first)
   const sortedProjects = useMemo(() => {
@@ -7828,7 +7828,7 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
   const [showAddTeamMember, setShowAddTeamMember] = useState(false);
   const [localTeamMembers, setLocalTeamMembers] = useState<Array<{ id: string; name: string; role: string; email?: string }>>([]);
   const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
-  const [showMyProjectsOnly, setShowMyProjectsOnly] = useState(false);
+  const [showMyProjectsOnly, setShowMyProjectsOnly] = useState(true);
   const [vendorsData, setVendorsData] = useState<any>(null);
   const [viewMode, setViewMode] = useState<'list' | 'timeline'>('list');
 
