@@ -265,27 +265,47 @@ router.get('/projects', authenticateToken, async (req, res) => {
 
     // Helper function to check if a string is a valid respondent ID
     const isValidRespondentId = (id) => {
-      return typeof id === 'string' && 
+      const isValid = typeof id === 'string' && 
              id.trim() !== '' && 
              id.trim() !== 'Respondent ID' && // Not the header
-             (id.startsWith('R') || id.match(/^[A-Za-z]/)); // Starts with letter
+             (id.startsWith('R') || id.match(/^[A-Za-z]/) || !isNaN(Number(id))); // Starts with letter OR is numeric
+      
+      if (id && typeof id === 'string' && id.trim() !== '') {
+        console.log(`🔍 Respondent ID validation: "${id}" -> ${isValid}`);
+      }
+      
+      return isValid;
     };
 
     // Helper function to count respondents from content analysis data
     const countRespondents = (caItem) => {
       const allRespondents = new Set();
       
+      console.log(`🔍 Counting respondents for CA ${caItem.id}:`, {
+        hasData: !!caItem.data,
+        dataKeys: caItem.data ? Object.keys(caItem.data) : []
+      });
+      
       // Count from main data structure (this has all respondents)
       if (caItem.data) {
-        Object.values(caItem.data).forEach(sheetData => {
+        Object.values(caItem.data).forEach((sheetData, sheetIndex) => {
+          console.log(`🔍 Processing sheet ${sheetIndex}:`, {
+            isArray: Array.isArray(sheetData),
+            length: Array.isArray(sheetData) ? sheetData.length : 'N/A',
+            sampleRow: Array.isArray(sheetData) && sheetData.length > 0 ? sheetData[0] : 'N/A'
+          });
+          
           if (Array.isArray(sheetData)) {
             // For array data, look for respondent IDs in the data objects
-            sheetData.forEach(row => {
+            sheetData.forEach((row, rowIndex) => {
               if (row && typeof row === 'object') {
                 // Look for common respondent ID fields
                 const respondentId = row['Respondent ID'] || row['respno'] || row['ID'] || row['id'];
                 if (isValidRespondentId(respondentId)) {
                   allRespondents.add(respondentId);
+                  if (rowIndex < 3) { // Log first few for debugging
+                    console.log(`🔍 Found valid respondent: "${respondentId}" in row ${rowIndex}`);
+                  }
                 }
               }
             });
@@ -294,6 +314,7 @@ router.get('/projects', authenticateToken, async (req, res) => {
             Object.keys(sheetData).forEach(respondentId => {
               if (isValidRespondentId(respondentId)) {
                 allRespondents.add(respondentId);
+                console.log(`🔍 Found valid respondent in object keys: "${respondentId}"`);
               }
             });
           }
@@ -325,6 +346,9 @@ router.get('/projects', authenticateToken, async (req, res) => {
           }
         });
       }
+      
+      console.log(`🔍 Final respondent count for CA ${caItem.id}: ${allRespondents.size}`);
+      console.log(`🔍 Respondent IDs found:`, Array.from(allRespondents));
       
       return allRespondents.size;
     };
@@ -365,7 +389,10 @@ router.get('/projects', authenticateToken, async (req, res) => {
         name: caItem.name,
         respondentCount,
         dataKeys: caItem.data ? Object.keys(caItem.data) : [],
-        foundFullProject: !!fullProject
+        foundFullProject: !!fullProject,
+        fullProjectTeamMembers: fullProject?.teamMembers?.length || 0,
+        allProjectsCount: allProjects.length,
+        allProjectIds: allProjects.map(p => p.id)
       });
 
       return {

@@ -59,11 +59,13 @@ interface Project {
   id: string;
   name: string;
   methodologyType?: string;
+  methodology?: string;
   archived?: boolean;
   client?: string;
   respondentCount?: number;
   analysisId?: string;
   createdAt?: string;
+  teamMembers?: Array<{ id?: string; email?: string; name?: string }>;
 }
 
 interface Finding {
@@ -1049,7 +1051,7 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
       });
       if (response.ok) {
         const data = await response.json();
-        const projectsArray = Array.isArray(data.projects) ? data.projects : [];
+        const projectsArray: Project[] = Array.isArray(data.projects) ? data.projects : [];
         
         // Projects from storytelling API already have analysisId and respondentCount
         // Just log them for debugging
@@ -1094,7 +1096,20 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
 
   const qualActiveProjects = useMemo(
     () => {
+      console.log('🔍 Filtering projects for qualitative methodology:', {
+        totalProjects: projects.length,
+        projectDetails: projects.map(p => ({
+          name: p.name,
+          methodologyType: p.methodologyType,
+          methodology: p.methodology,
+          isQualitative: isQualitative(p),
+          id: p.id,
+          client: p.client,
+          teamMembers: p.teamMembers?.length || 0
+        }))
+      });
       const filtered = projects.filter(isQualitative);
+      console.log('🔍 Qualitative projects found:', filtered.length);
       return filtered;
     },
     [projects]
@@ -1121,11 +1136,22 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
         return list;
       }
 
+      // TEMPORARY: Always return all projects for debugging
+      console.log('🔍 TEMPORARY: Returning all projects for debugging');
+      return list;
+
       const uid = String((user as any)?.id || '').toLowerCase();
       const uemail = String((user as any)?.email || '').toLowerCase();
       const uname = String((user as any)?.name || '').toLowerCase();
 
-      console.log('🔍 User info for filtering:', { uid, uemail, uname });
+      console.log('🔍 User info for filtering:', { 
+        uid, 
+        uemail, 
+        uname,
+        userId: (user as any)?.id,
+        userEmail: (user as any)?.email,
+        userName: (user as any)?.name
+      });
       
 
       const filtered = list.filter(project => {
@@ -1150,6 +1176,11 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
         console.log(`🔍 Project "${project.name}" filter result:`, {
           projectId: project.id,
           teamMembersCount: teamMembers.length,
+          teamMembers: teamMembers.map((m: any) => ({ 
+            id: (m as any).id, 
+            email: (m as any).email, 
+            name: (m as any).name 
+          })),
           inTeam,
           createdBy,
           createdByMe,
@@ -1162,7 +1193,9 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
       console.log('🔍 Filtered projects:', {
         originalCount: list.length,
         filteredCount: filtered.length,
-        filteredNames: filtered.map(p => p.name)
+        filteredNames: filtered.map(p => p.name),
+        showMyProjectsOnly,
+        hasUser: !!user
       });
 
       return filtered;
