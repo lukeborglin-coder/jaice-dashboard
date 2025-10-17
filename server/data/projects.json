@@ -837,10 +837,10 @@
       "discussionGuideUpdatedAt": "2025-10-10T18:18:44.047Z"
     },
     {
-      "name": "2025 SMA Adult Activation Qual",
+      "name": "2025 SMA Adult Activation Qual test",
       "client": "test",
       "methodologyType": "Qual",
-      "methodology": "In-Depth Interviews",
+      "methodology": "Online Surveys",
       "startDate": "",
       "endDate": "",
       "background": "",
@@ -904,7 +904,7 @@
         },
         {
           "label": "Fielding Start",
-          "date": "10/2/25"
+          "date": "10/4/25"
         },
         {
           "label": "Final Report",
@@ -1397,7 +1397,9 @@
           "assignedTo": [
             "",
             "3",
-            "11"
+            "11",
+            "12",
+            "14"
           ],
           "status": "completed",
           "phase": "Fielding",
@@ -1671,21 +1673,21 @@
         {
           "phase": "Kickoff",
           "startDate": "2025-09-08",
-          "endDate": "2025-09-08"
+          "endDate": "2025-09-11"
         },
         {
           "phase": "Pre-Field",
-          "startDate": "2025-09-09",
-          "endDate": "2025-10-01"
+          "startDate": "2025-09-12",
+          "endDate": "2025-10-03"
         },
         {
           "phase": "Fielding",
-          "startDate": "2025-10-02",
-          "endDate": "2025-10-13"
+          "startDate": "2025-10-04",
+          "endDate": "2025-10-17"
         },
         {
           "phase": "Post-Field Analysis",
-          "startDate": "2025-10-14",
+          "startDate": "2025-10-18",
           "endDate": "2025-10-28"
         },
         {
@@ -1704,7 +1706,8 @@
           "data": {}
         }
       ],
-      "notes": [
+      "notes": [],
+      "archivedNotes": [
         {
           "id": "note-1759803821263",
           "title": "test",
@@ -1717,7 +1720,6 @@
           "comments": []
         }
       ],
-      "archivedNotes": [],
       "archived": false,
       "phaseColor": "#F97316",
       "fieldworkRange": "10/2/25",
@@ -3560,9 +3562,7 @@
       "reportDeadline": "10/10/25",
       "teamMembersText": "Luke Borglin",
       "calculatedProgress": 100
-    }
-  ],
-  "3_archived": [
+    },
     {
       "name": "testet",
       "client": "test",
@@ -3628,455 +3628,520 @@
           "description": "Create Kick Off (KO) deck",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t2",
           "description": "Create detailed timeline",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t3",
           "description": "Hold Internal Pre-Kick Off: Talk through study overview, roles, deadlines, and any other key project info prior to KO with client.",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t4",
           "description": "Create or review Proposal based on RFP (Request For Proposal)",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t5",
           "description": "Bid project out to vendors/moderators",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t6",
           "description": "Get moderator availability",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t7",
           "description": "Create a job folder for the study in the 'Proposals' folder (within appropriate client folder)",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t8",
           "description": "Save vendors' bids to job folder",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t9",
           "description": "Ensure any new vendors have signed the NDA",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t10",
           "description": "Create Internal Cost Worksheet, send to supervisor",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t11",
           "description": "Move study docs from 'Proposals' folder to main client folder",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t12",
           "description": "Update folder name with job #",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t13",
           "description": "Add AE submission forms & contact info to job folder",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t14",
           "description": "Set up Invoice Schedule & Worksheet",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t15",
           "description": "Alert recruiter and moderator that project is moving forward",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t16",
           "description": "Draft screener",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t17",
           "description": "Draft discussion guide",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t18",
           "description": "Start Discuss.io project",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t19",
           "description": "Send screener to client",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t20",
           "description": "Send discussion guide draft to client",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t21",
           "description": "Schedule KO with moderator",
           "status": "pending",
           "phase": "Kickoff",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t22",
           "description": "Create respondent grid for recruiters",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t23",
           "description": "Create shared/client respondent grid",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t24",
           "description": "Get screener approval from client",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t25",
           "description": "Alert moderator and confirm availability",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t26",
           "description": "Submit first invoice request",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t27",
           "description": "Ensure signed documents are saved to job folder",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t28",
           "description": "Schedule DG walk-through with client and moderator",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t29",
           "description": "Copy Cost Tracker shell to job folder",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t30",
           "description": "Coordinate discussion guide updates from client",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t31",
           "description": "Confirm attendee list with client",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t32",
           "description": "Get and finalize stimuli",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t33",
           "description": "Monitor recruits and update quotas",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t34",
           "description": "Create invite template",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t35",
           "description": "Create Content Analysis (CA)",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t36",
           "description": "Send Outlook invites with respondent details and observer login info",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t37",
           "description": "Brief moderator",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t38",
           "description": "Create notetaking schedule and align team",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t39",
           "description": "Set up ShareFile folder",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t40",
           "description": "Send final stimuli/workbooks/guide to moderator",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t41",
           "description": "Schedule client debrief after first 1-2 interviews",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t42",
           "description": "Create report shell based on discussion guide and objectives",
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t43",
           "description": "Engage transcriptionist (if needed)",
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t44",
           "description": "Request invoice (if needed)",
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t45",
           "description": "Continue updating report shell with interview content",
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": true
         },
         {
           "id": "t46",
           "description": "Submit AE reports within 24 hours",
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": true
         },
         {
           "id": "t47",
           "description": "Download audio files and transcripts daily",
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": true
         },
         {
           "id": "t48",
           "description": "Manage stimuli changes",
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": true
         },
         {
           "id": "t49",
           "description": "Track high-level findings for client",
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": true
         },
         {
           "id": "t50",
           "description": "Ensure objectives are being met",
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": true
         },
         {
           "id": "t51",
           "description": "Engage with moderator and ask probes",
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": true
         },
         {
           "id": "t52",
           "description": "Schedule second client debrief (if needed)",
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t53",
           "description": "Clean project folder",
           "status": "pending",
           "phase": "Post-Field Analysis",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t54",
           "description": "Internal download: all audio files, CA, transcripts, lessons, and notes",
           "status": "pending",
           "phase": "Post-Field Analysis",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t55",
           "description": "Submit AE reconciliation (if needed)",
           "status": "pending",
           "phase": "Post-Field Analysis",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t56",
           "description": "Write findings",
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t57",
           "description": "Write executive summary",
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t58",
           "description": "Have report proofed",
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t59",
           "description": "Have report reviewed internally",
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t60",
           "description": "Send report to client",
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t61",
           "description": "Update report based on client comments",
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t62",
           "description": "Request invoice (if needed)",
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t63",
           "description": "Save vendor invoices and submit to accounting",
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t64",
           "description": "Reconcile with client-specific finance process",
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         },
         {
           "id": "t65",
           "description": "Fill out Cost Tracker",
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null
+          "dueDate": null,
+          "isOngoing": false
         }
       ],
       "teamMembers": [
@@ -4115,8 +4180,1364 @@
           "endDate": "2025-10-31"
         }
       ],
-      "archived": true,
-      "archivedDate": "2025-10-14T19:48:50.879Z"
+      "archived": false
+    },
+    {
+      "name": "test",
+      "client": "Genentech",
+      "methodologyType": "Quantitative",
+      "methodology": "Conjoint Analysis",
+      "startDate": "",
+      "endDate": "",
+      "background": "",
+      "objectives": "",
+      "kickoffDeck": null,
+      "sampleSize": 10,
+      "subgroups": [],
+      "moderator": "",
+      "sampleProvider": "",
+      "requireAdvancedAnalytics": false,
+      "analyticsPartner": "",
+      "usePreloadedTasks": true,
+      "customTasks": [],
+      "id": "P-1760707443280",
+      "phase": "Kickoff",
+      "methodologyDisplay": "Quantitative - Conjoint Analysis",
+      "phaseTimeline": {
+        "Kickoff": {
+          "start": "2025-10-17",
+          "end": "2025-10-17"
+        },
+        "Pre-Field": {
+          "start": "2025-10-18",
+          "end": "2025-10-23"
+        },
+        "Fielding": {
+          "start": "2025-10-24",
+          "end": "2025-10-31"
+        },
+        "Post-Field Analysis": {
+          "start": "2025-11-01",
+          "end": "2025-11-09"
+        },
+        "Reporting": {
+          "start": "2025-11-10",
+          "end": "2025-11-10"
+        }
+      },
+      "deadline": 24,
+      "nextDeadline": "Project kickoff: 10/17/2025",
+      "keyDeadlines": [
+        {
+          "label": "Project Kickoff",
+          "date": "10/17/25"
+        },
+        {
+          "label": "Fielding Start",
+          "date": "10/24/25"
+        },
+        {
+          "label": "Final Report",
+          "date": "11/10/25"
+        }
+      ],
+      "tasks": [
+        {
+          "id": "t1",
+          "description": "Create Kick Off (KO) deck",
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t2",
+          "description": "Create detailed timeline",
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t3",
+          "description": "Hold Internal Pre-Kick Off: Talk through study overview, roles, deadlines, and any other key project info prior to KO with client.",
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t4",
+          "description": "Create or review Proposal based on RFP (Request For Proposal)",
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t5",
+          "description": "Bid project out to vendors",
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t6",
+          "description": "Create a job folder for the study in the 'Proposals' folder (within appropriate client folder)",
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t7",
+          "description": "Save vendors' bids to job folder",
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t8",
+          "description": "Ensure any new vendors you are bringing on board have signed the NDA",
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t9",
+          "description": "Create Internal Cost Worksheet, send to supervisor",
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t10",
+          "description": "Move study docs from 'Proposals' folder to main client folder",
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t11",
+          "description": "Set up Invoice Schedule & Worksheet (Reference PO/SOW for client specific invoice timeline)",
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t12",
+          "description": "Alert sample/programming vendor that the project is moving forward",
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t13",
+          "description": "After client KO call, confirm final sample quotas with vendor",
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t14",
+          "description": "Draft QNR",
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t15",
+          "description": "Proof QNR",
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t16",
+          "description": "Send QNR to client",
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t17",
+          "description": "Add AE submission forms & contact info to job folder",
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t18",
+          "description": "Update folder name with job #",
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t19",
+          "description": "Submit first client invoice request to accounting",
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t20",
+          "description": "Make necessary revisions to QNR from client review",
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t21",
+          "description": "Send final QNR to vendor (after client sign off)",
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t22",
+          "description": "If advanced analytics needed: create specs & engage statistician",
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t23",
+          "description": "Ensure signed/final documents are saved to job folder",
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t24",
+          "description": "Test survey program",
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t25",
+          "description": "If translations: review translations in survey program",
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t26",
+          "description": "Send translations to client-approved translators",
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t27",
+          "description": "If requested: send tested survey link to client",
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t28",
+          "description": "Coordinate translation comments",
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t29",
+          "description": "Create data quality check plan",
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t30",
+          "description": "Create AE check plan",
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t31",
+          "description": "Approve survey for soft launch",
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t32",
+          "description": "Soft data quality check (10% of total sample), continue quality checks throughout",
+          "status": "pending",
+          "phase": "Fielding",
+          "dueDate": null,
+          "isOngoing": true
+        },
+        {
+          "id": "t33",
+          "description": "Create report shell based on questionnaire, proposal, feedback from client",
+          "status": "pending",
+          "phase": "Fielding",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t34",
+          "description": "Share fielding updates with client - minimum of twice a week",
+          "status": "pending",
+          "phase": "Fielding",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t35",
+          "description": "Copy cost tracker shell to job folder and update",
+          "status": "pending",
+          "phase": "Fielding",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t36",
+          "description": "Create tab banner plan",
+          "status": "pending",
+          "phase": "Fielding",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t37",
+          "description": "Have tab banner plan reviewed",
+          "status": "pending",
+          "phase": "Fielding",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t38",
+          "description": "Send tab banner plan to vendor",
+          "status": "pending",
+          "phase": "Fielding",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t39",
+          "description": "If coding: share questions and required codes with vendor",
+          "status": "pending",
+          "phase": "Fielding",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t40",
+          "description": "Monitor open end comments for AEs and submit within 24 hours",
+          "status": "pending",
+          "phase": "Fielding",
+          "dueDate": null,
+          "isOngoing": true
+        },
+        {
+          "id": "t41",
+          "description": "Request invoice if required by client schedule",
+          "status": "pending",
+          "phase": "Fielding",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t42",
+          "description": "Monitor completes and update quotas as needed",
+          "status": "pending",
+          "phase": "Fielding",
+          "dueDate": null,
+          "isOngoing": true
+        },
+        {
+          "id": "t43",
+          "description": "Ensure timely completion of field, troubleshoot as needed",
+          "status": "pending",
+          "phase": "Fielding",
+          "dueDate": null,
+          "isOngoing": true
+        },
+        {
+          "id": "t44",
+          "description": "Request prelim tables (if needed)",
+          "status": "pending",
+          "phase": "Fielding",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t45",
+          "description": "Check prelim tables (if needed)",
+          "status": "pending",
+          "phase": "Fielding",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t46",
+          "description": "Clean project folder, delete old drafts, save finals",
+          "status": "pending",
+          "phase": "Post-Field Analysis",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t47",
+          "description": "Save vendor invoices, compare to bids, send to accounting",
+          "status": "pending",
+          "phase": "Post-Field Analysis",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t48",
+          "description": "Download & proof banner tables",
+          "status": "pending",
+          "phase": "Post-Field Analysis",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t49",
+          "description": "Submit AE Reconciliation",
+          "status": "pending",
+          "phase": "Post-Field Analysis",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t50",
+          "description": "Internal download: lessons learned and notes",
+          "status": "pending",
+          "phase": "Post-Field Analysis",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t51",
+          "description": "Download and review verbatim file",
+          "status": "pending",
+          "phase": "Post-Field Analysis",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t52",
+          "description": "Write findings & exec summary, team review",
+          "status": "pending",
+          "phase": "Post-Field Analysis",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t53",
+          "description": "Send SPSS file to statistician if applicable",
+          "status": "pending",
+          "phase": "Post-Field Analysis",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t54",
+          "description": "Post data into report shell",
+          "status": "pending",
+          "phase": "Reporting",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t55",
+          "description": "Write findings & exec summary",
+          "status": "pending",
+          "phase": "Reporting",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t56",
+          "description": "Have data proofed",
+          "status": "pending",
+          "phase": "Reporting",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t57",
+          "description": "Have exec summary and headlines proofed",
+          "status": "pending",
+          "phase": "Reporting",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t58",
+          "description": "Have full final report proofed",
+          "status": "pending",
+          "phase": "Reporting",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t59",
+          "description": "Send report to client",
+          "status": "pending",
+          "phase": "Reporting",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t60",
+          "description": "Update report based on client comments",
+          "status": "pending",
+          "phase": "Reporting",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t61",
+          "description": "Approve final vendor invoices",
+          "status": "pending",
+          "phase": "Reporting",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t62",
+          "description": "Fill out Cost Tracker with final invoices from vendors",
+          "status": "pending",
+          "phase": "Reporting",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t63",
+          "description": "Keep internal team aligned on roles, deliverables, and client expectations throughout kickoff.",
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null,
+          "isOngoing": true
+        },
+        {
+          "id": "t64",
+          "description": "Confirm all client expectations are documented before launch",
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null,
+          "isOngoing": true
+        },
+        {
+          "id": "t65",
+          "description": "Ensure version control across QNR revisions",
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null,
+          "isOngoing": true
+        },
+        {
+          "id": "t66",
+          "description": "Soft data quality check (10% of total sample), continue quality checks throughout",
+          "status": "pending",
+          "phase": "Fielding",
+          "dueDate": null,
+          "isOngoing": true
+        },
+        {
+          "id": "t67",
+          "description": "Monitor completes and update quotas as needed",
+          "status": "pending",
+          "phase": "Fielding",
+          "dueDate": null,
+          "isOngoing": true
+        },
+        {
+          "id": "t68",
+          "description": "Monitor open end comments for AEs and submit within 24 hours",
+          "status": "pending",
+          "phase": "Fielding",
+          "dueDate": null,
+          "isOngoing": true
+        },
+        {
+          "id": "t69",
+          "description": "Ensure timely completion of field, troubleshoot as needed",
+          "status": "pending",
+          "phase": "Fielding",
+          "dueDate": null,
+          "isOngoing": true
+        },
+        {
+          "id": "t70",
+          "description": "Confirm all deliverables are complete and documented for handoff to reporting",
+          "status": "pending",
+          "phase": "Post-Field Analysis",
+          "dueDate": null,
+          "isOngoing": true
+        },
+        {
+          "id": "t71",
+          "description": "Maintain consistent story flow and formatting across deliverables",
+          "status": "pending",
+          "phase": "Reporting",
+          "dueDate": null,
+          "isOngoing": true
+        }
+      ],
+      "teamMembers": [
+        {
+          "id": "3",
+          "name": "Luke Borglin",
+          "role": "Project Manager"
+        }
+      ],
+      "sampleDetails": "Total: n=10",
+      "files": [],
+      "segments": [
+        {
+          "phase": "Kickoff",
+          "startDate": "2025-10-17",
+          "endDate": "2025-10-17"
+        },
+        {
+          "phase": "Pre-Field",
+          "startDate": "2025-10-18",
+          "endDate": "2025-10-23"
+        },
+        {
+          "phase": "Fielding",
+          "startDate": "2025-10-24",
+          "endDate": "2025-10-31"
+        },
+        {
+          "phase": "Post-Field Analysis",
+          "startDate": "2025-11-01",
+          "endDate": "2025-11-09"
+        },
+        {
+          "phase": "Reporting",
+          "startDate": "2025-11-10",
+          "endDate": "2025-11-10"
+        }
+      ]
+    },
+    {
+      "name": "test QUAL",
+      "client": "Genentech",
+      "methodologyType": "Qualitative",
+      "methodology": "In-Depth Interviews",
+      "startDate": "",
+      "endDate": "",
+      "background": "",
+      "objectives": "",
+      "kickoffDeck": null,
+      "sampleSize": 10,
+      "subgroups": [],
+      "moderator": "1759341271182",
+      "sampleProvider": "1759691725469",
+      "requireAdvancedAnalytics": false,
+      "analyticsPartner": "",
+      "usePreloadedTasks": true,
+      "customTasks": [],
+      "id": "P-1760707493261",
+      "phase": "Awaiting KO",
+      "methodologyDisplay": "Qualitative - In-Depth Interviews",
+      "phaseTimeline": {
+        "Kickoff": {
+          "start": "2025-10-24",
+          "end": "2025-10-24"
+        },
+        "Pre-Field": {
+          "start": "2025-10-25",
+          "end": "2025-11-06"
+        },
+        "Fielding": {
+          "start": "2025-11-07",
+          "end": "2025-11-21"
+        },
+        "Post-Field Analysis": {
+          "start": "2025-11-22",
+          "end": "2025-11-30"
+        },
+        "Reporting": {
+          "start": "2025-12-01",
+          "end": "2025-12-05"
+        }
+      },
+      "deadline": 49,
+      "nextDeadline": "Project kickoff: 10/24/2025",
+      "keyDeadlines": [
+        {
+          "label": "Project Kickoff",
+          "date": "10/24/25"
+        },
+        {
+          "label": "Fielding Start",
+          "date": "11/7/25"
+        },
+        {
+          "label": "Final Report",
+          "date": "12/5/25"
+        }
+      ],
+      "tasks": [
+        {
+          "id": "t1",
+          "description": "Create Kick Off (KO) deck",
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t2",
+          "description": "Create detailed timeline",
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t3",
+          "description": "Hold Internal Pre-Kick Off: Talk through study overview, roles, deadlines, and any other key project info prior to KO with client.",
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t4",
+          "description": "Create or review Proposal based on RFP (Request For Proposal)",
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t5",
+          "description": "Bid project out to vendors/moderators",
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t6",
+          "description": "Get moderator availability",
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t7",
+          "description": "Create a job folder for the study in the 'Proposals' folder (within appropriate client folder)",
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t8",
+          "description": "Save vendors' bids to job folder",
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t9",
+          "description": "Ensure any new vendors have signed the NDA",
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t10",
+          "description": "Create Internal Cost Worksheet, send to supervisor",
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t11",
+          "description": "Move study docs from 'Proposals' folder to main client folder",
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t12",
+          "description": "Update folder name with job #",
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t13",
+          "description": "Add AE submission forms & contact info to job folder",
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t14",
+          "description": "Set up Invoice Schedule & Worksheet",
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t15",
+          "description": "Alert recruiter and moderator that project is moving forward",
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t16",
+          "description": "Draft screener",
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t17",
+          "description": "Draft discussion guide",
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t18",
+          "description": "Start Discuss.io project",
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t19",
+          "description": "Send screener to client",
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t20",
+          "description": "Send discussion guide draft to client",
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t21",
+          "description": "Schedule KO with moderator",
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t22",
+          "description": "Create respondent grid for recruiters",
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t23",
+          "description": "Create shared/client respondent grid",
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t24",
+          "description": "Get screener approval from client",
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t25",
+          "description": "Alert moderator and confirm availability",
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t26",
+          "description": "Submit first invoice request",
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t27",
+          "description": "Ensure signed documents are saved to job folder",
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t28",
+          "description": "Schedule DG walk-through with client and moderator",
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t29",
+          "description": "Copy Cost Tracker shell to job folder",
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t30",
+          "description": "Coordinate discussion guide updates from client",
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t31",
+          "description": "Confirm attendee list with client",
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t32",
+          "description": "Get and finalize stimuli",
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t33",
+          "description": "Monitor recruits and update quotas",
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t34",
+          "description": "Create invite template",
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t35",
+          "description": "Create Content Analysis (CA)",
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t36",
+          "description": "Send Outlook invites with respondent details and observer login info",
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t37",
+          "description": "Brief moderator",
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t38",
+          "description": "Create notetaking schedule and align team",
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t39",
+          "description": "Set up ShareFile folder",
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t40",
+          "description": "Send final stimuli/workbooks/guide to moderator",
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t41",
+          "description": "Schedule client debrief after first 1-2 interviews",
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t42",
+          "description": "Create report shell based on discussion guide and objectives",
+          "status": "pending",
+          "phase": "Fielding",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t43",
+          "description": "Engage transcriptionist (if needed)",
+          "status": "pending",
+          "phase": "Fielding",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t44",
+          "description": "Request invoice (if needed)",
+          "status": "pending",
+          "phase": "Fielding",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t45",
+          "description": "Continue updating report shell with interview content",
+          "status": "pending",
+          "phase": "Fielding",
+          "dueDate": null,
+          "isOngoing": true
+        },
+        {
+          "id": "t46",
+          "description": "Submit AE reports within 24 hours",
+          "status": "pending",
+          "phase": "Fielding",
+          "dueDate": null,
+          "isOngoing": true
+        },
+        {
+          "id": "t47",
+          "description": "Download audio files and transcripts daily",
+          "status": "pending",
+          "phase": "Fielding",
+          "dueDate": null,
+          "isOngoing": true
+        },
+        {
+          "id": "t48",
+          "description": "Manage stimuli changes",
+          "status": "pending",
+          "phase": "Fielding",
+          "dueDate": null,
+          "isOngoing": true
+        },
+        {
+          "id": "t49",
+          "description": "Track high-level findings for client",
+          "status": "pending",
+          "phase": "Fielding",
+          "dueDate": null,
+          "isOngoing": true
+        },
+        {
+          "id": "t50",
+          "description": "Ensure objectives are being met",
+          "status": "pending",
+          "phase": "Fielding",
+          "dueDate": null,
+          "isOngoing": true
+        },
+        {
+          "id": "t51",
+          "description": "Engage with moderator and ask probes",
+          "status": "pending",
+          "phase": "Fielding",
+          "dueDate": null,
+          "isOngoing": true
+        },
+        {
+          "id": "t52",
+          "description": "Schedule second client debrief (if needed)",
+          "status": "pending",
+          "phase": "Fielding",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t53",
+          "description": "Clean project folder",
+          "status": "pending",
+          "phase": "Post-Field Analysis",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t54",
+          "description": "Internal download: all audio files, CA, transcripts, lessons, and notes",
+          "status": "pending",
+          "phase": "Post-Field Analysis",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t55",
+          "description": "Submit AE reconciliation (if needed)",
+          "status": "pending",
+          "phase": "Post-Field Analysis",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t56",
+          "description": "Write findings",
+          "status": "pending",
+          "phase": "Reporting",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t57",
+          "description": "Write executive summary",
+          "status": "pending",
+          "phase": "Reporting",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t58",
+          "description": "Have report proofed",
+          "status": "pending",
+          "phase": "Reporting",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t59",
+          "description": "Have report reviewed internally",
+          "status": "pending",
+          "phase": "Reporting",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t60",
+          "description": "Send report to client",
+          "status": "pending",
+          "phase": "Reporting",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t61",
+          "description": "Update report based on client comments",
+          "status": "pending",
+          "phase": "Reporting",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t62",
+          "description": "Request invoice (if needed)",
+          "status": "pending",
+          "phase": "Reporting",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t63",
+          "description": "Save vendor invoices and submit to accounting",
+          "status": "pending",
+          "phase": "Reporting",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t64",
+          "description": "Reconcile with client-specific finance process",
+          "status": "pending",
+          "phase": "Reporting",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t65",
+          "description": "Fill out Cost Tracker",
+          "status": "pending",
+          "phase": "Reporting",
+          "dueDate": null,
+          "isOngoing": false
+        },
+        {
+          "id": "t66",
+          "description": "Keep internal team aligned on roles, deliverables, and client expectations throughout kickoff.",
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": null,
+          "isOngoing": true
+        },
+        {
+          "id": "t67",
+          "description": "Confirm all client expectations are documented before launch",
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null,
+          "isOngoing": true
+        },
+        {
+          "id": "t68",
+          "description": "Ensure version control across QNR revisions",
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": null,
+          "isOngoing": true
+        },
+        {
+          "id": "t69",
+          "description": "Soft data quality check (10% of total sample), continue quality checks throughout",
+          "status": "pending",
+          "phase": "Fielding",
+          "dueDate": null,
+          "isOngoing": true
+        },
+        {
+          "id": "t70",
+          "description": "Monitor completes and update quotas as needed",
+          "status": "pending",
+          "phase": "Fielding",
+          "dueDate": null,
+          "isOngoing": true
+        },
+        {
+          "id": "t71",
+          "description": "Monitor open end comments for AEs and submit within 24 hours",
+          "status": "pending",
+          "phase": "Fielding",
+          "dueDate": null,
+          "isOngoing": true
+        },
+        {
+          "id": "t72",
+          "description": "Ensure timely completion of field, troubleshoot as needed",
+          "status": "pending",
+          "phase": "Fielding",
+          "dueDate": null,
+          "isOngoing": true
+        },
+        {
+          "id": "t73",
+          "description": "Confirm all deliverables are complete and documented for handoff to reporting",
+          "status": "pending",
+          "phase": "Post-Field Analysis",
+          "dueDate": null,
+          "isOngoing": true
+        },
+        {
+          "id": "t74",
+          "description": "Maintain consistent story flow and formatting across deliverables",
+          "status": "pending",
+          "phase": "Reporting",
+          "dueDate": null,
+          "isOngoing": true
+        }
+      ],
+      "teamMembers": [
+        {
+          "id": "3",
+          "name": "Luke Borglin",
+          "role": "Project Manager"
+        }
+      ],
+      "sampleDetails": "Total: n=10",
+      "files": [],
+      "segments": [
+        {
+          "phase": "Kickoff",
+          "startDate": "2025-10-24",
+          "endDate": "2025-10-24"
+        },
+        {
+          "phase": "Pre-Field",
+          "startDate": "2025-10-25",
+          "endDate": "2025-11-06"
+        },
+        {
+          "phase": "Fielding",
+          "startDate": "2025-11-07",
+          "endDate": "2025-11-21"
+        },
+        {
+          "phase": "Post-Field Analysis",
+          "startDate": "2025-11-22",
+          "endDate": "2025-11-30"
+        },
+        {
+          "phase": "Reporting",
+          "startDate": "2025-12-01",
+          "endDate": "2025-12-05"
+        }
+      ]
     }
-  ]
+  ],
+  "3_archived": []
 }

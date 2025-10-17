@@ -939,6 +939,7 @@ function VendorLibrary({ projects }: { projects: any[] }) {
         </div>
       )}
 
+
       {/* Add Vendor Modal */}
       {showAddModal && createPortal(
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10100]" style={{ margin: 0, padding: 0, top: 0, left: 0, right: 0, bottom: 0 }}>
@@ -3046,8 +3047,10 @@ export default function App() {
   const [loadingProjects, setLoadingProjects] = useState(false);
   const [currentAnalysisId, setCurrentAnalysisId] = useState<string | null>(null);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
+  const [analysisToLoad, setAnalysisToLoad] = useState<string | null>(null);
   const [isNavigatingToProject, setIsNavigatingToProject] = useState(false);
   const [projectToNavigate, setProjectToNavigate] = useState<Project | null>(null);
+  const [isLoadingProjectFile, setIsLoadingProjectFile] = useState(false);
   const [savedContentAnalyses, setSavedContentAnalyses] = useState<any[]>([]);
 
   // Admin notification state
@@ -3872,21 +3875,25 @@ export default function App() {
         </div>
       </aside>
 
-      {route === "Content Analysis" ? (
+      {route === "Content Analysis" || route === "content-analysis" ? (
         <ContentAnalysisX 
           projects={projects} 
           onNavigate={setRoute} 
           onNavigateToProject={handleProjectView}
+          analysisToLoad={analysisToLoad}
+          onAnalysisLoaded={() => setAnalysisToLoad(null)}
           onNavigateToStorytelling={(analysisId, projectId) => {
             setCurrentAnalysisId(analysisId);
             setCurrentProjectId(projectId);
             setRoute("Storytelling");
           }}
         />
-      ) : route === "Transcripts" ? (
-        <Transcripts />
-      ) : route === "Storytelling" ? (
+      ) : route === "Transcripts" || route === "transcripts" ? (
+        <Transcripts onNavigate={setRoute} setAnalysisToLoad={setAnalysisToLoad} />
+      ) : route === "Storytelling" || route === "storytelling" ? (
         <Storytelling analysisId={currentAnalysisId} projectId={currentProjectId} />
+      ) : route === "QNR" || route === "qnr" ? (
+        <QuestionnaireParser />
       ) : (
         <main className="flex-1 overflow-visible min-w-0" style={{ background: BRAND.bg }}>
           {/* Mobile menu button - only visible on very small screens */}
@@ -3899,7 +3906,7 @@ export default function App() {
             </button>
           </div>
           <div className="p-5 overflow-y-auto h-screen w-full min-w-0">
-            {isNavigatingToProject ? (
+            {isNavigatingToProject || isLoadingProjectFile ? (
               <div className="flex items-center justify-center h-screen">
                 <div className="text-center">
                   <div className="w-16 h-16 flex items-center justify-center mx-auto mb-4">
@@ -3908,14 +3915,14 @@ export default function App() {
                       <circle cx="24" cy="24" r="20" fill="none" stroke="#5D5F62" strokeWidth="4" strokeDasharray="50 75.4" strokeDashoffset="-62.7" />
                     </svg>
                   </div>
-                  <p className="text-gray-500">Loading project...</p>
+                  <p className="text-gray-500">{isNavigatingToProject ? 'Loading project...' : 'Loading content...'}</p>
                 </div>
               </div>
             ) : (
               <>
                 {route === "Home" && <Dashboard projects={projects} loading={loadingProjects} onProjectCreated={handleProjectCreated} onNavigateToProject={handleProjectView} setRoute={setRoute} />}
                 {route === "Feedback" && <Feedback defaultType={(new URLSearchParams(window.location.search).get('type') as any) || 'bug'} />}
-                {route === "Project Hub" && <ProjectHub projects={projects} onProjectCreated={handleProjectCreated} onArchive={handleArchiveProject} setProjects={setProjects} savedContentAnalyses={savedContentAnalyses} setRoute={setRoute} initialProject={projectToNavigate} />}
+                {route === "Project Hub" && <ProjectHub projects={projects} onProjectCreated={handleProjectCreated} onArchive={handleArchiveProject} setProjects={setProjects} savedContentAnalyses={savedContentAnalyses} setRoute={setRoute} setAnalysisToLoad={setAnalysisToLoad} setIsLoadingProjectFile={setIsLoadingProjectFile} initialProject={projectToNavigate} />}
               </>
             )}
             {route === "Vendor Library" && <VendorLibrary projects={projects} />}
@@ -5592,7 +5599,7 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
 
         </div>
       </div>
-          </div>
+    </div>
   );
 }
 
@@ -7752,10 +7759,12 @@ interface ProjectHubProps {
   setProjects: (projects: Project[] | ((prev: Project[]) => Project[])) => void;
   savedContentAnalyses?: any[];
   setRoute?: (route: string) => void;
+  setAnalysisToLoad?: (analysisId: string | null) => void;
+  setIsLoadingProjectFile?: (loading: boolean) => void;
   initialProject?: Project | null;
 }
 
-function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedContentAnalyses = [], setRoute, initialProject = null }: ProjectHubProps) {
+function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedContentAnalyses = [], setRoute, setAnalysisToLoad, setIsLoadingProjectFile, initialProject = null }: ProjectHubProps) {
   const { user } = useAuth();
   
   // Function to get current phase based on today's date
@@ -7825,18 +7834,8 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
 
   // Sorting and filtering state
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
-  const [filters, setFilters] = useState({
-    projectName: '',
-    client: '',
-    status: '',
-    team: '',
-    type: '',
-    methodology: '',
-    sample: '',
-    moderator: '',
-    fieldwork: '',
-    report: ''
-  });
+  const [teamFilter, setTeamFilter] = useState<string[]>([]);
+  const [teamFilterDropdown, setTeamFilterDropdown] = useState(false);
 
   // Load vendors data
   const loadVendorsData = useCallback(() => {
@@ -7849,6 +7848,21 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
     } catch (error) {
       console.error('Error loading vendors data:', error);
     }
+  }, []);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.filter-dropdown')) {
+        setTeamFilterDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
   }, []);
 
   // Load archived projects
@@ -7882,6 +7896,18 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
   useEffect(() => {
     loadVendorsData();
   }, [loadVendorsData]);
+
+  // Initialize team filter: default to current user
+  useEffect(() => {
+    if (teamFilter.length === 0 && user) {
+      const allTeamMembers = getTeamMembers();
+      const userName = user.name ? toProperCase(user.name) : '';
+      const userTeamFilter = userName && allTeamMembers.includes(userName) ? [userName] : [];
+      if (userTeamFilter.length > 0) {
+        setTeamFilter(userTeamFilter);
+      }
+    }
+  }, [projects, archivedProjects, activeTab, user]);
 
   // Helper function to get final report date from project
   const getFinalReportDate = (project: Project): Date | null => {
@@ -8056,14 +8082,31 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
     // Get moderator
     let moderator = 'TBD';
     if (project.moderator) {
-      const moderatorData = vendorsData?.moderators?.find((m: any) => m.id === project.moderator);
+      // First try to find by ID
+      let moderatorData = vendorsData?.moderators?.find((m: any) => m.id === project.moderator);
+      
+      // If not found by ID, try to find by name (in case moderator is stored as name)
+      if (!moderatorData) {
+        moderatorData = vendorsData?.moderators?.find((m: any) => 
+          m.name === project.moderator || 
+          m.name?.toLowerCase() === project.moderator?.toLowerCase()
+        );
+      }
+      
       if (moderatorData) {
         moderator = moderatorData.name;
       } else {
-        moderator = project.moderator;
+        // If vendorsData is not loaded yet, check if it looks like an ID (numeric) or name
+        if (vendorsData === null) {
+          // If vendors data not loaded yet, show "Loading..." instead of ID
+          moderator = 'Loading...';
+        } else {
+          // If vendors data is loaded but no match found, show the stored value
+          moderator = project.moderator;
+        }
       }
     }
-    if (methodologyType === 'Quantitative' && moderator === 'TBD') {
+    if (methodologyType === 'Quantitative' && (moderator === 'TBD' || moderator === 'Loading...')) {
       moderator = '-';
     }
     if (moderator && moderator !== 'TBD' && moderator !== '-') {
@@ -8097,40 +8140,57 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
     };
   };
 
-  // Apply filters and sorting
+  // Helper functions for team filter
+  const toProperCase = (text: string): string => {
+    return text.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
+  };
+
+  const getTeamMembers = () => {
+    const allProjects = getCurrentTabProjects().map(getProjectData);
+    const members = new Set<string>();
+
+    allProjects.forEach(project => {
+      if (project.teamMembers && Array.isArray(project.teamMembers)) {
+        project.teamMembers.forEach((member: any) => {
+          if (member && member.name && member.name.trim() !== '') {
+            members.add(toProperCase(member.name));
+          }
+        });
+      }
+    });
+
+    return Array.from(members).sort();
+  };
+
+  const handleTeamFilterChange = (value: string) => {
+    const isSelected = teamFilter.includes(value);
+    setTeamFilter(isSelected
+      ? teamFilter.filter(v => v !== value)
+      : [...teamFilter, value]
+    );
+  };
+
+  const clearTeamFilter = () => {
+    setTeamFilter([]);
+  };
+
+  const selectAllTeamFilter = () => {
+    const allMembers = getTeamMembers();
+    setTeamFilter(allMembers);
+  };
+
+  // Apply team filter and sorting
   const filteredProjects = useMemo(() => {
     let projects = getCurrentTabProjects().map(getProjectData);
 
-    // Apply filters
-    if (filters.projectName) {
-      projects = projects.filter(p => p.name.toLowerCase().includes(filters.projectName.toLowerCase()));
-    }
-    if (filters.client) {
-      projects = projects.filter(p => p.client.toLowerCase().includes(filters.client.toLowerCase()));
-    }
-    if (filters.status) {
-      projects = projects.filter(p => p.phase.toLowerCase().includes(filters.status.toLowerCase()));
-    }
-    if (filters.team) {
-      projects = projects.filter(p => p.teamMembersText.toLowerCase().includes(filters.team.toLowerCase()));
-    }
-    if (filters.type) {
-      projects = projects.filter(p => p.methodologyType.toLowerCase().includes(filters.type.toLowerCase()));
-    }
-    if (filters.methodology) {
-      projects = projects.filter(p => p.methodology.toLowerCase().includes(filters.methodology.toLowerCase()));
-    }
-    if (filters.sample) {
-      projects = projects.filter(p => p.sampleDetails.toLowerCase().includes(filters.sample.toLowerCase()));
-    }
-    if (filters.moderator) {
-      projects = projects.filter(p => p.moderator.toLowerCase().includes(filters.moderator.toLowerCase()));
-    }
-    if (filters.fieldwork) {
-      projects = projects.filter(p => p.fieldworkRange.toLowerCase().includes(filters.fieldwork.toLowerCase()));
-    }
-    if (filters.report) {
-      projects = projects.filter(p => p.reportDeadline.toLowerCase().includes(filters.report.toLowerCase()));
+    // Team filter: empty = show all, selected items = filter
+    if (teamFilter.length > 0) {
+      projects = projects.filter(project => {
+        if (!project.teamMembers || !Array.isArray(project.teamMembers)) return false;
+        return project.teamMembers.some((member: any) =>
+          member && member.name && teamFilter.some(ft => ft.toLowerCase() === member.name.toLowerCase())
+        );
+      });
     }
 
     // Apply sorting
@@ -8304,7 +8364,7 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
     }
 
     return projects;
-  }, [getCurrentTabProjects, filters, sortConfig, vendorsData, user]);
+  }, [getCurrentTabProjects, teamFilter, sortConfig, vendorsData, user]);
 
   // Handle sorting
   const handleSort = (key: string) => {
@@ -8316,10 +8376,6 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
     });
   };
 
-  // Handle filter changes
-  const handleFilterChange = (key: string, value: string) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
-  };
 
 
   const handleEditProject = (updatedProject: Project) => {
@@ -8633,6 +8689,8 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
             }}
             savedContentAnalyses={savedContentAnalyses}
             setRoute={setRoute}
+            setAnalysisToLoad={setAnalysisToLoad}
+            setIsLoadingProjectFile={setIsLoadingProjectFile}
           />
         </div>
       )}
@@ -8707,14 +8765,14 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
 
         {/* Projects Table - List View */}
         {viewMode === 'list' && (
-          <div className="bg-white shadow-sm border border-gray-200 rounded-lg overflow-hidden">
-          <div className="overflow-x-auto w-full">
-            <table className="w-full divide-y divide-gray-200">
+          <div className="bg-white shadow-sm border border-gray-200 rounded-lg" style={{ overflow: 'visible' }}>
+          <div className="w-full" style={{ overflowX: 'auto', overflowY: 'visible', minHeight: '400px' }}>
+            <table className="w-full divide-y divide-gray-200 table-fixed">
               <thead style={{ backgroundColor: BRAND.orange }}>
                 {/* Header row with sortable columns */}
                 <tr>
-                  <th 
-                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-orange-600"
+                  <th
+                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-orange-600 w-[14%]"
                     onClick={() => handleSort('name')}
                   >
                     <div className="flex items-center gap-1">
@@ -8726,8 +8784,8 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                       )}
                     </div>
                   </th>
-                  <th 
-                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-orange-600"
+                  <th
+                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-orange-600 w-[11%]"
                     onClick={() => handleSort('client')}
                   >
                     <div className="flex items-center gap-1">
@@ -8739,8 +8797,8 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                       )}
                     </div>
                   </th>
-                  <th 
-                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-orange-600"
+                  <th
+                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-orange-600 w-[9%]"
                     onClick={() => handleSort('phase')}
                   >
                     <div className="flex items-center gap-1">
@@ -8752,21 +8810,71 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                       )}
                     </div>
                   </th>
-                  <th 
-                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-orange-600"
+                  <th
+                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-orange-600 relative w-[13%]"
                     onClick={() => handleSort('teamMembersText')}
                   >
-                    <div className="flex items-center gap-1">
-                      Team
-                      {sortConfig?.key === 'teamMembersText' && (
-                        <span className="text-white">
-                          {sortConfig.direction === 'asc' ? '↑' : '↓'}
-                        </span>
-                      )}
+                    <div className="flex items-center justify-between w-full">
+                      <div className="flex items-center gap-1">
+                        Team
+                        {sortConfig?.key === 'teamMembersText' && (
+                          <span className="text-white">
+                            {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setTeamFilterDropdown(!teamFilterDropdown);
+                        }}
+                        className="p-1 rounded hover:bg-orange-600"
+                      >
+                        <svg className={`w-3 h-3 stroke-current ${teamFilter.length > 0 ? 'fill-white' : 'fill-none'}`} viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                        </svg>
+                      </button>
                     </div>
+                    {teamFilterDropdown && (
+                      <div className="filter-dropdown absolute top-full left-0 mt-1 w-72 bg-white border border-gray-200 rounded-md shadow-lg z-[9999]">
+                        <div className="p-2">
+                          <div className="flex items-center justify-between mb-2 pb-2 border-b border-gray-200">
+                            <button
+                              onClick={() => selectAllTeamFilter()}
+                              className="text-[11px] text-gray-500 hover:text-gray-700"
+                            >
+                              Select All
+                            </button>
+                            <button
+                              onClick={() => clearTeamFilter()}
+                              className="text-[11px] text-gray-500 hover:text-gray-700"
+                            >
+                              Clear All
+                            </button>
+                          </div>
+                          <div className="max-h-60 overflow-y-auto">
+                            {getTeamMembers().map((value) => (
+                              <label
+                                key={value}
+                                className="flex items-center gap-2 px-2 py-1 text-[11px] rounded hover:bg-gray-100 cursor-pointer"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={teamFilter.includes(value)}
+                                  onChange={() => handleTeamFilterChange(value)}
+                                  className="w-3 h-3 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                                <span className="text-gray-700">{value}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </th>
-                  <th 
-                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-orange-600"
+                  <th
+                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-orange-600 w-[7%]"
                     onClick={() => handleSort('methodologyType')}
                   >
                     <div className="flex items-center gap-1">
@@ -8778,8 +8886,8 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                       )}
                     </div>
                   </th>
-                  <th 
-                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-orange-600"
+                  <th
+                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-orange-600 w-[11%]"
                     onClick={() => handleSort('methodology')}
                   >
                     <div className="flex items-center gap-1">
@@ -8791,8 +8899,8 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                       )}
                     </div>
                   </th>
-                  <th 
-                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-orange-600"
+                  <th
+                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-orange-600 w-[10%]"
                     onClick={() => handleSort('sampleDetails')}
                   >
                     <div className="flex items-center gap-1">
@@ -8804,8 +8912,8 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                       )}
                     </div>
                   </th>
-                  <th 
-                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-orange-600"
+                  <th
+                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-orange-600 w-[9%]"
                     onClick={() => handleSort('moderator')}
                   >
                     <div className="flex items-center gap-1">
@@ -8817,11 +8925,11 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                       )}
                     </div>
                   </th>
-                  <th 
-                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-orange-600"
+                  <th
+                    className="px-0.5 sm:px-1 md:px-2 py-3 text-center text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-orange-600 w-[7%]"
                     onClick={() => handleSort('fieldworkRange')}
                   >
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center justify-center gap-1">
                       Fieldwork
                       {sortConfig?.key === 'fieldworkRange' && (
                         <span className="text-white">
@@ -8830,11 +8938,11 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                       )}
                     </div>
                   </th>
-                  <th 
-                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-orange-600"
+                  <th
+                    className="px-0.5 sm:px-1 md:px-2 py-3 text-center text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-orange-600 w-[6%]"
                     onClick={() => handleSort('reportDeadline')}
                   >
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center justify-center gap-1">
                       Report
                       {sortConfig?.key === 'reportDeadline' && (
                         <span className="text-white">
@@ -8843,7 +8951,7 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                       )}
                     </div>
                   </th>
-                  <th className="px-0.5 sm:px-1 md:px-2 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Actions</th>
+                  <th className="px-0.5 sm:px-1 md:px-2 py-3 text-center text-xs font-medium text-white uppercase tracking-wider w-[8%]">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -8861,23 +8969,25 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
 
                   const isArchived = project.archived === true;
                   const isUserProjectRow = isUserProject(project);
+                  // Only highlight user projects when NOT filtering by user's name
+                  const shouldHighlightUserProject = isUserProjectRow && (!user || !teamFilter.includes(user.name));
                   
                   return (
                   <tr
                     key={project.id}
-                      className={`hover:bg-gray-50 cursor-pointer ${isArchived ? 'opacity-60 bg-gray-50' : ''} ${isUserProjectRow ? 'bg-orange-50' : ''}`}
+                      className={`hover:bg-gray-50 cursor-pointer ${isArchived ? 'opacity-60 bg-gray-50' : ''} ${shouldHighlightUserProject ? 'bg-orange-50' : ''}`}
                     onClick={() => handleProjectView(project)}
                   >
-                      <td className="px-0.5 sm:px-1 md:px-2 py-3 text-sm font-medium text-gray-900 max-w-[180px] h-16 align-middle">
+                      <td className="px-0.5 sm:px-1 md:px-2 py-3 text-sm font-medium text-gray-900 w-[14%] h-16 align-middle">
                       <div className="line-clamp-2">
                           {project.name}
                           {isArchived && <span className="ml-2 text-xs text-gray-500">(Archived)</span>}
                       </div>
                     </td>
-                      <td className="px-0.5 sm:px-1 md:px-2 py-3 text-sm text-gray-500 italic max-w-[150px] h-16 align-middle">
-                        <div className="truncate">{project.client}</div>
+                      <td className="px-0.5 sm:px-1 md:px-2 py-3 text-sm text-gray-500 italic w-[11%] h-16 align-middle">
+                        <div className="truncate">{toProperCase(project.client)}</div>
                       </td>
-                      <td className="px-0.5 sm:px-1 md:px-2 py-3 h-16 align-middle">
+                      <td className="px-0.5 sm:px-1 md:px-2 py-3 h-16 align-middle w-[9%]">
                         <span
                           className="inline-flex items-center justify-center w-24 px-0.5 sm:px-1 md:px-2 py-1 rounded-full text-xs font-medium text-white"
                           style={{ 
@@ -8888,7 +8998,7 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                           {isArchived ? 'Archived' : getPhaseDisplayName(currentPhase)}
                         </span>
                       </td>
-                      <td className="px-0.5 sm:px-1 md:px-2 py-3 text-sm text-gray-500 h-16 align-middle">
+                      <td className="px-0.5 sm:px-1 md:px-2 py-3 text-sm text-gray-500 h-16 align-middle w-[13%]">
                         <div className="flex items-center">
                           {project.teamMembers?.slice(0, 3).map((member, index) => (
                             <div
@@ -8917,13 +9027,13 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                           )}
                       </div>
                     </td>
-                      <td className="px-0.5 sm:px-1 md:px-2 py-3 text-xs text-gray-500 max-w-[100px] h-16 align-middle">
-                        <div className="truncate">{displayMethodologyType}</div>
+                      <td className="px-0.5 sm:px-1 md:px-2 py-3 text-xs text-gray-500 w-[7%] h-16 align-middle">
+                        <div className="truncate">{toProperCase(displayMethodologyType)}</div>
                     </td>
-                      <td className="px-0.5 sm:px-1 md:px-2 py-3 text-xs text-gray-500 max-w-[120px] h-16 align-middle">
-                        <div className="truncate">{project.methodology}</div>
+                      <td className="px-0.5 sm:px-1 md:px-2 py-3 text-xs text-gray-500 w-[11%] h-16 align-middle">
+                        <div className="truncate">{toProperCase(project.methodology)}</div>
                     </td>
-                      <td className="px-0.5 sm:px-1 md:px-2 py-3 text-xs text-gray-500 max-w-[150px] h-16 align-middle">
+                      <td className="px-0.5 sm:px-1 md:px-2 py-3 text-xs text-gray-500 w-[10%] h-16 align-middle">
                         {(() => {
                           if (!sampleDetails || sampleDetails === 'TBD') {
                             return <div className="text-xs text-gray-500">TBD</div>;
@@ -8954,16 +9064,25 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                           );
                         })()}
                     </td>
-                      <td className="px-0.5 sm:px-1 md:px-2 py-3 text-xs text-gray-500 max-w-[120px] h-16 align-middle">
-                        <div className="truncate">{moderator}</div>
+                      <td className="px-0.5 sm:px-1 md:px-2 py-3 text-xs text-gray-500 w-[9%] h-16 align-middle">
+                        <div className="truncate">
+                          {moderator === 'Loading...' ? (
+                            <div className="flex items-center gap-1">
+                              <div className="w-3 h-3 border border-gray-300 border-t-transparent rounded-full animate-spin"></div>
+                              <span className="text-gray-400">Loading...</span>
+                            </div>
+                          ) : (
+                            toProperCase(moderator)
+                          )}
+                        </div>
                       </td>
-                      <td className="px-0.5 sm:px-1 md:px-2 py-3 text-xs text-gray-500 max-w-[150px] h-16 align-middle">
-                        <div className="truncate">{fieldworkRange}</div>
+                      <td className="px-0.5 sm:px-1 md:px-2 py-3 text-xs text-gray-500 w-[7%] h-16 align-middle">
+                        <div className="truncate text-center">{fieldworkRange}</div>
                       </td>
-                      <td className="px-0.5 sm:px-1 md:px-2 py-3 text-xs text-gray-500 max-w-[100px] h-16 align-middle">
-                        <div className="truncate">{reportDeadline}</div>
+                      <td className="px-0.5 sm:px-1 md:px-2 py-3 text-xs text-gray-500 w-[6%] h-16 align-middle">
+                        <div className="truncate text-center">{reportDeadline}</div>
                       </td>
-                      <td className="px-0.5 sm:px-1 md:px-2 py-3 text-right text-sm font-medium h-16 align-middle">
+                      <td className="px-0.5 sm:px-1 md:px-2 py-3 text-center text-sm font-medium h-16 align-middle w-[8%]">
                       <div className="flex items-center justify-center gap-2">
                         {activeTab === 'archived' ? (
                           <>
@@ -9686,16 +9805,18 @@ function ProjectForm({
   );
 }
 
-function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUpdate, savedContentAnalyses = [], setRoute }: { project: Project; onEdit: () => void; onArchive: (projectId: string) => void; setProjects?: (projects: Project[] | ((prev: Project[]) => Project[])) => void; onProjectUpdate?: (project: Project) => void; savedContentAnalyses?: any[]; setRoute?: (route: string) => void }) {
+function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUpdate, savedContentAnalyses = [], setRoute, setAnalysisToLoad, setIsLoadingProjectFile }: { project: Project; onEdit: () => void; onArchive: (projectId: string) => void; setProjects?: (projects: Project[] | ((prev: Project[]) => Project[])) => void; onProjectUpdate?: (project: Project) => void; savedContentAnalyses?: any[]; setRoute?: (route: string) => void; setAnalysisToLoad?: (analysisId: string | null) => void; setIsLoadingProjectFile?: (loading: boolean) => void }) {
   const { user } = useAuth();
 
   // Edit modal states
+  const [showProjectNameEdit, setShowProjectNameEdit] = useState(false);
   const [showClientEdit, setShowClientEdit] = useState(false);
   const [showMethodologyEdit, setShowMethodologyEdit] = useState(false);
   const [showModeratorEdit, setShowModeratorEdit] = useState(false);
   const [showSampleDetailsEdit, setShowSampleDetailsEdit] = useState(false);
   
   // Client edit state
+  const [selectedProjectName, setSelectedProjectName] = useState(project.name || '');
   const [existingClients, setExistingClients] = useState<string[]>([]);
   const [selectedClient, setSelectedClient] = useState(project.client || '');
   
@@ -10272,7 +10393,8 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
         'sample': 'sampleDetails',
         'methodology': 'methodology',
         'moderator': 'moderator',
-        'client': 'client'
+        'client': 'client',
+        'name': 'name'
       };
 
       const projectField = fieldMapping[field] || field;
@@ -11866,10 +11988,14 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
 
   return (
     <div className="space-y-6">
-      {/* Top Row: Today + Later This Week + Ongoing Tasks + Project Details */}
+      {/* Main Layout with Sidebar */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Today Box */}
-        <Card className="!p-0 overflow-hidden rounded-none h-64">
+        {/* Main Content Area */}
+        <div className="lg:col-span-3 space-y-6">
+          {/* Top Row: Today + Later This Week + Ongoing Tasks */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Today Box */}
+            <Card className="!p-0 overflow-hidden rounded-none h-64">
           <div className="px-4 py-3 flex items-center gap-2">
             {/* Calendar tile icon for Today */}
             <div className="flex-shrink-0 w-10 h-10 bg-white border border-gray-300 rounded-lg overflow-hidden flex flex-col">
@@ -11977,8 +12103,8 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
           </div>
         </Card>
 
-        {/* Later This Week Box */}
-        <Card className="!p-0 overflow-hidden rounded-none h-64">
+            {/* Later This Week Box */}
+            <Card className="!p-0 overflow-hidden rounded-none h-64">
           <div className="px-4 py-3 flex items-center gap-2">
             <div className="flex-shrink-0">
               <IconCalendarShare className="w-10 h-10 text-blue-500" stroke={1.5} />
@@ -12065,8 +12191,8 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
           </div>
         </Card>
 
-        {/* Ongoing Tasks Box */}
-        <Card className="!p-0 overflow-hidden rounded-none h-64">
+            {/* Ongoing Tasks Box */}
+            <Card className="!p-0 overflow-hidden rounded-none h-64">
           <div className="px-4 py-3 flex items-center gap-2">
             <div className="flex-shrink-0">
               <svg className="w-10 h-10 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -12103,7 +12229,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
 
                 if (sortedOngoingTasks.length === 0) {
                   return (
-                    <div className="flex items-center justify-center h-full text-gray-500 text-sm">
+                    <div className="text-xs italic text-gray-500">
                       No ongoing tasks assigned
                     </div>
                   );
@@ -12151,111 +12277,13 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
             {/* Gradient overlay to indicate more content */}
             <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white to-transparent pointer-events-none"></div>
           </div>
-        </Card>
-
-        {/* Project Details - Three Boxes Left, Sample Details Right */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:col-span-1">
-          {/* Left Column - Client, Methodology, Moderator */}
-          <div className={`flex flex-col ${project.methodologyType === 'Quantitative' ? 'justify-end' : 'justify-between'} h-64`}>
-            {/* Client Box */}
-            <Card className={`!p-0 overflow-hidden rounded-none ${project.methodologyType === 'Quantitative' ? 'h-32' : 'h-20'}`}>
-              <div style={{ backgroundColor: BRAND.orange }} className="text-white px-4 py-2 flex items-center justify-between">
-                <h3 className="text-sm font-semibold">Client</h3>
-                <button onClick={() => setShowClientEdit(true)} className="text-white hover:text-gray-200 transition-colors" title="Edit client">
-                  <PencilIcon className="w-4 h-4" />
-                </button>
-              </div>
-              <div className="border-b border-gray-200"></div>
-              <div className="px-4 py-2">
-                <span className="text-xs text-gray-700">{project.client || 'Not specified'}</span>
-              </div>
-            </Card>
-
-            {/* Methodology Box */}
-            <Card className={`!p-0 overflow-hidden rounded-none ${project.methodologyType === 'Quantitative' ? 'h-32' : 'h-20'}`}>
-              <div style={{ backgroundColor: BRAND.orange }} className="text-white px-4 py-2 flex items-center justify-between">
-                <h3 className="text-sm font-semibold">Methodology</h3>
-                <button onClick={() => setShowMethodologyEdit(true)} className="text-white hover:text-gray-200 transition-colors" title="Edit methodology">
-                  <PencilIcon className="w-4 h-4" />
-                </button>
-              </div>
-              <div className="border-b border-gray-200"></div>
-              <div className="px-4 py-2">
-                <span className="text-xs text-gray-700">{project.methodology || 'Not specified'}</span>
-              </div>
-            </Card>
-
-            {/* Moderator Box - Only show for qualitative studies */}
-            {project.methodologyType === 'Qualitative' && (
-            <Card className="!p-0 overflow-hidden rounded-none h-20">
-              <div style={{ backgroundColor: BRAND.orange }} className="text-white px-4 py-2 flex items-center justify-between">
-                <h3 className="text-sm font-semibold">Moderator</h3>
-                <button onClick={() => setShowModeratorEdit(true)} className="text-white hover:text-gray-200 transition-colors" title="Edit moderator">
-                  <PencilIcon className="w-4 h-4" />
-                </button>
-              </div>
-              <div className="border-b border-gray-200"></div>
-              <div className="px-4 py-2">
-                {project.methodologyType === 'Qualitative' ? (
-                  <span className="text-xs text-gray-700">
-                    {localProject.moderator && localProject.moderator !== 'internal' && localProject.moderator !== 'external' && localProject.moderator !== 'vendor'
-                      ? (moderators.find(m => m.id === localProject.moderator || m.name === localProject.moderator)?.name || localProject.moderator)
-                      : 'Not assigned'}
-                  </span>
-                ) : (
-                  <span className="text-xs text-gray-500 italic">Not applicable for quantitative projects</span>
-                )}
-              </div>
-            </Card>
-            )}
-          </div>
-
-          {/* Right Column - Sample Details */}
-          <div>
-            {/* Sample Details Box */}
-            <Card className="!p-0 overflow-hidden rounded-none h-64">
-              <div style={{ backgroundColor: BRAND.orange }} className="text-white px-4 py-2 flex items-center justify-between">
-                <h3 className="text-sm font-semibold">Sample Details</h3>
-                <button onClick={() => setShowSampleDetailsEdit(true)} className="text-white hover:text-gray-200 transition-colors" title="Edit sample details">
-                  <PencilIcon className="w-4 h-4" />
-                </button>
-              </div>
-              <div className="border-b border-gray-200"></div>
-              <div className="px-4 py-2">
-                <div className="mb-2">
-                  <span className="text-xs font-semibold text-gray-600">Total Sample: </span>
-                  <span className="text-xs text-gray-700">
-                    {project.sampleSize ? `n=${project.sampleSize}` : 'Not specified'}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-xs font-semibold text-gray-600 mb-1 block">Subgroups:</span>
-                  <div className="space-y-1">
-                    {(() => {
-                      if (project.subgroups && project.subgroups.length > 0) {
-                        return project.subgroups.map((subgroup, idx) => (
-                          <div key={idx} className="text-xs text-gray-700">
-                            - {subgroup.name}: n={subgroup.size}
-                          </div>
-                        ));
-                      }
-                      
-                      return <p className="text-xs italic text-gray-500">No subgroups specified</p>;
-                    })()}
-                  </div>
-                </div>
-              </div>
             </Card>
           </div>
-        </div>
-      </div>
 
-      {/* Main Layout: Left side (Tasks + Post-it Notes) and Right side (Calendar + Key Dates + Files/Notes) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left Half - Tasks, Post-it Notes, and Project Files */}
-        <div className="flex flex-col gap-6">
-          {/* Tasks Section (container without white card) */}
-          <div className="h-[500px] flex flex-col">
+          {/* Main Content Area */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Tasks Section (container without white card) */}
+            <div className="flex flex-col">
             {/* Phase Tabs */}
             <div className="mb-0">
               <div className="flex flex-wrap items-stretch w-full" style={{ marginRight: "-14px" }}>
@@ -12541,7 +12569,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                       </div>
 
                       {/* Assignment Section */}
-                      <div className="relative gap-2 flex justify-self-center ml-1">
+                      <div className="relative flex items-center justify-self-center ml-1 gap-0">
                         {task.assignedTo && task.assignedTo.filter(id => id && id.trim() !== '').length > 0 && (
                           <div className="flex items-center gap-1 flex-shrink-0">
                             {task.assignedTo.filter(id => id && id.trim() !== '').slice(0, 2).map((memberId) => (
@@ -12563,7 +12591,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                         )}
                           <button
                             onClick={() => setShowAssignmentDropdown(showAssignmentDropdown === task.id ? null : task.id)}
-                            className="w-6 h-6 rounded-full bg-transparent flex items-center justify-center text-gray-500 hover:text-gray-700 transition-colors"
+                            className="w-6 h-6 rounded-full bg-transparent flex items-center justify-center text-gray-500 hover:text-gray-700 transition-colors ml-1"
                             title="Assign team members"
                           >
                             +
@@ -12607,162 +12635,12 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                 
               </div>
             </div>
+            
+            {/* Post-it Notes moved back under Calendar */}
           </div>
 
-          {/* Project Files */}
-          <Card className="flex-1">
-            <div className="px-6 py-4 h-full flex flex-col">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Project Files</h3>
-                <button
-                  onClick={() => setShowAddFileModal(true)}
-                  className="px-3 py-1.5 text-xs text-white rounded-lg hover:opacity-90 transition-colors flex items-center gap-1"
-                  style={{ backgroundColor: BRAND.orange }}
-                >
-                  <PlusSmallIcon className="h-4 w-4" />
-                  Add File
-                </button>
-              </div>
-
-              {(() => {
-                // Combine all files: project files + content analyses
-                const allFiles = [...projectFiles];
-
-                // Add content analyses for qualitative projects
-                if (project.methodologyType === 'Qualitative') {
-                  const projectAnalyses = savedContentAnalyses.filter(analysis => analysis.projectId === project.id);
-                  projectAnalyses.forEach(analysis => {
-                    const respondentCount = analysis.data?.Demographics ?
-                      analysis.data.Demographics.filter((row: any) => {
-                        const respondentId = row['Respondent ID'] || row['respno'];
-                        return respondentId && String(respondentId).trim().startsWith('R');
-                      }).length : 0;
-
-                    allFiles.push({
-                      id: `ca-${analysis.id}`,
-                      name: analysis.name,
-                      type: 'content-analysis' as ProjectFile['type'],
-                      url: '#',
-                      metadata: { respondentCount, analysisId: analysis.id }
-                    } as any);
-                  });
-                }
-
-                return allFiles.length > 0 ? (
-                  <div className="space-y-2 flex-1 overflow-y-auto">
-                    {allFiles.map((file: any) => {
-                      const isContentAnalysis = file.type === 'content-analysis';
-
-                      return isContentAnalysis ? (
-                        <>
-                          {/* Content Analysis Entry */}
-                          <div
-                            key={file.id}
-                            onClick={() => {
-                              setRoute && setRoute('Content Analysis');
-                              setTimeout(() => {
-                                const event = new CustomEvent('loadContentAnalysis', { detail: { analysisId: file.metadata.analysisId } });
-                                window.dispatchEvent(event);
-                              }, 100);
-                            }}
-                            className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors group cursor-pointer"
-                          >
-                            <div className="flex-shrink-0">
-                              <svg className="h-5 w-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                              </svg>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-gray-900 truncate group-hover:text-orange-600">
-                                {file.name}
-                              </p>
-                              <p className="text-xs text-gray-500">
-                                Content Analysis • {file.metadata.respondentCount} respondent{file.metadata.respondentCount !== 1 ? 's' : ''}
-                              </p>
-                            </div>
-                          </div>
-                          
-                          {/* Discussion Guide Entry */}
-                          <div
-                            key={`dg-${file.id}`}
-                            onClick={() => {
-                              setSelectedDiscussionGuide(file.metadata.analysisId);
-                              setShowDiscussionGuideModal(true);
-                            }}
-                            className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors group cursor-pointer ml-4"
-                          >
-                            <div className="flex-shrink-0">
-                              <svg className="h-5 w-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                              </svg>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-gray-900 truncate group-hover:text-orange-600">
-                                Discussion Guide
-                              </p>
-                              <p className="text-xs text-gray-500">
-                                View discussion guide
-                              </p>
-                            </div>
-                          </div>
-                        </>
-                      ) : (
-                        <a
-                          key={file.id}
-                          href={file.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors group"
-                        >
-                          <div className="flex-shrink-0">
-                            {getSharePointFileIcon(file.type)}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-900 truncate group-hover:text-orange-600">
-                              {file.name}
-                            </p>
-                            <p className="text-xs text-gray-500">{file.type}</p>
-                          </div>
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              handleDeleteFile(file.id);
-                            }}
-                            className="flex-shrink-0 p-1 text-gray-400 hover:text-red-600 transition-colors"
-                            title="Delete file"
-                          >
-                            <TrashIcon className="h-4 w-4" />
-                          </button>
-                        </a>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="flex-1 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center">
-                    <div className="text-center">
-                      <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                      </svg>
-                      <p className="mt-2 text-sm text-gray-500">No files added yet</p>
-                      {project.methodologyType === 'Qualitative' && (
-                        <button
-                          onClick={() => setRoute && setRoute('Content Analysis')}
-                          className="mt-2 text-xs text-orange-600 hover:text-orange-800"
-                        >
-                          Add Content Analysis
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
-          </Card>
-        </div>
-
-        {/* Right Half - Calendar, Key Dates, Files/Notes */}
-        <div className="space-y-6">
+            {/* Right Half - Calendar, Key Dates, Files/Notes */}
+            <div className="space-y-6">
           {/* Calendar */}
           <Card className="flex flex-col h-[500px] !p-0 overflow-hidden">
             {/* Calendar Navigation */}
@@ -12963,123 +12841,461 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
               })()}
             </div>
         </Card>
-
-          {/* Post-it Notes */}
-          {projectNotes.filter(note => note.postToProjectPage).length > 0 ? (
-            <div className="flex gap-3 items-stretch h-48">
-              <div className="flex-1 flex gap-3">
-                {projectNotes
-                  .filter(note => note.postToProjectPage)
-                  .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-                  .slice(0, 3)
-                  .map((note) => (
-                    <div
-                      key={note.id}
-                      className="bg-yellow-100 p-3 rounded-lg border-l-4 border-yellow-300 shadow-sm flex-1 cursor-pointer hover:shadow-md transition-shadow"
-                      onClick={() => setSelectedNote(note)}
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-medium" style={{ fontSize: '10px', backgroundColor: getMemberColor(note.createdBy, project.teamMembers) }}>
-                            {getInitials(project.teamMembers.find(m => m.id === note.createdBy)?.name || note.createdBy)}
-                          </div>
-                          {note.comments && note.comments.length > 0 && (
-                            <div className="flex items-center gap-1 text-gray-500">
-                              <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                              </svg>
-                              <span className="text-xs">{note.comments.length}</span>
-                            </div>
-                          )}
-                        </div>
-                        <span className="text-xs text-gray-500 italic">{formatShortDate(note.createdAt)}</span>
-                      </div>
-                      <p className="text-sm text-gray-700 leading-relaxed line-clamp-3" dangerouslySetInnerHTML={{ __html: note.body }}></p>
-                    </div>
-                  ))}
-              </div>
-              <div className="flex flex-col gap-3">
-                <button
-                  onClick={() => setShowAddNote(true)}
-                  className="border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-gray-400 hover:text-gray-600 transition-colors flex items-center justify-center px-3 flex-1"
-                >
-                  <PlusSmallIcon className="h-4 w-4" />
-                </button>
-                {projectNotes.filter(note => note.postToProjectPage).length > 3 && (
-                  <button
-                    onClick={() => setShowNotesModal(true)}
-                    className="border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-gray-400 hover:text-gray-600 transition-colors flex items-center justify-center px-3 h-10"
+        {/* Post-it Notes (under Calendar) */}
+        {projectNotes.filter(note => note.postToProjectPage).length > 0 ? (
+          <div className="flex gap-3 items-stretch h-48">
+            <div className="flex-1 flex gap-3">
+              {projectNotes
+                .filter(note => note.postToProjectPage)
+                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                .slice(0, 3)
+                .map((note) => (
+                  <div
+                    key={note.id}
+                    className="bg-yellow-100 p-3 rounded-lg border-l-4 border-yellow-300 shadow-sm flex-1 cursor-pointer hover:shadow-md transition-shadow"
+                    onClick={() => setSelectedNote(note)}
                   >
-                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                    </svg>
-                  </button>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="h-48">
-              <Card className="h-full flex items-center justify-center">
-                <button
-                  onClick={() => setShowAddNote(true)}
-                  className="w-full h-full border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-gray-400 hover:text-gray-600 transition-colors flex items-center justify-center gap-2"
-                >
-                  <PlusSmallIcon className="h-4 w-4" />
-                  <span className="text-sm">Add Post-it Note</span>
-                </button>
-              </Card>
-            </div>
-          )}
-
-          {/* Key Dates */}
-          <Card>
-              <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold">Key Dates</h3>
-                <button
-                    onClick={() => setShowAddKeyDate(true)}
-                  className="text-xs text-orange-600 hover:text-orange-800 flex items-center gap-1"
-                >
-                  <PlusSmallIcon className="h-3 w-3" />
-                    Add
-                </button>
-              </div>
-                <div className="space-y-2">
-                  {/* Main project dates */}
-                  {projectKeyDates.filter(date =>
-                    ['Project Kickoff', 'Fielding Start', 'Final Report'].includes(date.label)
-                  ).map((deadline, index) => (
-                    <div key={`main-deadline-${deadline.label}-${index}`} className="flex items-center justify-between">
-                      <span className="text-sm">{deadline.label}</span>
-                      <span className="text-xs text-gray-500">{deadline.date}</span>
-                    </div>
-                  ))}
-
-                  {/* Custom key dates */}
-                  {projectKeyDates.filter(date =>
-                    !['Project Kickoff', 'Fielding Start', 'Final Report'].includes(date.label)
-                  ).map((deadline, index) => (
-                    <div key={`custom-${index}`} className="flex items-center justify-between group">
-                      <span className="text-sm">{deadline.label}</span>
+                    <div className="flex items-start justify-between mb-2">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-500">{deadline.date}</span>
-                        <button
-                          onClick={() => handleDeleteKeyDate(projectKeyDates.findIndex(d => d.label === deadline.label && d.date === deadline.date))}
-                          className="text-xs text-red-600 hover:text-red-800 opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          ×
-                        </button>
+                        <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-medium" style={{ fontSize: '10px', backgroundColor: getMemberColor(note.createdBy, project.teamMembers) }}>
+                          {getInitials(project.teamMembers.find(m => m.id === note.createdBy)?.name || note.createdBy)}
+                        </div>
+                        {note.comments && note.comments.length > 0 && (
+                          <div className="flex items-center gap-1 text-gray-500">
+                            <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            </svg>
+                            <span className="text-xs">{note.comments.length}</span>
+                          </div>
+                        )}
                       </div>
+                      <span className="text-xs text-gray-500 italic">{formatShortDate(note.createdAt)}</span>
                     </div>
-                  ))}
+                    <p className="text-sm text-gray-700 leading-relaxed line-clamp-3" dangerouslySetInnerHTML={{ __html: note.body }}></p>
+                  </div>
+                ))}
+            </div>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => setShowAddNote(true)}
+                className="border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-gray-400 hover:text-gray-600 transition-colors flex items-center justify-center px-3 flex-1"
+              >
+                <PlusSmallIcon className="h-4 w-4" />
+              </button>
+              {projectNotes.filter(note => note.postToProjectPage).length > 3 && (
+                <button
+                  onClick={() => setShowNotesModal(true)}
+                  className="border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-gray-400 hover:text-gray-600 transition-colors flex items-center justify-center px-3 h-10"
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="h-48">
+            <Card className="h-full flex items-center justify-center">
+              <button
+                onClick={() => setShowAddNote(true)}
+                className="w-full h-full border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-gray-400 hover:text-gray-600 transition-colors flex items-center justify-center gap-2"
+              >
+                <PlusSmallIcon className="h-4 w-4" />
+                <span className="text-sm">Add Post-it Note</span>
+              </button>
+            </Card>
+          </div>
+        )}
+            </div>
+          </div>
+        </div>
 
-                  {projectKeyDates.length === 0 && (
-                    <div className="text-xs text-gray-500 py-2 text-center">
-                      No key dates yet
+        {/* Project Details Sidebar - 4th Column */}
+        <div className="lg:col-span-1">
+          <Card className="!p-0 overflow-hidden rounded-none h-full">
+            <div className="px-4 py-3 flex items-center gap-2" style={{ backgroundColor: BRAND.gray }}>
+              <h3 className="text-lg font-semibold text-white">Project Details</h3>
+            </div>
+            <div className="flex-1 p-4 space-y-4">
+              {/* Project Name */}
+              <div className="pb-4 border-b border-gray-200">
+                <div className="flex items-center justify-between mb-1">
+                  <h4 className="text-sm font-semibold text-gray-600">Project Name</h4>
+                  <button onClick={() => setShowProjectNameEdit(true)} className="text-gray-400 hover:text-gray-600 transition-colors" title="Edit project name">
+                    <PencilIcon className="w-4 h-4" />
+                  </button>
+                </div>
+                <p className="text-sm text-gray-700 break-words">{project.name || 'Untitled Project'}</p>
+              </div>
+              {/* Client */}
+              <div className="pb-4 border-b border-gray-200">
+                <div className="flex items-center justify-between mb-1">
+                  <h4 className="text-sm font-semibold text-gray-600">Client</h4>
+                  <button onClick={() => setShowClientEdit(true)} className="text-gray-400 hover:text-gray-600 transition-colors" title="Edit client">
+                    <PencilIcon className="w-4 h-4" />
+                  </button>
+                </div>
+                <p className="text-sm text-gray-700">{project.client || 'Not specified'}</p>
+              </div>
+
+              {/* Methodology */}
+              <div className="pb-4 border-b border-gray-200">
+                <div className="flex items-center justify-between mb-1">
+                  <h4 className="text-sm font-semibold text-gray-600">Methodology</h4>
+                  <button onClick={() => setShowMethodologyEdit(true)} className="text-gray-400 hover:text-gray-600 transition-colors" title="Edit methodology">
+                    <PencilIcon className="w-4 h-4" />
+                  </button>
+                </div>
+                <p className="text-sm text-gray-700">{project.methodology || 'Not specified'}</p>
+              </div>
+
+              {/* Moderator - Only for qualitative studies */}
+              {project.methodologyType === 'Qualitative' && (
+                <div className="pb-4 border-b border-gray-200">
+                  <div className="flex items-center justify-between mb-1">
+                    <h4 className="text-sm font-semibold text-gray-600">Moderator</h4>
+                    <button onClick={() => setShowModeratorEdit(true)} className="text-gray-400 hover:text-gray-600 transition-colors" title="Edit moderator">
+                      <PencilIcon className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <p className="text-sm text-gray-700">
+                    {localProject.moderator && localProject.moderator !== 'internal' && localProject.moderator !== 'external' && localProject.moderator !== 'vendor'
+                      ? (moderators.find(m => m.id === localProject.moderator || m.name === localProject.moderator)?.name || localProject.moderator)
+                      : 'Not assigned'}
+                  </p>
+                </div>
+              )}
+
+              {/* Sample Details */}
+              <div className="pb-4 border-b border-gray-200">
+                <div className="flex items-center justify-between mb-1">
+                  <h4 className="text-sm font-semibold text-gray-600">Sample Details</h4>
+                  <button onClick={() => setShowSampleDetailsEdit(true)} className="text-gray-400 hover:text-gray-600 transition-colors" title="Edit sample details">
+                    <PencilIcon className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  <div>
+                    <span className="text-xs font-medium text-gray-600">Total Sample: </span>
+                    <span className="text-xs text-gray-700">
+                      {project.sampleSize ? `n=${project.sampleSize}` : 'Not specified'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-xs font-medium text-gray-600 block mb-1">Subgroups:</span>
+                    <div className="space-y-1">
+                      {(() => {
+                        if (project.subgroups && project.subgroups.length > 0) {
+                          return project.subgroups.map((subgroup, idx) => (
+                            <div key={idx} className="text-xs text-gray-700">
+                              • {subgroup.name}: n={subgroup.size}
+                            </div>
+                          ));
+                        }
+                        return <p className="text-xs italic text-gray-500">No subgroups specified</p>;
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Project Files */}
+              <div className="pb-4 border-b border-gray-200">
+                <div className="flex items-center justify-between mb-1">
+                  <h4 className="text-sm font-semibold text-gray-600">Project Files</h4>
+                </div>
+                <div className="space-y-1">
+                  {/* Transcripts - Only show if project has transcripts */}
+                  {project.transcripts && project.transcripts.length > 0 && (
+                    <button
+                      onClick={() => {
+                        // Show loading state
+                        setIsLoadingProjectFile?.(true);
+                        
+                        setRoute?.('transcripts');
+                        // Navigate directly to the first transcript for this project
+                        if (project.transcripts.length > 0) {
+                          window.dispatchEvent(new CustomEvent('openTranscript', { 
+                            detail: { 
+                              transcriptId: project.transcripts[0].id,
+                              projectId: project.id 
+                            } 
+                          }));
+                        }
+                        
+                        // Hide loading state after a short delay to allow navigation
+                        setTimeout(() => {
+                          setIsLoadingProjectFile?.(false);
+                        }, 1500);
+                      }}
+                      className="w-full flex items-center gap-2 p-1 rounded hover:bg-gray-50 text-left"
+                    >
+                      <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      <span className="text-xs text-gray-700">Transcripts ({project.transcripts.length})</span>
+                    </button>
+                  )}
+                  
+                  {/* Content Analysis - Only show if project has content analyses */}
+                  {savedContentAnalyses.filter(ca => ca.projectId === project.id).length > 0 && (
+                    <button
+                      onClick={() => {
+                        // Show loading state
+                        setIsLoadingProjectFile?.(true);
+                        
+                        // Get the first content analysis for this project and navigate directly to it
+                        const projectContentAnalyses = savedContentAnalyses.filter(ca => ca.projectId === project.id);
+                        if (projectContentAnalyses.length > 0) {
+                          const firstAnalysis = projectContentAnalyses[0];
+                          setAnalysisToLoad?.(firstAnalysis.id);
+                        }
+                        setRoute?.('content-analysis');
+                        
+                        // Hide loading state after a short delay to allow navigation
+                        setTimeout(() => {
+                          setIsLoadingProjectFile?.(false);
+                        }, 1500);
+                      }}
+                      className="w-full flex items-center gap-2 p-1 rounded hover:bg-gray-50 text-left"
+                    >
+                      <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                      </svg>
+                      <span className="text-xs text-gray-700">
+                        {(() => {
+                          const projectContentAnalyses = savedContentAnalyses.filter(ca => ca.projectId === project.id);
+                          if (projectContentAnalyses.length > 0) {
+                            return projectContentAnalyses[0].name || 'Content Analysis';
+                          }
+                          return 'Content Analysis';
+                        })()}
+                      </span>
+                    </button>
+                  )}
+                  
+                  {/* Storytelling - Only show if project has storytelling content */}
+                  {project.storytelling && project.storytelling.length > 0 && (
+                    <button
+                      onClick={() => {
+                        // Show loading state
+                        setIsLoadingProjectFile?.(true);
+                        
+                        setRoute?.('storytelling');
+                        // Navigate directly to the first storytelling content for this project
+                        if (project.storytelling.length > 0) {
+                          window.dispatchEvent(new CustomEvent('openStorytelling', { 
+                            detail: { 
+                              storytellingId: project.storytelling[0].id,
+                              projectId: project.id 
+                            } 
+                          }));
+                        }
+                        
+                        // Hide loading state after a short delay to allow navigation
+                        setTimeout(() => {
+                          setIsLoadingProjectFile?.(false);
+                        }, 1500);
+                      }}
+                      className="w-full flex items-center gap-2 p-1 rounded hover:bg-gray-50 text-left"
+                    >
+                      <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 4V2a1 1 0 011-1h8a1 1 0 011 1v2h4a1 1 0 011 1v14a1 1 0 01-1 1H3a1 1 0 01-1-1V5a1 1 0 011-1h4zM9 6h6v2H9V6z" />
+                      </svg>
+                      <span className="text-xs text-gray-700">Storytelling ({project.storytelling.length})</span>
+                    </button>
+                  )}
+                  
+                  {/* QNR - Only show if project has QNR content */}
+                  {project.qnr && project.qnr.length > 0 && (
+                    <button
+                      onClick={() => {
+                        // Show loading state
+                        setIsLoadingProjectFile?.(true);
+                        
+                        setRoute?.('qnr');
+                        // Navigate directly to the first QNR for this project
+                        if (project.qnr.length > 0) {
+                          window.dispatchEvent(new CustomEvent('openQNR', { 
+                            detail: { 
+                              qnrId: project.qnr[0].id,
+                              projectId: project.id 
+                            } 
+                          }));
+                        }
+                        
+                        // Hide loading state after a short delay to allow navigation
+                        setTimeout(() => {
+                          setIsLoadingProjectFile?.(false);
+                        }, 1500);
+                      }}
+                      className="w-full flex items-center gap-2 p-1 rounded hover:bg-gray-50 text-left"
+                    >
+                      <svg className="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                      </svg>
+                      <span className="text-xs text-gray-700">QNR ({project.qnr.length})</span>
+                    </button>
+                  )}
+                  
+                  {/* Discussion Guide - Only show if project has content analyses */}
+                  {savedContentAnalyses.filter(ca => ca.projectId === project.id).length > 0 && (
+                    <button
+                      onClick={() => {
+                        const projectContentAnalyses = savedContentAnalyses.filter(ca => ca.projectId === project.id);
+                        if (projectContentAnalyses.length > 0) {
+                          setSelectedDiscussionGuide(projectContentAnalyses[0].id);
+                          setShowDiscussionGuideModal(true);
+                        }
+                      }}
+                      className="w-full flex items-center gap-2 p-1 rounded hover:bg-gray-50 text-left"
+                    >
+                      <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                      </svg>
+                      <span className="text-xs text-gray-700">Discussion Guide</span>
+                    </button>
+                  )}
+                  
+                  {/* Show message if no project files */}
+                  {(!project.transcripts || project.transcripts.length === 0) &&
+                   savedContentAnalyses.filter(ca => ca.projectId === project.id).length === 0 &&
+                   (!project.storytelling || project.storytelling.length === 0) &&
+                   (!project.qnr || project.qnr.length === 0) && (
+                    <div className="text-xs text-gray-400 pl-3">
+                      No project files yet
                     </div>
                   )}
                 </div>
-              </Card>
+              </div>
+
+              {/* Tasks & Key Dates by Day */}
+              <div className="flex-1">
+                <div className="space-y-2 max-h-96 overflow-hidden">
+                  {(() => {
+                    // Get project tasks
+                    const projectTasks = project.tasks || [];
+                    
+                    // Group tasks by date
+                    const tasksByDate = projectTasks.reduce((acc, task) => {
+                      if (!task.dueDate) return acc;
+                      const dueDate = new Date(task.dueDate + 'T00:00:00');
+                      const dateKey = dueDate.toLocaleDateString('en-US', { 
+                        day: 'numeric', 
+                        month: 'long' 
+                      });
+                      
+                      if (!acc[dateKey]) {
+                        acc[dateKey] = { tasks: [], keyDates: [] };
+                      }
+                      acc[dateKey].tasks.push(task);
+                      return acc;
+                    }, {} as Record<string, { tasks: typeof projectTasks, keyDates: any[] }>);
+
+                    // Add key dates to the same structure
+                    projectKeyDates.forEach(deadline => {
+                      const date = new Date(deadline.date);
+                      const dateKey = date.toLocaleDateString('en-US', { 
+                        day: 'numeric', 
+                        month: 'long' 
+                      });
+                      
+                      if (!tasksByDate[dateKey]) {
+                        tasksByDate[dateKey] = { tasks: [], keyDates: [] };
+                      }
+                      tasksByDate[dateKey].keyDates.push(deadline);
+                    });
+
+                    // Generate the next 7 days starting from today
+                    const nextDays = [];
+                    const today = new Date();
+                    let currentDate = new Date(today);
+                    
+                    for (let i = 0; i < 7; i++) {
+                      const dateKey = currentDate.toLocaleDateString('en-US', { 
+                        day: 'numeric', 
+                        month: 'long' 
+                      });
+                      const dayData = tasksByDate[dateKey] || { tasks: [], keyDates: [] };
+                      nextDays.push([dateKey, dayData]);
+                      currentDate.setDate(currentDate.getDate() + 1);
+                    }
+
+                    return nextDays.map(([dateKey, dayData]) => (
+                      <div key={dateKey} className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-xs font-medium text-gray-900">{dateKey}</h4>
+                        </div>
+                        <div>
+                          {/* Tasks - Only show incomplete tasks */}
+                          {dayData.tasks.filter(task => task.status !== 'completed').map((task, index) => {
+                            const projectPhase = project.phase || 'Kickoff';
+                            const phaseColor = PHASE_COLORS[projectPhase] || PHASE_COLORS['Kickoff'];
+                            
+                            return (
+                              <div
+                                key={`task-${task.id}-${index}`}
+                                className="flex items-center gap-2 p-1 rounded-lg hover:bg-gray-50 group"
+                              >
+                                <div
+                                  className="w-1 h-6 rounded-full"
+                                  style={{
+                                    backgroundColor: phaseColor,
+                                    opacity: 0.8
+                                  }}
+                                ></div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-xs text-gray-900 truncate">
+                                    {task.name}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                          
+                          {/* Key Dates */}
+                          {dayData.keyDates.map((deadline, index) => (
+                            <div
+                              key={`keydate-${deadline.label}-${index}`}
+                              className="flex items-center gap-2 p-1 rounded-lg hover:bg-gray-50 group"
+                            >
+                              <div
+                                className="w-1 h-6 rounded-full"
+                                style={{
+                                  backgroundColor: BRAND.orange,
+                                  opacity: 0.8
+                                }}
+                              ></div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-xs text-gray-900 truncate">
+                                  {deadline.label}
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => handleDeleteKeyDate(projectKeyDates.findIndex(d => d.label === deadline.label && d.date === deadline.date))}
+                                className="text-xs text-red-600 hover:text-red-800 opacity-0 group-hover:opacity-100 transition-opacity"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ))}
+                          
+                          {/* No content message */}
+                          {dayData.tasks.length === 0 && dayData.keyDates.length === 0 && (
+                            <div className="text-xs text-gray-400 pl-3">
+                              No tasks or key dates
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ));
+                  })()}
+                </div>
+              </div>
+            </div>
+          </Card>
         </div>
       </div>
 
@@ -13138,7 +13354,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
 
       {/* Add Key Date Modal */}
       {showAddKeyDate && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center overflow-y-auto py-8 z-[9999] p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center overflow-y-auto py-8 z-[9999] p-4" style={{ top: 0, left: 0, right: 0, bottom: 0 }}>
           <div className="bg-white rounded-2xl max-w-md w-full p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Add Key Date</h3>
@@ -13183,7 +13399,10 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                 </button>
                 <button
                   onClick={handleAddKeyDate}
-                  className="px-4 py-2 text-sm 0 text-white rounded-lg hover:bg-orange-600"
+                  className="px-4 py-2 text-sm text-white rounded-lg"
+                  style={{ backgroundColor: BRAND.orange }}
+                  onMouseEnter={(e) => e.target.style.backgroundColor = '#e67e22'}
+                  onMouseLeave={(e) => e.target.style.backgroundColor = BRAND.orange}
                 >
                   Add Key Date
                 </button>
@@ -13795,7 +14014,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
 
       {/* Notes Modal */}
       {showNotesModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center overflow-y-auto py-8 z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center overflow-y-auto py-8 z-[10101]">
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 my-auto max-h-[80vh] overflow-hidden">
             <div className="flex items-center justify-between p-6 border-b">
               <h2 className="text-xl font-semibold text-gray-900">All Sticky Notes</h2>
@@ -14099,7 +14318,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
 
       {/* Client Edit Modal */}
       {showClientEdit && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10101]" style={{ top: 0, left: 0, right: 0, bottom: 0 }}>
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
             <h3 className="text-lg font-semibold mb-4">Edit Client</h3>
             <select
@@ -14137,9 +14356,54 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
         </div>
       )}
 
+      {/* Project Name Edit Modal */}
+      {showProjectNameEdit && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10101]" style={{ top: 0, left: 0, right: 0, bottom: 0 }}>
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">Edit Project Name</h3>
+            <input
+              type="text"
+              value={selectedProjectName}
+              onChange={(e) => setSelectedProjectName(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2"
+              style={{ '--tw-ring-color': BRAND.orange } as React.CSSProperties}
+              placeholder="Enter project name"
+            />
+            <div className="flex gap-2 mt-4">
+              <button
+                onClick={async () => {
+                  const trimmed = (selectedProjectName || '').trim();
+                  if (!trimmed) { alert('Please enter a project name'); return; }
+                  const updatedProject = { ...project, name: trimmed };
+                  setLocalProject(updatedProject);
+                  if (setProjects) {
+                    setProjects(prev => prev.map(p => p.id === updatedProject.id ? updatedProject : p));
+                  }
+                  if (onProjectUpdate) {
+                    onProjectUpdate(updatedProject);
+                  }
+                  await saveProjectField('name', trimmed);
+                  setShowProjectNameEdit(false);
+                }}
+                className="flex-1 px-4 py-2 text-white rounded-md transition"
+                style={{ backgroundColor: BRAND.orange }}
+              >
+                Save
+              </button>
+              <button
+                onClick={() => { setShowProjectNameEdit(false); setSelectedProjectName(project.name || ''); }}
+                className="flex-1 px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300 transition"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Methodology Edit Modal */}
       {showMethodologyEdit && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10101]" style={{ top: 0, left: 0, right: 0, bottom: 0 }}>
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
             <h3 className="text-lg font-semibold mb-4">Edit Methodology</h3>
             <select
@@ -14178,7 +14442,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
 
       {/* Moderator Edit Modal */}
       {showModeratorEdit && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10101]" style={{ top: 0, left: 0, right: 0, bottom: 0 }}>
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
             <h3 className="text-lg font-semibold mb-4">Edit Moderator</h3>
             <select
@@ -14218,7 +14482,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
 
       {/* Sample Details Edit Modal */}
       {showSampleDetailsEdit && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10101]" style={{ top: 0, left: 0, right: 0, bottom: 0 }}>
           <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-semibold mb-4">Edit Sample Details</h3>
             

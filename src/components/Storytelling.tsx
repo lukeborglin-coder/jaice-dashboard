@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import {
   SparklesIcon,
   DocumentTextIcon,
@@ -6,10 +6,50 @@ import {
   ArrowLeftIcon,
   ArrowDownTrayIcon,
   PlusIcon,
-  TrashIcon
+  TrashIcon,
+  PresentationChartBarIcon,
+  ViewColumnsIcon,
+  ChartBarIcon,
+  LightBulbIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  PencilIcon,
+  ExclamationTriangleIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+  InformationCircleIcon,
+  UserGroupIcon,
+  CurrencyDollarIcon,
+  ClockIcon,
+  ShieldCheckIcon,
+  HeartIcon,
+  AcademicCapIcon,
+  BuildingOfficeIcon,
+  HomeIcon,
+  TruckIcon,
+  WrenchScrewdriverIcon,
+  BeakerIcon,
+  CpuChipIcon,
+  PhoneIcon,
+  EnvelopeIcon,
+  GlobeAltIcon,
+  MapPinIcon,
+  CalendarIcon,
+  StarIcon,
+  FireIcon,
+  BoltIcon,
+  SunIcon,
+  MoonIcon,
+  CloudIcon,
+  EyeIcon,
+  HandRaisedIcon,
+  FaceSmileIcon,
+  FaceFrownIcon,
+  CloudArrowUpIcon
 } from '@heroicons/react/24/outline';
 import { API_BASE_URL } from '../config';
 import { useAuth } from '../contexts/AuthContext';
+import { IconTable, IconBook2, IconUsers } from '@tabler/icons-react';
 
 const BRAND_ORANGE = '#D14A2D';
 const BRAND_BG = '#F7F7F8';
@@ -37,6 +77,8 @@ interface Storyboard {
   title: string;
   generatedAt: string;
   detailLevel: string;
+  respondentCount?: number;
+  strategicQuestions?: string[];
   sections: Array<{
     title: string;
     content: string;
@@ -296,6 +338,237 @@ function parseMarkdownContent(content: string) {
   return <div className="space-y-1">{elements}</div>;
 }
 
+interface ReportSlideProps {
+  slide: any;
+  slideNumber: number;
+  totalSlides: number;
+  getIcon: (iconName: string) => any;
+  selectedProject: any;
+  projectMap: Record<string, any>;
+}
+
+const ReportSlide: React.FC<ReportSlideProps> = ({ slide, slideNumber, totalSlides, getIcon, selectedProject, projectMap }) => {
+  const IconComponent = getIcon(slide.icon);
+
+  return (
+    <div className="bg-white rounded-lg shadow-lg border border-gray-200 mb-3 flex flex-col relative" style={{ aspectRatio: '16/9', height: '500px', width: '100%', maxWidth: '888px', overflow: 'hidden' }}>
+      {/* Slide Header - Only show for non-title slides */}
+      {slide.type !== 'title' && (
+        <div className="flex items-center p-3 border-b border-gray-200 flex-shrink-0" style={{ backgroundColor: BRAND_ORANGE }}>
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg" style={{ backgroundColor: 'rgba(255, 255, 255, 0.3)' }}>
+              <IconComponent className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-white">{slide.title}</h2>
+              {slide.subtitle && (
+                <p className="text-xs text-white opacity-90">{slide.subtitle}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Slide Content */}
+      <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+        {slide.type === 'title' && (
+          <div className="w-full h-full flex flex-col justify-center items-center text-center p-8">
+            <h1 className="text-3xl font-bold mb-4" style={{ color: BRAND_ORANGE }}>
+              {getProjectName(selectedProject) || 'Project Name'} - Report Outline
+            </h1>
+            <p className="text-lg text-gray-600 mb-4">Client: {projectMap[selectedProject?.id]?.client || getClientName(projectMap[selectedProject?.id]) || getClientName(selectedProject) || 'Client Name'}</p>
+            <p className="text-sm italic text-gray-500 mt-2">Generated: {new Date().toLocaleDateString()}</p>
+          </div>
+        )}
+
+        {slide.type === 'executive_summary' && (
+          <div className="h-full flex flex-col">
+            <div className="flex-1 flex flex-col p-4 pb-0 overflow-hidden">
+              {slide.findings && (
+                <div className="flex-1 flex flex-col space-y-2 min-h-0">
+                  {/* Header Row */}
+                  <div className="grid grid-cols-12 gap-2 font-semibold text-xs flex-shrink-0" style={{ color: BRAND_ORANGE }}>
+                    <div className="col-span-2">Strategic Questions</div>
+                    <div className="col-span-5">Key Answers</div>
+                    <div className="col-span-5">Strategic Insights</div>
+                  </div>
+
+                  {/* Content Rows - Each finding in its own row with equal height distribution */}
+                  <div className="flex-1 grid gap-3 overflow-hidden" style={{ gridTemplateRows: `repeat(${slide.findings.length}, 1fr)` }}>
+                  {slide.findings.map((finding: any, idx: number) => (
+                      <div key={idx} className="grid grid-cols-12 gap-3 min-h-0">
+                      {/* Question Column */}
+                      <div className="col-span-2">
+                          <div className="bg-gray-50 p-2 rounded border-l-4 h-full flex items-start" style={{ borderLeftColor: BRAND_ORANGE }}>
+                          <p className="text-[10px] text-gray-700 font-medium leading-tight">{finding.question}</p>
+                        </div>
+                      </div>
+
+                      {/* Answer Column */}
+                      <div className="col-span-5">
+                          <div className="bg-blue-50 p-2 rounded border-l-4 h-full flex items-start" style={{ borderLeftColor: '#3B82F6' }}>
+                          <p className="text-[10px] text-gray-700 leading-tight">
+                            {finding.answer}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Insight Column */}
+                      <div className="col-span-5">
+                          <div className="bg-orange-50 p-2 rounded border-l-4 h-full flex items-start" style={{ borderLeftColor: BRAND_ORANGE }}>
+                          <p className="text-[10px] text-gray-700 leading-tight">
+                            {finding.insight || 'Key insight to be developed'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            {/* Footer with separator line and page number */}
+            <div className="flex-shrink-0 border-t border-gray-300 bg-white flex items-center justify-end px-6" style={{ height: '20px' }}>
+              <span className="text-xs italic" style={{ color: BRAND_GRAY }}>
+                {slideNumber}
+              </span>
+            </div>
+          </div>
+        )}
+
+
+        {slide.type === 'detailed_finding' && (
+          <div className="h-full flex flex-col">
+            <div className="flex-1 p-4 pb-0 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
+                  <div className="space-y-3">
+                {slide.content.map((bullet: string, idx: number) => (
+                  <div key={idx} className="flex items-start gap-3">
+                    <div className="w-2 h-2 rounded-full mt-2 flex-shrink-0" style={{ backgroundColor: BRAND_ORANGE }}></div>
+                    <p className="text-xs text-gray-700 leading-relaxed">{bullet}</p>
+                  </div>
+                ))}
+              </div>
+              {/* Real quotes section */}
+              {slide.quotes && slide.quotes.length > 0 && (
+                <div className="mt-6 space-y-3">
+                  {slide.quotes.map((quote: string, quoteIdx: number) => (
+                    <div key={quoteIdx} className="p-4 bg-gray-50 rounded-lg border-l-4" style={{ borderLeftColor: BRAND_ORANGE }}>
+                      <p className="text-xs text-gray-600 mb-2 font-medium">Key Quote:</p>
+                      <p className="text-xs text-gray-700 italic">"{quote}"</p>
+                      <p className="text-[10px] text-gray-500 mt-2">— Research Participant</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            {/* Footer with separator line and page number */}
+            <div className="flex-shrink-0 border-t border-gray-300 bg-white flex items-center justify-end px-6" style={{ height: '20px' }}>
+              <span className="text-xs italic" style={{ color: BRAND_GRAY }}>
+                {slideNumber}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {slide.type === 'content_slide' && (
+          <div className="h-full flex flex-col">
+            <div className="flex-1 flex flex-col min-h-0 p-3 pb-0 overflow-hidden">
+              {/* Slide Headline - Use Key Insights content as headline */}
+              {(() => {
+                const keyInsightsSection = slide.content?.find((section: any) => section.subheading === 'Key Insights');
+                const headlineText = keyInsightsSection?.paragraph || slide.headline;
+
+                return headlineText && (
+                  <div className="flex-shrink-0 mb-4">
+                    <h3 className="text-sm font-semibold leading-tight" style={{ color: BRAND_GRAY }}>
+                      {headlineText}
+                    </h3>
+                  </div>
+                );
+              })()}
+
+              {/* Main content area that fills the slide */}
+              <div className="flex-1 flex flex-col w-full min-h-0">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 flex-1 w-full h-full min-h-0">
+                {/* Left side - Content */}
+                  <div className="space-y-1.5 w-full h-full overflow-y-auto pr-2" style={{ scrollbarWidth: 'thin' }}>
+                  {slide.content && slide.content.map((section: any, idx: number) => {
+                    // Skip Key Insights section - it's now used as the headline
+                    if (section.subheading === 'Key Insights') {
+                      return null;
+                    }
+
+                    return (
+                        <div key={idx} className="space-y-1.5">
+                          <h4 className="text-sm font-bold" style={{ color: BRAND_ORANGE }}>
+                          {section.subheading}
+                        </h4>
+
+                        {/* Handle bullets if they exist */}
+                        {section.bullets && section.bullets.length > 0 && (
+                          <ul className="space-y-1">
+                            {section.bullets.map((bullet: string, bulletIdx: number) => (
+                              <li key={bulletIdx} className="flex items-start gap-2">
+                                  <div className="w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5" style={{ backgroundColor: BRAND_ORANGE }}></div>
+                                  <p className="text-xs text-gray-700 leading-relaxed flex-1">{bullet}</p>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+
+                        {/* Handle paragraph content if it exists */}
+                        {section.paragraph && (
+                            <div className="bg-gray-50 p-3 rounded border-l-2" style={{ borderLeftColor: BRAND_ORANGE }}>
+                            <p className="text-xs text-gray-700 leading-relaxed">{section.paragraph}</p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Right side - Supporting Quotes */}
+                  <div className="space-y-2 w-full h-full overflow-y-auto pr-2" style={{ scrollbarWidth: 'thin' }}>
+                  {slide.quotes && slide.quotes.length > 0 ? (
+                    <div className="space-y-2">
+                      {slide.quotes.map((quote: any, quoteIdx: number) => (
+                          <div key={quoteIdx} className="p-3 bg-gray-50 rounded border-l-2" style={{ borderLeftColor: BRAND_ORANGE }}>
+                            <p className="text-[10px] text-gray-700 italic leading-snug">"{quote.text}"</p>
+                            {quote.respno && (
+                              <p className="text-[9px] text-gray-500 mt-1">- {quote.respno}</p>
+                            )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-gray-500 italic">No supporting quotes available for this slide.</p>
+                  )}
+                </div>
+              </div>
+              </div>
+            </div>
+            {/* Footer with separator line and page number */}
+            <div className="flex-shrink-0 border-t border-gray-300 bg-white flex items-center justify-end px-6" style={{ height: '20px' }}>
+              <span className="text-xs italic" style={{ color: BRAND_GRAY }}>
+                {slideNumber}
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+      
+      {/* Slide Number - Bottom Right (only for slides without their own footer) */}
+      {slide.type !== 'title' && slide.type !== 'executive_summary' && slide.type !== 'detailed_finding' && slide.type !== 'content_slide' && (
+        <div className="absolute bottom-6 right-6">
+          <span className="text-xs italic" style={{ color: BRAND_GRAY }}>
+            {slideNumber}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+};
+
 interface StorytellingProps {
   analysisId?: string;
   projectId?: string;
@@ -304,26 +577,78 @@ interface StorytellingProps {
 export default function Storytelling({ analysisId, projectId }: StorytellingProps) {
   const { user } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
+  const [archivedProjects, setArchivedProjects] = useState<Project[]>([]);
   const [allProjects, setAllProjects] = useState<any[]>([]);
   const [projectMap, setProjectMap] = useState<Record<string, any>>({});
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [forceListView, setForceListView] = useState<boolean>(false);
+  const [contentAnalyses, setContentAnalyses] = useState<any[]>([]);
+  const [selectedContentAnalysis, setSelectedContentAnalysis] = useState<any | null>(null);
   const [activeTab, setActiveTab] = useState<'key-findings' | 'storyboard' | 'ask'>('key-findings');
+  const [projectTab, setProjectTab] = useState<'active' | 'archived'>('active');
+  const [showMyProjectsOnly, setShowMyProjectsOnly] = useState(true);
   const [loading, setLoading] = useState(false);
 
   // Storytelling data
   const [strategicQuestions, setStrategicQuestions] = useState<string[]>([]);
-  const [keyFindings, setKeyFindings] = useState<{ findings: Finding[]; generatedAt?: string } | null>(null);
+  const [keyFindings, setKeyFindings] = useState<{ findings: Finding[]; generatedAt?: string; respondentCount?: number; strategicQuestions?: string[] } | null>(null);
+  const [conciseExecutiveSummary, setConciseExecutiveSummary] = useState<{ findings: Finding[]; generatedAt?: string } | null>(null);
+  const [dynamicReport, setDynamicReport] = useState<{ slides: any[]; generatedAt?: string } | null>(null);
   const [storyboards, setStoryboards] = useState<Storyboard[]>([]);
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+
+  // Icon mapping function
+  const getIcon = (iconName: string) => {
+    switch (iconName) {
+      case 'DocumentTextIcon': return DocumentTextIcon;
+      case 'LightBulbIcon': return LightBulbIcon;
+      case 'SparklesIcon': return SparklesIcon;
+      case 'ChatBubbleLeftRightIcon': return ChatBubbleLeftRightIcon;
+      case 'ChartBarIcon': return ChartBarIcon;
+      case 'PresentationChartBarIcon': return PresentationChartBarIcon;
+      case 'ExclamationTriangleIcon': return ExclamationTriangleIcon;
+      case 'CheckCircleIcon': return CheckCircleIcon;
+      case 'XCircleIcon': return XCircleIcon;
+      case 'InformationCircleIcon': return InformationCircleIcon;
+      case 'UserGroupIcon': return UserGroupIcon;
+      case 'CurrencyDollarIcon': return CurrencyDollarIcon;
+      case 'ClockIcon': return ClockIcon;
+      case 'ShieldCheckIcon': return ShieldCheckIcon;
+      case 'HeartIcon': return HeartIcon;
+      case 'AcademicCapIcon': return AcademicCapIcon;
+      case 'BuildingOfficeIcon': return BuildingOfficeIcon;
+      case 'HomeIcon': return HomeIcon;
+      case 'TruckIcon': return TruckIcon;
+      case 'WrenchScrewdriverIcon': return WrenchScrewdriverIcon;
+      case 'BeakerIcon': return BeakerIcon;
+      case 'CpuChipIcon': return CpuChipIcon;
+      case 'PhoneIcon': return PhoneIcon;
+      case 'EnvelopeIcon': return EnvelopeIcon;
+      case 'GlobeAltIcon': return GlobeAltIcon;
+      case 'MapPinIcon': return MapPinIcon;
+      case 'CalendarIcon': return CalendarIcon;
+      case 'StarIcon': return StarIcon;
+      case 'FireIcon': return FireIcon;
+      case 'BoltIcon': return BoltIcon;
+      case 'SunIcon': return SunIcon;
+      case 'MoonIcon': return MoonIcon;
+      case 'CloudIcon': return CloudIcon;
+      case 'EyeIcon': return EyeIcon;
+      case 'HandRaisedIcon': return HandRaisedIcon;
+      case 'FaceSmileIcon': return FaceSmileIcon;
+      case 'FaceFrownIcon': return FaceFrownIcon;
+      default: return DocumentTextIcon;
+    }
+  };
 
   // UI state
   const [generatingFindings, setGeneratingFindings] = useState(false);
   const [generatingStoryboard, setGeneratingStoryboard] = useState(false);
   const [askingQuestion, setAskingQuestion] = useState(false);
-  const [showCostModal, setShowCostModal] = useState(false);
   const [costEstimate, setCostEstimate] = useState<any>(null);
   const [pendingAction, setPendingAction] = useState<'findings' | 'storyboard' | 'question' | null>(null);
+  const [showNoChangesMessage, setShowNoChangesMessage] = useState(false);
+  const [showNoChangesMessageStoryboard, setShowNoChangesMessageStoryboard] = useState(false);
 
   // Form state
   const [newQuestion, setNewQuestion] = useState('');
@@ -336,6 +661,27 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
   // Quotes modal state
   const [showQuotesModal, setShowQuotesModal] = useState(false);
   const [selectedAnswer, setSelectedAnswer] = useState<ChatMessage | null>(null);
+
+  // Clear no changes message when navigating away
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      setShowNoChangesMessage(false);
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        setShowNoChangesMessage(false);
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
   const [quotes, setQuotes] = useState<VerbatimQuote[]>([]);
   const [loadingQuotes, setLoadingQuotes] = useState(false);
   const [quotesError, setQuotesError] = useState<string | null>(null);
@@ -346,6 +692,12 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [detailsItems, setDetailsItems] = useState<Array<{ bullet: string; details?: string; quotes?: VerbatimQuote[]; expanded?: boolean; loading?: boolean }>>([]);
   const [detailsTitle, setDetailsTitle] = useState<string>('');
+
+  // Report view state
+  const [viewMode, setViewMode] = useState<'home' | 'project' | 'storyboard' | 'report'>('home');
+  const [reportData, setReportData] = useState<any>(null);
+  const [generatingReport, setGeneratingReport] = useState(false);
+  const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
 
   const extractBulletsFromMarkdown = (markdown: string): string[] => {
     if (!markdown) return [];
@@ -362,6 +714,27 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
     }
     // De-duplicate and limit to first 5 to keep requests light
     return Array.from(new Set(bullets)).filter(Boolean).slice(0, 5);
+  };
+
+  const extractQuotesFromContent = (content: string): string[] => {
+    if (!content) return [];
+    const quotes: string[] = [];
+    const lines = content.split('\n');
+    
+    for (const line of lines) {
+      const trimmed = line.trim();
+      // Look for quoted text or speaker patterns
+      if (trimmed.includes('"') || trimmed.includes('"') || 
+          trimmed.toLowerCase().includes('respondent:') ||
+          trimmed.toLowerCase().includes('participant:') ||
+          trimmed.toLowerCase().includes('moderator:')) {
+        if (trimmed.length > 20 && trimmed.length < 200) {
+          quotes.push(trimmed);
+        }
+      }
+    }
+    
+    return quotes.slice(0, 2); // Return max 2 quotes per slide
   };
 
   const generateDetailsForBullet = async (bullet: string): Promise<string | undefined> => {
@@ -451,7 +824,7 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
       ]);
       
       // Cache the results
-      detailsCacheRef.current.set(cacheKey, { details, quotes });
+      detailsCacheRef.current.set(cacheKey, { details: details || '', quotes: quotes || [] });
       
       // Update with the loaded data
       updatedItems[index] = { ...item, details, quotes, expanded: true, loading: false };
@@ -464,48 +837,336 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
     }
   };
 
-  const qualProjects = useMemo(
-    () => {
-      const filtered = projects.filter(p => !p.archived);
-      return filtered;
-    },
-    [projects]
-  );
+  // This will be defined after the filtering logic
 
-  const getAuthHeaders = () => {
+  const getAuthHeaders = useCallback(() => {
     const token = localStorage.getItem('jaice_token');
-    return token ? { Authorization: `Bearer ${token}` } : {};
+    return token ? { Authorization: `Bearer ${token}` } : { Authorization: '' };
+  }, []);
+
+  const loadProjectData = async (projectId: string) => {
+    try {
+      // Load storytelling data for the project
+      const analysisIdParam = selectedProject?.analysisId || selectedContentAnalysis?.id || analysisId;
+      const url = analysisIdParam
+        ? `${API_BASE_URL}/api/storytelling/${projectId}?analysisId=${analysisIdParam}`
+        : `${API_BASE_URL}/api/storytelling/${projectId}`;
+      console.log('🔍 Loading project data with analysisId:', analysisIdParam, 'for project:', projectId);
+      const response = await fetch(url, {
+        headers: getAuthHeaders()
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setStrategicQuestions(data.strategicQuestions || []);
+        
+        // Use selected content analysis data if available, otherwise fall back to project data
+        const respondentCount = selectedContentAnalysis ? 
+          (() => {
+            const allData = Object.values(selectedContentAnalysis.data || {}).flat();
+            const uniqueRespondents = new Set(allData.map((item: any) => item.respno).filter(Boolean));
+            return uniqueRespondents.size;
+          })() : 
+          (projectMap[projectId]?.respondentCount ?? selectedProject?.respondentCount ?? 0);
+        
+        // Preserve respondentCount and strategicQuestions when loading existing keyFindings
+        if (data.keyFindings) {
+          setKeyFindings({
+            ...data.keyFindings,
+            respondentCount: data.keyFindings.respondentCount || respondentCount,
+            strategicQuestions: data.keyFindings.strategicQuestions || data.strategicQuestions || []
+          });
+        } else {
+          setKeyFindings(data.keyFindings);
+        }
+        
+        // Preserve respondentCount and strategicQuestions when loading existing storyboards
+        if (data.storyboards && data.storyboards.length > 0) {
+          const storyboardsWithCount = data.storyboards.map((sb: any) => ({
+            ...sb,
+            respondentCount: sb.respondentCount || respondentCount,
+            strategicQuestions: sb.strategicQuestions || data.strategicQuestions || []
+          }));
+          setStoryboards(storyboardsWithCount);
+        } else {
+          setStoryboards(data.storyboards || []);
+        }
+        
+        // Load concise executive summary if available
+        if (data.conciseExecutiveSummary) {
+          setConciseExecutiveSummary(data.conciseExecutiveSummary);
+        }
+        
+        // Load dynamic report if available
+        if (data.dynamicReport) {
+          setDynamicReport(data.dynamicReport);
+        }
+
+        // Load report data if available
+        if (data.reportData) {
+          console.log('🔍 Loading report data:', data.reportData);
+          setReportData(data.reportData);
+        } else {
+          console.log('🔍 No report data found in loaded data:', Object.keys(data));
+        }
+        
+        // Load chat history if available
+        if (data.chatHistory) {
+          setChatHistory(data.chatHistory);
+        }
+        
+        // If no storyboards were loaded from the main API, try to load them separately
+        if (!data.storyboards || data.storyboards.length === 0) {
+          try {
+            const storyboardResponse = await fetch(`${API_BASE_URL}/api/storytelling/${projectId}/storyboards?analysisId=${selectedContentAnalysis?.id || analysisId}`, {
+              headers: getAuthHeaders()
+            });
+            if (storyboardResponse.ok) {
+              const storyboardData = await storyboardResponse.json();
+              const storyboards = storyboardData.storyboards || storyboardData || [];
+              if (storyboards.length > 0) {
+                const storyboardsWithCount = storyboards.map((sb: any) => ({
+                  ...sb,
+                  respondentCount: sb.respondentCount || respondentCount,
+                  strategicQuestions: sb.strategicQuestions || strategicQuestions
+                }));
+                setStoryboards(storyboardsWithCount);
+              }
+            }
+          } catch (error) {
+            console.error('Failed to load storyboards separately:', error);
+          }
+        }
+      } else {
+        console.error('Failed to load project data:', response.status, response.statusText);
+        // If the API doesn't exist, initialize empty state
+        setStrategicQuestions([]);
+        setKeyFindings(null);
+        setStoryboards([]);
+        setConciseExecutiveSummary(null);
+        setDynamicReport(null);
+        setChatHistory([]);
+      }
+    } catch (error) {
+      console.error('Failed to load project data:', error);
+      // If there's an error, initialize empty state
+      setStrategicQuestions([]);
+      setKeyFindings(null);
+      setStoryboards([]);
+      setConciseExecutiveSummary(null);
+      setDynamicReport(null);
+      setChatHistory([]);
+    }
   };
 
-  const loadProjects = async () => {
+  const loadContentAnalysesForProject = async (projectId: string) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/caX/saved`, {
+        headers: getAuthHeaders()
+      });
+      if (response.ok) {
+        const data = await response.json();
+        // The API returns an array directly, not an object with analyses property
+        const allAnalyses = Array.isArray(data) ? data : (data.analyses || []);
+        const projectAnalyses = allAnalyses.filter((analysis: any) => analysis.projectId === projectId);
+        
+        // Load storyboards for each analysis
+        const analysesWithStoryboards = await Promise.all(
+          projectAnalyses.map(async (analysis: any) => {
+            try {
+              const storyboardResponse = await fetch(`${API_BASE_URL}/api/storytelling/${projectId}/storyboards?analysisId=${analysis.id}`, {
+                headers: getAuthHeaders()
+              });
+              if (storyboardResponse.ok) {
+                const storyboardData = await storyboardResponse.json();
+                return {
+                  ...analysis,
+                  storyboardCount: storyboardData.storyboards?.length || 0
+                };
+              }
+            } catch (error) {
+              console.error(`Failed to load storyboards for analysis ${analysis.id}:`, error);
+            }
+            return {
+              ...analysis,
+              storyboardCount: 0
+            };
+          })
+        );
+        
+        setContentAnalyses(analysesWithStoryboards);
+      } else {
+        console.error('Failed to load content analyses for project');
+        setContentAnalyses([]);
+      }
+    } catch (error) {
+      console.error('Failed to load content analyses for project:', error);
+      setContentAnalyses([]);
+    }
+  };
+
+  const loadFullContentAnalysis = async (analysisId: string) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/caX/saved/${analysisId}`, {
+        headers: getAuthHeaders()
+      });
+      if (response.ok) {
+        const analysisData = await response.json();
+        setSelectedContentAnalysis(analysisData);
+        return analysisData;
+      } else {
+        console.error('Failed to load full content analysis');
+        return null;
+      }
+    } catch (error) {
+      console.error('Failed to load full content analysis:', error);
+      return null;
+    }
+  };
+
+  const loadProjects = useCallback(async () => {
     try {
       setLoading(true);
+      // Use the storytelling-specific API to get projects with analysisId
       const response = await fetch(`${API_BASE_URL}/api/storytelling/projects`, {
         headers: getAuthHeaders()
       });
       if (response.ok) {
         const data = await response.json();
         const projectsArray = Array.isArray(data.projects) ? data.projects : [];
-        setProjects(projectsArray);
-        // Also load master projects list to resolve real project names/clients
-        try {
-          const pRes = await fetch(`${API_BASE_URL}/api/projects/all`, { headers: getAuthHeaders() });
-          if (pRes.ok) {
-            const pData = await pRes.json();
-            const list = Array.isArray(pData.projects) ? pData.projects : [];
-            setAllProjects(list);
+        
+        // Projects from storytelling API already have analysisId and respondentCount
+        // Just log them for debugging
+        projectsArray.forEach((project: any) => {
+          console.log(`Processing project: ${project.name} (ID: ${project.id}, analysisId: ${project.analysisId})`);
+        });
+
+        // Use projects as-is since they already have all needed data from storytelling API
+        const projectsWithAnalysisCounts = projectsArray;
+        
+        setProjects(projectsWithAnalysisCounts);
+        setAllProjects(projectsWithAnalysisCounts);
             const map: Record<string, any> = {};
-            list.forEach((p: any) => { if (p?.id) map[p.id] = p; });
+        projectsWithAnalysisCounts.forEach((p: any) => { if (p?.id) map[p.id] = p; });
             setProjectMap(map);
-          }
-        } catch {}
       } else {
+        console.error('Failed to load projects');
       }
     } catch (error) {
+      console.error('Failed to load projects:', error);
     } finally {
       setLoading(false);
     }
+  }, [user?.id, getAuthHeaders]);
+
+  // Project filtering logic (same as Transcripts tab)
+  const isQualitative = (project: any) => {
+    const methodology = project?.methodologyType?.toLowerCase();
+    // If no methodology type, assume it's qualitative (for backward compatibility)
+    if (!methodology) {
+      return true;
+    }
+    
+    const isQual = methodology?.includes('qualitative') || 
+           methodology?.includes('qual') ||
+           methodology?.includes('interview') ||
+           methodology?.includes('focus group') ||
+           methodology?.includes('ethnography') ||
+           methodology?.includes('observation');
+    return isQual;
   };
+
+  const qualActiveProjects = useMemo(
+    () => {
+      const filtered = projects.filter(isQualitative);
+      return filtered;
+    },
+    [projects]
+  );
+  const qualArchivedProjects = useMemo(
+    () => {
+      const filtered = archivedProjects.filter(isQualitative);
+      return filtered;
+    },
+    [archivedProjects]
+  );
+
+  const filterProjectsByUser = useCallback(
+    (list: any[]) => {
+      console.log('🔍 filterProjectsByUser called:', {
+        showMyProjectsOnly,
+        hasUser: !!user,
+        projectCount: list.length,
+        projectNames: list.map(p => p.name)
+      });
+
+      if (!showMyProjectsOnly || !user) {
+        console.log('🔍 Returning all projects (showMyProjectsOnly=false or no user)');
+        return list;
+      }
+
+      const uid = String((user as any)?.id || '').toLowerCase();
+      const uemail = String((user as any)?.email || '').toLowerCase();
+      const uname = String((user as any)?.name || '').toLowerCase();
+
+      console.log('🔍 User info for filtering:', { uid, uemail, uname });
+      
+
+      const filtered = list.filter(project => {
+        // Check if user is assigned to the project via team members
+        const teamMembers = Array.isArray((project as any)?.teamMembers)
+          ? (project as any).teamMembers
+          : [];
+
+        const inTeam = teamMembers.some((member: any) => {
+          const mid = String(member?.id || '').toLowerCase();
+          const memail = String(member?.email || '').toLowerCase();
+          const mname = String(member?.name || '').toLowerCase();
+          return (uid && mid === uid) || (uemail && memail === uemail) || (uname && mname === uname);
+        });
+
+        // Also check if user is the creator (for backward compatibility)
+        const createdBy = String((project as any)?.createdBy || '').toLowerCase();
+        const createdByMe = !!createdBy && (createdBy === uid || createdBy === uemail);
+
+        const isIncluded = inTeam || createdByMe;
+
+        console.log(`🔍 Project "${project.name}" filter result:`, {
+          projectId: project.id,
+          teamMembersCount: teamMembers.length,
+          inTeam,
+          createdBy,
+          createdByMe,
+          isIncluded
+        });
+
+        return isIncluded;
+      });
+
+      console.log('🔍 Filtered projects:', {
+        originalCount: list.length,
+        filteredCount: filtered.length,
+        filteredNames: filtered.map(p => p.name)
+      });
+
+      return filtered;
+    },
+    [showMyProjectsOnly, user]
+  );
+
+  const filteredActiveProjects = useMemo(
+    () => filterProjectsByUser(qualActiveProjects),
+    [filterProjectsByUser, qualActiveProjects]
+  );
+
+  const filteredArchivedProjects = useMemo(
+    () => filterProjectsByUser(qualArchivedProjects),
+    [filterProjectsByUser, qualArchivedProjects]
+  );
+
+  const displayProjects = projectTab === 'active' ? filteredActiveProjects : filteredArchivedProjects;
+
+  // Use the filtered projects instead of the old qualProjects
+  const qualProjects = displayProjects;
 
   const loadStorytellingData = async (projectId: string) => {
     try {
@@ -521,8 +1182,42 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
       if (response.ok) {
         const data = await response.json();
         setStrategicQuestions(data.strategicQuestions || []);
-        setKeyFindings(data.keyFindings);
-        setStoryboards(data.storyboards || []);
+        
+        // Preserve respondentCount and strategicQuestions when loading existing keyFindings
+        if (data.keyFindings) {
+          const currentRespondentCount = projectMap[projectId]?.respondentCount ?? selectedProject?.respondentCount ?? 0;
+          setKeyFindings({
+            ...data.keyFindings,
+            respondentCount: data.keyFindings.respondentCount || currentRespondentCount,
+            strategicQuestions: data.keyFindings.strategicQuestions || data.strategicQuestions || []
+          });
+        } else {
+          setKeyFindings(data.keyFindings);
+        }
+        
+        // Preserve respondentCount and strategicQuestions when loading existing storyboards
+        if (data.storyboards && data.storyboards.length > 0) {
+          const currentRespondentCount = projectMap[projectId]?.respondentCount ?? selectedProject?.respondentCount ?? 0;
+          const storyboardsWithCount = data.storyboards.map((sb: any) => ({
+            ...sb,
+            respondentCount: sb.respondentCount || currentRespondentCount,
+            strategicQuestions: sb.strategicQuestions || data.strategicQuestions || []
+          }));
+          setStoryboards(storyboardsWithCount);
+        } else {
+          setStoryboards(data.storyboards || []);
+        }
+        
+        // Load concise executive summary if available
+        if (data.conciseExecutiveSummary) {
+          setConciseExecutiveSummary(data.conciseExecutiveSummary);
+        }
+        
+        // Load dynamic report if available
+        if (data.dynamicReport) {
+          setDynamicReport(data.dynamicReport);
+        }
+        
         // Ensure we only show the last 10 Q&A entries
         const chatHistory = data.chatHistory || [];
         setChatHistory(chatHistory.slice(-10));
@@ -531,9 +1226,171 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
     }
   };
 
+  const generateReportData = () => {
+    if (!dynamicReport || !selectedProject) return null;
+
+    // Split executive_summary slides if they have too many findings
+    const processedSlides: any[] = [];
+    const MAX_FINDINGS_PER_SLIDE = 4; // Maximum findings that fit comfortably on one slide
+
+    dynamicReport.slides.forEach((slide: any) => {
+      if (slide.type === 'executive_summary' && slide.findings && slide.findings.length > MAX_FINDINGS_PER_SLIDE) {
+        // Split into multiple slides
+        const findingsChunks = [];
+        for (let i = 0; i < slide.findings.length; i += MAX_FINDINGS_PER_SLIDE) {
+          findingsChunks.push(slide.findings.slice(i, i + MAX_FINDINGS_PER_SLIDE));
+        }
+
+        // Create a slide for each chunk
+        findingsChunks.forEach((chunk, index) => {
+          processedSlides.push({
+            ...slide,
+            title: index === 0 ? slide.title : `${slide.title} (cont.)`,
+            findings: chunk
+          });
+        });
+      } else {
+        // Keep slide as is
+        processedSlides.push(slide);
+      }
+    });
+
+    return {
+      slides: processedSlides,
+      generatedAt: dynamicReport.generatedAt,
+      projectName: getProjectName(selectedProject),
+      client: getClientName(selectedProject)
+    };
+  };
+
+  // Navigation functions
+  const goToNextSlide = () => {
+    if (reportData && currentSlideIndex < reportData.slides.length - 1) {
+      setCurrentSlideIndex(currentSlideIndex + 1);
+    }
+  };
+
+  const goToPreviousSlide = () => {
+    if (currentSlideIndex > 0) {
+      setCurrentSlideIndex(currentSlideIndex - 1);
+    }
+  };
+
+  const goToSlide = (index: number) => {
+    if (reportData && index >= 0 && index < reportData.slides.length) {
+      setCurrentSlideIndex(index);
+    }
+  };
+
   useEffect(() => {
     loadProjects();
-  }, []);
+  }, [loadProjects]);
+
+  // Load archived projects
+  useEffect(() => {
+    const loadArchivedProjects = async () => {
+      if (!user?.id) return;
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/projects/archived?userId=${user.id}`, {
+          headers: getAuthHeaders()
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const archivedProjectsArray = data.projects || [];
+          
+          // Load content analysis data for each archived project to get analysis counts
+          const archivedProjectsWithAnalysisCounts = await Promise.all(
+            archivedProjectsArray.map(async (project: any) => {
+              try {
+                const analysisResponse = await fetch(`${API_BASE_URL}/api/caX/saved`, {
+                  headers: getAuthHeaders()
+                });
+              if (analysisResponse.ok) {
+                const analysisData = await analysisResponse.json();
+                // The API returns an array directly, not an object with analyses property
+                const allAnalyses = Array.isArray(analysisData) ? analysisData : (analysisData.analyses || []);
+                const projectAnalyses = allAnalyses.filter((analysis: any) => analysis.projectId === project.id);
+                
+                return {
+                  ...project,
+                  analysisCount: projectAnalyses.length
+                };
+              }
+              } catch (error) {
+                console.error(`Failed to load analysis data for archived project ${project.id}:`, error);
+              }
+              return {
+                ...project,
+                analysisCount: 0
+              };
+            })
+          );
+          
+          setArchivedProjects(archivedProjectsWithAnalysisCounts);
+        }
+      } catch (error) {
+        console.error('Failed to load archived projects:', error);
+      }
+    };
+    loadArchivedProjects();
+  }, [user?.id]);
+
+  // Keyboard navigation for report view
+  useEffect(() => {
+    if (viewMode === 'report' && reportData) {
+      const handleKeyDown = (event: KeyboardEvent) => {
+        if (event.key === 'ArrowLeft') {
+          goToPreviousSlide();
+        } else if (event.key === 'ArrowRight') {
+          goToNextSlide();
+        }
+      };
+
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [viewMode, reportData, currentSlideIndex]);
+
+  // Generate report data when switching to report view
+  useEffect(() => {
+    if (viewMode === 'report' && storyboards.length > 0 && !reportData) {
+      // If we have dynamicReport data, use it directly
+      if (dynamicReport && selectedProject) {
+        const newReportData = {
+          slides: dynamicReport.slides,
+          generatedAt: dynamicReport.generatedAt,
+          projectName: getProjectName(selectedProject),
+          client: getClientName(selectedProject)
+        };
+        setReportData(newReportData);
+        setCurrentSlideIndex(0);
+      } else {
+        // Fallback to generating from storyboard data
+      setGeneratingReport(true);
+      setCurrentSlideIndex(0); // Reset to first slide
+      // Simulate a brief loading state for better UX
+      setTimeout(() => {
+        const data = generateReportData();
+        setReportData(data);
+        setGeneratingReport(false);
+      }, 1000);
+    }
+    }
+  }, [viewMode, storyboards.length]);
+
+  // Handle new dynamicReport data when it becomes available
+  useEffect(() => {
+    if (dynamicReport && selectedProject && viewMode === 'report') {
+      const newReportData = {
+        slides: dynamicReport.slides,
+        generatedAt: dynamicReport.generatedAt,
+        projectName: getProjectName(selectedProject),
+        client: getClientName(selectedProject)
+      };
+      setReportData(newReportData);
+      setCurrentSlideIndex(0);
+    }
+  }, [dynamicReport, selectedProject, viewMode]);
 
   useEffect(() => {
     if (selectedProject) {
@@ -546,6 +1403,12 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
     }
     }
   }, [selectedProject, projectId, projects]);
+
+  // Clear no changes messages when switching projects or tabs
+  useEffect(() => {
+    setShowNoChangesMessage(false);
+    setShowNoChangesMessageStoryboard(false);
+  }, [selectedProject, activeTab]);
 
   const handleSaveQuestions = async () => {
     if (!selectedProject) return;
@@ -574,7 +1437,6 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
   const estimateCost = async () => {
     if (!selectedProject) return;
 
-
     try {
       const response = await fetch(`${API_BASE_URL}/api/storytelling/${selectedProject.id}/estimate`, {
         method: 'POST',
@@ -588,7 +1450,10 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
       if (response.ok) {
         const estimate = await response.json();
         setCostEstimate(estimate);
-        setShowCostModal(true);
+        // Proceed directly with the action instead of showing modal
+        if (pendingAction === 'findings') confirmGenerateFindings();
+        else if (pendingAction === 'storyboard') confirmGenerateStoryboard();
+        else if (pendingAction === 'question') confirmAskQuestion();
       } else {
         const errorText = await response.text();
       }
@@ -597,14 +1462,34 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
   };
 
   const handleGenerateFindings = async () => {
+    // Check if there are changes in respondent count
+    const currentRespondentCount = selectedContentAnalysis ? 
+      (() => {
+        const allData = Object.values(selectedContentAnalysis.data || {}).flat();
+        const uniqueRespondents = new Set(allData.map((item: any) => item.respno).filter(Boolean));
+        return uniqueRespondents.size;
+      })() : 
+      (projectMap[selectedProject?.id || '']?.respondentCount ?? selectedProject?.respondentCount ?? 0);
+    const lastRespondentCount = keyFindings?.respondentCount;
+    
+    // Check if strategic questions have changed
+    const currentQuestions = strategicQuestions;
+    const lastQuestions = keyFindings?.strategicQuestions || [];
+    const questionsChanged = JSON.stringify(currentQuestions) !== JSON.stringify(lastQuestions);
+    
+    if (lastRespondentCount !== undefined && currentRespondentCount === lastRespondentCount && !questionsChanged) {
+      setShowNoChangesMessage(true);
+      return;
+    }
+    
     setPendingAction('findings');
+    setDetailLevel('moderate'); // Use moderate detail for more concise content
     await estimateCost();
   };
 
   const confirmGenerateFindings = async () => {
     if (!selectedProject) return;
 
-    setShowCostModal(false);
     setGeneratingFindings(true);
 
     try {
@@ -614,12 +1499,28 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
           ...getAuthHeaders(),
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ detailLevel, analysisId: selectedProject?.analysisId || analysisId })
+        body: JSON.stringify({ 
+          detailLevel, 
+          analysisId: selectedContentAnalysis?.id || selectedProject?.analysisId || analysisId,
+          strategicQuestions: strategicQuestions
+        })
       });
 
       if (response.ok) {
         const findings = await response.json();
-        setKeyFindings(findings);
+        const currentRespondentCount = selectedContentAnalysis ? 
+          (() => {
+            const allData = Object.values(selectedContentAnalysis.data || {}).flat();
+            const uniqueRespondents = new Set(allData.map((item: any) => item.respno).filter(Boolean));
+            return uniqueRespondents.size;
+          })() : 
+          (projectMap[selectedProject.id]?.respondentCount ?? selectedProject.respondentCount ?? 0);
+        setKeyFindings({
+          ...findings,
+          generatedAt: new Date().toISOString(),
+          respondentCount: currentRespondentCount,
+          strategicQuestions: strategicQuestions
+        });
       } else {
         const error = await response.json();
         alert(`Failed to generate findings: ${error.error}`);
@@ -632,6 +1533,26 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
   };
 
   const handleGenerateStoryboard = async () => {
+    // Check if there are changes in respondent count
+    const currentRespondentCount = selectedContentAnalysis ? 
+      (() => {
+        const allData = Object.values(selectedContentAnalysis.data || {}).flat();
+        const uniqueRespondents = new Set(allData.map((item: any) => item.respno).filter(Boolean));
+        return uniqueRespondents.size;
+      })() : 
+      (projectMap[selectedProject?.id || '']?.respondentCount ?? selectedProject?.respondentCount ?? 0);
+    const lastRespondentCount = storyboards[0]?.respondentCount;
+    
+    // Check if strategic questions have changed
+    const currentQuestions = strategicQuestions;
+    const lastQuestions = storyboards[0]?.strategicQuestions || [];
+    const questionsChanged = JSON.stringify(currentQuestions) !== JSON.stringify(lastQuestions);
+    
+    if (lastRespondentCount !== undefined && currentRespondentCount === lastRespondentCount && !questionsChanged) {
+      setShowNoChangesMessageStoryboard(true);
+      return;
+    }
+    
     setPendingAction('storyboard');
     await estimateCost();
   };
@@ -639,30 +1560,154 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
   const confirmGenerateStoryboard = async () => {
     if (!selectedProject) return;
 
-    setShowCostModal(false);
     setGeneratingStoryboard(true);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/storytelling/${selectedProject.id}/storyboard/generate`, {
+      const response = await fetch(`${API_BASE_URL}/api/storytelling/${selectedProject.id}/dynamic-report/generate`, {
         method: 'POST',
         headers: {
           ...getAuthHeaders(),
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ detailLevel, analysisId: selectedProject?.analysisId || analysisId })
+        body: JSON.stringify({ 
+          analysisId: selectedProject?.analysisId || analysisId
+        })
       });
 
       if (response.ok) {
-        const storyboard = await response.json();
-        setStoryboards([storyboard, ...storyboards]);
+        const dynamicReport = await response.json();
+        setDynamicReport(dynamicReport);
+        
+        // Convert dynamic report to storyboard format and update storyboards state
+        // First, create the title slide with actual project data
+        const titleSlide = {
+          type: 'title',
+          title: `${getProjectName(selectedProject) || 'Project Name'} - Report Outline`,
+          subtitle: `Client: ${getClientName(selectedProject) || 'Client Name'}`,
+          generated: `Generated: ${new Date().toLocaleDateString()}`
+        };
+
+        // Process all slides, replacing the AI-generated title slide with our actual project data
+        const processedSlides = dynamicReport.slides?.map((slide: any, index: number) => {
+          if (index === 0 && slide.type === 'title') {
+            // Replace the first slide (title) with our actual project data
+            return titleSlide;
+          }
+          return slide;
+        }) || [];
+
+        const newStoryboard: Storyboard = {
+          id: `storyboard-${Date.now()}`,
+          title: `Storyboard for ${selectedProject.name}`,
+          detailLevel: 'comprehensive',
+          sections: processedSlides.map((slide: any) => ({
+            title: slide.title || slide.headline,
+            content: slide.type === 'title' 
+              ? `# ${slide.title}\n\n**Client:** ${slide.subtitle}\n\n*${slide.generated}*`
+              : slide.type === 'executive_summary'
+              ? `# ${slide.title}\n\n${slide.headline}\n\n${slide.findings?.map((f: any) => `**${f.question}**\n${f.answer}\n\n*${f.insight}*`).join('\n\n') || ''}`
+              : `# ${slide.title}\n\n${slide.headline}\n\n${slide.content?.map((c: any) => `## ${c.subheading}\n${c.bullets?.map((b: string) => `- ${b}`).join('\n') || ''}\n${c.paragraph || ''}`).join('\n\n') || ''}\n\n${slide.quotes?.map((q: any) => `> "${q.text}"\n> - ${q.respno || 'Respondent'}`).join('\n\n') || ''}`,
+            generatedAt: new Date().toISOString()
+          })),
+          generatedAt: new Date().toISOString(),
+          respondentCount: projectMap[selectedProject.id]?.respondentCount ?? selectedProject?.respondentCount ?? 0,
+          strategicQuestions: strategicQuestions
+        };
+        
+        // Add new storyboard to the beginning of the array
+        setStoryboards(prev => [newStoryboard, ...prev]);
+        
+        // Note: Storyboard data is saved as part of the storytelling data, not separately
+        
+        // Update report data if we're in report view
+        if (viewMode === 'report') {
+        const newReportData = {
+          slides: processedSlides, // Use the processed slides with actual project data
+          generatedAt: new Date().toISOString(),
+          projectName: getProjectName(selectedProject),
+          client: getClientName(selectedProject)
+        };
+          setReportData(newReportData);
+          setCurrentSlideIndex(0); // Reset to first slide
+        }
+        
+        // Save report data to backend for persistence
+        try {
+          const reportDataToSave = {
+            slides: processedSlides,
+            generatedAt: new Date().toISOString(),
+            projectName: getProjectName(selectedProject),
+            client: getClientName(selectedProject)
+          };
+          
+          console.log('🔍 Saving report data to backend:', {
+            projectId: selectedProject.id,
+            analysisId: selectedContentAnalysis?.id || selectedProject?.analysisId || analysisId,
+            slidesCount: processedSlides.length
+          });
+          
+          const reportSaveResponse = await fetch(`${API_BASE_URL}/api/storytelling/${selectedProject.id}/report-data`, {
+            method: 'POST',
+            headers: {
+              ...getAuthHeaders(),
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              reportData: reportDataToSave,
+              analysisId: selectedContentAnalysis?.id || selectedProject?.analysisId || analysisId
+            })
+          });
+          
+          if (reportSaveResponse.ok) {
+            console.log('✅ Report data saved successfully');
+          } else {
+            console.error('❌ Failed to save report data to API:', reportSaveResponse.status);
+          }
+        } catch (error) {
+          console.error('❌ Error saving report data:', error);
+        }
+        
+        setActiveTab('storyboard');
       } else {
         const error = await response.json();
-        alert(`Failed to generate storyboard: ${error.error}`);
+        alert(`Failed to generate dynamic report: ${error.error}`);
       }
     } catch (error) {
-      alert('Failed to generate storyboard');
+      alert('Failed to generate dynamic report');
     } finally {
       setGeneratingStoryboard(false);
+    }
+  };
+
+  const handleGenerateConciseExecutiveSummary = async () => {
+    if (!selectedProject) return;
+
+    setGeneratingFindings(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/storytelling/${selectedProject.id}/executive-summary/generate`, {
+        method: 'POST',
+        headers: {
+          ...getAuthHeaders(),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          analysisId: selectedProject.analysisId
+        })
+      });
+
+      if (response.ok) {
+        const conciseSummary = await response.json();
+        setConciseExecutiveSummary(conciseSummary);
+        setActiveTab('storyboard');
+      } else {
+        const error = await response.json();
+        alert(`Failed to generate concise executive summary: ${error.error}`);
+      }
+    } catch (error) {
+      alert('Failed to generate concise executive summary');
+    } finally {
+      setGeneratingFindings(false);
     }
   };
 
@@ -674,7 +1719,6 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
   const confirmAskQuestion = async () => {
     if (!selectedProject || !currentQuestion.trim()) return;
 
-    setShowCostModal(false);
     setAskingQuestion(true);
 
     try {
@@ -820,7 +1864,8 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
     await handleAnswerClick(mockMessage);
   };
 
-  if (selectedProject) {
+  // Project view - show list of content analyses
+  if (selectedProject && viewMode === 'project') {
     return (
       <main className="flex-1 overflow-y-auto" style={{ backgroundColor: BRAND_BG }}>
         <div className="flex-1 p-6 space-y-6 max-w-full overflow-hidden">
@@ -828,8 +1873,118 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
             <div>
               <button
                 onClick={() => {
-                  setForceListView(true);
                   setSelectedProject(null);
+                  setViewMode('home');
+                }}
+                className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition mb-2"
+              >
+                <ArrowLeftIcon className="h-4 w-4" />
+                Back to Projects
+              </button>
+              <h2 className="text-2xl font-bold" style={{ color: BRAND_GRAY }}>
+                {selectedProject.name} - Storytelling
+              </h2>
+              <p className="mt-1 text-sm text-gray-500">
+                {selectedProject.client && <span>{selectedProject.client} • </span>}
+                Select a content analysis to view storyboards
+              </p>
+            </div>
+          </section>
+
+          {/* Content Analyses Table */}
+          <div className="overflow-x-auto">
+            {contentAnalyses.length === 0 ? (
+              <div className="p-8 text-center">
+                <IconBook2 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No Content Analyses</h3>
+                <p className="text-gray-600 mb-4">This project doesn't have any content analyses yet.</p>
+                <button
+                  onClick={() => {
+                    const url = `${window.location.pathname}?route=Content%20Analysis`;
+                    window.history.pushState({}, '', url);
+                    window.location.reload();
+                  }}
+                  className="flex items-center gap-1 rounded-lg px-4 py-2 text-sm shadow-sm transition-colors text-white hover:opacity-90 mx-auto"
+                  style={{ backgroundColor: BRAND_ORANGE }}
+                >
+                  <CloudArrowUpIcon className="h-4 w-4" />
+                  Create First Analysis
+                </button>
+              </div>
+            ) : (
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Analysis Name
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Created
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Respondents
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {contentAnalyses.map((analysis) => (
+                    <tr 
+                      key={analysis.id} 
+                      className="hover:bg-gray-50 cursor-pointer transition-colors"
+                      onClick={async () => {
+                        setSelectedContentAnalysis(analysis);
+                        setViewMode('storyboard');
+                        // Load the full analysis data first
+                        const fullAnalysis = await loadFullContentAnalysis(analysis.id);
+                        if (fullAnalysis) {
+                          // Then load project data with the analysis context
+                          await loadProjectData(selectedProject.id);
+                        }
+                      }}
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">{analysis.name || 'Untitled Analysis'}</div>
+                        {analysis.description && (
+                          <div className="text-sm text-gray-500 truncate max-w-xs">{analysis.description}</div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {analysis.createdAt ? new Date(analysis.createdAt).toLocaleDateString() : '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        <div className="flex items-center justify-center gap-1 text-sm text-gray-900">
+                          <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                          </svg>
+                          {analysis.data ? (() => {
+                            const allData = Object.values(analysis.data).flat();
+                            const uniqueRespondents = new Set(allData.map((item: any) => item.respno).filter(Boolean));
+                            return uniqueRespondents.size;
+                          })() : 0}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  // Storyboard/Report view
+  if (selectedProject && (viewMode === 'storyboard' || viewMode === 'report')) {
+    return (
+      <main className="flex-1 overflow-y-auto" style={{ backgroundColor: BRAND_BG }}>
+        <div className="flex-1 p-6 space-y-6 max-w-full overflow-hidden">
+          <section className="flex items-center justify-between">
+            <div>
+              <button
+                onClick={() => {
+                  setSelectedProject(null);
+                  setViewMode('home');
                 }}
                 className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition mb-2"
               >
@@ -843,54 +1998,66 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
                 {selectedProject.client && <span>{selectedProject.client} • </span>}
                 AI-powered research insights
               </p>
-              <p className="text-sm text-gray-500 mt-1">
-                From n={projectMap[selectedProject.id]?.respondentCount ?? selectedProject.respondentCount ?? 0} respondents added to the 
-                <button
-                  onClick={() => {
-                    // Deep link the specific analysis via custom event used by ContentAnalysisX
-                    const analysis = selectedProject.analysisId;
-                    if (!analysis) return;
-                    // Set route
-                    const url = `${window.location.pathname}?route=Content%20Analysis`;
-                    window.history.pushState({}, '', url);
-                    // Dispatch event to load analysis when CA mounts
-                    setTimeout(() => {
-                      window.dispatchEvent(new CustomEvent('loadContentAnalysis', { detail: { analysisId: analysis } }));
-                    }, 50);
-                    // Force route change by reloading
-                    window.location.reload();
-                  }}
-                  className="ml-1 underline"
-                  style={{ color: BRAND_ORANGE }}
-                >
-                  content analysis
-                </button>
-              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => {
+                  // Deep link the specific analysis via custom event used by ContentAnalysisX
+                  const analysis = selectedProject.analysisId;
+                  if (!analysis) return;
+                  // Set route
+                  const url = `${window.location.pathname}?route=Content%20Analysis`;
+                  window.history.pushState({}, '', url);
+                  // Dispatch event to load analysis when CA mounts
+                  setTimeout(() => {
+                    window.dispatchEvent(new CustomEvent('loadContentAnalysis', { detail: { analysisId: analysis } }));
+                  }, 50);
+                  // Force route change by reloading
+                  window.location.reload();
+                }}
+                className="flex items-center justify-center h-8 w-8 rounded-full transition-colors"
+                style={{ backgroundColor: 'rgba(37, 99, 235, 0.65)' }}
+                title="Open Content Analysis"
+              >
+                <IconTable className="h-4 w-4 text-white" />
+              </button>
             </div>
           </section>
 
           {/* Tabs */}
           <div className="border-b border-gray-200">
-            <nav className="-mb-px flex space-x-8">
-              {[
-                { id: 'key-findings', label: 'Key Findings', icon: SparklesIcon },
-                { id: 'storyboard', label: 'Storyboard', icon: DocumentTextIcon },
-                { id: 'ask', label: 'Q&A', icon: ChatBubbleLeftRightIcon }
-              ].map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as any)}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${
-                    activeTab === tab.id
-                      ? 'text-white'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                  style={activeTab === tab.id ? { borderBottomColor: BRAND_ORANGE, color: BRAND_ORANGE } : {}}
-                >
-                  <tab.icon className="h-4 w-4" />
-                  {tab.label}
-                </button>
-              ))}
+            <nav className="-mb-px flex space-x-8 justify-between items-center">
+              <div className="flex space-x-8">
+                {[
+                  { id: 'key-findings', label: 'Key Findings', icon: SparklesIcon },
+                  { id: 'storyboard', label: 'Storyboard', icon: DocumentTextIcon },
+                  { id: 'ask', label: 'Q&A', icon: ChatBubbleLeftRightIcon }
+                ].map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as any)}
+                    className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${
+                      activeTab === tab.id
+                        ? 'text-white'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                    style={activeTab === tab.id ? { borderBottomColor: BRAND_ORANGE, color: BRAND_ORANGE } : {}}
+                  >
+                    <tab.icon className="h-4 w-4" />
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+              <div className="text-sm text-gray-500">
+                n={selectedContentAnalysis ? 
+                  (() => {
+                    const allData = Object.values(selectedContentAnalysis.data || {}).flat();
+                    const uniqueRespondents = new Set(allData.map((item: any) => item.respno).filter(Boolean));
+                    return uniqueRespondents.size;
+                  })() : 
+                  (projectMap[selectedProject.id]?.respondentCount ?? selectedProject.respondentCount ?? 0)
+                }
+              </div>
             </nav>
           </div>
 
@@ -898,17 +2065,24 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
           {activeTab === 'key-findings' && (
             <div className="space-y-4">
               <div className="bg-white shadow-sm border border-gray-200 rounded-lg p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Strategic Questions</h3>
-                  <button
-                    onClick={() => {
-                      setEditingQuestions(!editingQuestions);
-                      setTempQuestions([...strategicQuestions]);
-                    }}
-                    className="text-sm text-gray-600 hover:text-gray-900"
-                  >
-                    {editingQuestions ? 'Cancel' : 'Edit Questions'}
-                  </button>
+                <div className="mb-4">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-semibold text-gray-900">Strategic Questions</h3>
+                    <button
+                      onClick={() => {
+                        setEditingQuestions(!editingQuestions);
+                        setTempQuestions([...strategicQuestions]);
+                      }}
+                      className="text-gray-400 hover:text-gray-600 transition-colors"
+                      title={editingQuestions ? "Cancel editing" : "Edit questions"}
+                    >
+                      {editingQuestions ? (
+                        <span className="text-sm">Cancel</span>
+                      ) : (
+                        <PencilIcon className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 {editingQuestions ? (
@@ -961,46 +2135,33 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
                     )}
                   </div>
                 )}
-              </div>
 
-              {strategicQuestions.length > 0 && (
-                <div className="space-y-4">
-                  <div className="bg-white shadow-sm border border-gray-200 rounded-lg p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Generate Key Findings</h3>
-
-                    <div className="grid grid-cols-2 gap-4 mb-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Detail Level</label>
-                        <select
-                          value={detailLevel}
-                          onChange={e => setDetailLevel(e.target.value as any)}
-                          className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-                        >
-                          <option value="straightforward">Straightforward</option>
-                          <option value="moderate">Moderate</option>
-                          <option value="max">Max Detail</option>
-                        </select>
-                      </div>
-                    </div>
-
+                {strategicQuestions.length > 0 && (
+                  <div className="mt-6 pt-4 border-t border-gray-200">
                     <button
                       onClick={handleGenerateFindings}
                       disabled={generatingFindings}
-                      className="px-6 py-3 rounded-lg text-white font-medium flex items-center gap-2 disabled:opacity-50"
+                      className="px-4 py-2 rounded-lg text-white text-sm font-medium flex items-center gap-2 disabled:opacity-50"
                       style={{ backgroundColor: BRAND_ORANGE }}
                     >
                       {generatingFindings ? 'Generating...' : 'Generate Key Findings'}
-                      <SparklesIcon className="h-5 w-5" />
+                      <SparklesIcon className="h-4 w-4" />
                     </button>
+                    {showNoChangesMessage && (
+                      <p className="text-sm mt-2" style={{ color: BRAND_ORANGE }}>
+                        No new respondents added or removed since last generation. Key findings are up to date.
+                      </p>
+                    )}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
+
 
               {keyFindings && keyFindings.findings && (
                 <div className="space-y-4">
                   {keyFindings.generatedAt && (
                     <p className="text-xs text-gray-500">
-                      Last updated: {formatDateTimeNoSeconds(keyFindings.generatedAt)}
+                      Last updated: {formatDateTimeNoSeconds(keyFindings.generatedAt)} (n={keyFindings.respondentCount || 0})
                     </p>
                   )}
                   {keyFindings.findings.map((finding, idx) => (
@@ -1030,113 +2191,238 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
           {/* Storyboard Tab */}
           {activeTab === 'storyboard' && (
             <div className="space-y-4">
-              <div className="bg-white shadow-sm border border-gray-200 rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Generate New Storyboard</h3>
-
-                <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Detail Level</label>
-                    <select
-                      value={detailLevel}
-                      onChange={e => setDetailLevel(e.target.value as any)}
-                    className="w-full max-w-xs border border-gray-300 rounded px-3 py-2 text-sm"
-                    >
-                      <option value="straightforward">Straightforward</option>
-                      <option value="moderate">Moderate</option>
-                      <option value="max">Max Detail</option>
-                    </select>
-                </div>
-
-                <button
-                  onClick={handleGenerateStoryboard}
-                  disabled={generatingStoryboard}
-                  className="px-6 py-3 rounded-lg text-white font-medium flex items-center gap-2 disabled:opacity-50"
-                  style={{ backgroundColor: BRAND_ORANGE }}
-                >
-                  {generatingStoryboard ? (
-                    <>
-                      <span>Generating...</span>
-                      <span className="mx-1 h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white inline-block"></span>
-                    </>
-                  ) : (
-                    <>
-                      <span>Generate Storyboard</span>
-                  <DocumentTextIcon className="h-5 w-5" />
-                    </>
-                  )}
-                </button>
-              </div>
-
-              {storyboards.length > 0 && (
+              {storyboards.length > 0 ? (
                 <div className="space-y-4">
                   {/* Current Storyboard Display */}
                   <div className="bg-white shadow-sm border border-gray-200 rounded-lg p-6">
                     <div className="flex items-center justify-between mb-4">
-                      <h4 className="font-semibold text-gray-900">{selectedProject?.name} - Storyboard</h4>
+                      <h4 className="text-xl font-semibold text-gray-900">{selectedProject?.name} - Storyboard</h4>
                       <div className="flex items-center gap-3">
-                        {storyboards.length > 1 && (
-                          <select
-                            value={storyboards[0].id}
-                            onChange={(e) => {
-                              const selectedStoryboard = storyboards.find(sb => sb.id === e.target.value);
-                              if (selectedStoryboard) {
-                                // Move the selected storyboard to the front
-                                const otherStoryboards = storyboards.filter(sb => sb.id !== e.target.value);
-                                setStoryboards([selectedStoryboard, ...otherStoryboards]);
-                              }
-                            }}
-                            className="text-sm border border-gray-300 rounded px-3 py-1"
-                          >
-                            {storyboards.map((sb, index) => (
-                              <option key={sb.id} value={sb.id}>
-                                {index === 0 ? 'Latest' : `Previous ${index}`} - {new Date(sb.generatedAt).toLocaleDateString()}
-                              </option>
-                            ))}
-                          </select>
-                        )}
-                      <button
-                        onClick={() => handleDownloadStoryboard(storyboards[0])}
-                        className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
-                      >
-                        <ArrowDownTrayIcon className="h-4 w-4" />
-                        Download Word
-                      </button>
+                        <button
+                          onClick={() => handleDownloadStoryboard(storyboards[0])}
+                          className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
+                        >
+                          <ArrowDownTrayIcon className="h-4 w-4" />
+                          Download Word
+                        </button>
                       </div>
                     </div>
+                    
+                    {/* Generate Report Button and View Toggle */}
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <button
+                          onClick={handleGenerateStoryboard}
+                          disabled={generatingStoryboard}
+                          className="px-4 py-2 rounded-lg text-white text-sm font-medium flex items-center gap-2 disabled:opacity-50"
+                          style={{ backgroundColor: BRAND_ORANGE }}
+                        >
+                          {generatingStoryboard ? 'Generating...' : 'Generate Report'}
+                          <DocumentTextIcon className="h-4 w-4" />
+                        </button>
+                        {showNoChangesMessageStoryboard && (
+                          <p className="text-sm mt-2" style={{ color: BRAND_ORANGE }}>
+                            No new respondents have been added or removed since the last storyboard generation.
+                          </p>
+                        )}
+                      </div>
+                      
+                      {/* View Toggle - Right aligned */}
+                      <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
+                        <button
+                          onClick={() => setViewMode('storyboard')}
+                          disabled={generatingStoryboard}
+                          className={`flex items-center gap-1 px-3 py-1 text-sm transition-colors ${
+                            viewMode === 'storyboard'
+                              ? 'text-white'
+                              : generatingStoryboard
+                              ? 'text-gray-400 cursor-not-allowed'
+                              : 'text-gray-600 hover:text-gray-900'
+                          }`}
+                          style={viewMode === 'storyboard' ? { backgroundColor: BRAND_ORANGE } : {}}
+                        >
+                          <ViewColumnsIcon className="h-4 w-4" />
+                          Storyboard
+                        </button>
+                        <button
+                          onClick={() => setViewMode('report')}
+                          disabled={generatingStoryboard}
+                          className={`flex items-center gap-1 px-3 py-1 text-sm transition-colors ${
+                            viewMode === 'report'
+                              ? 'text-white'
+                              : generatingStoryboard
+                              ? 'text-gray-400 cursor-not-allowed'
+                              : 'text-gray-600 hover:text-gray-900'
+                          }`}
+                          style={viewMode === 'report' ? { backgroundColor: BRAND_ORANGE } : {}}
+                        >
+                          <PresentationChartBarIcon className="h-4 w-4" />
+                          Report
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {/* Horizontal line separator */}
+                    <div className="h-px bg-gray-200 -mx-6 mb-4" />
+                    
                     <p className="text-xs text-gray-500 mb-4">
-                      Generated: {formatDateTimeNoSeconds(storyboards[0].generatedAt)} • {storyboards[0].detailLevel} detail
+                      Generated: {formatDateTimeNoSeconds(storyboards[0].generatedAt)} (n={storyboards[0].respondentCount || 0})
                     </p>
                     
-                    {/* Storyboard sections in individual boxes */}
-                    <div className="space-y-4">
-                      {storyboards[0].sections?.map((section, idx) => {
-                        const bulletsForSection = extractBulletsFromMarkdown(section.content);
-                        return (
-                          <div key={idx} className="bg-gray-50 border border-gray-200 rounded-lg p-4 shadow-sm">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="min-w-0">
-                                <h3 className="text-lg font-semibold text-gray-900 mb-2 truncate">{section.title}</h3>
-                                </div>
-                              {bulletsForSection.length > 0 && (
-                                <button
-                                  onClick={() => openDetailsForSection(section.title, section.content)}
-                                  className="text-xs px-2 py-1 rounded border border-gray-300 text-gray-700 hover:bg-gray-50 whitespace-nowrap"
-                                >
-                                  Learn more
-                                </button>
-                              )}
-                              </div>
-                            {/* Under-title thin underline */}
-                            <div className="h-px bg-gray-200 -mx-4 mb-3" />
-                            <div className="prose prose-sm max-w-none">
-                              {parseMarkdownContent(section.content)}
-                            </div>
+                    {/* Conditional Content Display */}
+                    {viewMode === 'storyboard' ? (
+                      generatingStoryboard ? (
+                        /* Loading state for storyboard generation */
+                        <div className="flex flex-col items-center justify-center py-12">
+                          <div className="flex items-center gap-3 mb-4">
+                            <div className="animate-spin rounded-full h-8 w-8 border-4 border-gray-300" style={{ borderTopColor: BRAND_ORANGE }}></div>
+                            <span className="text-lg font-medium text-gray-700">Generating storyboard...</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <div className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: BRAND_ORANGE, animationDelay: '0ms' }}></div>
+                            <div className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: BRAND_ORANGE, animationDelay: '150ms' }}></div>
+                            <div className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: BRAND_ORANGE, animationDelay: '300ms' }}></div>
+                          </div>
                         </div>
-                        );
-                      })}
-                    </div>
+                      ) : (
+                        /* Storyboard sections in individual boxes */
+                        <div className="space-y-4">
+                          {storyboards[0].sections?.map((section, idx) => {
+                          const bulletsForSection = extractBulletsFromMarkdown(section.content);
+                          return (
+                            <div key={idx} className="bg-gray-50 border border-gray-200 rounded-lg p-4 shadow-sm">
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                  <h3 className="text-lg font-semibold text-gray-900 mb-2 truncate">{section.title}</h3>
+                                  </div>
+                                {bulletsForSection.length > 0 && (
+                                  <button
+                                    onClick={() => openDetailsForSection(section.title, section.content)}
+                                    className="text-xs px-2 py-1 rounded border border-gray-300 text-gray-700 hover:bg-gray-50 whitespace-nowrap"
+                                  >
+                                    Learn more
+                                  </button>
+                                )}
+                                </div>
+                              {/* Under-title thin underline */}
+                              <div className="h-px bg-gray-200 -mx-4 mb-3" />
+                              <div className="prose prose-sm max-w-none">
+                                {parseMarkdownContent(section.content)}
+                              </div>
+                          </div>
+                          );
+                        })}
+                        </div>
+                      )
+                    ) : (
+                      /* Report View */
+                      <div className="space-y-6">
+                        {generatingStoryboard ? (
+                          <div className="flex flex-col items-center justify-center py-12">
+                            <div className="flex items-center gap-3 mb-4">
+                              <div className="animate-spin rounded-full h-8 w-8 border-4 border-gray-300" style={{ borderTopColor: BRAND_ORANGE }}></div>
+                              <span className="text-lg font-medium text-gray-700">Generating new report...</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <div className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: BRAND_ORANGE, animationDelay: '0ms' }}></div>
+                              <div className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: BRAND_ORANGE, animationDelay: '150ms' }}></div>
+                              <div className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: BRAND_ORANGE, animationDelay: '300ms' }}></div>
+                            </div>
+                          </div>
+                        ) : generatingReport ? (
+                          <div className="flex items-center justify-center py-12">
+                            <div className="text-center">
+                              <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-gray-300 mb-4" style={{ borderTopColor: BRAND_ORANGE }}></div>
+                              <p className="text-gray-600">Generating report...</p>
+                            </div>
+                          </div>
+                        ) : reportData ? (
+                          <div className="flex gap-4 w-full max-w-full overflow-hidden">
+                            {/* Slide Navigation - Left Side - Flexes to fill remaining space */}
+                            <div className="bg-gray-50 p-4 rounded-lg flex flex-col flex-1 min-w-0" style={{ height: '500px' }}>
+                              <div className="flex items-center justify-between mb-3 flex-shrink-0">
+                                <h4 className="text-sm font-medium text-gray-700">Slides</h4>
+                                <span className="text-xs text-gray-500">
+                                  {currentSlideIndex + 1} of {reportData.slides.length}
+                                </span>
+                              </div>
+                              <div className="space-y-2 overflow-y-auto flex-1 min-h-0 pr-2" style={{ scrollbarWidth: 'thin' }}>
+                                {reportData.slides.map((slide: any, idx: number) => {
+                                  const IconComponent = getIcon(slide.icon);
+
+                                  // Get proper title for title slides
+                                  let slideTitle = slide.title || slide.headline || `Slide ${idx + 1}`;
+                                  if (slide.type === 'title') {
+                                    slideTitle = `${getProjectName(selectedProject) || 'Project'} - Report Outline`;
+                                  }
+
+                                  return (
+                                    <button
+                                      key={idx}
+                                      onClick={() => goToSlide(idx)}
+                                      className={`w-full p-3 rounded border-2 transition-all text-left ${
+                                        currentSlideIndex === idx
+                                          ? 'border-orange-500 bg-orange-50'
+                                          : 'border-gray-300 bg-white hover:border-gray-400'
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-3">
+                                        <div className="p-2 rounded-lg" style={{ backgroundColor: BRAND_ORANGE + '20' }}>
+                                          <IconComponent className="h-5 w-5" style={{ color: BRAND_ORANGE }} />
+                                        </div>
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-medium text-gray-700 truncate">{slideTitle}</p>
+                                        <p className="text-xs font-medium text-gray-500">Slide {idx + 1}</p>
+                                      </div>
+                                      </div>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+
+                            {/* Main Slide Display - Right Side - Fixed width, always visible */}
+                            <div className="flex-shrink-0 flex-grow-0">
+                              {/* Current Slide */}
+                              <ReportSlide
+                                slide={reportData.slides[currentSlideIndex]}
+                                slideNumber={currentSlideIndex + 1}
+                                totalSlides={reportData.slides.length}
+                                getIcon={getIcon}
+                                selectedProject={selectedProject}
+                                projectMap={projectMap}
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-center py-12">
+                            <PresentationChartBarIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                            <h3 className="text-lg font-medium text-gray-900 mb-2">No Report Data</h3>
+                            <p className="text-gray-600">Click "Report" to generate a presentation view of your storyboard.</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Past Storyboards list removed (dropdown at top handles history) */}
+                </div>
+              ) : (
+                <div className="bg-white shadow-sm border border-gray-200 rounded-lg p-6">
+                  <div className="text-center py-12">
+                    <DocumentTextIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No Storyboard Generated</h3>
+                    <p className="text-gray-600 mb-6">Generate a storyboard to get started with your project insights.</p>
+                    <button
+                      onClick={handleGenerateStoryboard}
+                      disabled={generatingStoryboard}
+                      className="px-6 py-3 rounded-lg text-white font-medium flex items-center gap-2 disabled:opacity-50 mx-auto"
+                      style={{ backgroundColor: BRAND_ORANGE }}
+                    >
+                      {generatingStoryboard ? 'Generating...' : 'Generate Report'}
+                      <DocumentTextIcon className="h-5 w-5" />
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -1191,47 +2477,6 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
           )}
         </div>
 
-        {/* Cost Estimate Modal */}
-        {showCostModal && costEstimate && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-            <div className="w-full max-w-md rounded-xl bg-white shadow-xl p-6">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Cost Estimate</h3>
-              <div className="space-y-3 mb-6">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Input tokens:</span>
-                  <span className="font-medium">{costEstimate.inputTokens.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Output tokens:</span>
-                  <span className="font-medium">{costEstimate.outputTokens.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between text-lg font-bold border-t pt-3">
-                  <span>Estimated Cost:</span>
-                  <span style={{ color: BRAND_ORANGE }}>{costEstimate.formattedCost}</span>
-                </div>
-              </div>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowCostModal(false)}
-                  className="flex-1 px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    if (pendingAction === 'findings') confirmGenerateFindings();
-                    else if (pendingAction === 'storyboard') confirmGenerateStoryboard();
-                    else if (pendingAction === 'question') confirmAskQuestion();
-                  }}
-                  className="flex-1 px-4 py-2 rounded-lg text-white"
-                  style={{ backgroundColor: BRAND_ORANGE }}
-                >
-                  Confirm
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Quotes Modal */}
         {showQuotesModal && selectedAnswer && (
@@ -1355,7 +2600,7 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
                           <div className="mt-3">
                             {item.loading ? (
                               <div className="py-8 text-center">
-                                <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-[#D14A2D]"></div>
+                                <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-gray-200" style={{ borderTopColor: BRAND_ORANGE }}></div>
                                 <div className="mt-2 text-sm text-gray-600">Loading details...</div>
                               </div>
                             ) : (
@@ -1411,38 +2656,95 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
               AI-powered insights from qualitative research
             </p>
           </div>
+          {viewMode === 'home' && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-600">Current View:</span>
+              <button
+                onClick={() => setShowMyProjectsOnly(!showMyProjectsOnly)}
+                className={`px-3 py-1 text-xs rounded-lg shadow-sm transition-colors ${
+                  showMyProjectsOnly
+                    ? 'text-white hover:opacity-90'
+                    : 'bg-white border border-gray-300 hover:bg-gray-50'
+                }`}
+                style={showMyProjectsOnly ? { backgroundColor: BRAND_ORANGE } : {}}
+              >
+                {showMyProjectsOnly ? 'Only My Projects' : 'All Cognitive Projects'}
+              </button>
+            </div>
+          )}
         </section>
 
+        {/* Tabs - only show on home view */}
+        {viewMode === 'home' && (
+          <div>
+            <div className="flex items-center justify-between">
+              <nav className="-mb-px flex space-x-8 items-center">
+                <button
+                  onClick={() => setProjectTab('active')}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                    projectTab === 'active'
+                      ? 'text-white'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                  style={projectTab === 'active' ? { borderBottomColor: BRAND_ORANGE, color: BRAND_ORANGE } : {}}
+                >
+                  Active Projects ({qualActiveProjects.length})
+                </button>
+                <button
+                  onClick={() => setProjectTab('archived')}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                    projectTab === 'archived'
+                      ? 'text-white'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                  style={projectTab === 'archived' ? { borderBottomColor: BRAND_ORANGE, color: BRAND_ORANGE } : {}}
+                >
+                  Archived Projects ({qualArchivedProjects.length})
+                </button>
+              </nav>
+            </div>
+            <div className="border-b border-gray-200"></div>
+          </div>
+        )}
+
+        {/* Home View - Project List */}
+        {viewMode === 'home' && (
         <div className="bg-white shadow-sm border border-gray-200 rounded-lg overflow-hidden">
+            <div className="overflow-x-auto">
           {loading ? (
             <div className="p-12 text-center">
-              <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-gray-200 border-t-[#D14A2D]"></div>
+                  <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-gray-200" style={{ borderTopColor: BRAND_ORANGE }}></div>
               <p className="text-sm text-gray-500">Loading projects...</p>
             </div>
           ) : qualProjects.length === 0 ? (
             <div className="p-12 text-center">
               <DocumentTextIcon className="mx-auto mb-4 h-16 w-16 text-gray-300" />
-              <h3 className="text-lg font-semibold text-gray-900">No qualitative projects</h3>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    {projectTab === 'archived'
+                      ? 'No archived qualitative projects'
+                      : 'No active qualitative projects'}
+                  </h3>
               <p className="mt-2 text-gray-500">
-                Create a qualitative project to start using storytelling features.
+                    {projectTab === 'archived'
+                      ? 'Archived qualitative projects will appear here.'
+                      : 'Create a qualitative project to start using storytelling features.'}
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="pl-6 pr-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-0 whitespace-nowrap">
                       Project
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Content Analysis
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="pl-2 pr-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
                       Client
                     </th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Respondents
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+                        Methodology
+                      </th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
+                        Content Analyses
                     </th>
                   </tr>
                 </thead>
@@ -1451,36 +2753,38 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
                     <tr
                       key={project.id}
                       className="hover:bg-gray-50 cursor-pointer transition-colors"
-                      onClick={() => {
-                        console.log('🎭 Project clicked:', project);
-                        console.log('🎭 Project clicked (detailed):', {
-                          name: project.name,
-                          id: project.id,
-                          analysisId: project.analysisId,
-                          respondentCount: project.respondentCount
-                        });
+                        onClick={async () => {
                         setSelectedProject(project);
+                          setViewMode('project');
+                          // Load content analyses for this project
+                          await loadContentAnalysesForProject(project.id);
                       }}
                     >
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{projectMap[project.projectId || project.id]?.name || getProjectName(project) || '-'}</div>
+                        <td className="pl-6 pr-2 py-4 whitespace-nowrap w-0">
+                          <div className="inline-block text-sm font-medium text-gray-900">{project.name}</div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{project?.name || '-'}</div>
+                        <td className="pl-2 pr-6 py-4 whitespace-nowrap w-32">
+                          <div className="text-sm text-gray-900 truncate">{project.client || '-'}</div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{getClientName(projectMap[project.projectId || project.id]) || getClientName(project) || '-'}</div>
+                        <td className="px-6 py-4 whitespace-nowrap text-center w-24">
+                          <div className="text-sm text-gray-900">{project.methodologyType || '-'}</div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <div className="text-sm font-medium text-gray-900">{project.respondentCount ?? projectMap[project.projectId || project.id]?.respondentCount ?? 0}</div>
+                        <td className="px-6 py-4 whitespace-nowrap text-center w-32">
+                          <div className="flex items-center justify-center gap-1 text-sm text-gray-900">
+                            <IconBook2 className="h-4 w-4 text-gray-400" />
+                            {project.analysisCount || 0}
+                            {/* Debug: {JSON.stringify(project.analysisCount)} */}
+                          </div>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            </div>
           )}
         </div>
+          </div>
+        )}
+
       </div>
     </main>
   );

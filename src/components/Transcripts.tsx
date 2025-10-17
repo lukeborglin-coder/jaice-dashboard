@@ -5,11 +5,13 @@ import {
   ArrowDownTrayIcon,
   TrashIcon,
   ArrowLeftIcon,
-  CheckCircleIcon
+  CheckCircleIcon,
+  ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 import { IconScript } from '@tabler/icons-react';
 import { API_BASE_URL } from '../config';
 import { useAuth } from '../contexts/AuthContext';
+import { normalizeTranscriptList, normalizeAnalysisRespnos, buildTranscriptDisplayName } from '../utils/respnoUtils';
 
 const BRAND_ORANGE = '#D14A2D';
 const BRAND_BG = '#F7F7F8';
@@ -48,6 +50,54 @@ const isQualitative = (project: Project) => {
   return methodologyType === 'qualitative' || methodologyType === 'qual';
 };
 
+// Function to detect duplicate interview dates/times
+const findDuplicateInterviewTimes = (transcripts: Transcript[]) => {
+  const timeMap = new Map<string, Transcript[]>();
+  
+  transcripts.forEach(transcript => {
+    const date = transcript.interviewDate || '';
+    const time = transcript.interviewTime || '';
+    const key = `${date}|${time}`;
+    
+    if (date && time) {
+      if (!timeMap.has(key)) {
+        timeMap.set(key, []);
+      }
+      timeMap.get(key)!.push(transcript);
+    }
+  });
+  
+  const duplicates = new Set<string>();
+  timeMap.forEach((transcripts, key) => {
+    if (transcripts.length > 1) {
+      transcripts.forEach(transcript => {
+        duplicates.add(transcript.id);
+      });
+    }
+  });
+  
+  return duplicates;
+};
+
+const normalizeTranscriptMapByProject = (data: Record<string, Transcript[]> | null | undefined): ProjectTranscripts => {
+  if (!data || typeof data !== 'object') {
+    return {};
+  }
+
+  const normalized: ProjectTranscripts = {};
+
+  Object.entries(data).forEach(([projectId, list]) => {
+    if (Array.isArray(list)) {
+      const { orderedAsc } = normalizeTranscriptList(list as Transcript[]);
+      normalized[projectId] = orderedAsc;
+    } else {
+      normalized[projectId] = [];
+    }
+  });
+
+  return normalized;
+};
+
 const formatTimestamp = (value: number) => {
   if (!value) return '-';
   const date = new Date(value);
@@ -74,7 +124,12 @@ const estimateCleaningCost = (fileSize: number): string => {
   return `$${roundedCost.toFixed(2)}`;
 };
 
-export default function Transcripts() {
+interface TranscriptsProps {
+  onNavigate?: (route: string) => void;
+  setAnalysisToLoad?: (analysisId: string | null) => void;
+}
+
+export default function Transcripts({ onNavigate, setAnalysisToLoad }: TranscriptsProps) {
   const { user } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [archivedProjects, setArchivedProjects] = useState<Project[]>([]);
@@ -94,6 +149,7 @@ export default function Transcripts() {
   const [selectedTranscriptForCA, setSelectedTranscriptForCA] = useState<Transcript | null>(null);
   const [isAddingToCA, setIsAddingToCA] = useState(false);
   const [showMyProjectsOnly, setShowMyProjectsOnly] = useState(true);
+  const [pendingProjectNavigation, setPendingProjectNavigation] = useState<string | null>(null);
 
   const qualActiveProjects = useMemo(
     () => projects.filter(isQualitative),
@@ -204,65 +260,114 @@ export default function Transcripts() {
     }
   };
 
-  const loadTranscripts = async () => {
+  const loadTranscripts = async (): Promise<ProjectTranscripts | null> => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/transcripts/all`, {
         headers: getAuthHeaders()
       });
       if (response.ok) {
         const data = await response.json();
-        setTranscripts(data || {});
+        const normalized = normalizeTranscriptMapByProject(data || {});
+        setTranscripts(normalized);
+        return normalized;
       } else {
         console.error('Failed to load transcripts', await response.text());
+        setTranscripts({});
       }
     } catch (error) {
       console.error('Failed to load transcripts:', error);
+      setTranscripts({});
     }
+    return null;
   };
 
-  const loadSavedAnalyses = async () => {
+  const loadSavedAnalyses = async (
+    transcriptMapOverride?: ProjectTranscripts
+  ): Promise<any[] | null> => {
     try {
+      console.log('🔄 Loading saved analyses...');
       const response = await fetch(`${API_BASE_URL}/api/caX/saved`, {
         headers: getAuthHeaders()
       });
       if (response.ok) {
         const data = await response.json();
-        setSavedAnalyses(data || []);
+        console.log('📊 Raw saved analyses data:', data);
+        const currentTranscriptsMap = transcriptMapOverride || transcripts;
+        const normalizedAnalyses = Array.isArray(data)
+          ? data.map((analysis: any) =>
+              normalizeAnalysisRespnos(
+                analysis,
+                currentTranscriptsMap[analysis.projectId] || []
+              )
+            )
+          : [];
+        console.log('📊 Normalized saved analyses:', normalizedAnalyses);
+        setSavedAnalyses(normalizedAnalyses);
+        return normalizedAnalyses;
       } else {
         console.error('Failed to load saved analyses', await response.text());
+        setSavedAnalyses([]);
       }
     } catch (error) {
       console.error('Failed to load saved analyses:', error);
+      setSavedAnalyses([]);
     }
+    return null;
   };
 
   const isTranscriptInAnalysis = (transcriptId: string): boolean => {
-    return savedAnalyses.some(analysis => {
-      // Check if transcript is in the transcripts array (primary method)
-      if (analysis.transcripts?.some((t: any) => t.id === transcriptId || t.sourceTranscriptId === transcriptId)) {
-        return true;
-      }
-      
-      // Check if transcript's respno exists in the analysis data (fallback method)
-      if (analysis.data) {
-        const transcript = transcripts[selectedProject?.id || '']?.find(t => t.id === transcriptId);
-        if (transcript?.respno) {
-          // Check if this respno exists in any sheet of the analysis data
-          return Object.values(analysis.data).some((sheetData: any) => 
-            Array.isArray(sheetData) && sheetData.some((row: any) => 
-              row.respno === transcript.respno || row['Respondent ID'] === transcript.respno
-            )
-          );
+    const transcript = transcripts[selectedProject?.id || '']?.find(t => t.id === transcriptId);
+    const respno = transcript?.respno;
+    
+    // ONLY check analyses that belong to the current project
+    const projectAnalyses = savedAnalyses.filter(analysis => analysis.projectId === selectedProject?.id);
+    
+    const result = projectAnalyses.some(analysis => {
+      // ONLY consider it added if there's actual analysis data with the respno
+      if (analysis.data && respno) {
+        let foundInData = false;
+        Object.entries(analysis.data).forEach(([sheetName, sheetData]) => {
+          if (Array.isArray(sheetData)) {
+            const hasRespno = sheetData.some((row: any) => 
+              row.respno === respno || row['Respondent ID'] === respno
+            );
+            if (hasRespno) {
+              foundInData = true;
+            }
+          }
+        });
+        if (foundInData) {
+          return true;
         }
       }
       
+      // If no data found, don't consider it added even if it's in transcripts array
       return false;
     });
+    
+    return result;
   };
 
   const getCANameForProject = (projectId: string): string | null => {
     const analysis = savedAnalyses.find(a => a.projectId === projectId);
     return analysis ? analysis.name : null;
+  };
+
+  const handleNavigateToCA = (transcriptId: string) => {
+    if (!selectedProject || !onNavigate || !setAnalysisToLoad) return;
+    
+    // Find the analysis that contains this transcript
+    const analysis = savedAnalyses.find(a => a.projectId === selectedProject.id);
+    if (analysis) {
+      console.log('🔄 Navigating to Content Analysis for transcript:', transcriptId, 'analysis:', analysis.id);
+      // Set the specific analysis to load
+      setAnalysisToLoad(analysis.id);
+      // Navigate to Content Analysis
+      onNavigate('Content Analysis');
+    } else {
+      console.log('❌ No analysis found for project:', selectedProject.id);
+      alert('No content analysis found for this project. Please create a content analysis first.');
+    }
   };
 
   const analysesForSelectedProject = useMemo(
@@ -330,9 +435,80 @@ export default function Transcripts() {
 
   useEffect(() => {
     loadActiveProjects();
-    loadTranscripts();
-    loadSavedAnalyses();
+    (async () => {
+      const normalized = await loadTranscripts();
+      await loadSavedAnalyses(normalized || undefined);
+    })();
   }, [showMyProjectsOnly]);
+
+  // Always refresh saved analyses when component mounts (ensures fresh CA status)
+  useEffect(() => {
+    console.log('🔄 Component mounted, refreshing saved analyses');
+    loadSavedAnalyses();
+  }, []);
+
+  // Refresh saved analyses every time the component mounts or project changes
+  useEffect(() => {
+    if (selectedProject) {
+      console.log('🔄 Refreshing saved analyses for project:', selectedProject.id);
+      loadSavedAnalyses();
+    }
+  }, [selectedProject?.id]);
+
+  // Also refresh when component becomes visible (additional safety)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && selectedProject) {
+        console.log('🔄 Refreshing saved analyses on visibility change');
+        loadSavedAnalyses();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [selectedProject]);
+
+  useEffect(() => {
+    if (pendingProjectNavigation === null) {
+      try {
+        const stored = sessionStorage.getItem('jaice_transcripts_focus_project');
+        if (stored) {
+          setPendingProjectNavigation(stored);
+        }
+      } catch (error) {
+        console.warn('Unable to read transcripts navigation target', error);
+      }
+    }
+  }, [pendingProjectNavigation]);
+
+  useEffect(() => {
+    if (!pendingProjectNavigation) return;
+
+    const combinedProjects = [...projects, ...archivedProjects];
+    const targetProject = combinedProjects.find(project => project.id === pendingProjectNavigation);
+
+    if (!targetProject) {
+      return;
+    }
+
+    if (targetProject.archived) {
+      setActiveTab('archived');
+    } else {
+      setActiveTab('active');
+    }
+
+    setSelectedProject(targetProject);
+
+    try {
+      sessionStorage.removeItem('jaice_transcripts_focus_project');
+    } catch (error) {
+      console.warn('Unable to clear transcripts navigation target', error);
+    }
+
+    setPendingProjectNavigation(null);
+  }, [pendingProjectNavigation, projects, archivedProjects]);
 
   useEffect(() => {
     if (user?.id) {
@@ -390,8 +566,8 @@ export default function Transcripts() {
 
       if (response.ok) {
         const uploadedTranscript = await response.json();
-        await loadTranscripts();
-        await loadSavedAnalyses();
+        const normalized = await loadTranscripts();
+        await loadSavedAnalyses(normalized || undefined);
 
         // If "Add to CA" is checked, add the transcript to the selected analysis
         if (addToCA && selectedAnalysisId) {
@@ -449,10 +625,18 @@ export default function Transcripts() {
     if (!selectedProject) return;
 
     try {
-      const filename =
+      const fallbackFileName =
         transcript.isCleaned && transcript.cleanedFilename
           ? transcript.cleanedFilename
           : transcript.originalFilename;
+
+      const downloadName = buildTranscriptDisplayName({
+        projectName: selectedProject.name,
+        respno: transcript.respno,
+        interviewDate: transcript.interviewDate,
+        interviewTime: transcript.interviewTime,
+        fallbackFilename: fallbackFileName
+      });
 
       const response = await fetch(
         `${API_BASE_URL}/api/transcripts/download/${selectedProject.id}/${transcript.id}`,
@@ -464,7 +648,7 @@ export default function Transcripts() {
         const url = window.URL.createObjectURL(blob);
         const anchor = document.createElement('a');
         anchor.href = url;
-        anchor.download = filename || 'transcript.txt';
+        anchor.download = downloadName || fallbackFileName || 'transcript.txt';
         document.body.appendChild(anchor);
         anchor.click();
         window.URL.revokeObjectURL(url);
@@ -495,8 +679,8 @@ export default function Transcripts() {
       );
 
       if (response.ok) {
-        await loadTranscripts();
-        await loadSavedAnalyses();
+        const normalized = await loadTranscripts();
+        await loadSavedAnalyses(normalized || undefined);
       } else {
         alert('Failed to delete transcript');
       }
@@ -508,6 +692,7 @@ export default function Transcripts() {
 
   if (selectedProject) {
     const projectTranscripts = transcripts[selectedProject.id] || [];
+    const duplicateIds = findDuplicateInterviewTimes(projectTranscripts);
 
     return (
       <main
@@ -600,9 +785,13 @@ export default function Transcripts() {
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {projectTranscripts.map(transcript => {
-                      const displayName = selectedProject ?
-                        transcript.originalFilename :
-                        transcript.originalFilename;
+                      const displayName = buildTranscriptDisplayName({
+                        projectName: selectedProject?.name,
+                        respno: transcript.respno,
+                        interviewDate: transcript.interviewDate,
+                        interviewTime: transcript.interviewTime,
+                        fallbackFilename: transcript.originalFilename
+                      });
 
                       return (
                         <tr
@@ -621,13 +810,23 @@ export default function Transcripts() {
                             <div className="text-sm text-gray-900">{displayName}</div>
                           </td>
                           <td className="px-3 py-4 whitespace-nowrap text-center">
-                            <div className="text-sm text-gray-900">
+                            <div className={`text-sm flex items-center justify-center gap-1 ${
+                              duplicateIds.has(transcript.id) ? 'text-red-600' : 'text-gray-900'
+                            }`}>
                               {transcript.interviewDate || '-'}
+                              {duplicateIds.has(transcript.id) && (
+                                <ExclamationTriangleIcon className="h-4 w-4 text-red-600" />
+                              )}
                             </div>
                           </td>
                           <td className="px-3 py-4 whitespace-nowrap text-center">
-                            <div className="text-sm text-gray-900">
+                            <div className={`text-sm flex items-center justify-center gap-1 ${
+                              duplicateIds.has(transcript.id) ? 'text-red-600' : 'text-gray-900'
+                            }`}>
                               {transcript.interviewTime || '-'}
+                              {duplicateIds.has(transcript.id) && (
+                                <ExclamationTriangleIcon className="h-4 w-4 text-red-600" />
+                              )}
                             </div>
                           </td>
                           <td className="px-3 py-4 whitespace-nowrap text-center">
@@ -654,7 +853,13 @@ export default function Transcripts() {
                           </td>
                           <td className="px-3 py-4 whitespace-nowrap text-center">
                             {isTranscriptInAnalysis(transcript.id) ? (
-                              <CheckCircleIcon className="h-5 w-5 text-green-600 mx-auto" />
+                              <button
+                                onClick={() => handleNavigateToCA(transcript.id)}
+                                className="text-green-600 hover:text-green-800 p-1 rounded-lg hover:bg-green-50 mx-auto transition-colors"
+                                title="Click to view in Content Analysis"
+                              >
+                                <CheckCircleIcon className="h-5 w-5" />
+                              </button>
                             ) : (
                               <button
                                 onClick={() => {
@@ -1046,7 +1251,11 @@ export default function Transcripts() {
                       <tr
                         key={project.id}
                         className="hover:bg-gray-50 cursor-pointer transition-colors"
-                        onClick={() => setSelectedProject(project)}
+                        onClick={() => {
+                          setSelectedProject(project);
+                          console.log('🔄 Project clicked, refreshing saved analyses for:', project.id);
+                          loadSavedAnalyses();
+                        }}
                       >
                         <td className="pl-6 pr-2 py-4 whitespace-nowrap w-0">
                           <div className="inline-block text-sm font-medium text-gray-900">{project.name}</div>

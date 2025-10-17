@@ -3,11 +3,15 @@ import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { CloudArrowUpIcon, TrashIcon, CalendarIcon, UserGroupIcon, UserIcon, BookOpenIcon, BeakerIcon, LightBulbIcon, ChartBarIcon, TrophyIcon, ChatBubbleLeftRightIcon, ExclamationTriangleIcon, ExclamationCircleIcon, ArrowTrendingUpIcon, UsersIcon, DocumentMagnifyingGlassIcon, CheckCircleIcon, EllipsisHorizontalCircleIcon, DocumentTextIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
-import { IconDeviceFloppy, IconFileArrowRight, IconBook2 } from '@tabler/icons-react';
+import { IconDeviceFloppy, IconFileArrowRight, IconBook2, IconScript } from '@tabler/icons-react';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
 import ExcelJS from 'exceljs';
 import { renderAsync } from 'docx-preview';
 import StoryboardModal from './StoryboardModal';
+import { normalizeAnalysisRespnos, buildTranscriptDisplayName } from '../utils/respnoUtils';
+
+const BRAND_ORANGE = '#D14A2D';
+const BRAND_GRAY = '#5D5F62';
 
 type CostEstimate = {
   inputTokens: number;
@@ -225,11 +229,14 @@ function VerbatimQuotesSection({ analysisId, respondentId, columnName, sheetName
 export default function ContentAnalysisX({ projects = [], onNavigate, onNavigateToProject, onProjectsChange, analysisToLoad, onAnalysisLoaded, onNavigateToStorytelling }: ContentAnalysisXProps) {
   const { user } = useAuth();
   const [showMyProjectsOnly, setShowMyProjectsOnly] = useState(true);
+  const [archivedProjects, setArchivedProjects] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
   const [savedAnalyses, setSavedAnalyses] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [viewMode, setViewMode] = useState<'home' | 'viewer' | 'create'>('home');
+  const [viewMode, setViewMode] = useState<'home' | 'viewer' | 'create' | 'project'>('home');
   const [loadingSavedView, setLoadingSavedView] = useState(false);
   const [currentAnalysis, setCurrentAnalysis] = useState<any | null>(null);
+  const [selectedProject, setSelectedProject] = useState<any | null>(null);
   const [activeSheet, setActiveSheet] = useState<string>('');
   const [uploading, setUploading] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
@@ -244,9 +251,9 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
   const [showQuotesModal, setShowQuotesModal] = useState(false);
   const [selectedQuotes, setSelectedQuotes] = useState<string[]>([]);
   const [selectedCellInfo, setSelectedCellInfo] = useState({ column: '', respondent: '', summary: '', sheet: '' });
-  const [hoveredColumnDivider, setHoveredColumnDivider] = useState<number | null>(null);
   const [editingColumnName, setEditingColumnName] = useState<string | null>(null);
   const [editingColumnValue, setEditingColumnValue] = useState<string>('');
+  const [hoveredColumnDivider, setHoveredColumnDivider] = useState<number | null>(null);
   // Header edit state
   const [editingHeader, setEditingHeader] = useState(false);
   const [editAnalysisName, setEditAnalysisName] = useState('');
@@ -286,6 +293,9 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
     cleanedSize?: number;
     hasCleanedVersion: boolean;
     uploadedAt: number;
+    respno?: string | null;
+    interviewDate?: string | null;
+    interviewTime?: string | null;
   }>>([]);
   const [loadingProjectTranscripts, setLoadingProjectTranscripts] = useState(false);
   const [projectTranscriptFetchError, setProjectTranscriptFetchError] = useState<string | null>(null);
@@ -320,7 +330,10 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
           originalSize: item.originalSize,
           cleanedSize: item.cleanedSize,
           hasCleanedVersion: Boolean(item.cleanedPath),
-          uploadedAt: item.uploadedAt || 0
+          uploadedAt: item.uploadedAt || 0,
+          respno: item.respno,
+          interviewDate: item.interviewDate || item['Interview Date'] || null,
+          interviewTime: item.interviewTime || item['Interview Time'] || null
         })));
       } else {
         setProjectTranscriptFetchError('Failed to load project transcripts');
@@ -378,6 +391,9 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
       cleanedSize?: number;
       hasCleanedVersion: boolean;
       uploadedAt: number;
+      respno?: string | null;
+      interviewDate?: string | null;
+      interviewTime?: string | null;
     }>();
     projectTranscriptsForUpload.forEach(record => {
       map.set(record.id, record);
@@ -385,10 +401,100 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
     return map;
   }, [projectTranscriptsForUpload]);
 
+  // Project filtering logic (same as Transcripts tab)
+  const isQualitative = (project: any) => {
+    const methodology = project?.methodologyType?.toLowerCase();
+    console.log('🔍 CA - Checking project:', project?.name, 'methodology:', methodology);
+    
+    // If no methodology type, assume it's qualitative (for backward compatibility)
+    if (!methodology) {
+      console.log('🔍 CA - No methodology type, assuming qualitative');
+      return true;
+    }
+    
+    const isQual = methodology?.includes('qualitative') || 
+           methodology?.includes('qual') ||
+           methodology?.includes('interview') ||
+           methodology?.includes('focus group') ||
+           methodology?.includes('ethnography') ||
+           methodology?.includes('observation');
+    console.log('🔍 CA - Is qualitative:', isQual);
+    return isQual;
+  };
+
+  const qualActiveProjects = useMemo(
+    () => projects.filter(isQualitative),
+    [projects]
+  );
+  const qualArchivedProjects = useMemo(
+    () => archivedProjects.filter(isQualitative),
+    [archivedProjects]
+  );
+
+  const filterProjectsByUser = useCallback(
+    (list: any[]) => {
+      if (!showMyProjectsOnly || !user) return list;
+
+      const uid = String((user as any)?.id || '').toLowerCase();
+      const uemail = String((user as any)?.email || '').toLowerCase();
+      const uname = String((user as any)?.name || '').toLowerCase();
+
+      return list.filter(project => {
+        // Check if user is assigned to the project via team members
+        const teamMembers = Array.isArray((project as any)?.teamMembers)
+          ? (project as any).teamMembers
+          : [];
+
+        const inTeam = teamMembers.some((member: any) => {
+          const mid = String(member?.id || '').toLowerCase();
+          const memail = String(member?.email || '').toLowerCase();
+          const mname = String(member?.name || '').toLowerCase();
+          return (uid && mid === uid) || (uemail && memail === uemail) || (uname && mname === uname);
+        });
+
+        // Also check if user is the creator (for backward compatibility)
+        const createdBy = String((project as any)?.createdBy || '').toLowerCase();
+        const createdByMe = !!createdBy && (createdBy === uid || createdBy === uemail);
+
+        return inTeam || createdByMe;
+      });
+    },
+    [showMyProjectsOnly, user]
+  );
+
+  const filteredActiveProjects = useMemo(
+    () => filterProjectsByUser(qualActiveProjects),
+    [filterProjectsByUser, qualActiveProjects]
+  );
+
+  const filteredArchivedProjects = useMemo(
+    () => filterProjectsByUser(qualArchivedProjects),
+    [filterProjectsByUser, qualArchivedProjects]
+  );
+
+  const displayProjects = activeTab === 'active' ? filteredActiveProjects : filteredArchivedProjects;
+
+  const currentProjectName = useMemo(() => {
+    if (currentAnalysis?.projectName) return currentAnalysis.projectName;
+    if (currentAnalysis?.projectId && Array.isArray(projects)) {
+      const match = projects.find((p: any) => p?.id === currentAnalysis.projectId);
+      if (match?.name) return match.name;
+    }
+    return '';
+  }, [currentAnalysis?.projectName, currentAnalysis?.projectId, projects]);
+
   const transcriptDropdownOptions = useMemo(() => {
     return projectTranscriptsForUpload.map(record => {
       const disabled = allProjectLinkedTranscriptIds.has(record.id);
-      const labelParts = [record.originalFilename || 'Transcript'];
+      const labelParts = [
+        buildTranscriptDisplayName({
+          projectName: currentProjectName,
+          respno: record.respno,
+          interviewDate: record.interviewDate,
+          interviewTime: record.interviewTime,
+          fallbackFilename: record.originalFilename
+        }) || record.originalFilename || 'Transcript'
+      ];
       if (record.hasCleanedVersion) {
         labelParts.push('cleaned available');
       }
@@ -439,16 +545,48 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
     }
   }, [selectedExistingTranscriptId, projectTranscriptsById]);
 
-
-
+  // Load archived projects
+  useEffect(() => {
+    const loadArchivedProjects = async () => {
+      if (!user?.id) return;
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/projects/archived?userId=${user.id}`, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setArchivedProjects(data.projects || []);
+        }
+      } catch (error) {
+        console.error('Failed to load archived projects:', error);
+      }
+    };
+    loadArchivedProjects();
+  }, [user?.id]);
 
   // Dynamic headers: union of keys across all rows for the active sheet
   const dynamicHeaders = useMemo(() => {
     if (activeSheet === 'Demographics') {
-      // For Demographics sheet, only show specific columns
-      const headers = ['Respondent ID', 'Interview Date', 'Interview Time'];
-
-      return headers;
+      // For Demographics sheet, start with specific columns
+      const baseHeaders = ['Respondent ID', 'Interview Date', 'Interview Time'];
+      
+      // Get all columns from the data to include any added columns
+      const rows = (currentAnalysis?.data?.[activeSheet] as any[]) || [];
+      const allColumns = new Set<string>();
+      for (const r of rows) {
+        Object.keys(r || {}).forEach((k) => allColumns.add(k));
+      }
+      
+      // Start with base headers, then add any additional columns that aren't in the base set
+      const additionalColumns = Array.from(allColumns).filter(col => 
+        !baseHeaders.includes(col) && 
+        col !== 'Original Transcript' && 
+        col !== 'Cleaned Transcript' && 
+        col !== 'Populate C.A.' &&
+        col !== 'respno' // Exclude respno since we're using Respondent ID
+      );
+      
+      return [...baseHeaders, ...additionalColumns];
     }
     
     // For other sheets, use the original logic
@@ -810,12 +948,42 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
       const sheetData = currentAnalysis.data[sheetName];
       if (!Array.isArray(sheetData) || sheetData.length === 0) return;
 
-      // Get all column headers
-      const headers = new Set<string>();
-      sheetData.forEach((row: any) => {
-        Object.keys(row).forEach(key => headers.add(key));
+      // Filter out rows that are mostly empty or have "New Column" entries
+      const filteredRows = sheetData.filter(row => {
+        const hasData = Object.values(row).some(value => 
+          value && 
+          value.toString().trim() !== '' && 
+          !value.toString().startsWith('New Column')
+        );
+        return hasData;
       });
-      const headerArray = Array.from(headers);
+
+      if (filteredRows.length === 0) return;
+
+      // Get all possible columns from filtered rows, excluding "New Column" entries
+      const allCols = new Set<string>();
+      filteredRows.forEach((row: any) => {
+        Object.keys(row).forEach(key => {
+          if (!key.startsWith('New Column')) {
+            allCols.add(key);
+          }
+        });
+      });
+
+      // Remove "Respondent ID" if "respno" exists, and ensure "respno" is first
+      const cols = Array.from(allCols);
+      let headerArray = cols;
+      
+      if (cols.includes('respno')) {
+        // Remove "Respondent ID" if it exists
+        headerArray = cols.filter(col => col !== 'Respondent ID');
+        // Move "respno" to the front
+        const respnoIndex = headerArray.indexOf('respno');
+        if (respnoIndex > -1) {
+          headerArray.splice(respnoIndex, 1);
+          headerArray.unshift('respno');
+        }
+      }
 
       // Create worksheet with truncated name (Excel limit is 31 chars)
       const truncatedSheetName = sheetName.length > 31 ? sheetName.substring(0, 31) : sheetName;
@@ -1032,15 +1200,17 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
       transcripts: filteredTranscripts
     };
 
-    setCurrentAnalysis(updatedAnalysis);
+    const normalizedAnalysis = normalizeAnalysisRespnos(updatedAnalysis);
+
+    setCurrentAnalysis(normalizedAnalysis);
 
     // Update transcripts
-    setTranscripts(filteredTranscripts);
+    setTranscripts(normalizedAnalysis.transcripts || []);
 
     // Save to localStorage
     const updatedAnalyses = savedAnalyses.map(a =>
       a.id === currentAnalysis.id
-        ? updatedAnalysis
+        ? normalizedAnalysis
         : a
     );
     setSavedAnalyses(updatedAnalyses);
@@ -1054,10 +1224,10 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` },
           body: JSON.stringify({
             id: currentAnalysis.id,
-            data: updatedData,
-            quotes: filteredQuotes,
-            context: filteredContext,
-            transcripts: filteredTranscripts
+            data: normalizedAnalysis.data,
+            quotes: normalizedAnalysis.quotes || filteredQuotes,
+            context: normalizedAnalysis.context || filteredContext,
+            transcripts: normalizedAnalysis.transcripts || []
           })
         });
       } catch (error) {
@@ -1126,7 +1296,10 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
         throw new Error(`HTTP error! status: ${res.status}`);
       }
       const json = await res.json();
-      setSavedAnalyses(Array.isArray(json) ? json : []);
+      const normalized = Array.isArray(json)
+        ? json.map((analysis: any) => normalizeAnalysisRespnos(analysis))
+        : [];
+      setSavedAnalyses(normalized);
     } catch (e) {
       console.error('Failed to load saved analyses:', e);
       // Set empty array and stop loading even if server is not available
@@ -1294,19 +1467,25 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
       });
       if (resp.ok) {
         const full = await resp.json();
-        setCurrentAnalysis(full || analysis);
-        const sheets = Object.keys((full || analysis)?.data || {});
+        const normalizedFull = normalizeAnalysisRespnos(full || analysis);
+        setCurrentAnalysis(normalizedFull);
+        setTranscripts(normalizedFull?.transcripts || []);
+        const sheets = Object.keys(normalizedFull?.data || {});
         if (sheets.length) setActiveSheet(sheets[0]);
       } else {
         // Fallback to provided object
-        setCurrentAnalysis(analysis);
-        const sheets = Object.keys(analysis?.data || {});
+        const normalizedFallback = normalizeAnalysisRespnos(analysis);
+        setCurrentAnalysis(normalizedFallback);
+        setTranscripts(normalizedFallback?.transcripts || []);
+        const sheets = Object.keys(normalizedFallback?.data || {});
         if (sheets.length) setActiveSheet(sheets[0]);
       }
     } catch (e) {
       // Network/endpoint not available; fallback to provided object
-      setCurrentAnalysis(analysis);
-      const sheets = Object.keys(analysis?.data || {});
+      const normalizedFallback = normalizeAnalysisRespnos(analysis);
+      setCurrentAnalysis(normalizedFallback);
+      setTranscripts(normalizedFallback?.transcripts || []);
+      const sheets = Object.keys(normalizedFallback?.data || {});
       if (sheets.length) setActiveSheet(sheets[0]);
     } finally {
       setLoadingSavedView(false);
@@ -1750,7 +1929,14 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
         }
       }
 
-      setCurrentAnalysis(updatedAnalysis);
+      const normalizedAnalysis = normalizeAnalysisRespnos(updatedAnalysis);
+      setCurrentAnalysis(normalizedAnalysis);
+      setTranscripts(normalizedAnalysis?.transcripts || []);
+      setSavedAnalyses(prev =>
+        Array.isArray(prev)
+          ? prev.map(a => (a.id === normalizedAnalysis.id ? normalizedAnalysis : a))
+          : prev
+      );
       
       // Store file paths for download
       if (result.filePaths) {
@@ -1767,10 +1953,10 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` },
             body: JSON.stringify({
               id: currentAnalysis.id,
-              data: result.data,
-              quotes: mergedQuotes,
-              transcripts: newTranscripts,
-              context: mergedContext
+              data: normalizedAnalysis.data,
+              quotes: normalizedAnalysis.quotes || mergedQuotes,
+              transcripts: normalizedAnalysis.transcripts || [],
+              context: normalizedAnalysis.context || mergedContext
             })
           });
 
@@ -2092,177 +2278,353 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
   };
 
   return (
-    <div className="flex-1 p-6 space-y-6 max-w-full overflow-hidden">
-      <div className="space-y-5">
+    <div className="flex-1 p-6 space-y-4 max-w-full overflow-hidden">
+      <div className="space-y-3">
         {/* Header */}
-        <section className="flex items-center justify-between">
+        <section className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-2xl font-bold" style={{ color: BRAND_GRAY }}>Content Analysis</h2>
+            <p className="mt-1 text-sm text-gray-500">
+              View and manage your saved content analyses
+            </p>
+          </div>
           <div className="flex items-center gap-3">
-            <h2 className="text-2xl font-bold" style={{ color: '#5D5F62' }}>Content Analysis</h2>
+            {onNavigate && currentAnalysis?.projectId && !currentAnalysis.id?.startsWith('temp-') && (
+              <button
+                onClick={() => {
+                  try {
+                    sessionStorage.setItem('jaice_transcripts_focus_project', currentAnalysis.projectId);
+                  } catch (err) {
+                    console.warn('Unable to persist transcripts navigation target', err);
+                  }
+                  onNavigate('Transcripts');
+                }}
+                className="flex items-center justify-center h-8 w-8 rounded-full transition-colors"
+                style={{ backgroundColor: 'rgba(37, 99, 235, 0.65)' }}
+                title="Open Transcripts"
+                aria-label="Open Transcripts"
+              >
+                <IconScript className="h-4 w-4 text-white" />
+              </button>
+            )}
             {onNavigateToStorytelling && currentAnalysis?.id && !currentAnalysis.id.startsWith('temp-') && (
               <button
                 onClick={() => onNavigateToStorytelling(currentAnalysis.id, currentAnalysis.projectId)}
                 className="flex items-center justify-center h-8 w-8 rounded-full transition-colors"
-                style={{ backgroundColor: 'rgba(37, 99, 235, 0.3)' }}
+                style={{ backgroundColor: 'rgba(37, 99, 235, 0.65)' }}
                 title="Open Storytelling"
               >
                 <IconBook2 className="h-4 w-4 text-white" />
               </button>
             )}
-          </div>
-          {viewMode !== 'viewer' && (
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600">Current View:</span>
-              <button
-                onClick={() => (viewMode === 'home' || viewMode === 'create') && !uploading && !generatingAnalysis && setShowMyProjectsOnly(!showMyProjectsOnly)}
-                disabled={(viewMode !== 'home' && viewMode !== 'create') || uploading || generatingAnalysis}
-                className={`px-3 py-1 text-xs rounded-lg shadow-sm transition-colors ${
-                  (viewMode !== 'home' && viewMode !== 'create') || uploading || generatingAnalysis
-                    ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                    : showMyProjectsOnly
-                    ? 'text-white hover:opacity-90'
-                    : 'bg-white border border-gray-300 hover:bg-gray-50'
-                }`}
-                style={(viewMode === 'home' || viewMode === 'create') && !uploading && !generatingAnalysis && showMyProjectsOnly ? { backgroundColor: '#D14A2D' } : {}}
-              >
-                {showMyProjectsOnly ? 'Only My Projects' : 'All Cognitive Projects'}
-              </button>
-            </div>
-          )}
-        </section>
-
-        {/* Title bar with Generate button */}
-        <div className="border-b border-gray-200">
-          <div className="flex items-center justify-between pb-3">
-            {viewMode === 'viewer' ? (
-              <>
+            {viewMode !== 'viewer' && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600">Current View:</span>
                 <button
-                  onClick={() => { setViewMode('home'); setCurrentAnalysis(null); }}
-                  className="flex items-center gap-2 text-xs hover:opacity-80 transition-colors"
-                  style={{ color: '#D14A2D' }}
+                  onClick={() => (viewMode === 'home' || viewMode === 'create') && !uploading && !generatingAnalysis && setShowMyProjectsOnly(!showMyProjectsOnly)}
+                  disabled={(viewMode !== 'home' && viewMode !== 'create') || uploading || generatingAnalysis}
+                  className={`px-3 py-1 text-xs rounded-lg shadow-sm transition-colors ${
+                    (viewMode !== 'home' && viewMode !== 'create') || uploading || generatingAnalysis
+                      ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                      : showMyProjectsOnly
+                      ? 'text-white hover:opacity-90'
+                      : 'bg-white border border-gray-300 hover:bg-gray-50'
+                  }`}
+                  style={(viewMode === 'home' || viewMode === 'create') && !uploading && !generatingAnalysis && showMyProjectsOnly ? { backgroundColor: '#D14A2D' } : {}}
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                  </svg>
-                  Back to list
+                  {showMyProjectsOnly ? 'Only My Projects' : 'All Cognitive Projects'}
                 </button>
-                
-                {/* Action buttons - View Discussion Guide and Export as Excel */}
-                <div className="flex items-center gap-2">
-                  {/* View Discussion Guide button - only show if discussion guide exists */}
-                  {currentAnalysis?.projectId && (
-                    <button
-                      onClick={async () => {
-                        setShowDiscussionGuideModal(true);
-                        // Fetch and render the discussion guide
-                        setTimeout(async () => {
-                          try {
-                            const response = await fetch(`${API_BASE_URL}/api/caX/discussion-guide/${currentAnalysis.projectId}/download`, {
-                              headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` }
-                            });
-                            if (response.ok) {
-                              const blob = await response.blob();
-                              if (docxContainerRef.current) {
-                                docxContainerRef.current.innerHTML = ''; // Clear previous content
-                                await renderAsync(blob, docxContainerRef.current);
-                              }
-                            } else {
-                              console.error('Discussion guide not found');
-                              if (docxContainerRef.current) {
-                                docxContainerRef.current.innerHTML = '<div class="p-8 text-center text-gray-500">No discussion guide found for this project</div>';
-                              }
-                            }
-                          } catch (error) {
-                            console.error('Error loading discussion guide:', error);
-                            if (docxContainerRef.current) {
-                              docxContainerRef.current.innerHTML = '<div class="p-8 text-center text-red-500">Error loading discussion guide</div>';
-                            }
-                          }
-                        }, 100);
-                      }}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-gray-700 text-xs font-medium rounded-md hover:bg-gray-50 transition-colors cursor-pointer shadow-sm border border-gray-300"
-                      style={{ backgroundColor: 'white' }}
-                    >
-                      <BookOpenIcon className="h-4 w-4" />
-                      <span>View Discussion Guide</span>
-                    </button>
-                  )}
-                  {/* Export to Excel button - always visible */}
-                  <button
-                    onClick={handleExportToExcel}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-gray-700 text-xs font-medium rounded-md hover:bg-gray-50 transition-colors cursor-pointer shadow-sm border border-gray-300"
-                    style={{ backgroundColor: 'white' }}
-                  >
-                    <IconFileArrowRight className="h-4 w-4" />
-                    <span>Export as Excel</span>
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <p className="text-sm text-gray-600">View and manage your saved content analyses</p>
-                <button
-                  onClick={() => setViewMode('create')}
-                  disabled={viewMode !== 'home'}
-                  className={`flex items-center gap-1 rounded-lg px-3 py-1 text-xs shadow-sm transition-colors ml-4 ${viewMode === 'home' ? 'text-white hover:opacity-90 cursor-pointer' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
-                  style={viewMode === 'home' ? { backgroundColor: '#D14A2D' } : {}}
-                >
-                  <CloudArrowUpIcon className="h-4 w-4" />
-                  Generate New
-                </button>
-              </>
+              </div>
             )}
           </div>
-        </div>
+        </section>
+
+        {/* Viewer mode action bar */}
+        {viewMode === 'viewer' && (
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => { setViewMode('home'); setCurrentAnalysis(null); }}
+              className="flex items-center gap-2 text-xs hover:opacity-80 transition-colors"
+              style={{ color: '#D14A2D' }}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              Back to list
+            </button>
+            
+            {/* Action buttons - View Discussion Guide and Export as Excel */}
+            <div className="flex items-center gap-2">
+              {/* View Discussion Guide button - only show if discussion guide exists */}
+              {currentAnalysis?.projectId && (
+                <button
+                  onClick={async () => {
+                    setShowDiscussionGuideModal(true);
+                    // Fetch and render the discussion guide
+                    setTimeout(async () => {
+                      try {
+                        const response = await fetch(`${API_BASE_URL}/api/caX/discussion-guide/${currentAnalysis.projectId}/download`, {
+                          headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` }
+                        });
+                        if (response.ok) {
+                          const blob = await response.blob();
+                          if (docxContainerRef.current) {
+                            docxContainerRef.current.innerHTML = ''; // Clear previous content
+                            await renderAsync(blob, docxContainerRef.current);
+                          }
+                        } else {
+                          console.error('Discussion guide not found');
+                          if (docxContainerRef.current) {
+                            docxContainerRef.current.innerHTML = '<div class="p-8 text-center text-gray-500">No discussion guide found for this project</div>';
+                          }
+                        }
+                      } catch (error) {
+                        console.error('Error loading discussion guide:', error);
+                        if (docxContainerRef.current) {
+                          docxContainerRef.current.innerHTML = '<div class="p-8 text-center text-red-500">Error loading discussion guide</div>';
+                        }
+                      }
+                    }, 100);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-gray-700 text-xs font-medium rounded-md hover:bg-gray-50 transition-colors cursor-pointer shadow-sm border border-gray-300"
+                  style={{ backgroundColor: 'white' }}
+                >
+                  <BookOpenIcon className="h-4 w-4" />
+                  <span>View Discussion Guide</span>
+                </button>
+              )}
+              {/* Export to Excel button - always visible */}
+              <button
+                onClick={handleExportToExcel}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-gray-700 text-xs font-medium rounded-md hover:bg-gray-50 transition-colors cursor-pointer shadow-sm border border-gray-300"
+                style={{ backgroundColor: 'white' }}
+              >
+                <IconFileArrowRight className="h-4 w-4" />
+                <span>Export as Excel</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+
+        {/* Tabs - only show on home view */}
+        {viewMode === 'home' && (
+          <div>
+            <div className="flex items-center justify-between">
+              <nav className="-mb-px flex space-x-8 items-center">
+                <button
+                  onClick={() => setActiveTab('active')}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'active'
+                      ? 'text-white'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                  style={activeTab === 'active' ? { borderBottomColor: BRAND_ORANGE, color: BRAND_ORANGE } : {}}
+                >
+                  Active Projects ({qualActiveProjects.length})
+                </button>
+                <button
+                  onClick={() => setActiveTab('archived')}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'archived'
+                      ? 'text-white'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                  style={activeTab === 'archived' ? { borderBottomColor: BRAND_ORANGE, color: BRAND_ORANGE } : {}}
+                >
+                  Archived Projects ({qualArchivedProjects.length})
+                </button>
+              </nav>
+            </div>
+            <div className="border-b border-gray-200"></div>
+          </div>
+        )}
 
       {/* Body: table list, spinner, or analysis */}
       {viewMode === 'home' && (
         <div className="bg-white shadow-sm border border-gray-200 rounded-lg overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Analysis</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Project</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Saved</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Respondents</th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {loading ? (
+            {loading ? (
+              <div className="p-12 text-center">
+                <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-gray-200 border-t-[#D14A2D]"></div>
+                <p className="text-sm text-gray-500">Loading projects...</p>
+              </div>
+            ) : displayProjects.length === 0 ? (
+              <div className="p-12 text-center">
+                <DocumentTextIcon className="mx-auto mb-4 h-16 w-16 text-gray-300" />
+                <h3 className="text-lg font-semibold text-gray-900">
+                  {activeTab === 'archived'
+                    ? 'No archived qualitative projects'
+                    : 'No active qualitative projects'}
+                </h3>
+                <p className="mt-2 text-gray-500">
+                  {activeTab === 'archived'
+                    ? 'Archived qualitative projects will appear here.'
+                    : 'Create a qualitative project to start content analysis.'}
+                </p>
+              </div>
+            ) : (
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
                   <tr>
-                    <td colSpan={5} className="px-6 py-6">
-                      <div className="flex items-center gap-2 text-gray-700">
-                        <div className="w-4 h-4 border-2 border-orange-600 border-t-transparent rounded-full animate-spin"></div>
-                        <span className="text-sm">Loading...</span>
-                      </div>
-                    </td>
+                    <th className="pl-6 pr-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-0 whitespace-nowrap">
+                      Project
+                    </th>
+                    <th className="pl-2 pr-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
+                      Client
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+                      Methodology
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
+                      Analyses
+                    </th>
                   </tr>
-                ) : filtered.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="px-6 py-10 text-center text-gray-500">No content analyses found</td>
-                  </tr>
-                ) : (
-                  filtered.map((a) => (
-                    <tr key={a.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => loadSavedAnalysis(a)}>
-                      <td className="px-6 py-4 text-sm font-medium text-gray-900 truncate" title={a.name}>{a.name}</td>
-                      <td className="px-6 py-4 text-sm text-gray-700">{getProjectName(a)}</td>
-                      <td className="px-6 py-4 text-sm text-gray-500">{a.savedDate || new Date(a.savedAt).toLocaleDateString()}</td>
-                      <td className="px-6 py-4 text-sm text-gray-700">{getRespondentCount(a)}</td>
-                      <td className="px-6 py-4 text-center">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); deleteSavedAnalysis(a.id, a.name); }}
-                          className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-red-600"
-                          title="Delete analysis"
-                        >
-                          <TrashIcon className="w-4 h-4" /> Delete
-                        </button>
-                      </td>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {displayProjects.map(project => {
+                    const projectAnalyses = savedAnalyses.filter(a => a.projectId === project.id);
+                    return (
+                      <tr
+                        key={project.id}
+                        className="hover:bg-gray-50 cursor-pointer transition-colors"
+                        onClick={() => {
+                          setSelectedProject(project);
+                          setViewMode('project');
+                        }}
+                      >
+                        <td className="pl-6 pr-2 py-4 whitespace-nowrap w-0">
+                          <div className="inline-block text-sm font-medium text-gray-900">{project.name}</div>
+                        </td>
+                        <td className="pl-2 pr-6 py-4 whitespace-nowrap w-32">
+                          <div className="text-sm text-gray-900 truncate">{project.client || '-'}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-center w-24">
+                          <div className="text-sm text-gray-900">{project.methodologyType || '-'}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-center w-32">
+                          <div className="flex items-center justify-center gap-1 text-sm text-gray-900">
+                            <IconBook2 className="h-4 w-4 text-gray-400" />
+                            {projectAnalyses.length}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Project View - Content Analyses for Selected Project */}
+      {viewMode === 'project' && selectedProject && (
+        <div className="bg-white shadow-sm border border-gray-200 rounded-lg overflow-hidden">
+          {/* Project Header */}
+          <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => {
+                    setViewMode('home');
+                    setSelectedProject(null);
+                  }}
+                  className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 px-3 py-1 rounded-lg transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  Back to Projects
+                </button>
+                <div>
+                  <h2 className="text-lg font-semibold" style={{ color: '#5D5F62' }}>{selectedProject.name}</h2>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setCreateFormData(prev => ({ ...prev, projectId: selectedProject.id }));
+                  setViewMode('create');
+                }}
+                className="flex items-center gap-1 rounded-lg px-3 py-1 text-xs shadow-sm transition-colors text-white hover:opacity-90 cursor-pointer"
+                style={{ backgroundColor: '#D14A2D' }}
+              >
+                <CloudArrowUpIcon className="h-4 w-4" />
+                Generate New
+              </button>
+            </div>
+          </div>
+
+          {/* Content Analyses Table */}
+          <div className="overflow-x-auto">
+            {(() => {
+              const projectAnalyses = savedAnalyses.filter(a => a.projectId === selectedProject.id);
+              return projectAnalyses.length === 0 ? (
+                <div className="p-8 text-center">
+                  <IconBook2 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Content Analyses</h3>
+                  <p className="text-gray-600 mb-4">This project doesn't have any content analyses yet.</p>
+                  <button
+                    onClick={() => {
+                      setCreateFormData(prev => ({ ...prev, projectId: selectedProject.id }));
+                      setViewMode('create');
+                    }}
+                    className="flex items-center gap-1 rounded-lg px-4 py-2 text-sm shadow-sm transition-colors text-white hover:opacity-90 mx-auto"
+                    style={{ backgroundColor: '#D14A2D' }}
+                  >
+                    <CloudArrowUpIcon className="h-4 w-4" />
+                    Create First Analysis
+                  </button>
+                </div>
+              ) : (
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Analysis Name
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Created
+                      </th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Respondents
+                      </th>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {projectAnalyses.map((analysis) => (
+                      <tr 
+                        key={analysis.id} 
+                        className="hover:bg-gray-50 cursor-pointer transition-colors"
+                        onClick={() => loadSavedAnalysis(analysis)}
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">{analysis.name || 'Untitled Analysis'}</div>
+                          {analysis.description && (
+                            <div className="text-sm text-gray-500 truncate max-w-xs">{analysis.description}</div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {analysis.createdAt ? new Date(analysis.createdAt).toLocaleDateString() : '-'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                          <div className="flex items-center justify-center gap-1 text-sm text-gray-900">
+                            <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                            </svg>
+                            {analysis.data ? (() => {
+                              const allData = Object.values(analysis.data).flat();
+                              const uniqueRespondents = new Set(allData.map((item: any) => item.respno).filter(Boolean));
+                              return uniqueRespondents.size;
+                            })() : 0}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              );
+            })()}
           </div>
         </div>
       )}
@@ -2649,8 +3011,8 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                             </div>
                           )}
                         </th>
-                        {/* Column divider with + button (only for Demographics) */}
-                        {activeSheet === 'Demographics' && (
+                        {/* Column divider with + button (only for Demographics, after last column) */}
+                        {activeSheet === 'Demographics' && idx === dynamicHeaders.length - 1 && (
                           <th
                             className="relative p-0 border-r-0"
                             style={{ width: '8px', cursor: 'pointer' }}
@@ -2700,7 +3062,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                       const hasAnyRespondent = activeSheet === 'Demographics'
                         ? currentAnalysis.data[activeSheet].some((r: any) => {
                             const rid = r['Respondent ID'] || r['respno'];
-                            return rid !== undefined && String(rid).trim() !== '';
+                            return rid !== undefined && String(rid).trim().startsWith('R');
                           })
                         : true;
                       return (
@@ -2814,8 +3176,8 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                                   String(row[k] ?? '')
                                 )}
                               </td>
-                              {/* Empty spacer cell for column divider (only for Demographics) */}
-                              {activeSheet === 'Demographics' && (
+                              {/* Empty spacer cell for column divider (only for Demographics, after last column) */}
+                              {activeSheet === 'Demographics' && kidx === dynamicHeaders.length - 1 && (
                                 <td className="p-0 border-r-0" style={{ width: '8px' }}></td>
                               )}
                             </React.Fragment>
@@ -3009,21 +3371,15 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                     const demographics = Object.entries(demoRow)
                       .filter(([key, value]) => {
                         const keyLower = key.toLowerCase();
-                        // Only show meaningful demographic fields
+                        // Show all demographic fields except system ones
                         return value && 
-                               (keyLower.includes('interview date') || 
-                                keyLower.includes('interview time') ||
-                                keyLower.includes('age') ||
-                                keyLower.includes('gender') ||
-                                keyLower.includes('location') ||
-                                keyLower.includes('education') ||
-                                keyLower.includes('occupation') ||
-                                keyLower.includes('income') ||
-                                keyLower.includes('ethnicity') ||
-                                keyLower.includes('race') ||
-                                keyLower.includes('marital') ||
-                                keyLower.includes('children') ||
-                                keyLower.includes('household'));
+                               value.toString().trim() !== '' &&
+                               key !== 'Respondent ID' && 
+                               key !== 'respno' &&
+                               !keyLower.includes('original transcript') &&
+                               !keyLower.includes('cleaned transcript') &&
+                               !keyLower.includes('populate c.a.') &&
+                               !keyLower.includes('new column');
                       })
                       .map(([key, value]) => `${key}: ${value}`)
                       .join(' | ');
@@ -3368,10 +3724,3 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
     </div>
   );
 }
-
-
-
-
-
-
-

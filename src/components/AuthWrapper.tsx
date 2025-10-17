@@ -8,7 +8,7 @@ interface AuthWrapperProps {
 }
 
 const AuthWrapper: React.FC<AuthWrapperProps> = ({ children }) => {
-  const { user, loading, login } = useAuth();
+  const { user, loading, login, logout } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
 
   if (loading) {
@@ -50,13 +50,21 @@ const AuthWrapper: React.FC<AuthWrapperProps> = ({ children }) => {
           <p className="text-sm text-gray-600 mb-6">
             Your account is not yet assigned to a company. Please contact an administrator to set your company to Cognitive to access the dashboard.
           </p>
-          <button
-            onClick={() => window.location.reload()}
-            className="w-full py-2 rounded text-white"
-            style={{ backgroundColor: '#D14A2D' }}
-          >
-            Refresh
-          </button>
+          <div className="space-y-3">
+            <button
+              onClick={() => window.location.reload()}
+              className="w-full py-2 rounded text-white"
+              style={{ backgroundColor: '#D14A2D' }}
+            >
+              Refresh
+            </button>
+            <button
+              onClick={logout}
+              className="w-full py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
+            >
+              Back to Login
+            </button>
+          </div>
         </div>
       </div>
     );

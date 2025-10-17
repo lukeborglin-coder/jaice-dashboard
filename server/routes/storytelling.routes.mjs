@@ -10,6 +10,8 @@ import {
   estimateStorytellingCost,
   generateKeyFindings,
   generateStoryboard,
+  generateConciseExecutiveSummary,
+  generateDynamicReport,
   answerQuestion
 } from '../services/storytelling.service.mjs';
 
@@ -71,6 +73,12 @@ async function loadProjectStorytelling(projectId, analysisId = null) {
       quotesCache: {}
     };
     
+    console.log('🔍 Loaded project data keys:', Object.keys(projectData));
+    console.log('🔍 Report data in loaded data:', !!projectData.reportData);
+    if (projectData.reportData) {
+      console.log('🔍 Report data slides count in loaded data:', projectData.reportData.slides?.length || 0);
+    }
+    
     // Clean up chat history to keep only last 10 entries
     if (projectData.chatHistory && projectData.chatHistory.length > 10) {
       projectData.chatHistory = projectData.chatHistory.slice(-10);
@@ -101,13 +109,21 @@ async function saveProjectStorytelling(projectId, projectData, analysisId = null
     // If analysisId is provided, use it as the key, otherwise use projectId for backward compatibility
     const key = analysisId ? `${projectId}-${analysisId}` : projectId;
     
-    console.log('💾 Saving storytelling data:', { projectId, analysisId, key, strategicQuestionsCount: projectData.strategicQuestions?.length || 0 });
+    console.log('💾 Saving storytelling data:', { 
+      projectId, 
+      analysisId, 
+      key, 
+      strategicQuestionsCount: projectData.strategicQuestions?.length || 0,
+      hasReportData: !!projectData.reportData,
+      reportDataSlidesCount: projectData.reportData?.slides?.length || 0
+    });
     
     allData[key] = projectData;
     await fs.writeFile(STORYTELLING_PATH, JSON.stringify(allData, null, 2));
+    console.log('✅ Storytelling data saved to file successfully');
     return true;
   } catch (error) {
-    console.error('Error saving storytelling data:', error);
+    console.error('❌ Error saving storytelling data:', error);
     return false;
   }
 }
@@ -313,13 +329,22 @@ router.get('/projects', authenticateToken, async (req, res) => {
       return allRespondents.size;
     };
 
+    // Load all projects data to get full project metadata
+    const projectsData = readProjectsData();
+    const allProjects = [];
+    for (const userId in projectsData) {
+      if (projectsData[userId]) {
+        allProjects.push(...projectsData[userId]);
+      }
+    }
+
     // Process each content analysis and create project entries
     const projectsWithCA = caData.filter(caItem => {
       // Check if this content analysis has actual data and respondents
       const hasData = caItem.data && Object.keys(caItem.data).length > 0;
       const respondentCount = countRespondents(caItem);
       const hasRespondents = respondentCount > 0;
-      
+
       console.log(`🔍 CA Item ${caItem.id} (${caItem.name || 'Unnamed'}):`, {
         projectId: caItem.projectId,
         hasData,
@@ -327,24 +352,34 @@ router.get('/projects', authenticateToken, async (req, res) => {
         hasRespondents,
         willInclude: hasData && hasRespondents
       });
-      
+
       return hasData && hasRespondents;
     }).map(caItem => {
       const respondentCount = countRespondents(caItem);
-      
+
+      // Find the full project data to get metadata like teamMembers, methodology, etc.
+      const fullProject = allProjects.find(p => p.id === caItem.projectId);
+
       console.log(`🔍 Final processing for CA ${caItem.id}:`, {
         projectId: caItem.projectId,
         name: caItem.name,
         respondentCount,
-        dataKeys: caItem.data ? Object.keys(caItem.data) : []
+        dataKeys: caItem.data ? Object.keys(caItem.data) : [],
+        foundFullProject: !!fullProject
       });
 
       return {
         id: caItem.projectId,
-        name: caItem.name || `Content Analysis ${caItem.id}`,
+        name: caItem.name || fullProject?.name || `Content Analysis ${caItem.id}`,
         respondentCount,
         analysisId: caItem.id,
-        createdAt: caItem.createdAt || new Date().toISOString()
+        createdAt: caItem.createdAt || new Date().toISOString(),
+        // Include full project metadata for filtering
+        ...(fullProject || {}),
+        // Override with CA-specific data
+        analysisId: caItem.id,
+        respondentCount,
+        analysisCount: 1, // Each entry represents one content analysis
       };
     });
 
@@ -371,7 +406,16 @@ router.get('/:projectId', authenticateToken, async (req, res) => {
     const { projectId } = req.params;
     const { analysisId } = req.query;
     
+    console.log('🔍 Loading storytelling data for project:', { projectId, analysisId });
+    
     const data = await loadProjectStorytelling(projectId, analysisId);
+    
+    console.log('🔍 Loaded storytelling data keys:', Object.keys(data));
+    console.log('🔍 Report data exists:', !!data.reportData);
+    if (data.reportData) {
+      console.log('🔍 Report data slides count:', data.reportData.slides?.length || 0);
+    }
+    
     res.json(data);
   } catch (error) {
     console.error('Error loading storytelling data:', error);
@@ -478,6 +522,90 @@ router.post('/:projectId/storyboard/generate', authenticateToken, async (req, re
   } catch (error) {
     console.error('Error generating storyboard:', error);
     res.status(500).json({ error: 'Failed to generate storyboard', message: error.message });
+  }
+});
+
+// POST /api/storytelling/:projectId/executive-summary/generate - Generate concise executive summary
+router.post('/:projectId/executive-summary/generate', authenticateToken, async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const { analysisId } = req.body;
+
+    const projectData = await loadProjectStorytelling(projectId, analysisId);
+    const strategicQuestions = projectData.strategicQuestions;
+
+    if (!strategicQuestions || strategicQuestions.length === 0) {
+      return res.status(400).json({ error: 'No strategic questions defined for this project' });
+    }
+
+    const transcriptsText = await getTranscriptsText(projectId, analysisId);
+    const caDataObj = await getCAData(projectId, analysisId);
+
+    if (!transcriptsText.trim()) {
+      return res.status(400).json({ error: 'No transcript data available for this project' });
+    }
+
+    const conciseFindings = await generateConciseExecutiveSummary(projectId, strategicQuestions, transcriptsText, caDataObj);
+
+    // Store the concise findings in the project data
+    projectData.conciseExecutiveSummary = {
+      ...conciseFindings,
+      generatedAt: new Date().toISOString()
+    };
+
+    if (await saveProjectStorytelling(projectId, projectData, analysisId)) {
+      res.json(projectData.conciseExecutiveSummary);
+    } else {
+      res.status(500).json({ error: 'Failed to save concise executive summary' });
+    }
+  } catch (error) {
+    console.error('Error generating concise executive summary:', error);
+    res.status(500).json({ error: 'Failed to generate concise executive summary', message: error.message });
+  }
+});
+
+// POST /api/storytelling/:projectId/dynamic-report/generate - Generate dynamic report
+router.post('/:projectId/dynamic-report/generate', authenticateToken, async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const { analysisId } = req.body;
+
+    const projectData = await loadProjectStorytelling(projectId, analysisId);
+    const strategicQuestions = projectData.strategicQuestions;
+
+    if (!strategicQuestions || strategicQuestions.length === 0) {
+      return res.status(400).json({ error: 'No strategic questions defined for this project' });
+    }
+
+    const transcriptsText = await getTranscriptsText(projectId, analysisId);
+    const caDataObj = await getCAData(projectId, analysisId);
+
+    if (!transcriptsText.trim()) {
+      return res.status(400).json({ error: 'No transcript data available for this project' });
+    }
+
+    // Get project information for title slide
+    const projectInfo = {
+      name: projectData.projectName || 'Project Name',
+      client: projectData.client || 'Client Name'
+    };
+
+    const dynamicReport = await generateDynamicReport(projectId, transcriptsText, caDataObj, strategicQuestions, analysisId, projectInfo);
+
+    // Store the dynamic report in the project data
+    projectData.dynamicReport = {
+      ...dynamicReport,
+      generatedAt: new Date().toISOString()
+    };
+
+    if (await saveProjectStorytelling(projectId, projectData, analysisId)) {
+      res.json(projectData.dynamicReport);
+    } else {
+      res.status(500).json({ error: 'Failed to save dynamic report' });
+    }
+  } catch (error) {
+    console.error('Error generating dynamic report:', error);
+    res.status(500).json({ error: 'Failed to generate dynamic report', message: error.message });
   }
 });
 
@@ -891,6 +1019,38 @@ router.post('/:projectId/clear-quotes-cache', authenticateToken, async (req, res
   } catch (error) {
     console.error('Error clearing quotes cache:', error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/storytelling/:projectId/report-data - Save report data
+router.post('/:projectId/report-data', authenticateToken, async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const { reportData, analysisId } = req.body;
+
+    console.log('💾 Saving report data:', { 
+      projectId, 
+      analysisId, 
+      hasSlides: !!reportData?.slides,
+      slidesCount: reportData?.slides?.length || 0
+    });
+
+    const data = await loadProjectStorytelling(projectId, analysisId);
+    console.log('🔍 Current data before saving report data:', Object.keys(data));
+    
+    data.reportData = reportData;
+    console.log('🔍 Data after adding report data:', Object.keys(data));
+
+    if (await saveProjectStorytelling(projectId, data, analysisId)) {
+      console.log('✅ Report data saved successfully to file');
+      res.json({ message: 'Report data saved successfully' });
+    } else {
+      console.error('❌ Failed to save report data to file');
+      res.status(500).json({ error: 'Failed to save report data' });
+    }
+  } catch (error) {
+    console.error('❌ Error saving report data:', error);
+    res.status(500).json({ error: 'Failed to save report data' });
   }
 });
 

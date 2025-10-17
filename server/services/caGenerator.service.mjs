@@ -254,12 +254,61 @@ export async function generateExcelFromJSON(jsonData) {
     // Handle dynamic sections
     for (const [sectionName, rows] of Object.entries(jsonData)) {
       if (Array.isArray(rows) && rows.length > 0) {
-        // Get column headers from the first row
-        const cols = Object.keys(rows[0]);
-        const ws = xlsx.utils.json_to_sheet(rows, { header: cols });
-        // Excel sheet names must be 31 characters or less
-        const truncatedSheetName = sectionName.length > 31 ? sectionName.substring(0, 31) : sectionName;
-        xlsx.utils.book_append_sheet(wb, ws, truncatedSheetName);
+        // Filter out rows that are mostly empty or have "New Column" entries
+        const filteredRows = rows.filter(row => {
+          // Check if this row has meaningful data (not just empty or "New Column" entries)
+          const hasData = Object.values(row).some(value => 
+            value && 
+            value.toString().trim() !== '' && 
+            !value.toString().startsWith('New Column')
+          );
+          return hasData;
+        });
+
+        if (filteredRows.length === 0) continue;
+
+        // Get all possible columns from filtered rows
+        const allCols = new Set();
+        filteredRows.forEach(row => {
+          Object.keys(row).forEach(key => {
+            if (!key.startsWith('New Column')) {
+              allCols.add(key);
+            }
+          });
+        });
+
+        // Remove "Respondent ID" if "respno" exists, and ensure "respno" is first
+        const cols = Array.from(allCols);
+        if (cols.includes('respno')) {
+          // Remove "Respondent ID" if it exists
+          const filteredCols = cols.filter(col => col !== 'Respondent ID');
+          // Move "respno" to the front
+          const respnoIndex = filteredCols.indexOf('respno');
+          if (respnoIndex > -1) {
+            filteredCols.splice(respnoIndex, 1);
+            filteredCols.unshift('respno');
+          }
+          
+          // Create worksheet with filtered columns
+          const processedRows = filteredRows.map(row => {
+            const processedRow = {};
+            filteredCols.forEach(col => {
+              processedRow[col] = row[col] || '';
+            });
+            return processedRow;
+          });
+
+          const ws = xlsx.utils.json_to_sheet(processedRows, { header: filteredCols });
+          
+          // Excel sheet names must be 31 characters or less
+          const truncatedSheetName = sectionName.length > 31 ? sectionName.substring(0, 31) : sectionName;
+          xlsx.utils.book_append_sheet(wb, ws, truncatedSheetName);
+        } else {
+          // Fallback: use original logic if no respno column
+          const ws = xlsx.utils.json_to_sheet(filteredRows, { header: cols });
+          const truncatedSheetName = sectionName.length > 31 ? sectionName.substring(0, 31) : sectionName;
+          xlsx.utils.book_append_sheet(wb, ws, truncatedSheetName);
+        }
       }
     }
 
