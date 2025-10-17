@@ -871,7 +871,7 @@
       "usePreloadedTasks": true,
       "customTasks": [],
       "id": "P-1759172819869",
-      "phase": "Post-Field Analysis",
+      "phase": "Fielding",
       "methodologyDisplay": "Qualitative - In-Depth Interviews",
       "phaseTimeline": {
         "Kickoff": {
@@ -1188,8 +1188,10 @@
           "description": "Submit first invoice request",
           "status": "pending",
           "phase": "Pre-Field",
-          "dueDate": "2025-10-14",
-          "isOngoing": false
+          "isOngoing": false,
+          "assignedTo": [
+            "3"
+          ]
         },
         {
           "id": "t27",
@@ -1376,7 +1378,6 @@
             "12",
             "3"
           ],
-          "dueDate": "2025-10-08",
           "isOngoing": false
         },
         {
@@ -1388,7 +1389,6 @@
           ],
           "status": "completed",
           "phase": "Fielding",
-          "dueDate": "2025-10-08",
           "isOngoing": false
         },
         {
@@ -1401,7 +1401,7 @@
             "12",
             "14"
           ],
-          "status": "completed",
+          "status": "pending",
           "phase": "Fielding",
           "dueDate": "2025-10-08",
           "isOngoing": true
@@ -1435,7 +1435,7 @@
           "assignedTo": [
             ""
           ],
-          "status": "completed",
+          "status": "pending",
           "phase": "Fielding",
           "dueDate": "2025-10-07",
           "isOngoing": true
@@ -1494,7 +1494,8 @@
           ],
           "status": "pending",
           "phase": "Post-Field Analysis",
-          "isOngoing": false
+          "isOngoing": false,
+          "dueDate": "2025-10-21"
         },
         {
           "id": "t54",
@@ -1505,8 +1506,8 @@
           ],
           "status": "pending",
           "phase": "Post-Field Analysis",
-          "dueDate": "2025-10-15",
-          "isOngoing": false
+          "isOngoing": false,
+          "dueDate": "2025-10-17"
         },
         {
           "id": "t55",
@@ -1638,7 +1639,6 @@
           ],
           "status": "completed",
           "phase": "Fielding",
-          "dueDate": "2025-10-09",
           "isOngoing": false
         }
       ],
@@ -1721,11 +1721,11 @@
         }
       ],
       "archived": false,
-      "phaseColor": "#F97316",
-      "fieldworkRange": "10/2/25",
+      "phaseColor": "#7C3AED",
+      "fieldworkRange": "10/4/25",
       "reportDeadline": "10/31/25",
       "teamMembersText": "Luke Borglin, Nikki Panagiotakopoulos,  Ciara Mcevoy-Benisti, test",
-      "calculatedProgress": 68
+      "calculatedProgress": 74
     },
     {
       "name": "test",
@@ -3478,7 +3478,10 @@
           "status": "pending",
           "phase": "Reporting",
           "dueDate": null,
-          "isOngoing": false
+          "isOngoing": false,
+          "assignedTo": [
+            "3"
+          ]
         },
         {
           "id": "t58",

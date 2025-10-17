@@ -8076,7 +8076,20 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
     
     // Get methodology type
     const methodologyType = project.methodologyType ||
-                          (project.methodology?.includes('Focus') || project.methodology?.includes('Interview') ? 'Qualitative' : 'Quantitative');
+                          (project.methodology?.includes('Focus') || project.methodology?.includes('Interview') || project.methodology?.includes('Ethnographic') || 
+                           project.name?.toLowerCase().includes('qual') ? 'Qualitative' : 'Quantitative');
+    
+    // Debug logging
+    console.log('Project methodology detection:', {
+      projectName: project.name,
+      methodology: project.methodology,
+      methodologyType: project.methodologyType,
+      detectedType: methodologyType,
+      hasQualInName: project.name?.toLowerCase().includes('qual'),
+      hasFocusInMethodology: project.methodology?.includes('Focus'),
+      hasInterviewInMethodology: project.methodology?.includes('Interview'),
+      hasEthnographicInMethodology: project.methodology?.includes('Ethnographic')
+    });
     const displayMethodologyType = methodologyType === 'Quantitative' ? 'Quant' : methodologyType === 'Qualitative' ? 'Qual' : methodologyType;
 
     // Get sample details
@@ -8948,7 +8961,7 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                           {project.teamMembers?.slice(0, 3).map((member, index) => (
                             <div
                               key={`${project.id}-${member.id}-${index}`}
-                              className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-medium border-2 border-white"
+                              className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-medium border-2 border-gray-100"
                             style={{
                               backgroundColor: getMemberColor(member.id || member.name, project.teamMembers),
                                 marginLeft: index > 0 ? '-4px' : '0',
@@ -8961,7 +8974,7 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                         ))}
                           {project.teamMembers && project.teamMembers.length > 3 && (
                             <div
-                              className="w-6 h-6 rounded-full flex items-center justify-center text-gray-700 text-[10px] font-medium border-2 border-white bg-gray-200"
+                              className="w-6 h-6 rounded-full flex items-center justify-center text-gray-700 text-[10px] font-medium border-2 border-gray-100 bg-gray-200"
                               style={{ marginLeft: '-4px', zIndex: 7 }}
                             >
                               +{project.teamMembers.length - 3}
@@ -9089,14 +9102,6 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
         </div>
         )}
 
-        {/* Timeline View */}
-        {viewMode === 'timeline' && (
-          <div className="bg-white shadow-sm border border-gray-200 rounded-lg overflow-hidden">
-            <div className="p-4">
-              <ProjectTimeline projects={filteredProjects} maxWeeks={5} onProjectClick={handleProjectView} />
-            </div>
-          </div>
-        )}
 
       {/* Project Setup Wizard */}
       <ProjectSetupWizard
@@ -9778,6 +9783,10 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
   // Sample details edit state
   const [sampleSize, setSampleSize] = useState(project.sampleSize || 0);
   const [subgroups, setSubgroups] = useState<Array<{id: string, name: string, size: number}>>(project.subgroups || []);
+  
+  // Storytelling data state
+  const [storytellingData, setStorytellingData] = useState<any>(null);
+  const [storytellingLoading, setStorytellingLoading] = useState(false);
 
   // Load existing clients from all projects
   useEffect(() => {
@@ -10136,6 +10145,56 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
     setProjectFiles(project.files || []);
   }, [project.notes, project.archivedNotes, project.files]);
 
+  // Load storytelling data when project changes
+  useEffect(() => {
+    const loadStorytellingData = async () => {
+      if (!project?.id) return;
+      
+      console.log('🔍 Loading storytelling data for project:', project.id, project.name);
+      console.log('🔍 Project object:', project);
+      setStorytellingLoading(true);
+      try {
+        // Check if project has analysisId (from storytelling API) or get it from saved content analyses
+        let analysisId = (project as any).analysisId;
+        
+        // If no analysisId on project, try to get it from saved content analyses
+        if (!analysisId && savedContentAnalyses && savedContentAnalyses.length > 0) {
+          const projectCA = savedContentAnalyses.find(ca => ca.projectId === project.id);
+          if (projectCA) {
+            analysisId = projectCA.id;
+            console.log('🔍 Found analysisId from saved content analyses:', analysisId);
+          }
+        }
+        
+        const url = analysisId 
+          ? `${API_BASE_URL}/api/storytelling/${project.id}?analysisId=${analysisId}`
+          : `${API_BASE_URL}/api/storytelling/${project.id}`;
+        
+        console.log('🔍 Fetching from URL:', url);
+        const response = await fetch(url, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          console.log('🔍 Storytelling data loaded:', data);
+          console.log('🔍 Storyboards:', data.storyboards?.length || 0);
+          console.log('🔍 Report data slides:', data.reportData?.slides?.length || 0);
+          setStorytellingData(data);
+        } else {
+          console.log('❌ No storytelling data found for project:', project.id, 'Response status:', response.status);
+          setStorytellingData(null);
+        }
+      } catch (error) {
+        console.error('❌ Error loading storytelling data:', error);
+        setStorytellingData(null);
+      } finally {
+        setStorytellingLoading(false);
+      }
+    };
+
+    loadStorytellingData();
+  }, [project?.id]);
+
   // Load discussion guide when modal opens
   useEffect(() => {
     if (showDiscussionGuideModal && selectedDiscussionGuide) {
@@ -10234,9 +10293,10 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
   const getAvailableModerators = () => {
     // Only allow moderators for qualitative projects
     const methodologyType = project.methodologyType || 
-                          (project.methodology?.includes('Focus') || project.methodology?.includes('Interview') ? 'Qualitative' : 'Quantitative');
+                          (project.methodology?.includes('Focus') || project.methodology?.includes('Interview') || project.methodology?.includes('Ethnographic') || 
+                           project.name?.toLowerCase().includes('qual') ? 'Qualitative' : 'Quantitative');
     
-    if (methodologyType === 'Quantitative') {
+    if (methodologyType === 'Quantitative' || methodologyType === 'Quant') {
       return []; // No moderators for quantitative projects
     }
 
@@ -11937,7 +11997,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Main Content Area */}
         <div className="lg:col-span-3 space-y-6">
-          {/* Top Row: Today + Later This Week + Ongoing Tasks */}
+          {/* Top Row: Today + Future Tasks (next 2 weeks) + Ongoing Tasks */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Today Box */}
             <Card className="!p-0 overflow-hidden rounded-none h-64">
@@ -11966,10 +12026,11 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                 today.setHours(0, 0, 0, 0);
                 const todayStr = today.toISOString().split('T')[0];
 
-                // Combine all tasks due today and overdue (exclude completed tasks)
+                // Combine all tasks due today and overdue (exclude completed tasks and ongoing tasks)
                 const allTasksToday = projectTasks.filter(task => {
                   if (!task.dueDate) return false;
                   if (task.status === 'completed') return false; // Exclude completed tasks
+                  if (task.isOngoing) return false; // Exclude ongoing tasks
                   const taskDueDate = new Date(task.dueDate + 'T00:00:00');
                   taskDueDate.setHours(0, 0, 0, 0);
                   const isDueToday = taskDueDate.getTime() === today.getTime();
@@ -12014,23 +12075,29 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                       const isAssignedToMe = isAssignedToCurrentUser(task);
                       const isBold = isOverdue || isAssignedToMe;
                       
+                      const assignedMembers = task.assignedTo && task.assignedTo.length > 0 
+                        ? (() => {
+                            const validMembers = task.assignedTo
+                              .map(id => project.teamMembers.find(member => member.id === id)?.name)
+                              .filter(name => name); // Remove undefined/null values
+                            return validMembers.length > 0 ? validMembers.join(', ') : 'Not Assigned';
+                          })()
+                        : 'Not Assigned';
+
                       return (
-                        <div key={task.id} className={`flex items-start gap-2 text-xs p-1 rounded ${isOverdue ? 'bg-red-50' : ''}`}>
-                          <span className="mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: BRAND.orange }}></span>
-                          <span className="flex-1">
-                            <span className={isBold ? "font-bold" : ""} style={{ color: isOverdue ? "#DC2626" : "#1F2937" }}>
+                        <div key={task.id} className="flex items-start gap-2 text-xs text-gray-800">
+                          <div 
+                            className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0" 
+                            style={{ backgroundColor: BRAND.orange }}
+                          ></div>
+                          <div className="flex-1 min-w-0">
+                            <div className={`${isBold ? 'font-bold' : 'font-normal'} truncate`} style={{ color: isOverdue ? "#DC2626" : "#1F2937" }}>
                               {task.description || task.content || 'Untitled task'}
-                            </span>
-                            {isAssignedToMe && (
-                              <span className={`text-[10px] ml-1 font-bold ${isOverdue ? "text-red-600" : "text-gray-500"}`}>(assigned to you)</span>
-                            )}
-                            {isOverdue && (
-                              <span className="px-1 py-0.5 rounded-full text-[8px] font-bold bg-red-100 text-red-600 ml-1">
-                                overdue
-                              </span>
-                            )}
-                            {task.projectName && <span className="text-[10px] text-gray-500"> ({task.projectName})</span>}
-                          </span>
+                            </div>
+                            <div className="text-[10px] text-gray-500 truncate">
+                              {assignedMembers}
+                            </div>
+                          </div>
                         </div>
                       );
                     })}
@@ -12055,39 +12122,51 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
               <IconCalendarShare className="w-10 h-10 text-blue-500" stroke={1.5} />
             </div>
             <div>
-              <h3 className="text-base font-semibold text-gray-900">Later This Week</h3>
+              <h3 className="text-base font-semibold text-gray-900">Future Tasks <span className="text-xs font-normal italic text-gray-600">(next 2 weeks)</span></h3>
               <p className="text-[10px] text-gray-500">{getPhaseDisplayName(currentPhase)}</p>
             </div>
           </div>
           <div className="border-b border-gray-200"></div>
 
-          {/* Tasks Later This Week - Single List */}
+          {/* Future Tasks (next 2 weeks) - Single List */}
           <div className="px-4 pb-4 pt-2 h-48 overflow-hidden relative">
             <div className="h-full overflow-y-auto">
               {(() => {
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
-                const { monday, friday } = getThisWeekRange();
-                const fridayEndOfDay = new Date(friday);
-                fridayEndOfDay.setHours(0, 0, 0, 0);
+                
+                // Calculate 14 days from today
+                const twoWeeksFromToday = new Date(today);
+                twoWeeksFromToday.setDate(today.getDate() + 14);
+                twoWeeksFromToday.setHours(23, 59, 59, 999);
 
-                // Combine all tasks later this week
-                const allTasksLaterThisWeek = projectTasks.filter(task => {
+                // Combine all tasks for the next 14 days (exclude ongoing tasks)
+                const allFutureTasks = projectTasks.filter(task => {
                   if (task.status === 'completed') return false;
                   if (!task.dueDate) return false;
+                  if (task.isOngoing) return false; // Exclude ongoing tasks
 
                   const taskDate = new Date(task.dueDate + 'T00:00:00');
                   taskDate.setHours(0, 0, 0, 0);
 
-                  // Task must be after today AND on or before Friday
+                  // Task must be after today AND within the next 14 days
                   const isAfterToday = taskDate.getTime() > today.getTime();
-                  const isBeforeFridayEnd = taskDate.getTime() <= fridayEndOfDay.getTime();
+                  const isWithinTwoWeeks = taskDate.getTime() <= twoWeeksFromToday.getTime();
 
-                  return isAfterToday && isBeforeFridayEnd;
+                  return isAfterToday && isWithinTwoWeeks;
                 });
 
-                // Sort with assigned to me first
-                const sortedTasksLaterThisWeek = allTasksLaterThisWeek.sort((a, b) => {
+                // Sort by date (closest to furthest) and then by assigned to me
+                const sortedFutureTasks = allFutureTasks.sort((a, b) => {
+                  const aDate = new Date(a.dueDate + 'T00:00:00').getTime();
+                  const bDate = new Date(b.dueDate + 'T00:00:00').getTime();
+                  
+                  // First sort by date (closest first)
+                  if (aDate !== bDate) {
+                    return aDate - bDate;
+                  }
+                  
+                  // Then sort by assigned to me
                   const aAssignedToMe = isAssignedToCurrentUser(a);
                   const bAssignedToMe = isAssignedToCurrentUser(b);
                   if (aAssignedToMe && !bAssignedToMe) return -1;
@@ -12095,33 +12174,45 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                   return 0;
                 });
 
-                if (sortedTasksLaterThisWeek.length === 0) {
-                  return <div className="text-xs italic text-gray-500">No tasks later this week</div>;
+                if (sortedFutureTasks.length === 0) {
+                  return <div className="text-xs italic text-gray-500">No future tasks in the next 2 weeks</div>;
                 }
 
                 // Limit to first 8 tasks to prevent overflow
                 const maxTasks = 8;
-                const tasksToShow = sortedTasksLaterThisWeek.slice(0, maxTasks);
-                const remainingCount = sortedTasksLaterThisWeek.length - maxTasks;
+                const tasksToShow = sortedFutureTasks.slice(0, maxTasks);
+                const remainingCount = sortedFutureTasks.length - maxTasks;
 
                 return (
                   <div className="space-y-1">
-                    {tasksToShow.map(task => (
-                      <div key={task.id} className="flex items-start gap-2 text-xs text-gray-800">
-                        <span className="mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0 bg-blue-500"></span>
-                        <span className="flex-1 flex justify-between items-start">
-                          <span>
-                            <span>{task.description || task.content || 'Untitled task'}</span>
-                            {task.projectName && <span className="text-[10px] text-gray-500"> ({task.projectName})</span>}
-                          </span>
-                          {task.dueDate && (
-                            <span className="text-[10px] text-gray-500 ml-2 flex-shrink-0">
-                              {formatDateForDisplay(task.dueDate)}
-                            </span>
-                          )}
-                        </span>
-                      </div>
-                    ))}
+                    {tasksToShow.map(task => {
+                      const isAssignedToMe = isAssignedToCurrentUser(task);
+                      const assignedMembers = task.assignedTo && task.assignedTo.length > 0 
+                        ? (() => {
+                            const validMembers = task.assignedTo
+                              .map(id => project.teamMembers.find(member => member.id === id)?.name)
+                              .filter(name => name); // Remove undefined/null values
+                            return validMembers.length > 0 ? validMembers.join(', ') : 'Not Assigned';
+                          })()
+                        : 'Not Assigned';
+
+                      return (
+                        <div key={task.id} className="flex items-start gap-2 text-xs text-gray-800">
+                          <div 
+                            className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0" 
+                            style={{ backgroundColor: '#3B82F6' }}
+                          ></div>
+                          <div className="flex-1 min-w-0">
+                            <div className={`${isAssignedToMe ? 'font-bold' : 'font-normal'} truncate`}>
+                              {task.description || task.content || 'Untitled task'}
+                            </div>
+                            <div className="text-[10px] text-gray-500 truncate">
+                              {assignedMembers}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                     {remainingCount > 0 && (
                       <div className="text-[10px] text-gray-500 italic">
                         +{remainingCount} more tasks
@@ -12189,9 +12280,14 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                   <div className="space-y-1">
                     {tasksToShow.map(task => {
                       const isAssignedToMe = isAssignedToCurrentUser(task);
-                      const assignedMembers = task.assignedTo?.map(id => 
-                        project.teamMembers.find(member => member.id === id)?.name || 'Unknown'
-                      ).join(', ') || 'Unassigned';
+                      const assignedMembers = task.assignedTo && task.assignedTo.length > 0 
+                        ? (() => {
+                            const validMembers = task.assignedTo
+                              .map(id => project.teamMembers.find(member => member.id === id)?.name)
+                              .filter(name => name); // Remove undefined/null values
+                            return validMembers.length > 0 ? validMembers.join(', ') : 'Not Assigned';
+                          })()
+                        : 'Not Assigned';
 
                       return (
                         <div key={task.id} className="flex items-start gap-2 text-xs text-gray-800">
@@ -12267,7 +12363,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
             </div>
 
             {/* Tasks for Active Phase */}
-            <div className="flex-1 flex flex-col overflow-hidden min-h-0 border border-gray-200 border-t-0 rounded-b-lg bg-white" style={{ borderColor: PHASE_COLORS[activePhase] || '#d1d5db' }}>
+            <div className="flex-1 flex flex-col min-h-0 border border-gray-200 border-t-0 rounded-b-lg bg-white" style={{ borderColor: PHASE_COLORS[activePhase] || '#d1d5db', overflow: 'visible' }}>
               {/* Column Headers (outside scroll) */}
               <div
                 className="task-grid header-pad py-2"
@@ -12287,12 +12383,11 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                     </button>
                   )}
                 </div>
-                <div className="justify-self-center text-center text-xs font-semibold text-gray-600 uppercase tracking-wide">Due Date</div>
-                <div className="justify-self-center text-center text-xs font-semibold text-gray-600 uppercase tracking-wide">Assigned</div>
+                <div></div>
               </div>
 
               {/* Scrollable Task List (starts under headers) */}
-              <div ref={taskContainerRef} className="flex-1 overflow-y-auto thin-scrollbar px-3 pt-2 pb-3">
+              <div ref={taskContainerRef} className="h-96 overflow-y-auto thin-scrollbar px-3 pt-2 pb-3">
                 {/* Add Task Form at top */}
                 {showAddTask && (
                   <div className="mb-3 p-3 border rounded-lg bg-gray-50">
@@ -12386,7 +12481,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                     <div key={task.id} className="task-grid px-3 py-2 border rounded-lg bg-gray-100 hover:bg-gray-50">
                       {/* Task Status Checkbox */}
                       <button
-                        className={`w-4 h-4 rounded border-2 flex items-center justify-center text-xs ${
+                        className={`w-3 h-3 rounded border-2 flex items-center justify-center text-[10px] ${
                           task.status === 'completed'
                             ? 'bg-green-500 border-green-500 text-white'
                             : 'border-gray-300 hover:border-gray-400'
@@ -12398,10 +12493,10 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
 
                       {/* Task Description */}
                       <div className="min-w-0">
-                        <div className={`text-xs flex items-center gap-2 ${task.status === 'completed' ? 'line-through text-gray-500' : 'text-gray-900'}`}>
+                        <div className={`text-[10px] flex items-center gap-2 ${task.status === 'completed' ? 'line-through text-gray-500' : 'text-gray-900'}`}>
                           <span>{task.description}</span>
                           {isTaskOverdue(task) && (
-                            <span className="px-0.5 sm:px-1 md:px-2 py-0.5 rounded-full text-xs font-bold bg-red-500/20 text-red-600">
+                            <span className="px-0.5 sm:px-1 md:px-2 py-1 rounded-full text-[8px] font-medium bg-red-500/20 text-red-600 h-4 flex items-center">
                               overdue
                             </span>
                           )}
@@ -12409,20 +12504,20 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                       </div>
 
                       {/* Calendar Icon for Due Date or Ongoing Indicator */}
-                      <div className="relative justify-self-center ml-1">
+                      <div className="relative justify-self-end ml-1">
                         {task.isOngoing ? (
-                          <div className="w-full flex items-center justify-center">
+                          <div className="w-full flex items-center justify-end">
                             <div
-                              className="px-1 py-0.5 rounded-full text-[10px] font-medium text-white"
+                              className="px-1 py-0.5 rounded-full text-[8px] font-medium text-white"
                               style={{ backgroundColor: PHASE_COLORS[activePhase] || '#6B7280', opacity: 0.8 }}
                             >
                               Ongoing
                             </div>
                           </div>
                         ) : task.dueDate ? (
-                          <div className="w-full flex items-center justify-center">
+                          <div className="w-full flex items-center justify-end">
                             <div
-                              className={`px-0.5 sm:px-1 md:px-2 py-1 rounded-full text-xs font-medium ${isTaskOverdue(task) ? 'text-red-600' : 'text-white opacity-60'}`}
+                              className={`px-0.5 sm:px-1 md:px-2 py-1 rounded-full text-[8px] font-medium ${isTaskOverdue(task) ? 'text-red-600' : 'text-white opacity-60'}`}
                               style={{ backgroundColor: isTaskOverdue(task) ? 'rgba(239, 68, 68, 0.2)' : (PHASE_COLORS[activePhase] || '#6B7280') }}
                             >
                               {(() => {
@@ -12454,23 +12549,30 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                             </button>
                           </div>
                         ) : (
-                          <button
-                            onClick={() => {
-                              setSelectedTaskForDate(task.id);
-                              setShowCalendarDropdown(!showCalendarDropdown);
-                            }}
-                            className="p-1.5 rounded-lg transition-colors text-gray-400 hover:text-gray-600 hover:bg-gray-50"
-                            title="Set due date"
-                          >
-                            <CalendarIcon className="h-4 w-4" />
-                          </button>
+                          <div className="w-full flex items-center justify-end">
+                            <button
+                              onClick={() => {
+                                setSelectedTaskForDate(task.id);
+                                setShowCalendarDropdown(!showCalendarDropdown);
+                              }}
+                              className="p-1 rounded-lg transition-colors text-gray-400 hover:text-gray-600 hover:bg-gray-50"
+                              title="Set due date"
+                            >
+                              <CalendarIcon className="h-3 w-3" />
+                            </button>
+                          </div>
                         )}
                         
                         {/* Calendar Dropdown */}
-                        {showCalendarDropdown && selectedTaskForDate === task.id && (
+                        {showCalendarDropdown && selectedTaskForDate === task.id && createPortal(
                           <div 
-                            className="calendar-dropdown absolute top-10 right-0 z-50 bg-white border rounded-lg shadow-lg p-4 w-80"
+                            className="calendar-dropdown fixed z-[9999] bg-white border rounded-lg shadow-lg p-4 w-80"
                             onClick={(e) => e.stopPropagation()}
+                            style={{
+                              top: '50%',
+                              left: '50%',
+                              transform: 'translate(-50%, -50%)'
+                            }}
                           >
                             <div className="flex justify-between items-center mb-3">
                               <h3 className="font-semibold text-sm">Select Due Date</h3>
@@ -12509,22 +12611,23 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                                 }
                               }}
                             />
-                          </div>
+                          </div>,
+                          document.body
                         )}
                       </div>
 
                       {/* Assignment Section */}
-                      <div className="relative flex items-center justify-self-center ml-1 gap-0">
+                      <div className="relative flex items-center justify-self-end justify-end ml-1 gap-0">
                         {task.assignedTo && task.assignedTo.filter(id => id && id.trim() !== '').length > 0 && (
-                          <div className="flex items-center gap-1 flex-shrink-0">
-                            {task.assignedTo.filter(id => id && id.trim() !== '').slice(0, 2).map((memberId) => (
-                              <div key={memberId} className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium overflow-hidden" style={{ backgroundColor: getMemberColor(memberId, project.teamMembers) }}>
+                          <div className="flex items-center flex-shrink-0">
+                            {task.assignedTo.filter(id => id && id.trim() !== '').slice(0, 2).map((memberId, index) => (
+                              <div key={memberId} className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium overflow-hidden border-2 border-gray-100 ${index > 0 ? '-ml-1' : ''}`} style={{ backgroundColor: getMemberColor(memberId, project.teamMembers), zIndex: index === 0 ? 2 : 1 }}>
                                 <span className="truncate leading-none">{getInitials(project.teamMembers.find(m => m.id === memberId)?.name || 'Unknown')}</span>
                               </div>
                             ))}
                             {task.assignedTo.filter(id => id && id.trim() !== '').length > 2 && (
-                              <div className="relative group">
-                                <span className="text-xs italic text-gray-500 ml-1 cursor-help">
+                              <div className="relative group flex items-center">
+                                <span className="text-[10px] italic text-gray-500 ml-0.5 mr-1 cursor-help">
                                   +{task.assignedTo.filter(id => id && id.trim() !== '').length - 2}
                                 </span>
                                 <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs rounded p-2 whitespace-nowrap z-10 left-0 top-8">
@@ -12536,13 +12639,18 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                         )}
                           <button
                             onClick={() => setShowAssignmentDropdown(showAssignmentDropdown === task.id ? null : task.id)}
-                            className="w-6 h-6 rounded-full bg-transparent flex items-center justify-center text-gray-500 hover:text-gray-700 transition-colors ml-1"
+                            className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
                             title="Assign team members"
                           >
                             +
                           </button>
-                        {showAssignmentDropdown === task.id && (
-                          <div className="assignment-dropdown absolute right-0 top-8 z-50 bg-white border border-gray-300 rounded-lg shadow-lg p-2 min-w-[200px]">
+                        {showAssignmentDropdown === task.id && createPortal(
+                          <div className="assignment-dropdown fixed z-[9999] bg-white border border-gray-300 rounded-lg shadow-lg p-2 min-w-[200px]"
+                            style={{
+                              top: '50%',
+                              left: '50%',
+                              transform: 'translate(-50%, -50%)'
+                            }}>
                             <div className="space-y-1">
                               {project.teamMembers.map(member => (
                                 <label key={member.id} className="flex items-center gap-2 px-0.5 sm:px-1 md:px-2 py-1 hover:bg-gray-50 rounded cursor-pointer">
@@ -12562,7 +12670,8 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                                 </label>
                               ))}
                             </div>
-                          </div>
+                          </div>,
+                          document.body
                         )}
                       </div>
                     </div>
@@ -12572,7 +12681,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
 
                 {/* Show message if no tasks in this phase */}
                 {projectTasks.filter(task => task.phase === activePhase).length === 0 && (
-                  <div className="text-xs text-gray-500 py-4 text-center">
+                  <div className="text-xs text-gray-500 py-1 text-center">
                     No tasks in {activePhase === 'Post-Field Analysis' ? 'Analysis' : activePhase} phase
                   </div>
                 )}
@@ -12786,73 +12895,6 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
               })()}
             </div>
         </Card>
-        {/* Post-it Notes (under Calendar) */}
-        {projectNotes.filter(note => note.postToProjectPage).length > 0 ? (
-          <div className="flex gap-3 items-stretch h-48">
-            <div className="flex-1 flex gap-3">
-              {projectNotes
-                .filter(note => note.postToProjectPage)
-                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-                .slice(0, 3)
-                .map((note) => (
-                  <div
-                    key={note.id}
-                    className="bg-yellow-100 p-3 rounded-lg border-l-4 border-yellow-300 shadow-sm flex-1 cursor-pointer hover:shadow-md transition-shadow"
-                    onClick={() => setSelectedNote(note)}
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-medium" style={{ fontSize: '10px', backgroundColor: getMemberColor(note.createdBy, project.teamMembers) }}>
-                          {getInitials(project.teamMembers.find(m => m.id === note.createdBy)?.name || note.createdBy)}
-                        </div>
-                        {note.comments && note.comments.length > 0 && (
-                          <div className="flex items-center gap-1 text-gray-500">
-                            <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                            </svg>
-                            <span className="text-xs">{note.comments.length}</span>
-                          </div>
-                        )}
-                      </div>
-                      <span className="text-xs text-gray-500 italic">{formatShortDate(note.createdAt)}</span>
-                    </div>
-                    <p className="text-sm text-gray-700 leading-relaxed line-clamp-3" dangerouslySetInnerHTML={{ __html: note.body }}></p>
-                  </div>
-                ))}
-            </div>
-            <div className="flex flex-col gap-3">
-              <button
-                onClick={() => setShowAddNote(true)}
-                className="border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-gray-400 hover:text-gray-600 transition-colors flex items-center justify-center px-3 flex-1"
-              >
-                <PlusSmallIcon className="h-4 w-4" />
-              </button>
-              {projectNotes.filter(note => note.postToProjectPage).length > 3 && (
-                <button
-                  onClick={() => setShowNotesModal(true)}
-                  className="border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-gray-400 hover:text-gray-600 transition-colors flex items-center justify-center px-3 h-10"
-                >
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                  </svg>
-                </button>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className="h-48">
-            <Card className="h-full flex items-center justify-center">
-              <button
-                onClick={() => setShowAddNote(true)}
-                className="w-full h-full border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-gray-400 hover:text-gray-600 transition-colors flex items-center justify-center gap-2"
-              >
-                <PlusSmallIcon className="h-4 w-4" />
-                <span className="text-sm">Add Post-it Note</span>
-              </button>
-            </Card>
-          </div>
-        )}
             </div>
           </div>
         </div>
@@ -12897,7 +12939,21 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
               </div>
 
               {/* Moderator - Only for qualitative studies */}
-              {project.methodologyType === 'Qualitative' && (
+              {(() => {
+                const methodologyType = project.methodologyType ||
+                  (project.methodology?.includes('Focus') || project.methodology?.includes('Interview') || project.methodology?.includes('Ethnographic') || 
+                   project.name?.toLowerCase().includes('qual') ? 'Qualitative' : 'Quantitative');
+                
+                console.log('Project Details - Moderator field check:', {
+                  projectName: project.name,
+                  methodology: project.methodology,
+                  methodologyType: project.methodologyType,
+                  detectedType: methodologyType,
+                  shouldShowModerator: methodologyType === 'Qualitative' || methodologyType === 'Qual'
+                });
+                
+                return methodologyType === 'Qualitative' || methodologyType === 'Qual';
+              })() && (
                 <div className="pb-4 border-b border-gray-200">
                   <div className="flex items-center justify-between mb-1">
                     <h4 className="text-sm font-semibold text-gray-600">Moderator</h4>
@@ -13006,9 +13062,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                       }}
                       className="w-full flex items-center gap-2 p-1 rounded hover:bg-gray-50 text-left"
                     >
-                      <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                      </svg>
+                      <IconTable className="w-4 h-4 text-purple-600" />
                       <span className="text-xs text-gray-700">
                         {(() => {
                           const projectContentAnalyses = savedContentAnalyses.filter(ca => ca.projectId === project.id);
@@ -13046,9 +13100,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                       }}
                       className="w-full flex items-center gap-2 p-1 rounded hover:bg-gray-50 text-left"
                     >
-                      <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 4V2a1 1 0 011-1h8a1 1 0 011 1v2h4a1 1 0 011 1v14a1 1 0 01-1 1H3a1 1 0 01-1-1V5a1 1 0 011-1h4zM9 6h6v2H9V6z" />
-                      </svg>
+                      <IconBook2 className="w-4 h-4 text-green-600" />
                       <span className="text-xs text-gray-700">Storytelling ({project.storytelling.length})</span>
                     </button>
                   )}
@@ -13116,129 +13168,6 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                 </div>
               </div>
 
-              {/* Tasks & Key Dates by Day */}
-              <div className="flex-1">
-                <div className="space-y-2 max-h-96 overflow-hidden">
-                  {(() => {
-                    // Get project tasks
-                    const projectTasks = project.tasks || [];
-                    
-                    // Group tasks by date
-                    const tasksByDate = projectTasks.reduce((acc, task) => {
-                      if (!task.dueDate) return acc;
-                      const dueDate = new Date(task.dueDate + 'T00:00:00');
-                      const dateKey = dueDate.toLocaleDateString('en-US', { 
-                        day: 'numeric', 
-                        month: 'long' 
-                      });
-                      
-                      if (!acc[dateKey]) {
-                        acc[dateKey] = { tasks: [], keyDates: [] };
-                      }
-                      acc[dateKey].tasks.push(task);
-                      return acc;
-                    }, {} as Record<string, { tasks: typeof projectTasks, keyDates: any[] }>);
-
-                    // Add key dates to the same structure
-                    projectKeyDates.forEach(deadline => {
-                      const date = new Date(deadline.date);
-                      const dateKey = date.toLocaleDateString('en-US', { 
-                        day: 'numeric', 
-                        month: 'long' 
-                      });
-                      
-                      if (!tasksByDate[dateKey]) {
-                        tasksByDate[dateKey] = { tasks: [], keyDates: [] };
-                      }
-                      tasksByDate[dateKey].keyDates.push(deadline);
-                    });
-
-                    // Generate the next 7 days starting from today
-                    const nextDays = [];
-                    const today = new Date();
-                    let currentDate = new Date(today);
-                    
-                    for (let i = 0; i < 7; i++) {
-                      const dateKey = currentDate.toLocaleDateString('en-US', { 
-                        day: 'numeric', 
-                        month: 'long' 
-                      });
-                      const dayData = tasksByDate[dateKey] || { tasks: [], keyDates: [] };
-                      nextDays.push([dateKey, dayData]);
-                      currentDate.setDate(currentDate.getDate() + 1);
-                    }
-
-                    return nextDays.map(([dateKey, dayData]) => (
-                      <div key={dateKey} className="space-y-1">
-                        <div className="flex items-center justify-between">
-                          <h4 className="text-xs font-medium text-gray-900">{dateKey}</h4>
-                        </div>
-                        <div>
-                          {/* Tasks - Only show incomplete tasks */}
-                          {dayData.tasks.filter(task => task.status !== 'completed').map((task, index) => {
-                            const projectPhase = project.phase || 'Kickoff';
-                            const phaseColor = PHASE_COLORS[projectPhase] || PHASE_COLORS['Kickoff'];
-                            
-                            return (
-                              <div
-                                key={`task-${task.id}-${index}`}
-                                className="flex items-center gap-2 p-1 rounded-lg hover:bg-gray-50 group"
-                              >
-                                <div
-                                  className="w-1 h-6 rounded-full"
-                                  style={{
-                                    backgroundColor: phaseColor,
-                                    opacity: 0.8
-                                  }}
-                                ></div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="text-xs text-gray-900 truncate">
-                                    {task.name}
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                          
-                          {/* Key Dates */}
-                          {dayData.keyDates.map((deadline, index) => (
-                            <div
-                              key={`keydate-${deadline.label}-${index}`}
-                              className="flex items-center gap-2 p-1 rounded-lg hover:bg-gray-50 group"
-                            >
-                              <div
-                                className="w-1 h-6 rounded-full"
-                                style={{
-                                  backgroundColor: BRAND.orange,
-                                  opacity: 0.8
-                                }}
-                              ></div>
-                              <div className="flex-1 min-w-0">
-                                <div className="text-xs text-gray-900 truncate">
-                                  {deadline.label}
-                                </div>
-                              </div>
-                              <button
-                                onClick={() => handleDeleteKeyDate(projectKeyDates.findIndex(d => d.label === deadline.label && d.date === deadline.date))}
-                                className="text-xs text-red-600 hover:text-red-800 opacity-0 group-hover:opacity-100 transition-opacity"
-                              >
-                                ×
-                              </button>
-                            </div>
-                          ))}
-                          
-                          {/* No content message */}
-                          {dayData.tasks.length === 0 && dayData.keyDates.length === 0 && (
-                            <div className="text-xs text-gray-400 pl-3">
-                              No tasks or key dates
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ));
-                  })()}
-                </div>
-              </div>
             </div>
           </Card>
         </div>
@@ -14262,7 +14191,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
       )}
 
       {/* Client Edit Modal */}
-      {showClientEdit && (
+      {showClientEdit && createPortal(
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10101]" style={{ top: 0, left: 0, right: 0, bottom: 0 }}>
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
             <h3 className="text-lg font-semibold mb-4">Edit Client</h3>
@@ -14298,11 +14227,12 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Project Name Edit Modal */}
-      {showProjectNameEdit && (
+      {showProjectNameEdit && createPortal(
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10101]" style={{ top: 0, left: 0, right: 0, bottom: 0 }}>
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
             <h3 className="text-lg font-semibold mb-4">Edit Project Name</h3>
@@ -14343,11 +14273,12 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Methodology Edit Modal */}
-      {showMethodologyEdit && (
+      {showMethodologyEdit && createPortal(
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10101]" style={{ top: 0, left: 0, right: 0, bottom: 0 }}>
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
             <h3 className="text-lg font-semibold mb-4">Edit Methodology</h3>
@@ -14382,11 +14313,12 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Moderator Edit Modal */}
-      {showModeratorEdit && (
+      {showModeratorEdit && createPortal(
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10101]" style={{ top: 0, left: 0, right: 0, bottom: 0 }}>
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
             <h3 className="text-lg font-semibold mb-4">Edit Moderator</h3>
@@ -14422,11 +14354,12 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Sample Details Edit Modal */}
-      {showSampleDetailsEdit && (
+      {showSampleDetailsEdit && createPortal(
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10101]" style={{ top: 0, left: 0, right: 0, bottom: 0 }}>
           <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-semibold mb-4">Edit Sample Details</h3>
@@ -14544,7 +14477,8 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
       
       {/* Discussion Guide Modal */}
@@ -15006,7 +14940,7 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center overflow-y-auto py-8 z-50 p-4">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center overflow-y-auto z-50 p-4" style={{ top: 0, left: 0, right: 0, bottom: 0 }}>
       <div className="bg-white rounded-3xl max-w-6xl w-full max-h-[90vh] flex flex-col overflow-hidden">
         <div className="p-6 overflow-y-auto flex-1">
           {/* Header */}
@@ -15173,9 +15107,7 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
                           window.dispatchEvent(new CustomEvent('navigateToCA', { detail: ca }));
                         }}
                       >
-                        <svg className="w-4 h-4 text-purple-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
+                        <IconTable className="w-4 h-4 text-purple-600 flex-shrink-0" />
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-medium truncate">{ca.name}</div>
                           <div className="text-xs text-gray-500">Content Analysis • {new Date(ca.savedDate).toLocaleDateString()}</div>
@@ -15188,7 +15120,41 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
                   </>
                 )}
 
-                {project.files.length === 0 && (!project.savedContentAnalyses || project.savedContentAnalyses.length === 0) && (
+                {/* Saved Storytelling */}
+                {storytellingData && (storytellingData.storyboards?.length > 0 || storytellingData.reportData?.slides?.length > 0) && (
+                  <div
+                    className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded transition-colors"
+                    onClick={() => {
+                      // Navigate to Storytelling tab with this project selected
+                      setRoute('storytelling');
+                      // Dispatch event to select this project in storytelling
+                      window.dispatchEvent(new CustomEvent('selectProjectInStorytelling', { 
+                        detail: { 
+                          projectId: project.id,
+                          projectName: project.name
+                        } 
+                      }));
+                    }}
+                  >
+                    <IconBook2 className="w-4 h-4 text-green-600 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium truncate">Storytelling</div>
+                      <div className="text-xs text-gray-500">
+                        {storytellingData.storyboards?.length > 0 && storytellingData.reportData?.slides?.length > 0 
+                          ? `${storytellingData.storyboards.length} storyboards, ${storytellingData.reportData.slides.length} reports`
+                          : storytellingData.storyboards?.length > 0 
+                            ? `${storytellingData.storyboards.length} storyboards`
+                            : `${storytellingData.reportData.slides.length} reports`
+                        }
+                      </div>
+                    </div>
+                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                )}
+
+                {project.files.length === 0 && (!project.savedContentAnalyses || project.savedContentAnalyses.length === 0) && (!storytellingData || (!storytellingData.storyboards?.length && !storytellingData.reportData?.slides?.length)) && (
                   <div className="text-sm text-gray-500 italic py-2">No files saved yet</div>
                 )}
               </div>
@@ -15197,7 +15163,7 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
 
           {/* Tasks and Timeline */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
+            <Card className="h-[500px] flex flex-col">
               
               {/* Phase Tabs */}
               <div className="mb-4">
@@ -15237,7 +15203,7 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
               </div>
 
               {/* Tasks for Active Phase */}
-              <div ref={taskContainerRef} className="space-y-2 max-h-80 overflow-y-auto px-3 py-3 bg-white">
+              <div ref={taskContainerRef} className="space-y-2 h-96 overflow-y-auto px-3 py-3 bg-white">
                 {projectTasks
                   .filter(task => task.phase === activePhase)
                   .sort((a, b) => {
@@ -15306,8 +15272,13 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
                           >
                             +
                           </button>
-                          {showAssignmentDropdown === task.id && (
-                            <div className="assignment-dropdown absolute right-0 top-8 z-50 bg-white border border-gray-300 rounded-lg shadow-lg p-2 min-w-[200px]">
+                          {showAssignmentDropdown === task.id && createPortal(
+                            <div className="assignment-dropdown fixed z-[9999] bg-white border border-gray-300 rounded-lg shadow-lg p-2 min-w-[200px]"
+                              style={{
+                                top: '50%',
+                                left: '50%',
+                                transform: 'translate(-50%, -50%)'
+                              }}>
                               <div className="space-y-1">
                                 {project.teamMembers.map(member => (
                                   <label key={member.id} className="flex items-center gap-2 px-0.5 sm:px-1 md:px-2 py-1 hover:bg-gray-50 rounded cursor-pointer">
@@ -15327,7 +15298,8 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
                                   </label>
                                 ))}
                               </div>
-                            </div>
+                            </div>,
+                            document.body
                           )}
                         </div>
                       </div>
@@ -15336,14 +15308,14 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
 
                 {/* Show message if no tasks in this phase */}
                 {projectTasks.filter(task => task.phase === activePhase).length === 0 && (
-                  <div className="text-xs text-gray-500 py-4 text-center">
+                  <div className="text-xs text-gray-500 py-1 text-center">
                     No tasks in {activePhase === 'Post-Field Analysis' ? 'Analysis' : activePhase} phase
                   </div>
                 )}
 
 
                 {/* Add Task Button */}
-                <div className="pt-2">
+                <div className="pt-0.5">
                   {!showAddTask ? (
                     <button
                       onClick={() => setShowAddTask(true)}
@@ -15591,7 +15563,7 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
                 </div>
               ) : (
                 /* Work Week Calendar */
-                <div className="space-y-2">
+                <div className="space-y-2 max-h-80 overflow-y-auto">
                   {/* Week day headers */}
                   <div className="grid grid-cols-5 gap-1 text-xs font-medium text-gray-500">
                     {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map(day => (
@@ -15720,6 +15692,77 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
             </Card>
           </div>
 
+          {/* Post-it Notes Section */}
+          {projectNotes && projectNotes.length > 0 ? (
+            <div className="mt-6">
+              <div className="flex gap-3 items-stretch h-48">
+                <div className="flex-1 flex gap-3">
+                  {projectNotes
+                    .filter(note => note.postToProjectPage)
+                    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                    .slice(0, 3)
+                    .map((note) => (
+                      <div
+                        key={note.id}
+                        className="bg-yellow-100 p-3 rounded-lg border-l-4 border-yellow-300 shadow-sm flex-1 cursor-pointer hover:shadow-md transition-shadow"
+                        onClick={() => setSelectedNote(note)}
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-medium" style={{ fontSize: '10px', backgroundColor: getMemberColor(note.createdBy, project.teamMembers) }}>
+                              {getInitials(project.teamMembers.find(m => m.id === note.createdBy)?.name || note.createdBy)}
+                            </div>
+                            {note.comments && note.comments.length > 0 && (
+                              <div className="flex items-center gap-1 text-gray-500">
+                                <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                </svg>
+                                <span className="text-xs">{note.comments.length}</span>
+                              </div>
+                            )}
+                          </div>
+                          <span className="text-xs text-gray-500 italic">{formatShortDate(note.createdAt)}</span>
+                        </div>
+                        <p className="text-sm text-gray-700 leading-relaxed line-clamp-3" dangerouslySetInnerHTML={{ __html: note.body }}></p>
+                      </div>
+                    ))}
+                </div>
+                <div className="flex flex-col gap-3">
+                  <button
+                    onClick={() => setShowAddNote(true)}
+                    className="border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-gray-400 hover:text-gray-600 transition-colors flex items-center justify-center px-3 flex-1"
+                  >
+                    <PlusSmallIcon className="h-4 w-4" />
+                  </button>
+                  {projectNotes.filter(note => note.postToProjectPage).length > 3 && (
+                    <button
+                      onClick={() => setShowNotesModal(true)}
+                      className="border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-gray-400 hover:text-gray-600 transition-colors flex items-center justify-center px-3 h-10"
+                    >
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-6">
+              <div className="h-48">
+                <Card className="h-full flex items-center justify-center">
+                  <button
+                    onClick={() => setShowAddNote(true)}
+                    className="w-full h-full border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-gray-400 hover:text-gray-600 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <PlusSmallIcon className="h-4 w-4" />
+                    <span className="text-sm">Add Post-it Note</span>
+                  </button>
+                </Card>
+              </div>
+            </div>
+          )}
 
           {/* Archive Button */}
           <div className="mt-6 pt-6 border-t border-gray-200">

@@ -3886,8 +3886,13 @@ router.post('/get-verbatim-quotes', async (req, res) => {
       analysis.verbatimQuotes[sheetName][respondentId] = {};
     }
 
+    // Check if this is a request to exclude previously shown quotes
+    const excludePrevious = req.body.excludePrevious || false;
+    const previouslyShownQuotes = req.body.previouslyShownQuotes || [];
+    let noAdditionalQuotes = false;
+
     const cachedQuotes = analysis.verbatimQuotes[sheetName]?.[respondentId]?.[columnName];
-    if (cachedQuotes && cachedQuotes.quotes && cachedQuotes.quotes.length > 0 && cachedQuotes.keyFinding === keyFinding) {
+    if (cachedQuotes && cachedQuotes.quotes && cachedQuotes.quotes.length > 0 && cachedQuotes.keyFinding === keyFinding && !excludePrevious) {
       console.log(`✅ Returning cached quotes for ${respondentId} - ${columnName} (saved ${cachedQuotes.savedAt})`);
       return res.json({
         success: true,
@@ -4133,6 +4138,17 @@ CRITICAL GUIDELINES:
 - DO NOT include generic quotes that only tangentially relate to the topic
 - DO NOT include quotes about daily activities unless they directly relate to treatment consideration`;
 
+    // Build exclusion text for previously shown quotes
+    let exclusionText = '';
+    if (excludePrevious && previouslyShownQuotes.length > 0) {
+      exclusionText = `
+
+IMPORTANT: Do NOT include any of these previously shown quotes:
+${previouslyShownQuotes.map((quote, index) => `${index + 1}. "${quote.text}"`).join('\n')}
+
+Find DIFFERENT quotes that support the key finding. If no other relevant quotes exist, return the same quotes but with a note that no additional quotes are available.`;
+    }
+
     const userPrompt = `Key Finding: ${keyFinding}
 
 Column: ${columnName}
@@ -4151,7 +4167,7 @@ IMPORTANT: Look for quotes that mention:
 - For "unmet needs" - look for quotes where the respondent discusses what they need or want from treatment
 
 Do NOT include generic quotes that only tangentially relate to the topic. The quotes must contain concrete details that directly support the key finding.
-Do NOT include quotes about daily activities unless they directly relate to treatment consideration or decision-making.
+Do NOT include quotes about daily activities unless they directly relate to treatment consideration or decision-making.${exclusionText}
 
 Transcript:
 ${transcriptText.substring(0, 8000)}`; // Limit to first 8000 chars to stay within token limits
@@ -4179,47 +4195,80 @@ ${transcriptText.substring(0, 8000)}`; // Limit to first 8000 chars to stay with
         cleanedResponse = cleanedResponse.replace(/^```(?:json)?\s*\n/, '').replace(/\n```\s*$/, '');
       }
 
+      // Remove any text after the JSON object ends
+      const jsonEndIndex = cleanedResponse.lastIndexOf('}');
+      if (jsonEndIndex !== -1) {
+        cleanedResponse = cleanedResponse.substring(0, jsonEndIndex + 1);
+      }
+
       const parsed = JSON.parse(cleanedResponse);
       quotes = parsed.quotes || [];
       
-      // Post-process quotes to improve relevance
-      quotes = quotes.filter(quote => {
-        if (!quote.text || quote.text.trim().length < 20) return false;
-        
-        // Check if quote contains specific details that relate to the key finding
-        const keyFindingLower = keyFinding.toLowerCase();
-        const quoteTextLower = quote.text.toLowerCase();
-        
-        // Extract key terms from the key finding
-        const keyTerms = keyFindingLower.match(/\b\w{4,}\b/g) || [];
-        const hasRelevantTerms = keyTerms.some(term => 
-          quoteTextLower.includes(term) && term.length > 3
-        );
-        
-        // Check for specific treatment names, dates, or experiences
-        const hasSpecificDetails = 
-          quoteTextLower.includes('evrysdi') || 
-          quoteTextLower.includes('spinraza') ||
-          quoteTextLower.includes('treatment') ||
-          quoteTextLower.includes('trial') ||
-          quoteTextLower.includes('april') ||
-          quoteTextLower.includes('2021') ||
-          quoteTextLower.includes('2022') ||
-          quoteTextLower.includes('2023') ||
-          quoteTextLower.includes('experience') ||
-          quoteTextLower.includes('took') ||
-          quoteTextLower.includes('started') ||
-          quoteTextLower.includes('stopped');
-        
-        return hasRelevantTerms || hasSpecificDetails;
-      });
+    // Post-process quotes to improve relevance
+    quotes = quotes.filter(quote => {
+      if (!quote.text || quote.text.trim().length < 20) return false;
+
+      // Check if quote contains specific details that relate to the key finding
+      const keyFindingLower = keyFinding.toLowerCase();
+      const quoteTextLower = quote.text.toLowerCase();
+
+      // Extract key terms from the key finding
+      const keyTerms = keyFindingLower.match(/\b\w{4,}\b/g) || [];
+      const hasRelevantTerms = keyTerms.some(term =>
+        quoteTextLower.includes(term) && term.length > 3
+      );
+
+      // Check for specific treatment names, dates, or experiences
+      const hasSpecificDetails =
+        quoteTextLower.includes('evrysdi') ||
+        quoteTextLower.includes('spinraza') ||
+        quoteTextLower.includes('treatment') ||
+        quoteTextLower.includes('trial') ||
+        quoteTextLower.includes('april') ||
+        quoteTextLower.includes('2021') ||
+        quoteTextLower.includes('2022') ||
+        quoteTextLower.includes('2023') ||
+        quoteTextLower.includes('experience') ||
+        quoteTextLower.includes('took') ||
+        quoteTextLower.includes('started') ||
+        quoteTextLower.includes('stopped');
+
+      return hasRelevantTerms || hasSpecificDetails;
+    });
+
+    // If no quotes pass the filter, keep the original quotes but mark them as potentially less relevant
+    if (quotes.length === 0) {
+      console.log('No quotes passed relevance filter, keeping original quotes');
+      const parsed = JSON.parse(cleanedResponse);
+      quotes = parsed.quotes || [];
+    }
+
+    // Check if we're excluding previous quotes and if the new quotes are the same
+    if (excludePrevious && previouslyShownQuotes.length > 0) {
+      const newQuoteTexts = quotes.map(q => q.text.trim());
+      const previousQuoteTexts = previouslyShownQuotes.map(q => q.text.trim());
       
-      // If no quotes pass the filter, keep the original quotes but mark them as potentially less relevant
-      if (quotes.length === 0) {
-        console.log('No quotes passed relevance filter, keeping original quotes');
-        const parsed = JSON.parse(cleanedResponse);
-        quotes = parsed.quotes || [];
+      // Check if all new quotes are the same as previously shown quotes
+      const allQuotesAreSame = newQuoteTexts.every(newQuote => 
+        previousQuoteTexts.some(prevQuote => 
+          newQuote === prevQuote || 
+          newQuote.includes(prevQuote.substring(0, 50)) || 
+          prevQuote.includes(newQuote.substring(0, 50))
+        )
+      );
+      
+      if (allQuotesAreSame) {
+        noAdditionalQuotes = true;
+        console.log('🔄 No additional quotes available - same quotes returned');
       }
+    }
+
+    // Also check if the AI response indicates no additional quotes
+    if (aiResponse.includes('No additional quotes are available') || 
+        aiResponse.includes('no other relevant quotes exist')) {
+      noAdditionalQuotes = true;
+      console.log('🔄 AI indicated no additional quotes available');
+    }
       
     } catch (error) {
       console.error('Failed to parse AI response:', error);
@@ -4251,7 +4300,8 @@ ${transcriptText.substring(0, 8000)}`; // Limit to first 8000 chars to stay with
       respondentId: respondentId,
       columnName: columnName,
       sheetName: sheetName,
-      cached: false
+      cached: false,
+      noAdditionalQuotes: noAdditionalQuotes || false
     });
 
   } catch (error) {
@@ -4281,14 +4331,21 @@ router.post('/clear-quotes-cache', async (req, res) => {
 
     const analysis = analyses[analysisIndex];
     
-    // Clear the cache for this specific cell
-    if (analysis.verbatimQuotes && 
-        analysis.verbatimQuotes[sheetName] && 
-        analysis.verbatimQuotes[sheetName][respondentId] && 
-        analysis.verbatimQuotes[sheetName][respondentId][columnName]) {
-      delete analysis.verbatimQuotes[sheetName][respondentId][columnName];
-      console.log(`🗑️ Cleared quotes cache for ${respondentId} - ${columnName} in ${sheetName}`);
-    }
+// Clear the cache for this specific cell
+if (analysis.verbatimQuotes &&
+    analysis.verbatimQuotes[sheetName] &&
+    analysis.verbatimQuotes[sheetName][respondentId] &&
+    analysis.verbatimQuotes[sheetName][respondentId][columnName]) {
+  delete analysis.verbatimQuotes[sheetName][respondentId][columnName];
+  console.log(`🗑️ Cleared quotes cache for ${respondentId} - ${columnName} in ${sheetName}`);
+}
+
+// Also clear any existing quotes for this cell to force regeneration
+if (analysis.verbatimQuotes &&
+    analysis.verbatimQuotes[sheetName] &&
+    analysis.verbatimQuotes[sheetName][respondentId]) {
+  delete analysis.verbatimQuotes[sheetName][respondentId][columnName];
+}
 
     // Save the updated analysis
     analyses[analysisIndex] = analysis;

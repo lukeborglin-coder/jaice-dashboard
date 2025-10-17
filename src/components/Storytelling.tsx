@@ -677,11 +677,28 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
     window.addEventListener('beforeunload', handleBeforeUnload);
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
+    // Listen for project selection from project details
+    const handleProjectSelection = (event: CustomEvent) => {
+      const { projectId, projectName } = event.detail;
+      console.log('🔍 Project selected from project details:', { projectId, projectName });
+      
+      // Find the project in the projects list
+      const project = projects.find(p => p.id === projectId);
+      if (project) {
+        setSelectedProject(project);
+        setForceListView(false); // Switch to project view
+        console.log('🔍 Switched to project:', project.name);
+      }
+    };
+
+    window.addEventListener('selectProjectInStorytelling', handleProjectSelection as EventListener);
+
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('selectProjectInStorytelling', handleProjectSelection as EventListener);
     };
-  }, []);
+  }, [projects]);
   const [quotes, setQuotes] = useState<VerbatimQuote[]>([]);
   const [loadingQuotes, setLoadingQuotes] = useState(false);
   const [quotesError, setQuotesError] = useState<string | null>(null);

@@ -25,12 +25,13 @@ const SimpleCalendar: React.FC<SimpleCalendarProps> = ({
     return date;
   };
 
-  // Get all days in the current week
+  // Get all days in the current week (weekdays only)
   const getWeekDays = (weekOffset: number = 0) => {
     const weekStart = getWeekStart(weekOffset);
     const days = [];
     
-    for (let i = 0; i < 7; i++) {
+    // Only include weekdays (Monday to Friday)
+    for (let i = 0; i < 5; i++) {
       const day = new Date(weekStart);
       day.setDate(weekStart.getDate() + i);
       days.push(day);
@@ -42,7 +43,7 @@ const SimpleCalendar: React.FC<SimpleCalendarProps> = ({
   const weekDays = getWeekDays(currentWeek);
   const weekStart = getWeekStart(currentWeek);
   const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekStart.getDate() + 6);
+  weekEnd.setDate(weekStart.getDate() + 4); // Friday (4 days after Monday)
 
   const formatDate = (date: Date) => {
     const year = date.getFullYear();
@@ -70,10 +71,7 @@ const SimpleCalendar: React.FC<SimpleCalendarProps> = ({
     return date >= currentWeekStart && date <= currentWeekEnd;
   };
 
-  const isWeekend = (date: Date) => {
-    const day = date.getDay();
-    return day === 0 || day === 6; // Sunday or Saturday
-  };
+  // Weekend logic removed since we only show weekdays
 
   const getTasksForDate = (date: Date) => {
     const dateStr = formatDate(date);
@@ -85,9 +83,7 @@ const SimpleCalendar: React.FC<SimpleCalendarProps> = ({
   };
 
   const handleDateClick = (date: Date) => {
-    if (!isWeekend(date)) {
-      onDateSelect(formatDate(date));
-    }
+    onDateSelect(formatDate(date));
   };
 
   const navigateWeek = (direction: 'prev' | 'next') => {
@@ -137,8 +133,8 @@ const SimpleCalendar: React.FC<SimpleCalendarProps> = ({
       </div>
 
       {/* Day Headers */}
-      <div className="grid grid-cols-7 gap-1 mb-1">
-        {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
+      <div className="grid grid-cols-5 gap-1 mb-1">
+        {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map(day => (
           <div key={day} className="text-center text-2xs font-medium text-gray-500 py-0.5">
             {day}
           </div>
@@ -146,11 +142,10 @@ const SimpleCalendar: React.FC<SimpleCalendarProps> = ({
       </div>
 
       {/* Week Days */}
-      <div className="grid grid-cols-7 gap-1">
+      <div className="grid grid-cols-5 gap-1">
         {weekDays.map((day, index) => {
           const isSelectedDate = isSelected(day);
           const isTodayDate = isToday(day);
-          const isWeekendDay = isWeekend(day);
           const isCurrentWeekDay = isCurrentWeek(day);
           const hasTasks = hasTasksOnDate(day);
           const tasksForDay = getTasksForDate(day);
@@ -160,15 +155,11 @@ const SimpleCalendar: React.FC<SimpleCalendarProps> = ({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  // Always allow selecting the date, even if tasks exist
                   handleDateClick(day);
                 }}
-                disabled={isWeekendDay}
                 className={`
                   p-1 text-2xs rounded-lg transition-colors w-full relative
-                  ${isWeekendDay 
-                    ? 'text-gray-300 cursor-not-allowed' 
-                    : isSelectedDate
+                  ${isSelectedDate
                     ? 'bg-orange-500 text-white'
                     : isTodayDate
                     ? 'bg-orange-200 text-orange-800 border border-orange-400 font-bold'

@@ -128,17 +128,8 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 /* Grid layout for task headers and rows to ensure perfect alignment */
 .task-grid {
   display: grid;
-  grid-template-columns: 1rem 1fr 5rem 8rem; /* checkbox | task | due | assigned */
-  column-gap: 0.5rem; /* matches gap-2 */
-  align-items: center;
-}
-
-
-/* Grid layout for task headers and rows to ensure perfect alignment */
-.task-grid {
-  display: grid;
-  grid-template-columns: 1rem 1fr 5rem 8rem; /* checkbox | task | due | assigned */
-  column-gap: 0.5rem; /* matches gap-2 */
+  grid-template-columns: 1rem 1fr 3rem 6rem; /* checkbox | task | due | assigned - reduced spacing */
+  column-gap: 0.25rem; /* reduced gap */
   align-items: center;
 }
 

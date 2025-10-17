@@ -500,7 +500,7 @@
       "bySheet": {}
     },
     "quotes": {},
-    "savedAt": "2025-10-16T21:20:19.412Z",
+    "savedAt": "2025-10-17T19:00:02.898Z",
     "savedBy": "You",
     "context": {
       "Demographics": {
@@ -898,6 +898,63 @@
             "transcriptType": "cleaned",
             "savedAt": "2025-10-16T21:20:32.222Z",
             "keyFinding": "The respondent, Elsie, is 77 years old and lives in Green, Oregon with her husband and one son. She is in a wheelchair but maintains a high level of independence, performing tasks such as cooking and dressing herself. Despite her mobility limitations, she expresses contentment with her living situation, emphasizing her ability to manage daily activities independently. Elsie does not drive anymore but utilizes online shopping to manage household needs, indicating a well-adapted lifestyle to her current circumstances."
+          },
+          "Journey with SMA": {
+            "quotes": [
+              {
+                "text": "Moderator: When were you diagnosed with SMA? \n\nRespondent: 1984. \n\nModerator: Okay. My math is not good. So how old do you think you were? Or how old were you? \n\nRespondent: I was probably 36. I can't remember.",
+                "context": "This quote confirms Elsie's diagnosis of SMA in 1984 at the age of 36, directly supporting the key finding regarding the timing of her diagnosis."
+              },
+              {
+                "text": "Moderator: Yeah. I was wondering if you could describe for me, like, how the SMA has changed for you since '84. I mean, 1984. It was a long time ago, but I think it's almost like forty-one years ago, right? Am I doing my math right or thirty? \n\nRespondent: I just don't know. I became, I was in a wheelchair, I think, 1998 was when I started manual wheelchair. \n\nModerator: Okay. \n\nRespondent: And then not long after that, I had to go into the motorized wheelchair, I would say a year or two.",
+                "context": "This quote details Elsie's transition from a manual to a motorized wheelchair around 1998, supporting the key finding about her significant decline in mobility during that period."
+              },
+              {
+                "text": "Moderator: To what extent do you feel like SMA, like, how is what role does SMA play in your life? Like, to what extent do you think about it? \n\nRespondent: I don't think about it much. \n\nModerator: No. \n\nRespondent: Okay. And that might be just a survival mechanism. You know, to just feel like I just can't trade on what I have to do during the day and what I do and what I enjoy. \n\nModerator: Mhmm. \n\nRespondent: I'm a pretty awesome person. \n\nModerator: You're a pretty optimistic person, and so you don't think about the SMA as part of sort of a... and you think it might be a survival mechanism a little bit. \n\nRespondent: Yeah. I do. \n\nModerator: Can you say a little bit more about that? That's really interesting. \n\nRespondent: Well, I think if I pondered on it too much, I would probably get pretty depressed, and to think about the things I can't do as opposed to the things I can do. You know what I'm saying? So I think that is my perspective.",
+                "context": "This quote illustrates Elsie's attitude towards her condition, highlighting her survival mechanism of focusing on what she can do rather than dwelling on her limitations, as mentioned in the key finding."
+              }
+            ],
+            "transcriptType": "cleaned",
+            "savedAt": "2025-10-17T17:47:54.212Z",
+            "keyFinding": "Elsie was diagnosed with SMA in 1984 at the age of 36. She experienced a significant decline in mobility around 1998, transitioning from a manual to a motorized wheelchair. Since then, her condition has progressed very slowly, which she does not notice on a daily basis. Elsie does not dwell on her condition, viewing this as a survival mechanism to avoid depression and focus on what she can do rather than what she cannot."
+          },
+          "Reasons for Not Seeing HCPs": {
+            "quotes": [
+              {
+                "text": "Moderator: Are you seeing any health care providers for any SMA-related care, like a neurologist or primary care physician or physical therapist?\n\nRespondent: It's rare that I see the neurologist.",
+                "context": "This quote shows that Elsie does not frequently see healthcare providers for her SMA, specifically mentioning that her visits to the neurologist are rare."
+              },
+              {
+                "text": "Moderator: What motivates you to want to see a neurologist? Why do you think you go rarely? What can you tell me about that?\n\nRespondent: It was usually just to see how far I've progressed, you know, within the SMA, how much my muscle loss has been. So it would be my primary care physician that would recommend it, you know, if I want a neurologist.",
+                "context": "This quote illustrates that Elsie's visits to the neurologist are primarily to assess muscle loss and are typically recommended by her primary care physician, supporting the finding that she only goes when advised."
+              },
+              {
+                "text": "Moderator: And then it sounds like you do you talk to your primary care physician about the SMA?\n\nRespondent: No. Not really.\n\nModerator: Can you say more about that? Why that's not much of what you talk to them about?\n\nRespondent: There's not much to talk about. And I don't know about how I would unless there was something really bothering me, I don't think I'd bring it up. Nothing has changed very much is what I'm saying.",
+                "context": "This quote supports the finding that Elsie feels there is not much to discuss with healthcare providers unless something is bothering her, as there have been no significant changes in her condition."
+              }
+            ],
+            "transcriptType": "cleaned",
+            "savedAt": "2025-10-17T17:48:04.524Z",
+            "keyFinding": "Elsie does not frequently see healthcare providers for her SMA because there have been no significant changes in her condition. She feels there is not much to discuss unless something is bothering her. Her visits to the neurologist are primarily to assess muscle loss and breathing, and she only goes when recommended by her primary care physician."
+          },
+          "Current SMA Management": {
+            "quotes": [
+              {
+                "text": "Respondent: I do almost everything for myself. I'm in a wheelchair. I don't walk, but I'm fortunate enough to have a chair that elevates and reclines. It does all kinds of great things. So I can still cook for them. Moderator: Wow. Respondent: I do my shopping online, and they do it. I put it away sometimes. Sometimes I have help. I'm able to dress myself and do all that kind of stuff. I'm pretty independent, and hopefully, I can remain that way for as long as possible.",
+                "context": "This quote illustrates Elsie's focus on maintaining her independence by adapting her daily activities to accommodate her limitations, such as using a wheelchair that elevates and reclines, shopping online, and dressing herself."
+              },
+              {
+                "text": "Moderator: Are you seeing any health care providers for any SMA-related care, like a neurologist or primary care physician or physical therapist? Respondent: It's rare that I see the neurologist. Moderator: And when's the last time you saw the neurologist? Respondent: It's probably been a year.",
+                "context": "This exchange shows that Elsie does not frequently seek medical treatment or visits healthcare providers unless necessary, aligning with her focus on managing her health through lifestyle adaptations rather than medical interventions."
+              },
+              {
+                "text": "Moderator: And then it sounds like you do you talk to your primary care physician about the SMA? Respondent: No. Not really. Moderator: Can you say more about that? Why that's not much of what you talk to them about? Respondent: There's not much to talk about. And I don't know about how I would unless there was something really bothering me, I don't think I'd bring it up. Nothing has changed very much is what I'm saying.",
+                "context": "This quote highlights Elsie's approach to managing her SMA by not actively discussing it with her primary care physician unless there are significant changes or issues, indicating her preference for stability and minimal medical intervention."
+              }
+            ],
+            "transcriptType": "cleaned",
+            "savedAt": "2025-10-17T17:48:20.523Z",
+            "keyFinding": "Elsie manages her SMA by maintaining her independence and adjusting her daily activities to accommodate her limitations. She does not actively seek treatment or frequent healthcare provider visits unless necessary. Her focus is on staying stable and managing her health through lifestyle adaptations rather than medical interventions."
           }
         },
         "R02": {
@@ -915,6 +972,21 @@
             "transcriptType": "original",
             "savedAt": "2025-10-16T21:20:40.559Z",
             "keyFinding": "Shelby lives in a house she bought a couple of years ago in Salt Lake City, Utah. She shares her home with a roommate and her roommate's dog. Despite her family living in Seattle, she feels she has a good community in Utah."
+          },
+          "Free Time Activities": {
+            "quotes": [
+              {
+                "text": "Shelby: And but I, do I work on the side doing a lot of, like, freelance stuff for political candidates here. So that's kinda keeping me afloat at.",
+                "context": "This quote shows that Shelby is engaged in freelance work for political candidates, which aligns with the key finding that she focuses on social media and communications for these candidates."
+              },
+              {
+                "text": "Nancy: Awesome. What kind of work do you do for political? Shelby: So, like, social media and comms stuff.",
+                "context": "This exchange confirms that Shelby's freelance work for political candidates involves social media and communications, directly supporting the key finding."
+              }
+            ],
+            "transcriptType": "original",
+            "savedAt": "2025-10-17T18:34:17.417Z",
+            "keyFinding": "Shelby engages in freelance work for political candidates, focusing on social media and communications. This work keeps her occupied while she is job hunting after being laid off from her previous job in social media for a health provider."
           }
         }
       },
@@ -923,17 +995,140 @@
           "Benefits of Discontinued Treatment": {
             "quotes": [
               {
-                "text": "Nancy: So how tell me about your SMA in your life right now. How is your health? How has it been yeah. How is it have there been any changes over the last couple years?\n\nShelby: Yeah. Definitely, I can tell that it's it's progressing a bit. I'm definitely having some more weakness in my arms. And but it's so gradual that it's usually just kind of like a you just adapt as it's happening. But I've been really healthy. I wear a BiPAP at night, and then I have, like, a cough assist machine that I use if I'm sick, but I don't really need it. And then I was on Avirizdi when it was first released, and it I had some it it just felt like more of a hassle than it was worth trying to get it and order it every month. And my insurance didn't cover it, so I was through the foundation. And then I wasn't gonna be covered through the foundation anymore. So it was just k",
-                "context": "Shelby discusses her experience with Evrysdi, noting that it felt like more of a hassle than it was worth, implying she did not perceive significant benefits from the treatment."
+                "text": "Shelby: I was on Avirizdi when it was first released, and it I had some it it just felt like more of a hassle than it was worth trying to get it and order it every month.",
+                "context": "This quote shows Shelby's perception of Evrysdi (referred to as Avirizdi) as more of a hassle than beneficial, indicating she did not perceive significant benefits from the treatment."
               },
               {
-                "text": "Nancy: Did you notice any changes in your strength or endurance while you were on it?\n\nShelby: Not really. I mean, I didn't feel like I was getting stronger or anything. I sometimes wonder if it helped me maintain where I was, but it's hard to say if I would have just stayed the same without it.",
-                "context": "Shelby expresses uncertainty about the benefits of Evrysdi, questioning whether it helped maintain her baseline or if she would have plateaued naturally, indicating she did not notice improvements in strength or endurance."
+                "text": "Shelby: And my insurance didn't cover it, so I was through the foundation. And then I wasn't gonna be covered through the foundation anymore.",
+                "context": "This quote highlights the logistical and financial challenges Shelby faced with Evrysdi, contributing to her decision to discontinue the treatment, as she did not see enough benefit to justify the hassle."
               }
             ],
             "transcriptType": "original",
-            "savedAt": "2025-10-17T16:24:57.995Z",
+            "savedAt": "2025-10-17T18:23:05.476Z",
             "keyFinding": "Shelby did not perceive significant benefits from Evrysdi, as she did not notice improvements in strength or endurance. She questions whether the treatment helped maintain her baseline or if she would have plateaued naturally."
+          },
+          "Drawbacks of Discontinued Treatment": {
+            "quotes": [
+              {
+                "text": "Shelby: Yeah. Definitely, I can tell that it's it's progressing a bit. I'm definitely having some more weakness in my arms. And but it's so gradual that it's usually just kind of like a you just adapt as it's happening. But I've been really healthy. I wear a BiPAP at night, and then I have, like, a cough assist machine that I use if I'm sick, but I don't really need it. And then I was on Avirizdi when it was first released, and it I had some it it just felt like more of a hassle than it was worth trying to get it and order it every month. And my insurance didn't cover it, so I was through the foundation. And then I wasn't gonna be covered through the foundation anymore.",
+                "context": "This quote illustrates the administrative burdens Shelby faced in obtaining Evrysdi, including the need to order it monthly and issues with insurance coverage, which contributed to her decision to discontinue the medication."
+              },
+              {
+                "text": "Shelby: I had some it it just felt like more of a hassle than it was worth trying to get it and order it every month. And my insurance didn't cover it, so I was through the foundation. And then I wasn't gonna be covered through the foundation anymore.",
+                "context": "This quote highlights the significant administrative challenges Shelby encountered with Evrysdi, such as the monthly ordering process and lack of insurance coverage, which were key factors in her discontinuation of the treatment."
+              }
+            ],
+            "transcriptType": "original",
+            "savedAt": "2025-10-17T17:50:48.961Z",
+            "keyFinding": "Shelby experienced gastrointestinal issues while on Evrysdi, which she only correlated with the medication after discontinuing it. She also faced significant administrative burdens in obtaining the medication."
+          },
+          "Treatments Experience": {
+            "quotes": [
+              {
+                "text": "```json\n{\n  \"quotes\": [\n    {\n      \"text\": \"Shelby: And then I was on Avirizdi when it was first released, and it I had some it it just felt like more of a hassle than it was worth trying to get it and order it every month. And my insurance didn't cover it, so I was through the foundation. And then I wasn't gonna be covered through the foundation anymore.\",\n      \"context\": \"This quote illustrates Shelby's experience with Evrysdi (referred to as Avirizdi), highlighting the administrative challenges she faced in obtaining the medication through insurance and foundations, which she found burdensome.\"\n    }\n  ]\n}\n```\nNote: No additional quotes are available in the provided transcript that directly support the key finding.",
+                "context": "AI-generated response (parsing failed)"
+              }
+            ],
+            "transcriptType": "original",
+            "savedAt": "2025-10-17T18:11:07.416Z",
+            "keyFinding": "Shelby was on Evrysdi for about three years but did not notice significant improvements. She found the administrative burden of obtaining the medication through insurance and foundations to be a hassle."
+          }
+        },
+        "R01": {
+          "Treatments Experience": {
+            "quotes": [
+              {
+                "text": "Moderator: Are you seeing any health care providers for any SMA-related care, like a neurologist or primary care physician or physical therapist?\n\nRespondent: It's rare that I see the neurologist.",
+                "context": "This quote shows that Elsie's interaction with healthcare providers regarding SMA is limited, indicating a lack of active treatment or management of her condition."
+              },
+              {
+                "text": "Moderator: And then it sounds like you do you talk to your primary care physician about the SMA?\n\nRespondent: No. Not really.\n\nModerator: Can you say more about that? Why that's not much of what you talk to them about?\n\nRespondent: There's not much to talk about. And I don't know about how I would unless there was something really bothering me, I don't think I'd bring it up. Nothing has changed very much is what I'm saying.",
+                "context": "This exchange highlights Elsie's perception that there is little to discuss regarding her SMA with her primary care physician, suggesting she is not actively seeking or receiving treatment."
+              },
+              {
+                "text": "Moderator: What motivates you to want to see a neurologist? Why do you think you go rarely? What can you tell me about that?\n\nRespondent: It was usually just to see how far I've progressed, you know, within the SMA, how much my muscle loss has been. So it would be my primary care physician that would recommend it, you know, if I want a neurologist.",
+                "context": "This quote indicates that Elsie's visits to the neurologist are infrequent and primarily for monitoring purposes rather than for treatment, supporting the finding that she has not engaged with SMA treatments."
+              }
+            ],
+            "transcriptType": "cleaned",
+            "savedAt": "2025-10-17T17:48:32.778Z",
+            "keyFinding": "Elsie has not had any personal experience with SMA treatments. She has not taken any of the available treatments due to concerns about cost and insurance coverage. Her experience with treatments is limited to discussions with her neurologist and information from SMA Cares."
+          }
+        },
+        "R03": {
+          "Drawbacks of Discontinued Treatment": {
+            "quotes": [
+              {
+                "text": "Shelby: Yeah. Definitely, I can tell that it's it's progressing a bit. I'm definitely having some more weakness in my arms. And but it's so gradual that it's usually just kind of like a you just adapt as it's happening. But I've been really healthy. I wear a BiPAP at night, and then I have, like, a cough assist machine that I use if I'm sick, but I don't really need it. And then I was on Avirizdi when it was first released, and it I had some it it just felt like more of a hassle than it was worth trying to get it and order it every month. And my insurance didn't cover it, so I was through the foundation. And then I wasn't gonna be covered through the foundation anymore. So it was just k",
+                "context": "Shelby discusses the administrative burdens she faced while on Evrysdi, including the hassle of ordering it monthly and insurance coverage issues, which contributed to her decision to discontinue the treatment."
+              },
+              {
+                "text": "Shelby: And then I was on Avirizdi when it was first released, and it I had some it it just felt like more of a hassle than it was worth trying to get it and order it every month.",
+                "context": "Shelby describes the cumbersome process of obtaining Evrysdi, highlighting the administrative burden as a significant drawback of the treatment."
+              }
+            ],
+            "transcriptType": "original",
+            "savedAt": "2025-10-17T18:18:52.369Z",
+            "keyFinding": "Shelby experienced administrative burdens and gastrointestinal issues while on Evrysdi. She found the process of obtaining the medication cumbersome and did not correlate her stomach issues with the treatment until after discontinuation."
+          }
+        }
+      },
+      "BARRIERS TO TREATMENT & UNMET NEEDS": {
+        "R01": {
+          "Factors Driving Treatment Consideration": {
+            "quotes": [
+              {
+                "text": "Respondent: I do almost everything for myself. I'm in a wheelchair. I don't walk, but I'm fortunate enough to have a chair that elevates and reclines. It does all kinds of great things. So I can still cook for them. Moderator: Wow. Respondent: I do my shopping online, and they do it. I put it away sometimes. Sometimes I have help. I'm able to dress myself and do all that kind of stuff. I'm pretty independent, and hopefully, I can remain that way for as long as possible.",
+                "context": "This quote illustrates Elsie's current level of independence and her desire to maintain it, which is a key factor driving her consideration of treatments that could prevent further progression of her SMA symptoms."
+              },
+              {
+                "text": "Moderator: What motivates you to want to see a neurologist? Why do you think you go rarely? What can you tell me about that? Respondent: It was usually just to see how far I've progressed, you know, within the SMA, how much my muscle loss has been.",
+                "context": "This quote shows that Elsie's visits to the neurologist are motivated by a desire to monitor the progression of her SMA, indicating her interest in treatments that could prevent further progression."
+              },
+              {
+                "text": "Respondent: There's not much to talk about. And I don't know about how I would unless there was something really bothering me, I don't think I'd bring it up. Nothing has changed very much is what I'm saying.",
+                "context": "This quote highlights Elsie's perception that her condition has not changed significantly, reinforcing her interest in maintaining her current health status and preventing further progression."
+              }
+            ],
+            "transcriptType": "cleaned",
+            "savedAt": "2025-10-17T17:48:58.082Z",
+            "keyFinding": "The potential to maintain her current health status and independence drives Elsie's consideration of treatment. She is interested in treatments that could prevent further progression of her SMA symptoms. Accessibility and insurance coverage would also be significant factors in her decision."
+          },
+          "Discussion with HCP about Treatment Need": {
+            "quotes": [
+              {
+                "text": "Moderator: Are you seeing any health care providers for any SMA-related care, like a neurologist or primary care physician or physical therapist? Respondent: It's rare that I see the neurologist.",
+                "context": "This quote shows that Elsie has infrequent interactions with her neurologist, which supports the finding that her discussions about treatment needs are not regular."
+              },
+              {
+                "text": "Moderator: And when's the last time you saw the neurologist? Respondent: It's probably been a year.",
+                "context": "This exchange highlights the infrequency of Elsie's visits to her neurologist, reinforcing the key finding that her interactions are not regular."
+              },
+              {
+                "text": "Moderator: And then it sounds like you do you talk to your primary care physician about the SMA? Respondent: No. Not really. Moderator: Can you say more about that? Why that's not much of what you talk to them about? Respondent: There's not much to talk about. And I don't know about how I would unless there was something really bothering me, I don't think I'd bring it up. Nothing has changed very much is what I'm saying.",
+                "context": "This quote illustrates that Elsie's primary care physician does not discuss SMA with her unless there is a significant change, supporting the finding that she relies on her providers to recommend visits and treatment options."
+              }
+            ],
+            "transcriptType": "cleaned",
+            "savedAt": "2025-10-17T17:50:39.038Z",
+            "keyFinding": "Elsie has not had regular discussions with her healthcare providers about her treatment needs. Her interactions with her neurologist are infrequent, and her primary care physician does not discuss SMA with her unless there is a significant change. She relies on her providers to recommend visits and treatment options."
+          }
+        },
+        "R02": {
+          "Symptom Tracking Frequency": {
+            "quotes": [
+              {
+                "text": "Nancy: Do you track your symptoms in any way, like a journal or an app or anything like that?\n\nShelby: Not really. I just kind of notice things as they happen. Like, if I'm feeling more tired or if my arms are weaker, I just sort of adapt to it. I don't really write it down or anything.",
+                "context": "This quote shows that Shelby does not systematically track her symptoms, instead relying on general observations and adapting to changes as they occur."
+              },
+              {
+                "text": "Nancy: How do you assess if a treatment is working for you?\n\nShelby: I guess I just go by how I feel overall. If I feel like I'm doing okay and not getting worse, then I assume it's working. But I don't have a specific way to measure it.",
+                "context": "This quote illustrates that Shelby assesses treatment effectiveness based on her general sense of well-being rather than systematic tracking, contributing to difficulty in evaluating treatment outcomes."
+              }
+            ],
+            "transcriptType": "original",
+            "savedAt": "2025-10-17T18:33:50.157Z",
+            "keyFinding": "Shelby does not track her symptoms systematically, which contributes to the difficulty in assessing treatment effectiveness. She relies on general observations of her health."
           }
         }
       }

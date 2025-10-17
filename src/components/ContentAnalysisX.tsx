@@ -122,6 +122,8 @@ function VerbatimQuotesSection({ analysisId, respondentId, columnName, sheetName
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [transcriptType, setTranscriptType] = useState<string>('');
+  const [noAdditionalQuotes, setNoAdditionalQuotes] = useState(false);
+  const [showNoAdditionalNote, setShowNoAdditionalNote] = useState(false);
 
   useEffect(() => {
     if (analysisId && respondentId && columnName && sheetName && keyFinding) {
@@ -129,7 +131,7 @@ function VerbatimQuotesSection({ analysisId, respondentId, columnName, sheetName
     }
   }, [analysisId, respondentId, columnName, sheetName, keyFinding]);
 
-  const fetchVerbatimQuotes = async () => {
+  const fetchVerbatimQuotes = async (excludePrevious = false) => {
     setLoading(true);
     setError(null);
     
@@ -145,7 +147,9 @@ function VerbatimQuotesSection({ analysisId, respondentId, columnName, sheetName
           respondentId,
           columnName,
           sheetName,
-          keyFinding
+          keyFinding,
+          excludePrevious: excludePrevious,
+          previouslyShownQuotes: excludePrevious ? quotes : []
         })
       });
 
@@ -153,6 +157,19 @@ function VerbatimQuotesSection({ analysisId, respondentId, columnName, sheetName
         const data = await response.json();
         setQuotes(data.quotes || []);
         setTranscriptType(data.transcriptType || '');
+        
+        // Handle no additional quotes flag
+        if (data.noAdditionalQuotes) {
+          setNoAdditionalQuotes(true);
+          setShowNoAdditionalNote(true);
+          // Clear the note after 5 seconds
+          setTimeout(() => {
+            setShowNoAdditionalNote(false);
+          }, 5000);
+        } else {
+          setNoAdditionalQuotes(false);
+          setShowNoAdditionalNote(false);
+        }
       } else {
         const errorData = await response.json();
         setError(errorData.error || 'Failed to fetch quotes');
@@ -211,21 +228,35 @@ function VerbatimQuotesSection({ analysisId, respondentId, columnName, sheetName
   return (
     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-blue-900">Supporting Quotes</h3>
+        <div className="flex items-center gap-2">
+          <h3 className="text-sm font-semibold text-blue-900">Supporting Quotes</h3>
+          {showNoAdditionalNote && (
+            <span className="text-xs text-red-600 font-medium animate-pulse">
+              No additional quotes available
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           {transcriptType && (
             <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">
               {transcriptType} transcript
             </span>
           )}
-          {onRefreshQuotes && (
-            <button
-              onClick={onRefreshQuotes}
-              className="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition-colors"
-            >
-              Load New Quotes
-            </button>
-          )}
+           {onRefreshQuotes && (
+             <button
+               onClick={() => {
+                 fetchVerbatimQuotes(true);
+               }}
+               disabled={noAdditionalQuotes}
+               className={`text-xs px-3 py-1 rounded transition-colors ${
+                 noAdditionalQuotes 
+                   ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
+                   : 'bg-blue-600 text-white hover:bg-blue-700'
+               }`}
+             >
+               {noAdditionalQuotes ? 'No More Quotes' : 'Load New Quotes'}
+             </button>
+           )}
         </div>
       </div>
       
