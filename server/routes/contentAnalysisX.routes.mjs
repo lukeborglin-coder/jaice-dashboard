@@ -4260,6 +4260,51 @@ ${transcriptText.substring(0, 8000)}`; // Limit to first 8000 chars to stay with
   }
 });
 
+// Clear quotes cache endpoint
+router.post('/clear-quotes-cache', async (req, res) => {
+  try {
+    const { analysisId, respondentId, columnName, sheetName } = req.body;
+    
+    if (!analysisId || !respondentId || !columnName || !sheetName) {
+      return res.status(400).json({ error: 'Missing required parameters' });
+    }
+
+    // Load the analysis
+    const analysesPath = path.join(process.env.DATA_DIR || path.join(__dirname, '../data'), 'savedAnalyses.json');
+    const analysesData = await fs.readFile(analysesPath, 'utf8');
+    const analyses = JSON.parse(analysesData);
+    
+    const analysisIndex = analyses.findIndex(a => a.id === analysisId);
+    if (analysisIndex === -1) {
+      return res.status(404).json({ error: 'Analysis not found' });
+    }
+
+    const analysis = analyses[analysisIndex];
+    
+    // Clear the cache for this specific cell
+    if (analysis.verbatimQuotes && 
+        analysis.verbatimQuotes[sheetName] && 
+        analysis.verbatimQuotes[sheetName][respondentId] && 
+        analysis.verbatimQuotes[sheetName][respondentId][columnName]) {
+      delete analysis.verbatimQuotes[sheetName][respondentId][columnName];
+      console.log(`🗑️ Cleared quotes cache for ${respondentId} - ${columnName} in ${sheetName}`);
+    }
+
+    // Save the updated analysis
+    analyses[analysisIndex] = analysis;
+    await fs.writeFile(analysesPath, JSON.stringify(analyses, null, 2));
+
+    res.json({ 
+      success: true, 
+      message: 'Quotes cache cleared successfully' 
+    });
+
+  } catch (error) {
+    console.error('Error clearing quotes cache:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Context regeneration endpoint
 router.post('/regenerate-context', async (req, res) => {
   try {

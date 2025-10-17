@@ -51,6 +51,7 @@ interface VerbatimQuotesSectionProps {
   columnName: string;
   sheetName: string;
   keyFinding: string;
+  onRefreshQuotes?: () => void;
 }
 
 // Helper function to format quote text with bold speaker tags
@@ -116,7 +117,7 @@ function formatQuoteText(text: string) {
 }
 
 // Verbatim Quotes Section Component
-function VerbatimQuotesSection({ analysisId, respondentId, columnName, sheetName, keyFinding }: VerbatimQuotesSectionProps) {
+function VerbatimQuotesSection({ analysisId, respondentId, columnName, sheetName, keyFinding, onRefreshQuotes }: VerbatimQuotesSectionProps) {
   const [quotes, setQuotes] = useState<VerbatimQuote[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -211,11 +212,21 @@ function VerbatimQuotesSection({ analysisId, respondentId, columnName, sheetName
     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold text-blue-900">Supporting Quotes</h3>
-        {transcriptType && (
-          <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">
-            {transcriptType} transcript
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {transcriptType && (
+            <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">
+              {transcriptType} transcript
+            </span>
+          )}
+          {onRefreshQuotes && (
+            <button
+              onClick={onRefreshQuotes}
+              className="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition-colors"
+            >
+              Load New Quotes
+            </button>
+          )}
+        </div>
       </div>
       
       <div className="space-y-4">
@@ -3364,6 +3375,32 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                 columnName={selectedCellInfo.column}
                 sheetName={selectedCellInfo.sheet}
                 keyFinding={selectedCellInfo.summary}
+                onRefreshQuotes={async () => {
+                  try {
+                    // Clear the cache for this specific cell
+                    const response = await fetch(`${API_BASE_URL}/api/caX/clear-quotes-cache`, {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
+                      },
+                      body: JSON.stringify({
+                        analysisId: currentAnalysis?.id,
+                        respondentId: selectedCellInfo.respondent,
+                        columnName: selectedCellInfo.column,
+                        sheetName: selectedCellInfo.sheet
+                      })
+                    });
+                    
+                    if (response.ok) {
+                      // Close and reopen the modal to refresh quotes
+                      setShowQuotesModal(false);
+                      setTimeout(() => setShowQuotesModal(true), 100);
+                    }
+                  } catch (error) {
+                    console.error('Error clearing quotes cache:', error);
+                  }
+                }}
               />
 
             </div>
