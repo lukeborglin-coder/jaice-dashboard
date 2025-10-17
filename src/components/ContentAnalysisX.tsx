@@ -2431,7 +2431,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                   }`}
                   style={activeTab === 'active' ? { borderBottomColor: BRAND_ORANGE, color: BRAND_ORANGE } : {}}
                 >
-                  Active Projects ({qualActiveProjects.length})
+                  Active Projects ({filteredActiveProjects.length})
                 </button>
                 <button
                   onClick={() => setActiveTab('archived')}
@@ -2442,7 +2442,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                   }`}
                   style={activeTab === 'archived' ? { borderBottomColor: BRAND_ORANGE, color: BRAND_ORANGE } : {}}
                 >
-                  Archived Projects ({qualArchivedProjects.length})
+                  Archived Projects ({filteredArchivedProjects.length})
                 </button>
               </nav>
             </div>

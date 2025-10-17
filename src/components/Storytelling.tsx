@@ -2688,7 +2688,7 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
                   }`}
                   style={projectTab === 'active' ? { borderBottomColor: BRAND_ORANGE, color: BRAND_ORANGE } : {}}
                 >
-                  Active Projects ({qualActiveProjects.length})
+                  Active Projects ({filteredActiveProjects.length})
                 </button>
                 <button
                   onClick={() => setProjectTab('archived')}
@@ -2699,7 +2699,7 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
                   }`}
                   style={projectTab === 'archived' ? { borderBottomColor: BRAND_ORANGE, color: BRAND_ORANGE } : {}}
                 >
-                  Archived Projects ({qualArchivedProjects.length})
+                  Archived Projects ({filteredArchivedProjects.length})
                 </button>
               </nav>
             </div>

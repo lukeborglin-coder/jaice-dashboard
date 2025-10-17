@@ -1201,7 +1201,7 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                 }`}
                 style={activeTab === 'active' ? { borderBottomColor: BRAND_ORANGE, color: BRAND_ORANGE } : {}}
               >
-                Active Projects ({qualActiveProjects.length})
+                Active Projects ({filteredActiveProjects.length})
               </button>
               <button
                 onClick={() => setActiveTab('archived')}
@@ -1212,7 +1212,7 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                 }`}
                 style={activeTab === 'archived' ? { borderBottomColor: BRAND_ORANGE, color: BRAND_ORANGE } : {}}
               >
-                Archived Projects ({qualArchivedProjects.length})
+                Archived Projects ({filteredArchivedProjects.length})
               </button>
             </nav>
           </div>
