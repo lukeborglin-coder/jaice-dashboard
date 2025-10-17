@@ -9161,6 +9161,29 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                 })}
               </tbody>
             </table>
+            
+            {/* Empty State - Show inside the table container when no projects */}
+            {filteredProjects.length === 0 && (
+              <div className="text-center py-12">
+                <FolderIcon className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+                <h3 className="text-lg font-medium mb-2">
+                  No {activeTab} projects
+                </h3>
+                <p className="text-gray-600 mb-4">
+                  {activeTab === 'active' && "No projects are currently active."}
+                  {activeTab === 'archived' && "No projects have been archived yet."}
+                </p>
+                {activeTab !== 'archived' && (
+                  <button
+                    onClick={() => setShowProjectWizard(true)}
+                    className="px-4 py-2 rounded-xl text-white"
+                    style={{ background: BRAND.orange }}
+                  >
+                    Create Project
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
         )}
@@ -9171,29 +9194,6 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
             <div className="p-4">
               <ProjectTimeline projects={filteredProjects} maxWeeks={5} onProjectClick={handleProjectView} />
             </div>
-          </div>
-        )}
-
-        {/* Empty State - Only show in list view */}
-        {viewMode === 'list' && filteredProjects.length === 0 && (
-          <div className="text-center py-12">
-            <FolderIcon className="h-16 w-16 mx-auto mb-4 text-gray-300" />
-            <h3 className="text-lg font-medium mb-2">
-              No {activeTab} projects
-            </h3>
-            <p className="text-gray-600 mb-4">
-              {activeTab === 'active' && "No projects are currently active."}
-              {activeTab === 'archived' && "No projects have been archived yet."}
-            </p>
-            {activeTab !== 'archived' && (
-              <button
-                onClick={() => setShowProjectWizard(true)}
-                className="px-4 py-2 rounded-xl text-white"
-                style={{ background: BRAND.orange }}
-              >
-                Create Project
-              </button>
-            )}
           </div>
         )}
 
