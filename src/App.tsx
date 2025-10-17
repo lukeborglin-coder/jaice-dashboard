@@ -4544,7 +4544,7 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
                     daysUntil: number;
                   }> = [];
                   
-                  projects.forEach(project => {
+                  filteredProjects.forEach(project => {
                     if (project.keyDeadlines) {
                       project.keyDeadlines.forEach(deadline => {
                         const deadlineDate = new Date(deadline.date);
@@ -7967,6 +7967,46 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
   const activeProjects = projects.filter(project => hasProjectStarted(project) && !project.archived);
   const archivedProjectsList = [...archivedProjects];
 
+  // Get filtered counts for display
+  const getFilteredCounts = () => {
+    const allActiveProjects = [...proposalProjects, ...activeProjects];
+    const allArchivedProjects = [...archivedProjectsList];
+    
+    // Apply user filtering if enabled
+    let filteredActive = allActiveProjects;
+    let filteredArchived = allArchivedProjects;
+    
+    if (showMyProjectsOnly && user) {
+      const uid = String((user as any)?.id || '').toLowerCase();
+      const uemail = String((user as any)?.email || '').toLowerCase();
+      const uname = String((user as any)?.name || '').toLowerCase();
+      
+      const filterByUser = (projectList: any[]) => {
+        return projectList.filter(project => {
+          const createdBy = String((project as any).createdBy || '').toLowerCase();
+          const createdByMe = createdBy && (createdBy === uid || createdBy === uemail);
+          const inTeam = (project.teamMembers || []).some((member: any) => {
+            const mid = String(member?.id || '').toLowerCase();
+            const memail = String(member?.email || '').toLowerCase();
+            const mname = String(member?.name || '').toLowerCase();
+            return (uid && mid === uid) || (uemail && memail === uemail) || (uname && mname === uname);
+          });
+          return createdByMe || inTeam;
+        });
+      };
+      
+      filteredActive = filterByUser(allActiveProjects);
+      filteredArchived = filterByUser(allArchivedProjects);
+    }
+    
+    return {
+      active: filteredActive.length,
+      archived: filteredArchived.length
+    };
+  };
+  
+  const filteredCounts = getFilteredCounts();
+
   // Get current tab projects
   const getCurrentTabProjects = () => {
     let tabProjects;
@@ -8149,7 +8189,8 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
   };
 
   const getTeamMembers = () => {
-    const allProjects = getCurrentTabProjects().map(getProjectData);
+    // Get all projects (both active and archived) to show all team members
+    const allProjects = [...projects, ...archivedProjects].map(getProjectData);
     const members = new Set<string>();
 
     allProjects.forEach(project => {
@@ -8741,7 +8782,7 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
               }`}
               style={activeTab === 'active' ? { borderBottomColor: BRAND.orange, color: BRAND.orange } : {}}
             >
-              Active ({proposalProjects.length + activeProjects.length})
+              Active ({filteredCounts.active})
             </button>
             <button
               onClick={() => setActiveTab('archived')}
@@ -8752,7 +8793,7 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
               }`}
               style={activeTab === 'archived' ? { borderBottomColor: BRAND.orange, color: BRAND.orange } : {}}
             >
-              Archived ({archivedProjects.length})
+              Archived ({filteredCounts.archived})
             </button>
             <button
               onClick={() => setShowProjectWizard(true)}
