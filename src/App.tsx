@@ -7837,8 +7837,11 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
 
   // Sorting and filtering state
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
-  const [teamFilter, setTeamFilter] = useState<string[]>([]);
-  const [teamFilterDropdown, setTeamFilterDropdown] = useState(false);
+
+  // Helper function for proper case formatting
+  const toProperCase = (text: string): string => {
+    return text.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
+  };
 
   // Load vendors data
   const loadVendorsData = useCallback(() => {
@@ -7853,20 +7856,6 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
     }
   }, []);
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-      if (!target.closest('.filter-dropdown')) {
-        setTeamFilterDropdown(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
 
   // Load archived projects
   const loadArchivedProjects = async () => {
@@ -7900,17 +7889,6 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
     loadVendorsData();
   }, [loadVendorsData]);
 
-  // Initialize team filter: default to current user
-  useEffect(() => {
-    if (teamFilter.length === 0 && user) {
-      const allTeamMembers = getTeamMembers();
-      const userName = user.name ? toProperCase(user.name) : '';
-      const userTeamFilter = userName && allTeamMembers.includes(userName) ? [userName] : [];
-      if (userTeamFilter.length > 0) {
-        setTeamFilter(userTeamFilter);
-      }
-    }
-  }, [projects, archivedProjects, activeTab, user]);
 
   // Helper function to get final report date from project
   const getFinalReportDate = (project: Project): Date | null => {
@@ -8183,57 +8161,27 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
     };
   };
 
-  // Helper functions for team filter
-  const toProperCase = (text: string): string => {
-    return text.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
-  };
 
-  const getTeamMembers = () => {
-    // Get all projects (both active and archived) to show all team members
-    const allProjects = [...projects, ...archivedProjects].map(getProjectData);
-    const members = new Set<string>();
-
-    allProjects.forEach(project => {
-      if (project.teamMembers && Array.isArray(project.teamMembers)) {
-        project.teamMembers.forEach((member: any) => {
-          if (member && member.name && member.name.trim() !== '') {
-            members.add(toProperCase(member.name));
-          }
-        });
-      }
-    });
-
-    return Array.from(members).sort();
-  };
-
-  const handleTeamFilterChange = (value: string) => {
-    const isSelected = teamFilter.includes(value);
-    setTeamFilter(isSelected
-      ? teamFilter.filter(v => v !== value)
-      : [...teamFilter, value]
-    );
-  };
-
-  const clearTeamFilter = () => {
-    setTeamFilter([]);
-  };
-
-  const selectAllTeamFilter = () => {
-    const allMembers = getTeamMembers();
-    setTeamFilter(allMembers);
-  };
-
-  // Apply team filter and sorting
+  // Apply user filtering and sorting
   const filteredProjects = useMemo(() => {
     let projects = getCurrentTabProjects().map(getProjectData);
 
-    // Team filter: empty = show all, selected items = filter
-    if (teamFilter.length > 0) {
+    // Apply user filtering if enabled
+    if (showMyProjectsOnly && user) {
+      const uid = String((user as any)?.id || '').toLowerCase();
+      const uemail = String((user as any)?.email || '').toLowerCase();
+      const uname = String((user as any)?.name || '').toLowerCase();
+      
       projects = projects.filter(project => {
-        if (!project.teamMembers || !Array.isArray(project.teamMembers)) return false;
-        return project.teamMembers.some((member: any) =>
-          member && member.name && teamFilter.some(ft => ft.toLowerCase() === member.name.toLowerCase())
-        );
+        const createdBy = String((project as any).createdBy || '').toLowerCase();
+        const createdByMe = createdBy && (createdBy === uid || createdBy === uemail);
+        const inTeam = (project.teamMembers || []).some((member: any) => {
+          const mid = String(member?.id || '').toLowerCase();
+          const memail = String(member?.email || '').toLowerCase();
+          const mname = String(member?.name || '').toLowerCase();
+          return (uid && mid === uid) || (uemail && memail === uemail) || (uname && mname === uname);
+        });
+        return createdByMe || inTeam;
       });
     }
 
@@ -8408,7 +8356,7 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
     }
 
     return projects;
-  }, [getCurrentTabProjects, teamFilter, sortConfig, vendorsData, user]);
+  }, [getCurrentTabProjects, showMyProjectsOnly, sortConfig, vendorsData, user]);
 
   // Handle sorting
   const handleSort = (key: string) => {
@@ -8766,6 +8714,17 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
             >
               {viewMode === 'list' ? 'List View' : 'Timeline View'}
             </button>
+            <button
+              onClick={() => setShowMyProjectsOnly(!showMyProjectsOnly)}
+              className={`px-3 py-1 text-xs rounded-lg shadow-sm transition-colors ${
+                showMyProjectsOnly
+                  ? 'text-white hover:opacity-90'
+                  : 'bg-white border border-gray-300 hover:bg-gray-50'
+              }`}
+              style={showMyProjectsOnly ? { backgroundColor: BRAND.orange } : {}}
+            >
+              {showMyProjectsOnly ? 'Only My Projects' : 'All Cognitive Projects'}
+            </button>
           </div>
         </section>
 
@@ -8855,67 +8814,17 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                     </div>
                   </th>
                   <th
-                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-orange-600 relative w-[13%]"
+                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-orange-600 w-[13%]"
                     onClick={() => handleSort('teamMembersText')}
                   >
-                    <div className="flex items-center justify-between w-full">
-                      <div className="flex items-center gap-1">
-                        Team
-                        {sortConfig?.key === 'teamMembersText' && (
-                          <span className="text-white">
-                            {sortConfig.direction === 'asc' ? '↑' : '↓'}
-                          </span>
-                        )}
-                      </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setTeamFilterDropdown(!teamFilterDropdown);
-                        }}
-                        className="p-1 rounded hover:bg-orange-600"
-                      >
-                        <svg className={`w-3 h-3 stroke-current ${teamFilter.length > 0 ? 'fill-white' : 'fill-none'}`} viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                        </svg>
-                      </button>
+                    <div className="flex items-center gap-1">
+                      Team
+                      {sortConfig?.key === 'teamMembersText' && (
+                        <span className="text-white">
+                          {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                        </span>
+                      )}
                     </div>
-                    {teamFilterDropdown && (
-                      <div className="filter-dropdown absolute top-full left-0 mt-1 w-72 bg-white border border-gray-200 rounded-md shadow-lg z-[9999]">
-                        <div className="p-2">
-                          <div className="flex items-center justify-between mb-2 pb-2 border-b border-gray-200">
-                            <button
-                              onClick={() => selectAllTeamFilter()}
-                              className="text-[11px] text-gray-500 hover:text-gray-700"
-                            >
-                              Select All
-                            </button>
-                            <button
-                              onClick={() => clearTeamFilter()}
-                              className="text-[11px] text-gray-500 hover:text-gray-700"
-                            >
-                              Clear All
-                            </button>
-                          </div>
-                          <div className="max-h-60 overflow-y-auto">
-                            {getTeamMembers().map((value) => (
-                              <label
-                                key={value}
-                                className="flex items-center gap-2 px-2 py-1 text-[11px] rounded hover:bg-gray-100 cursor-pointer"
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={teamFilter.includes(value)}
-                                  onChange={() => handleTeamFilterChange(value)}
-                                  className="w-3 h-3 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
-                                  onClick={(e) => e.stopPropagation()}
-                                />
-                                <span className="text-gray-700">{value}</span>
-                              </label>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    )}
                   </th>
                   <th
                     className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-orange-600 w-[7%]"
@@ -9014,7 +8923,7 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                   const isArchived = project.archived === true;
                   const isUserProjectRow = isUserProject(project);
                   // Only highlight user projects when NOT filtering by user's name
-                  const shouldHighlightUserProject = isUserProjectRow && (!user || !teamFilter.includes(user.name));
+                  const shouldHighlightUserProject = isUserProjectRow && (!user || !showMyProjectsOnly);
                   
                   return (
                   <tr
