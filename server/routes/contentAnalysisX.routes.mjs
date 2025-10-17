@@ -3990,7 +3990,10 @@ router.post('/get-verbatim-quotes', async (req, res) => {
           `original_${transcript.id}.docx`,
           `original_${transcript.sourceTranscriptId}.docx`,
           transcript.originalPath ? path.basename(transcript.originalPath) : null,
-          transcript.cleanedPath ? path.basename(transcript.cleanedPath) : null
+          transcript.cleanedPath ? path.basename(transcript.cleanedPath) : null,
+          // Try existing_ patterns that are common in the uploads
+          `existing_${transcript.id}_original_${transcript.sourceTranscriptId}_${transcript.originalPath ? path.basename(transcript.originalPath) : ''}`,
+          `existing_${transcript.id}_cleaned_${transcript.sourceTranscriptId}_${transcript.cleanedPath ? path.basename(transcript.cleanedPath) : ''}`
         ].filter(Boolean);
 
         for (const filename of possibleFiles) {
@@ -4002,6 +4005,32 @@ router.post('/get-verbatim-quotes', async (req, res) => {
             transcriptType = filename.includes('cleaned') ? 'cleaned' : 'original';
             console.log(`✅ Loaded transcript from file: ${filename}, length: ${transcriptText.length}`);
             break;
+          }
+        }
+
+        // If still no transcript found, try to find any file containing the transcript ID
+        if (!transcriptText) {
+          console.log(`Searching for files containing transcript ID: ${transcript.id} or source ID: ${transcript.sourceTranscriptId}`);
+          const matchingFiles = files.filter(f => 
+            f.includes(transcript.id) || 
+            f.includes(transcript.sourceTranscriptId) ||
+            (transcript.originalPath && f.includes(path.basename(transcript.originalPath)))
+          );
+          
+          console.log(`Found matching files:`, matchingFiles);
+          
+          for (const filename of matchingFiles) {
+            const filePath = path.join(uploadsDir, filename);
+            console.log(`Trying matching file: ${filePath}`);
+            try {
+              const result = await mammoth.extractRawText({ path: filePath });
+              transcriptText = result.value;
+              transcriptType = filename.includes('cleaned') ? 'cleaned' : 'original';
+              console.log(`✅ Loaded transcript from matching file: ${filename}, length: ${transcriptText.length}`);
+              break;
+            } catch (error) {
+              console.log(`Failed to load matching file ${filename}: ${error.message}`);
+            }
           }
         }
       } catch (error) {
