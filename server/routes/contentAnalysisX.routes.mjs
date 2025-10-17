@@ -3887,7 +3887,7 @@ router.post('/get-verbatim-quotes', async (req, res) => {
     }
 
     const cachedQuotes = analysis.verbatimQuotes[sheetName]?.[respondentId]?.[columnName];
-    if (cachedQuotes && cachedQuotes.quotes && cachedQuotes.quotes.length > 0) {
+    if (cachedQuotes && cachedQuotes.quotes && cachedQuotes.quotes.length > 0 && cachedQuotes.keyFinding === keyFinding) {
       console.log(`✅ Returning cached quotes for ${respondentId} - ${columnName} (saved ${cachedQuotes.savedAt})`);
       return res.json({
         success: true,
@@ -3901,6 +3901,7 @@ router.post('/get-verbatim-quotes', async (req, res) => {
     }
 
     console.log(`🆕 No cached quotes found, generating new quotes for ${respondentId} - ${columnName}`);
+    console.log(`Key Finding: "${keyFinding}"`);
 
     // Find the transcript for this respondent
     console.log(`Looking for transcript for respondent: ${respondentId}`);
@@ -4022,6 +4023,17 @@ router.post('/get-verbatim-quotes', async (req, res) => {
     }
 
     if (!transcriptText) {
+      console.log(`❌ No transcript text found for ${respondentId}`);
+      console.log(`Transcript object:`, {
+        id: transcript.id,
+        respno: transcript.respno,
+        hasCleanedTranscript: !!transcript.cleanedTranscript,
+        hasOriginalTranscript: !!transcript.originalTranscript,
+        cleanedPath: transcript.cleanedPath,
+        originalPath: transcript.originalPath,
+        cleanedTranscriptLength: transcript.cleanedTranscript?.length || 0,
+        originalTranscriptLength: transcript.originalTranscript?.length || 0
+      });
       return res.status(404).json({ error: 'No transcript text available' });
     }
 
