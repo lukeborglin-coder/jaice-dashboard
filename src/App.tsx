@@ -3653,8 +3653,8 @@ export default function App() {
 
   const quantitativeTools = useMemo(
     () => [
-      { name: "QNR", icon: IconCheckbox },
-      { name: "Data QA", icon: IconDatabaseExclamation },
+      { name: "QNR (Coming Soon)", icon: IconCheckbox, disabled: true },
+      { name: "Data QA (Coming Soon)", icon: IconDatabaseExclamation, disabled: true },
     ],
     []
   );
@@ -3786,9 +3786,12 @@ export default function App() {
                 {quantitativeTools.map((item) => (
                   <button
                     key={item.name}
-                    onClick={() => setRoute(item.name)}
-                    className={`w-full flex items-center gap-3 rounded-xl px-3 py-2 hover:bg-gray-100 transition ${
-                      route === item.name ? "bg-gray-100" : ""
+                    onClick={() => !item.disabled && setRoute(item.name)}
+                    disabled={item.disabled}
+                    className={`w-full flex items-center gap-3 rounded-xl px-3 py-2 transition ${
+                      item.disabled 
+                        ? "opacity-50 cursor-not-allowed text-gray-400" 
+                        : `hover:bg-gray-100 ${route === item.name ? "bg-gray-100" : ""}`
                     }`}
                   >
                     <item.icon className="h-4 w-4" />
