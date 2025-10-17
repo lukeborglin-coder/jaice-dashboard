@@ -11,7 +11,21 @@ import {
 import { IconScript } from '@tabler/icons-react';
 import { API_BASE_URL } from '../config';
 import { useAuth } from '../contexts/AuthContext';
-import { normalizeTranscriptList, normalizeAnalysisRespnos, buildTranscriptDisplayName } from '../utils/respnoUtils';
+// import { normalizeTranscriptList, normalizeAnalysisRespnos, buildTranscriptDisplayName } from '../utils/respnoUtils';
+
+// Simple local replacements for QNR utils
+const normalizeTranscriptList = (list: any[]) => {
+  return { orderedAsc: list.sort((a, b) => (a.respno || '').localeCompare(b.respno || '')) };
+};
+
+const normalizeAnalysisRespnos = (analysis: any, transcripts: any[]) => {
+  return analysis; // Simple passthrough for now
+};
+
+const buildTranscriptDisplayName = ({ projectName, respno, interviewDate }: any) => {
+  const dateStr = interviewDate ? new Date(interviewDate).toLocaleDateString() : '';
+  return `${projectName}_${respno}${dateStr ? `_${dateStr}` : ''}`;
+};
 
 const BRAND_ORANGE = '#D14A2D';
 const BRAND_BG = '#F7F7F8';
