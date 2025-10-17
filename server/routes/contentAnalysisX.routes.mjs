@@ -4123,11 +4123,15 @@ CRITICAL GUIDELINES:
 - If the key finding mentions specific treatments (like "Evrysdi" or "Spinraza"), find quotes that discuss those exact treatments
 - If the key finding mentions specific timeframes, find quotes that reference those timeframes
 - If the key finding mentions specific experiences or outcomes, find quotes that describe those experiences
+- IMPORTANT: For "treatment consideration" or "factors driving treatment" - find quotes where the respondent discusses WHY they would or wouldn't consider treatment, what factors influence their treatment decisions, or their thoughts about treatment options
+- IMPORTANT: For "barriers to treatment" - find quotes where the respondent discusses obstacles, concerns, or challenges related to treatment
+- IMPORTANT: For "unmet needs" - find quotes where the respondent discusses what they need or want from treatment
 - Include the full conversation context (both moderator questions and respondent answers)
 - Preserve the exact wording, punctuation, and formatting from the transcript
 - Each quote should be a complete thought or exchange
 - Focus on the most relevant and impactful quotes that contain specific supporting details
-- DO NOT include generic quotes that only tangentially relate to the topic`;
+- DO NOT include generic quotes that only tangentially relate to the topic
+- DO NOT include quotes about daily activities unless they directly relate to treatment consideration`;
 
     const userPrompt = `Key Finding: ${keyFinding}
 
@@ -4142,8 +4146,12 @@ IMPORTANT: Look for quotes that mention:
 - Specific timeframes, dates, or durations mentioned in the key finding  
 - Specific experiences, outcomes, or results mentioned in the key finding
 - Specific preferences, attitudes, or behaviors mentioned in the key finding
+- For "treatment consideration" - look for quotes where the respondent discusses their thoughts about treatment, what would influence their decision, or their reasons for considering/not considering treatment
+- For "barriers to treatment" - look for quotes where the respondent discusses obstacles, concerns, or challenges related to treatment
+- For "unmet needs" - look for quotes where the respondent discusses what they need or want from treatment
 
 Do NOT include generic quotes that only tangentially relate to the topic. The quotes must contain concrete details that directly support the key finding.
+Do NOT include quotes about daily activities unless they directly relate to treatment consideration or decision-making.
 
 Transcript:
 ${transcriptText.substring(0, 8000)}`; // Limit to first 8000 chars to stay within token limits
