@@ -7,7 +7,7 @@ console.log('🔧 Config Debug:', {
 
 const isProduction = window.location.hostname === 'cognitive-dash.onrender.com';
 const backendURL = isProduction
-  ? 'https://cognitive-dash-backend.onrender.com'
+  ? 'https://jaice-dashboard-backend.onrender.com'
   : 'http://localhost:3005';
 
 console.log('🌐 API_BASE_URL set to:', backendURL);
