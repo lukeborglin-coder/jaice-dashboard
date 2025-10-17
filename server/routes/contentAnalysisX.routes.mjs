@@ -3973,6 +3973,42 @@ router.post('/get-verbatim-quotes', async (req, res) => {
       }
     }
 
+    // Try to find transcript files in uploads directory with different naming patterns
+    if (!transcriptText) {
+      try {
+        const uploadsDir = path.join(process.env.DATA_DIR || path.join(__dirname, '../data'), 'uploads');
+        console.log(`Searching for transcript files in: ${uploadsDir}`);
+        
+        // List all files in uploads directory
+        const files = await fs.readdir(uploadsDir);
+        console.log(`Available files in uploads:`, files.filter(f => f.includes('transcript') || f.includes('Transcript')));
+        
+        // Try different file patterns
+        const possibleFiles = [
+          `cleaned_${transcript.id}.docx`,
+          `cleaned_${transcript.sourceTranscriptId}.docx`,
+          `original_${transcript.id}.docx`,
+          `original_${transcript.sourceTranscriptId}.docx`,
+          transcript.originalPath ? path.basename(transcript.originalPath) : null,
+          transcript.cleanedPath ? path.basename(transcript.cleanedPath) : null
+        ].filter(Boolean);
+
+        for (const filename of possibleFiles) {
+          const filePath = path.join(uploadsDir, filename);
+          console.log(`Trying file: ${filePath}`);
+          if (await fs.access(filePath).then(() => true).catch(() => false)) {
+            const result = await mammoth.extractRawText({ path: filePath });
+            transcriptText = result.value;
+            transcriptType = filename.includes('cleaned') ? 'cleaned' : 'original';
+            console.log(`✅ Loaded transcript from file: ${filename}, length: ${transcriptText.length}`);
+            break;
+          }
+        }
+      } catch (error) {
+        console.log(`Failed to search for transcript files: ${error.message}`);
+      }
+    }
+
     // Fallback to original transcript from file
     if (!transcriptText && transcript.originalPath) {
       try {
