@@ -8,7 +8,17 @@ import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } fro
 import ExcelJS from 'exceljs';
 import { renderAsync } from 'docx-preview';
 import StoryboardModal from './StoryboardModal';
-import { normalizeAnalysisRespnos, buildTranscriptDisplayName } from '../utils/respnoUtils';
+// import { normalizeAnalysisRespnos, buildTranscriptDisplayName } from '../utils/respnoUtils';
+
+// Simple local replacements for QNR utils
+const normalizeAnalysisRespnos = (analysis: any, transcripts: any[]) => {
+  return analysis; // Simple passthrough for now
+};
+
+const buildTranscriptDisplayName = ({ projectName, respno, interviewDate }: any) => {
+  const dateStr = interviewDate ? new Date(interviewDate).toLocaleDateString() : '';
+  return `${projectName}_${respno}${dateStr ? `_${dateStr}` : ''}`;
+};
 
 const BRAND_ORANGE = '#D14A2D';
 const BRAND_GRAY = '#5D5F62';
