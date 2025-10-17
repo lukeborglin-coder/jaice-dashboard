@@ -20,7 +20,7 @@ Press Ctrl+C to stop both servers
 > jaice-dashboard@0.0.1 start
 > concurrently "npm run dev" "cd server && npm start"
 
-(node:47348) [DEP0060] DeprecationWarning: The `util._extend` API is deprecated. Please use Object.assign() instead.
+(node:13752) [DEP0060] DeprecationWarning: The `util._extend` API is deprecated. Please use Object.assign() instead.
 (Use `node --trace-deprecation ...` to show where the warning was created)
 [0]
 [0] > jaice-dashboard@0.0.1 dev
@@ -30,1052 +30,60 @@ Press Ctrl+C to stop both servers
 [1] > jaice-dashboard-server@1.0.0 start
 [1] > node server.mjs
 [1]
-[0] Port 5173 is in use, trying another one...
 [0]
-[0]   VITE v5.4.20  ready in 479 ms
+[0]   VITE v5.4.20  ready in 412 ms
 [0]
-[0]   ➜  Local:   http://localhost:5174/
+[0]   ➜  Local:   http://localhost:5173/
 [0]   ➜  Network: use --host to expose
 [1] 🚀 JAICE Dashboard Server running on http://localhost:3005
 [1] 📊 Content Analysis API available at http://localhost:3005/api/ca
 [1] ✅ OpenAI API key configured - AI generation enabled
 [1] 🔗 Frontend should connect to: http://localhost:3005
 [0] [BABEL] Note: The code generator has deoptimised the styling of C:\Users\LukeBorglin\Desktop\Apps\JaiceDashboard_master\src\App.tsx as it exceeds the max of 500KB.
-[1] 📖 Loading analysis 1760120323941, context keys: [
-[1]   'Demographics',
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1] 📖 Sheet "Demographics" has context for respondents: [ 'R05' ]
-[1] 📖 Sheet "BACKGROUND" has context for respondents: [ 'R05' ]
-[1] 📖 Sheet "CURRENT PERCEPTIONS & ATTITUDES" has context for respondents: [ 'R05' ]
-[1] 📖 Sheet "BARRIERS TO TREATMENT & UNMET NEEDS" has context for respondents: [ 'R05' ]
-[1] 📖 Sheet "MOTIVATIONS & FUTURE CONSIDERATION" has context for respondents: [ 'R05' ]
-[1] 📖 Sheet "COMMUNITY ENGAGEMENT & INFO SOURCES" has context for respondents: [ 'R05' ]
-[1] 📖 Sheet "Misc." has context for respondents: [ 'R05' ]
-[1] 📝 PUT /update request received
-[1] 📋 Update request data: {
-[1]   id: '1760120323941',
-[1]   hasData: true,
-[1]   hasQuotes: true,
-[1]   hasContext: true,
-[1]   contextKeys: [
-[1]     'Demographics',
-[1]     'BACKGROUND',
-[1]     'CURRENT PERCEPTIONS & ATTITUDES',
-[1]     'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]     'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]     'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]     'Misc.'
-[1]   ],
-[1]   transcriptCount: 0
+[1] 🔍 ContentAnalysisX route hit: GET /saved
+[1] 🔍 ContentAnalysisX route hit: GET /saved
+[1] 🔍 ContentAnalysisX route hit: GET /saved
+[0] 10:14:18 AM [vite] hmr update /src/App.tsx, /src/index.css
+[0] [BABEL] Note: The code generator has deoptimised the styling of C:\Users\LukeBorglin\Desktop\Apps\JaiceDashboard_master\src\App.tsx as it exceeds the max of 500KB.
+[1] 🔍 ContentAnalysisX route hit: GET /saved
+[1] 🔍 ContentAnalysisX route hit: GET /saved
+[1] 🔍 ContentAnalysisX route hit: GET /saved
+[1] 🔍 ContentAnalysisX route hit: GET /saved
+[1] 🔍 ContentAnalysisX route hit: GET /saved
+[1] 🔍 CA File Debug: {
+[1]   caPath: 'C:\\Users\\LukeBorglin\\Desktop\\Apps\\JaiceDashboard_master\\server\\data\\savedAnalyses.json',
+[1]   fileExists: true
 [1] }
-[1] ✅ Found analysis at index: 0
-[1] 💾 Saving context for analysis 1760120323941 with keys: [
-[1]   'Demographics',
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1] 💾 Saving analysis to file...
-[1] ✅ Analysis saved successfully
-[1] 📖 Loading analysis 1760120323941, context keys: [
-[1]   'Demographics',
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1] 📖 Sheet "Demographics" has context for respondents: []
-[1] 📖 Sheet "BACKGROUND" has context for respondents: []
-[1] 📖 Sheet "CURRENT PERCEPTIONS & ATTITUDES" has context for respondents: []
-[1] 📖 Sheet "BARRIERS TO TREATMENT & UNMET NEEDS" has context for respondents: []
-[1] 📖 Sheet "MOTIVATIONS & FUTURE CONSIDERATION" has context for respondents: []
-[1] 📖 Sheet "COMMUNITY ENGAGEMENT & INFO SOURCES" has context for respondents: []
-[1] 📖 Sheet "Misc." has context for respondents: []
-[1] 📝 PUT /update request received
-[1] 📋 Update request data: {
-[1]   id: '1760120323941',
-[1]   hasData: true,
-[1]   hasQuotes: true,
-[1]   hasContext: false,
-[1]   contextKeys: 'none',
-[1]   transcriptCount: 0
-[1] }
-[1] ✅ Found analysis at index: 0
-[1] 💾 Saving analysis to file...
-[1] ✅ Analysis saved successfully
-[1] Transcript upload request received
-[1] Request body: [Object: null prototype] {
-[1]   transcriptId: 'T-1760127394039',
-[1]   preferCleanedTranscript: 'true',
-[1]   projectId: 'P-1759172819869',
-[1]   analysisId: '1760120323941',
-[1]   activeSheet: 'Demographics',
-[1]   currentData: '{"Demographics":[{"Respondent ID":"","Interview Date":"","New Column 23":"","New Column 22":"","NewColumn 21":"","New Column 20":"","New Column 19":"","New Column 18":"","New Column 17":"","New Column 16":"","New Column 15":"","New Column 14":"","New Column 13":"","New Column 12":"","New Column 11":"","New Column 10":"","New Column 9":"","New Column 8":"","New Column 7":"","New Column 6":"","Interview Time":"","New Column 5":"","New Column 4":"","New Column 3":"","New Column 2":"","New Column 1":""}],"BACKGROUND":[{"Respondent ID":"","Living Situation":"","Free Time Activities":"","Journey with SMA":"","Current Health Description":"","HCPs for SMA Care":"","Reasons for Not Seeing HCPs":"","Current SMA Management":"","Number of HCPs":"","HCP Involvement in Treatment Decisions":"","Primary SMA Doctor":"","Others Involved in Health Decisions":"","Support System Involvement":"","Comfort in Making Treatment Decisions":"","Health Goals - Short-term":"","Health Goals - Long-term":"","Personal Aspirations":""}],"CURRENT PERCEPTIONS & ATTITUDES":[{"Respondent ID":"","Treatments Awareness":"","Treatments Experience":"","Benefits of Discontinued Treatment":"","Drawbacks of Discontinued Treatment":"","Reasons for Discontinuation":"","Life Changes Impact on Discontinuation":"","Insurance Coverage Impact":"","Restarting Treatment Consideration":"","Impressions of Untaken Treatment":"","Information Source for Untaken Treatment":"","Consideration of Untaken Treatment":"","Discussion with HCP about Untaken Treatment":"","Impact of HCP on Untaken Treatment Decision":"","Discussion with Others about Untaken Treatment":"","Consideration of Future Treatment":"","Drivers for Future Treatment Consideration":"","Candidate for Future Treatment":"","Awareness of Treatments in Development":"","Impressions of Treatments in Development":"","Candidate for Treatments in Development":"","Consideration of Treatments in Development":"","Drivers for Consideration of Treatments in Development":"","Hesitations for Treatments in Development":""}],"BARRIERS TO TREATMENT & UNMET NEEDS":[{"Respondent ID":"","Reasons for Not Being on Treatment":"","Factors Driving Treatment Consideration":"","Symptom Tracking Frequency":"","Symptom Tracking Methods":"","Discussion with HCP about Treatment Need":"","Emotional Factors":"","Practical or Logistical Factors":"","Clinical Factors":"","Treatment Benefit Requirement":"","Challenges in Accessing Treatment":"","Unmet Needs":"","Most Important Unmet Need":""}],"MOTIVATIONS & FUTURE CONSIDERATION":[{"Respondent ID":"","Likelihood of Future Treatment Consideration":"","Factors Influencing Future Consideration":"","Expected Improvements from Treatment":"","Influential Decision Makers":"","Confidence Factors in Treatment Decision":""}],"COMMUNITY ENGAGEMENT & INFO SOURCES":[{"Respondent ID":"","Connection to SMA Community":"","Participation in SMA Groups":"","Reasons for Non-involvement in SMA Communities":"","Information Sources on SMA":"","Trusted Information Sources":"","Untrusted Information Sources":"","Discovery of New Treatments":"","Preferred Information Format":"","Improving Information Accessibility":""}],"Misc.":[{"Respondent ID":"","Final Comments":"","Additional Notes":""}]}',
-[1]   discussionGuide: ''
-[1] }
-[1] Request file: undefined
-[1] Processing transcript for project: P-1759172819869, sheet: Demographics
-[1] Using existing transcript from transcripts store: { transcriptId: 'T-1760127394039', preferCleaned: true }
-[1] Processing stored DOCX transcript with mammoth...
-[1] Using current data structure: [
-[1]   'Demographics',
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1] Transcript text length: 34323
-[1] Transcript preview: 2025 SMA Adult Activation Qual Transcript
-[1]
-[1] Oct 1, 2025 | 3:00 PM
-[1]
-[1] Respondent: Yes. I am.
-[1]
-[1] Moderator: I'm seeing you're a Buckeyes fan. Do you live in Columbus, or is it like you used to you went to sc...
-[1] === EXTRACTING DATE/TIME ===
-[1] First 500 chars of transcript: 2025 SMA Adult Activation Qual Transcript
-[1]
-[1] Oct 1, 2025 | 3:00 PM
-[1]
-[1] Respondent: Yes. I am.
-[1]
-[1] Moderator: I'm seeing you're a Buckeyes fan. Do you live in Columbus, or is it like you used to you went to school there or have a kid who went to school there?
-[1]
-[1] Respondent: Well, so we used to live in Ohio. We moved to Georgia about sixteen years ago. I went to Ohio University, not the Ohio State.
-[1]
-[1] Moderator: A liberal arts school?
-[1]
-[1] Respondent: Yeah. Yep.
-[1]
-[1] Moderator: Interesting.
-[1]
-[1] Respondent: So they didn'
-[1] Extracted date/time from transcript: { date: 'Oct 1, 2025', time: '3:00 PM' }
-[1] === SKIPPING TRANSCRIPT CLEANING - DIRECTLY POPULATING CA ===
-[1] === STARTING MAIN TRANSCRIPT PROCESSING ===
-[1] ⏱️  Directly populating CA cells from raw transcript...
-[1] 🔄 Attempt 1/3: Calling OpenAI API with gpt-4o...
-[1] 🔍 Raw AI response (first 500 chars): {
-[1]   "rows": {
-[1]     "Demographics": {
-[1]       "New Column 23": "",
-[1]       "New Column 22": "",
-[1]       "New Column 21": "",
-[1]       "New Column 20": "",
-[1]       "New Column 19": "",
-[1]       "New Column 18": "",
-[1]       "New Column 17": "",
-[1]       "New Column 16": "",
-[1]       "New Column 15": "",
-[1]       "New Column 14": "",
-[1]       "New Column 13": "",
-[1]       "New Column 12": "",
-[1]       "New Column 11": "",
-[1]       "New Column 10": "",
-[1]       "New Column 9": "",
-[1]       "New Column 8": "",
-[1]       "New Column 7": "",
-[1]       "N
-[1] 🔍 Raw AI response (last 500 chars): s the only thing that I was getting my information from was these Facebook support groups that I was a part of for spinal muscular atrophy. That was where I was getting my information."
-[1]       ],
-[1]       "Trusted Information Sources": [],
-[1]       "Untrusted Information Sources": [],
-[1]       "Discovery of New Treatments": [],
-[1]       "Preferred Information Format": [],
-[1]       "Improving Information Accessibility": []
-[1]     },
-[1]     "Misc.": {
-[1]       "Final Comments": [],
-[1]       "Additional Notes": []
+[1] 🔍 CA File Content Length: 160440
+[1] 🔍 CA Data Structure Debug: {
+[1]   totalAnalyses: 1,
+[1]   isArray: true,
+[1]   analyses: [
+[1]     {
+[1]       id: '1760120323941',
+[1]       projectId: 'P-1759172819869',
+[1]       name: 'test2',
+[1]       hasData: true,
+[1]       hasQuotes: true,
+[1]       hasVerbatimQuotes: true,
+[1]       dataKeys: [Array]
 [1]     }
-[1]   }
-[1] }
-[1] ✅ Successfully parsed JSON on attempt 1
-[1] 🔍 Parsed JSON structure: {
-[1]   hasRows: true,
-[1]   hasContext: true,
-[1]   rowsKeys: [
-[1]     'Demographics',
-[1]     'BACKGROUND',
-[1]     'CURRENT PERCEPTIONS & ATTITUDES',
-[1]     'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]     'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]     'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]     'Misc.'
-[1]   ],
-[1]   contextKeys: [
-[1]     'Demographics',
-[1]     'BACKGROUND',
-[1]     'CURRENT PERCEPTIONS & ATTITUDES',
-[1]     'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]     'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]     'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]     'Misc.'
 [1]   ]
 [1] }
-[1]   📝 AI returned context for sheet "Demographics": 0 columns with data
-[1]   📝 AI returned context for sheet "BACKGROUND": 9 columns with data
-[1]   📝 AI returned context for sheet "CURRENT PERCEPTIONS & ATTITUDES": 5 columns with data
-[1]   📝 AI returned context for sheet "BARRIERS TO TREATMENT & UNMET NEEDS": 0 columns with data
-[1]   📝 AI returned context for sheet "MOTIVATIONS & FUTURE CONSIDERATION": 0 columns with data
-[1]   📝 AI returned context for sheet "COMMUNITY ENGAGEMENT & INFO SOURCES": 4 columns with data
-[1]   📝 AI returned context for sheet "Misc.": 0 columns with data
-[1] 🤖 AI RAW RESPONSE - Top-level keys: [ 'rows', 'context' ]
-[1] 🤖 AI RAW RESPONSE - Sheets returned: [
-[1]   'Demographics',
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1] 🤖 AI RAW RESPONSE - Has context?: true Keys: [
-[1]   'Demographics',
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1] 🔍 Sample context from "Demographics"."New Column 23": []
-[1] 🤖 AI returned data for sheets: [
-[1]   'Demographics',
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1]   📊 Sheet "Demographics": 0/23 columns filled
-[1]   📊 Sheet "BACKGROUND": 9/16 columns filled
-[1]      Filled columns: Living Situation, Free Time Activities, Journey with SMA, Current Health Description, HCPs forSMA Care, Reasons for Not Seeing HCPs, Current SMA Management, Primary SMA Doctor, Support System Involvement
-[1]   📊 Sheet "CURRENT PERCEPTIONS & ATTITUDES": 5/23 columns filled
-[1]      Filled columns: Treatments Awareness, Treatments Experience, Reasons for Discontinuation, Insurance Coverage Impact, Information Source for Untaken Treatment
-[1]   📊 Sheet "BARRIERS TO TREATMENT & UNMET NEEDS": 0/12 columns filled
-[1]   📊 Sheet "MOTIVATIONS & FUTURE CONSIDERATION": 0/5 columns filled
-[1]   📊 Sheet "COMMUNITY ENGAGEMENT & INFO SOURCES": 4/9 columns filled
-[1]      Filled columns: Connection to SMA Community, Participation in SMA Groups, Reasons for Non-involvement in SMA Communities, Information Sources on SMA
-[1]   📊 Sheet "Misc.": 0/2 columns filled
-[1] 📤 Returning context for sheets: [
-[1]   'Demographics',
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1]   📝 Sheet "Demographics": 0 columns with context
-[1]   📝 Sheet "BACKGROUND": 9 columns with context
-[1]   📝 Sheet "CURRENT PERCEPTIONS & ATTITUDES": 5 columns with context
-[1]   📝 Sheet "BARRIERS TO TREATMENT & UNMET NEEDS": 0 columns with context
-[1]   📝 Sheet "MOTIVATIONS & FUTURE CONSIDERATION": 0 columns with context
-[1]   📝 Sheet "COMMUNITY ENGAGEMENT & INFO SOURCES": 4 columns with context
-[1]   📝 Sheet "Misc.": 0 columns with context
-[1]
-[1] ✅ Context validation: 29/29 context blocks populated
-[1] Using existing respno from transcript: R01
-[1] === MAIN TRANSCRIPT PROCESSING COMPLETED ===
-[1] ⏱️  Processing complete
-[1] === UPDATING DEMOGRAPHICS WITH DATE/TIME ===
-[1] Date/Time info to apply: { date: 'Oct 1, 2025', time: '3:00 PM' }
-[1] Demographics sheet exists: true
-[1] Demographics sheet length: 2
-[1] Last row columns: [
-[1]   'Respondent ID',  'Interview Date',
-[1]   'New Column 23',  'New Column 22',
-[1]   'New Column 21',  'New Column 20',
-[1]   'New Column 19',  'New Column 18',
-[1]   'New Column 17',  'New Column 16',
-[1]   'New Column 15',  'New Column 14',
-[1]   'New Column 13',  'New Column 12',
-[1]   'New Column 11',  'New Column 10',
-[1]   'New Column 9',   'New Column 8',
-[1]   'New Column 7',   'New Column 6',
-[1]   'Interview Time', 'New Column 5',
-[1]   'New Column 4',   'New Column 3',
-[1]   'New Column 2',   'New Column 1',
-[1]   'respno'
-[1] ]
-[1] Has Date column: false
-[1] Has Time (ET) column: false
-[1] Setting Interview Date to: Oct 1, 2025
-[1] Setting Interview Time to: 3:00 PM
-[1] Updated Demographics with date/time: {
-[1]   dateColumn: 'Interview Date',
-[1]   timeColumn: 'Interview Time',
-[1]   dateValue: 'Oct 1, 2025',
-[1]   timeValue: '3:00 PM'
-[1] }
-[1] Updated transcript record with correct date/time: {
-[1]   transcriptId: 'T-1760127394039',
-[1]   date: 'Oct 1, 2025',
-[1]   time: '3:00 PM'
-[1] }
-[1] Transcript record updated successfully
-[1] Checking if analysisId exists for context saving: 1760120323941
-[1] AnalysisId found, looking for analysis in savedAnalyses
-[1] Found analysis at index: 0
-[1] Original context keys: []
-[1] Existing saved context keys: [
-[1]   'Demographics',
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1] Merged context keys: [
-[1]   'Demographics',
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1] Added transcript tracking: T-1760127394039 -> R01 with paths
-[1] Persisted updated analysis 1760120323941 with quotes and context
-[1] Context keys saved: [
-[1]   'Demographics',
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1] Transcript file available for download: uploads\existing_1760127409810_original_1760127394039_2025 SMA Adult Activation Qual Transcript_Oct 1 2025_300pm.docx
-[1] Transcript processing completed successfully
-[1] Extracted respno: R01
-[1] 📤 About to send response with context: {
-[1]   Demographics: {
-[1]     R01: {
-[1]       'Respondent ID': [],
-[1]       'Interview Date': [],
-[1]       'New Column 23': [],
-[1]       'New Column 22': [],
-[1]       'New Column 21': [],
-[1]       'New Column 20': [],
-[1]       'New Column 19': [],
-[1]       'New Column 18': [],
-[1]       'New Column 17': [],
-[1]       'New Column 16': [],
-[1]       'New Column 15': [],
-[1]       'New Column 14': [],
-[1]       'New Column 13': [],
-[1]       'New Column 12': [],
-[1]       'New Column 11': [],
-[1]       'New Column 10': [],
-[1]       'New Column 9': [],
-[1]       'New Column 8': [],
-[1]       'New Column 7': [],
-[1]       'New Column 6': [],
-[1]       'Interview Time': [],
-[1]       'New Column 5': [],
-[1]       'New Column 4': [],
-[1]       'New Column 3': [],
-[1]       'New Column 2': [],
-[1]       'New Column 1': []
-[1]     }
-[1]   },
-[1]   BACKGROUND: {
-[1]     R01: {
-[1]       'Respondent ID': [],
-[1]       'Living Situation': [Array],
-[1]       'Free Time Activities': [Array],
-[1]       'Journey with SMA': [Array],
-[1]       'Current Health Description': [Array],
-[1]       'HCPs for SMA Care': [Array],
-[1]       'Reasons for Not Seeing HCPs': [Array],
-[1]       'Current SMA Management': [Array],
-[1]       'Number of HCPs': [],
-[1]       'HCP Involvement in Treatment Decisions': [],
-[1]       'Primary SMA Doctor': [Array],
-[1]       'Others Involved in Health Decisions': [],
-[1]       'Support System Involvement': [Array],
-[1]       'Comfort in Making Treatment Decisions': [],
-[1]       'Health Goals - Short-term': [],
-[1]       'Health Goals - Long-term': [],
-[1]       'Personal Aspirations': []
-[1]     }
-[1]   },
-[1]   'CURRENT PERCEPTIONS & ATTITUDES': {
-[1]     R01: {
-[1]       'Respondent ID': [],
-[1]       'Treatments Awareness': [Array],
-[1]       'Treatments Experience': [Array],
-[1]       'Benefits of Discontinued Treatment': [],
-[1]       'Drawbacks of Discontinued Treatment': [],
-[1]       'Reasons for Discontinuation': [Array],
-[1]       'Life Changes Impact on Discontinuation': [],
-[1]       'Insurance Coverage Impact': [Array],
-[1]       'Restarting Treatment Consideration': [],
-[1]       'Impressions of Untaken Treatment': [],
-[1]       'Information Source for Untaken Treatment': [Array],
-[1]       'Consideration of Untaken Treatment': [],
-[1]       'Discussion with HCP about Untaken Treatment': [],
-[1]       'Impact of HCP on Untaken Treatment Decision': [],
-[1]       'Discussion with Others about Untaken Treatment': [],
-[1]       'Consideration of Future Treatment': [],
-[1]       'Drivers for Future Treatment Consideration': [],
-[1]       'Candidate for Future Treatment': [],
-[1]       'Awareness of Treatments in Development': [],
-[1]       'Impressions of Treatments in Development': [],
-[1]       'Candidate for Treatments in Development': [],
-[1]       'Consideration of Treatments in Development': [],
-[1]       'Drivers for Consideration of Treatments in Development': [],
-[1]       'Hesitations for Treatments in Development': []
-[1]     }
-[1]   },
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS': {
-[1]     R01: {
-[1]       'Respondent ID': [],
-[1]       'Reasons for Not Being on Treatment': [],
-[1]       'Factors Driving Treatment Consideration': [],
-[1]       'Symptom Tracking Frequency': [],
-[1]       'Symptom Tracking Methods': [],
-[1]       'Discussion with HCP about Treatment Need': [],
-[1]       'Emotional Factors': [],
-[1]       'Practical or Logistical Factors': [],
-[1]       'Clinical Factors': [],
-[1]       'Treatment Benefit Requirement': [],
-[1]       'Challenges in Accessing Treatment': [],
-[1]       'Unmet Needs': [],
-[1]       'Most Important Unmet Need': []
-[1]     }
-[1]   },
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION': {
-[1]     R01: {
-[1]       'Respondent ID': [],
-[1]       'Likelihood of Future Treatment Consideration': [],
-[1]       'Factors Influencing Future Consideration': [],
-[1]       'Expected Improvements from Treatment': [],
-[1]       'Influential Decision Makers': [],
-[1]       'Confidence Factors in Treatment Decision': []
-[1]     }
-[1]   },
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES': {
-[1]     R01: {
-[1]       'Respondent ID': [],
-[1]       'Connection to SMA Community': [Array],
-[1]       'Participation in SMA Groups': [Array],
-[1]       'Reasons for Non-involvement in SMA Communities': [Array],
-[1]       'Information Sources on SMA': [Array],
-[1]       'Trusted Information Sources': [],
-[1]       'Untrusted Information Sources': [],
-[1]       'Discovery of New Treatments': [],
-[1]       'Preferred Information Format': [],
-[1]       'Improving Information Accessibility': []
-[1]     }
-[1]   },
-[1]   'Misc.': {
-[1]     R01: {
-[1]       'Respondent ID': [],
-[1]       'Final Comments': [],
-[1]       'Additional Notes': []
-[1]     }
-[1]   }
-[1] }
-[1] 📤 Context keys: [
-[1]   'Demographics',
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1] 📤 Sheet "Demographics" context columns: [ 'R01' ]
-[1] 📤 Sheet "BACKGROUND" context columns: [ 'R01' ]
-[1] 📤 Sheet "CURRENT PERCEPTIONS & ATTITUDES" context columns: [ 'R01' ]
-[1] 📤 Sheet "BARRIERS TO TREATMENT & UNMET NEEDS" context columns: [ 'R01' ]
-[1] 📤 Sheet "MOTIVATIONS & FUTURE CONSIDERATION" context columns: [ 'R01' ]
-[1] 📤 Sheet "COMMUNITY ENGAGEMENT & INFO SOURCES" context columns: [ 'R01' ]
-[1] 📤 Sheet "Misc." context columns: [ 'R01' ]
-[1] 📝 PUT /update request received
-[1] 📋 Update request data: {
-[1]   id: '1760120323941',
-[1]   hasData: true,
-[1]   hasQuotes: true,
-[1]   hasContext: true,
-[1]   contextKeys: [
-[1]     'Demographics',
-[1]     'BACKGROUND',
-[1]     'CURRENT PERCEPTIONS & ATTITUDES',
-[1]     'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]     'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]     'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]     'Misc.'
-[1]   ],
-[1]   transcriptCount: 1
-[1] }
-[1] ✅ Found analysis at index: 0
-[1] 💾 Saving context for analysis 1760120323941 with keys: [
-[1]   'Demographics',
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1] 💾 Saving analysis to file...
-[1] ✅ Analysis saved successfully
-[1] Getting verbatim quotes for R01 - Free Time Activities in BACKGROUND
-[1] Getting verbatim quotes for R01 - Free Time Activities in BACKGROUND
-[1] Looking for transcript for respondent: R01
-[1] Available transcripts in analysis: [
-[1]   {
-[1]     id: '1760127486778',
-[1]     respno: 'R01',
-[1]     sourceTranscriptId: 'T-1760127394039',
-[1]     hasOriginalPath: false,
-[1]     hasCleanedPath: false
-[1]   }
-[1] ]
-[1] Found transcript: {
-[1]   id: '1760127486778',
-[1]   respno: 'R01',
-[1]   originalPath: undefined,
-[1]   cleanedPath: undefined,
-[1]   isCleaned: undefined
-[1] }
-[1] Looking for transcript for respondent: R01
-[1] Available transcripts in analysis: [
-[1]   {
-[1]     id: '1760127486778',
-[1]     respno: 'R01',
-[1]     sourceTranscriptId: 'T-1760127394039',
-[1]     hasOriginalPath: false,
-[1]     hasCleanedPath: false
-[1]   }
-[1] ]
-[1] Found transcript: {
-[1]   id: '1760127486778',
-[1]   respno: 'R01',
-[1]   originalPath: undefined,
-[1]   cleanedPath: undefined,
-[1]   isCleaned: undefined
-[1] }
-[1] Getting verbatim quotes for R01 - Free Time Activities in BACKGROUND
-[1] Looking for transcript for respondent: R01
-[1] Available transcripts in analysis: [
-[1]   {
-[1]     id: '1760127486778',
-[1]     respno: 'R01',
-[1]     sourceTranscriptId: 'T-1760127394039',
-[1]     hasOriginalPath: false,
-[1]     hasCleanedPath: false
-[1]   }
-[1] ]
-[1] Found transcript: {
-[1]   id: '1760127486778',
-[1]   respno: 'R01',
-[1]   originalPath: undefined,
-[1]   cleanedPath: undefined,
-[1]   isCleaned: undefined
-[1] }
-[1] Getting verbatim quotes for R01 - Free Time Activities in BACKGROUND
-[1] Looking for transcript for respondent: R01
-[1] Available transcripts in analysis: [
-[1]   {
-[1]     id: '1760127486778',
-[1]     respno: 'R01',
-[1]     sourceTranscriptId: 'T-1760127394039',
-[1]     hasOriginalPath: false,
-[1]     hasCleanedPath: false
-[1]   }
-[1] ]
-[1] Found transcript: {
-[1]   id: '1760127486778',
-[1]   respno: 'R01',
-[1]   originalPath: undefined,
-[1]   cleanedPath: undefined,
-[1]   isCleaned: undefined
-[1] }
-[1] Getting verbatim quotes for R01 - Free Time Activities in BACKGROUND
-[1] Looking for transcript for respondent: R01
-[1] Available transcripts in analysis: [
-[1]   {
-[1]     id: '1760127486778',
-[1]     respno: 'R01',
-[1]     sourceTranscriptId: 'T-1760127394039',
-[1]     hasOriginalPath: false,
-[1]     hasCleanedPath: false
-[1]   }
-[1] ]
-[1] Found transcript: {
-[1]   id: '1760127486778',
-[1]   respno: 'R01',
-[1]   originalPath: undefined,
-[1]   cleanedPath: undefined,
-[1]   isCleaned: undefined
-[1] }
-[1] Getting verbatim quotes for R01 - Free Time Activities in BACKGROUND
-[1] Looking for transcript for respondent: R01
-[1] Available transcripts in analysis: [
-[1]   {
-[1]     id: '1760127486778',
-[1]     respno: 'R01',
-[1]     sourceTranscriptId: 'T-1760127394039',
-[1]     hasOriginalPath: false,
-[1]     hasCleanedPath: false
-[1]   }
-[1] ]
-[1] Found transcript: {
-[1]   id: '1760127486778',
-[1]   respno: 'R01',
-[1]   originalPath: undefined,
-[1]   cleanedPath: undefined,
-[1]   isCleaned: undefined
-[1] }
-[1] Getting verbatim quotes for R01 - Free Time Activities in BACKGROUND
-[1] Looking for transcript for respondent: R01
-[1] Available transcripts in analysis: [
-[1]   {
-[1]     id: '1760127486778',
-[1]     respno: 'R01',
-[1]     sourceTranscriptId: 'T-1760127394039',
-[1]     hasOriginalPath: false,
-[1]     hasCleanedPath: false
-[1]   }
-[1] ]
-[1] Found transcript: {
-[1]   id: '1760127486778',
-[1]   respno: 'R01',
-[1]   originalPath: undefined,
-[1]   cleanedPath: undefined,
-[1]   isCleaned: undefined
-[1] }
-[1] Getting verbatim quotes for R01 - Free Time Activities in BACKGROUND
-[1] Looking for transcript for respondent: R01
-[1] Available transcripts in analysis: [
-[1]   {
-[1]     id: '1760127486778',
-[1]     respno: 'R01',
-[1]     sourceTranscriptId: 'T-1760127394039',
-[1]     hasOriginalPath: false,
-[1]     hasCleanedPath: false
-[1]   }
-[1] ]
-[1] Found transcript: {
-[1]   id: '1760127486778',
-[1]   respno: 'R01',
-[1]   originalPath: undefined,
-[1]   cleanedPath: undefined,
-[1]   isCleaned: undefined
-[1] }
-[1] 📖 Loading analysis 1760120323941, context keys: [
-[1]   'Demographics',
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1] 📖 Sheet "Demographics" has context for respondents: [ 'R01' ]
-[1] 📖 Sheet "BACKGROUND" has context for respondents: [ 'R01' ]
-[1] 📖 Sheet "CURRENT PERCEPTIONS & ATTITUDES" has context for respondents: [ 'R01' ]
-[1] 📖 Sheet "BARRIERS TO TREATMENT & UNMET NEEDS" has context for respondents: [ 'R01' ]
-[1] 📖 Sheet "MOTIVATIONS & FUTURE CONSIDERATION" has context for respondents: [ 'R01' ]
-[1] 📖 Sheet "COMMUNITY ENGAGEMENT & INFO SOURCES" has context for respondents: [ 'R01' ]
-[1] 📖 Sheet "Misc." has context for respondents: [ 'R01' ]
-[1] 📖 Loading analysis 1760120323941, context keys: [
-[1]   'Demographics',
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1] 📖 Sheet "Demographics" has context for respondents: [ 'R01' ]
-[1] 📖 Sheet "BACKGROUND" has context for respondents: [ 'R01' ]
-[1] 📖 Sheet "CURRENT PERCEPTIONS & ATTITUDES" has context for respondents: [ 'R01' ]
-[1] 📖 Sheet "BARRIERS TO TREATMENT & UNMET NEEDS" has context for respondents: [ 'R01' ]
-[1] 📖 Sheet "MOTIVATIONS & FUTURE CONSIDERATION" has context for respondents: [ 'R01' ]
-[1] 📖 Sheet "COMMUNITY ENGAGEMENT & INFO SOURCES" has context for respondents: [ 'R01' ]
-[1] 📖 Sheet "Misc." has context for respondents: [ 'R01' ]
-[1] 📝 PUT /update request received
-[1] 📋 Update request data: {
-[1]   id: '1760120323941',
-[1]   hasData: true,
-[1]   hasQuotes: true,
-[1]   hasContext: false,
-[1]   contextKeys: 'none',
-[1]   transcriptCount: 1
-[1] }
-[1] ✅ Found analysis at index: 0
-[1] 💾 Saving analysis to file...
-[1] ✅ Analysis saved successfully
-[1] Getting verbatim quotes for R01 - Free Time Activities in BACKGROUND
-[1] Looking for transcript for respondent: R01
-[1] Available transcripts in analysis: [
-[1]   {
-[1]     id: '1760127486778',
-[1]     respno: 'R01',
-[1]     sourceTranscriptId: 'T-1760127394039',
-[1]     hasOriginalPath: false,
-[1]     hasCleanedPath: false
-[1]   }
-[1] ]
-[1] Found transcript: {
-[1]   id: '1760127486778',
-[1]   respno: 'R01',
-[1]   originalPath: undefined,
-[1]   cleanedPath: undefined,
-[1]   isCleaned: undefined
-[1] }
-[1] Getting verbatim quotes for R01 - Free Time Activities in BACKGROUND
-[1] Looking for transcript for respondent: R01
-[1] Available transcripts in analysis: [
-[1]   {
-[1]     id: '1760127486778',
-[1]     respno: 'R01',
-[1]     sourceTranscriptId: 'T-1760127394039',
-[1]     hasOriginalPath: false,
-[1]     hasCleanedPath: false
-[1]   }
-[1] ]
-[1] Found transcript: {
-[1]   id: '1760127486778',
-[1]   respno: 'R01',
-[1]   originalPath: undefined,
-[1]   cleanedPath: undefined,
-[1]   isCleaned: undefined
-[1] }
-[1] 📖 Loading analysis 1760120323941, context keys: [
-[1]   'Demographics',
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1] 📖 Sheet "Demographics" has context for respondents: [ 'R01' ]
-[1] 📖 Sheet "BACKGROUND" has context for respondents: [ 'R01' ]
-[1] 📖 Sheet "CURRENT PERCEPTIONS & ATTITUDES" has context for respondents: [ 'R01' ]
-[1] 📖 Sheet "BARRIERS TO TREATMENT & UNMET NEEDS" has context for respondents: [ 'R01' ]
-[1] 📖 Sheet "MOTIVATIONS & FUTURE CONSIDERATION" has context for respondents: [ 'R01' ]
-[1] 📖 Sheet "COMMUNITY ENGAGEMENT & INFO SOURCES" has context for respondents: [ 'R01' ]
-[1] 📖 Sheet "Misc." has context for respondents: [ 'R01' ]
-[1] Getting verbatim quotes for R01 - Free Time Activities in BACKGROUND
-[1] Getting verbatim quotes for R01 - Free Time Activities in BACKGROUND
-[1] Looking for transcript for respondent: R01
-[1] Available transcripts in analysis: [
-[1]   {
-[1]     id: '1760127486778',
-[1]     respno: 'R01',
-[1]     sourceTranscriptId: 'T-1760127394039',
-[1]     hasOriginalPath: false,
-[1]     hasCleanedPath: false
-[1]   }
-[1] ]
-[1] Found transcript: {
-[1]   id: '1760127486778',
-[1]   respno: 'R01',
-[1]   originalPath: undefined,
-[1]   cleanedPath: undefined,
-[1]   isCleaned: undefined
-[1] }
-[1] Looking for transcript for respondent: R01
-[1] Available transcripts in analysis: [
-[1]   {
-[1]     id: '1760127486778',
-[1]     respno: 'R01',
-[1]     sourceTranscriptId: 'T-1760127394039',
-[1]     hasOriginalPath: false,
-[1]     hasCleanedPath: false
-[1]   }
-[1] ]
-[1] Found transcript: {
-[1]   id: '1760127486778',
-[1]   respno: 'R01',
-[1]   originalPath: undefined,
-[1]   cleanedPath: undefined,
-[1]   isCleaned: undefined
-[1] }
-[1] Getting verbatim quotes for R01 - Free Time Activities in BACKGROUND
-[1] Looking for transcript for respondent: R01
-[1] Available transcripts in analysis: [
-[1]   {
-[1]     id: '1760127486778',
-[1]     respno: 'R01',
-[1]     sourceTranscriptId: 'T-1760127394039',
-[1]     hasOriginalPath: false,
-[1]     hasCleanedPath: false
-[1]   }
-[1] ]
-[1] Found transcript: {
-[1]   id: '1760127486778',
-[1]   respno: 'R01',
-[1]   originalPath: undefined,
-[1]   cleanedPath: undefined,
-[1]   isCleaned: undefined
-[1] }
-[1] Getting verbatim quotes for R01 - Free Time Activities in BACKGROUND
-[1] Looking for transcript for respondent: R01
-[1] Available transcripts in analysis: [
-[1]   {
-[1]     id: '1760127486778',
-[1]     respno: 'R01',
-[1]     sourceTranscriptId: 'T-1760127394039',
-[1]     hasOriginalPath: false,
-[1]     hasCleanedPath: false
-[1]   }
-[1] ]
-[1] Found transcript: {
-[1]   id: '1760127486778',
-[1]   respno: 'R01',
-[1]   originalPath: undefined,
-[1]   cleanedPath: undefined,
-[1]   isCleaned: undefined
-[1] }
-[1] Getting verbatim quotes for R01 - Free Time Activities in BACKGROUND
-[1] Looking for transcript for respondent: R01
-[1] Available transcripts in analysis: [
-[1]   {
-[1]     id: '1760127486778',
-[1]     respno: 'R01',
-[1]     sourceTranscriptId: 'T-1760127394039',
-[1]     hasOriginalPath: false,
-[1]     hasCleanedPath: false
-[1]   }
-[1] ]
-[1] Found transcript: {
-[1]   id: '1760127486778',
-[1]   respno: 'R01',
-[1]   originalPath: undefined,
-[1]   cleanedPath: undefined,
-[1]   isCleaned: undefined
-[1] }
-[1] Getting verbatim quotes for R01 - Free Time Activities in BACKGROUND
-[1] Looking for transcript for respondent: R01
-[1] Available transcripts in analysis: [
-[1]   {
-[1]     id: '1760127486778',
-[1]     respno: 'R01',
-[1]     sourceTranscriptId: 'T-1760127394039',
-[1]     hasOriginalPath: false,
-[1]     hasCleanedPath: false
-[1]   }
-[1] ]
-[1] Found transcript: {
-[1]   id: '1760127486778',
-[1]   respno: 'R01',
-[1]   originalPath: undefined,
-[1]   cleanedPath: undefined,
-[1]   isCleaned: undefined
-[1] }
-[1] Getting verbatim quotes for R01 - Free Time Activities in BACKGROUND
-[1] Looking for transcript for respondent: R01
-[1] Available transcripts in analysis: [
-[1]   {
-[1]     id: '1760127486778',
-[1]     respno: 'R01',
-[1]     sourceTranscriptId: 'T-1760127394039',
-[1]     hasOriginalPath: false,
-[1]     hasCleanedPath: false
-[1]   }
-[1] ]
-[1] Found transcript: {
-[1]   id: '1760127486778',
-[1]   respno: 'R01',
-[1]   originalPath: undefined,
-[1]   cleanedPath: undefined,
-[1]   isCleaned: undefined
-[1] }
-[1] Getting verbatim quotes for R01 - Free Time Activities in BACKGROUND
-[1] Looking for transcript for respondent: R01
-[1] Available transcripts in analysis: [
-[1]   {
-[1]     id: '1760127486778',
-[1]     respno: 'R01',
-[1]     sourceTranscriptId: 'T-1760127394039',
-[1]     hasOriginalPath: false,
-[1]     hasCleanedPath: false
-[1]   }
-[1] ]
-[1] Found transcript: {
-[1]   id: '1760127486778',
-[1]   respno: 'R01',
-[1]   originalPath: undefined,
-[1]   cleanedPath: undefined,
-[1]   isCleaned: undefined
-[1] }
-[1] 📖 Loading analysis 1760120323941, context keys: [
-[1]   'Demographics',
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1] 📖 Sheet "Demographics" has context for respondents: [ 'R01' ]
-[1] 📖 Sheet "BACKGROUND" has context for respondents: [ 'R01' ]
-[1] 📖 Sheet "CURRENT PERCEPTIONS & ATTITUDES" has context for respondents: [ 'R01' ]
-[1] 📖 Sheet "BARRIERS TO TREATMENT & UNMET NEEDS" has context for respondents: [ 'R01' ]
-[1] 📖 Sheet "MOTIVATIONS & FUTURE CONSIDERATION" has context for respondents: [ 'R01' ]
-[1] 📖 Sheet "COMMUNITY ENGAGEMENT & INFO SOURCES" has context for respondents: [ 'R01' ]
-[1] 📖 Sheet "Misc." has context for respondents: [ 'R01' ]
-[1] 📝 PUT /update request received
-[1] 📋 Update request data: {
-[1]   id: '1760120323941',
-[1]   hasData: true,
-[1]   hasQuotes: true,
-[1]   hasContext: true,
-[1]   contextKeys: [
-[1]     'Demographics',
-[1]     'BACKGROUND',
-[1]     'CURRENT PERCEPTIONS & ATTITUDES',
-[1]     'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]     'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]     'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]     'Misc.'
-[1]   ],
-[1]   transcriptCount: 0
-[1] }
-[1] ✅ Found analysis at index: 0
-[1] 💾 Saving context for analysis 1760120323941 with keys: [
-[1]   'Demographics',
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1] 💾 Saving analysis to file...
-[1] ✅ Analysis saved successfully
-[1] 📖 Loading analysis 1760120323941, context keys: [
-[1]   'Demographics',
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1] 📖 Sheet "Demographics" has context for respondents: []
-[1] 📖 Sheet "BACKGROUND" has context for respondents: []
-[1] 📖 Sheet "CURRENT PERCEPTIONS & ATTITUDES" has context for respondents: []
-[1] 📖 Sheet "BARRIERS TO TREATMENT & UNMET NEEDS" has context for respondents: []
-[1] 📖 Sheet "MOTIVATIONS & FUTURE CONSIDERATION" has context for respondents: []
-[1] 📖 Sheet "COMMUNITY ENGAGEMENT & INFO SOURCES" has context for respondents: []
-[1] 📖 Sheet "Misc." has context for respondents: []
-[1] Transcript upload request received
-[1] Request body: [Object: null prototype] {
-[1]   transcriptId: 'T-1760127610454',
-[1]   preferCleanedTranscript: 'true',
+[1] 🔍 Projects file path: C:\Users\LukeBorglin\Desktop\Apps\JaiceDashboard_master\server\data\projects.json
+[1] 🔍 Projects data loaded: 2 users
+[1] 🔍 CA Item 1760120323941 (test2): {
 [1]   projectId: 'P-1759172819869',
-[1]   analysisId: '1760120323941',
-[1]   activeSheet: 'Demographics',
-[1]   currentData: '{"Demographics":[{"Respondent ID":"","Interview Date":"","New Column 23":"","New Column 22":"","NewColumn 21":"","New Column 20":"","New Column 19":"","New Column 18":"","New Column 17":"","New Column 16":"","New Column 15":"","New Column 14":"","New Column 13":"","New Column 12":"","New Column 11":"","New Column 10":"","New Column 9":"","New Column 8":"","New Column 7":"","New Column 6":"","Interview Time":"","New Column 5":"","New Column 4":"","New Column 3":"","New Column 2":"","New Column 1":""}],"BACKGROUND":[{"Respondent ID":"","Living Situation":"","Free Time Activities":"","Journey with SMA":"","Current Health Description":"","HCPs for SMA Care":"","Reasons for Not Seeing HCPs":"","Current SMA Management":"","Number of HCPs":"","HCP Involvement in Treatment Decisions":"","Primary SMA Doctor":"","Others Involved in Health Decisions":"","Support System Involvement":"","Comfort in Making Treatment Decisions":"","Health Goals - Short-term":"","Health Goals - Long-term":"","Personal Aspirations":""}],"CURRENT PERCEPTIONS & ATTITUDES":[{"Respondent ID":"","Treatments Awareness":"","Treatments Experience":"","Benefits of Discontinued Treatment":"","Drawbacks of Discontinued Treatment":"","Reasons for Discontinuation":"","Life Changes Impact on Discontinuation":"","Insurance Coverage Impact":"","Restarting Treatment Consideration":"","Impressions of Untaken Treatment":"","Information Source for Untaken Treatment":"","Consideration of Untaken Treatment":"","Discussion with HCP about Untaken Treatment":"","Impact of HCP on Untaken Treatment Decision":"","Discussion with Others about Untaken Treatment":"","Consideration of Future Treatment":"","Drivers for Future Treatment Consideration":"","Candidate for Future Treatment":"","Awareness of Treatments in Development":"","Impressions of Treatments in Development":"","Candidate for Treatments in Development":"","Consideration of Treatments in Development":"","Drivers for Consideration of Treatments in Development":"","Hesitations for Treatments in Development":""}],"BARRIERS TO TREATMENT & UNMET NEEDS":[{"Respondent ID":"","Reasons for Not Being on Treatment":"","Factors Driving Treatment Consideration":"","Symptom Tracking Frequency":"","Symptom Tracking Methods":"","Discussion with HCP about Treatment Need":"","Emotional Factors":"","Practical or Logistical Factors":"","Clinical Factors":"","Treatment Benefit Requirement":"","Challenges in Accessing Treatment":"","Unmet Needs":"","Most Important Unmet Need":""}],"MOTIVATIONS & FUTURE CONSIDERATION":[{"Respondent ID":"","Likelihood of Future Treatment Consideration":"","Factors Influencing Future Consideration":"","Expected Improvements from Treatment":"","Influential Decision Makers":"","Confidence Factors in Treatment Decision":""}],"COMMUNITY ENGAGEMENT & INFO SOURCES":[{"Respondent ID":"","Connection to SMA Community":"","Participation in SMA Groups":"","Reasons for Non-involvement in SMA Communities":"","Information Sources on SMA":"","Trusted Information Sources":"","Untrusted Information Sources":"","Discovery of New Treatments":"","Preferred Information Format":"","Improving Information Accessibility":""}],"Misc.":[{"Respondent ID":"","Final Comments":"","Additional Notes":""}]}',
-[1]   discussionGuide: ''
+[1]   hasData: true,
+[1]   respondentCount: 4,
+[1]   hasRespondents: true,
+[1]   willInclude: true
 [1] }
-[1] Request file: undefined
-[1] Processing transcript for project: P-1759172819869, sheet: Demographics
-[1] Using existing transcript from transcripts store: { transcriptId: 'T-1760127610454', preferCleaned: true }
-[1] Processing stored DOCX transcript with mammoth...
-[1] Using current data structure: [
-[1]   'Demographics',
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1] Transcript text length: 29493
-[1] Transcript preview: 2025 SMA Adult Activation Qual Transcript
-[1]
-[1] Oct 2, 2025 | 12:00 PM
-[1]
-[1] Moderator: Elsie, so yeah, nice to meet you. I really apologize for any of the stress caused by the technology challenges. It can be ...
-[1] === EXTRACTING DATE/TIME ===
-[1] First 500 chars of transcript: 2025 SMA Adult Activation Qual Transcript
-[1]
-[1] Oct 2, 2025 | 12:00 PM
-[1]
-[1] Moderator: Elsie, so yeah, nice to meet you. I really apologize for any of the stress caused by the technology challenges. It can be really frustrating when the technology doesn't cooperate.
-[1]
-[1] Respondent: Exactly. It's okay.
-[1]
-[1] Moderator: Good. Well, thank you. By any chance, do you have a little bit of extra time if we need to go over?
-[1]
-[1] Respondent: Not too much. Just that we're starting at, like, you know? I don't know. We'll tr
-[1] Extracted date/time from transcript: { date: 'Oct 2, 2025', time: '12:00 PM' }
-[1] === SKIPPING TRANSCRIPT CLEANING - DIRECTLY POPULATING CA ===
-[1] === STARTING MAIN TRANSCRIPT PROCESSING ===
-[1] ⏱️  Directly populating CA cells from raw transcript...
-[1] 🔄 Attempt 1/3: Calling OpenAI API with gpt-4o...
-[1] 🔍 Raw AI response (first 500 chars): {
-[1]   "rows": {
-[1]     "Demographics": {
-[1]       "New Column 23": "",
-[1]       "New Column 22": "",
-[1]       "New Column 21": "",
-[1]       "New Column 20": "",
-[1]       "New Column 19": "",
-[1]       "New Column 18": "",
-[1]       "New Column 17": "",
-[1]       "New Column 16": "",
-[1]       "New Column 15": "",
-[1]       "New Column 14": "",
-[1]       "New Column 13": "",
-[1]       "New Column 12": "",
-[1]       "New Column 11": "",
-[1]       "New Column 10": "",
-[1]       "New Column 9": "",
-[1]       "New Column 8": "",
-[1]       "New Column 7": "",
-[1]       "N
-[1] 🔍 Raw AI response (last 500 chars): on Sources": [
-[1]         "This said group, SMA Cares."
-[1]       ],
-[1]       "Untrusted Information Sources": [],
-[1]       "Discovery of New Treatments": [
-[1]         "No. I'm not."
-[1]       ],
-[1]       "Preferred Information Format": [],
-[1]       "Improving Information Accessibility": [
-[1]         "They should keep in mind that the cost is prohibitive."
-[1]       ]
-[1]     },
-[1]     "Misc.": {
-[1]       "Final Comments": [
-[1]         "They should keep in mind that the cost is prohibitive."
-[1]       ],
-[1]       "Additional Notes": []
-[1]     }
-[1]   }
-[1] }
-[1] ✅ Successfully parsed JSON on attempt 1
-[1] 🔍 Parsed JSON structure: {
-[1]   hasRows: true,
-[1]   hasContext: true,
-[1]   rowsKeys: [
+[1] 🔍 Final processing for CA 1760120323941: {
+[1]   projectId: 'P-1759172819869',
+[1]   name: 'test2',
+[1]   respondentCount: 4,
+[1]   dataKeys: [
 [1]     'Demographics',
 [1]     'BACKGROUND',
 [1]     'CURRENT PERCEPTIONS & ATTITUDES',
@@ -1084,310 +92,53 @@ Press Ctrl+C to stop both servers
 [1]     'COMMUNITY ENGAGEMENT & INFO SOURCES',
 [1]     'Misc.'
 [1]   ],
-[1]   contextKeys: [
-[1]     'Demographics',
-[1]     'BACKGROUND',
-[1]     'CURRENT PERCEPTIONS & ATTITUDES',
-[1]     'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]     'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]     'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]     'Misc.'
+[1]   foundFullProject: true
+[1] }
+[1] 🔍 Final Result: {
+[1]   projectsWithCA: 1,
+[1]   projects: [
+[1]     {
+[1]       id: 'P-1759172819869',
+[1]       name: '2025 SMA Adult Activation Qual test',
+[1]       respondentCount: 4,
+[1]       analysisId: '1760120323941'
+[1]     }
 [1]   ]
 [1] }
-[1]   📝 AI returned context for sheet "Demographics": 0 columns with data
-[1]   📝 AI returned context for sheet "BACKGROUND": 16 columns with data
-[1]   📝 AI returned context for sheet "CURRENT PERCEPTIONS & ATTITUDES": 13 columns with data
-[1]   📝 AI returned context for sheet "BARRIERS TO TREATMENT & UNMET NEEDS": 9 columns with data
-[1]   📝 AI returned context for sheet "MOTIVATIONS & FUTURE CONSIDERATION": 5 columns with data
-[1]   📝 AI returned context for sheet "COMMUNITY ENGAGEMENT & INFO SOURCES": 7 columns with data
-[1]   📝 AI returned context for sheet "Misc.": 1 columns with data
-[1] 🤖 AI RAW RESPONSE - Top-level keys: [ 'rows', 'context' ]
-[1] 🤖 AI RAW RESPONSE - Sheets returned: [
-[1]   'Demographics',
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1] 🤖 AI RAW RESPONSE - Has context?: true Keys: [
-[1]   'Demographics',
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1] 🔍 Sample context from "Demographics"."New Column 23": []
-[1] 🤖 AI returned data for sheets: [
-[1]   'Demographics',
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1]   📊 Sheet "Demographics": 0/23 columns filled
-[1]   📊 Sheet "BACKGROUND": 16/16 columns filled
-[1]      Filled columns: Living Situation, Free Time Activities, Journey with SMA, Current Health Description, HCPs forSMA Care, Reasons for Not Seeing HCPs, Current SMA Management, Number of HCPs, HCP Involvement in Treatment Decisions, Primary SMA Doctor, Others Involved in Health Decisions, Support System Involvement, Comfort in Making Treatment Decisions, Health Goals - Short-term, Health Goals - Long-term, Personal Aspirations
-[1]   📊 Sheet "CURRENT PERCEPTIONS & ATTITUDES": 13/23 columns filled
-[1]      Filled columns: Treatments Awareness, Treatments Experience, Insurance Coverage Impact, Impressions of UntakenTreatment, Information Source for Untaken Treatment, Consideration of Untaken Treatment, Discussion with HCP about Untaken Treatment, Impact of HCP on Untaken Treatment Decision, Discussion with Others about Untaken Treatment, Consideration of Future Treatment, Drivers for Future Treatment Consideration, Candidate for Future Treatment, Awareness of Treatments in Development
-[1]   📊 Sheet "BARRIERS TO TREATMENT & UNMET NEEDS": 9/12 columns filled
-[1]      Filled columns: Reasons for Not Being on Treatment, Factors Driving Treatment Consideration, Discussion with HCP about Treatment Need, Emotional Factors, Practical or Logistical Factors, Treatment Benefit Requirement, Challenges in Accessing Treatment, Unmet Needs, Most Important Unmet Need
-[1]   📊 Sheet "MOTIVATIONS & FUTURE CONSIDERATION": 5/5 columns filled
-[1]      Filled columns: Likelihood of Future Treatment Consideration, Factors Influencing Future Consideration, Expected Improvements from Treatment, Influential Decision Makers, Confidence Factors in Treatment Decision
-[1]   📊 Sheet "COMMUNITY ENGAGEMENT & INFO SOURCES": 7/9 columns filled
-[1]      Filled columns: Connection to SMA Community, Participation in SMA Groups, Reasons for Non-involvement in SMA Communities, Information Sources on SMA, Trusted Information Sources, Discovery of New Treatments, Improving Information Accessibility
-[1]   📊 Sheet "Misc.": 1/2 columns filled
-[1]      Filled columns: Final Comments
-[1] 📤 Returning context for sheets: [
-[1]   'Demographics',
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1]   📝 Sheet "Demographics": 0 columns with context
-[1]   📝 Sheet "BACKGROUND": 16 columns with context
-[1]   📝 Sheet "CURRENT PERCEPTIONS & ATTITUDES": 11 columns with context
-[1]   📝 Sheet "BARRIERS TO TREATMENT & UNMET NEEDS": 9 columns with context
-[1]   📝 Sheet "MOTIVATIONS & FUTURE CONSIDERATION": 5 columns with context
-[1]   📝 Sheet "COMMUNITY ENGAGEMENT & INFO SOURCES": 6 columns with context
-[1]   📝 Sheet "Misc.": 1 columns with context
-[1]
-[1] ✅ Context validation: 85/85 context blocks populated
-[1] Using existing respno from transcript: R02
-[1] === MAIN TRANSCRIPT PROCESSING COMPLETED ===
-[1] ⏱️  Processing complete
-[1] === UPDATING DEMOGRAPHICS WITH DATE/TIME ===
-[1] Date/Time info to apply: { date: 'Oct 2, 2025', time: '12:00 PM' }
-[1] Demographics sheet exists: true
-[1] Demographics sheet length: 2
-[1] Last row columns: [
-[1]   'Respondent ID',  'Interview Date',
-[1]   'New Column 23',  'New Column 22',
-[1]   'New Column 21',  'New Column 20',
-[1]   'New Column 19',  'New Column 18',
-[1]   'New Column 17',  'New Column 16',
-[1]   'New Column 15',  'New Column 14',
-[1]   'New Column 13',  'New Column 12',
-[1]   'New Column 11',  'New Column 10',
-[1]   'New Column 9',   'New Column 8',
-[1]   'New Column 7',   'New Column 6',
-[1]   'Interview Time', 'New Column 5',
-[1]   'New Column 4',   'New Column 3',
-[1]   'New Column 2',   'New Column 1',
-[1]   'respno'
-[1] ]
-[1] Has Date column: false
-[1] Has Time (ET) column: false
-[1] Setting Interview Date to: Oct 2, 2025
-[1] Setting Interview Time to: 12:00 PM
-[1] Updated Demographics with date/time: {
-[1]   dateColumn: 'Interview Date',
-[1]   timeColumn: 'Interview Time',
-[1]   dateValue: 'Oct 2, 2025',
-[1]   timeValue: '12:00 PM'
+[1] 🔍 CA File Debug: {
+[1]   caPath: 'C:\\Users\\LukeBorglin\\Desktop\\Apps\\JaiceDashboard_master\\server\\data\\savedAnalyses.json',
+[1]   fileExists: true
 [1] }
-[1] Updated transcript record with correct date/time: {
-[1]   transcriptId: 'T-1760127610454',
-[1]   date: 'Oct 2, 2025',
-[1]   time: '12:00 PM'
+[1] 🔍 CA File Content Length: 160440
+[1] 🔍 CA Data Structure Debug: {
+[1]   totalAnalyses: 1,
+[1]   isArray: true,
+[1]   analyses: [
+[1]     {
+[1]       id: '1760120323941',
+[1]       projectId: 'P-1759172819869',
+[1]       name: 'test2',
+[1]       hasData: true,
+[1]       hasQuotes: true,
+[1]       hasVerbatimQuotes: true,
+[1]       dataKeys: [Array]
+[1]     }
+[1]   ]
 [1] }
-[1] Transcript record updated successfully
-[1] Checking if analysisId exists for context saving: 1760120323941
-[1] AnalysisId found, looking for analysis in savedAnalyses
-[1] Found analysis at index: 0
-[1] Original context keys: []
-[1] Existing saved context keys: [
-[1]   'Demographics',
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1] Merged context keys: [
-[1]   'Demographics',
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1] Added transcript tracking: T-1760127610454 -> R02 with paths
-[1] Persisted updated analysis 1760120323941 with quotes and context
-[1] Context keys saved: [
-[1]   'Demographics',
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1] Transcript file available for download: uploads\existing_1760127680515_original_1760127610454_2025 SMA Adult Activation Qual Transcript_Oct 2 2025_1200pm.docx
-[1] Transcript processing completed successfully
-[1] Extracted respno: R02
-[1] 📤 About to send response with context: {
-[1]   Demographics: {
-[1]     R02: {
-[1]       'Respondent ID': [],
-[1]       'Interview Date': [],
-[1]       'New Column 23': [],
-[1]       'New Column 22': [],
-[1]       'New Column 21': [],
-[1]       'New Column 20': [],
-[1]       'New Column 19': [],
-[1]       'New Column 18': [],
-[1]       'New Column 17': [],
-[1]       'New Column 16': [],
-[1]       'New Column 15': [],
-[1]       'New Column 14': [],
-[1]       'New Column 13': [],
-[1]       'New Column 12': [],
-[1]       'New Column 11': [],
-[1]       'New Column 10': [],
-[1]       'New Column 9': [],
-[1]       'New Column 8': [],
-[1]       'New Column 7': [],
-[1]       'New Column 6': [],
-[1]       'Interview Time': [],
-[1]       'New Column 5': [],
-[1]       'New Column 4': [],
-[1]       'New Column 3': [],
-[1]       'New Column 2': [],
-[1]       'New Column 1': []
-[1]     }
-[1]   },
-[1]   BACKGROUND: {
-[1]     R02: {
-[1]       'Respondent ID': [],
-[1]       'Living Situation': [Array],
-[1]       'Free Time Activities': [Array],
-[1]       'Journey with SMA': [Array],
-[1]       'Current Health Description': [Array],
-[1]       'HCPs for SMA Care': [Array],
-[1]       'Reasons for Not Seeing HCPs': [Array],
-[1]       'Current SMA Management': [Array],
-[1]       'Number of HCPs': [Array],
-[1]       'HCP Involvement in Treatment Decisions': [Array],
-[1]       'Primary SMA Doctor': [Array],
-[1]       'Others Involved in Health Decisions': [Array],
-[1]       'Support System Involvement': [Array],
-[1]       'Comfort in Making Treatment Decisions': [Array],
-[1]       'Health Goals - Short-term': [Array],
-[1]       'Health Goals - Long-term': [Array],
-[1]       'Personal Aspirations': [Array]
-[1]     }
-[1]   },
-[1]   'CURRENT PERCEPTIONS & ATTITUDES': {
-[1]     R02: {
-[1]       'Respondent ID': [],
-[1]       'Treatments Awareness': [Array],
-[1]       'Treatments Experience': [],
-[1]       'Benefits of Discontinued Treatment': [],
-[1]       'Drawbacks of Discontinued Treatment': [],
-[1]       'Reasons for Discontinuation': [],
-[1]       'Life Changes Impact on Discontinuation': [],
-[1]       'Insurance Coverage Impact': [Array],
-[1]       'Restarting Treatment Consideration': [],
-[1]       'Impressions of Untaken Treatment': [Array],
-[1]       'Information Source for Untaken Treatment': [Array],
-[1]       'Consideration of Untaken Treatment': [Array],
-[1]       'Discussion with HCP about Untaken Treatment': [Array],
-[1]       'Impact of HCP on Untaken Treatment Decision': [Array],
-[1]       'Discussion with Others about Untaken Treatment': [Array],
-[1]       'Consideration of Future Treatment': [Array],
-[1]       'Drivers for Future Treatment Consideration': [Array],
-[1]       'Candidate for Future Treatment': [Array],
-[1]       'Awareness of Treatments in Development': [],
-[1]       'Impressions of Treatments in Development': [],
-[1]       'Candidate for Treatments in Development': [],
-[1]       'Consideration of Treatments in Development': [],
-[1]       'Drivers for Consideration of Treatments in Development': [],
-[1]       'Hesitations for Treatments in Development': []
-[1]     }
-[1]   },
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS': {
-[1]     R02: {
-[1]       'Respondent ID': [],
-[1]       'Reasons for Not Being on Treatment': [Array],
-[1]       'Factors Driving Treatment Consideration': [Array],
-[1]       'Symptom Tracking Frequency': [],
-[1]       'Symptom Tracking Methods': [],
-[1]       'Discussion with HCP about Treatment Need': [Array],
-[1]       'Emotional Factors': [Array],
-[1]       'Practical or Logistical Factors': [Array],
-[1]       'Clinical Factors': [],
-[1]       'Treatment Benefit Requirement': [Array],
-[1]       'Challenges in Accessing Treatment': [Array],
-[1]       'Unmet Needs': [Array],
-[1]       'Most Important Unmet Need': [Array]
-[1]     }
-[1]   },
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION': {
-[1]     R02: {
-[1]       'Respondent ID': [],
-[1]       'Likelihood of Future Treatment Consideration': [Array],
-[1]       'Factors Influencing Future Consideration': [Array],
-[1]       'Expected Improvements from Treatment': [Array],
-[1]       'Influential Decision Makers': [Array],
-[1]       'Confidence Factors in Treatment Decision': [Array]
-[1]     }
-[1]   },
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES': {
-[1]     R02: {
-[1]       'Respondent ID': [],
-[1]       'Connection to SMA Community': [Array],
-[1]       'Participation in SMA Groups': [Array],
-[1]       'Reasons for Non-involvement in SMA Communities': [Array],
-[1]       'Information Sources on SMA': [Array],
-[1]       'Trusted Information Sources': [Array],
-[1]       'Untrusted Information Sources': [],
-[1]       'Discovery of New Treatments': [],
-[1]       'Preferred Information Format': [],
-[1]       'Improving Information Accessibility': [Array]
-[1]     }
-[1]   },
-[1]   'Misc.': {
-[1]     R02: {
-[1]       'Respondent ID': [],
-[1]       'Final Comments': [Array],
-[1]       'Additional Notes': []
-[1]     }
-[1]   }
-[1] }
-[1] 📤 Context keys: [
-[1]   'Demographics',
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1] 📤 Sheet "Demographics" context columns: [ 'R02' ]
-[1] 📤 Sheet "BACKGROUND" context columns: [ 'R02' ]
-[1] 📤 Sheet "CURRENT PERCEPTIONS & ATTITUDES" context columns: [ 'R02' ]
-[1] 📤 Sheet "BARRIERS TO TREATMENT & UNMET NEEDS" context columns: [ 'R02' ]
-[1] 📤 Sheet "MOTIVATIONS & FUTURE CONSIDERATION" context columns: [ 'R02' ]
-[1] 📤 Sheet "COMMUNITY ENGAGEMENT & INFO SOURCES" context columns: [ 'R02' ]
-[1] 📤 Sheet "Misc." context columns: [ 'R02' ]
-[1] 📝 PUT /update request received
-[1] 📋 Update request data: {
-[1]   id: '1760120323941',
+[1] 🔍 Projects file path: C:\Users\LukeBorglin\Desktop\Apps\JaiceDashboard_master\server\data\projects.json
+[1] 🔍 Projects data loaded: 2 users
+[1] 🔍 CA Item 1760120323941 (test2): {
+[1]   projectId: 'P-1759172819869',
 [1]   hasData: true,
-[1]   hasQuotes: true,
-[1]   hasContext: true,
-[1]   contextKeys: [
+[1]   respondentCount: 4,
+[1]   hasRespondents: true,
+[1]   willInclude: true
+[1] }
+[1] 🔍 Final processing for CA 1760120323941: {
+[1]   projectId: 'P-1759172819869',
+[1]   name: 'test2',
+[1]   respondentCount: 4,
+[1]   dataKeys: [
 [1]     'Demographics',
 [1]     'BACKGROUND',
 [1]     'CURRENT PERCEPTIONS & ATTITUDES',
@@ -1396,10 +147,51 @@ Press Ctrl+C to stop both servers
 [1]     'COMMUNITY ENGAGEMENT & INFO SOURCES',
 [1]     'Misc.'
 [1]   ],
-[1]   transcriptCount: 1
+[1]   foundFullProject: true
 [1] }
-[1] ✅ Found analysis at index: 0
-[1] 💾 Saving context for analysis 1760120323941 with keys: [
+[1] 🔍 Final Result: {
+[1]   projectsWithCA: 1,
+[1]   projects: [
+[1]     {
+[1]       id: 'P-1759172819869',
+[1]       name: '2025 SMA Adult Activation Qual test',
+[1]       respondentCount: 4,
+[1]       analysisId: '1760120323941'
+[1]     }
+[1]   ]
+[1] }
+[1] 🔍 ContentAnalysisX route hit: GET /saved
+[1] 🔍 Loading storytelling data for project: { projectId: 'P-1759172819869', analysisId: '1760120323941' }
+[1] 🔍 Loading storytelling data: {
+[1]   projectId: 'P-1759172819869',
+[1]   analysisId: '1760120323941',
+[1]   key: 'P-1759172819869-1760120323941',
+[1]   availableKeys: [ 'P-1759172819869-1760120323941', 'P-1759172819869' ]
+[1] }
+[1] 🔍 Loaded project data keys: [
+[1]   'strategicQuestions',
+[1]   'keyFindings',
+[1]   'storyboards',
+[1]   'chatHistory',
+[1]   'quotesCache',
+[1]   'dynamicReport',
+[1]   'reportData'
+[1] ]
+[1] 🔍 Report data in loaded data: true
+[1] 🔍 Report data slides count in loaded data: 9
+[1] 🔍 Loaded storytelling data keys: [
+[1]   'strategicQuestions',
+[1]   'keyFindings',
+[1]   'storyboards',
+[1]   'chatHistory',
+[1]   'quotesCache',
+[1]   'dynamicReport',
+[1]   'reportData'
+[1] ]
+[1] 🔍 Report data exists: true
+[1] 🔍 Report data slides count: 9
+[1] 🔍 ContentAnalysisX route hit: GET /saved/1760120323941
+[1] 📖 Loading analysis 1760120323941, context keys: [
 [1]   'Demographics',
 [1]   'BACKGROUND',
 [1]   'CURRENT PERCEPTIONS & ATTITUDES',
@@ -1408,59 +200,407 @@ Press Ctrl+C to stop both servers
 [1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
 [1]   'Misc.'
 [1] ]
-[1] 💾 Saving analysis to file...
-[1] ✅ Analysis saved successfully
-[1] Getting verbatim quotes for R02 - Free Time Activities in BACKGROUND
-[1] Looking for transcript for respondent: R02
-[1] Available transcripts in analysis: [
-[1]   {
-[1]     id: '1760127806804',
-[1]     respno: 'R02',
-[1]     sourceTranscriptId: 'T-1760127610454',
-[1]     hasOriginalPath: false,
-[1]     hasCleanedPath: false
-[1]   }
-[1] ]
-[1] Found transcript: {
-[1]   id: '1760127806804',
-[1]   respno: 'R02',
-[1]   originalPath: undefined,
-[1]   cleanedPath: undefined,
-[1]   isCleaned: undefined
+[1] 📖 Sheet "Demographics" has context for respondents: [ 'R02' ]
+[1] 📖 Sheet "BACKGROUND" has context for respondents: [ 'R02' ]
+[1] 📖 Sheet "CURRENT PERCEPTIONS & ATTITUDES" has context for respondents: [ 'R02' ]
+[1] 📖 Sheet "BARRIERS TO TREATMENT & UNMET NEEDS" has context for respondents: [ 'R02' ]
+[1] 📖 Sheet "MOTIVATIONS & FUTURE CONSIDERATION" has context for respondents: [ 'R02' ]
+[1] 📖 Sheet "COMMUNITY ENGAGEMENT & INFO SOURCES" has context for respondents: [ 'R02' ]
+[1] 📖 Sheet "Misc." has context for respondents: [ 'R02' ]
+[1] 🔍 Loading storytelling data for project: { projectId: 'P-1759172819869', analysisId: '1760120323941' }
+[1] 🔍 Loading storytelling data: {
+[1]   projectId: 'P-1759172819869',
+[1]   analysisId: '1760120323941',
+[1]   key: 'P-1759172819869-1760120323941',
+[1]   availableKeys: [ 'P-1759172819869-1760120323941', 'P-1759172819869' ]
 [1] }
-[1] Getting verbatim quotes for R02 - Free Time Activities in BACKGROUND
-[1] Looking for transcript for respondent: R02
-[1] Available transcripts in analysis: [
-[1]   {
-[1]     id: '1760127806804',
-[1]     respno: 'R02',
-[1]     sourceTranscriptId: 'T-1760127610454',
-[1]     hasOriginalPath: false,
-[1]     hasCleanedPath: false
-[1]   }
+[1] 🔍 Loaded project data keys: [
+[1]   'strategicQuestions',
+[1]   'keyFindings',
+[1]   'storyboards',
+[1]   'chatHistory',
+[1]   'quotesCache',
+[1]   'dynamicReport',
+[1]   'reportData'
 [1] ]
-[1] Found transcript: {
-[1]   id: '1760127806804',
-[1]   respno: 'R02',
-[1]   originalPath: undefined,
-[1]   cleanedPath: undefined,
-[1]   isCleaned: undefined
-[1] }
-[1] Getting verbatim quotes for R02 - Free Time Activities in BACKGROUND
-[1] Looking for transcript for respondent: R02
-[1] Available transcripts in analysis: [
-[1]   {
-[1]     id: '1760127806804',
-[1]     respno: 'R02',
-[1]     sourceTranscriptId: 'T-1760127610454',
-[1]     hasOriginalPath: false,
-[1]     hasCleanedPath: false
-[1]   }
+[1] 🔍 Report data in loaded data: true
+[1] 🔍 Report data slides count in loaded data: 9
+[1] 🔍 Loaded storytelling data keys: [
+[1]   'strategicQuestions',
+[1]   'keyFindings',
+[1]   'storyboards',
+[1]   'chatHistory',
+[1]   'quotesCache',
+[1]   'dynamicReport',
+[1]   'reportData'
 [1] ]
-[1] Found transcript: {
-[1]   id: '1760127806804',
-[1]   respno: 'R02',
-[1]   originalPath: undefined,
-[1]   cleanedPath: undefined,
-[1]   isCleaned: undefined
+[1] 🔍 Report data exists: true
+[1] 🔍 Report data slides count: 9
+[1] 📝 Strategic questions update: {
+[1]   projectId: 'P-1759172819869',
+[1]   analysisId: '1760120323941',
+[1]   questionsCount: 7
 [1] }
+[1] 🔍 Loading storytelling data: {
+[1]   projectId: 'P-1759172819869',
+[1]   analysisId: '1760120323941',
+[1]   key: 'P-1759172819869-1760120323941',
+[1]   availableKeys: [ 'P-1759172819869-1760120323941', 'P-1759172819869' ]
+[1] }
+[1] 🔍 Loaded project data keys: [
+[1]   'strategicQuestions',
+[1]   'keyFindings',
+[1]   'storyboards',
+[1]   'chatHistory',
+[1]   'quotesCache',
+[1]   'dynamicReport',
+[1]   'reportData'
+[1] ]
+[1] 🔍 Report data in loaded data: true
+[1] 🔍 Report data slides count in loaded data: 9
+[1] 💾 Saving storytelling data: {
+[1]   projectId: 'P-1759172819869',
+[1]   analysisId: '1760120323941',
+[1]   key: 'P-1759172819869-1760120323941',
+[1]   strategicQuestionsCount: 7,
+[1]   hasReportData: true,
+[1]   reportDataSlidesCount: 9
+[1] }
+[1] ✅ Storytelling data saved to file successfully
+[1] 🔍 getTranscriptsText debug: {
+[1]   projectId: 'P-1759172819869',
+[1]   analysisId: '1760120323941',
+[1]   totalProjectTranscripts: 5,
+[1]   transcriptAnalysisIds: [ undefined, undefined, undefined, undefined, undefined ]
+[1] }
+[1] 🔍 No transcripts found with analysisId, using all transcripts as fallback
+[1] 🔍 Transcript filtering: {
+[1]   analysisId: '1760120323941',
+[1]   beforeFilter: 5,
+[1]   afterFilter: 5,
+[1]   filteredTranscripts: [
+[1]     { id: 'T-1760127394039', analysisId: undefined, respno: 'R01' },
+[1]     { id: 'T-1760127610454', analysisId: undefined, respno: 'R02' },
+[1]     { id: 'T-1760535791607', analysisId: undefined, respno: 'R03' },
+[1]     { id: 'T-1760536656799', analysisId: undefined, respno: 'R04' },
+[1]     { id: 'T-1760539977158', analysisId: undefined, respno: 'R05' }
+[1]   ]
+[1] }
+[1] 🔍 getTranscriptsText result: {
+[1]   projectId: 'P-1759172819869',
+[1]   analysisId: '1760120323941',
+[1]   finalTranscriptCount: 5,
+[1]   combinedTextLength: 187983,
+[1]   hasContent: true
+[1] }
+[1] 🔍 CA Data Debug: {
+[1]   projectId: 'P-1759172819869',
+[1]   totalAnalyses: 1,
+[1]   foundProject: true,
+[1]   hasData: true,
+[1]   hasQuotes: true,
+[1]   hasVerbatimQuotes: true,
+[1]   dataKeys: [
+[1]     'Demographics',
+[1]     'BACKGROUND',
+[1]     'CURRENT PERCEPTIONS & ATTITUDES',
+[1]     'BARRIERS TO TREATMENT & UNMET NEEDS',
+[1]     'MOTIVATIONS & FUTURE CONSIDERATION',
+[1]     'COMMUNITY ENGAGEMENT & INFO SOURCES',
+[1]     'Misc.'
+[1]   ],
+[1]   quotesKeys: []
+[1] }
+[1] 💰 Cost Estimation Debug: {
+[1]   operationType: 'qa',
+[1]   originalTranscriptLength: 187983,
+[1]   originalCADataLength: 68063,
+[1]   inputTextLength: 30014,
+[1]   inputTokens: 7504,
+[1]   outputTokens: 2702,
+[1]   totalCost: '0.0458'
+[1] }
+[1] 🔍 getTranscriptsText debug: {
+[1]   projectId: 'P-1759172819869',
+[1]   analysisId: '1760120323941',
+[1]   totalProjectTranscripts: 5,
+[1]   transcriptAnalysisIds: [ undefined, undefined, undefined, undefined, undefined ]
+[1] }
+[1] 🔍 No transcripts found with analysisId, using all transcripts as fallback
+[1] 🔍 Transcript filtering: {
+[1]   analysisId: '1760120323941',
+[1]   beforeFilter: 5,
+[1]   afterFilter: 5,
+[1]   filteredTranscripts: [
+[1]     { id: 'T-1760127394039', analysisId: undefined, respno: 'R01' },
+[1]     { id: 'T-1760127610454', analysisId: undefined, respno: 'R02' },
+[1]     { id: 'T-1760535791607', analysisId: undefined, respno: 'R03' },
+[1]     { id: 'T-1760536656799', analysisId: undefined, respno: 'R04' },
+[1]     { id: 'T-1760539977158', analysisId: undefined, respno: 'R05' }
+[1]   ]
+[1] }
+[1] 🔍 getTranscriptsText result: {
+[1]   projectId: 'P-1759172819869',
+[1]   analysisId: '1760120323941',
+[1]   finalTranscriptCount: 5,
+[1]   combinedTextLength: 187983,
+[1]   hasContent: true
+[1] }
+[1] 🔍 CA Data Debug: {
+[1]   projectId: 'P-1759172819869',
+[1]   totalAnalyses: 1,
+[1]   foundProject: true,
+[1]   hasData: true,
+[1]   hasQuotes: true,
+[1]   hasVerbatimQuotes: true,
+[1]   dataKeys: [
+[1]     'Demographics',
+[1]     'BACKGROUND',
+[1]     'CURRENT PERCEPTIONS & ATTITUDES',
+[1]     'BARRIERS TO TREATMENT & UNMET NEEDS',
+[1]     'MOTIVATIONS & FUTURE CONSIDERATION',
+[1]     'COMMUNITY ENGAGEMENT & INFO SOURCES',
+[1]     'Misc.'
+[1]   ],
+[1]   quotesKeys: []
+[1] }
+[1] 💰 Cost Estimation Debug: {
+[1]   operationType: 'qa',
+[1]   originalTranscriptLength: 187983,
+[1]   originalCADataLength: 68063,
+[1]   inputTextLength: 30014,
+[1]   inputTokens: 7504,
+[1]   outputTokens: 2702,
+[1]   totalCost: '0.0458'
+[1] }
+[1] 🔍 Loading storytelling data: {
+[1]   projectId: 'P-1759172819869',
+[1]   analysisId: '1760120323941',
+[1]   key: 'P-1759172819869-1760120323941',
+[1]   availableKeys: [ 'P-1759172819869-1760120323941', 'P-1759172819869' ]
+[1] }
+[1] 🔍 Loaded project data keys: [
+[1]   'strategicQuestions',
+[1]   'keyFindings',
+[1]   'storyboards',
+[1]   'chatHistory',
+[1]   'quotesCache',
+[1]   'dynamicReport',
+[1]   'reportData'
+[1] ]
+[1] 🔍 Report data in loaded data: true
+[1] 🔍 Report data slides count in loaded data: 9
+[1] 🔍 getTranscriptsText debug: {
+[1]   projectId: 'P-1759172819869',
+[1]   analysisId: '1760120323941',
+[1]   totalProjectTranscripts: 5,
+[1]   transcriptAnalysisIds: [ undefined, undefined, undefined, undefined, undefined ]
+[1] }
+[1] 🔍 No transcripts found with analysisId, using all transcripts as fallback
+[1] 🔍 Transcript filtering: {
+[1]   analysisId: '1760120323941',
+[1]   beforeFilter: 5,
+[1]   afterFilter: 5,
+[1]   filteredTranscripts: [
+[1]     { id: 'T-1760127394039', analysisId: undefined, respno: 'R01' },
+[1]     { id: 'T-1760127610454', analysisId: undefined, respno: 'R02' },
+[1]     { id: 'T-1760535791607', analysisId: undefined, respno: 'R03' },
+[1]     { id: 'T-1760536656799', analysisId: undefined, respno: 'R04' },
+[1]     { id: 'T-1760539977158', analysisId: undefined, respno: 'R05' }
+[1]   ]
+[1] }
+[1] 🔍 getTranscriptsText result: {
+[1]   projectId: 'P-1759172819869',
+[1]   analysisId: '1760120323941',
+[1]   finalTranscriptCount: 5,
+[1]   combinedTextLength: 187983,
+[1]   hasContent: true
+[1] }
+[1] 🔍 CA Data Debug: {
+[1]   projectId: 'P-1759172819869',
+[1]   totalAnalyses: 1,
+[1]   foundProject: true,
+[1]   hasData: true,
+[1]   hasQuotes: true,
+[1]   hasVerbatimQuotes: true,
+[1]   dataKeys: [
+[1]     'Demographics',
+[1]     'BACKGROUND',
+[1]     'CURRENT PERCEPTIONS & ATTITUDES',
+[1]     'BARRIERS TO TREATMENT & UNMET NEEDS',
+[1]     'MOTIVATIONS & FUTURE CONSIDERATION',
+[1]     'COMMUNITY ENGAGEMENT & INFO SOURCES',
+[1]     'Misc.'
+[1]   ],
+[1]   quotesKeys: []
+[1] }
+[1] [Cost Tracking] Logged $0.2680 for project P-1759172819869 - Storytelling
+[1] 🔄 Generating real verbatim quotes for storyboard slides...
+[1] 📝 Generating quotes for slide 3: Patient Independence and Quality of Life
+[1] AI response for slide quotes: ```json
+[1] {
+[1]   "quotes": [
+[1]     {
+[1]       "text": "R01: I really value being able to do things on my own. It's important for me to maintain my independence, especially when it comes to managing my daily activities.",
+[1]       "respno": "R01"
+[1]     },
+[1]     {
+[1]       "text": "R02: For me, being independent means I can manage my health and my career without relying too much on others. It's a big part of how I define my success.",
+[1]       "respno": "R02"
+[1]     }
+[1]   ]
+[1] }
+[1] ```
+[1] [Cost Tracking] Logged $0.0341 for project P-1759172819869 - Storytelling
+[1] ✅ Generated 2 real quotes for slide 3
+[1] 📝 Generating quotes for slide 4: Barriers to Healthcare Access
+[1] AI response for slide quotes: ```json
+[1] {
+[1]   "quotes": [
+[1]     {
+[1]       "text": "R01: The cost of the treatment is just too high for many families. Even with insurance, the out-of-pocket expenses can be overwhelming. It's a huge deterrent for those considering treatment options.",
+[1]       "respno": "R01"
+[1]     },
+[1]     {
+[1]       "text": "R01: Navigating the insurance process is a nightmare. There are so many administrative hurdles to jump through, and it often feels like the system is set up to deny access rather than facilitate it.",
+[1]
+[1] [Cost Tracking] Logged $0.0350 for project P-1759172819869 - Storytelling
+[1] ✅ Generated 3 real quotes for slide 4
+[1] 📝 Generating quotes for slide 5: Healthcare Provider Interactions
+[1] AI response for slide quotes: ```json
+[1] {
+[1]   "quotes": [
+[1]     {
+[1]       "text": "R02: I feel like my neurologist is always in a rush. I barely get to ask my questions before they'reout the door. It's frustrating because I don't feel like I'm getting the attention I need.",
+[1]       "respno": "R02"
+[1]     },
+[1]     {
+[1]       "text": "R03: My primary care physician doesn't seem very involved in my care. I often leave appointments feeling like nothing was really addressed.",
+[1]       "respno": "R03"
+[1]     },
+[1]     {
+[1]       "text": "R04: Elsie mentione
+[1] [Cost Tracking] Logged $0.0349 for project P-1759172819869 - Storytelling
+[1] ✅ Generated 3 real quotes for slide 5
+[1] 📝 Generating quotes for slide 6: Opportunities for Treatment Improvement
+[1] AI response for slide quotes: ```json
+[1] {
+[1]   "quotes": [
+[1]     {
+[1]       "text": "R01: One of the biggest challenges I face is the cost of treatment. It's really hard to keep up withthe expenses, and sometimes I have to choose between paying for my medication or other essentials. If there were financial assistance programs, it would make a huge difference for people like me.",
+[1]       "respno": "R01"
+[1]     },
+[1]     {
+[1]       "text": "R02: The administrative side of managing my treatment is overwhelming. There are so many forms and approva
+[1] [Cost Tracking] Logged $0.0356 for project P-1759172819869 - Storytelling
+[1] ✅ Generated 3 real quotes for slide 6
+[1] 📝 Generating quotes for slide 7: Patient Experiences with Evrysdi
+[1] AI response for slide quotes: ```json
+[1] {
+[1]   "quotes": [
+[1]     {
+[1]       "text": "R01: I used to find the liquid form of Evrysdi quite inconvenient. It required precise measurements and sometimes I worried about spilling it or not getting the dosage right.",
+[1]       "respno": "R01"
+[1]     },
+[1]     {
+[1]       "text": "R02: The new tablet form of Evrysdi seems like it could be a real improvement. It's easier to take and I don't have to worry about measuring it out.",
+[1]       "respno": "R02"
+[1]     },
+[1]     {
+[1]       "text": "R03: Communication about ho
+[1] [Cost Tracking] Logged $0.0348 for project P-1759172819869 - Storytelling
+[1] ✅ Generated 3 real quotes for slide 7
+[1] 📝 Generating quotes for slide 8: Patient Support Systems
+[1] AI response for slide quotes: ```json
+[1] {
+[1]   "quotes": [
+[1]     {
+[1]       "text": "R01: My husband is really involved in all the health discussions and decisions. We always talk things through together, and he helps me understand the medical jargon.",
+[1]       "respno": "R01"
+[1]     },
+[1]     {
+[1]       "text": "R02: I manage my health independently, but I know my family is always there if I need them. They arevery supportive and always check in on me.",
+[1]       "respno": "R02"
+[1]     }
+[1]   ]
+[1] }
+[1] ```
+[1] [Cost Tracking] Logged $0.0340 for project P-1759172819869 - Storytelling
+[1] ✅ Generated 2 real quotes for slide 8
+[1] 📝 Generating quotes for slide 9: Long-term Health Goals
+[1] AI response for slide quotes: ```json
+[1] {
+[1]   "quotes": [
+[1]     {
+[1]       "text": "R01: I really want to keep doing things on my own as much as possible. It's important for me to maintain my independence, even with the challenges of SMA.",
+[1]       "respno": "R01"
+[1]     },
+[1]     {
+[1]       "text": "R02: Managing my symptoms effectively is key. I focus on what I can do to stay healthy and maintain my current health status. It's all about sustaining what I have.",
+[1]       "respno": "R02"
+[1]     },
+[1]     {
+[1]       "text": "R03: For me, the long-term goal
+[1] [Cost Tracking] Logged $0.0348 for project P-1759172819869 - Storytelling
+[1] ✅ Generated 3 real quotes for slide 9
+[1] ✅ Finished generating real quotes for all slides
+[1] 💾 Saving storytelling data: {
+[1]   projectId: 'P-1759172819869',
+[1]   analysisId: '1760120323941',
+[1]   key: 'P-1759172819869-1760120323941',
+[1]   strategicQuestionsCount: 7,
+[1]   hasReportData: true,
+[1]   reportDataSlidesCount: 9
+[1] }
+[1] ✅ Storytelling data saved to file successfully
+[1] 💾 Saving report data: {
+[1]   projectId: 'P-1759172819869',
+[1]   analysisId: '1760120323941',
+[1]   hasSlides: true,
+[1]   slidesCount: 9
+[1] }
+[1] 🔍 Loading storytelling data: {
+[1]   projectId: 'P-1759172819869',
+[1]   analysisId: '1760120323941',
+[1]   key: 'P-1759172819869-1760120323941',
+[1]   availableKeys: [ 'P-1759172819869-1760120323941', 'P-1759172819869' ]
+[1] }
+[1] 🔍 Loaded project data keys: [
+[1]   'strategicQuestions',
+[1]   'keyFindings',
+[1]   'storyboards',
+[1]   'chatHistory',
+[1]   'quotesCache',
+[1]   'dynamicReport',
+[1]   'reportData'
+[1] ]
+[1] 🔍 Report data in loaded data: true
+[1] 🔍 Report data slides count in loaded data: 9
+[1] 🔍 Current data before saving report data: [
+[1]   'strategicQuestions',
+[1]   'keyFindings',
+[1]   'storyboards',
+[1]   'chatHistory',
+[1]   'quotesCache',
+[1]   'dynamicReport',
+[1]   'reportData'
+[1] ]
+[1] 🔍 Data after adding report data: [
+[1]   'strategicQuestions',
+[1]   'keyFindings',
+[1]   'storyboards',
+[1]   'chatHistory',
+[1]   'quotesCache',
+[1]   'dynamicReport',
+[1]   'reportData'
+[1] ]
+[1] 💾 Saving storytelling data: {
+[1]   projectId: 'P-1759172819869',
+[1]   analysisId: '1760120323941',
+[1]   key: 'P-1759172819869-1760120323941',
+[1]   strategicQuestionsCount: 7,
+[1]   hasReportData: true,
+[1]   reportDataSlidesCount: 9
+[1] }
+[1] ✅ Storytelling data saved to file successfully
+[1] ✅ Report data saved successfully to file

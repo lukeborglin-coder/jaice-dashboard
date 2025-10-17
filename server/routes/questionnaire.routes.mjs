@@ -61,7 +61,43 @@ async function parseQuestionnaire(filePath, projectId) {
     // Use OpenAI to intelligently parse the questionnaire
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     
-    const systemPrompt = `You are an expert survey researcher and questionnaire analyst specializing in Forsta/Decipher survey platforms. Your task is to parse questionnaire documents and extract structured question data using comprehensive question type knowledge.
+    const systemPrompt = `You are a Forsta/Decipher questionnaire expert. Parse questionnaires with EXACT fidelity to programming logic.
+
+CRITICAL PARSING RULES:
+
+1. PROGRAMMING NOTES (ALL CAPS TEXT):
+   - "ASK IF [condition]" → showLogic: "[condition]"
+   - "SHOW IF [condition]" → showLogic: "[condition]"  
+   - "TERMINATE IF [condition]" → terminateLogic: "[condition]"
+   - "RANDOMIZE" → randomize: true
+   - "RANGE: X-Y" → validation: {type: "range", min: X, max: Y}
+   - "MUST = 100%" → validation: {type: "sum", value: 100, unit: "%"}
+
+2. GRID DETECTION:
+   Look for patterns like:
+   - Multiple columns with headers
+   - Row labels on the left
+   - Codes like "r1c2" (row 1, column 2)
+   - "AUTOFILL SUM OF..." → autofill calculation
+   - "DO NOT SHOW COLUMN" → hidden column for calculations
+
+3. SPECIAL TAGS (IN BRACKETS):
+   - [ANCHOR] → anchor option to bottom
+   - [EXCLUSIVE] → deselects all other options when selected
+   - [SPECIFY] → adds text box for "Other, specify"
+   - [RANDOMIZE] → randomize this specific option set
+
+4. PIPING (VARIABLES IN BRACKETS):
+   - [INSERT variable] → insert value from previous question
+   - "Of your [INSERT S4r5] patients" → piping from S4, row 5
+
+5. HIDDEN VARIABLES:
+   Detect sections like:
+   "PATIENT COUNT (Hidden Variable)"
+   Extract calculation logic
+
+6. QUOTAS:
+   Extract quota tables with conditions
 
 COMPREHENSIVE QUESTION TYPE LIBRARY:
 Basic Question Types:
@@ -109,17 +145,16 @@ Structural Elements:
 - Exec: Hidden Python/custom logic execution
 - Import Data: External variables/preloaded data
 
-Guidelines:
-- Identify all questions in the document, including their numbers, text, and response options
-- Determine the most appropriate Forsta question type from the comprehensive library above
-- Extract response options where applicable
-- Identify any special tags or instructions (like [SPECIFY], [ANCHOR], [RANDOMIZE])
-- Flag questions that need review (incomplete text, missing options, unclear formatting)
-- For rating/scale questions, determine appropriate scale ranges and suggest dynamic variants
-- Consider mobile-friendly alternatives (Button variants) when appropriate
-- Be thorough and accurate in your parsing
+OUTPUT STRUCTURE:
+Return enhanced JSON with all logic preserved.`;
 
-Return your analysis as a JSON object with this structure:
+    const userPrompt = `Please parse this questionnaire document and extract all questions with their details:
+
+${text}
+
+Analyze the document thoroughly and return the structured data as JSON. Focus on extracting the core question information first, then add logic details where clearly present.
+
+Return a JSON object with this structure:
 {
   "questions": [
     {
@@ -128,19 +163,16 @@ Return your analysis as a JSON object with this structure:
       "text": "full question text",
       "type": "specific Forsta question type from the library above",
       "options": ["option1", "option2", ...],
-      "tags": ["tag1", "tag2", ...],
+      "showLogic": "condition for showing this question (if present)",
+      "randomize": true/false,
+      "tags": ["tag1", "tag2"],
       "needsReview": true/false,
-      "logic": "any skip logic or conditions",
-      "suggestedVariants": ["alternative question types that might work better"]
+      "logic": "any skip logic or conditions"
     }
   ]
-}`;
+}
 
-    const userPrompt = `Please parse this questionnaire document and extract all questions with their details:
-
-${text}
-
-Analyze the document thoroughly and return the structured data as JSON.`;
+IMPORTANT: Return ONLY valid JSON. Do not include any explanatory text outside the JSON object.`;
 
     const response = await client.chat.completions.create({
       model: 'gpt-4o',
@@ -152,7 +184,26 @@ Analyze the document thoroughly and return the structured data as JSON.`;
       response_format: { type: 'json_object' }
     });
 
-    const parsedData = JSON.parse(response.choices[0].message.content);
+    let parsedData;
+    try {
+      parsedData = JSON.parse(response.choices[0].message.content);
+    } catch (parseError) {
+      console.error('JSON Parse Error:', parseError);
+      console.error('Raw response:', response.choices[0].message.content);
+      
+      // Try to extract JSON from the response if it's wrapped in text
+      const content = response.choices[0].message.content;
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          parsedData = JSON.parse(jsonMatch[0]);
+        } catch (secondError) {
+          throw new Error('Failed to parse JSON response from AI. Raw content: ' + content.substring(0, 500));
+        }
+      } else {
+        throw new Error('No valid JSON found in AI response. Raw content: ' + content.substring(0, 500));
+      }
+    }
     
     // Log cost for questionnaire parsing
     const inputTokens = response.usage?.prompt_tokens || 0;
@@ -176,7 +227,10 @@ Analyze the document thoroughly and return the structured data as JSON.`;
       id: question.id || `q-${Date.now()}-${index + 1}`,
       needsReview: question.needsReview || false,
       tags: question.tags || [],
-      logic: question.logic || ''
+      showLogic: question.showLogic || null,
+      randomize: question.randomize || false,
+      // Handle legacy logic field for backward compatibility
+      logic: question.logic || question.showLogic || ''
     }));
     
     return questions;
@@ -195,22 +249,154 @@ function generateXml(questionnaire) {
   <description>Generated from JAICE Questionnaire Parser</description>
   
   ${questionnaire.questions.map(question => {
-    let xml = `  <question id="${question.id}" type="${question.type}">
+    let xml = `  <question id="${question.id}" type="${question.type}"`;
+    
+    // Add show logic if present
+    if (question.showLogic) {
+      xml += ` showif="${question.showLogic}"`;
+    }
+    
+    xml += `>
     <text>${question.text}</text>`;
     
-    if (question.options.length > 0) {
+    // Handle enhanced options structure
+    if (question.options && question.options.length > 0) {
       xml += `
     <options>`;
+      
       question.options.forEach((option, index) => {
-        const value = option.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
-        xml += `
-      <option value="${value}" code="${index + 1}">${option}</option>`;
+        let optionXml = `
+      <option`;
+        
+        // Handle both string and object option formats
+        if (typeof option === 'string') {
+          const value = option.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+          optionXml += ` value="${value}" code="${index + 1}">${option}</option>`;
+        } else {
+          const value = option.value || (index + 1).toString();
+          const code = option.code || (index + 1).toString();
+          optionXml += ` value="${value}" code="${code}"`;
+          
+          // Add action if present
+          if (option.action) {
+            optionXml += ` action="${option.action}"`;
+          }
+          
+          // Add tags if present
+          if (option.tags && option.tags.length > 0) {
+            optionXml += ` tags="${option.tags.join(',')}"`;
+          }
+          
+          optionXml += `>${option.text}</option>`;
+        }
+        
+        xml += optionXml;
       });
+      
       xml += `
     </options>`;
     }
     
-    if (question.tags.length > 0) {
+    // Add randomize attribute
+    if (question.randomize) {
+      xml += `
+    <randomize>true</randomize>`;
+    }
+    
+    // Add validation rules
+    if (question.validation) {
+      xml += `
+    <validation>`;
+      if (question.validation.type === 'range') {
+        xml += `
+      <range min="${question.validation.min}" max="${question.validation.max}"/>`;
+      } else if (question.validation.type === 'sum') {
+        xml += `
+      <sum value="${question.validation.value}" unit="${question.validation.unit}"/>`;
+      }
+      xml += `
+    </validation>`;
+    }
+    
+    // Add grid structure
+    if (question.grid) {
+      xml += `
+    <grid>`;
+      if (question.grid.rows) {
+        xml += `
+      <rows>`;
+        question.grid.rows.forEach(row => {
+          xml += `
+        <row code="${row.code}">${row.text}</row>`;
+          if (row.validation) {
+            xml += ` <!-- ${row.validation} -->`;
+          }
+        });
+        xml += `
+      </rows>`;
+      }
+      if (question.grid.columns) {
+        xml += `
+      <columns>`;
+        question.grid.columns.forEach(col => {
+          xml += `
+        <column code="${col.code}" type="${col.type}">${col.text}</column>`;
+        });
+        xml += `
+      </columns>`;
+      }
+      if (question.grid.autofill) {
+        xml += `
+      <autofill>${question.grid.autofill}</autofill>`;
+      }
+      if (question.grid.sumValidation) {
+        xml += `
+      <sumValidation>${question.grid.sumValidation}</sumValidation>`;
+      }
+      xml += `
+    </grid>`;
+    }
+    
+    // Add skip logic
+    if (question.skipLogic && question.skipLogic.length > 0) {
+      xml += `
+    <skipLogic>`;
+      question.skipLogic.forEach(logic => {
+        xml += `
+      <condition logic="${logic.condition}" action="${logic.action}"/>`;
+      });
+      xml += `
+    </skipLogic>`;
+    }
+    
+    // Add piping variables
+    if (question.piping && question.piping.length > 0) {
+      xml += `
+    <piping>`;
+      question.piping.forEach(pipe => {
+        xml += `
+      <variable>${pipe}</variable>`;
+      });
+      xml += `
+    </piping>`;
+    }
+    
+    // Add hidden variable
+    if (question.hiddenVariable) {
+      xml += `
+    <hiddenVariable name="${question.hiddenVariable.name}">`;
+      if (question.hiddenVariable.options) {
+        question.hiddenVariable.options.forEach(option => {
+          xml += `
+      <option value="${option.value}" label="${option.label}" logic="${option.logic}"/>`;
+        });
+      }
+      xml += `
+    </hiddenVariable>`;
+    }
+    
+    // Add legacy tags for backward compatibility
+    if (question.tags && question.tags.length > 0) {
       xml += `
     <tags>`;
       question.tags.forEach(tag => {
@@ -221,20 +407,21 @@ function generateXml(questionnaire) {
     </tags>`;
     }
     
+    // Add legacy logic for backward compatibility
     if (question.logic) {
       xml += `
     <logic>${question.logic}</logic>`;
     }
     
     // Add question attributes based on type
-    if (question.type === 'scale') {
+    if (question.type === 'scale' || question.type === 'Slider Rating') {
       xml += `
     <attributes>
       <min>1</min>
       <max>10</max>
       <step>1</step>
     </attributes>`;
-    } else if (question.type === 'open-end') {
+    } else if (question.type === 'open-end' || question.type === 'Text/Open-Ended') {
       xml += `
     <attributes>
       <maxLength>1000</maxLength>
@@ -249,7 +436,7 @@ function generateXml(questionnaire) {
   
   <metadata>
     <generator>JAICE Questionnaire Parser</generator>
-    <version>1.0</version>
+    <version>2.0</version>
     <exportDate>${new Date().toISOString()}</exportDate>
   </metadata>
 </survey>`;
@@ -547,6 +734,112 @@ Make it clearer, more professional, and more effective for data collection.`;
   } catch (error) {
     console.error('Error improving wording:', error);
     res.status(500).json({ error: 'Failed to improve wording' });
+  }
+});
+
+// POST /api/questionnaire/validate - Validate parsed questionnaire for Forsta compatibility
+router.post('/validate', async (req, res) => {
+  try {
+    const { questionnaire, projectId } = req.body;
+    
+    if (!questionnaire || !questionnaire.questions) {
+      return res.status(400).json({ error: 'Questionnaire with questions is required' });
+    }
+    
+    const validationResults = {
+      isValid: true,
+      errors: [],
+      warnings: [],
+      suggestions: []
+    };
+    
+    // Validate each question
+    questionnaire.questions.forEach((question, index) => {
+      // Check required fields
+      if (!question.id) {
+        validationResults.errors.push(`Question ${index + 1}: Missing ID`);
+        validationResults.isValid = false;
+      }
+      
+      if (!question.text || question.text.trim() === '') {
+        validationResults.errors.push(`Question ${index + 1}: Missing or empty text`);
+        validationResults.isValid = false;
+      }
+      
+      if (!question.type) {
+        validationResults.errors.push(`Question ${index + 1}: Missing question type`);
+        validationResults.isValid = false;
+      }
+      
+      // Validate show logic syntax
+      if (question.showLogic) {
+        const logicPattern = /^[A-Za-z0-9]+[=<>!]+[0-9,]+$/;
+        if (!logicPattern.test(question.showLogic)) {
+          validationResults.warnings.push(`Question ${index + 1}: Show logic "${question.showLogic}" may have invalid syntax`);
+        }
+      }
+      
+      // Validate grid structure
+      if (question.grid) {
+        if (!question.grid.rows || question.grid.rows.length === 0) {
+          validationResults.warnings.push(`Question ${index + 1}: Grid has no rows defined`);
+        }
+        if (!question.grid.columns || question.grid.columns.length === 0) {
+          validationResults.warnings.push(`Question ${index + 1}: Grid has no columns defined`);
+        }
+      }
+      
+      // Validate hidden variables
+      if (question.hiddenVariable) {
+        if (!question.hiddenVariable.name) {
+          validationResults.errors.push(`Question ${index + 1}: Hidden variable missing name`);
+          validationResults.isValid = false;
+        }
+        if (!question.hiddenVariable.options || question.hiddenVariable.options.length === 0) {
+          validationResults.warnings.push(`Question ${index + 1}: Hidden variable has no options`);
+        }
+      }
+      
+      // Check for potential issues
+      if (question.needsReview) {
+        validationResults.warnings.push(`Question ${index + 1}: Marked as needing review`);
+      }
+      
+      // Suggest improvements
+      if (question.type === 'Single Select' && question.options && question.options.length > 10) {
+        validationResults.suggestions.push(`Question ${index + 1}: Consider using Dropdown Menu for ${question.options.length} options`);
+      }
+      
+      if (question.type === 'Text/Open-Ended' && !question.validation) {
+        validationResults.suggestions.push(`Question ${index + 1}: Consider adding character limits for open-ended questions`);
+      }
+    });
+    
+    // Check for duplicate question IDs
+    const questionIds = questionnaire.questions.map(q => q.id);
+    const duplicateIds = questionIds.filter((id, index) => questionIds.indexOf(id) !== index);
+    if (duplicateIds.length > 0) {
+      validationResults.errors.push(`Duplicate question IDs found: ${duplicateIds.join(', ')}`);
+      validationResults.isValid = false;
+    }
+    
+    // Check for missing question references in logic
+    const allQuestionIds = new Set(questionnaire.questions.map(q => q.id));
+    questionnaire.questions.forEach((question, index) => {
+      if (question.showLogic) {
+        const referencedIds = question.showLogic.match(/[A-Za-z]+[0-9]+/g) || [];
+        referencedIds.forEach(refId => {
+          if (!allQuestionIds.has(refId)) {
+            validationResults.warnings.push(`Question ${index + 1}: Show logic references non-existent question "${refId}"`);
+          }
+        });
+      }
+    });
+    
+    res.json(validationResults);
+  } catch (error) {
+    console.error('Error validating questionnaire:', error);
+    res.status(500).json({ error: 'Failed to validate questionnaire' });
   }
 });
 

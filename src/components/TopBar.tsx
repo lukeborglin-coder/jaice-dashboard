@@ -32,7 +32,7 @@ const TopBar: React.FC<TopBarProps> = ({ route, onProjectCreated }) => {
     <header className="h-16 bg-white border-b px-4 md:px-6 flex items-center gap-3">
       <div className="text-sm text-gray-500">Welcome to</div>
       <div className="font-semibold" style={{ color: BRAND.orange }}>
-        JAICE
+        Cognitive Dash
       </div>
       <div className="ml-2 text-gray-400">/</div>
       <div className="text-gray-800 font-medium">{route}</div>

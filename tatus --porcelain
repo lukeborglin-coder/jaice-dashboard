@@ -1,0 +1,345 @@
+warning: in the working copy of 'server/routes/questionnaire.routes.mjs', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/server/routes/questionnaire.routes.mjs b/server/routes/questionnaire.routes.mjs[m
+[1mindex aee7787..eb14304 100644[m
+[1m--- a/server/routes/questionnaire.routes.mjs[m
+[1m+++ b/server/routes/questionnaire.routes.mjs[m
+[36m@@ -61,7 +61,43 @@[m [masync function parseQuestionnaire(filePath, projectId) {[m
+     // Use OpenAI to intelligently parse the questionnaire[m
+     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });[m
+     [m
+[31m-    const systemPrompt = `You are an expert survey researcher and questionnaire analyst specializing in Forsta/Decipher survey platforms. Your task is to parse questionnaire documents and extract structured question data using comprehensive question type knowledge.[m
+[32m+[m[32m    const systemPrompt = `You are a Forsta/Decipher questionnaire expert. Parse questionnaires with EXACT fidelity to programming logic.[m
+[32m+[m
+[32m+[m[32mCRITICAL PARSING RULES:[m
+[32m+[m
+[32m+[m[32m1. PROGRAMMING NOTES (ALL CAPS TEXT):[m
+[32m+[m[32m   - "ASK IF [condition]" → showLogic: "[condition]"[m
+[32m+[m[32m   - "SHOW IF [condition]" → showLogic: "[condition]"[m[41m  [m
+[32m+[m[32m   - "TERMINATE IF [condition]" → terminateLogic: "[condition]"[m
+[32m+[m[32m   - "RANDOMIZE" → randomize: true[m
+[32m+[m[32m   - "RANGE: X-Y" → validation: {type: "range", min: X, max: Y}[m
+[32m+[m[32m   - "MUST = 100%" → validation: {type: "sum", value: 100, unit: "%"}[m
+[32m+[m
+[32m+[m[32m2. GRID DETECTION:[m
+[32m+[m[32m   Look for patterns like:[m
+[32m+[m[32m   - Multiple columns with headers[m
+[32m+[m[32m   - Row labels on the left[m
+[32m+[m[32m   - Codes like "r1c2" (row 1, column 2)[m
+[32m+[m[32m   - "AUTOFILL SUM OF..." → autofill calculation[m
+[32m+[m[32m   - "DO NOT SHOW COLUMN" → hidden column for calculations[m
+[32m+[m
+[32m+[m[32m3. SPECIAL TAGS (IN BRACKETS):[m
+[32m+[m[32m   - [ANCHOR] → anchor option to bottom[m
+[32m+[m[32m   - [EXCLUSIVE] → deselects all other options when selected[m
+[32m+[m[32m   - [SPECIFY] → adds text box for "Other, specify"[m
+[32m+[m[32m   - [RANDOMIZE] → randomize this specific option set[m
+[32m+[m
+[32m+[m[32m4. PIPING (VARIABLES IN BRACKETS):[m
+[32m+[m[32m   - [INSERT variable] → insert value from previous question[m
+[32m+[m[32m   - "Of your [INSERT S4r5] patients" → piping from S4, row 5[m
+[32m+[m
+[32m+[m[32m5. HIDDEN VARIABLES:[m
+[32m+[m[32m   Detect sections like:[m
+[32m+[m[32m   "PATIENT COUNT (Hidden Variable)"[m
+[32m+[m[32m   Extract calculation logic[m
+[32m+[m
+[32m+[m[32m6. QUOTAS:[m
+[32m+[m[32m   Extract quota tables with conditions[m
+ [m
+ COMPREHENSIVE QUESTION TYPE LIBRARY:[m
+ Basic Question Types:[m
+[36m@@ -109,17 +145,16 @@[m [mStructural Elements:[m
+ - Exec: Hidden Python/custom logic execution[m
+ - Import Data: External variables/preloaded data[m
+ [m
+[31m-Guidelines:[m
+[31m-- Identify all questions in the document, including their numbers, text, and response options[m
+[31m-- Determine the most appropriate Forsta question type from the comprehensive library above[m
+[31m-- Extract response options where applicable[m
+[31m-- Identify any special tags or instructions (like [SPECIFY], [ANCHOR], [RANDOMIZE])[m
+[31m-- Flag questions that need review (incomplete text, missing options, unclear formatting)[m
+[31m-- For rating/scale questions, determine appropriate scale ranges and suggest dynamic variants[m
+[31m-- Consider mobile-friendly alternatives (Button variants) when appropriate[m
+[31m-- Be thorough and accurate in your parsing[m
+[32m+[m[32mOUTPUT STRUCTURE:[m
+[32m+[m[32mReturn enhanced JSON with all logic preserved.`;[m
+[32m+[m
+[32m+[m[32m    const userPrompt = `Please parse this questionnaire document and extract all questions with their details:[m
+[32m+[m
+[32m+[m[32m${text}[m
+ [m
+[31m-Return your analysis as a JSON object with this structure:[m
+[32m+[m[32mAnalyze the document thoroughly and return the structured data as JSON. Focus on extracting the core question information first, then add logic details where clearly present.[m
+[32m+[m
+[32m+[m[32mReturn a JSON object with this structure:[m
+ {[m
+   "questions": [[m
+     {[m
+[36m@@ -128,19 +163,16 @@[m [mReturn your analysis as a JSON object with this structure:[m
+       "text": "full question text",[m
+       "type": "specific Forsta question type from the library above",[m
+       "options": ["option1", "option2", ...],[m
+[31m-      "tags": ["tag1", "tag2", ...],[m
+[32m+[m[32m      "showLogic": "condition for showing this question (if present)",[m
+[32m+[m[32m      "randomize": true/false,[m
+[32m+[m[32m      "tags": ["tag1", "tag2"],[m
+       "needsReview": true/false,[m
+[31m-      "logic": "any skip logic or conditions",[m
+[31m-      "suggestedVariants": ["alternative question types that might work better"][m
+[32m+[m[32m      "logic": "any skip logic or conditions"[m
+     }[m
+   ][m
+[31m-}`;[m
+[31m-[m
+[31m-    const userPrompt = `Please parse this questionnaire document and extract all questions with their details:[m
+[31m-[m
+[31m-${text}[m
+[32m+[m[32m}[m
+ [m
+[31m-Analyze the document thoroughly and return the structured data as JSON.`;[m
+[32m+[m[32mIMPORTANT: Return ONLY valid JSON. Do not include any explanatory text outside the JSON object.`;[m
+ [m
+     const response = await client.chat.completions.create({[m
+       model: 'gpt-4o',[m
+[36m@@ -152,7 +184,26 @@[m [mAnalyze the document thoroughly and return the structured data as JSON.`;[m
+       response_format: { type: 'json_object' }[m
+     });[m
+ [m
+[31m-    const parsedData = JSON.parse(response.choices[0].message.content);[m
+[32m+[m[32m    let parsedData;[m
+[32m+[m[32m    try {[m
+[32m+[m[32m      parsedData = JSON.parse(response.choices[0].message.content);[m
+[32m+[m[32m    } catch (parseError) {[m
+[32m+[m[32m      console.error('JSON Parse Error:', parseError);[m
+[32m+[m[32m      console.error('Raw response:', response.choices[0].message.content);[m
+[32m+[m[41m      [m
+[32m+[m[32m      // Try to extract JSON from the response if it's wrapped in text[m
+[32m+[m[32m      const content = response.choices[0].message.content;[m
+[32m+[m[32m      const jsonMatch = content.match(/\{[\s\S]*\}/);[m
+[32m+[m[32m      if (jsonMatch) {[m
+[32m+[m[32m        try {[m
+[32m+[m[32m          parsedData = JSON.parse(jsonMatch[0]);[m
+[32m+[m[32m        } catch (secondError) {[m
+[32m+[m[32m          throw new Error('Failed to parse JSON response from AI. Raw content: ' + content.substring(0, 500));[m
+[32m+[m[32m        }[m
+[32m+[m[32m      } else {[m
+[32m+[m[32m        throw new Error('No valid JSON found in AI response. Raw content: ' + content.substring(0, 500));[m
+[32m+[m[32m      }[m
+[32m+[m[32m    }[m
+     [m
+     // Log cost for questionnaire parsing[m
+     const inputTokens = response.usage?.prompt_tokens || 0;[m
+[36m@@ -176,7 +227,10 @@[m [mAnalyze the document thoroughly and return the structured data as JSON.`;[m
+       id: question.id || `q-${Date.now()}-${index + 1}`,[m
+       needsReview: question.needsReview || false,[m
+       tags: question.tags || [],[m
+[31m-      logic: question.logic || ''[m
+[32m+[m[32m      showLogic: question.showLogic || null,[m
+[32m+[m[32m      randomize: question.randomize || false,[m
+[32m+[m[32m      // Handle legacy logic field for backward compatibility[m
+[32m+[m[32m      logic: question.logic || question.showLogic || ''[m
+     }));[m
+     [m
+     return questions;[m
+[36m@@ -195,22 +249,154 @@[m [mfunction generateXml(questionnaire) {[m
+   <description>Generated from JAICE Questionnaire Parser</description>[m
+   [m
+   ${questionnaire.questions.map(question => {[m
+[31m-    let xml = `  <question id="${question.id}" type="${question.type}">[m
+[32m+[m[32m    let xml = `  <question id="${question.id}" type="${question.type}"`;[m
+[32m+[m[41m    [m
+[32m+[m[32m    // Add show logic if present[m
+[32m+[m[32m    if (question.showLogic) {[m
+[32m+[m[32m      xml += ` showif="${question.showLogic}"`;[m
+[32m+[m[32m    }[m
+[32m+[m[41m    [m
+[32m+[m[32m    xml += `>[m
+     <text>${question.text}</text>`;[m
+     [m
+[31m-    if (question.options.length > 0) {[m
+[32m+[m[32m    // Handle enhanced options structure[m
+[32m+[m[32m    if (question.options && question.options.length > 0) {[m
+       xml += `[m
+     <options>`;[m
+[32m+[m[41m      [m
+       question.options.forEach((option, index) => {[m
+[31m-        const value = option.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();[m
+[31m-        xml += `[m
+[31m-      <option value="${value}" code="${index + 1}">${option}</option>`;[m
+[32m+[m[32m        let optionXml = `[m
+[32m+[m[32m      <option`;[m
+[32m+[m[41m        [m
+[32m+[m[32m        // Handle both string and object option formats[m
+[32m+[m[32m        if (typeof option === 'string') {[m
+[32m+[m[32m          const value = option.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();[m
+[32m+[m[32m          optionXml += ` value="${value}" code="${index + 1}">${option}</option>`;[m
+[32m+[m[32m        } else {[m
+[32m+[m[32m          const value = option.value || (index + 1).toString();[m
+[32m+[m[32m          const code = option.code || (index + 1).toString();[m
+[32m+[m[32m          optionXml += ` value="${value}" code="${code}"`;[m
+[32m+[m[41m          [m
+[32m+[m[32m          // Add action if present[m
+[32m+[m[32m          if (option.action) {[m
+[32m+[m[32m            optionXml += ` action="${option.action}"`;[m
+[32m+[m[32m          }[m
+[32m+[m[41m          [m
+[32m+[m[32m          // Add tags if present[m
+[32m+[m[32m          if (option.tags && option.tags.length > 0) {[m
+[32m+[m[32m            optionXml += ` tags="${option.tags.join(',')}"`;[m
+[32m+[m[32m          }[m
+[32m+[m[41m          [m
+[32m+[m[32m          optionXml += `>${option.text}</option>`;[m
+[32m+[m[32m        }[m
+[32m+[m[41m        [m
+[32m+[m[32m        xml += optionXml;[m
+       });[m
+[32m+[m[41m      [m
+       xml += `[m
+     </options>`;[m
+     }[m
+     [m
+[31m-    if (question.tags.length > 0) {[m
+[32m+[m[32m    // Add randomize attribute[m
+[32m+[m[32m    if (question.randomize) {[m
+[32m+[m[32m      xml += `[m
+[32m+[m[32m    <randomize>true</randomize>`;[m
+[32m+[m[32m    }[m
+[32m+[m[41m    [m
+[32m+[m[32m    // Add validation rules[m
+[32m+[m[32m    if (question.validation) {[m
+[32m+[m[32m      xml += `[m
+[32m+[m[32m    <validation>`;[m
+[32m+[m[32m      if (question.validation.type === 'range') {[m
+[32m+[m[32m        xml += `[m
+[32m+[m[32m      <range min="${question.validation.min}" max="${question.validation.max}"/>`;[m
+[32m+[m[32m      } else if (question.validation.type === 'sum') {[m
+[32m+[m[32m        xml += `[m
+[32m+[m[32m      <sum value="${question.validation.value}" unit="${question.validation.unit}"/>`;[m
+[32m+[m[32m      }[m
+[32m+[m[32m      xml += `[m
+[32m+[m[32m    </validation>`;[m
+[32m+[m[32m    }[m
+[32m+[m[41m    [m
+[32m+[m[32m    // Add grid structure[m
+[32m+[m[32m    if (question.grid) {[m
+[32m+[m[32m      xml += `[m
+[32m+[m[32m    <grid>`;[m
+[32m+[m[32m      if (question.grid.rows) {[m
+[32m+[m[32m        xml += `[m
+[32m+[m[32m      <rows>`;[m
+[32m+[m[32m        question.grid.rows.forEach(row => {[m
+[32m+[m[32m          xml += `[m
+[32m+[m[32m        <row code="${row.code}">${row.text}</row>`;[m
+[32m+[m[32m          if (row.validation) {[m
+[32m+[m[32m            xml += ` <!-- ${row.validation} -->`;[m
+[32m+[m[32m          }[m
+[32m+[m[32m        });[m
+[32m+[m[32m        xml += `[m
+[32m+[m[32m      </rows>`;[m
+[32m+[m[32m      }[m
+[32m+[m[32m      if (question.grid.columns) {[m
+[32m+[m[32m        xml += `[m
+[32m+[m[32m      <columns>`;[m
+[32m+[m[32m        question.grid.columns.forEach(col => {[m
+[32m+[m[32m          xml += `[m
+[32m+[m[32m        <column code="${col.code}" type="${col.type}">${col.text}</column>`;[m
+[32m+[m[32m        });[m
+[32m+[m[32m        xml += `[m
+[32m+[m[32m      </columns>`;[m
+[32m+[m[32m      }[m
+[32m+[m[32m      if (question.grid.autofill) {[m
+[32m+[m[32m        xml += `[m
+[32m+[m[32m      <autofill>${question.grid.autofill}</autofill>`;[m
+[32m+[m[32m      }[m
+[32m+[m[32m      if (question.grid.sumValidation) {[m
+[32m+[m[32m        xml += `[m
+[32m+[m[32m      <sumValidation>${question.grid.sumValidation}</sumValidation>`;[m
+[32m+[m[32m      }[m
+[32m+[m[32m      xml += `[m
+[32m+[m[32m    </grid>`;[m
+[32m+[m[32m    }[m
+[32m+[m[41m    [m
+[32m+[m[32m    // Add skip logic[m
+[32m+[m[32m    if (question.skipLogic && question.skipLogic.length > 0) {[m
+[32m+[m[32m      xml += `[m
+[32m+[m[32m    <skipLogic>`;[m
+[32m+[m[32m      question.skipLogic.forEach(logic => {[m
+[32m+[m[32m        xml += `[m
+[32m+[m[32m      <condition logic="${logic.condition}" action="${logic.action}"/>`;[m
+[32m+[m[32m      });[m
+[32m+[m[32m      xml += `[m
+[32m+[m[32m    </skipLogic>`;[m
+[32m+[m[32m    }[m
+[32m+[m[41m    [m
+[32m+[m[32m    // Add piping variables[m
+[32m+[m[32m    if (question.piping && question.piping.length > 0) {[m
+[32m+[m[32m      xml += `[m
+[32m+[m[32m    <piping>`;[m
+[32m+[m[32m      question.piping.forEach(pipe => {[m
+[32m+[m[32m        xml += `[m
+[32m+[m[32m      <variable>${pipe}</variable>`;[m
+[32m+[m[32m      });[m
+[32m+[m[32m      xml += `[m
+[32m+[m[32m    </piping>`;[m
+[32m+[m[32m    }[m
+[32m+[m[41m    [m
+[32m+[m[32m    // Add hidden variable[m
+[32m+[m[32m    if (question.hiddenVariable) {[m
+[32m+[m[32m      xml += `[m
+[32m+[m[32m    <hiddenVariable name="${question.hiddenVariable.name}">`;[m
+[32m+[m[32m      if (question.hiddenVariable.options) {[m
+[32m+[m[32m        question.hiddenVariable.options.forEach(option => {[m
+[32m+[m[32m          xml += `[m
+[32m+[m[32m      <option value="${option.value}" label="${option.label}" logic="${option.logic}"/>`;[m
+[32m+[m[32m        });[m
+[32m+[m[32m      }[m
+[32m+[m[32m      xml += `[m
+[32m+[m[32m    </hiddenVariable>`;[m
+[32m+[m[32m    }[m
+[32m+[m[41m    [m
+[32m+[m[32m    // Add legacy tags for backward compatibility[m
+[32m+[m[32m    if (question.tags && question.tags.length > 0) {[m
+       xml += `[m
+     <tags>`;[m
+       question.tags.forEach(tag => {[m
+[36m@@ -221,20 +407,21 @@[m [mfunction generateXml(questionnaire) {[m
+     </tags>`;[m
+     }[m
+     [m
+[32m+[m[32m    // Add legacy logic for backward compatibility[m
+     if (question.logic) {[m
+       xml += `[m
+     <logic>${question.logic}</logic>`;[m
+     }[m
+     [m
+     // Add question attributes based on type[m
+[31m-    if (question.type === 'scale') {[m
+[32m+[m[32m    if (question.type === 'scale' || question.type === 'Slider Rating') {[m
+       xml += `[m
+     <attributes>[m
+       <min>1</min>[m
+       <max>10</max>[m
+       <step>1</step>[m
+     </attributes>`;[m
+[31m-    } else if (question.type === 'open-end') {[m
+[32m+[m[32m    } else if (question.type === 'open-end' || question.type === 'Text/Open-Ended') {[m
+       xml += `[m
+     <attributes>[m
+       <maxLength>1000</maxLength>[m
+[36m@@ -249,7 +436,7 @@[m [mfunction generateXml(questionnaire) {[m
+   [m
+   <metadata>[m
+     <generator>JAICE Questionnaire Parser</generator>[m
+[31m-    <version>1.0</version>[m
+[32m+[m[32m    <version>2.0</version>[m
+     <exportDate>${new Date().toISOString()}</exportDate>[m
+   </metadata>[m
+ </survey>`;[m
+[36m@@ -550,6 +737,112 @@[m [mMake it clearer, more professional, and more effective for data collection.`;[m
+   }[m
+ });[m
+ [m
+[32m+[m[32m// POST /api/questionnaire/validate - Validate parsed questionnaire for Forsta compatibility[m
+[32m+[m[32mrouter.post('/validate', async (req, res) => {[m
+[32m+[m[32m  try {[m
+[32m+[m[32m    const { questionnaire, 

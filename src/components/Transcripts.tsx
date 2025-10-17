@@ -225,7 +225,7 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
     activeTab === 'active' ? isLoadingProjects : isLoadingArchived;
 
   const getAuthHeaders = () => {
-    const token = localStorage.getItem('jaice_token');
+    const token = localStorage.getItem('cognitive_dash_token');
     return token ? { Authorization: `Bearer ${token}` } : {};
   };
 
@@ -487,7 +487,7 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
   useEffect(() => {
     if (pendingProjectNavigation === null) {
       try {
-        const stored = sessionStorage.getItem('jaice_transcripts_focus_project');
+        const stored = sessionStorage.getItem('cognitive_dash_transcripts_focus_project');
         if (stored) {
           setPendingProjectNavigation(stored);
         }
@@ -516,7 +516,7 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
     setSelectedProject(targetProject);
 
     try {
-      sessionStorage.removeItem('jaice_transcripts_focus_project');
+      sessionStorage.removeItem('cognitive_dash_transcripts_focus_project');
     } catch (error) {
       console.warn('Unable to clear transcripts navigation target', error);
     }

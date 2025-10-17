@@ -2,12 +2,12 @@
 // Debug logging to troubleshoot URL issue
 console.log('🔧 Config Debug:', {
   hostname: window.location.hostname,
-  isProduction: window.location.hostname === 'jaice-dashboard.onrender.com'
+  isProduction: window.location.hostname === 'cognitive-dash.onrender.com'
 });
 
-const isProduction = window.location.hostname === 'jaice-dashboard.onrender.com';
+const isProduction = window.location.hostname === 'cognitive-dash.onrender.com';
 const backendURL = isProduction
-  ? 'https://jaice-dashboard-backend.onrender.com'
+  ? 'https://cognitive-dash-backend.onrender.com'
   : 'http://localhost:3005';
 
 console.log('🌐 API_BASE_URL set to:', backendURL);

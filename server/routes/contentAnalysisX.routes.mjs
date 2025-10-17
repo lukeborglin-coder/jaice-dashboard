@@ -4028,7 +4028,7 @@ router.post('/get-verbatim-quotes', async (req, res) => {
     // Use AI to find relevant sections that support the key finding
     const systemPrompt = `You are an expert at analyzing interview transcripts to find verbatim quotes that support specific findings.
 
-Your task is to find 2-3 relevant sections from the transcript that directly support the given key finding. Return ONLY the exact verbatim text from the transcript - do not summarize, paraphrase, or modify the text in any way.
+Your task is to find 2-3 relevant sections from the transcript that DIRECTLY support the given key finding. The quotes must contain specific details, experiences, or statements that validate or illustrate the key finding.
 
 Return the quotes in this exact JSON format:
 {
@@ -4040,12 +4040,17 @@ Return the quotes in this exact JSON format:
   ]
 }
 
-Guidelines:
-- Find quotes that directly relate to the key finding
+CRITICAL GUIDELINES:
+- The quotes MUST contain specific details that directly relate to the key finding
+- Look for quotes that mention specific treatments, experiences, dates, or outcomes mentioned in the key finding
+- If the key finding mentions specific treatments (like "Evrysdi" or "Spinraza"), find quotes that discuss those exact treatments
+- If the key finding mentions specific timeframes, find quotes that reference those timeframes
+- If the key finding mentions specific experiences or outcomes, find quotes that describe those experiences
 - Include the full conversation context (both moderator questions and respondent answers)
 - Preserve the exact wording, punctuation, and formatting from the transcript
 - Each quote should be a complete thought or exchange
-- Focus on the most relevant and impactful quotes`;
+- Focus on the most relevant and impactful quotes that contain specific supporting details
+- DO NOT include generic quotes that only tangentially relate to the topic`;
 
     const userPrompt = `Key Finding: ${keyFinding}
 
@@ -4053,8 +4058,17 @@ Column: ${columnName}
 Sheet: ${sheetName}
 Respondent: ${respondentId}
 
-Please find 2-3 verbatim quotes from this transcript that support the key finding:
+Please find 2-3 verbatim quotes from this transcript that DIRECTLY support the key finding above. The quotes must contain specific details, experiences, or statements that validate or illustrate the key finding.
 
+IMPORTANT: Look for quotes that mention:
+- Specific treatments, medications, or therapies mentioned in the key finding
+- Specific timeframes, dates, or durations mentioned in the key finding  
+- Specific experiences, outcomes, or results mentioned in the key finding
+- Specific preferences, attitudes, or behaviors mentioned in the key finding
+
+Do NOT include generic quotes that only tangentially relate to the topic. The quotes must contain concrete details that directly support the key finding.
+
+Transcript:
 ${transcriptText.substring(0, 8000)}`; // Limit to first 8000 chars to stay within token limits
 
     const response = await openai.chat.completions.create({
@@ -4082,6 +4096,46 @@ ${transcriptText.substring(0, 8000)}`; // Limit to first 8000 chars to stay with
 
       const parsed = JSON.parse(cleanedResponse);
       quotes = parsed.quotes || [];
+      
+      // Post-process quotes to improve relevance
+      quotes = quotes.filter(quote => {
+        if (!quote.text || quote.text.trim().length < 20) return false;
+        
+        // Check if quote contains specific details that relate to the key finding
+        const keyFindingLower = keyFinding.toLowerCase();
+        const quoteTextLower = quote.text.toLowerCase();
+        
+        // Extract key terms from the key finding
+        const keyTerms = keyFindingLower.match(/\b\w{4,}\b/g) || [];
+        const hasRelevantTerms = keyTerms.some(term => 
+          quoteTextLower.includes(term) && term.length > 3
+        );
+        
+        // Check for specific treatment names, dates, or experiences
+        const hasSpecificDetails = 
+          quoteTextLower.includes('evrysdi') || 
+          quoteTextLower.includes('spinraza') ||
+          quoteTextLower.includes('treatment') ||
+          quoteTextLower.includes('trial') ||
+          quoteTextLower.includes('april') ||
+          quoteTextLower.includes('2021') ||
+          quoteTextLower.includes('2022') ||
+          quoteTextLower.includes('2023') ||
+          quoteTextLower.includes('experience') ||
+          quoteTextLower.includes('took') ||
+          quoteTextLower.includes('started') ||
+          quoteTextLower.includes('stopped');
+        
+        return hasRelevantTerms || hasSpecificDetails;
+      });
+      
+      // If no quotes pass the filter, keep the original quotes but mark them as potentially less relevant
+      if (quotes.length === 0) {
+        console.log('No quotes passed relevance filter, keeping original quotes');
+        const parsed = JSON.parse(cleanedResponse);
+        quotes = parsed.quotes || [];
+      }
+      
     } catch (error) {
       console.error('Failed to parse AI response:', error);
       console.error('Raw AI response:', aiResponse);

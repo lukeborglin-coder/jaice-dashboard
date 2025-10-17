@@ -917,6 +917,25 @@
             "keyFinding": "Shelby lives in a house she bought a couple of years ago in Salt Lake City, Utah. She shares her home with a roommate and her roommate's dog. Despite her family living in Seattle, she feels she has a good community in Utah."
           }
         }
+      },
+      "CURRENT PERCEPTIONS & ATTITUDES": {
+        "R02": {
+          "Benefits of Discontinued Treatment": {
+            "quotes": [
+              {
+                "text": "Nancy: So how tell me about your SMA in your life right now. How is your health? How has it been yeah. How is it have there been any changes over the last couple years?\n\nShelby: Yeah. Definitely, I can tell that it's it's progressing a bit. I'm definitely having some more weakness in my arms. And but it's so gradual that it's usually just kind of like a you just adapt as it's happening. But I've been really healthy. I wear a BiPAP at night, and then I have, like, a cough assist machine that I use if I'm sick, but I don't really need it. And then I was on Avirizdi when it was first released, and it I had some it it just felt like more of a hassle than it was worth trying to get it and order it every month. And my insurance didn't cover it, so I was through the foundation. And then I wasn't gonna be covered through the foundation anymore. So it was just k",
+                "context": "Shelby discusses her experience with Evrysdi, noting that it felt like more of a hassle than it was worth, implying she did not perceive significant benefits from the treatment."
+              },
+              {
+                "text": "Nancy: Did you notice any changes in your strength or endurance while you were on it?\n\nShelby: Not really. I mean, I didn't feel like I was getting stronger or anything. I sometimes wonder if it helped me maintain where I was, but it's hard to say if I would have just stayed the same without it.",
+                "context": "Shelby expresses uncertainty about the benefits of Evrysdi, questioning whether it helped maintain her baseline or if she would have plateaued naturally, indicating she did not notice improvements in strength or endurance."
+              }
+            ],
+            "transcriptType": "original",
+            "savedAt": "2025-10-17T16:24:57.995Z",
+            "keyFinding": "Shelby did not perceive significant benefits from Evrysdi, as she did not notice improvements in strength or endurance. She questions whether the treatment helped maintain her baseline or if she would have plateaued naturally."
+          }
+        }
       }
     }
   }

@@ -47,8 +47,8 @@ const Register: React.FC<RegisterProps> = ({ onRegister, onSwitchToLogin }) => {
 
       if (response.ok) {
         onRegister(data.user);
-        localStorage.setItem('jaice_user', JSON.stringify(data.user));
-        localStorage.setItem('jaice_token', data.token);
+        localStorage.setItem('cognitive_dash_user', JSON.stringify(data.user));
+        localStorage.setItem('cognitive_dash_token', data.token);
       } else {
         setError(data.message || 'Registration failed');
       }
@@ -64,13 +64,13 @@ const Register: React.FC<RegisterProps> = ({ onRegister, onSwitchToLogin }) => {
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center">
           <img 
-            src="/Jaice_Logo_Transparent.png" 
-            alt="JAICE Logo" 
+            src="/CogDashLogo.png" 
+            alt="Cognitive Dash Logo"
             className="w-16 h-16 object-contain"
           />
         </div>
         <h2 className="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">
-          Create your JAICE account
+          Create your Cognitive Dash account
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
           Join the Project Management Dashboard

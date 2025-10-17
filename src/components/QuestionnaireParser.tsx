@@ -113,7 +113,7 @@ export default function QuestionnaireParser({ projectId, projects = [], onNaviga
     try {
       // Load all questionnaires across all projects
       const response = await fetch(`${API_BASE_URL}/api/questionnaire/all`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` }
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
       });
       if (response.ok) {
         const data = await response.json();
@@ -192,7 +192,7 @@ export default function QuestionnaireParser({ projectId, projects = [], onNaviga
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
         },
         body: JSON.stringify(questionnaire)
       });
@@ -243,7 +243,7 @@ export default function QuestionnaireParser({ projectId, projects = [], onNaviga
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
         },
         body: JSON.stringify(updatedQuestionnaire)
       });
@@ -283,7 +283,7 @@ export default function QuestionnaireParser({ projectId, projects = [], onNaviga
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
         },
         body: JSON.stringify({ 
           text: question.text,
@@ -309,7 +309,7 @@ export default function QuestionnaireParser({ projectId, projects = [], onNaviga
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
         },
         body: JSON.stringify({ 
           text: question.text,
@@ -336,7 +336,7 @@ export default function QuestionnaireParser({ projectId, projects = [], onNaviga
       const response = await fetch(`${API_BASE_URL}/api/questionnaire/${questionnaireId}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
         }
       });
 
@@ -708,7 +708,7 @@ export default function QuestionnaireParser({ projectId, projects = [], onNaviga
                         const response = await fetch(`${API_BASE_URL}/api/questionnaire/upload`, {
                           method: 'POST',
                           body: formData,
-                          headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` }
+                          headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
                         });
 
                         if (response.ok) {

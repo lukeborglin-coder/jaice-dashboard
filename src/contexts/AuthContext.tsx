@@ -37,8 +37,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     // Check for existing session on app load
     const checkAuth = async () => {
-      const storedUser = localStorage.getItem('jaice_user');
-      const token = localStorage.getItem('jaice_token');
+      const storedUser = localStorage.getItem('cognitive_dash_user');
+      const token = localStorage.getItem('cognitive_dash_token');
 
       if (storedUser && token) {
         try {
@@ -55,9 +55,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           } else if (response.status === 401) {
             // Only clear storage if token is actually invalid (401)
             console.log('Token invalid, clearing storage');
-            localStorage.removeItem('jaice_user');
-            localStorage.removeItem('jaice_token');
-            localStorage.removeItem('jaice_vendors');
+            localStorage.removeItem('cognitive_dash_user');
+            localStorage.removeItem('cognitive_dash_token');
+            localStorage.removeItem('cognitive_dash_vendors');
           } else {
             // For other errors (500, network issues), keep user logged in
             console.log('Server error during auth verification, keeping user logged in');
@@ -73,9 +73,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           } catch (parseError) {
             // Only clear if stored data is corrupted
             console.log('Corrupted user data, clearing storage');
-            localStorage.removeItem('jaice_user');
-            localStorage.removeItem('jaice_token');
-            localStorage.removeItem('jaice_vendors');
+            localStorage.removeItem('cognitive_dash_user');
+            localStorage.removeItem('cognitive_dash_token');
+            localStorage.removeItem('cognitive_dash_vendors');
           }
         }
       }
@@ -91,9 +91,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('jaice_user');
-    localStorage.removeItem('jaice_token');
-    localStorage.removeItem('jaice_vendors'); // Clear vendors cache on logout
+    localStorage.removeItem('cognitive_dash_user');
+    localStorage.removeItem('cognitive_dash_token');
+    localStorage.removeItem('cognitive_dash_vendors'); // Clear vendors cache on logout
   };
 
   const value = {

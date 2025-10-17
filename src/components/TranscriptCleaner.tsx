@@ -43,7 +43,7 @@ export default function TranscriptCleaner() {
   const loadProjects = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/projects`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` }
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
       });
       if (response.ok) {
         const data = await response.json();
@@ -57,7 +57,7 @@ export default function TranscriptCleaner() {
   const loadCleanerProjects = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/transcript-cleaner/projects`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` }
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
       });
       if (response.ok) {
         const data = await response.json();
@@ -79,7 +79,7 @@ export default function TranscriptCleaner() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
         },
         body: JSON.stringify({
           name: newProjectName,
@@ -118,7 +118,7 @@ export default function TranscriptCleaner() {
       const response = await fetch(`${API_BASE_URL}/api/transcript-cleaner/upload`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
         },
         body: formData
       });
@@ -147,7 +147,7 @@ export default function TranscriptCleaner() {
       const response = await fetch(
         `${API_BASE_URL}/api/transcript-cleaner/download/${selectedCleaner?.id}/${transcript.id}`,
         {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` }
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
         }
       );
 

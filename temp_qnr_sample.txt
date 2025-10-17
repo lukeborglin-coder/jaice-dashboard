@@ -1,0 +1,5356 @@
+
+
+
+
+
+
+
+
+September 2025
+
+
+
+SMA ATU Q2 2025
+
+HCP QUESTIONNAIRE 
+
+
+
+Drug Safety Note:
+
+A number of questions in this questionnaire use a 1-7 sliding scale. We consider ratings of 1-3 as negative/weak (potentially reportable), 4 as neutral, and 5-7 as strong/positive.
+
+One question in this questionnaire uses a 1-10 sliding scale. We consider ratings of 1-4 as negative/weak (potentially reportable), 5-6 as neutral, and 7-10 as strong/positive.
+
+All open-ended responses will be reviewed for adverse events, regardless of whether the question is noted as “POTENTIAL AE”
+
+
+
+RECRUITMENT QUOTAS
+
+TOTAL
+
+ADULT NEUROLOGISTS
+
+(SPECIALTY=2)
+
+N=25
+
+PEDIATRIC NEUROLOGISTS
+
+(SPECIALTY=1)
+
+N=25
+
+TOTAL
+
+N=50
+
+
+
+SOFT QUOTAS
+
+ADULT NEUROLOGIST 
+
+EVRYSDI & SPINRAZA USER
+
+(SPECIALTY=2 AND EVRYSDI PRESCRIBER AND SPINRAZA PRESCRIBER)
+
+At least n=10 (start with natural fallout)
+
+PEDIATRIC NEUROLOGIST
+
+EVRYSDI & SPINRAZA USER
+
+(SPECIALTY=1 AND EVRYSDI PRESCRIBER AND SPINRAZA PRESCRIBER)
+
+At least n=10 (start with natural fallout)
+
+
+
+HCP SCREENING QUESTIONNAIRE:
+
+
+
+We are conducting interviews among healthcare professionals like yourself, and we would like to include your opinions. If you qualify for and complete this interview, you will receive an honorarium in exchange for your time and valued feedback. We will now ask you a few questions to determine whether you are qualified for the interview. We want to assure you that your responses will be kept completely confidential.
+
+
+
+S1.	Which of the following best describes your primary medical specialty?
+
+
+
+RANDOMIZE
+
+1
+
+Family Practice / General Practice (FP/GP)
+
+TERMINATE
+
+2
+
+Internal Medicine (IM)
+
+TERMINATE
+
+3
+
+Endocrinology
+
+TERMINATE
+
+4
+
+Oncology
+
+TERMINATE
+
+5
+
+Adult Neurology
+
+
+
+6
+
+Pediatric Neurology
+
+
+
+98
+
+Other (specify) [ANCHOR] [SPECIFY]
+
+
+
+
+
+S2.	Are you board certified or board eligible in your medical specialty?
+
+
+
+1
+
+Board certified
+
+
+
+2
+
+Board eligible
+
+TERMINATE
+
+3
+
+Neither
+
+TERMINATE
+
+
+
+S3.	Which state(s) are you currently licensed to practice in?
+
+
+
+
+
+TERMINATE IF VT
+
+
+
+S4.	Providing your best estimate, how many patients have you personally treated or managed (not those treated or managed by your entire practice or network) with the following conditions in the last 12 months?
+
+
+
+	Please do not include patients you have referred out and you are no longer actively managing.
+
+
+
+RANDOMIZE
+
+# of Patients/Year
+
+1
+
+Amyotrophic Lateral Sclerosis (ALS)
+
+
+
+2
+
+Cerebral Palsy 
+
+
+
+3
+
+Duchenne Muscular Dystrophy (DMD)
+
+
+
+4
+
+Epilepsy
+
+
+
+5
+
+Spinal muscular atrophy (SMA)
+
+TERMINATE IF <4
+
+
+
+S5.	Of your [INSERT S4r5] SMA patients that you have personally treated or managed in the last 12 months, how many fall into the following age groups?
+
+
+
+
+
+# of SMA patients/year  
+
+1
+
+0-2 years old
+
+
+
+2
+
+3-5 years old
+
+
+
+3
+
+6-17 years old
+
+
+
+4
+
+18-24 years old
+
+
+
+5
+
+25-49 years old
+
+
+
+6
+
+50+ years old
+
+
+
+
+
+
+
+SUM MUST = S4r5
+
+
+
+PATIENT COUNT (Hidden Variable)
+
+1
+
+Pediatric Patients
+
+S5r1 + S5r2 + S5r3
+
+2
+
+Adult Patients
+
+S5r4 + S5r5 + S5r6
+
+
+
+SPECIALTY (Hidden Variable)
+
+1
+
+Pediatric
+
+PATIENT COUNT (1) >= PATIENT COUNT (2)
+
+2
+
+Adult
+
+PATIENT COUNT (1) < PATIENT COUNT (2)
+
+
+
+S6.	Are you associated with an SMA Center of Excellence? 
+
+
+
+Centers of Excellence are specialized programs within healthcare institutions that have a concentration in SMA expertise and related resources.
+
+
+
+1
+
+Yes
+
+2
+
+No
+
+99
+
+Don’t Know
+
+
+
+ASK IF S6=1
+
+S7.	Which of the following centers of excellence are you associated with?
+
+
+
+1
+
+Advocate Children’s Hospital: Park Ridge, IL
+
+2
+
+Arkansas Children’s Hospital: Little Rock, AR
+
+3
+
+Baylor College of Medicine: Houston, TX
+
+4
+
+Boston Children’s Hospital: Boston, MA
+
+5
+
+Children’s Healthcare of Atlanta: Atlanta, GA
+
+6
+
+Children’s of Alabama: Birmingham, AL
+
+7
+
+Children’s National Medical Center: Washington, DC
+
+8
+
+Columbia University: New York, NY
+
+9
+
+Connecticut Children’s Medical Center: Hartford, CT
+
+10
+
+Duke University Medical Center: Durham, NC
+
+11
+
+Gillette Children’s Specialty Healthcare: St. Paul, MN
+
+12
+
+Northwestern University: Evanston, IL
+
+13
+
+Ohio State University, Wexner Medical Center: Columbus, OH
+
+14
+
+Phoenix Children’s Hospital: Phoenix, AZ
+
+15
+
+Stanford Health or Stanford Children’s Health: Palo Alto, CA
+
+16
+
+Seattle Children’s Hospital: Seattle, WA 
+
+17
+
+University of California, Los Angeles (UCLA): Los Angeles, CA
+
+18
+
+University of Miami: Miami, FL
+
+19
+
+University of Michigan: Ann Arbor, MI
+
+20
+
+University of New Mexico: Albuquerque, NM
+
+21
+
+University of Rochester Medical Center: Rochester, NY
+
+22
+
+University of Utah, Program for Inherited Neuromuscular Disorders: Salt Lake City, UT
+
+23
+
+University of Texas Southwestern/Children’s Health: Dallas, TX
+
+24
+
+Vanderbilt University Medical Center: Nashville, TN
+
+25
+
+Washington University/St. Louis Children’s Hospital: St. Louis, MO
+
+26
+
+Yale Pediatric Neuromuscular Clinic: New Haven, CT
+
+98
+
+None of these [ANCHOR]
+
+
+
+S8.	Which of the following best describes your primary practice setting? 
+
+
+
+1
+
+Major Academic Hospital
+
+2
+
+Major Academic Group Practice
+
+3
+
+University Teaching Hospital
+
+4
+
+Community Teaching Hospital 
+
+5
+
+Community Hospital (Non-Teaching)
+
+6
+
+Group, Multi-Specialty Practice
+
+7
+
+Group, Single-Specialty Practice
+
+8
+
+Solo Practice
+
+9
+
+Government-owned (e.g., VA, DoD, State, etc.) TERMINATE
+
+98
+
+Other
+
+
+
+PRACTICE TYPE (Hidden Variable)
+
+1
+
+Academic
+
+S8=1-3
+
+2
+
+Community
+
+S8=4-8
+
+3
+
+Other
+
+S8=9-98
+
+
+
+S9.	How many years have you been qualified in your medical specialty?
+
+
+
+# of years 
+
+RANGE: 0-75
+
+IF <2 OR >45
+
+TERMINATE
+
+
+
+S10.	What percent of your professional time is spent in direct patient care (as opposed to research, teaching, or other pursuits)?
+
+
+
+% of professional time
+
+RANGE: 0-100
+
+IF <60%, THEN TERMINATE
+
+
+
+S11.	Of your [INSERT S4r5] SMA patients that you have personally treated or managed in the last 12 months, how many fall into the following categories?
+
+
+
+
+
+PROGRAMMING NOTE: SUM OF COLUMNS 2-3 MUST = COLUMN 1 FOR EACH RESPONSE OPTION.
+
+TOTAL SMA PATIENTS
+
+DO NOT SHOW COLUMN
+
+PEDIATRIC SMA PATIENTS
+
+(0-17 Years Old)
+
+[SHOW COLUMN IF S5r1+S5r2+S5r3>0]
+
+ADULT SMA PATIENTS
+
+(18+ Years Old)
+
+[SHOW COLUMN IF S5r4+S5r5+S5r6>0]
+
+1
+
+Have never been treated with disease-modifying therapies
+
+AUTOFILL SUM OF S11r1c2 + S11r1c3
+
+
+
+
+
+2
+
+Previously treated with disease-modifying therapies, but not currently
+
+AUTOFILL SUM OF S11r2c2 + S11r2c3
+
+
+
+
+
+3
+
+Currently treated with disease-modifying therapies
+
+Please consider patients who have received Zolgensma (onasemnogene abeparvovec-xioi) as currently treated
+
+AUTOFILL SUM OF S11r3c2 + S11r3c3
+
+
+
+
+
+4
+
+Other (specify) [SPECIFY]
+
+AUTOFILL SUM OF S11r4c2 + S11r4c3
+
+
+
+
+
+
+
+Total SMA Patients
+
+
+
+DISPLAY SUM OF S5r1-3
+
+DISPLAY SUM OF S5r4-6
+
+
+
+
+
+
+
+DISPLAY SUM. SUM MUST = S5r1 + S5r2 + S5r3
+
+DISPLAY SUM. SUM MUST = S5r4 + S5r5 + S5r6
+
+
+
+S12.	Which medicines are you aware of that treat spinal muscular atrophy (SMA)? 
+
+
+
+OPEN END: REQUIRE AT LEAST 4 CHARACTERS
+
+
+
+
+
+
+
+
+
+Don’t know
+
+[EXCLUSIVE]
+
+
+
+S13.	What best describes your level of familiarity with the following treatments for spinal muscular atrophy (SMA)?
+
+
+
+
+
+RANDOMIZE RESPONSES
+
+Have Never Heard of it
+
+Have Heard of it, but Not Familiar with Product Information
+
+Know Some Information about Product, but Not very Familiar
+
+Very Knowledgeable and Familiar with Product
+
+1
+
+Evrysdi (risdiplam) original liquid formulation
+
+TERMINATE
+
+
+
+
+
+
+
+4
+
+Evrysdi (risdiplam) Tablet
+
+
+
+
+
+
+
+
+
+2
+
+Spinraza (nusinersen) 
+
+
+
+
+
+
+
+
+
+3
+
+Zolgensma (onasemnogene abeparvovec-xioi) 
+
+
+
+
+
+
+
+
+
+
+
+ASK IF S11r3c1>0
+
+S14.	Please indicate how many of your [INSERT S11r3c1] SMA patients that are currently treated fall into the following treatment approaches for each age group.
+
+
+
+
+
+RANDOMIZE RESPONSES.
+
+
+
+PROGRAMMING NOTE: SUM OF COLUMNS 2-3 MUST = COLUMN 1 FOR EACH RESPONSE OPTION.
+
+TOTAL SMA PATIENTS
+
+DO NOT SHOW COLUMN
+
+PEDIATRIC SMA PATIENTS
+
+(0-17 Years Old)
+
+[SHOW COLUMN IF S11r3c2>0]
+
+ADULT SMA PATIENTS
+
+(18+ Years Old)
+
+[SHOW COLUMN IF S11r3c3>0]
+
+1
+
+Evrysdi (risdiplam) 
+
+original liquid formulation only
+
+AUTOFILL SUM OF S14r1c2 + S14r1c3
+
+
+
+
+
+9
+
+Evrysdi (risdiplam) 
+
+Tablet only
+
+AUTOFILL SUM OF S14r9c2 + S14r9c3
+
+
+
+
+
+2
+
+Spinraza (nusinersen) only
+
+AUTOFILL SUM OF S14r2c2 + S14r2c3
+
+
+
+
+
+3
+
+Zolgensma (onasemnogene abeparvovec-xioi) only 
+
+AUTOFILL SUM OF S14r3c2 + S14r3c3
+
+
+
+Do not allow response
+
+4
+
+Evrysdi (risdiplam) 
+
+original liquid formulation + Zolgensma (onasemnogene abeparvovec-xioi) in combination
+
+AUTOFILL SUM OF S14r4c2 + S14r4c3
+
+
+
+Do not allow response
+
+10
+
+Evrysdi (risdiplam) Tablet + Zolgensma (onasemnogene abeparvovec-xioi) in combination
+
+AUTOFILL SUM OF S14r10c2 + S14r10c3
+
+
+
+Do not allow response
+
+5
+
+Spinraza (nusinersen)  + Zolgensma (onasemnogene abeparvovec-xioi) in combination
+
+AUTOFILL SUM OF S14r5c2 + S14r5c3
+
+
+
+Do not allow response
+
+6
+
+Clinical Trial
+
+AUTOFILL SUM OF S14r6c2 + S14r6c3
+
+
+
+
+
+7
+
+Other
+
+AUTOFILL SUM OF S14r7c2 + S14r7c3
+
+
+
+
+
+
+
+Sum
+
+
+
+SHOW SUM OF RESPONSES 1-10
+
+
+
+SUM MUST = S11r3c2
+
+SHOW SUM OF RESPONSES 1-10
+
+
+
+SUM MUST = S11r3c3
+
+
+
+Total SMA Patients
+
+
+
+DISPLAY S11r3c2
+
+DISPLAY S11r3c3
+
+
+
+EVRYSDI PRESCRIBER (Hidden Variable)
+
+1
+
+Prescriber
+
+S14r1c1>0 OR S14r4c1>0 OR S14r9c1>0 OR S14r10c1>0
+
+2
+
+Non-Prescriber
+
+S14r1c1=0 AND S14r4c1=0 AND S14r9c1=0 AND S14r10c1=0
+
+
+
+SPINRAZA PRESCRIBER (Hidden Variable)
+
+1
+
+Prescriber
+
+S14r2c1>0 OR S14r5c1>0
+
+2
+
+Non-Prescriber
+
+S14r2c1=0 AND S14r5c1=0
+
+
+
+TABLET PRESCRIBER (Hidden Variable)
+
+1
+
+Prescriber
+
+S14r9c1+S14r10c1>0
+
+2
+
+Non-Prescriber
+
+S14r9c1+S14r10c1=0
+
+
+
+SHOW IF S14r9c1 + S14r10c1>0
+
+S14B.	Please indicate the treatment status of your [INSERT S14r9c1 + S14r10c1] current Evrysdi Tablet patients prior to beginning treatment with the Evrysdi Tablet.
+
+
+
+RANDOMIZE
+
+# of Patients
+
+1
+
+Treated with the original Evrysdi liquid formulation
+
+
+
+2
+
+Treated with Spinraza
+
+
+
+3
+
+Treated with Zolgensma
+
+
+
+4
+
+Participating in a clinical trial
+
+
+
+5
+
+Previously treated, but was not on actively on treatment at the time Evrysdi Tablet was prescribed
+
+
+
+6
+
+Untreated, never been treated
+
+
+
+
+
+TOTAL
+
+DISPLAY SUM
+
+[SUM MUST = S14r9c1 + S14r10c1]
+
+
+
+S15.	Are you or any member of your immediate family currently employed by a pharmaceutical, biotechnology, or medical device manufacturer or marketing research firm as an employee or consultant? Please do not include any involvement you may have with advisory boards.
+
+
+
+1
+
+Yes
+
+TERMINATE
+
+2
+
+No
+
+
+
+
+
+IF QUALIFIED, INVITE:
+
+Thank you for answering these questions.  Based on your responses, we would like to invite you to participate in our study.  The survey will take approximately 30 minutes to complete.
+
+
+
+We will not ask you to disclose any information that would identify you, such as your name, telephone, email address, etc.
+
+
+
+Are you interested in participating?
+
+
+
+1
+
+Yes
+
+
+
+2
+
+No
+
+TERMINATE
+
+
+
+SHOW ON SEPARATE SCREEN:
+
+
+
+Thank you for your interest in participating in this research study.  Cognitive Consulting wishes to confirm your interest in participating in this research. This Participant Agreement (“Agreement”) sets forth the terms and conditions of your participation.
+
+
+
+Research Intent. Any information provided to you is for market research purposes only and is not intended to recommend or promote a therapeutic approach, medical procedure, specific product, or class of products, or to be a representation of approved product labeling.  You have no obligation to use, purchase, recommend or arrange for the use of any therapeutic approach, medical procedure, or product, based on your participation in this market research. You represent that the facts and information that you provide in the course of your participation are true and accurate.
+
+
+
+Confidentiality. You agree to keep in confidence for a period of three (3) years from the expiration or termination of this Agreement any confidential information disclosed to you during this discussion.  “Confidential Information” includes, but is not limited to, information about the Client (if applicable) or the subject of the research that is either proprietary in nature or is not known to the general public.
+
+
+
+Your individual responses and any other information you provide in the context of your participation in this research will be kept confidential and will only be used as described in this document and will not be disclosed to any third party (other than those described in this document) without your approval or unless required by regulation or by court order.
+
+
+
+Payment. As consideration for the time you are taking to participate in this market research and for your performance of the obligations under this Agreement, we shall pay you the amount that was previously communicated in your invitation email.
+
+
+
+By checking “I agree” below, you indicate your acceptance of the terms of this Market Research Participant Agreement. 
+
+
+
+1
+
+I agree
+
+
+
+2
+
+I do not agree
+
+TERMINATE
+
+
+
+Thank you for agreeing to participate in this market research survey. Please be assured that all of your responses will be kept in strict confidence. The data from the survey will be blinded, and we will ensure that the strictest standards of privacy are maintained with the content of your responses. No identifying information will be collected, and all responses will remain anonymous. As such, please make every effort to be open and honest when responding to the questions. The information you provide in this survey is greatly appreciated and valuable.
+
+
+
+SHOW ON SEPARATE SCREEN:
+
+
+
+We are required to pass on to our client details of adverse events and product technical complaints related to their own products that are raised during the course of market research interviews. Although this is an online market research interview and how you respond will, of course, be treated in confidence, should you raise an adverse event or product technical complaint in an individual or group of individuals, we will need to report this.
+
+
+
+If you decide to disclose your personal details in association with any adverse event or product technical complaint report, this information will be disclosed to the commissioning company. In such a situation you may be contacted specifically in relation to that adverse event or product technical complaint. Everything else you contribute during the course of the interview will continue to remain confidential.
+
+
+
+Are you happy to proceed with the interview on this basis? Please indicate your response by selecting the appropriate option below:
+
+
+
+1
+
+I would like to proceed and give permission for my contact details to be passed on to the product surveillance department of the company if an adverse event or product technical complaint is mentioned by me during the survey
+
+
+
+2
+
+I would like to proceed but do not wish for my contact details to be passed on to the product surveillance department of the company if an adverse event or product technical complaint is mentioned by me during the survey
+
+
+
+3
+
+I don’t want to proceed and wish to end the interview here
+
+TERMINATE
+
+
+
+MAIN QUESTIONNAIRE
+
+
+
+SECTION A: PATIENT PROFILE AND BACKGROUND					
+
+
+
+A1.	What percent of your spinal muscular atrophy (SMA) patients fall into the following categories? 
+
+Responses must add up to 100%.  
+
+
+
+
+
+
+
+Percent of SMA Patients
+
+1
+
+Symptomatic
+
+
+
+2
+
+Asymptomatic
+
+
+
+3
+
+Unknown
+
+
+
+
+
+
+
+MUST =100%
+
+
+
+A2.	What percent of your spinal muscular atrophy (SMA) patients fall into the following categories? 
+
+Responses must add up to 100%.  
+
+
+
+
+
+
+
+Percent of SMA Patients
+
+1
+
+Unable to walk at all
+
+
+
+2
+
+A cane or some other assistive device is always needed to walk
+
+
+
+3
+
+A cane or some other assistive device is sometimes needed to walk
+
+
+
+5
+
+No problem with walking or running
+
+
+
+6
+
+Too young to assess
+
+
+
+7
+
+Unknown
+
+
+
+
+
+
+
+MUST =100%
+
+
+
+A3.	What percent of your spinal muscular atrophy (SMA) patients fall into the following SMA Type categories? 
+
+Responses must add up to 100%.  
+
+
+
+
+
+
+
+Percent of SMA Patients
+
+1
+
+SMA Type 0
+
+
+
+2
+
+SMA Type 1
+
+
+
+3
+
+SMA Type 2
+
+
+
+4
+
+SMA Type 3
+
+
+
+5
+
+SMA Type 4
+
+
+
+
+
+
+
+MUST =100%
+
+
+
+A4.	For each spinal muscular atrophy (SMA) patient type, what percent fall into the following treatments? 
+
+Each column must add up to 100%.
+
+
+
+RANDOMIZE
+
+SMA
+
+Type 1
+
+SHOW IF A3r2>0
+
+SMA
+
+Type 2
+
+SHOW IF A3r3>0
+
+SMA
+
+Type 3
+
+SHOW IF A3r4>0
+
+SMA
+
+Type 4
+
+SHOW IF A3r5>0
+
+1
+
+Evrysdi (risdiplam) original liquid formulation only
+
+[SHOW IF S14r1c1>0] 
+
+
+
+
+
+
+
+
+
+9
+
+Evrysdi (risdiplam) Tablet only
+
+[SHOW IF S14r9c1>0] 
+
+
+
+
+
+
+
+
+
+2
+
+Spinraza (nusinersen) only
+
+[SHOW IF S14r2c1>0]
+
+
+
+
+
+
+
+
+
+3
+
+Zolgensma (onasemnogene abeparvovec-xioi) only
+
+[SHOW IF S14r3c1>0]
+
+
+
+
+
+
+
+
+
+4
+
+Evrysdi (risdiplam) original liquid formulation + Zolgensma (onasemnogene abeparvovec-xioi) in combination
+
+[SHOW IF S14r4c1>0]
+
+
+
+
+
+
+
+
+
+10
+
+Evrysdi (risdiplam) Tablet + Zolgensma (onasemnogene abeparvovec-xioi) in combination
+
+[SHOW IF S14r10c1>0]
+
+
+
+
+
+
+
+
+
+5
+
+Spinraza (nusinersen)  + Zolgensma (onasemnogene abeparvovec-xioi) in combination
+
+[SHOW IF S14r5c1>0]
+
+
+
+
+
+
+
+
+
+6
+
+Clinical Trial
+
+[SHOW IF S14r6c1>0]
+
+
+
+
+
+
+
+
+
+7
+
+Currently Untreated/Observation only
+
+[SHOW IF S11r1c1>0 OR S11r2c1>0]
+
+
+
+
+
+
+
+
+
+8
+
+Other (specify) [ANCHOR] [SPECIFY]
+
+
+
+
+
+
+
+
+
+
+
+
+
+MUST = 100%
+
+MUST = 100%
+
+MUST = 100%
+
+MUST = 100%
+
+
+
+A5.	What percent of your spinal muscular atrophy (SMA) patients fall into the following insurance categories? 
+
+Responses must add up to 100%.  
+
+
+
+
+
+
+
+Percent of SMA Patients
+
+1
+
+Commercial 
+
+
+
+2
+
+Medicare Low Income Subsidy (LIS)
+
+
+
+3
+
+Medicare (Non-LIS)
+
+
+
+4
+
+Medicaid
+
+
+
+5
+
+VA/DoD/TriCare
+
+
+
+6
+
+Uninsured
+
+
+
+98
+
+Unknown [EXCLUSIVE]
+
+□
+
+
+
+
+
+MUST = 100%
+
+
+
+A6.	What is your primary treatment goal for each of the spinal muscular atrophy (SMA) age groups? 
+
+
+
+
+
+
+
+ONLY ALLOW ONE RESPONSE PER COLUMN
+
+PEDIATRIC SMA PATIENTS
+
+(0-17 Years Old)
+
+[SHOW COLUMN IF S5r1-3>0]
+
+ADULT SMA PATIENTS
+
+(18+ Years Old)
+
+[SHOW COLUMN IF S5r4-6>0]
+
+1
+
+Meaningful improvement in disease condition (i.e., potential gains in motor function)
+
+
+
+
+
+2
+
+Stabilization of disease (i.e., prevent disease worsening)
+
+
+
+
+
+3
+
+Management of symptoms associated with disease (e.g., physical and occupational therapy)
+
+
+
+
+
+98
+
+Other (please specify) [ANCHOR] [SPECIFY]
+
+
+
+
+
+
+
+A7. 	Using a 7-point scale, where 1=Not At All Comfortable and 7=Extremely Comfortable, how comfortable are you with managing and treating SMA?
+
+
+
+Not At All Comfortable
+
+1
+
+2
+
+3
+
+4
+
+5
+
+6
+
+Extremely Comfortable
+
+7
+
+
+
+SECTION B: DISCONTINUATIONS, RESTARTS AND COMPLIANCE		
+
+
+
+ASK IF HAVE DISCONTINUED PATIENTS (S11r2c1>0)
+
+B1. 	Of your [INSERT S11r2c1] spinal muscular atrophy (SMA) patients that are not currently treated on a disease-modifying therapy but were previously treated, please indicate how many patients were previously on each of the following treatment regimens.
+
+
+
+RANDOMIZE RESPONSES. PROGRAMMING NOTE: SUM OF COLUMNS 2-3 MUST = COLUMN 1 FOR EACH RESPONSE OPTION.
+
+TOTAL SMA PATIENTS
+
+DO NOT SHOW COLUMN
+
+PEDIATRIC SMA PATIENTS
+
+(0-17 Years Old)
+
+[SHOW COLUMN IF S11r2c2>0]
+
+ADULT SMA PATIENTS
+
+(18+ Years Old)
+
+[SHOW COLUMN IF S11r2c3>0]
+
+1
+
+Evrysdi (risdiplam) 
+
+AUTOFILL SUM OF B1r1c2 + B1r1c3
+
+
+
+
+
+2
+
+Spinraza (nusinersen)
+
+AUTOFILL SUM OF B1r2c2 + B1r2c3
+
+
+
+
+
+3
+
+Clinical trial
+
+AUTOFILL SUM OF B1r3c2 + B1r3c3
+
+
+
+
+
+97
+
+Other (specify) [ANCHOR] [SPECIFY]
+
+AUTOFILL SUM OF B1r97c2 + B1r97c3
+
+
+
+
+
+
+
+Sum
+
+
+
+DISPLAY SUM OF RESPONSES 1-97
+
+
+
+SUM MUST = S11r2c2
+
+DISPLAY SUM OF RESPONSES 1-97
+
+
+
+SUM MUST = S11r2c3
+
+
+
+Total SMA Patients
+
+
+
+INSERT S11r2c2
+
+INSERT S11r2c3
+
+
+
+POTENTIAL AE
+
+ASK IF B1r1c1-5>0 OR B1r2c1-5>0
+
+B2. 	Of your SMA patients that were previously treated but not currently on disease-modifying 	therapies (DMT), what are the top 3 reasons for discontinuation of the following
+
+medicine(s) for the treatment of spinal muscular atrophy (SMA)? 
+
+Please select three per column. 
+
+
+
+
+
+RANDOMIZE RESPONSE GROUPS AND RESPONSES WITHIN GROUPS. HOLD 98 AT BOTTOM ALWAYS.
+
+SHOW IF B1r1c1>0
+
+SHOW IF B1r2c1>0
+
+Evrysdi
+
+(risdiplam)
+
+
+
+Spinraza
+
+(nusinersen)
+
+
+
+EFFICACY
+
+ 1
+
+Not as effective as desired with regard to improving overall movement (e.g., lifting head, picking up pencil, climbing stairs, supported standing, etc.)
+
+
+
+
+
+2
+
+Not as effective as desired with regard to bulbar function (e.g., chewing, swallowing, speaking, etc.)
+
+
+
+
+
+3
+
+The medicine started to lose effectiveness between doses
+
+Do not allow response
+
+
+
+4
+
+Patient is progressing and medication is not benefiting them
+
+
+
+
+
+TOLERABILITY
+
+5
+
+Side effect/tolerability issues with this medicine
+
+
+
+
+
+6
+
+Wanted to stop for fertility/family planning reasons
+
+
+
+
+
+ACCESS
+
+7
+
+Cost issues or concerns
+
+
+
+
+
+8
+
+Changes with insurance coverage
+
+
+
+
+
+9
+
+Worried about the ongoing logistical issues with accessing medicine (e.g., at home medicine delivery/travel to injection site etc.)
+
+
+
+
+
+10
+
+In order to receive Zolgensma treatment
+
+
+
+
+
+11
+
+Went to college and treatment access/logistics became challenging
+
+
+
+
+
+12
+
+Moved off the insurance plan of parent/guardian/etc. and treatment was no longer affordable
+
+
+
+
+
+13
+
+Difficulty with reauthorizations
+
+
+
+
+
+COMPLIANCE
+
+14
+
+Having to take the medicine every day became too burdensome
+
+
+
+Do not allow response
+
+15
+
+There were difficulties opening the bottle on a daily basis
+
+
+
+Do not allow response
+
+16
+
+Traveling to the doctor’s office/hospital to receive the injection became too burdensome
+
+Do not allow response
+
+
+
+17
+
+The intrathecal injections became too burdensome
+
+Do not allow response
+
+
+
+18
+
+Would too often forget to take the medicine
+
+
+
+Do not allow response
+
+MISCELLANEOUS
+
+19
+
+Difficulties swallowing the medicine
+
+
+
+Do not allow response
+
+20
+
+Decided to discontinue treatment altogether (no longer wanted to be treated)
+
+
+
+
+
+21
+
+Needed or wanted to take a break from treatment
+
+
+
+
+
+22
+
+Enrolled in a clinical trial and had to stop taking the medicine
+
+
+
+
+
+23
+
+Transitioned care from a pediatric provider to an adult provider
+
+
+
+
+
+98
+
+Other (specify) [ANCHOR] [SPECIFY]
+
+
+
+
+
+
+
+POTENTIAL AE 
+
+B3. 	Do you currently have any SMA patients that have the following treatment experience?
+
+
+
+RANDOMIZE ORDER EVRYSDI/SPINRAZA SHOWN. SHOW HEADERS.
+
+Yes
+
+No
+
+EVRYSDI
+
+SHOW IF EVRYSDI PRESCRIBER=1
+
+
+
+
+
+1
+
+Restarted Evrysdi After Spinraza: Started on Evrysdi (risdiplam), switched to Spinraza (nusinersen), then came back to Evrysdi (risdiplam)
+
+
+
+
+
+2
+
+Thinking About Restarting Evrysdi: Started on Evrysdi (risdiplam), switched to Spinraza (nusinersen), now thinking about returning to Evrysdi (risdiplam)
+
+
+
+
+
+3
+
+Took A Treatment Break, Restarted Evrysdi: Started on Evrysdi (risdiplam), took a break from SMA treatment, then came back to Evrysdi (risdiplam)
+
+
+
+
+
+SPINRAZA
+
+SHOW IF SPINRAZA PRESCRIBER=1
+
+
+
+
+
+4
+
+Restarted Spinraza After Evrysdi: Started on Spinraza (nusinersen) switched to Evrysdi (risdiplam), then came back to Spinraza (nusinersen)
+
+
+
+
+
+5
+
+Thinking About Restarting Spinraza: Started on Spinraza (nusinersen) switched to Evrysdi (risdiplam), now thinking about returning to Spinraza (nusinersen)
+
+
+
+
+
+6
+
+Took A Treatment Break, Restarted Spinraza: Started on Spinraza (nusinersen), took a break from SMA treatment, then came back to Spinraza (nusinersen)
+
+
+
+
+
+
+
+POTENTIAL AE
+
+ASK IF B3r1=1
+
+B4.	Why did your patient(s) decide to discontinue Spinraza (nusinersen) and restart Evrysdi (risdiplam)? 
+
+Please be detailed in your response. 
+
+
+
+OPEN END: REQUIRE MINIMUM OF 4 CHARACTERS
+
+
+
+POTENTIAL AE
+
+ASK IF B3r2=1
+
+B5.	Why are some of your patients who started on Evrysdi and switched to Spinraza now thinking about returning to Evrysdi? 
+
+Please be detailed in your response. 
+
+
+
+OPEN END: REQUIRE MINIMUM OF 4 CHARACTERS
+
+
+
+POTENTIAL AE
+
+ASK IF B3r3=1
+
+B6.	Why did your patient(s) decide to restart Evrysdi after taking a break from SMA treatment? 
+
+Please be detailed in your response. 
+
+
+
+OPEN END: REQUIRE MINIMUM OF 4 CHARACTERS
+
+
+
+POTENTIAL AE
+
+ASK IF EVRYSDI PRESCRIBER
+
+B7. 	Using a 7-point scale where 1=Not At All Compliant and 7=Extremely Compliant, how compliant do you feel your current Evrysdi patients are? 
+
+
+
+	By “compliant”, we mean the extent to which your Evrysdi patients take their Evrysdi daily. 
+
+
+
+Not At All Compliant
+
+1
+
+2
+
+3
+
+4
+
+5
+
+6
+
+Extremely Compliant
+
+7
+
+
+
+POTENTIAL AE
+
+ASK IF EVRYSDI PRESCRIBER
+
+B7A. 	Compared to the original liquid formulation, how does prescribing the Evrysdi Tablet affect a patient's likelihood to stay compliant with their treatment? Please use a 7-point scale where 1=Less Likely to be Compliant on the Tablet, 4=Equally as Likely to be Compliant on the Tablet, and 7=More Likely to be Compliant on the Tablet.
+
+	
+
+By “compliant”, we mean the extent to which your Evrysdi patients take their Evrysdi daily.
+
+
+
+Less Likely to be Compliant on the Tablet
+
+1
+
+2
+
+3
+
+Equally as Likely to be Compliant on the Tablet
+
+4
+
+5
+
+6
+
+More Likely to be Compliant on the Tablet
+
+7
+
+
+
+POTENTIAL AE
+
+Ask if B7=1-3 
+
+B8. 	Which of the following reasons do you feel contribute to the lack of compliance among your current Evrysdi patients? 
+
+Please select all that apply.
+
+
+
+RANDOMIZE
+
+1
+
+Delays in receiving medicine from the specialty pharmacy (Accredo)
+
+2
+
+Was not home to receive the shipment from the specialty pharmacy (Accredo), so was delayed in getting the medicine
+
+3
+
+Difficulties with swallowing have been causing issues taking the medicine
+
+4
+
+Side effects/tolerability issues
+
+5
+
+Difficulties with insurance approvals
+
+6
+
+Cost concerns
+
+7
+
+Having to take the medicine every day has been too burdensome
+
+8
+
+Difficulties opening the bottle/didn’t have the assistance needed to open the bottle
+
+9
+
+Simply forgot to take the medicine
+
+10
+
+Forgot to bring the medicine when they went out of town
+
+11
+
+Wanted to take a break from treatment
+
+12
+
+Wanted to save some medicine for another time
+
+13
+
+Personal/Family/Socioeconomic Circumstances      
+
+99
+
+Other (specify) [SPECIFY] [ANCHOR]
+
+
+
+
+
+SECTION C: TREATMENT PERCEPTIONS			
+
+
+
+POTENTIAL AE
+
+C1. 	What is your overall impression of the following spinal muscular atrophy (SMA) treatments? 
+
+
+
+
+
+RANDOMIZE
+
+Extremely Negative
+
+1
+
+2
+
+3
+
+4
+
+5
+
+6
+
+Extremely 
+
+Positive
+
+7
+
+1
+
+Evrysdi (risdiplam) original liquid formulation
+
+SHOW IF S13r1=2-4
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+4
+
+Evrysdi (risdiplam) Tablet
+
+SHOW IF S13r4=2-4
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+2
+
+Spinraza (nusinersen) 
+
+SHOW IF S13r2=2-4
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+3
+
+Zolgensma (onasemnogene abeparvovec-xioi) 
+
+SHOW IF S13r3=2-4
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+SATISFACTION
+
+ASK IF EVRYSDI PRESCRIBER
+
+POTENTIAL AE
+
+C2.	Using a 7-point scale, where 1=Not At All Satisfied and 7=Extremely Satisfied, what is your level of satisfaction with Evrysdi (risdiplam) original liquid formulation for the treatment of spinal muscular atrophy (SMA)?
+
+
+
+PN: IF ONLY ONE OF RESPONSES 2-3 ARE SHOWN, ONLY SHOW RESPONSE 1
+
+Not At All Satisfied
+
+1
+
+2
+
+3
+
+4
+
+5
+
+6
+
+Extremely Satisfied
+
+7
+
+1
+
+Overall level of satisfaction
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+2
+
+Treatment for patients aged 0-17
+
+SHOW IF S14r1c2>0 OR
+
+S14r4c2>0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+3
+
+Treatment for patients ages 18+
+
+SHOW IF S14r1c3>0 OR
+
+S14r4c3>0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ASK IF TABLET PRESCRIBER
+
+POTENTIAL AE
+
+C2A.	Using a 7-point scale, where 1=Not At All Satisfied and 7=Extremely Satisfied, what is your level of satisfaction with Evrysdi (risdiplam) Tablet for the treatment of spinal muscular atrophy (SMA)?
+
+
+
+PN: IF ONLY ONE OF RESPONSES 2-3 ARE SHOWN, ONLY SHOW RESPONSE 1
+
+Not At All Satisfied
+
+1
+
+2
+
+3
+
+4
+
+5
+
+6
+
+Extremely Satisfied
+
+7
+
+1
+
+Overall level of satisfaction
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+2
+
+Treatment for patients aged 2-17
+
+SHOW IF S14r9c2>0 OR
+
+S14r10c2>0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+3
+
+Treatment for patients ages 18+
+
+SHOW IF S14r9c3>0 OR
+
+S14r10c3>0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ASK IF SPINRAZA PRESCRIBER
+
+C3.	Using a 7-point scale, where 1=Not At All Satisfied and 7=Extremely Satisfied, what is your level of satisfaction with Spinraza (nusinersen) for the treatment of spinal muscular atrophy (SMA)?
+
+
+
+PN: IF ONLY ONE OF RESPONSES 2-3 ARE SHOWN, ONLY SHOW RESPONSE 1
+
+Not At All Satisfied
+
+1
+
+2
+
+3
+
+4
+
+5
+
+6
+
+Extremely Satisfied
+
+7
+
+1
+
+Overall level of satisfaction
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+2
+
+Treatment for patients aged 0-17
+
+SHOW IF S14r2c2>0 OR S14r5c2>0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+3
+
+Treatment for patients ages 18+
+
+SHOW IF S14r2c3>0 OR S14r5c3>0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ASK IF S14r3c1>0 OR S14r4c1>0 OR S14r5c1>0 OR S14r10c1>0
+
+C4.	Using a 7-point scale, where 1=Not At All Satisfied and 7=Extremely Satisfied, what is your level of satisfaction with Zolgensma (onasemnogene abeparvovec-xioi) for the treatment of spinal muscular atrophy (SMA)?
+
+
+
+
+
+Not At All Satisfied
+
+1
+
+2
+
+3
+
+4
+
+5
+
+6
+
+Extremely Satisfied
+
+7
+
+1
+
+Overall level of satisfaction
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+C5. 	Using a 7-point scale, where 1=Not At All Important and 7=Extremely Important, how important are each of the following when making a treatment choice for patients with spinal muscular atrophy (SMA)? 
+
+
+
+PROGRAMMING NOTE: IF RESPONDENTS STRAIGHT LINE (SELECT THE SAME ANSWER FOR ALL CODES) AT A3 - SHOW THIS ERROR MESSAGE: "YOU RATED ALL ITEMS EQUALLY. PLEASE REVIEW." IF THEY PROCEED WITHOUT CHANGING ANYTHING AFTER SEEING THIS MESSAGE, PROCEED TO THE NEXT SCREEN (THEY CAN PROCEED AFTER SEEING THE MESSAGE 1X).
+
+
+
+RANDOMIZE
+
+DO NOT SHOW HEADERS
+
+Not At All Important
+
+1
+
+2
+
+3
+
+4
+
+5
+
+6
+
+Extremely Important
+
+7
+
+EFFICACY
+
+1
+
+No waning effect / loss of efficacy in between doses
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+2
+
+Improvement in bulbar function (e.g., chewing, swallowing, speaking, etc.) 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+3
+
+Efficacy in overall motor function (e.g., lifting head, picking up pencil, climbing stairs, supported standing etc.)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+SAFETY
+
+4
+
+Favorable long-term safety profile 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+5
+
+Manageable side effects that patients can tolerate
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+CONVENIENCE
+
+6
+
+Convenient administration for patients
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+7
+
+Easy to initiate treatment regarding clinical factors (i.e. required tests)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+15
+
+Easy to initiate treatment regarding non-clinical factors (i.e. insurance coverage)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+8
+
+Is easy to be compliant with (e.g., easy dosing schedule, low risk of missed doses)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+MISC
+
+9
+
+Good patient access and affordability
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+10
+
+Patient requests a treatment
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+11
+
+Designed for systemic distribution (into the central nervous system and other areas of the body)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+14
+
+Designed to increase SMN protein production in both the central nervous system and peripheral tissues and organs
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+12
+
+Suitable for combination therapy
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+13
+
+Indicated across broad patient population (age, severity, type, functional capability) 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+PERFORMANCE
+
+ROTATE AND REPEAT FOR EVRYSDI ORIGINAL FORMULATION (IF AWARE: S13r1=2-4), EVRYSDI TABLET (IF AWARE: S13r4=2-4) AND SPINRAZA (NUSINERSEN) (IF AWARE: S13r2=2-4) 
+
+C6. 	Using a 7-point scale, where 1=Not At All Associated and 7=Highly Associated, to what extent do you associate each of the following with [INSERT “Evrysdi (risdiplam) original liquid formulation” OR “Evrysdi (risdiplam) Tablet” OR “Spinraza (nusinersen)”] for spinal muscular atrophy (SMA)?
+
+Please select one response per row. 
+
+
+
+RANDOMIZE
+
+DO NOT SHOW HEADERS
+
+Not At All Associated
+
+1
+
+2
+
+3
+
+4
+
+5
+
+6
+
+Highly Associated
+
+7
+
+EFFICACY
+
+1
+
+No waning effect / loss of efficacy in between doses
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+2
+
+Improvement in bulbar function (e.g., chewing, swallowing, speaking, etc.) 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+3
+
+Efficacy in overall motor function (e.g., lifting head, picking up pencil, climbing stairs, supported standing etc.)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+SAFETY
+
+4
+
+Favorable long-term safety profile 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+5
+
+Manageable side effects that patients can tolerate
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+CONVENIENCE
+
+6
+
+Convenient administration for patients
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+7
+
+Easy to initiate treatment 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+15
+
+Easy to initiate treatment regarding non-clinical factors (i.e. insurance coverage)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+8
+
+Is easy to be compliant with (e.g., easy dosing schedule, low risk of missed doses)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+MISC
+
+9
+
+Good patient access and affordability
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+10
+
+Patient requests a treatment
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+11
+
+Designed for systemic distribution (into the central nervous system and other areas of the body)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+14
+
+Designed to increase SMN protein production in both the central nervous system and peripheral tissues and organs
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+12
+
+Suitable for combination therapy
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+13
+
+Indicated across broad patient population (age, severity, type, functional capability) 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+SHOW IF HCP HAS TABLET PATIENTS WHO WERE PREVIOUSLY UNTREATED OR DISCONTINUED (S14Br5 + S14Br6>0)
+
+C6B.	Of your [S14Br5 + S14Br6] patients who went from being untreated to starting on the Evrysdi Tablet, what were the primary reasons for starting on the Tablet?
+
+	Please be detailed in your response.
+
+
+
+OPEN END: REQUIRE AT LEAST 4 CHARACTERS
+
+
+
+LOYALTY
+
+POTENTIAL AE
+
+C7.	Using a 10-point scale, where 1=Not At All Likely and 7=Extremely Likely, how likely 	would you be to recommend the following spinal muscular atrophy (SMA) treatments		to a patient?
+
+
+
+
+
+RANDOMIZE
+
+Not At All Likely
+
+0
+
+1
+
+2
+
+3
+
+4
+
+5
+
+6
+
+7
+
+8
+
+9
+
+Extremely Likely
+
+10
+
+1
+
+Evrysdi (risdiplam) original liquid formulation
+
+SHOW IF S13r1=2-4
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+4
+
+Evrysdi (risdiplam) Tablet
+
+SHOW IF S13r4=2-4
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+2
+
+Spinraza (nusinersen) 
+
+SHOW IF S13r2=2-4
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+3
+
+Zolgensma (onasemnogene abeparvovec-xioi) 
+
+SHOW IF S13r3=2-4
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+BARRIERS
+
+ASK ONCE FOR EACH RESPONDENT USING LEAST FILL. EVRYSDI LIQUID (IF S13r1=2-4), EVRYSDI TABLET (IF S13r4=2-4), AND SPINRAZA (NUSINERSEN) (IF S13r2=2-4)
+
+C8.	What are the key factors that prohibit you from treating your spinal muscular atrophy
+
+	(SMA) patients with [INSERT “Evrysdi (risdiplam)” OR “Evrysdi (risdiplam) Tablet” OR “Spinraza (nusinersen)”] for each age group?
+
+	For each column, please select all that apply. 
+
+
+
+
+
+RANDOMIZE
+
+DO NOT SHOW HEADERS
+
+Pediatric SMA Patients 
+
+(Ages 0-17)
+
+SHOW IF S5r1-3>0
+
+Adult SMA Patients 
+
+(Ages 18+)
+
+SHOW IF S5r4-6>0
+
+EFFICACY
+
+1
+
+I am not convinced of this SMA treatment’s efficacy for this age-group with regard to improving overall movement (e.g., lifting head, picking up pencil, climbing stairs, supported standing, etc.)
+
+
+
+
+
+2
+
+I am not convinced of this SMA treatment’s efficacy for this age-group with regard to bulbar function (e.g., chewing, swallowing, speaking, etc.)
+
+
+
+
+
+3
+
+I am concerned about the potential loss of efficacy over time
+
+
+
+
+
+4
+
+I need long term efficacy/safety data for this SMA treatment
+
+
+
+
+
+SAFETY
+
+5
+
+I am not convinced of this SMA treatment’s safety profile 
+
+
+
+
+
+6
+
+I am not convinced of its tolerability for my patients
+
+
+
+
+
+PATIENT/PHYSICIAN FACTORS
+
+7
+
+My patient (or their parent/caregiver) does not want to receive this SMA treatment
+
+
+
+
+
+8
+
+Prefer a medicine that is taken orally 
+
+DO NOT SHOW FOR EVRYSDI LIQUID OR TABLET
+
+
+
+
+
+9
+
+Prefer a medication that is administered intrathecally by a healthcare professional
+
+DO NOT SHOW FOR SPINRAZA
+
+
+
+
+
+10
+
+Treatment was not available when my patient first started treatment
+
+
+
+
+
+11
+
+It is not easy to initiate treatment due to clinical factors (i.e. required tests)
+
+
+
+
+
+20
+
+No isomalt (E953) or sucralose
+
+
+
+
+
+ACCESS
+
+12
+
+There is limited / no insurance coverage for this SMA treatment (e.g., getting drug approved)
+
+
+
+
+
+13
+
+The effort of securing initial insurance coverage for this SMA treatment is more burdensome than other therapies
+
+
+
+
+
+19
+
+The effort of maintaining insurance coverage on an ongoing basis for this SMA treatment is more burdensome than other therapies
+
+
+
+
+
+14
+
+Unable to obtain insurance coverage because they have been on this therapy in the past
+
+
+
+
+
+15
+
+There are logistical access issues with this SMA treatment (e.g., drug distribution to patients, travel to administration sites etc.)
+
+
+
+
+
+16
+
+My patient did not have access to a medical facility for treatment
+
+
+
+
+
+COMPLIANCE
+
+17
+
+I am concerned about patient medication compliance/adherence
+
+
+
+
+
+18
+
+I am concerned about persistence with treatment (Patient’s ability to continue prescribed treatment over a period of time)
+
+
+
+
+
+98
+
+Other (please specify) [ANCHOR] [SPECIFY]
+
+
+
+
+
+99
+
+None of the above [ANCHOR] [EXCLUSIVE]
+
+
+
+
+
+
+
+ASK IF SPINRAZA PRESCRIBER (SPINRAZA PRESCRIBER=1)
+
+C9.	In your opinion, what percent of your spinal muscular atrophy (SMA) patients on Spinraza (nusinersen) have reported weakness or fatigue before their next maintenance dose? 
+
+Please provide your best estimate.
+
+
+
+RANGE: 0-100
+
+% of SMA Patients on Spinraza (nusinersen)
+
+
+
+SECTION D: FUTURE SMA TREATMENT MARKET					
+
+
+
+FUTURE INTENT FOR CURRENTLY TREATING
+
+D1. 	Consider the treatment status of your current patients. In the chart below, please indicate how you anticipate the treatment approach of your current patients will change, if at all, in the next 12 months for each age group.
+
+
+
+	Please note that we have included your original treatment allocation by age group as a reference. If your treatment approach will stay the same, please insert the patient counts used in your original allocation.
+
+
+
+PROGRAMMING NOTE: AUTOFILL BLANKS WITH ZEROS IF COLUMN TOTAL MEETS MINIMUM REQUIREMENT.
+
+
+
+PROGRAMMING NOTE: SUM OF COLUMNS 5-6 MUST = COLUMN 4 FOR EACH RESPONSE OPTION.
+
+ORIGINAL SMA PATIENT COUNT
+
+FUTURE SMA PATIENT COUNT
+
+Total SMA Patients
+
+DO NOT SHOW COLUMN
+
+Pediatric SMA Patients (0-17)
+
+[SHOW IF S5r1-3>0]
+
+Adult SMA Patients (18+)
+
+[SHOW IF S5r4-6>0]
+
+Total SMA Patients
+
+DO NOT SHOW COLUMN
+
+Pediatric SMA Patients (0-17)
+
+[SHOW IF S5r1-3>0]
+
+Adult SMA Patients (18+)
+
+[SHOW IF S5r4-6>0]
+
+1
+
+Treated with Evrysdi (risdiplam) 
+
+original liquid formulation only
+
+INSERT S14r1c1
+
+INSERT S14r1c2
+
+INSERT S14r1c3
+
+AUTOFILL SUM OF D1r1c5+D1r1c6
+
+
+
+
+
+9
+
+Treated with Evrysdi (risdiplam) 
+
+Tablet only
+
+INSERT S14r9c1
+
+INSERT S14r9c2
+
+INSERT S14r9c3
+
+AUTOFILL SUM OF D1r9c5+D1r9c6
+
+
+
+
+
+2
+
+Treated with Spinraza (nusinersen) only
+
+INSERT S14r2c1
+
+INSERT S14r2c2
+
+INSERT S14r2c3
+
+AUTOFILL SUM OF D1r2c5+D1r2c6
+
+
+
+
+
+3
+
+Treated with Zolgensma (onasemnogene abeparvovec-xioi) only
+
+[SHOW IF S5r1-3>0]
+
+INSERT S14r3c1
+
+INSERT S14r3c2
+
+INSERT S14r3c3
+
+AUTOFILL SUM OF D1r3c5+D1r3c6
+
+
+
+n/a
+
+4
+
+Treated with Evrysdi (risdiplam) 
+
+original liquid formulation + Zolgensma (onasemnogene abeparvovec-xioi) in combination
+
+INSERT S14r4c1
+
+INSERT S14r4c2
+
+INSERT S14r4c3
+
+AUTOFILL SUM OF D1r4c5+D1r4c6
+
+
+
+n/a
+
+10
+
+Treated with Evrysdi (risdiplam) 
+
+Tablet + Zolgensma (onasemnogene abeparvovec-xioi) in combination
+
+INSERT S14r10c1
+
+INSERT S14r10c2
+
+INSERT S14r10c3
+
+AUTOFILL SUM OF D1r10c5+D1r10c6
+
+
+
+n/a
+
+5
+
+Treated with Spinraza (nusinersen)  + Zolgensma (onasemnogene abeparvovec-xioi) in combination
+
+INSERT S14r5c1
+
+INSERT S14r5c2
+
+INSERT S14r5c3
+
+AUTOFILL SUM OF D1r5c5+D1r5c6
+
+
+
+n/a
+
+6
+
+Treated with a Clinical Trial
+
+INSERT S14r6c1
+
+INSERT S14r6c2
+
+INSERT S14r6c3
+
+AUTOFILL SUM OF D1r6c5+D1r6c6
+
+
+
+
+
+7
+
+Observation Only/Untreated
+
+INSERT S11r1c1 + S11r2c1
+
+INSERT S11r1c2 + S11r2c2
+
+INSERT S11r1c3 + S11r2c3
+
+AUTOFILL SUM OF D1r7c5+D1r7c6
+
+
+
+
+
+8
+
+Other
+
+INSERT S14r7c1
+
+INSERT S14r7c2
+
+INSERT S14r7c3
+
+AUTOFILL SUM OF D1r8c5+D1r8c6
+
+
+
+
+
+
+
+Sum
+
+
+
+
+
+
+
+
+
+DISPLAY SUM. SUM MUST=S5r1-3
+
+DISPLAY SUM. SUM MUST= S5r4-6
+
+
+
+Total SMA Patients
+
+INSERT S4r5
+
+INSERT S5r1 + S5r2 + S5r3
+
+INSERT S5r4 + S5r5 + S5r6
+
+
+
+INSERT S5r1-3
+
+INSERT S5r4-6
+
+
+
+IF TABLET PRESCRIBING INCREASES ([SUM OF D1r9c5+D1r9c6 > S14r9c1] OR [SUM OF D1r10c5+D1r10c6 > S14r10c1])
+
+D1A.	You indicated that your prescribing of the Evrysdi Tablet is likely to increase over the next 12 months. For the patients you plan to start on the Evrysdi Tablet, please indicate if you expect any of those patients to fall under the following categories. 
+
+	Please select all that apply.
+
+
+
+1
+
+Currently treated with the original Evrysdi liquid formulation
+
+2
+
+Currently treated with Spinraza
+
+3
+
+Currently treated with Zolgensma
+
+4
+
+Currently participating a clinical trial
+
+5
+
+Previously treated, but was not on actively on treatment at the time Evrysdi Tablet was prescribed
+
+6
+
+Untreated, never been treated
+
+7
+
+Don’t know/unsure [EXCLUSIVE]
+
+
+
+IF TABLET PRESCRIBING DESCREASES ([SUM OF D1r9c5+D1r9c6 < S14r9c1] OR [SUM OF D1r10c5+D1r10c6 < S14r10c1])
+
+D1B.	You indicated that your prescribing of the Evrysdi Tablet is likely to decrease over the next 12 months. For the patients you expect to discontinue the Evrysdi Tablet, please indicate if you expect any of those patients to fall under the following categories.
+
+	Please select all that apply.
+
+
+
+1
+
+Switch to the original Evrysdi liquid formulation
+
+2
+
+Switch to Spinraza
+
+3
+
+Add on Zolgensma 
+
+4
+
+Switch to Clinical trial
+
+5
+
+Take off of DMTs altogether
+
+6
+
+Don’t know/unsure [EXCLUSIVE]
+
+
+
+D2.	Using a 7-point scale, where 1=Not At All Familiar and 7=Extremely Familiar, what is your level of familiarity with the following?
+
+
+
+
+
+RANDOMIZE
+
+Not At All Familiar
+
+1
+
+2
+
+3
+
+4
+
+5
+
+6
+
+Extremely Familiar
+
+7
+
+1
+
+High Dose Spinraza (nusinersen) 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+3
+
+Zolgensma indicated for patients ages 2-17 years old
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+4
+
+Taldefgrobep alfa (myostatin inhibitor)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ASK IF FAMILIAR WITH HIGH DOSE SPINRAZA (D2r1=4-7)
+
+D4.	What have you heard about High Dose Spinraza (nusinersen)?
+
+
+
+OPEN END: REQUIRE AT LEAST 4 CHARACTERS
+
+
+
+ASK IF FAMILIAR WITH ZOLGENSMA (D2r3=4-7)
+
+D5.	What have you heard about Zolgensma indicated for patients ages 2-17 years old?
+
+
+
+OPEN END: REQUIRE AT LEAST 4 CHARACTERS
+
+
+
+ASK IF FAMILIAR WITH ANTI-MYOSTATIN (D2r4=4-7)
+
+D5x2.	What have you heard about taldefgrobep alfa (myostatin inhibitor)?
+
+
+
+OPEN END: REQUIRE AT LEAST 4 CHARACTERS
+
+
+
+ASK IF ANY FROM D2r1-4>3
+
+D6. 	Using a 7-point scale, where 1=Not At All Excited and 7=Extremely Excited, how excited are you about the following new formulation, dosing, or indication options?
+
+
+
+
+
+RANDOMIZE
+
+Not At All Excited
+
+1
+
+2
+
+3
+
+4
+
+5
+
+6
+
+Extremely Excited
+
+7
+
+2
+
+Spinraza (nusinersen) high dose
+
+SHOW IF FAMILIAR WITH HIGH DOSE SPINRAZA (D2_1=4-7)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+3
+
+Zolgensma indicated for patients ages 2-17 years old
+
+SHOW IF FAMILIAR WITH Zolgensma indicated for patients ages 2-17 years old (D2_3=4-7)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+4
+
+Taldefgrobep alfa (myostatin inhibitor)
+
+SHOW IF FAMILIAR WITH ANTI-MYO (D4_1=4-7)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ASK IF SPINRAZA PRESCRIBER=1
+
+D8. 	Using a 7-point scale where 1=No Impact At All and 7=High Impact, how much of an impact do you feel the availability of High Dose Spinraza would have on…?
+
+
+
+
+
+No Impact At All
+
+1
+
+2
+
+3
+
+4
+
+5
+
+6
+
+High 
+
+Impact
+
+7
+
+Not Applicable to My Patients
+
+Your patients who have discontinued Spinraza, returning to Spinraza
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Your patients who are considering discontinuing Spinraza, staying on Spinraza
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Your patients currently on Evrysdi, switching to Spinraza
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Your treatment naive patients
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ASK IF FAMILIAR WITH AT LEAST 1 NEW TREATMENT (D2r1=4-7 OR D2r3=4-7)
+
+D9.	Consider your current spinal muscular atrophy (SMA) patients. If High Dose Spinraza and Zolgensma indicated for patients ages 2-17 become available in the future, please indicate how your treatment for SMA would change, if at all, by distributing the proportion of patients across the list of products. 
+
+
+
+Please assume that High Dose Spinraza and Zolgensma indicated for patients ages 2-17 years old will be available without restrictions and with reasonable out-of-pocket costs.
+
+
+
+	Please note that we have included your original treatment allocation by age group as a reference. If your treatment approach would stay the same, please insert the patient counts used in your original allocation.
+
+
+
+PROGRAMMING NOTE: AUTOFILL BLANKS WITH ZEROS IF COLUMN TOTAL MEETS MINIMUM REQUIREMENT.
+
+
+
+PROGRAMMING NOTE: SUM OF COLUMNS 5-6 MUST = COLUMN 4 FOR EACH RESPONSE OPTION.
+
+ORIGINAL SMA PATIENT COUNT
+
+FUTURE SMA PATIENT COUNT
+
+Total SMA Patients
+
+DO NOT SHOW COLUMN
+
+Pediatric SMA Patients (0-17)
+
+[SHOW IF S5r1-3>0]
+
+Adult SMA Patients (18+)
+
+[SHOW IF S5r4-6>0]
+
+Total SMA Patients
+
+DO NOT SHOW COLUMN
+
+Pediatric SMA Patients (0-17)
+
+[SHOW IF S5r1-3>0]
+
+Adult SMA Patients (18+)
+
+[SHOW IF S5r4-6>0]
+
+11
+
+High Dose Spinraza
+
+n/a
+
+n/a
+
+n/a
+
+AUTOFILL SUM OF D9r11c5+D9r11c6
+
+
+
+
+
+12
+
+Zolgensma indicated for patients ages 2-17 years old
+
+n/a
+
+n/a
+
+n/a
+
+AUTOFILL SUM OF D9r12c5+D9r12c6
+
+
+
+n/a
+
+1
+
+Treated with Evrysdi (risdiplam) original liquid formulation only
+
+INSERT S14r1c1
+
+INSERT S14r1c2
+
+INSERT S14r1c3
+
+AUTOFILL SUM OF D9r1c5+D9r1c6
+
+
+
+
+
+9
+
+Treated with Evrysdi (risdiplam) Tablet only
+
+INSERT S14r9c1
+
+INSERT S14r9c2
+
+INSERT S14r9c3
+
+AUTOFILL SUM OF D9r9c5+D9r9c6
+
+
+
+
+
+2
+
+Treated with Spinraza (nusinersen) only
+
+INSERT S14r2c1
+
+INSERT S14r2c2
+
+INSERT S14r2c3
+
+AUTOFILL SUM OF D9r2c5+D9r2c6
+
+
+
+
+
+3
+
+Treated with Zolgensma (onasemnogene abeparvovec-xioi) only
+
+[SHOW IF S5r1-3>0]
+
+INSERT S14r3c1
+
+INSERT S14r3c2
+
+INSERT S14r3c3
+
+AUTOFILL SUM OF D9r3c5+D9r3c6
+
+
+
+n/a
+
+4
+
+Treated with Evrysdi (risdiplam) original liquid formulation + Zolgensma (onasemnogene abeparvovec-xioi) in combination
+
+INSERT S14r4c1
+
+INSERT S14r4c2
+
+INSERT S14r4c3
+
+AUTOFILL SUM OF D9r4c5+D9r4c6
+
+
+
+n/a
+
+10
+
+Treated with Evrysdi (risdiplam) Tablet + Zolgensma (onasemnogene abeparvovec-xioi) in combination
+
+INSERT S14r10c1
+
+INSERT S14r10c2
+
+INSERT S14r10c3
+
+AUTOFILL SUM OF D9r10c5+D9r10c6
+
+
+
+n/a
+
+5
+
+Treated with Spinraza (nusinersen)  + Zolgensma (onasemnogene abeparvovec-xioi) in combination
+
+INSERT S14r5c1
+
+INSERT S14r5c2
+
+INSERT S14r5c3
+
+AUTOFILL SUM OF D9r5c5+D9r5c6
+
+
+
+n/a
+
+6
+
+Treated with a Clinical Trial
+
+INSERT S14r6c1
+
+INSERT S14r6c2
+
+INSERT S14r6c3
+
+AUTOFILL SUM OF D9r6c5+D9r6c6
+
+
+
+
+
+7
+
+Observation Only/Untreated
+
+INSERT S11r1c1 + S11r2c1
+
+INSERT S11r1c2 + S11r2c2
+
+INSERT S11r1c3 + S11r2c3
+
+AUTOFILL SUM OF D9r7c5+D9r7c6
+
+
+
+
+
+8
+
+Other
+
+INSERT S14r7c1
+
+INSERT S14r7c2
+
+INSERT S14r7c3
+
+AUTOFILL SUM OF D9r8c5+D9r8c6
+
+
+
+
+
+
+
+Sum
+
+
+
+
+
+
+
+
+
+DISPLAY SUM. SUM MUST=S5r1+2+3
+
+DISPLAY SUM. SUM MUST= S5r4+5+6
+
+
+
+Total SMA Patients
+
+INSERT S4r5
+
+INSERT S5r1 + S5r2 + S5r3
+
+INSERT S5r4 + S5r5 + S5r6
+
+
+
+INSERT S5r1+2+3
+
+INSERT S5r4+5+6
+
+
+
+SECTION E: CONFIDENCE IN MARKET ACCESS					
+
+
+
+POTENTIAL AE
+
+ASK IF EVRYSDI PRESCRIBER=1 OR SPINRAZA PRESCRIBER=1
+
+E1.	What percent of your SMA patients that you prescribed the following treatment eventually received the treatment you prescribed?
+
+	Please provide your best estimate.
+
+
+
+
+
+
+
+% of SMA Patients
+
+1
+
+SMA patients prescribed Evrysdi (risdiplam) who filled their prescription [SHOW IF EVRYSDI PRESCRIBER=1]
+
+
+
+2
+
+SMA patients prescribed Spinraza (nusinersen) who received an infusion [SHOW IF SPINRAZA PRESCRIBER=1]
+
+
+
+
+
+POTENTIAL AE
+
+ASK IF E1r1<100 OR E1r2<100
+
+E2.	To the best of your knowledge, what was the primary reason that some of your SMA patients did not receive the following treatments that you prescribed them?  
+
+
+
+Evrysdi (risdiplam) [SHOW IF E1r1<100]
+
+OPEN END: REQUIRE AT LEAST 4 CHARACTERS
+
+Spinraza (nusinersen) [SHOW IF E2r2<100]
+
+OPEN END: REQUIRE AT LEAST 4 CHARACTERS
+
+
+
+POTENTIAL AE
+
+ASK IF EVRYSDI PRESCRIBER=1 OR SPINRAZA PRESCRIBER=1
+
+E3.	Considering your SMA patients that you have prescribed the following treatments, what percent of those patients experienced an insurance denial for that treatment?
+
+	Please provide your best estimate.
+
+
+
+
+
+
+
+% of SMA Patients 
+
+1
+
+Evrysdi (risdiplam) [SHOW IF EVRYSDI PRESCRIBER=1]
+
+
+
+2
+
+Spinraza (nusinersen) [SHOW IF SPINRAZA PRESCRIBER=1]
+
+
+
+
+
+ASK IF E3r1>0 OR E3r2>0
+
+POTENTIAL AE
+
+E4.	To the best of your knowledge, what was the primary reason that your SMA patients were denied insurance for the following treatments?
+
+
+
+Evrysdi (risdiplam) [SHOW IF E3r1>0]
+
+OPEN END: REQUIRE AT LEAST 4 CHARACTERS
+
+Spinraza (nusinersen) [SHOW IF E3r2>0]
+
+OPEN END: REQUIRE AT LEAST 4 CHARACTERS
+
+
+
+ASK IF E3r1>0 OR E3r2>0
+
+E5.	Considering your SMA patients that received an insurance denial for the following treatments, what percent had the following occur?
+
+
+
+
+
+% of SMA Patients
+
+Evrysdi (risdiplam) [SHOW IF E3r1>0] [SHOW HEADER]
+
+1
+
+Office/Practice had to appeal Evrysdi (risdiplam) denial
+
+
+
+2
+
+Insurance required additional documentation for reauthorization of Evrysdi (risdiplam)
+
+
+
+Spinraza (nusinersen) [SHOW IF E3r2>0] [SHOW HEADER]
+
+3
+
+Office/Practice had to appeal Spinraza (nusinersen) denial
+
+
+
+4
+
+Insurance required additional documentation for reauthorization of Spinraza (nusinersen)
+
+
+
+
+
+POTENTIAL AE
+
+ASK IF E5r1<100 OR E5r3<100 
+
+E6.	For the SMA Patients that you did NOT appeal the denial for the following treatments, why did you not contact the insurance company and request they reconsider the denial?
+
+
+
+Evrysdi (risdiplam) [SHOW IF E5r1<100]
+
+OPEN END: REQUIRE AT LEAST 4 CHARACTERS
+
+Spinraza (nusinersen) [SHOW IF E5r3<100]
+
+OPEN END: REQUIRE AT LEAST 4 CHARACTERS
+
+
+
+E7.	Which of the following treatments, if any, have you noticed an improvement in
+
+coverage/policy restrictions within the past 12 months?
+
+
+
+RANDOMIZE
+
+1
+
+Evrysdi (risdiplam)
+
+2
+
+Spinraza (nusinersen)
+
+3
+
+None of the above [EXCLUSIVE] [ANCHOR]
+
+SHOW IF E7<>3
+
+E8.	What have you noticed as an improvement in the coverage/policy restrictions within the
+
+past 12 months for each treatment?
+
+Please be as detailed as possible.
+
+
+
+RANDOMIZE
+
+
+
+1
+
+Evrysdi (risdiplam) [SHOW IF E7r1=1]
+
+
+
+2
+
+Spinraza (nusinersen) [SHOW IF E7r2=1]
+
+
+
+SHOW IF E7<>3
+
+E9.	Using a 7-point scale, where 1=Not At All Impactful and 7=Extremely Impactful, how
+
+impactful has the improvement in coverage/policy restrictions been on your likelihood to
+
+prescribe each treatment?
+
+
+
+
+
+RANDOMIZE
+
+Not At All Impactful
+
+1
+
+2
+
+3
+
+4
+
+5
+
+6
+
+Extremely Impactful
+
+7
+
+1
+
+Evrysdi (risdiplam) [SHOW IF E7r1=1]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+2
+
+Spinraza (nusinersen) [SHOW IF E7r2=1]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+SECTION F: MINDSHARE						
+
+
+
+MINDSHARE
+
+F1.  	To what extent do you feel each of these products is a Scientific Leader in spinal muscular atrophy (SMA). Please allocate 100 points across the products below. The more points you allocate, the stronger your perception of that product as a scientific leader.
+
+
+
+Definition of Scientific Leader: Function of company’s robust drug pipeline and performance of existing products across multiple varied indications, which inspires HCP’s confidence in manufacturers. 
+
+
+
+ 
+
+RANDOMIZE
+
+100-Points
+
+1
+
+Evrysdi (risdiplam) 
+
+
+
+2
+
+Spinraza (nusinersen) 
+
+
+
+3
+
+Zolgensma (onasemnogene abeparvovec-xioi) 
+
+
+
+
+
+
+
+MUST = 100
+
+ 
+
+MINDSHARE
+
+F2.  	To what extent do you feel each of these products has HCP Partnership in spinal muscular atrophy. Please allocate 100 points across the products below. The more points you allocate, the stronger your perception of that product’s HCP Partnership.
+
+
+
+Definition of HCP Partnership: Providing support to HCPs and their practice including prior authorization / other paperwork navigation and sharing of relevant drug information (clinical data, safety questions), contributing to the overall goal of improving population health. 
+
+
+
+ 
+
+RANDOMIZE
+
+100-Points
+
+1
+
+Evrysdi (risdiplam) 
+
+
+
+2
+
+Spinraza (nusinersen) 
+
+
+
+3
+
+Zolgensma (onasemnogene abeparvovec-xioi) 
+
+
+
+
+
+
+
+MUST = 100
+
+ 
+
+MINDSHARE
+
+F3.  	To what extent do you feel each of these products is Committed to Access/Affordability in spinal muscular atrophy. Please allocate 100 points across the  products below. The more points you allocate, the stronger your perception of that product’s Commitment to Access/Affordability. 
+
+
+
+Definition of Commitment to Access/Affordability: Manufacturer pricing decisions and support with patient assistance (e.g., co-pay, free drug) and different payment plans they offer to patients to ensure they receive necessary treatment. 
+
+
+
+ 
+
+RANDOMIZE
+
+100-Points
+
+1
+
+Evrysdi (risdiplam) 
+
+ 
+
+2
+
+Spinraza (nusinersen) 
+
+ 
+
+3
+
+Zolgensma (onasemnogene abeparvovec-xioi) 
+
+ 
+
+
+
+
+
+MUST = 100
+
+ 
+
+MINDSHARE
+
+F4.  	To what extent do you feel each of these products is Patient Centric in spinal muscular atrophy. Please allocate 100 points across the products below. The more points you allocate, the stronger your perception of that product’s Patient Centricity.
+
+
+
+Definition of Patient Centricity: Manufacturers provide efficacious and tolerable treatments which directly impact patient quality of life, enhance the patient experience through patient education and support, and contribute to decreasing health disparities. 
+
+
+
+ 
+
+RANDOMIZE
+
+100-Points
+
+1
+
+Evrysdi (risdiplam) 
+
+ 
+
+2
+
+Spinraza (nusinersen) 
+
+ 
+
+3
+
+Zolgensma (onasemnogene abeparvovec-xioi) 
+
+ 
+
+
+
+
+
+MUST = 100
+
+ 
+
+MINDSHARE AVERAGE (Hidden Variable)
+
+1
+
+Evrysdi
+
+(F1r1 + F2r1 + F3r1 + F4r1) / 4
+
+2
+
+Spinraza
+
+(F1r2 + F2r2 + F3r2 + F4r2) / 4
+
+3
+
+Zolgensma
+
+(F1r3 + F2r3 + F3r3 + F4r3) / 4
+
+
+
+MINDSHARE
+
+F5.  	Please allocate 100 points across the criteria below based on the impact these criteria have on your perception of products in spinal muscular atrophy. The more points you allocate, the greater the influence on the perception of the product. 
+
+
+
+ 
+
+RANDOMIZE
+
+100-Points
+
+1
+
+Scientific Leadership
+
+Defined as a function of company’s robust drug pipeline and performance of existing products across multiple varied indications, which inspires HCP’s confidence in manufacturers
+
+
+
+2
+
+HCP Partnership 
+
+Defined as providing support to HCPs and their practice including prior authorization / other paperwork navigation and sharing of relevant drug information (clinical data, safety questions), contributing to the overall goal of improving population health
+
+
+
+3
+
+Commitment to Access/Affordability
+
+Defined as the manufacturer pricing decisions and support with patient assistance (e.g., co-pay, free drug) and different payment plans they offer to patients to ensure they receive necessary treatment
+
+
+
+4
+
+Patient Centricity
+
+Defined as how manufacturers provide efficacious and tolerable treatments which directly impact patient quality of life, enhance the patient experience through patient education and support, and contribute to decreasing health disparities
+
+
+
+ 
+
+ 
+
+MUST = 100
+
+ 
+
+MINDSHARE WEIGHTED AVERAGE (Hidden Variable)
+
+1
+
+Evrysdi
+
+(F5r1/100 x F1r1) + (F5r2/100 x F2r1) + (F5r3/100 x F3r1) + (F5r4/100 x F4r1)
+
+2
+
+Spinraza
+
+(F5r1/100 x F1r2) + (F5r2/100 x F2r2) + (F5r3/100 x F3r2) + (F5r4/100 x F4r2)
+
+3
+
+Zolgensma
+
+(F5r1/100 x F1r3) + (F5r2/100 x F2r3) + (F5r3/100 x F3r3) + (F5r4/100 x F4r3)
+
+
+
+F6. 	When interacting with pharmaceutical manufacturers in the last three years, which communication method had the most impact on you in terms of staying up to date/informed and for prescribing a product? 
+
+Please select up to three. 
+
+
+
+RANDOMIZE. ALLOW 1-3 SELECTIONS.
+
+1
+
+Manufacturer press releases
+
+2
+
+Manufacturer websites
+
+3
+
+Digital advertising by manufacturers
+
+4
+
+Social media from manufacturers (e.g., Twitter, LinkedIn, YouTube)
+
+5
+
+Patient-directed educational material or advertising
+
+6
+
+Pharmaceutical sales representatives
+
+7
+
+Medical science liaisons (MSLs) or other medical representatives of the manufacturer 
+
+8
+
+Presentations and booths by the manufacturer at professional conferences
+
+
+
+SECTION G: DEMOGRAPHICS								
+
+
+
+G1.	Are you or your practice involved in Clinical Trials for spinal muscular atrophy (SMA)?
+
+
+
+1
+
+Yes
+
+2
+
+No
+
+99
+
+Don’t know
+
+
+
+G2.	Are you affiliated with a Muscular Dystrophy Association (MDA) Care Center or spinal muscular atrophy (SMA) Care Center?
+
+
+
+1
+
+Yes
+
+2
+
+No
+
+99
+
+Don’t know
+
+
+
+G3. 	What is your preferred method of engagement with a sales representative?
+
+
+
+1
+
+In person
+
+2
+
+Telephone (no video)
+
+3
+
+Video
+
+4
+
+No preference
+
+5
+
+Other (specify)
+
+
+
+G4.	What sex were you assigned at birth on your original birth certificate?  
+
+
+
+1
+
+Male
+
+2
+
+Female
+
+99
+
+Prefer not to answer
+
+
+
+G5.	How do you describe yourself?  
+
+
+
+1
+
+Male
+
+2
+
+Female
+
+3
+
+Transgender
+
+4
+
+Non-binary
+
+98
+
+Other
+
+99
+
+Prefer not to answer
+
+
+
+G6.	Are you of Hispanic or Latino origin or descent (such as Mexican, Puerto Rican, Cuban, Dominican, Central or South American, Caribbean or some other Latin American background?)  
+
+
+
+1
+
+Yes
+
+2
+
+No
+
+
+
+G7.	Which of the following best represents your racial or ethnic heritage? 
+
+Please select all that apply.  
+
+
+
+1
+
+Caucasian / White
+
+2
+
+Black or African-American
+
+3
+
+American Indian or Alaskan Native 
+
+4
+
+Asian (including Asian Indian, Chinese, Filipino, Japanese, Korean, Vietnamese)
+
+5
+
+Native Hawaiian or other Pacific Islander (including Samoan, Guamanian, or Chamorro)
+
+6
+
+Middle Eastern or North African
+
+98
+
+Other ethnic background
+
+99
+
+Prefer not to answer
+
+
+
+G8. 	How would you describe the area in which you practice most of the time?
+
+
+
+1
+
+Urban (within city)
+
+2
+
+Suburban (residential area on the outskirts of a city)
+
+3
+
+Rural (settled areas outside towns and cities)
+
+
+
+G9.	What is your age?  
+
+
+
+1
+
+Less than 30 years
+
+2
+
+30-39 years old
+
+3
+
+40-49 years old
+
+4
+
+50-59 years old
+
+5
+
+60-69 years old
+
+6
+
+70 or older
+
+98
+
+Prefer not to answer
+
+
+
+
+
+
+
+
+
+
+
+Thank you for taking this survey. 
+
+We value your feedback and are grateful for your time and effort!
+
+
+
+
+
+~ END OF QUESTIONNAIRE ~
+

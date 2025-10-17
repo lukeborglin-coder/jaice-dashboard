@@ -15,12 +15,12 @@ const AuthWrapper: React.FC<AuthWrapperProps> = ({ children }) => {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
         <div className="text-center">
-          <img src="/Jaice_Logo_Transparent.png" alt="JAICE Logo" className="w-40 h-40 object-contain mx-auto mb-4" />
+          <img src="/CogDashLogo.png" alt="Cognitive Dash Logo" className="w-40 h-40 object-contain mx-auto mb-4" />
           <div
             className="animate-spin rounded-full h-10 w-10 mx-auto border-4"
             style={{ borderColor: '#D14A2D', borderTopColor: 'transparent', borderRightColor: '#D14A2D', borderBottomColor: '#D14A2D', borderLeftColor: '#D14A2D' }}
           ></div>
-          <p className="mt-4 text-gray-600">Loading JAICE Dashboard...</p>
+          <p className="mt-4 text-gray-600">Loading Cognitive Dash Dashboard...</p>
         </div>
       </div>
     );
@@ -45,7 +45,7 @@ const AuthWrapper: React.FC<AuthWrapperProps> = ({ children }) => {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
         <div className="bg-white shadow rounded-lg p-8 max-w-md w-full text-center">
-          <img src="/Jaice_Logo_Transparent.png" alt="JAICE Logo" className="w-24 h-24 object-contain mx-auto mb-4" />
+          <img src="/CogDashLogo.png" alt="Cognitive Dash Logo" className="w-24 h-24 object-contain mx-auto mb-4" />
           <h1 className="text-xl font-semibold text-gray-900 mb-2">Access Pending</h1>
           <p className="text-sm text-gray-600 mb-6">
             Your account is not yet assigned to a company. Please contact an administrator to set your company to Cognitive to access the dashboard.

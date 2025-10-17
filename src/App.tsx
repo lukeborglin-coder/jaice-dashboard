@@ -171,7 +171,7 @@ function VendorLibrary({ projects }: { projects: any[] }) {
   const loadVendors = useCallback(async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('jaice_token');
+      const token = localStorage.getItem('cognitive_dash_token');
       if (token) {
         const resp = await fetch(`${API_BASE_URL}/api/vendors`, {
           headers: { 'Authorization': `Bearer ${token}` }
@@ -183,13 +183,13 @@ function VendorLibrary({ projects }: { projects: any[] }) {
             sampleVendors: serverData.sampleVendors || [],
             analytics: serverData.analytics || []
           };
-          localStorage.setItem('jaice_vendors', JSON.stringify(data));
+          localStorage.setItem('cognitive_dash_vendors', JSON.stringify(data));
           setVendors(data);
           return;
         }
       }
       // Fallback to local
-      const storedVendors = localStorage.getItem('jaice_vendors');
+      const storedVendors = localStorage.getItem('cognitive_dash_vendors');
       const fallbackData = storedVendors ? JSON.parse(storedVendors) : { moderators: [], sampleVendors: [], analytics: [] };
       setVendors(fallbackData);
     } catch (error) {
@@ -228,7 +228,7 @@ function VendorLibrary({ projects }: { projects: any[] }) {
     try {
       const sectionKey = activeSection;
       const path = getVendorsApiPath(sectionKey as any);
-      const token = localStorage.getItem('jaice_token');
+      const token = localStorage.getItem('cognitive_dash_token');
 
       // Prepare payload based on vendor type
       const payload = activeSection === 'sampleVendors'
@@ -281,7 +281,7 @@ function VendorLibrary({ projects }: { projects: any[] }) {
     try {
       const sectionKey = activeSection;
       const path = getVendorsApiPath(sectionKey as any);
-      const token = localStorage.getItem('jaice_token');
+      const token = localStorage.getItem('cognitive_dash_token');
       const resp = await fetch(`${API_BASE_URL}/api/vendors/${path}/${selectedVendor.id}`, {
         method: 'DELETE',
         headers: {
@@ -320,7 +320,7 @@ function VendorLibrary({ projects }: { projects: any[] }) {
     try {
       const sectionKey = activeSection;
       const path = getVendorsApiPath(sectionKey as any);
-      const token = localStorage.getItem('jaice_token');
+      const token = localStorage.getItem('cognitive_dash_token');
 
       // Prepare payload based on vendor type
       const payload = activeSection === 'sampleVendors'
@@ -354,7 +354,7 @@ function VendorLibrary({ projects }: { projects: any[] }) {
     if (!projects || projects.length === 0) return;
 
     try {
-      const storedVendors = localStorage.getItem('jaice_vendors');
+      const storedVendors = localStorage.getItem('cognitive_dash_vendors');
       if (!storedVendors) return;
 
       const vendorData = JSON.parse(storedVendors);
@@ -414,7 +414,7 @@ function VendorLibrary({ projects }: { projects: any[] }) {
 
       // Save updates if any changes were made
       if (hasUpdates) {
-        localStorage.setItem('jaice_vendors', JSON.stringify(vendorData));
+        localStorage.setItem('cognitive_dash_vendors', JSON.stringify(vendorData));
         loadVendors(); // Refresh the vendors state
       }
     } catch (error) {
@@ -437,7 +437,7 @@ function VendorLibrary({ projects }: { projects: any[] }) {
       // Update on server: modify vendor's customSchedule
       const sectionKey = activeSection as 'moderators' | 'sampleVendors' | 'analytics';
       const path = getVendorsApiPath(sectionKey);
-      const token = localStorage.getItem('jaice_token');
+      const token = localStorage.getItem('cognitive_dash_token');
 
       const updatedSchedule = (selectedVendor.customSchedule || []).filter((entry: any) => {
         const key = entry.id || `${entry.startDate}-${entry.endDate}`;
@@ -492,7 +492,7 @@ function VendorLibrary({ projects }: { projects: any[] }) {
     try {
       const sectionKey = activeSection as 'moderators' | 'sampleVendors' | 'analytics';
       const path = getVendorsApiPath(sectionKey);
-      const token = localStorage.getItem('jaice_token');
+      const token = localStorage.getItem('cognitive_dash_token');
 
       const scheduleEntry = {
         id: Date.now().toString(),
@@ -537,7 +537,7 @@ function VendorLibrary({ projects }: { projects: any[] }) {
         projectsToCheck = projects;
       } else {
         // Try different localStorage keys where projects might be stored
-        const projectStorageKeys = ['jaice_projects', 'projects', 'project_data'];
+        const projectStorageKeys = ['cognitive_dash_projects', 'projects', 'project_data'];
 
         for (const key of projectStorageKeys) {
           const storedProjects = localStorage.getItem(key);
@@ -596,7 +596,7 @@ function VendorLibrary({ projects }: { projects: any[] }) {
 
       // Add custom schedule entries from vendor data
       try {
-        const storedVendors = localStorage.getItem('jaice_vendors');
+        const storedVendors = localStorage.getItem('cognitive_dash_vendors');
         if (storedVendors) {
           const vendorData = JSON.parse(storedVendors);
           const moderatorVendor = vendorData.moderators?.find((vendor: any) =>
@@ -1839,7 +1839,7 @@ function AdminCenter() {
   const [costFilter, setCostFilter] = useState<'all' | 'active' | 'archived'>('all');
   const loadCostData = useCallback(async () => {
     try {
-      const headers: any = { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` };
+      const headers: any = { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` };
       const resp = await fetch(`${API_BASE_URL}/api/costs`, { headers });
       if (resp.ok) {
         const data = await resp.json();
@@ -1853,7 +1853,7 @@ function AdminCenter() {
 
   const loadAdminFeedback = useCallback(async () => {
     try {
-      const headers: any = { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` };
+      const headers: any = { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` };
       const resp = await fetch(`${API_BASE_URL}/api/feedback`, { headers });
       if (resp.ok) {
         const data = await resp.json();
@@ -1872,7 +1872,7 @@ function AdminCenter() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
         },
         body: JSON.stringify(updates)
       });
@@ -1893,7 +1893,7 @@ function AdminCenter() {
     try {
       const response = await fetch(`${API_BASE_URL}/api/auth/users/with-passwords`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
         }
       });
       if (response.ok) {
@@ -1927,7 +1927,7 @@ function AdminCenter() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
         },
         body: JSON.stringify(newUser)
       });
@@ -1953,7 +1953,7 @@ function AdminCenter() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
         },
         body: JSON.stringify({ role: newRole })
       });
@@ -1976,7 +1976,7 @@ function AdminCenter() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
         },
         body: JSON.stringify({ company: newCompany })
       });
@@ -2000,7 +2000,7 @@ function AdminCenter() {
       const response = await fetch(`${API_BASE_URL}/api/auth/users/${userId}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
         }
       });
       
@@ -2028,7 +2028,7 @@ function AdminCenter() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
         },
         body: JSON.stringify({ password: newPassword })
       });
@@ -3063,7 +3063,7 @@ export default function App() {
       if (user?.role !== 'admin') return;
 
       try {
-        const headers: any = { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` };
+        const headers: any = { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` };
 
         // Load feedback (bug reports & feature requests)
         const feedbackResp = await fetch(`${API_BASE_URL}/api/feedback`, { headers });
@@ -3210,7 +3210,7 @@ export default function App() {
       // Fetch all projects across all users (not just current user's projects)
       // This allows Project Hub and Content Analysis to filter by team membership
       const response = await fetch(`${API_BASE_URL}/api/projects/all`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` }
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
       });
       if (response.ok) {
         const data = await response.json();
@@ -3513,7 +3513,7 @@ export default function App() {
               method: 'PUT',
               headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+                'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
               },
               body: JSON.stringify({
                 userId: user.id,
@@ -3540,7 +3540,7 @@ export default function App() {
   const loadSavedContentAnalyses = useCallback(async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/caX/saved`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` }
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
       });
       if (response.ok) {
         const analyses = await response.json();
@@ -3686,23 +3686,15 @@ export default function App() {
           className={`${sidebarOpen ? "w-64" : "w-20"} ${sidebarOpen ? "flex" : "hidden lg:flex"} flex-col border-r bg-white/90 backdrop-blur-sm sticky top-0 h-screen flex-shrink-0 z-40`}
           style={{ width: sidebarOpen ? 256 : 80, minWidth: sidebarOpen ? 256 : 80 }}
         >
-        <div className={`flex items-center border-b p-3 ${sidebarOpen ? 'justify-between' : 'justify-center'}`}>
+        <div className={`flex items-center border-b pt-3 pb-1 ${sidebarOpen ? 'justify-center' : 'justify-center'}`}>
           <div className="flex items-center">
             <img
-              src={sidebarOpen ? "/Jaice_Logo_Transparent.png" : "/Circle.png"}
-              alt="Jaice Logo"
-              className={`object-contain transition-all ${sidebarOpen ? "h-10" : "h-10 w-10 cursor-pointer hover:opacity-70"}`}
-              onClick={() => !sidebarOpen && setSidebarOpen(true)}
+              src={sidebarOpen ? "/CogDashLogo.png" : "/Circle.png"}
+              alt="Cognitive Dash Logo"
+              className={`object-contain transition-all cursor-pointer hover:opacity-70 ${sidebarOpen ? "h-16 w-full max-w-48" : "h-12 w-12"}`}
+              onClick={() => setSidebarOpen(!sidebarOpen)}
             />
           </div>
-          {sidebarOpen && (
-            <button
-              className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
-              onClick={() => setSidebarOpen(false)}
-            >
-              <IconLayoutSidebarFilled className="h-6 w-6" style={{ color: BRAND.gray }} />
-            </button>
-          )}
         </div>
         <nav className="p-2 space-y-1 overflow-y-auto flex-1">
           {/* Main Navigation */}
@@ -4043,7 +4035,7 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
     setLoadingAllProjects(true);
     try {
       const response = await fetch(`${API_BASE_URL}/api/projects/all`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` }
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
       });
       if (response.ok) {
         const data = await response.json();
@@ -4063,7 +4055,7 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
   // Load vendors data
   const loadVendorsData = useCallback(() => {
     try {
-      const storedVendors = localStorage.getItem('jaice_vendors');
+      const storedVendors = localStorage.getItem('cognitive_dash_vendors');
       if (storedVendors) {
         const data = JSON.parse(storedVendors);
         setVendorsData(data);
@@ -6646,7 +6638,7 @@ function ContentAnalysis() {
     try {
       // Try to fetch from backend first
       const response = await fetch(`${API_BASE_URL}/api/ca/${projectId}`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` }
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
       });
       if (response.ok) {
         const data = await response.json();
@@ -6680,7 +6672,7 @@ function ContentAnalysis() {
         const response = await fetch(`${API_BASE_URL}/api/ca/generate`, {
           method: 'POST',
           body: formData,
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` }
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
         });
 
         if (response.ok) {
@@ -6700,7 +6692,7 @@ function ContentAnalysis() {
         const response = await fetch(`${API_BASE_URL}/api/ca/upload`, {
           method: 'POST',
           body: formData,
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` }
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
         });
 
         if (response.ok) {
@@ -6766,7 +6758,7 @@ function ContentAnalysis() {
                   onClick={async () => {
                     try {
                       const resp = await fetch(`${API_BASE_URL}/api/ca/template`, {
-                        headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` }
+                        headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
                       });
                       if (!resp.ok) throw new Error('Failed to download template');
                       const blob = await resp.blob();
@@ -7846,7 +7838,7 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
   // Load vendors data
   const loadVendorsData = useCallback(() => {
     try {
-      const storedVendors = localStorage.getItem('jaice_vendors');
+      const storedVendors = localStorage.getItem('cognitive_dash_vendors');
       if (storedVendors) {
         const data = JSON.parse(storedVendors);
         setVendorsData(data);
@@ -7864,7 +7856,7 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
     setLoadingArchived(true);
     try {
       const response = await fetch(`${API_BASE_URL}/api/projects/archived?userId=${user.id}` , {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` }
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
       });
       if (response.ok) {
         const data = await response.json();
@@ -8384,7 +8376,7 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
         },
         body: JSON.stringify({ userId: user?.id })
       });
@@ -8411,7 +8403,7 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
         },
         body: JSON.stringify({ userId: user?.id })
       });
@@ -8439,7 +8431,7 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+            'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
           },
           body: JSON.stringify({ userId: user?.id })
         });
@@ -8510,7 +8502,7 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
         },
         body: JSON.stringify({
           userId: user.id,
@@ -9792,7 +9784,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
     const loadExistingClients = async () => {
       try {
         const response = await fetch(`${API_BASE_URL}/api/projects/all`, {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` }
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
         });
         if (response.ok) {
           const data = await response.json();
@@ -9820,7 +9812,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
     const loadModerators = async () => {
       try {
         const response = await fetch(`${API_BASE_URL}/api/moderators`, {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` }
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
         });
         if (response.ok) {
           const data = await response.json();
@@ -10079,7 +10071,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+            'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
           },
           body: JSON.stringify({
             userId: user?.id,
@@ -10152,7 +10144,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
         const loadDiscussionGuide = async () => {
           try {
             const response = await fetch(`${API_BASE_URL}/api/caX/discussion-guide/${analysis.projectId}/download`, {
-              headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` }
+              headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
             });
             if (response.ok) {
               const blob = await response.blob();
@@ -10226,7 +10218,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
   useEffect(() => {
     const loadModerators = () => {
       try {
-        const storedVendors = localStorage.getItem('jaice_vendors');
+        const storedVendors = localStorage.getItem('cognitive_dash_vendors');
         if (storedVendors) {
           const data = JSON.parse(storedVendors);
           setModerators(data.moderators || []);
@@ -10253,7 +10245,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
     }
 
     // Get all projects to check for conflicts
-    const allProjects = JSON.parse(localStorage.getItem('jaice_projects') || '[]');
+    const allProjects = JSON.parse(localStorage.getItem('cognitive_dash_projects') || '[]');
 
     // Find the fielding phase segment (actual fieldwork dates only)
     const fieldingSegment = project.segments.find(seg =>
@@ -10357,7 +10349,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
         },
         body: JSON.stringify({
           userId: user?.id,
@@ -10748,7 +10740,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
         },
         body: JSON.stringify({ files: updatedFiles })
       });
@@ -10786,7 +10778,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
         },
         body: JSON.stringify({ files: updatedFiles })
       });
@@ -10926,7 +10918,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+            'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
           },
           body: JSON.stringify({
             userId: user?.id,
@@ -11078,7 +11070,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+            'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
           },
           body: JSON.stringify({
             userId: user?.id,
@@ -11122,7 +11114,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+            'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
           },
           body: JSON.stringify({
             userId: user?.id,
@@ -11165,7 +11157,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
         },
         body: JSON.stringify({
           userId: user?.id,
@@ -11227,7 +11219,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
         },
         body: JSON.stringify({
           userId: user?.id,
@@ -11396,7 +11388,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
         },
         body: JSON.stringify({
           userId: user?.id,
@@ -11437,7 +11429,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
         },
         body: JSON.stringify({
           userId: user?.id,
@@ -11791,7 +11783,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
         },
         body: JSON.stringify({
           userId: user?.id,
@@ -11829,7 +11821,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
         },
         body: JSON.stringify({
           userId: user?.id,
@@ -11867,7 +11859,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
         },
         body: JSON.stringify({
           userId: user?.id,
@@ -11914,7 +11906,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
         },
         body: JSON.stringify({
           userId: user?.id,
@@ -14246,7 +14238,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                       method: 'PUT',
                       headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+                        'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
                       },
                       body: JSON.stringify({
                         userId: user?.id,

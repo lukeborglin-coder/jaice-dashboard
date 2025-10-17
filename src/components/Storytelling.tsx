@@ -840,7 +840,7 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
   // This will be defined after the filtering logic
 
   const getAuthHeaders = useCallback(() => {
-    const token = localStorage.getItem('jaice_token');
+    const token = localStorage.getItem('cognitive_dash_token');
     return token ? { Authorization: `Bearer ${token}` } : { Authorization: '' };
   }, []);
 

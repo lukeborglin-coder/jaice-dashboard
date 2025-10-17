@@ -44,7 +44,7 @@ type User = {
   role: 'admin' | 'user';
 };
 
-// Task list data from JAICE_TaskList_ByPhase.json
+// Task list data from Cognitive_Dash_TaskList_ByPhase.json
 const TASK_LIST_BY_PHASE = {
   "Quantitative": {
     "Kickoff": [
@@ -681,7 +681,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
     });
     setShowAddClient(false);
     setNewClientName('');
-    localStorage.removeItem('jaice_project_draft');
+    localStorage.removeItem('cognitive_dash_project_draft');
   };
 
   // Auto-save function
@@ -699,7 +699,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
         currentPhaseIndex: currentPhaseIndex
       };
       
-      localStorage.setItem('jaice_project_draft', JSON.stringify(projectData));
+      localStorage.setItem('cognitive_dash_project_draft', JSON.stringify(projectData));
       }, 1000); // Save after 1 second of inactivity
     
     setSaveTimeout(timeout);
@@ -952,7 +952,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
   const loadModerators = async () => {
     setLoadingModerators(true);
     try {
-      const storedVendors = localStorage.getItem('jaice_vendors');
+      const storedVendors = localStorage.getItem('cognitive_dash_vendors');
       if (storedVendors) {
         const data = JSON.parse(storedVendors);
         setModerators(data.moderators || []);
@@ -982,7 +982,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
 
     try {
       // Get current vendors from localStorage
-      const storedVendors = localStorage.getItem('jaice_vendors');
+      const storedVendors = localStorage.getItem('cognitive_dash_vendors');
       const currentVendors = storedVendors ? JSON.parse(storedVendors) : {
         moderators: [],
         sampleVendors: [],
@@ -1008,7 +1008,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
       currentVendors.moderators.push(newModeratorData);
 
       // Save back to localStorage
-      localStorage.setItem('jaice_vendors', JSON.stringify(currentVendors));
+      localStorage.setItem('cognitive_dash_vendors', JSON.stringify(currentVendors));
 
       // Update local state
       setModerators(prev => [...prev, newModeratorData]);
@@ -1114,7 +1114,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
 
     try {
       // Get current vendors from localStorage
-      const storedVendors = localStorage.getItem('jaice_vendors');
+      const storedVendors = localStorage.getItem('cognitive_dash_vendors');
       const currentVendors = storedVendors ? JSON.parse(storedVendors) : {
         moderators: [],
         sampleVendors: [],
@@ -1143,7 +1143,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
       currentVendors.sampleVendors.push(newProviderData);
 
       // Save back to localStorage
-      localStorage.setItem('jaice_vendors', JSON.stringify(currentVendors));
+      localStorage.setItem('cognitive_dash_vendors', JSON.stringify(currentVendors));
 
       // Update local state
       setSampleProviders(prev => [...prev, newProviderData]);
@@ -1171,7 +1171,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
 
     try {
       // Get current vendors from localStorage
-      const storedVendors = localStorage.getItem('jaice_vendors');
+      const storedVendors = localStorage.getItem('cognitive_dash_vendors');
       const currentVendors = storedVendors ? JSON.parse(storedVendors) : {
         moderators: [],
         sampleVendors: [],
@@ -1200,7 +1200,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
       currentVendors.analytics.push(newPartnerData);
 
       // Save back to localStorage
-      localStorage.setItem('jaice_vendors', JSON.stringify(currentVendors));
+      localStorage.setItem('cognitive_dash_vendors', JSON.stringify(currentVendors));
 
       // Update local state
       setAnalyticsPartners(prev => [...prev, newPartnerData]);
@@ -1296,7 +1296,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
       }
 
       // Save to backend
-      const token = localStorage.getItem('jaice_token');
+      const token = localStorage.getItem('cognitive_dash_token');
       if (!token) {
         throw new Error('You are not authenticated. Please log in again.');
       }

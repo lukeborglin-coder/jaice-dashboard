@@ -32,8 +32,8 @@ const Login: React.FC<LoginProps> = ({ onLogin, onSwitchToRegister }) => {
 
       if (response.ok) {
         onLogin(data.user);
-        localStorage.setItem('jaice_user', JSON.stringify(data.user));
-        localStorage.setItem('jaice_token', data.token);
+        localStorage.setItem('cognitive_dash_user', JSON.stringify(data.user));
+        localStorage.setItem('cognitive_dash_token', data.token);
       } else {
         setError(data.message || 'Login failed');
       }
@@ -48,13 +48,10 @@ const Login: React.FC<LoginProps> = ({ onLogin, onSwitchToRegister }) => {
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
         <img
-          src="/Jaice_Logo_Transparent.png"
-          alt="JAICE Logo"
-          className="mx-auto w-48 sm:w-64 h-auto object-contain"
+          src="/CogDashLogo.png"
+          alt="Cognitive Dash Logo"
+          className="mx-auto w-full max-w-md h-auto object-contain"
         />
-        <p className="mt-2 text-center text-sm text-gray-600">
-          Project Management Dashboard
-        </p>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">

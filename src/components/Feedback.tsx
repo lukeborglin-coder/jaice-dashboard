@@ -22,7 +22,7 @@ export default function Feedback({ defaultType = 'bug' as FeedbackType }) {
 
   const loadActive = async () => {
     try {
-      const headers: any = { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` };
+      const headers: any = { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` };
       const [workingBugs, doneBugs, workingFeatures, doneFeatures] = await Promise.all([
         fetch(`${API_BASE_URL}/api/feedback?type=bug&status=working%20on%20it`, { headers }).then(r => r.json()),
         fetch(`${API_BASE_URL}/api/feedback?type=bug&status=done`, { headers }).then(r => r.json()),
@@ -53,7 +53,7 @@ export default function Feedback({ defaultType = 'bug' as FeedbackType }) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
         },
         body: JSON.stringify({ type, subject, body, priority })
       });

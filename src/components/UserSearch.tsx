@@ -91,7 +91,7 @@ const UserSearch: React.FC<UserSearchProps> = ({
     console.log('Searching for users with query:', query);
     setIsLoading(true);
     try {
-      const token = localStorage.getItem('jaice_token');
+      const token = localStorage.getItem('cognitive_dash_token');
       console.log('Token:', token ? 'Present' : 'Missing');
       console.log('Token length:', token ? token.length : 0);
       

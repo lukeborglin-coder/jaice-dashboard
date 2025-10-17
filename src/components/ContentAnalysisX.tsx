@@ -137,7 +137,7 @@ function VerbatimQuotesSection({ analysisId, respondentId, columnName, sheetName
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
         },
         body: JSON.stringify({
           analysisId,
@@ -323,7 +323,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
     setProjectTranscriptFetchError(null);
     try {
       const response = await fetch(`${API_BASE_URL}/api/transcripts/all`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` }
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
       });
 
       if (response.ok) {
@@ -561,7 +561,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
       if (!user?.id) return;
       try {
         const response = await fetch(`${API_BASE_URL}/api/projects/archived?userId=${user.id}`, {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` }
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
         });
         if (response.ok) {
           const data = await response.json();
@@ -679,7 +679,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+            'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
           },
           body: JSON.stringify({
             id: currentAnalysis.id,
@@ -746,7 +746,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+            'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
           },
           body: JSON.stringify({
             id: currentAnalysis.id,
@@ -808,7 +808,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
             method: 'PUT',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+              'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
             },
             body: JSON.stringify({
               id: currentAnalysis.id,
@@ -1085,7 +1085,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
         },
         body: JSON.stringify({
           analysisId: currentAnalysis?.id,
@@ -1231,7 +1231,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
       try {
         await fetch(`${API_BASE_URL}/api/caX/update`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` },
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` },
           body: JSON.stringify({
             id: currentAnalysis.id,
             data: normalizedAnalysis.data,
@@ -1298,7 +1298,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
       
       const res = await fetch(`${API_BASE_URL}/api/caX/saved`, {
         signal: controller.signal,
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` }
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
       });
       clearTimeout(timeoutId);
       
@@ -1371,7 +1371,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
         if (!currentAnalysis?.projectId) return;
         try {
           const response = await fetch(`${API_BASE_URL}/api/caX/discussion-guide/${currentAnalysis.projectId}/download`, {
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` }
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
           });
           if (response.ok) {
             const blob = await response.blob();
@@ -1470,7 +1470,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
     setViewMode('viewer');
     setLoadingSavedView(true);
     try {
-      const token = localStorage.getItem('jaice_token');
+      const token = localStorage.getItem('cognitive_dash_token');
       // Try to fetch full analysis (including quotes) by id
       const resp = await fetch(`${API_BASE_URL}/api/caX/saved/${analysis.id}`, {
         headers: token ? { 'Authorization': `Bearer ${token}` } : undefined,
@@ -1505,7 +1505,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
   const deleteSavedAnalysis = async (id: string, name: string) => {
     if (!confirm(`Delete content analysis "${name}"?`)) return;
     try {
-      await fetch(`${API_BASE_URL}/api/caX/delete/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` } });
+      await fetch(`${API_BASE_URL}/api/caX/delete/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` } });
       setSavedAnalyses(prev => prev.filter(a => a.id !== id));
       // Reload projects to update the project hub
       onProjectsChange?.();
@@ -1526,7 +1526,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
       const response = await fetch(`${API_BASE_URL}/api/caX/preview`, {
         method: 'POST',
         body: formData,
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` }
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
       });
 
       if (response.ok) {
@@ -1581,7 +1581,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
       const response = await fetch(`${API_BASE_URL}/api/caX/preview`, {
         method: 'POST',
         body: formData,
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` }
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
       });
 
       if (response.ok) {
@@ -1618,7 +1618,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+                'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
               },
               body: JSON.stringify({
                 projectId: createFormData.projectId,
@@ -1674,7 +1674,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
       console.log('Saving content analysis with originalDocxId:', currentAnalysis?.originalDocxId);
       const response = await fetch(`${API_BASE_URL}/api/caX/save`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` },
         body: JSON.stringify({
           projectId: saveFormData.projectId,
           projectName: selectedProject?.name || 'Unknown Project',
@@ -1728,7 +1728,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
       try {
         const response = await fetch(downloadUrl, {
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+            'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
           }
         });
         
@@ -1761,7 +1761,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
       try {
         const response = await fetch(downloadUrl, {
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+            'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
           }
         });
         
@@ -1820,7 +1820,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
       const response = await fetch(`${API_BASE_URL}/api/caX/process-transcript`, {
         method: 'POST',
         body: formData,
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` },
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` },
         signal: controller.signal
       });
 
@@ -1960,7 +1960,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
         try {
           const saveResponse = await fetch(`${API_BASE_URL}/api/caX/update`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` },
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` },
             body: JSON.stringify({
               id: currentAnalysis.id,
               data: normalizedAnalysis.data,
@@ -2054,7 +2054,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
         },
         body: JSON.stringify({
           analysisId: currentAnalysis.id,
@@ -2303,7 +2303,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
               <button
                 onClick={() => {
                   try {
-                    sessionStorage.setItem('jaice_transcripts_focus_project', currentAnalysis.projectId);
+                    sessionStorage.setItem('cognitive_dash_transcripts_focus_project', currentAnalysis.projectId);
                   } catch (err) {
                     console.warn('Unable to persist transcripts navigation target', err);
                   }
@@ -2374,7 +2374,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                     setTimeout(async () => {
                       try {
                         const response = await fetch(`${API_BASE_URL}/api/caX/discussion-guide/${currentAnalysis.projectId}/download`, {
-                          headers: { 'Authorization': `Bearer ${localStorage.getItem('jaice_token')}` }
+                          headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
                         });
                         if (response.ok) {
                           const blob = await response.blob();
@@ -2773,7 +2773,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                     onChange={(e) => setEditAnalysisName(e.target.value)}
                     onBlur={async () => {
                       try {
-                        const token = localStorage.getItem('jaice_token');
+                        const token = localStorage.getItem('cognitive_dash_token');
                         await fetch(`${API_BASE_URL}/api/caX/update`, {
                           method: 'PUT',
                           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -2835,7 +2835,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                       onChange={async (e) => {
                         const newProjectId = e.target.value;
                         try {
-                          const token = localStorage.getItem('jaice_token');
+                          const token = localStorage.getItem('cognitive_dash_token');
                           const proj = projects.find(p => p.id === newProjectId);
                           await fetch(`${API_BASE_URL}/api/caX/update`, {
                             method: 'PUT',
@@ -3149,7 +3149,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                                             try {
                                               const response = await fetch(downloadUrl, {
                                                 headers: {
-                                                  'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+                                                  'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
                                                 }
                                               });
 
@@ -3673,7 +3673,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                           method: 'POST',
                           headers: {
                             'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${localStorage.getItem('jaice_token')}`
+                            'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
                           },
                           body: JSON.stringify({
                             projectId: currentAnalysis?.projectId,
