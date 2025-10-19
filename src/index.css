@@ -125,6 +125,51 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
   background: transparent;
 }
 
+/* Light, minimal scrollbar for home page */
+.light-scrollbar {
+  scrollbar-width: thin;            /* Firefox */
+  scrollbar-color: rgba(156, 163, 175, 0.3) transparent; /* Light grey */
+}
+.light-scrollbar::-webkit-scrollbar {
+  width: 6px;                       /* Half the width (was 10px) */
+  height: 6px;
+}
+.light-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(156, 163, 175, 0.3); /* Light grey, about half opacity */
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+}
+.light-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.light-scrollbar::-webkit-scrollbar-button {
+  display: none !important;         /* Remove all arrows */
+  width: 0 !important;
+  height: 0 !important;
+}
+.light-scrollbar::-webkit-scrollbar-button:start:decrement,
+.light-scrollbar::-webkit-scrollbar-button:end:increment {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+.light-scrollbar::-webkit-scrollbar-button:vertical:start:decrement,
+.light-scrollbar::-webkit-scrollbar-button:vertical:end:increment {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+.light-scrollbar::-webkit-scrollbar-button:horizontal:start:decrement,
+.light-scrollbar::-webkit-scrollbar-button:horizontal:end:increment {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+.light-scrollbar::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 /* Grid layout for task headers and rows to ensure perfect alignment */
 .task-grid {
   display: grid;

@@ -50,11 +50,12 @@ import {
   RocketLaunchIcon as RocketLaunchIconSolid,
   PlayIcon as PlayIconSolid
 } from "@heroicons/react/24/solid";
-import { IconCalendarShare, IconCalendarWeek, IconBallAmericanFootball, IconRocket, IconFileAnalyticsFilled, IconLayoutSidebarFilled, IconTable, IconCheckbox, IconDatabaseExclamation, IconBook2, IconScript } from "@tabler/icons-react";
+import { IconCalendarShare, IconCalendarWeek, IconBallAmericanFootball, IconRocket, IconFileAnalyticsFilled, IconLayoutSidebarFilled, IconTable, IconCheckbox, IconDatabaseExclamation, IconBook2, IconScript, IconChartBar } from "@tabler/icons-react";
 import ContentAnalysisX from "./components/ContentAnalysisX";
 import Transcripts from "./components/Transcripts";
 import Storytelling from "./components/Storytelling";
 import QuestionnaireParser from "./components/QuestionnaireParser";
+import StatTesting from "./components/StatTesting";
 import AuthWrapper from "./components/AuthWrapper";
 import TopBar from "./components/TopBar";
 import Feedback from "./components/Feedback";
@@ -3654,6 +3655,7 @@ export default function App() {
 
   const quantitativeTools = useMemo(
     () => [
+      { name: "Stat Testing", icon: IconChartBar },
       { name: "QNR (Coming Soon)", icon: IconCheckbox, disabled: true },
       { name: "Data QA (Coming Soon)", icon: IconDatabaseExclamation, disabled: true },
     ],
@@ -3890,6 +3892,8 @@ export default function App() {
         <Transcripts onNavigate={setRoute} setAnalysisToLoad={setAnalysisToLoad} />
       ) : route === "Storytelling" || route === "storytelling" ? (
         <Storytelling analysisId={currentAnalysisId} projectId={currentProjectId} />
+      ) : route === "Stat Testing" ? (
+        <StatTesting />
       ) : route === "QNR" || route === "qnr" ? (
         <QuestionnaireParser />
       ) : (
@@ -4056,12 +4060,30 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
   }, []);
 
   // Load vendors data
-  const loadVendorsData = useCallback(() => {
+  const loadVendorsData = useCallback(async () => {
     try {
       const storedVendors = localStorage.getItem('cognitive_dash_vendors');
       if (storedVendors) {
         const data = JSON.parse(storedVendors);
         setVendorsData(data);
+      } else {
+        // If no vendors in localStorage, try to fetch from API
+        const token = localStorage.getItem('cognitive_dash_token');
+        if (token) {
+          const resp = await fetch(`${API_BASE_URL}/api/vendors`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (resp.ok) {
+            const serverData = await resp.json();
+            const data = {
+              moderators: serverData.moderators || [],
+              sampleVendors: serverData.sampleVendors || [],
+              analytics: serverData.analytics || []
+            };
+            localStorage.setItem('cognitive_dash_vendors', JSON.stringify(data));
+            setVendorsData(data);
+          }
+        }
       }
     } catch (error) {
       console.error('Error loading vendors data:', error);
@@ -4492,8 +4514,6 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
 
   // State for the new design
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
-  const [taskFilter, setTaskFilter] = useState<'ongoing' | 'today' | 'later' | 'overdue'>('ongoing');
-  const [hasAutoSelectedOverdue, setHasAutoSelectedOverdue] = useState(false);
 
   // Get user's first name
   const firstName = user?.name?.split(' ')[0] || 'User';
@@ -4514,401 +4534,282 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
       {/* Main Content Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column - Key Dates, My Tasks, and Projects */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Key Dates and My Tasks Boxes */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Key Dates Box */}
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 h-80 lg:col-span-1">
-              <div className="mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Key Dates <span className="text-[10px] italic text-gray-500">(next 2 weeks)</span></h3>
-                <div className="w-full h-px mt-2" style={{ backgroundColor: BRAND.gray }}></div>
-              </div>
-              <div className="h-48 overflow-y-auto">
-                <div>
-                {(() => {
-                  const today = new Date();
-                  const twoWeeksFromNow = new Date();
-                  twoWeeksFromNow.setDate(today.getDate() + 14);
-                  
-                  const keyDates: Array<{
-                    project: string;
-                    label: string;
-                    date: string;
-                    isToday: boolean;
-                    isOverdue: boolean;
-                    daysUntil: number;
-                  }> = [];
-                  
-                  filteredProjects.forEach(project => {
-                    if (project.keyDeadlines) {
-                      project.keyDeadlines.forEach(deadline => {
-                        const deadlineDate = new Date(deadline.date);
-                        if (deadlineDate >= today && deadlineDate <= twoWeeksFromNow) {
-                          const daysUntil = Math.ceil((deadlineDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-                          keyDates.push({
-                            project: project.name,
-                            label: deadline.label,
-                            date: deadline.date,
-                            isToday: daysUntil === 0,
-                            isOverdue: daysUntil < 0,
-                            daysUntil: daysUntil
-                          });
-                        }
-                      });
-                    }
-                  });
-                  
-                  // Sort by date (soonest first)
-                  keyDates.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-                  
-                  const displayDates = keyDates;
-                  
-                  if (displayDates.length === 0) {
-                    return (
-                      <div className="flex items-center justify-center h-full text-gray-500 text-sm">
-                        No key dates in the next 2 weeks
-                      </div>
-                    );
-                  }
-                  
-                  return (
-                    <div className="space-y-1">
-                      {displayDates.map((keyDate, index) => (
-                        <div 
-                          key={index} 
-                          className="flex items-center justify-between p-2 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
-                          onClick={() => {
-                            const project = projects.find(p => p.name === keyDate.project);
-                            if (project && onNavigateToProject) {
-                              onNavigateToProject(project);
-                            }
-                          }}
-                        >
-                          <div className="flex-1 min-w-0">
-                            <div className="text-xs font-medium text-gray-900 truncate">
-                              {keyDate.label}
-                            </div>
-                            <div className="text-[10px] text-gray-500 truncate">
-                              {keyDate.project}
-                            </div>
-                          </div>
-                          <div className="flex-shrink-0 ml-2 text-right">
-                            <div className={`text-xs font-medium ${
-                              keyDate.isToday ? 'text-orange-600' : 
-                              keyDate.isOverdue ? 'text-red-600' : 
-                              'text-gray-900'
-                            }`}>
-                              {keyDate.isToday ? 'Today' : 
-                               keyDate.isOverdue ? 'Overdue' : 
-                               `${keyDate.daysUntil} day${keyDate.daysUntil !== 1 ? 's' : ''}`}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })()}
-                </div>
-              </div>
-            </div>
-
+        <div className="lg:col-span-2 flex flex-col gap-6">
             {/* My Tasks Box */}
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 h-80 lg:col-span-2">
-              {(() => {
-                // Calculate task counts for each tab
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                
-                let ongoingCount = 0;
-                let todayCount = 0;
-                let laterCount = 0;
-                let overdueCount = 0;
-                
-                projects.forEach(project => {
-                  // Get current phase of the project
-                  const getCurrentPhase = (project: Project) => {
-                    if (!project.segments || project.segments.length === 0) {
-                      return project.phase; // Fallback
-                    }
-                    
-                    const today = new Date();
-                    const todayStr = today.toISOString().split('T')[0];
-                    
-                    const currentSegment = project.segments.find(segment => 
-                      todayStr >= segment.startDate && todayStr <= segment.endDate
-                    );
-                    
-                    return currentSegment ? currentSegment.phase : project.phase;
-                  };
-                  
-                  const currentPhase = getCurrentPhase(project);
-                  
-                  project.tasks.forEach(task => {
-                    const isAssignedToMe = task.assignedTo?.includes(user?.id || '') || false;
-                    
-                    if (isAssignedToMe && task.status !== 'completed') {
-                      if (task.isOngoing && task.phase === currentPhase) {
-                        ongoingCount++;
-                      } else if (task.dueDate && !task.isOngoing) {
-                        const taskDate = new Date(task.dueDate + 'T00:00:00');
-                        const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-                        const daysUntil = Math.ceil((taskDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-                        
-                        if (daysUntil < 0) {
-                          overdueCount++;
-                        } else if (taskDate.getTime() === todayDate.getTime()) {
-                          todayCount++;
-                        } else if (daysUntil > 0 && daysUntil <= 7) {
-                          laterCount++;
-                        }
-                      }
-                    }
-                  });
-                });
+          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden h-80 flex flex-col flex-shrink-0">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 flex-shrink-0">
+                <h3 className="text-lg font-semibold" style={{ color: BRAND.gray }}>My Tasks</h3>
+              </div>
 
-                // Auto-select overdue tab if there are overdue tasks and we haven't auto-selected yet
-                if (overdueCount > 0 && !hasAutoSelectedOverdue && taskFilter === 'ongoing') {
-                  setTaskFilter('overdue');
-                  setHasAutoSelectedOverdue(true);
-                }
-
-                return (
-                  <>
-                    <div className="mb-4">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-semibold text-gray-900">My Tasks</h3>
-                      <div className="flex bg-gray-100 rounded-lg p-1">
-                        {overdueCount > 0 && (
-                          <button
-                            onClick={() => setTaskFilter('overdue')}
-                            className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
-                              taskFilter === 'overdue'
-                                ? 'bg-white text-gray-900 shadow-sm'
-                                : 'text-gray-600 hover:text-gray-900'
-                            }`}
-                          >
-                            Overdue ({overdueCount})
-                          </button>
-                        )}
-                        <button
-                          onClick={() => setTaskFilter('ongoing')}
-                          className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
-                            taskFilter === 'ongoing'
-                              ? 'bg-white text-gray-900 shadow-sm'
-                              : 'text-gray-600 hover:text-gray-900'
-                          }`}
-                        >
-                          Ongoing ({ongoingCount})
-                        </button>
-                        <button
-                          onClick={() => setTaskFilter('today')}
-                          className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
-                            taskFilter === 'today'
-                              ? 'bg-white text-gray-900 shadow-sm'
-                              : 'text-gray-600 hover:text-gray-900'
-                          }`}
-                        >
-                          Today ({todayCount})
-                        </button>
-                        <button
-                          onClick={() => setTaskFilter('later')}
-                          className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
-                            taskFilter === 'later'
-                              ? 'bg-white text-gray-900 shadow-sm'
-                              : 'text-gray-600 hover:text-gray-900'
-                          }`}
-                        >
-                          Later ({laterCount})
-                        </button>
-                      </div>
-                      </div>
-                      <div className="w-full h-px mt-2" style={{ backgroundColor: BRAND.gray }}></div>
-                    </div>
-                  </>
-                );
-              })()}
-              <div className="h-48 overflow-y-auto">
-                <div>
-                {(() => {
-                  const today = new Date();
-                  today.setHours(0, 0, 0, 0);
-                  
-                  let myTasks: Array<{
-                    id: string;
-                    description: string;
-                    project: string;
-                    dueDate?: string;
-                    isOngoing: boolean;
-                    isOverdue: boolean;
-                    daysUntil: number;
-                  }> = [];
-                  
-                  projects.forEach(project => {
-                    // Get current phase of the project
-                    const getCurrentPhase = (project: Project) => {
-                      if (!project.segments || project.segments.length === 0) {
-                        return project.phase; // Fallback
-                      }
-                      
+              {/* Three Column Layout */}
+              <div className="grid grid-cols-3 gap-4 p-4 flex-1 min-h-0 overflow-hidden">
+                {/* Overdue Column */}
+                <div className="flex flex-col h-full min-h-0">
+                  <div className="mb-2 flex-shrink-0">
+                    <h4 className="text-xs font-semibold text-red-600">Overdue</h4>
+                  </div>
+                  <div className="overflow-y-auto light-scrollbar" style={{ maxHeight: 'calc(100% - 1.5rem)' }}>
+                    {(() => {
                       const today = new Date();
-                      const todayStr = today.toISOString().split('T')[0];
-                      
-                      const currentSegment = project.segments.find(segment => 
-                        todayStr >= segment.startDate && todayStr <= segment.endDate
+                      today.setHours(0, 0, 0, 0);
+
+                      let overdueTasks: Array<{
+                        id: string;
+                        description: string;
+                        project: string;
+                        dueDate?: string;
+                        daysUntil: number;
+                      }> = [];
+
+                      projects.forEach(project => {
+                        project.tasks.forEach(task => {
+                          const isAssignedToMe = task.assignedTo?.includes(user?.id || '') || false;
+
+                          if (isAssignedToMe && task.status !== 'completed' && task.dueDate && !task.isOngoing) {
+                            const taskDate = new Date(task.dueDate + 'T00:00:00');
+                            const daysUntil = Math.ceil((taskDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+                            if (daysUntil < 0) {
+                              overdueTasks.push({
+                                id: task.id,
+                                description: task.description || task.content || 'Untitled task',
+                                project: project.name,
+                                dueDate: task.dueDate,
+                                daysUntil: daysUntil
+                              });
+                            }
+                          }
+                        });
+                      });
+
+                      overdueTasks.sort((a, b) => {
+                        if (a.dueDate && b.dueDate) {
+                          return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+                        }
+                        return 0;
+                      });
+
+                      if (overdueTasks.length === 0) {
+                        return (
+                          <div className="flex items-center justify-center h-full text-gray-400 text-xs">
+                            None
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="space-y-1.5">
+                          {overdueTasks.map((task) => (
+                            <div
+                              key={task.id}
+                              className="p-2 bg-red-50 border border-red-100 rounded cursor-pointer hover:bg-red-100 transition-colors"
+                              onClick={() => {
+                                const project = projects.find(p => p.name === task.project);
+                                if (project && onNavigateToProject) {
+                                  onNavigateToProject(project);
+                                }
+                              }}
+                            >
+                              <div className="text-xs font-medium text-gray-900 truncate">
+                                {task.description}
+                              </div>
+                              <div className="text-[10px] text-gray-500 truncate">
+                                {task.project}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       );
-                      
-                      return currentSegment ? currentSegment.phase : project.phase;
-                    };
-                    
-                    const currentPhase = getCurrentPhase(project);
-                    
-                    project.tasks.forEach(task => {
-                      const isAssignedToMe = task.assignedTo?.includes(user?.id || '') || false;
-                      
-                      if (isAssignedToMe && task.status !== 'completed') {
-                        if (taskFilter === 'ongoing') {
-                          // Show only ongoing tasks that are in the current phase
-                          if (task.isOngoing && task.phase === currentPhase) {
-                            myTasks.push({
+                    })()}
+                  </div>
+                </div>
+
+                {/* Ongoing Column */}
+                <div className="flex flex-col h-full min-h-0">
+                  <div className="mb-2 flex-shrink-0">
+                    <h4 className="text-xs font-semibold text-blue-600">Ongoing</h4>
+                  </div>
+                  <div className="overflow-y-auto light-scrollbar" style={{ maxHeight: 'calc(100% - 1.5rem)' }}>
+                    {(() => {
+                      let ongoingTasks: Array<{
+                        id: string;
+                        description: string;
+                        project: string;
+                      }> = [];
+
+                      projects.forEach(project => {
+                        // Get current phase of the project
+                        const getCurrentPhase = (project: Project) => {
+                          if (!project.segments || project.segments.length === 0) {
+                            return project.phase;
+                          }
+
+                          const today = new Date();
+                          const todayStr = today.toISOString().split('T')[0];
+
+                          const currentSegment = project.segments.find(segment =>
+                            todayStr >= segment.startDate && todayStr <= segment.endDate
+                          );
+
+                          return currentSegment ? currentSegment.phase : project.phase;
+                        };
+
+                        const currentPhase = getCurrentPhase(project);
+
+                        project.tasks.forEach(task => {
+                          const isAssignedToMe = task.assignedTo?.includes(user?.id || '') || false;
+
+                          if (isAssignedToMe && task.status !== 'completed' && task.isOngoing && task.phase === currentPhase) {
+                            ongoingTasks.push({
                               id: task.id,
                               description: task.description || task.content || 'Untitled task',
-                              project: project.name,
-                              dueDate: task.dueDate,
-                              isOngoing: true,
-                              isOverdue: false,
-                              daysUntil: 0
+                              project: project.name
                             });
                           }
-                        } else if (taskFilter === 'today') {
-                          // Show tasks due today (excluding ongoing tasks)
-                          if (task.dueDate && !task.isOngoing) {
+                        });
+                      });
+
+                      if (ongoingTasks.length === 0) {
+                        return (
+                          <div className="flex items-center justify-center h-full text-gray-400 text-xs">
+                            None
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="space-y-1.5">
+                          {ongoingTasks.map((task) => (
+                            <div
+                              key={task.id}
+                              className="p-2 bg-blue-50 border border-blue-100 rounded cursor-pointer hover:bg-blue-100 transition-colors"
+                              onClick={() => {
+                                const project = projects.find(p => p.name === task.project);
+                                if (project && onNavigateToProject) {
+                                  onNavigateToProject(project);
+                                }
+                              }}
+                            >
+                              <div className="text-xs font-medium text-gray-900 truncate">
+                                {task.description}
+                              </div>
+                              <div className="text-[10px] text-gray-500 truncate">
+                                {task.project}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
+
+                {/* Today Column */}
+                <div className="flex flex-col h-full min-h-0">
+                  <div className="mb-2 flex-shrink-0">
+                    <h4 className="text-xs font-semibold text-orange-600">Today</h4>
+                  </div>
+                  <div className="overflow-y-auto light-scrollbar" style={{ maxHeight: 'calc(100% - 1.5rem)' }}>
+                    {(() => {
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+
+                      let todayTasks: Array<{
+                        id: string;
+                        description: string;
+                        project: string;
+                        dueDate?: string;
+                      }> = [];
+
+                      projects.forEach(project => {
+                        project.tasks.forEach(task => {
+                          const isAssignedToMe = task.assignedTo?.includes(user?.id || '') || false;
+
+                          if (isAssignedToMe && task.status !== 'completed' && task.dueDate && !task.isOngoing) {
                             const taskDate = new Date(task.dueDate + 'T00:00:00');
                             const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
                             if (taskDate.getTime() === todayDate.getTime()) {
-                              const daysUntil = Math.ceil((taskDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-                              
-                              myTasks.push({
+                              todayTasks.push({
                                 id: task.id,
                                 description: task.description || task.content || 'Untitled task',
                                 project: project.name,
-                                dueDate: task.dueDate,
-                                isOngoing: false,
-                                isOverdue: daysUntil < 0,
-                                daysUntil: daysUntil
+                                dueDate: task.dueDate
                               });
                             }
                           }
-                        } else if (taskFilter === 'overdue') {
-                          // Show overdue tasks (excluding ongoing tasks)
-                          if (task.dueDate && !task.isOngoing) {
-                            const taskDate = new Date(task.dueDate + 'T00:00:00');
-                            const daysUntil = Math.ceil((taskDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-                            
-                            if (daysUntil < 0) {
-                              myTasks.push({
-                                id: task.id,
-                                description: task.description || task.content || 'Untitled task',
-                                project: project.name,
-                                dueDate: task.dueDate,
-                                isOngoing: false,
-                                isOverdue: true,
-                                daysUntil: daysUntil
-                              });
-                            }
-                          }
-                        } else {
-                          // Show tasks for later this week
-                          if (task.dueDate && !task.isOngoing) {
-                            const taskDate = new Date(task.dueDate);
-                            const daysUntil = Math.ceil((taskDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-                            
-                            if (daysUntil > 0 && daysUntil <= 7) {
-                              myTasks.push({
-                                id: task.id,
-                                description: task.description || task.content || 'Untitled task',
-                                project: project.name,
-                                dueDate: task.dueDate,
-                                isOngoing: false,
-                                isOverdue: false,
-                                daysUntil: daysUntil
-                              });
-                            }
-                          }
+                        });
+                      });
+
+                      todayTasks.sort((a, b) => {
+                        if (a.dueDate && b.dueDate) {
+                          return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
                         }
+                        return 0;
+                      });
+
+                      if (todayTasks.length === 0) {
+                        return (
+                          <div className="flex items-center justify-center h-full text-gray-400 text-xs">
+                            None
+                          </div>
+                        );
                       }
-                    });
-                  });
-                  
-                  // Sort by due date
-                  myTasks.sort((a, b) => {
-                    if (a.isOngoing && !b.isOngoing) return -1;
-                    if (!a.isOngoing && b.isOngoing) return 1;
-                    if (a.dueDate && b.dueDate) {
-                      return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
-                    }
-                    return 0;
-                  });
-                  
-                  const displayTasks = myTasks;
-                  
-                  if (displayTasks.length === 0) {
-                    return (
-                      <div className="flex items-center justify-center h-full text-gray-500 text-sm">
-                        {taskFilter === 'ongoing' ? 'No ongoing tasks' : 
-                         taskFilter === 'today' ? 'No tasks for today' : 
-                         taskFilter === 'overdue' ? 'No overdue tasks' : 'No tasks for later this week'}
-                      </div>
-                    );
-                  }
-                  
-                  return (
-                    <div className="space-y-1">
-                      {displayTasks.map((task) => (
-                        <div 
-                          key={task.id} 
-                          className="flex items-center justify-between p-2 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
-                          onClick={() => {
-                            const project = projects.find(p => p.name === task.project);
-                            if (project && onNavigateToProject) {
-                              onNavigateToProject(project);
-                            }
-                          }}
-                        >
-                          <div className="flex-1 min-w-0">
-                            <div className="text-xs font-medium text-gray-900 truncate">
-                              {task.description}
-                            </div>
-                            <div className="text-[10px] text-gray-500 truncate">
-                              {task.project}
-                            </div>
-                          </div>
-                          <div className="flex-shrink-0 ml-2 text-right">
-                            {!task.isOngoing && taskFilter !== 'today' && (
-                              <div className={`text-xs font-medium ${
-                                task.isOverdue ? 'text-red-600' : 
-                                task.daysUntil === 0 ? 'text-orange-600' : 
-                                'text-gray-900'
-                              }`}>
-                                {task.isOverdue ? 'Overdue' : 
-                                 task.daysUntil === 0 ? 'Today' : 
-                                 `${task.daysUntil} day${task.daysUntil !== 1 ? 's' : ''}`}
+
+                      return (
+                        <div className="space-y-1.5">
+                          {todayTasks.map((task) => (
+                            <div
+                              key={task.id}
+                              className="p-2 bg-orange-50 border border-orange-100 rounded cursor-pointer hover:bg-orange-100 transition-colors"
+                              onClick={() => {
+                                const project = projects.find(p => p.name === task.project);
+                                if (project && onNavigateToProject) {
+                                  onNavigateToProject(project);
+                                }
+                              }}
+                            >
+                              <div className="text-xs font-medium text-gray-900 truncate">
+                                {task.description}
                               </div>
-                            )}
-                          </div>
+                              <div className="text-[10px] text-gray-500 truncate">
+                                {task.project}
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                  );
-                })()}
+                      );
+                    })()}
+                  </div>
                 </div>
               </div>
             </div>
+
+          {/* Current Projects Section */}
+          <div className="flex flex-col h-full">
+            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden flex flex-col h-full">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 flex-shrink-0">
+                <h3 className="text-lg font-semibold" style={{ color: BRAND.gray }}>Current Projects</h3>
+                <button
+                  onClick={() => setRoute('Project Hub')}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                  title="Go to Project Hub"
+                >
+                  <FolderIcon className="w-5 h-5" />
+                </button>
           </div>
 
-          {/* Project Section (My Projects) */}
-          <div>
-            <h3 className="text-lg font-semibold mb-4" style={{ color: BRAND.gray }}>PROJECTS</h3>
-            <div className="space-y-2">
+              <div className="flex-1 overflow-y-auto light-scrollbar">
+                <table className="w-full">
+                  <thead>
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-300" style={{ borderRight: 'none' }}>Project</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-300" style={{ borderRight: 'none' }}>Team</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-300" style={{ borderRight: 'none' }}>Phase</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-300 w-48">Progress</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
               {filteredProjects
                 .map((project) => {
                   // Calculate progress using KO date and Report date from keyDeadlines
@@ -5012,12 +4913,9 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
                   // If same phase, sort by progress percentage (highest first)
                   return b.calculatedProgress - a.calculatedProgress;
                 })
-                .map((project, index) => {
+                      .map((project) => {
                 // Use the already calculated progress from sorting
                 const progress = project.calculatedProgress;
-                const endDate = new Date(project.endDate);
-                const today = new Date();
-                const daysLeft = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
                 
                 // Get current phase using the same logic as Project Hub
                 const getCurrentPhase = (project: Project): string => {
@@ -5082,64 +4980,30 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
                   return phaseColors[phase] || '#6B7280';
                 };
                 
-                // Get team members for this project - show ALL members
+                        // Get team members for this project
                 const teamMembers = project.teamMembers || [];
 
-                // Get project type/category
-                const getProjectType = (project: any) => {
-                  if (project.methodologyType) {
-                    return project.methodologyType;
-                  }
-                  if (project.name?.toLowerCase().includes('qual')) return 'Qualitative Research';
-                  if (project.name?.toLowerCase().includes('quant')) return 'Quantitative Research';
-                  if (project.name?.toLowerCase().includes('survey')) return 'Survey Research';
-                  return 'Research Project';
-                };
-
                   return (
-                  <div
+                          <tr 
                     key={`project-${project.id}`}
-                    className="p-3 rounded-lg border border-gray-200 bg-white hover:shadow-sm transition-shadow cursor-pointer"
+                            className="hover:bg-gray-50 cursor-pointer transition-colors"
                     onClick={() => onNavigateToProject?.(project)}
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1">
-                          <div className="min-w-0 flex-1">
-                            <h4 className="font-medium text-gray-900 truncate text-sm">{project.name}</h4>
-                            <p className="text-xs text-gray-500 truncate">{getProjectType(project)}</p>
+                            {/* Project Column */}
+                            <td className="px-4 py-4">
+                              <div>
+                                <div className="text-sm font-medium text-gray-900">{project.name}</div>
+                                <div className="text-sm text-gray-500">{project.client}</div>
                             </div>
-                          <div className="flex-shrink-0 ml-2">
-                            <div className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                              currentPhase === 'Kickoff' ? 'bg-gray-100 text-gray-800' :
-                              currentPhase === 'Pre-Field' ? 'bg-blue-100 text-blue-800' :
-                              currentPhase === 'Fielding' ? 'bg-purple-100 text-purple-800' :
-                              currentPhase === 'Post-Field Analysis' ? 'bg-orange-100 text-orange-800' :
-                              currentPhase === 'Reporting' ? 'bg-red-100 text-red-800' :
-                              currentPhase === 'Complete' ? 'bg-green-100 text-green-800' :
-                              currentPhase === 'Awaiting KO' ? 'bg-gray-100 text-gray-600' :
-                              'bg-gray-100 text-gray-800'
-                            }`}>
-                              {currentPhase || 'Unknown'}
-                        </div>
-                        </div>
-              </div>
-                        <div className="w-full bg-gray-200 rounded-full h-1.5 mb-1.5">
-                          <div 
-                            className="h-1.5 rounded-full"
-                            style={{ 
-                              width: `${progress}%`,
-                              backgroundColor: getPhaseColor(currentPhase),
-                              opacity: 0.8
-                            }}
-                          ></div>
-                        </div>
-                        <div className="flex items-center justify-between">
+                            </td>
+                            
+                            {/* Team Column */}
+                            <td className="px-4 py-4">
                           <div className="flex -space-x-1">
                             {teamMembers.slice(0, 4).map((member: any, i: number) => (
                               <div 
                                 key={`project-${project.id}-member-${member.id || member.name || i}-${i}`} 
-                                className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[9px] font-medium border border-white relative group"
+                                    className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium border border-white relative group"
                                 style={{ 
                                   backgroundColor: getMemberColor(member.id || member.name, teamMembers),
                                   zIndex: teamMembers.length - i // Leftmost icon in front
@@ -5150,17 +5014,93 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
                     </div>
                             ))}
                             {teamMembers.length > 4 && (
-                              <div className="w-5 h-5 rounded-full flex items-center justify-center text-gray-600 text-[9px] font-medium border border-white bg-gray-100">
+                                  <div className="w-6 h-6 rounded-full flex items-center justify-center text-gray-600 text-xs font-medium border border-white bg-gray-100">
                                 +{teamMembers.length - 4}
                               </div>
                             )}
                     </div>
+                            </td>
+                            
+                            {/* Phase Column */}
+                            <td className="px-4 py-4">
+                              <span
+                                className="inline-flex items-center justify-center w-24 px-0.5 sm:px-1 md:px-2 py-1 rounded-full text-xs font-medium text-white"
+                                style={{ 
+                                  backgroundColor: getPhaseColor(currentPhase),
+                                  opacity: 0.6
+                                }}
+                              >
+                                {currentPhase === 'Post-Field Analysis' ? 'Analysis' : currentPhase}
+                              </span>
+                            </td>
+                            
+                            {/* Progress Column */}
+                            <td className="px-4 py-4">
+                              <div className="flex items-center">
+                                <div className="flex-1 mr-3">
+                                  <div className="relative">
+                                    <div className="w-full bg-gray-200 rounded-full h-2">
+                                      <div 
+                                        className="h-2 rounded-full relative"
+                                        style={{ 
+                                          width: `${progress}%`,
+                                          backgroundColor: getPhaseColor(currentPhase)
+                                        }}
+                                      >
+                                        <div 
+                                          className="absolute right-0 top-1/2 transform -translate-y-1/2 w-3 h-3 rounded-full"
+                                          style={{ 
+                                            backgroundColor: getPhaseColor(currentPhase),
+                                            marginRight: '-6px'
+                                          }}
+                                        ></div>
                   </div>
                   </div>
                 </div>
               </div>
+                                <span className="text-sm font-medium" style={{ color: BRAND.gray }}>{progress}%</span>
+                              </div>
+                            </td>
+                          </tr>
                 );
               })}
+                  </tbody>
+                </table>
+
+                {/* Empty State - No Projects Assigned */}
+                {filteredProjects.length === 0 && (
+                  <div className="flex flex-col items-center justify-center py-12 px-4">
+                    <FolderIcon className="h-16 w-16 mb-4 text-gray-300" />
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No Projects Assigned</h3>
+                    <p className="text-sm text-gray-500 mb-6 text-center">You're not currently assigned to any projects</p>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => setRoute('Project Hub')}
+                        className="px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors"
+                        style={{ backgroundColor: BRAND.orange }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#B8392A'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = BRAND.orange}
+                      >
+                        Create a Project
+                      </button>
+                      <button
+                        onClick={() => {
+                          setRoute('Project Hub');
+                          // Need to signal to Project Hub to change the filter
+                          setTimeout(() => {
+                            // This will be handled by setting a flag or URL param
+                            const event = new CustomEvent('setProjectHubFilter', { detail: 'all' });
+                            window.dispatchEvent(event);
+                          }, 100);
+                        }}
+                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                      >
+                        View Other Cognitive Projects
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -5266,138 +5206,21 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
           {/* Spacing between calendar and task list */}
           <div className="mt-4"></div>
 
-          {/* Overdue Tasks Section */}
-          {(() => {
-            // Get overdue tasks
-            const overdueTasks = sourceProjects.flatMap(project => 
-              (project.tasks || [])
-                .filter(task => {
-                  if (!task.dueDate || task.status === 'completed') return false;
-                  // Parse the date string properly to avoid timezone issues
-                  const dueDate = new Date(task.dueDate + 'T00:00:00');
-                  const today = new Date();
-                  today.setHours(0, 0, 0, 0);
-                  return dueDate < today;
-                })
-                .map(task => ({
-                  ...task,
-                  projectName: project.name,
-                  projectId: project.id
-                }))
-            ).sort((a, b) => {
-              const dateA = new Date(a.dueDate! + 'T00:00:00');
-              const dateB = new Date(b.dueDate! + 'T00:00:00');
-              return dateA.getTime() - dateB.getTime();
-            });
-
-            // Group overdue tasks by date
-            const overdueTasksByDate = overdueTasks.reduce((acc, task) => {
-              // Parse the date string properly to avoid timezone issues
-              const dueDate = new Date(task.dueDate! + 'T00:00:00');
-              const dateKey = dueDate.toLocaleDateString('en-US', { 
-                day: 'numeric', 
-                month: 'long' 
-              });
-              
-              if (!acc[dateKey]) {
-                acc[dateKey] = [];
-              }
-              acc[dateKey].push(task);
-              return acc;
-            }, {} as Record<string, typeof overdueTasks>);
-
-            const overdueDates = Object.entries(overdueTasksByDate);
-
-            if (overdueDates.length === 0) {
-              return null;
-            }
-
-            return (
-              <div className="bg-red-50 rounded-lg border border-red-200 p-4 mb-4 mt-4 relative">
-                <div className="absolute top-3 right-3">
-                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-red-100 text-red-800">
-                    OVERDUE
-                  </span>
-                </div>
-                <div className="space-y-4">
-                  {overdueDates.map(([date, tasks]) => (
-                    <div key={date} className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-sm font-medium text-red-600">{date}</h4>
-                      </div>
-                      <div className="space-y-2">
-                        {tasks.slice(0, 3).map((task, index) => {
-                          const dueDate = new Date(task.dueDate!);
-                          const isOverdue = true; // All overdue tasks are overdue
-                          
-                          // Get the project for this task to get its phase color
-                          const project = sourceProjects.find(p => p.id === task.projectId);
-                          const projectPhase = project?.phase || 'Kickoff';
-                          const phaseColor = PHASE_COLORS[projectPhase] || PHASE_COLORS['Kickoff'];
-
-                          const isTaskAssignedToMe = isAssignedToMe(task);
-                          const phaseColorLight = `${phaseColor}20`; // 20% opacity for light background
-                          
-                          return (
-                            <div 
-                              key={`overdue-${task.id}-${index}`} 
-                              className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer border ${
-                                isTaskAssignedToMe 
-                                  ? 'border-2' 
-                                  : 'border-red-200'
-                              }`}
-                              style={{
-                                backgroundColor: isTaskAssignedToMe ? phaseColorLight : '#fef2f2', // red-50
-                                borderColor: isTaskAssignedToMe ? phaseColor : '#fecaca' // red-200
-                              }}
-                              onClick={() => {
-                                if (project && onNavigateToProject) {
-                                  onNavigateToProject(project);
-                                }
-                              }}
-                            >
-                              <div 
-                                className="w-1 h-8 rounded-full"
-                                style={{ 
-                                  backgroundColor: '#DC2626', // Always red for overdue
-                                  opacity: 0.8
-                                }}
-                              ></div>
-                              <div className="flex-1 min-w-0">
-                                <div className="text-sm text-gray-900 truncate">
-                                  {task.content || task.description || 'Untitled task'}
-                                </div>
-                                <div className="text-xs text-gray-500 truncate">
-                                  {task.projectName}
-                                  {isTaskAssignedToMe && (
-                                    <span className="text-gray-500"> • Assigned to you</span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                        {tasks.length > 3 && (
-                          <div className="text-xs text-red-600 font-medium text-center py-2">
-                            {tasks.length - 3} more overdue tasks
-                          </div>
-                        )}
-                      </div>
-                </div>
-              ))}
-            </div>
-          </div>
-            );
-          })()}
-
           {/* Tasks Section */}
           <div className="bg-white rounded-lg border border-gray-200 p-4">
             <div className="space-y-4">
               {(() => {
-                // Get all tasks from projects, sorted by due date
+                // Get all tasks from projects, sorted by due date - only tasks assigned to current user
                 const allTasks = sourceProjects.flatMap(project => 
                   (project.tasks || [])
-                    .filter(task => task.dueDate && task.status !== 'completed')
+                    .filter(task => {
+                      // Only include tasks with due date, not completed, and assigned to current user
+                      if (!task.dueDate || task.status === 'completed') return false;
+                      
+                      // Check if task is assigned to current user
+                      const isAssignedToMe = task.assignedTo?.includes(user?.id || '') || false;
+                      return isAssignedToMe;
+                    })
                     .map(task => ({
                       ...task,
                       projectName: project.name,
@@ -5491,21 +5314,11 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
                       const projectPhase = project?.phase || 'Kickoff';
                       const phaseColor = PHASE_COLORS[projectPhase] || PHASE_COLORS['Kickoff'];
 
-                      const isTaskAssignedToMe = isAssignedToMe(task);
-                      const phaseColorLight = `${phaseColor}20`; // 20% opacity for light background
                       
                       tasksForThisDayRender.push(
                         <div
                           key={`${task.id}-${dateKey}`}
-                          className={`flex items-center gap-3 p-1.5 rounded-lg cursor-pointer mb-1 ${
-                            isTaskAssignedToMe 
-                              ? 'border' 
-                              : 'hover:bg-gray-50'
-                          }`}
-                          style={{
-                            backgroundColor: isTaskAssignedToMe ? phaseColorLight : 'transparent',
-                            borderColor: isTaskAssignedToMe ? phaseColor : 'transparent'
-                          }}
+                          className="flex items-center gap-3 p-1.5 rounded-lg cursor-pointer mb-1 hover:bg-gray-50"
                           onClick={() => {
                             if (project && onNavigateToProject) {
                               onNavigateToProject(project);
@@ -5525,9 +5338,6 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
                             </div>
                             <div className="text-xs text-gray-500 truncate">
                               {task.projectName}
-                              {isTaskAssignedToMe && (
-                                <span className="text-gray-500"> • Assigned to you</span>
-                              )}
                             </div>
                           </div>
                         </div>
@@ -7829,6 +7639,7 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
   const [showMyProjectsOnly, setShowMyProjectsOnly] = useState(true);
   const [vendorsData, setVendorsData] = useState<any>(null);
   const [viewMode, setViewMode] = useState<'list' | 'timeline'>('list');
+  const [projectUpdateModal, setProjectUpdateModal] = useState<{ show: boolean; project: Project | null; update: string | null }>({ show: false, project: null, update: null });
 
   // Sorting and filtering state
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
@@ -7839,12 +7650,30 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
   };
 
   // Load vendors data
-  const loadVendorsData = useCallback(() => {
+  const loadVendorsData = useCallback(async () => {
     try {
       const storedVendors = localStorage.getItem('cognitive_dash_vendors');
       if (storedVendors) {
         const data = JSON.parse(storedVendors);
         setVendorsData(data);
+      } else {
+        // If no vendors in localStorage, try to fetch from API
+        const token = localStorage.getItem('cognitive_dash_token');
+        if (token) {
+          const resp = await fetch(`${API_BASE_URL}/api/vendors`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (resp.ok) {
+            const serverData = await resp.json();
+            const data = {
+              moderators: serverData.moderators || [],
+              sampleVendors: serverData.sampleVendors || [],
+              analytics: serverData.analytics || []
+            };
+            localStorage.setItem('cognitive_dash_vendors', JSON.stringify(data));
+            setVendorsData(data);
+          }
+        }
       }
     } catch (error) {
       console.error('Error loading vendors data:', error);
@@ -7878,6 +7707,38 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
   useEffect(() => {
     loadArchivedProjects();
   }, [user?.id]);
+
+  // Listen for event to change project filter from Dashboard
+  useEffect(() => {
+    const handleSetFilter = (event: CustomEvent) => {
+      if (event.detail === 'all') {
+        setShowMyProjectsOnly(false);
+      }
+    };
+
+    window.addEventListener('setProjectHubFilter', handleSetFilter as EventListener);
+    return () => {
+      window.removeEventListener('setProjectHubFilter', handleSetFilter as EventListener);
+    };
+  }, []);
+
+  // Close team member dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showAddTeamMember) {
+        const target = event.target as HTMLElement;
+        // Check if click is outside the dropdown
+        if (!target.closest('.team-member-dropdown') && !target.closest('.team-member-button')) {
+          setShowAddTeamMember(false);
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showAddTeamMember]);
 
   // Load vendors data on mount
   useEffect(() => {
@@ -8577,6 +8438,130 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
     console.log('Removing team member:', memberId);
   };
 
+  // Generate project update
+  const handleGetProjectUpdate = (project: Project) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Get current phase
+    const getCurrentPhase = () => {
+      if (!project.segments || project.segments.length === 0) {
+        return { phase: project.phase, segment: null };
+      }
+      const todayStr = today.toISOString().split('T')[0];
+      const currentSegment = project.segments.find(segment =>
+        todayStr >= segment.startDate && todayStr <= segment.endDate
+      );
+      return currentSegment ? { phase: currentSegment.phase, segment: currentSegment } : { phase: project.phase, segment: null };
+    };
+
+    const currentPhaseData = getCurrentPhase();
+
+    // Get next phase timeline
+    const getNextPhaseTimeline = () => {
+      if (!project.segments || project.segments.length === 0) return null;
+      const todayStr = today.toISOString().split('T')[0];
+      const futureSegments = project.segments.filter(segment => segment.startDate > todayStr);
+      return futureSegments.length > 0 ? futureSegments[0] : null;
+    };
+
+    const nextPhase = getNextPhaseTimeline();
+
+    // Get upcoming key dates (within next 2 weeks)
+    const twoWeeksFromNow = new Date(today);
+    twoWeeksFromNow.setDate(twoWeeksFromNow.getDate() + 14);
+    const upcomingKeyDates = (project.keyDeadlines || []).filter(deadline => {
+      const deadlineDate = new Date(deadline.date);
+      return deadlineDate >= today && deadlineDate <= twoWeeksFromNow;
+    }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    // Get tasks assigned today
+    const todayStr = today.toISOString().split('T')[0];
+    const tasksToday = (project.tasks || []).filter(task =>
+      task.dueDate === todayStr && task.status !== 'completed'
+    );
+
+    // Get tasks assigned over next 2 weeks
+    const tasksNext2Weeks = (project.tasks || []).filter(task => {
+      if (!task.dueDate || task.status === 'completed') return false;
+      const taskDate = new Date(task.dueDate);
+      return taskDate > today && taskDate <= twoWeeksFromNow;
+    }).sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime());
+
+    // Format date helper
+    const formatDate = (dateStr: string) => {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    };
+
+    // Build update text
+    const teamMemberNames = (project.teamMembers || []).map(m => m.name).join(', ') || 'No team members assigned';
+    let updateText = `**Team Members:** ${teamMemberNames}\n\n`;
+    updateText += `**Client:** ${project.client}\n\n`;
+    if (currentPhaseData.segment) {
+      updateText += `[PHASE] Current Phase:|${currentPhaseData.phase}|${formatDate(currentPhaseData.segment.startDate)} - ${formatDate(currentPhaseData.segment.endDate)}\n\n`;
+    } else {
+      updateText += `**Current Phase:** ${currentPhaseData.phase}\n\n`;
+    }
+
+    if (nextPhase) {
+      updateText += `[PHASE] Upcoming Phase:|${nextPhase.phase}|${formatDate(nextPhase.startDate)} - ${formatDate(nextPhase.endDate)}\n\n`;
+    }
+
+    if (tasksToday.length > 0) {
+      updateText += `**Tasks Due Today:**\n`;
+      tasksToday.forEach(task => {
+        const assignedNames = task.assignedTo?.map(id => {
+          const member = project.teamMembers?.find(m => m.id === id);
+          return member?.name || 'Not assigned';
+        }).join(', ') || 'Not assigned';
+        updateText += `[TASK] ${task.description || task.content}|${project.name}|${assignedNames}\n`;
+      });
+      updateText += `\n`;
+    }
+
+    if (tasksNext2Weeks.length > 0) {
+      updateText += `[DIVIDER]\n`;
+      updateText += `**Tasks Due in Next 2 Weeks:**\n`;
+      tasksNext2Weeks.forEach(task => {
+        const assignedNames = task.assignedTo?.map(id => {
+          const member = project.teamMembers?.find(m => m.id === id);
+          return member?.name || 'Not assigned';
+        }).join(', ') || 'Not assigned';
+        updateText += `[TASK] ${task.description || task.content}|${project.name}|${formatDate(task.dueDate!)}|${assignedNames}\n`;
+      });
+      updateText += `\n`;
+    }
+
+    if (upcomingKeyDates.length > 0) {
+      updateText += `**Key Dates Coming Up:**\n`;
+      upcomingKeyDates.forEach(deadline => {
+        // Determine icon type based on label
+        let iconType = 'default';
+        const labelLower = deadline.label.toLowerCase();
+        if (labelLower.includes('kickoff') || labelLower.includes('ko')) {
+          iconType = 'kickoff';
+        } else if (labelLower.includes('fieldwork') || labelLower.includes('field')) {
+          iconType = 'fieldwork';
+        } else if (labelLower.includes('report') || labelLower.includes('final')) {
+          iconType = 'report';
+        }
+        updateText += `[ICON:${iconType}] ${deadline.label}: ${formatDate(deadline.date)}\n`;
+      });
+      updateText += `\n`;
+    }
+
+    // Add project files
+    if (project.files && project.files.length > 0) {
+      updateText += `**Project Files:**\n`;
+      project.files.forEach(file => {
+        updateText += `[FILE:${file.type}] ${file.name}|${file.url}\n`;
+      });
+    }
+
+    setProjectUpdateModal({ show: true, project, update: updateText });
+  };
+
   return (
     <div className="relative">
       {/* Loading Screen */}
@@ -8621,7 +8606,7 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
             </div>
 
             {/* Team Members Section */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 relative">
               <span className="text-gray-500 text-sm">Team Members</span>
               <div className="w-px h-4 bg-gray-300"></div>
               <div className="flex items-center gap-2">
@@ -8634,46 +8619,85 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                       style={{ backgroundColor: getMemberColor(member.id, selectedProject.teamMembers) }}
                     >
                       {initials}
-                      {/* Tooltip */}
-                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-0.5 sm:px-1 md:px-2 py-1 bg-gray-800 text-white text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
+                      {/* Tooltip - Below the icon */}
+                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-0.5 sm:px-1 md:px-2 py-1 bg-gray-800 text-white text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
                         {member.name}
-                        <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+                        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-gray-800"></div>
                       </div>
                     </div>
                   );
                 })}
                 <button
-                  onClick={() => setShowAddTeamMember(true)}
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors"
-                  title="Add team member"
+                  onClick={() => setShowAddTeamMember(!showAddTeamMember)}
+                  className="team-member-button w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors"
+                  title="Manage team members"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                   </svg>
                 </button>
               </div>
+
+              {/* Add Team Member Popup Dropdown */}
+              {showAddTeamMember && (
+                <div className="team-member-dropdown absolute top-full right-0 mt-2 bg-white rounded-lg border shadow-lg z-50 w-80">
+                  <div className="p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm font-semibold text-gray-900">Manage Team Members</h4>
+                      <button
+                        onClick={() => setShowAddTeamMember(false)}
+                        className="text-gray-400 hover:text-gray-600"
+                      >
+                        <XMarkIcon className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {/* Add New Member - Moved to top */}
+                    <div className="mb-4">
+                      <h5 className="text-xs font-medium text-gray-500 mb-2">Add New Member</h5>
+                      <UserSearch
+                        onUserSelect={handleAddTeamMember}
+                        placeholder="Search for team members..."
+                        className="text-sm"
+                      />
+                    </div>
+
+                    {/* Current Team Members */}
+                    <div>
+                      <h5 className="text-xs font-medium text-gray-500 mb-2">Current Members</h5>
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {selectedProject.teamMembers?.map((member) => (
+                          <div key={member.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                            <div className="flex items-center gap-2">
+                              <div
+                                className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium"
+                                style={{ backgroundColor: getMemberColor(member.id, selectedProject.teamMembers) }}
+                              >
+                                {member.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                              </div>
+                              <span className="text-sm text-gray-900">{member.name}</span>
+                            </div>
+                            <button
+                              onClick={() => {
+                                // Show confirmation dialog
+                                if (window.confirm(`Are you sure you want to remove ${member.name} from this project?`)) {
+                                  handleRemoveTeamMember(member.id);
+                                }
+                              }}
+                              className="text-gray-400 hover:text-red-600 transition-colors"
+                              title="Remove member"
+                            >
+                              <XMarkIcon className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-
-          {/* Add Team Member Search */}
-          {showAddTeamMember && (
-            <div className="mb-6 bg-white p-4 rounded-lg border shadow-sm">
-              <h4 className="text-sm font-medium mb-3">Add Team Member</h4>
-              <UserSearch
-                onUserSelect={handleAddTeamMember}
-                placeholder="Search for team members..."
-                className="text-sm"
-              />
-              <div className="flex justify-end gap-2 mt-3">
-                <button
-                  onClick={() => setShowAddTeamMember(false)}
-                  className="px-3 py-1 text-xs text-gray-500 hover:text-gray-700"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
 
           {/* Project Dashboard Content */}
           <ProjectDashboard
@@ -9063,13 +9087,25 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                             </button>
                           </>
                         ) : (
-                          <button
-                            onClick={(e) => handleArchiveProject(project, e)}
-                            className="text-gray-600 hover:text-gray-800 p-1 rounded-lg hover:bg-gray-50"
-                            title="Archive project"
-                          >
-                            <ArchiveBoxIcon className="w-4 h-4" />
-                          </button>
+                          <>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleGetProjectUpdate(project);
+                              }}
+                              className="text-blue-600 hover:text-blue-800 p-1 rounded-lg hover:bg-blue-50"
+                              title="Get project update"
+                            >
+                              <DocumentTextIcon className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={(e) => handleArchiveProject(project, e)}
+                              className="text-gray-600 hover:text-gray-800 p-1 rounded-lg hover:bg-gray-50"
+                              title="Archive project"
+                            >
+                              <ArchiveBoxIcon className="w-4 h-4" />
+                            </button>
+                          </>
                         )}
                       </div>
                     </td>
@@ -9132,6 +9168,208 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
       )}
 
       </div>
+      )}
+
+      {/* Project Update Modal */}
+      {projectUpdateModal.show && (
+        <div className="fixed bg-black bg-opacity-50 flex items-center justify-center" style={{ top: 0, left: 0, right: 0, bottom: 0, position: 'fixed', zIndex: 9999 }}>
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden flex flex-col">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h2 className="text-xl font-semibold" style={{ color: BRAND.gray }}>
+                Project Update: {projectUpdateModal.project?.name}
+              </h2>
+            </div>
+            <div className="p-6 overflow-y-auto flex-1">
+              <div className="prose prose-sm max-w-none">
+                {projectUpdateModal.update?.split('\n').map((line, index) => {
+                  if (line.trim() === '') {
+                    // Empty lines
+                    return <div key={index} className="h-2"></div>;
+                  } else if (line === '[DIVIDER]') {
+                    // Divider line
+                    return <hr key={index} className="my-3 border-gray-300" />;
+                  } else if (line.startsWith('[PHASE]')) {
+                    // Phase lines with inline right-aligned date range
+                    const phaseMatch = line.match(/\[PHASE\]\s*(.+?):\|(.+?)\|(.+)$/);
+                    if (phaseMatch) {
+                      const label = phaseMatch[1]; // "Current Phase" or "Upcoming Phase"
+                      const phaseName = phaseMatch[2];
+                      const dateRange = phaseMatch[3];
+
+                      return (
+                        <div key={index} className="flex items-center justify-between mb-1">
+                          <p className="text-sm text-gray-700">
+                            <strong className="font-semibold" style={{ color: BRAND.gray }}>{label}:</strong> {phaseName}
+                          </p>
+                          <p className="text-xs italic text-gray-500 ml-4 flex-shrink-0">{dateRange}</p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  } else if (line.startsWith('[TASK]')) {
+                    // Task lines with box styling
+                    const taskMatch = line.match(/\[TASK\]\s*(.+?)\|(.+?)\|(.+?)(?:\|(.+))?$/);
+                    if (taskMatch) {
+                      const description = taskMatch[1];
+                      const projectName = taskMatch[2];
+                      const dueDateOrAssigned = taskMatch[3];
+                      const assigned = taskMatch[4];
+
+                      // Determine what to show under description and on the right
+                      const assignedToShow = assigned || dueDateOrAssigned;
+                      const dueDateToShow = assigned ? dueDateOrAssigned : null;
+
+                      return (
+                        <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg mb-1">
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs font-medium text-gray-900 truncate">
+                              {description}
+                            </div>
+                            <div className="text-[10px] text-gray-500 truncate">
+                              {assignedToShow}
+                            </div>
+                          </div>
+                          {dueDateToShow && (
+                            <div className="flex-shrink-0 ml-2 text-right">
+                              <div className="text-xs text-gray-600">
+                                {dueDateToShow}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    }
+                    return null;
+                  } else if (line.startsWith('[ICON:')) {
+                    // Key date lines with icons
+                    const iconMatch = line.match(/\[ICON:(\w+)\]\s*(.*)/);
+                    if (iconMatch) {
+                      const iconType = iconMatch[1];
+                      const text = iconMatch[2];
+
+                      let IconComponent = null;
+                      let iconColor = BRAND.gray;
+
+                      if (iconType === 'kickoff') {
+                        IconComponent = IconBallAmericanFootball;
+                        iconColor = '#6B7280'; // Gray
+                      } else if (iconType === 'fieldwork') {
+                        IconComponent = IconRocket;
+                        iconColor = '#7C3AED'; // Purple
+                      } else if (iconType === 'report') {
+                        IconComponent = IconFileAnalyticsFilled;
+                        iconColor = '#DC2626'; // Red
+                      }
+
+                      return (
+                        <div key={index} className="flex items-center gap-2 mb-1">
+                          {IconComponent && (
+                            <IconComponent className="w-4 h-4 flex-shrink-0" style={{ color: iconColor }} />
+                          )}
+                          <p className="text-sm text-gray-700">{text}</p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  } else if (line.startsWith('[FILE:')) {
+                    // File lines with clickable links
+                    const fileMatch = line.match(/\[FILE:(\w+)\]\s*(.+?)\|(.+)$/);
+                    if (fileMatch) {
+                      const fileType = fileMatch[1] as ProjectFile['type'];
+                      const fileName = fileMatch[2];
+                      const fileUrl = fileMatch[3];
+
+                      // Get icon based on file type
+                      let fileIcon;
+                      switch (fileType) {
+                        case 'content-analysis':
+                          fileIcon = <ChartBarIcon className="h-4 w-4 text-blue-600" />;
+                          break;
+                        case 'qnr':
+                          fileIcon = <ClipboardDocumentIcon className="h-4 w-4 text-green-600" />;
+                          break;
+                        case 'report':
+                          fileIcon = <DocumentIcon className="h-4 w-4 text-purple-600" />;
+                          break;
+                        case 'word':
+                          fileIcon = <DocumentIcon className="h-4 w-4 text-blue-600" />;
+                          break;
+                        case 'excel':
+                          fileIcon = <ChartBarIcon className="h-4 w-4 text-green-600" />;
+                          break;
+                        case 'powerpoint':
+                          fileIcon = <DocumentIcon className="h-4 w-4 text-orange-600" />;
+                          break;
+                        default:
+                          fileIcon = <DocumentIcon className="h-4 w-4 text-gray-600" />;
+                      }
+
+                      return (
+                        <a
+                          key={index}
+                          href={fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg hover:bg-gray-100 mb-1 transition-colors"
+                        >
+                          {fileIcon}
+                          <span className="text-sm text-gray-900">{fileName}</span>
+                          <ArrowTopRightOnSquareIcon className="h-3 w-3 text-gray-400 ml-auto" />
+                        </a>
+                      );
+                    }
+                    return null;
+                  } else if (line.startsWith('*') && line.endsWith('*') && !line.includes('**')) {
+                    // Italic lines (date ranges) - make sure it's not a bold line
+                    const text = line.replace(/\*/g, '');
+                    return <p key={index} className="text-xs italic text-gray-500 mb-1">{text}</p>;
+                  } else if (line.includes('**')) {
+                    // Line with bold text - parse inline bold
+                    const parts = line.split('**');
+                    return (
+                      <p key={index} className="text-sm text-gray-700 mb-1">
+                        {parts.map((part, i) => {
+                          // Every odd index is bold (between ** markers)
+                          if (i % 2 === 1) {
+                            return <strong key={i} className="font-semibold" style={{ color: BRAND.gray }}>{part}</strong>;
+                          }
+                          return <span key={i}>{part}</span>;
+                        })}
+                      </p>
+                    );
+                  } else if (line.startsWith('•')) {
+                    // Bullet points
+                    return <p key={index} className="text-sm text-gray-700 ml-4 mb-1">{line}</p>;
+                  } else {
+                    // Regular text
+                    return <p key={index} className="text-sm text-gray-700 mb-1">{line}</p>;
+                  }
+                })}
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-200">
+              <button
+                onClick={() => {
+                  if (projectUpdateModal.update) {
+                    navigator.clipboard.writeText(projectUpdateModal.update.replace(/\*\*/g, ''));
+                  }
+                }}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Copy to Clipboard
+              </button>
+              <button
+                onClick={() => setProjectUpdateModal({ show: false, project: null, update: null })}
+                className="px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors"
+                style={{ backgroundColor: BRAND.orange }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#B8392A'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = BRAND.orange}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

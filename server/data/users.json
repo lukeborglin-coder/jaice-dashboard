@@ -34,5 +34,14 @@
     "role": "user",
     "company": "Cognitive",
     "createdAt": "2025-10-05T20:03:27.271Z"
+  },
+  {
+    "id": "15",
+    "name": "test",
+    "email": "lukeborglin@cognitiveconsulting.com",
+    "password": "$2b$10$fs1fGUPZkXkLm5SpOcSnz.tHFoc4trulnN2AXYw8L7BJMtv06xBBm",
+    "role": "user",
+    "company": "Cognitive",
+    "createdAt": "2025-10-19T21:07:38.468Z"
   }
 ]

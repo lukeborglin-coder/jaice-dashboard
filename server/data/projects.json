@@ -1504,7 +1504,7 @@
             "",
             "3"
           ],
-          "status": "pending",
+          "status": "completed",
           "phase": "Post-Field Analysis",
           "isOngoing": false,
           "dueDate": "2025-10-17"
@@ -2665,7 +2665,7 @@
         {
           "id": "t35",
           "description": "Copy cost tracker shell to job folder and update",
-          "status": "pending",
+          "status": "completed",
           "phase": "Fielding",
           "dueDate": "2025-10-14",
           "isOngoing": false,
@@ -2676,7 +2676,7 @@
         {
           "id": "t36",
           "description": "Create tab banner plan",
-          "status": "pending",
+          "status": "completed",
           "phase": "Fielding",
           "dueDate": "2025-10-14",
           "isOngoing": false,
@@ -2687,7 +2687,7 @@
         {
           "id": "t37",
           "description": "Have tab banner plan reviewed",
-          "status": "pending",
+          "status": "completed",
           "phase": "Fielding",
           "dueDate": "2025-10-14",
           "isOngoing": false,
@@ -2698,7 +2698,7 @@
         {
           "id": "t38",
           "description": "Send tab banner plan to vendor",
-          "status": "pending",
+          "status": "completed",
           "phase": "Fielding",
           "dueDate": "2025-10-14",
           "isOngoing": false,
@@ -2709,7 +2709,7 @@
         {
           "id": "t39",
           "description": "If coding: share questions and required codes with vendor",
-          "status": "pending",
+          "status": "completed",
           "phase": "Fielding",
           "dueDate": "2025-10-14",
           "isOngoing": false,
@@ -2720,7 +2720,7 @@
         {
           "id": "t40",
           "description": "Monitor open end comments for AEs and submit within 24 hours",
-          "status": "pending",
+          "status": "completed",
           "phase": "Fielding",
           "dueDate": null,
           "isOngoing": true,
@@ -2731,7 +2731,7 @@
         {
           "id": "t41",
           "description": "Request invoice if required by client schedule",
-          "status": "pending",
+          "status": "completed",
           "phase": "Fielding",
           "dueDate": "2025-10-13",
           "isOngoing": false,
@@ -2742,7 +2742,7 @@
         {
           "id": "t42",
           "description": "Monitor completes and update quotas as needed",
-          "status": "pending",
+          "status": "completed",
           "phase": "Fielding",
           "dueDate": null,
           "isOngoing": true,
@@ -2753,7 +2753,7 @@
         {
           "id": "t43",
           "description": "Ensure timely completion of field, troubleshoot as needed",
-          "status": "pending",
+          "status": "completed",
           "phase": "Fielding",
           "dueDate": null,
           "isOngoing": true,
@@ -2766,7 +2766,7 @@
           "description": "Request prelim tables (if needed)",
           "status": "pending",
           "phase": "Fielding",
-          "dueDate": null,
+          "dueDate": "2025-10-20",
           "isOngoing": false
         },
         {
@@ -3477,7 +3477,7 @@
           "description": "Have exec summary and headlines proofed",
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null,
+          "dueDate": "2025-10-21",
           "isOngoing": false,
           "assignedTo": [
             "3"
@@ -3488,7 +3488,7 @@
           "description": "Have full final report proofed",
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null,
+          "dueDate": "2025-10-22",
           "isOngoing": false
         },
         {
