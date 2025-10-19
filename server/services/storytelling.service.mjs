@@ -651,12 +651,12 @@ Return your response as a JSON object with this structure:
  */
 function extractKeyFindingsFromSlide(slide) {
   const keyFindings = [];
-  
+
   // Extract from headline
   if (slide.headline) {
     keyFindings.push(slide.headline);
   }
-  
+
   // Extract from content sections
   if (slide.content && Array.isArray(slide.content)) {
     slide.content.forEach(section => {
@@ -668,8 +668,34 @@ function extractKeyFindingsFromSlide(slide) {
       }
     });
   }
-  
+
   return keyFindings;
+}
+
+/**
+ * Randomize the order of respondent transcripts to avoid bias
+ * @param {string} transcriptsText - Combined transcript text
+ * @returns {string} - Randomized transcript text
+ */
+function randomizeTranscriptOrder(transcriptsText) {
+  // Split transcripts by respondent markers (R01:, R02:, etc. at the start of a line)
+  const respondentPattern = /(?=^R\d+:)/gm;
+  const transcriptSegments = transcriptsText.split(respondentPattern).filter(seg => seg.trim().length > 0);
+
+  // If we couldn't split (no clear respondent markers), return original
+  if (transcriptSegments.length <= 1) {
+    return transcriptsText;
+  }
+
+  // Shuffle the transcript segments using Fisher-Yates algorithm
+  const shuffled = [...transcriptSegments];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+
+  // Rejoin the shuffled segments
+  return shuffled.join('\n\n');
 }
 
 /**
@@ -682,9 +708,12 @@ function extractKeyFindingsFromSlide(slide) {
  */
 async function generateQuotesForSlide(projectId, keyFindings, transcriptsText, analysisId) {
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  
+
   // Combine key findings into a search query
   const searchQuery = keyFindings.slice(0, 3).join(' '); // Use first 3 findings to avoid token limits
+
+  // Randomize transcript order to avoid bias toward first respondents
+  const randomizedTranscripts = randomizeTranscriptOrder(transcriptsText);
   
   const systemPrompt = `You are a research analyst tasked with finding supporting evidence from interview transcripts.
 
@@ -720,8 +749,10 @@ Guidelines:
 
 Please analyze the following interview transcript and find 2-3 verbatim quotes that directly support the research findings above. Return only the exact text from the transcript with proper speaker labels.
 
+IMPORTANT: The transcripts below are in randomized order. Search through ALL respondents to find the best quotes that support the findings.
+
 Transcript:
-${transcriptsText.substring(0, 20000)}`; // Increased limit to 20000 chars for better quote quality
+${randomizedTranscripts.substring(0, 100000)}`; // Use randomized transcripts, limit to 100000 chars
 
   try {
     const response = await client.chat.completions.create({
