@@ -2805,7 +2805,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
       )}
 
       {viewMode === 'viewer' && !loadingSavedView && currentAnalysis && (
-        <div>
+        <div className="flex flex-col h-[calc(100vh-200px)]">
           <div className="mb-3">
             <div className="flex items-center justify-between mb-1">
               <div className="flex items-center gap-2">
@@ -2972,7 +2972,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
           </div>
           {/* Sheet tabs and table container */}
           {currentAnalysis.data && activeSheet && Array.isArray(currentAnalysis.data?.[activeSheet]) && (
-            <div className="overflow-hidden">
+            <div className="overflow-hidden flex-1 flex flex-col">
               <div className="flex w-full">
                 {Object.keys(currentAnalysis.data).map((sheet, idx) => {
                   const SheetIcon = getSheetIcon(sheet);
@@ -3009,8 +3009,8 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
               </div>
 
               {/* Active sheet table */}
-              <div className="overflow-hidden shadow-lg">
-                <div className="overflow-auto min-h-[200px] bg-white max-w-full border-l border-r border-b border-gray-300">
+              <div className="overflow-hidden shadow-lg flex-1">
+                <div className="overflow-auto h-full bg-white max-w-full border-l border-r border-b border-gray-300">
                   <table className="min-w-full text-[11px] leading-tight border-collapse">
                 <thead style={{ backgroundColor: '#e5e7eb' }}>
                   <tr>

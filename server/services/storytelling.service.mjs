@@ -706,20 +706,22 @@ Guidelines:
 - Find quotes that directly relate to the research findings
 - Include the full conversation context (both moderator questions and respondent answers)
 - Preserve the exact wording, punctuation, and formatting from the transcript
-- Each quote should be a complete thought or exchange
-- Focus on the most relevant and impactful quotes
+- Each quote should be a complete thought or exchange (at least 2-3 sentences)
+- Focus on the most relevant and impactful quotes that provide detailed insights
 - IMPORTANT: Always include the specific respondent ID (e.g., "R01:", "R02:", "R03:") in the quote text
 - Use the exact respondent IDs as they appear in the transcript (R01, R02, etc.)
 - Extract the respno from the quote text and include it as a separate field
 - If no relevant quotes are found, return an empty quotes array: {"quotes": []}
-- ONLY include quotes from RESPONDENTS, never from moderators`;
+- ONLY include quotes from RESPONDENTS, never from moderators
+- Prioritize longer, more detailed quotes over short one-liners
+- Look for quotes that provide context and explanation, not just brief statements`;
 
   const userPrompt = `Research Findings: ${searchQuery}
 
 Please analyze the following interview transcript and find 2-3 verbatim quotes that directly support the research findings above. Return only the exact text from the transcript with proper speaker labels.
 
 Transcript:
-${transcriptsText.substring(0, 8000)}`; // Limit to first 8000 chars to stay within token limits
+${transcriptsText.substring(0, 20000)}`; // Increased limit to 20000 chars for better quote quality
 
   try {
     const response = await client.chat.completions.create({

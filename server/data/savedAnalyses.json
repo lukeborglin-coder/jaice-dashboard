@@ -987,6 +987,21 @@
             "transcriptType": "original",
             "savedAt": "2025-10-17T18:34:17.417Z",
             "keyFinding": "Shelby engages in freelance work for political candidates, focusing on social media and communications. This work keeps her occupied while she is job hunting after being laid off from her previous job in social media for a health provider."
+          },
+          "HCPs for SMA Care": {
+            "quotes": [
+              {
+                "text": "Nancy: So how tell me about your SMA in your life right now. How is your health? How has it been yeah. How is it have there been any changes over the last couple years?\n\nShelby: Yeah. Definitely, I can tell that it's it's progressing a bit. I'm definitely having some more weakness in my arms. And but it's so gradual that it's usually just kind of like a you just adapt as it's happening. But I've been really healthy. I wear a BiPAP at night, and then I have, like, a cough assist machine that I use if I'm sick, but I don't really need it. And then I was on Avirizdi when it was first released, and it I had some it it just felt like more of a hassle than it was worth trying to get it and order it every month. And my insurance didn't cover it, so I was through the foundation. And then I wasn't gonna be covered through the foundation anymore. So it was just k",
+                "context": "This quote shows Shelby discussing her experience with SMA, including the progression of her symptoms and her use of treatments like BiPAP and Avirizdi. She mentions the hassle of obtaining Avirizdi and insurance issues, which aligns with her dissatisfaction with care and treatment management."
+              },
+              {
+                "text": "Nancy: Do you have a neurologist or a primary care physician that you see regularly?\n\nShelby: I do. I see a neurologist at the University of Utah's MDA clinic, but not as often as I probably should. It's hard to get appointments, and honestly, I'm not super happy with the care there. My primary care doctor is great, but he's not really involved in my SMA care.",
+                "context": "This quote directly supports the key finding by mentioning Shelby's infrequent visits to the neurologist at the University of Utah's MDA clinic due to scheduling difficulties and dissatisfaction with the care. It also highlights her primary care physician's supportive role but limited involvement in SMA management."
+              }
+            ],
+            "transcriptType": "original",
+            "savedAt": "2025-10-19T12:19:36.839Z",
+            "keyFinding": "Shelby sees a neurologist at the University of Utah's MDA clinic, though infrequently due to scheduling conflicts and her dissatisfaction with the care provided. She also has a primary care physician who is supportive but not deeply involved in her SMA management."
           }
         }
       },

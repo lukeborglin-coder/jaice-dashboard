@@ -3042,7 +3042,8 @@ export default function App() {
   const { user, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [route, setRoute] = useState("Home");
-  const [toolsDropdownOpen, setToolsDropdownOpen] = useState(true);
+  const [qualToolsDropdownOpen, setQualToolsDropdownOpen] = useState(true);
+  const [quantToolsDropdownOpen, setQuantToolsDropdownOpen] = useState(true);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loadingProjects, setLoadingProjects] = useState(false);
   const [currentAnalysisId, setCurrentAnalysisId] = useState<string | null>(null);
@@ -3666,9 +3667,11 @@ export default function App() {
 
   // Auto-open tools dropdown when a tool is selected
   useEffect(() => {
-    const allTools = [...qualitativeTools, ...quantitativeTools];
-    if (allTools.some(item => route === item.name)) {
-      setToolsDropdownOpen(true);
+    if (qualitativeTools.some(item => route === item.name)) {
+      setQualToolsDropdownOpen(true);
+    }
+    if (quantitativeTools.some(item => route === item.name)) {
+      setQuantToolsDropdownOpen(true);
     }
   }, [route, qualitativeTools, quantitativeTools]);
 
@@ -3714,7 +3717,7 @@ export default function App() {
           {/* Qualitative Tools Dropdown */}
           <div className="space-y-1">
             <button
-              onClick={() => setToolsDropdownOpen(!toolsDropdownOpen)}
+              onClick={() => setQualToolsDropdownOpen(!qualToolsDropdownOpen)}
               className={`w-full flex items-center gap-3 rounded-xl px-3 py-2 hover:bg-gray-100 transition ${
                 qualitativeTools.some(item => route === item.name) ? "bg-gray-100" : ""
               } ${!sidebarOpen ? 'justify-center' : ''}`}
@@ -3723,7 +3726,7 @@ export default function App() {
               {sidebarOpen && (
                 <>
                   <span className="text-sm font-medium">Qualitative Tools</span>
-                  {toolsDropdownOpen ? (
+                  {qualToolsDropdownOpen ? (
                     <ChevronUpIcon className="h-4 w-4 ml-auto" />
                   ) : (
                     <ChevronDownIcon className="h-4 w-4 ml-auto" />
@@ -3733,7 +3736,7 @@ export default function App() {
             </button>
             
             {/* Qualitative Tools Dropdown Items */}
-            {sidebarOpen && toolsDropdownOpen && (
+            {sidebarOpen && qualToolsDropdownOpen && (
               <div className="ml-4 space-y-1">
                 {qualitativeTools.map((item) => (
                   <button
@@ -3754,7 +3757,7 @@ export default function App() {
           {/* Quantitative Tools Dropdown */}
           <div className="space-y-1">
             <button
-              onClick={() => setToolsDropdownOpen(!toolsDropdownOpen)}
+              onClick={() => setQuantToolsDropdownOpen(!quantToolsDropdownOpen)}
               className={`w-full flex items-center gap-3 rounded-xl px-3 py-2 hover:bg-gray-100 transition ${
                 quantitativeTools.some(item => route === item.name) ? "bg-gray-100" : ""
               } ${!sidebarOpen ? 'justify-center' : ''}`}
@@ -3763,7 +3766,7 @@ export default function App() {
               {sidebarOpen && (
                 <>
                   <span className="text-sm font-medium">Quantitative Tools</span>
-                  {toolsDropdownOpen ? (
+                  {quantToolsDropdownOpen ? (
                     <ChevronUpIcon className="h-4 w-4 ml-auto" />
                   ) : (
                     <ChevronDownIcon className="h-4 w-4 ml-auto" />
@@ -3773,7 +3776,7 @@ export default function App() {
             </button>
             
             {/* Quantitative Tools Dropdown Items */}
-            {sidebarOpen && toolsDropdownOpen && (
+            {sidebarOpen && quantToolsDropdownOpen && (
               <div className="ml-4 space-y-1">
                 {quantitativeTools.map((item) => (
                   <button
