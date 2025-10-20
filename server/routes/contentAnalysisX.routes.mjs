@@ -12,7 +12,7 @@ import OpenAI from 'openai';
 import { logCost, COST_CATEGORIES } from '../services/costTracking.service.mjs';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
 
-// Safe JSON parse utility
+// Safe JSON parse utility with repair capabilities
 function safeJsonParse(data, fallback = null) {
   try {
     if (!data || data.trim().length === 0) {
@@ -26,6 +26,39 @@ function safeJsonParse(data, fallback = null) {
       console.log('Data preview (first 200 chars):', data.substring(0, 200));
       console.log('Data preview (last 200 chars):', data.substring(Math.max(0, data.length - 200)));
     }
+    
+    // Try to repair common JSON issues
+    try {
+      console.log('Attempting to repair JSON...');
+      let repairedData = data.trim();
+      
+      // Remove trailing extra brackets and braces
+      while (repairedData.endsWith(']') || repairedData.endsWith('}')) {
+        const lastBracket = repairedData.lastIndexOf(']');
+        const lastBrace = repairedData.lastIndexOf('}');
+        const lastChar = Math.max(lastBracket, lastBrace);
+        
+        if (lastChar > 0) {
+          const beforeLast = repairedData.substring(0, lastChar).trim();
+          if (beforeLast.endsWith(']') || beforeLast.endsWith('}')) {
+            repairedData = beforeLast;
+          } else {
+            break;
+          }
+        } else {
+          break;
+        }
+      }
+      
+      console.log('Repaired data preview (last 100 chars):', repairedData.substring(Math.max(0, repairedData.length - 100)));
+      
+      const repaired = JSON.parse(repairedData);
+      console.log('JSON repair successful!');
+      return repaired;
+    } catch (repairError) {
+      console.error('JSON repair failed:', repairError.message);
+    }
+    
     return fallback;
   }
 }
