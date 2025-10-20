@@ -9,19 +9,13 @@
         "Bid project out to vendors",
         "Create a job folder for the study in the 'Proposals' folder (within appropriate client folder)",
         "Save vendors' bids to job folder",
-        "Ensure any new vendors you are bringing on board have signed the NDA",
         "Create Internal Cost Worksheet, send to supervisor",
         "Move study docs from 'Proposals' folder to main client folder",
         "Set up Invoice Schedule & Worksheet (Reference PO/SOW for client specific invoice timeline)",
         "Alert sample/programming vendor that the project is moving forward",
         "After client KO call, confirm final sample quotas with vendor"
       ],
-      "Ongoing": [
-        {
-          "task": "Keep internal team aligned on roles, deliverables, and client expectations throughout kickoff.",
-          "isOngoing": true,
-          "description": "Maintain team alignment and communication throughout the kickoff phase"
-        }
+             }
       ]
     },
     "Pre-Field": {
@@ -34,13 +28,11 @@
         "Submit first client invoice request to accounting",
         "Make necessary revisions to QNR from client review",
         "Send final QNR to vendor (after client sign off)",
-        "If advanced analytics needed: create specs & engage statistician",
-        "Ensure signed/final documents are saved to job folder",
+        "Save signed/final documents to job folder",
         "Test survey program",
-        "If translations: review translations in survey program",
+        "Review translations in survey program",
         "Send translations to client-approved translators",
         "If requested: send tested survey link to client",
-        "Coordinate translation comments",
         "Create data quality check plan",
         "Create AE check plan",
         "Approve survey for soft launch"
@@ -52,9 +44,6 @@
           "description": "Maintain documentation of client expectations throughout pre-field phase"
         },
         {
-          "task": "Ensure version control across QNR revisions",
-          "isOngoing": true,
-          "description": "Maintain version control and document management throughout QNR development"
         }
       ]
     },
@@ -69,11 +58,13 @@
         "If coding: share questions and required codes with vendor",
         "Request invoice if required by client schedule",
         "Request prelim tables (if needed)",
-        "Check prelim tables (if needed)"
+        "Check prelim tables (if needed)",
+	"Soft data quality check (10% of total sample)",
+	"Fully launch survey"
       ],
       "Ongoing": [
         {
-          "task": "Soft data quality check (10% of total sample), continue quality checks throughout",
+          "task": "Continue quality checks throughout field",
           "isOngoing": true,
           "description": "Continuous data quality monitoring and validation throughout fielding"
         },
@@ -87,16 +78,10 @@
           "isOngoing": true,
           "description": "Continuous AE monitoring and timely reporting"
         },
-        {
-          "task": "Ensure timely completion of field, troubleshoot as needed",
-          "isOngoing": true,
-          "description": "Ongoing field management and issue resolution"
-        }
       ]
     },
     "Post-Field Analysis": {
       "Tasks": [
-        "Internal download: lessons learned and notes",
         "Final data quality check",
         "Save final raw data files to folder: raw excel file, SPSS file, verbatim file, etc.",
         "Send final verbatim file to vendor for coding (if needed)",

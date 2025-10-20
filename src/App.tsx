@@ -7604,6 +7604,11 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
     return project.phase; // Fallback
   };
 
+  // Helper function to get solid phase colors (non-transparent) - matches PHASE_COLORS
+  const getSolidPhaseColor = (phase: string): string => {
+    return PHASE_COLORS[phase] || '#6B7280';
+  };
+
   const [showProjectWizard, setShowProjectWizard] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterPhase, setFilterPhase] = useState<Phase | "All">("All");
@@ -7639,6 +7644,7 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
   const [showMyProjectsOnly, setShowMyProjectsOnly] = useState(true);
   const [vendorsData, setVendorsData] = useState<any>(null);
   const [viewMode, setViewMode] = useState<'list' | 'timeline'>('list');
+  const [timelineWeekOffset, setTimelineWeekOffset] = useState(0);
   const [projectUpdateModal, setProjectUpdateModal] = useState<{ show: boolean; project: Project | null; update: string | null }>({ show: false, project: null, update: null });
 
   // Sorting and filtering state
@@ -8800,14 +8806,15 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
 
         {/* Projects Table - List View */}
         {viewMode === 'list' && (
-          <div className="bg-white shadow-sm border border-gray-200 rounded-lg" style={{ overflow: 'visible' }}>
+          <div className="bg-white shadow-sm border border-gray-200 rounded-lg mt-5" style={{ overflow: 'visible' }}>
           <div className="w-full" style={{ overflowX: 'auto', overflowY: 'visible', minHeight: '400px' }}>
             <table className="w-full divide-y divide-gray-200 table-fixed">
               <thead style={{ backgroundColor: BRAND.orange }}>
                 {/* Header row with sortable columns */}
                 <tr>
                   <th
-                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-orange-600 w-[14%]"
+                    className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-orange-600"
+                    style={{ width: '200px', minWidth: '200px' }}
                     onClick={() => handleSort('name')}
                   >
                     <div className="flex items-center gap-1">
@@ -8963,7 +8970,7 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                       className={`hover:bg-gray-50 cursor-pointer ${isArchived ? 'opacity-60 bg-gray-50' : ''} ${shouldHighlightUserProject ? 'bg-orange-50' : ''}`}
                     onClick={() => handleProjectView(project)}
                   >
-                      <td className="px-0.5 sm:px-1 md:px-2 py-3 text-sm font-medium text-gray-900 w-[14%] h-16 align-middle">
+                      <td className="px-0.5 sm:px-1 md:px-2 py-3 text-sm font-medium text-gray-900 h-16 align-middle" style={{ width: '200px', minWidth: '200px' }}>
                       <div className="line-clamp-2">
                           {project.name}
                           {isArchived && <span className="ml-2 text-xs text-gray-500">(Archived)</span>}
@@ -9371,6 +9378,460 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
           </div>
         </div>
       )}
+
+        {/* Timeline View */}
+        {viewMode === 'timeline' && (
+          <div className="bg-white shadow-sm border border-gray-200 rounded-lg mt-5" style={{ overflow: 'visible' }}>
+            <div className="w-full" style={{ overflowX: 'auto', overflowY: 'visible', minHeight: '400px' }}>
+              <table className="w-full divide-y divide-gray-200 table-fixed">
+                <thead style={{ backgroundColor: BRAND.orange }}>
+                  <tr>
+                    <th className="px-0.5 sm:px-1 md:px-2 py-3 text-left text-xs font-medium text-white uppercase tracking-wider" style={{ width: '200px', minWidth: '200px' }}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1">
+                          Project
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => setTimelineWeekOffset(prev => prev - 1)}
+                            className="p-1 hover:bg-orange-600 rounded transition-colors"
+                            title="Previous Week"
+                          >
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => setTimelineWeekOffset(prev => prev + 1)}
+                            className="p-1 hover:bg-orange-600 rounded transition-colors"
+                            title="Next Week"
+                          >
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    </th>
+                    {(() => {
+                      // Generate 3 weeks of dates (Monday-Friday only)
+                      const getWeekStart = (weekOffset: number) => {
+                        const today = new Date();
+                        const currentDay = today.getDay(); // 0=Sunday, 1=Monday, ..., 6=Saturday
+                        
+                        // Calculate days to get to Monday of current week
+                        let daysToMonday;
+                        if (currentDay === 0) { // Sunday
+                          daysToMonday = -6; // Go back 6 days to get to Monday
+                        } else if (currentDay === 1) { // Monday
+                          daysToMonday = 0; // Already Monday
+                        } else { // Tuesday-Saturday
+                          daysToMonday = 1 - currentDay; // Go back to Monday
+                        }
+                        
+                        const currentMonday = new Date(today);
+                        currentMonday.setDate(today.getDate() + daysToMonday);
+                        currentMonday.setHours(0, 0, 0, 0); // Reset time to start of day
+                        
+                        // Add week offset (each week is 7 days) + timeline navigation offset
+                        const targetMonday = new Date(currentMonday);
+                        targetMonday.setDate(currentMonday.getDate() + ((weekOffset + timelineWeekOffset) * 7));
+                        
+                        return targetMonday;
+                      };
+
+                      const weeks = Array.from({ length: 3 }, (_, i) => {
+                        const weekStart = getWeekStart(i);
+                        
+                        // Generate only Monday-Friday (5 weekdays)
+                        const days = Array.from({ length: 5 }, (_, dayIndex) => {
+                          const day = new Date(weekStart);
+                          day.setDate(weekStart.getDate() + dayIndex);
+                          return day;
+                        });
+                        return days;
+                      });
+
+                      const allDays = weeks.flat();
+                      
+                      return allDays.map((day, index) => {
+                        const isWeekEnd = (index + 1) % 5 === 0; // Every 5th day (end of week)
+                        const isNotLastDay = index < allDays.length - 1; // Not the last day overall
+                        return (
+                          <th key={index} className="px-1 py-3 text-center text-xs font-medium text-white uppercase tracking-wider w-[5.7%] relative">
+                            <div className="text-[10px] font-bold">
+                              {day.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })}
+                            </div>
+                            {/* Daily divider line behind header (except for last day) */}
+                            {isNotLastDay && (
+                              <div className="absolute top-0 right-0 w-px h-full bg-white bg-opacity-20" style={{ zIndex: 0 }}></div>
+                            )}
+                          </th>
+                        );
+                      });
+                    })()}
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filteredProjects.length === 0 ? (
+                    <tr>
+                      <td colSpan={16} className="px-6 py-12 text-center">
+                        <div className="text-gray-400 mb-4">
+                          <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                          </svg>
+                        </div>
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">No projects found</h3>
+                        <p className="text-gray-500">
+                          {searchTerm || filterPhase !== 'All' 
+                            ? 'Try adjusting your search or filter criteria.' 
+                            : 'Get started by creating your first project.'}
+                        </p>
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredProjects.map((project) => {
+                      const currentPhase = project.phase;
+                      const phaseColor = project.phaseColor;
+                      const isArchived = project.archived === true;
+                      const isUserProjectRow = isUserProject(project);
+                      const shouldHighlightUserProject = isUserProjectRow && (!user || !showMyProjectsOnly);
+
+                      // Generate the same date columns for each project row
+                      const getWeekStart = (weekOffset: number) => {
+                        const today = new Date();
+                        const currentDay = today.getDay(); // 0=Sunday, 1=Monday, ..., 6=Saturday
+                        
+                        // Calculate days to get to Monday of current week
+                        let daysToMonday;
+                        if (currentDay === 0) { // Sunday
+                          daysToMonday = -6; // Go back 6 days to get to Monday
+                        } else if (currentDay === 1) { // Monday
+                          daysToMonday = 0; // Already Monday
+                        } else { // Tuesday-Saturday
+                          daysToMonday = 1 - currentDay; // Go back to Monday
+                        }
+                        
+                        const currentMonday = new Date(today);
+                        currentMonday.setDate(today.getDate() + daysToMonday);
+                        currentMonday.setHours(0, 0, 0, 0); // Reset time to start of day
+                        
+                        // Add week offset (each week is 7 days) + timeline navigation offset
+                        const targetMonday = new Date(currentMonday);
+                        targetMonday.setDate(currentMonday.getDate() + ((weekOffset + timelineWeekOffset) * 7));
+                        
+                        return targetMonday;
+                      };
+
+                      const weeks = Array.from({ length: 3 }, (_, i) => {
+                        const weekStart = getWeekStart(i);
+                        // Generate only Monday-Friday (5 weekdays)
+                        const days = Array.from({ length: 5 }, (_, dayIndex) => {
+                          const day = new Date(weekStart);
+                          day.setDate(weekStart.getDate() + dayIndex);
+                          return day;
+                        });
+                        return days;
+                      });
+
+                      const allDays = weeks.flat();
+
+                      // Helper function to get project phase for a specific date
+                      const getProjectPhaseForDate = (project: Project, date: Date): string => {
+                        if (!project.segments || project.segments.length === 0) {
+                          return '';
+                        }
+
+                        // Format date as YYYY-MM-DD using local timezone
+                        const year = date.getFullYear();
+                        const month = String(date.getMonth() + 1).padStart(2, '0');
+                        const day = String(date.getDate()).padStart(2, '0');
+                        const dateStr = `${year}-${month}-${day}`;
+                        
+                        for (const segment of project.segments) {
+                          if (dateStr >= segment.startDate && dateStr <= segment.endDate) {
+                            return segment.phase;
+                          }
+                        }
+
+                        // Return empty string for dates outside project boundaries
+                        return '';
+                      };
+
+                      return (
+                        <tr
+                          key={project.id}
+                          className={`hover:bg-gray-50 cursor-pointer ${isArchived ? 'opacity-60 bg-gray-50' : ''} ${shouldHighlightUserProject ? 'bg-orange-50' : ''}`}
+                          onClick={() => handleProjectView(project)}
+                        >
+                          <td className="px-0.5 sm:px-1 md:px-2 py-3 text-sm font-medium text-gray-900 h-16 align-middle" style={{ width: '200px', minWidth: '200px' }}>
+                            <div className="line-clamp-2">
+                              {project.name}
+                              {isArchived && <span className="ml-2 text-xs text-gray-500">(Archived)</span>}
+                            </div>
+                          </td>
+                          {allDays.map((day, index) => {
+                            const phaseForDay = getProjectPhaseForDate(project, day);
+                            const hasPhase = phaseForDay !== '';
+                            const phaseColorForDay = PHASE_COLORS[phaseForDay] || '#6B7280';
+                            const isToday = day.toDateString() === new Date().toDateString();
+                            const isWeekEnd = (index + 1) % 5 === 0; // Every 5th day (end of week)
+                            
+                            // Check if this day is in the current week (Monday-Friday of this week)
+                            const today = new Date();
+                            const currentWeekStart = new Date(today);
+                            const currentDay = today.getDay();
+                            const daysToMonday = currentDay === 0 ? -6 : 1 - currentDay;
+                            currentWeekStart.setDate(today.getDate() + daysToMonday);
+                            currentWeekStart.setHours(0, 0, 0, 0);
+                            
+                            const currentWeekEnd = new Date(currentWeekStart);
+                            currentWeekEnd.setDate(currentWeekStart.getDate() + 4); // Friday
+                            currentWeekEnd.setHours(23, 59, 59, 999);
+                            
+                            const isCurrentWeek = day >= currentWeekStart && day <= currentWeekEnd;
+                            
+                            // Check if this is part of a consecutive phase group
+                            const prevPhase = index > 0 ? getProjectPhaseForDate(project, allDays[index - 1]) : '';
+                            const nextPhase = index < allDays.length - 1 ? getProjectPhaseForDate(project, allDays[index + 1]) : '';
+                            
+                            const isStartOfGroup = hasPhase && prevPhase !== phaseForDay;
+                            const isEndOfGroup = hasPhase && nextPhase !== phaseForDay;
+                            const isMiddleOfGroup = hasPhase && !isStartOfGroup && !isEndOfGroup;
+                            
+                            // Determine border radius based on position in group
+                            let borderRadius = '';
+                            if (hasPhase) {
+                              if (isStartOfGroup && isEndOfGroup) {
+                                borderRadius = 'rounded-full'; // Single day
+                              } else if (isStartOfGroup) {
+                                borderRadius = 'rounded-l-full'; // Start of group
+                              } else if (isEndOfGroup) {
+                                borderRadius = 'rounded-r-full'; // End of group
+                              } else {
+                                borderRadius = 'rounded-none'; // Middle of group
+                              }
+                            }
+                            
+                            return (
+                              <td key={index} className="py-3 text-center h-16 align-middle w-[5.7%] relative" style={{ 
+                                paddingLeft: isStartOfGroup ? '4px' : '0px', 
+                                paddingRight: isEndOfGroup ? '4px' : '0px',
+                                backgroundColor: isToday ? '#FEF3E2' : isCurrentWeek ? '#FFF7ED' : 'transparent' // Slightly darker orange for today, lighter for current week
+                              }}>
+                                {/* Daily divider line behind pills (except for last day) */}
+                                {index < allDays.length - 1 && (
+                                  <div className="absolute top-0 right-0 w-px h-full bg-gray-200" style={{ zIndex: 0 }}></div>
+                                )}
+                                {hasPhase ? (
+                                  <div className="relative w-full h-8">
+                                    {/* White background pill */}
+                                    <div className={`absolute inset-0 w-full h-8 flex items-center justify-center text-[10px] font-medium ${borderRadius}`}
+                                    style={{ 
+                                      backgroundColor: '#FFFFFF',
+                                      zIndex: 1
+                                    }}>
+                                    </div>
+                                    {/* Transparent colored pill on top */}
+                                    <div className={`absolute inset-0 w-full h-8 flex items-center justify-center text-[10px] font-medium ${borderRadius}`}
+                                    style={{ 
+                                      backgroundColor: isArchived ? '#6B7280' : `${getSolidPhaseColor(phaseForDay)}AA`,
+                                      color: isArchived ? '#6B7280' : getSolidPhaseColor(phaseForDay),
+                                      zIndex: 2 // Ensure colored pill appears above white background
+                                    }}
+                                    title={`${phaseForDay} - ${day.toLocaleDateString()}`}>
+                                      {/* Key date icons */}
+                                      {phaseForDay === 'Fielding' && isStartOfGroup && (
+                                        <svg className="w-5 h-5 text-white drop-shadow-sm" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+                                          <path d="M4 13a8 8 0 0 1 7 7a6 6 0 0 0 3 -5a9 9 0 0 0 6 -8a3 3 0 0 0 -3 -3a9 9 0 0 0 -8 6a6 6 0 0 0 -5 3" />
+                                          <path d="M7 14a6 6 0 0 0 -3 6a6 6 0 0 0 6 -3" />
+                                        </svg>
+                                      )}
+                                      {phaseForDay === 'Reporting' && isEndOfGroup && (
+                                        <svg className="w-5 h-5 text-white drop-shadow-sm" fill="currentColor" viewBox="0 0 24 24">
+                                          <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+                                        </svg>
+                                      )}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="w-full h-8"></div>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+      )}
+
+        {/* Project Update Modal */}
+        {projectUpdateModal.show && projectUpdateModal.project && projectUpdateModal.update && createPortal(
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10101]" style={{ top: 0, left: 0, right: 0, bottom: 0 }}>
+            <div className="bg-white rounded-lg max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900">Project Update: {projectUpdateModal.project.name}</h3>
+              </div>
+              <div className="px-6 py-4">
+                <div className="prose max-w-none">
+                  {projectUpdateModal.update.split('\n').map((line, index) => {
+                    if (line.startsWith('[PHASE]')) {
+                      // Phase lines with special styling
+                      const phaseMatch = line.match(/\[PHASE\]\s*(.+?)\|(.+?)\|(.+)/);
+                      if (phaseMatch) {
+                        const [, phaseType, phaseName, dateRange] = phaseMatch;
+                        return (
+                          <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg mb-2">
+                            <div className="w-2 h-2 rounded-full bg-orange-500"></div>
+                            <div className="flex-1">
+                              <div className="text-sm font-medium text-gray-900">{phaseType}</div>
+                              <div className="text-xs text-gray-600">{phaseName} • {dateRange}</div>
+                            </div>
+                          </div>
+                        );
+                      }
+                    } else if (line.startsWith('[TASK]')) {
+                      // Task lines with box styling
+                      const taskMatch = line.match(/\[TASK\]\s*(.+?)\|(.+?)\|(.+?)\|(.+)/);
+                      if (taskMatch) {
+                        const [, description, projectName, dueDateOrAssigned, assigned] = taskMatch;
+                        const assignedToShow = assigned || dueDateOrAssigned;
+                        const dueDateToShow = assigned ? dueDateOrAssigned : null;
+
+                        return (
+                          <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg mb-1">
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs font-medium text-gray-900 truncate">
+                                {description}
+                              </div>
+                              <div className="text-[10px] text-gray-500 truncate">
+                                {assignedToShow}
+                              </div>
+                            </div>
+                            {dueDateToShow && (
+                              <div className="flex-shrink-0 ml-2 text-right">
+                                <div className="text-xs text-gray-600">
+                                  {dueDateToShow}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      }
+                    } else if (line.startsWith('[ICON:')) {
+                      // Icon lines with special styling
+                      const iconMatch = line.match(/\[ICON:(\w+)\]\s*(.+)/);
+                      if (iconMatch) {
+                        const [, iconType, content] = iconMatch;
+                        let iconColor = 'text-blue-500';
+                        if (iconType === 'kickoff') iconColor = 'text-gray-500';
+                        else if (iconType === 'fieldwork') iconColor = 'text-purple-500';
+                        else if (iconType === 'report') iconColor = 'text-red-500';
+                        
+                        return (
+                          <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg mb-1">
+                            <div className={`w-2 h-2 rounded-full ${iconColor.replace('text-', 'bg-')}`}></div>
+                            <span className="text-sm text-gray-700">{content}</span>
+                          </div>
+                        );
+                      }
+                    } else if (line.startsWith('http')) {
+                      // File links
+                      const fileUrl = line.trim();
+                      const fileName = fileUrl.split('/').pop() || 'File';
+                      const fileExtension = fileName.split('.').pop()?.toLowerCase() || '';
+                      
+                      let fileIcon;
+                      switch (fileExtension) {
+                        case 'pdf':
+                          fileIcon = <DocumentIcon className="h-4 w-4 text-red-600" />;
+                          break;
+                        case 'doc':
+                        case 'docx':
+                          fileIcon = <DocumentIcon className="h-4 w-4 text-blue-600" />;
+                          break;
+                        case 'xls':
+                        case 'xlsx':
+                          fileIcon = <DocumentIcon className="h-4 w-4 text-green-600" />;
+                          break;
+                        case 'ppt':
+                        case 'pptx':
+                          fileIcon = <DocumentIcon className="h-4 w-4 text-orange-600" />;
+                          break;
+                        default:
+                          fileIcon = <DocumentIcon className="h-4 w-4 text-gray-600" />;
+                      }
+
+                      return (
+                        <a
+                          key={index}
+                          href={fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg hover:bg-gray-100 mb-1 transition-colors"
+                        >
+                          {fileIcon}
+                          <span className="text-sm text-gray-900">{fileName}</span>
+                          <ArrowTopRightOnSquareIcon className="h-3 w-3 text-gray-400 ml-auto" />
+                        </a>
+                      );
+                    } else if (line.startsWith('*') && line.endsWith('*') && !line.includes('**')) {
+                      // Italic lines (date ranges) - make sure it's not a bold line
+                      const text = line.replace(/\*/g, '');
+                      return <p key={index} className="text-xs italic text-gray-500 mb-1">{text}</p>;
+                    } else if (line.includes('**')) {
+                      // Line with bold text - parse inline bold
+                      const parts = line.split('**');
+                      return (
+                        <p key={index} className="text-sm text-gray-700 mb-1">
+                          {parts.map((part, i) => {
+                            // Every odd index is bold (between ** markers)
+                            if (i % 2 === 1) {
+                              return <strong key={i} className="font-semibold" style={{ color: BRAND.gray }}>{part}</strong>;
+                            }
+                            return <span key={i}>{part}</span>;
+                          })}
+                        </p>
+                      );
+                    } else if (line.startsWith('•')) {
+                      // Bullet points
+                      return <p key={index} className="text-sm text-gray-700 ml-4 mb-1">{line}</p>;
+                    } else {
+                      // Regular text
+                      return <p key={index} className="text-sm text-gray-700 mb-1">{line}</p>;
+                    }
+                  })}
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-200">
+                <button
+                  onClick={() => {
+                    if (projectUpdateModal.update) {
+                      navigator.clipboard.writeText(projectUpdateModal.update.replace(/\*\*/g, ''));
+                    }
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Copy to Clipboard
+                </button>
+                <button
+                  onClick={() => setProjectUpdateModal({ show: false, project: null, update: null })}
+                  className="px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors"
+                  style={{ backgroundColor: BRAND.orange }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#B8392A'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = BRAND.orange}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        , document.body)}
     </div>
   );
 }

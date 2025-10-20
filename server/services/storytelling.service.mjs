@@ -699,6 +699,47 @@ function randomizeTranscriptOrder(transcriptsText) {
 }
 
 /**
+ * Create a balanced sample from all respondents' transcripts
+ * Takes representative portions from each respondent to ensure comprehensive coverage
+ * @param {string} transcriptsText - Combined transcript text
+ * @param {number} maxChars - Maximum characters to include in sample
+ * @returns {string} - Balanced transcript sample
+ */
+function createBalancedTranscriptSample(transcriptsText, maxChars = 150000) {
+  // Split transcripts by respondent markers
+  const respondentPattern = /(?=^R\d+:)/gm;
+  const transcriptSegments = transcriptsText.split(respondentPattern).filter(seg => seg.trim().length > 0);
+
+  // If we couldn't split or only have one segment, just return truncated
+  if (transcriptSegments.length <= 1) {
+    return transcriptsText.substring(0, maxChars);
+  }
+
+  console.log(`📊 Found ${transcriptSegments.length} respondents in transcripts`);
+
+  // Calculate how much text to take from each respondent
+  const charsPerRespondent = Math.floor(maxChars / transcriptSegments.length);
+
+  // Take a balanced sample from each respondent
+  const balancedSample = transcriptSegments.map((segment, index) => {
+    if (segment.length <= charsPerRespondent) {
+      // If segment is smaller than allocation, take it all
+      return segment;
+    } else {
+      // Take from the middle portion to get substantive content (skip intro/outro)
+      const startPos = Math.floor(segment.length * 0.1); // Skip first 10%
+      const endPos = startPos + charsPerRespondent;
+      return segment.substring(startPos, Math.min(endPos, segment.length));
+    }
+  });
+
+  const result = balancedSample.join('\n\n');
+  console.log(`📝 Created balanced sample: ${result.length} chars from ${transcriptSegments.length} respondents`);
+
+  return result;
+}
+
+/**
  * Generate real verbatim quotes for a slide based on key findings
  * @param {string} projectId - Project ID
  * @param {Array} keyFindings - Array of key findings to find quotes for
@@ -745,14 +786,25 @@ Guidelines:
 - Prioritize longer, more detailed quotes over short one-liners
 - Look for quotes that provide context and explanation, not just brief statements`;
 
+  // Instead of truncating, let's intelligently sample from all respondents
+  const transcriptSample = createBalancedTranscriptSample(randomizedTranscripts, 150000);
+
   const userPrompt = `Research Findings: ${searchQuery}
 
-Please analyze the following interview transcript and find 2-3 verbatim quotes that directly support the research findings above. Return only the exact text from the transcript with proper speaker labels.
+Please analyze the following interview transcripts and find the 2-3 STRONGEST, most compelling verbatim quotes that directly support the research findings above.
 
-IMPORTANT: The transcripts below are in randomized order. Search through ALL respondents to find the best quotes that support the findings.
+CRITICAL INSTRUCTIONS:
+- Search through ALL respondents provided below
+- Select quotes based on QUALITY and RELEVANCE, not based on which respondent appears first
+- Choose quotes that are detailed, insightful, and powerfully illustrate the finding
+- Prioritize quotes that provide rich context and clear examples
+- Do not simply pick the first matching quotes you find - evaluate all options
+- Look for quotes from different respondents to show breadth of perspective
+
+Return only the exact text from the transcript with proper speaker labels.
 
 Transcript:
-${randomizedTranscripts.substring(0, 100000)}`; // Use randomized transcripts, limit to 100000 chars
+${transcriptSample}`;
 
   try {
     const response = await client.chat.completions.create({

@@ -39,7 +39,8 @@
       "Bash(timeout:*)",
       "Bash(claude --usage)",
       "Bash(PORT=3005 node \"C:\\Users\\LukeBorglin\\Desktop\\Apps\\JaiceDashboard_master\\server\\server.mjs\")",
-      "Bash(npm run dev:client:*)"
+      "Bash(npm run dev:client:*)",
+      "Bash(npm run:*)"
     ],
     "deny": [],
     "ask": []
