@@ -871,7 +871,7 @@
       "usePreloadedTasks": true,
       "customTasks": [],
       "id": "P-1759172819869",
-      "phase": "Fielding",
+      "phase": "Post-Field Analysis",
       "methodologyDisplay": "Qualitative - In-Depth Interviews",
       "phaseTimeline": {
         "Kickoff": {
@@ -1513,55 +1513,60 @@
           "id": "t55",
           "description": "Submit AE reconciliation (if needed)",
           "assignedTo": [
-            ""
+            "",
+            "3"
           ],
           "status": "pending",
           "phase": "Post-Field Analysis",
-          "dueDate": null,
+          "dueDate": "2025-10-20",
           "isOngoing": false
         },
         {
           "id": "t56",
           "description": "Write findings",
           "assignedTo": [
-            ""
+            "",
+            "3"
           ],
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null,
+          "dueDate": "2025-10-20",
           "isOngoing": false
         },
         {
           "id": "t57",
           "description": "Write executive summary",
           "assignedTo": [
-            ""
+            "",
+            "3"
           ],
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null,
+          "dueDate": "2025-10-20",
           "isOngoing": false
         },
         {
           "id": "t58",
           "description": "Have report proofed",
           "assignedTo": [
-            ""
+            "",
+            "3"
           ],
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null,
+          "dueDate": "2025-10-20",
           "isOngoing": false
         },
         {
           "id": "t59",
           "description": "Have report reviewed internally",
           "assignedTo": [
-            ""
+            "",
+            "3"
           ],
           "status": "pending",
           "phase": "Reporting",
-          "dueDate": null,
+          "dueDate": "2025-10-20",
           "isOngoing": false
         },
         {
@@ -1721,7 +1726,7 @@
         }
       ],
       "archived": false,
-      "phaseColor": "#7C3AED",
+      "phaseColor": "#F97316",
       "fieldworkRange": "10/4/25",
       "reportDeadline": "10/31/25",
       "teamMembersText": "Luke Borglin, Nikki Panagiotakopoulos,  Ciara Mcevoy-Benisti, test",
@@ -2641,7 +2646,7 @@
         {
           "id": "t32",
           "description": "Soft data quality check (10% of total sample), continue quality checks throughout",
-          "status": "completed",
+          "status": "pending",
           "phase": "Fielding",
           "dueDate": null,
           "isOngoing": true
@@ -2665,7 +2670,7 @@
         {
           "id": "t35",
           "description": "Copy cost tracker shell to job folder and update",
-          "status": "completed",
+          "status": "pending",
           "phase": "Fielding",
           "dueDate": "2025-10-14",
           "isOngoing": false,
@@ -2720,7 +2725,7 @@
         {
           "id": "t40",
           "description": "Monitor open end comments for AEs and submit within 24 hours",
-          "status": "completed",
+          "status": "pending",
           "phase": "Fielding",
           "dueDate": null,
           "isOngoing": true,
@@ -2731,7 +2736,7 @@
         {
           "id": "t41",
           "description": "Request invoice if required by client schedule",
-          "status": "completed",
+          "status": "pending",
           "phase": "Fielding",
           "dueDate": "2025-10-13",
           "isOngoing": false,
@@ -2742,7 +2747,7 @@
         {
           "id": "t42",
           "description": "Monitor completes and update quotas as needed",
-          "status": "completed",
+          "status": "pending",
           "phase": "Fielding",
           "dueDate": null,
           "isOngoing": true,
@@ -2753,7 +2758,7 @@
         {
           "id": "t43",
           "description": "Ensure timely completion of field, troubleshoot as needed",
-          "status": "completed",
+          "status": "pending",
           "phase": "Fielding",
           "dueDate": null,
           "isOngoing": true,

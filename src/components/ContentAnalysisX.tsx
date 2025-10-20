@@ -8,17 +8,7 @@ import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } fro
 import ExcelJS from 'exceljs';
 import { renderAsync } from 'docx-preview';
 import StoryboardModal from './StoryboardModal';
-// import { normalizeAnalysisRespnos, buildTranscriptDisplayName } from '../utils/respnoUtils';
-
-// Simple local replacements for QNR utils
-const normalizeAnalysisRespnos = (analysis: any, transcripts: any[]) => {
-  return analysis; // Simple passthrough for now
-};
-
-const buildTranscriptDisplayName = ({ projectName, respno, interviewDate }: any) => {
-  const dateStr = interviewDate ? new Date(interviewDate).toLocaleDateString() : '';
-  return `${projectName}_${respno}${dateStr ? `_${dateStr}` : ''}`;
-};
+import { normalizeAnalysisRespnos, buildTranscriptDisplayName } from '../utils/respnoUtils';
 
 const BRAND_ORANGE = '#D14A2D';
 const BRAND_GRAY = '#5D5F62';
@@ -1252,7 +1242,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
       transcripts: filteredTranscripts
     };
 
-    const normalizedAnalysis = normalizeAnalysisRespnos(updatedAnalysis);
+    const normalizedAnalysis = normalizeAnalysisRespnos(updatedAnalysis, projectTranscriptsForUpload);
 
     setCurrentAnalysis(normalizedAnalysis);
 
@@ -1349,7 +1339,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
       }
       const json = await res.json();
       const normalized = Array.isArray(json)
-        ? json.map((analysis: any) => normalizeAnalysisRespnos(analysis))
+        ? json.map((analysis: any) => normalizeAnalysisRespnos(analysis, projectTranscriptsForUpload))
         : [];
       setSavedAnalyses(normalized);
     } catch (e) {
@@ -1519,14 +1509,57 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
       });
       if (resp.ok) {
         const full = await resp.json();
-        const normalizedFull = normalizeAnalysisRespnos(full || analysis);
+        
+        // Load project transcripts directly for normalization
+        let projectTranscripts = [];
+        if (analysis.projectId) {
+          try {
+            const response = await fetch(`${API_BASE_URL}/api/transcripts/all`, {
+              headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
+            });
+            if (response.ok) {
+              const data = await response.json();
+              const projectTranscriptsData = Array.isArray(data?.[analysis.projectId]) ? data[analysis.projectId] : [];
+              projectTranscripts = projectTranscriptsData.map((item: any) => ({
+                id: item.id,
+                respno: item.respno,
+                interviewDate: item.interviewDate || item['Interview Date'] || null,
+                interviewTime: item.interviewTime || item['Interview Time'] || null
+              }));
+            }
+          } catch (error) {
+            console.error('Failed to load project transcripts for normalization:', error);
+          }
+        }
+        
+        console.log('🔍 Project transcripts for normalization:', projectTranscripts);
+        console.log('🔍 Analysis demographics before normalization:', full?.data?.Demographics);
+        
+        const normalizedFull = normalizeAnalysisRespnos(full || analysis, projectTranscripts);
+        
+        console.log('🔍 Normalizing analysis with transcripts:', {
+          analysisId: analysis.id,
+          projectTranscriptsCount: projectTranscripts?.length || 0,
+          demographicsBefore: full?.data?.Demographics?.map((r: any) => ({
+            respno: r['Respondent ID'] || r['respno'],
+            date: r['Interview Date'] || r['Date'],
+            time: r['Interview Time'] || r['Time']
+          })),
+          demographicsAfter: normalizedFull?.data?.Demographics?.map((r: any) => ({
+            respno: r['Respondent ID'] || r['respno'],
+            date: r['Interview Date'] || r['Date'],
+            time: r['Interview Time'] || r['Time']
+          }))
+        });
+        
+        console.log('🔍 Analysis demographics after normalization:', normalizedFull?.data?.Demographics);
         setCurrentAnalysis(normalizedFull);
         setTranscripts(normalizedFull?.transcripts || []);
         const sheets = Object.keys(normalizedFull?.data || {});
         if (sheets.length) setActiveSheet(sheets[0]);
       } else {
         // Fallback to provided object
-        const normalizedFallback = normalizeAnalysisRespnos(analysis);
+        const normalizedFallback = normalizeAnalysisRespnos(analysis, projectTranscriptsForUpload);
         setCurrentAnalysis(normalizedFallback);
         setTranscripts(normalizedFallback?.transcripts || []);
         const sheets = Object.keys(normalizedFallback?.data || {});
@@ -1534,7 +1567,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
       }
     } catch (e) {
       // Network/endpoint not available; fallback to provided object
-      const normalizedFallback = normalizeAnalysisRespnos(analysis);
+      const normalizedFallback = normalizeAnalysisRespnos(analysis, projectTranscriptsForUpload);
       setCurrentAnalysis(normalizedFallback);
       setTranscripts(normalizedFallback?.transcripts || []);
       const sheets = Object.keys(normalizedFallback?.data || {});
@@ -1981,7 +2014,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
         }
       }
 
-      const normalizedAnalysis = normalizeAnalysisRespnos(updatedAnalysis);
+      const normalizedAnalysis = normalizeAnalysisRespnos(updatedAnalysis, projectTranscriptsForUpload);
       setCurrentAnalysis(normalizedAnalysis);
       setTranscripts(normalizedAnalysis?.transcripts || []);
       setSavedAnalyses(prev =>
@@ -3754,7 +3787,20 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                         if (response.ok) {
                           const result = await response.json();
                           // Reload the analysis with the new data
-                          await loadAnalysis(currentAnalysis.id);
+                          try {
+                            const token = localStorage.getItem('token');
+                            const reloadResponse = await fetch(`${API_BASE_URL}/api/caX/saved/${currentAnalysis.id}`, {
+                              headers: token ? { 'Authorization': `Bearer ${token}` } : undefined,
+                            });
+                            if (reloadResponse.ok) {
+                              const reloadedAnalysis = await reloadResponse.json();
+                              const normalizedReloaded = normalizeAnalysisRespnos(reloadedAnalysis, projectTranscriptsForUpload);
+                              setCurrentAnalysis(normalizedReloaded);
+                              setTranscripts(normalizedReloaded?.transcripts || []);
+                            }
+                          } catch (e) {
+                            console.error('Failed to reload analysis:', e);
+                          }
                           setShowGenerateModal(false);
                           setShowSuccessMessage(true);
                           setTimeout(() => setShowSuccessMessage(false), 3000);

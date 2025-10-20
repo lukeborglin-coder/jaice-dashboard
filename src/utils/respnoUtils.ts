@@ -177,7 +177,16 @@ export const normalizeAnalysisRespnos = (
   analysis: AnalysisLike,
   projectTranscripts?: TranscriptLike[]
 ): AnalysisLike => {
+  console.log('🔧 normalizeAnalysisRespnos called with:', {
+    hasAnalysis: !!analysis,
+    hasData: !!analysis?.data,
+    hasDemographics: !!analysis?.data?.Demographics,
+    demographicsLength: analysis?.data?.Demographics?.length,
+    projectTranscriptsLength: projectTranscripts?.length
+  });
+  
   if (!analysis || !analysis.data || !Array.isArray(analysis.data.Demographics)) {
+    console.log('🔧 Early return - missing required data');
     return analysis;
   }
 
@@ -189,6 +198,23 @@ export const normalizeAnalysisRespnos = (
     const projectTranscript = projectTranscripts?.find(
       t => normalizeRespnoValue(t.respno) === normalizedRespno
     );
+
+    console.log('🔧 Processing row:', {
+      idx,
+      normalizedRespno,
+      metadata,
+      foundTranscript: !!projectTranscript,
+      transcriptData: projectTranscript ? {
+        respno: projectTranscript.respno,
+        interviewDate: projectTranscript.interviewDate,
+        interviewTime: projectTranscript.interviewTime
+      } : null,
+      originalRow: {
+        respno: row['Respondent ID'] || row['respno'],
+        date: row['Interview Date'] || row['Date'],
+        time: row['Interview Time'] || row['Time']
+      }
+    });
 
     const timestamp = computeInterviewTimestamp(
       {
@@ -219,6 +245,42 @@ export const normalizeAnalysisRespnos = (
     }
     meta.row['Respondent ID'] = newRespno;
     meta.row['respno'] = newRespno;
+    
+    // Update date/time fields from transcript data if available
+    const projectTranscript = projectTranscripts?.find(
+      t => normalizeRespnoValue(t.respno) === meta.normalizedRespno
+    );
+    
+    if (projectTranscript) {
+      // Only update existing fields, don't add new ones
+      if (projectTranscript.interviewDate) {
+        if (meta.row.hasOwnProperty('Interview Date')) {
+          meta.row['Interview Date'] = projectTranscript.interviewDate;
+        }
+        if (meta.row.hasOwnProperty('Date')) {
+          meta.row['Date'] = projectTranscript.interviewDate;
+        }
+      }
+      if (projectTranscript.interviewTime) {
+        if (meta.row.hasOwnProperty('Interview Time')) {
+          meta.row['Interview Time'] = projectTranscript.interviewTime;
+        }
+        if (meta.row.hasOwnProperty('Time')) {
+          meta.row['Time'] = projectTranscript.interviewTime;
+        }
+      }
+    }
+    
+    console.log('🔧 Updated row after normalization:', {
+      idx,
+      newRespno,
+      originalDate: meta.row['Interview Date'] || meta.row['Date'],
+      originalTime: meta.row['Interview Time'] || meta.row['Time'],
+      finalDate: meta.row['Interview Date'] || meta.row['Date'],
+      finalTime: meta.row['Interview Time'] || meta.row['Time'],
+      transcriptDate: projectTranscript?.interviewDate,
+      transcriptTime: projectTranscript?.interviewTime
+    });
   });
 
   const updatedDemographics = rowOrderMeta

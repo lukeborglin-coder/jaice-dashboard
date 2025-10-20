@@ -4535,74 +4535,81 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column - Key Dates, My Tasks, and Projects */}
         <div className="lg:col-span-2 flex flex-col gap-6">
-            {/* My Tasks Box */}
-          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden h-80 flex flex-col flex-shrink-0">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 flex-shrink-0">
-                <h3 className="text-lg font-semibold" style={{ color: BRAND.gray }}>My Tasks</h3>
-              </div>
+            {/* My Tasks Section - Three Separate Boxes */}
+            <div className="flex flex-col gap-4">
+              {/* Overdue Tasks Box - Full Width - Only show if there are overdue tasks */}
+              {(() => {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
 
-              {/* Three Column Layout */}
-              <div className="grid grid-cols-3 gap-4 p-4 flex-1 min-h-0 overflow-hidden">
-                {/* Overdue Column */}
-                <div className="flex flex-col h-full min-h-0">
-                  <div className="mb-2 flex-shrink-0">
-                    <h4 className="text-xs font-semibold text-red-600">Overdue</h4>
-                  </div>
-                  <div className="overflow-y-auto light-scrollbar" style={{ maxHeight: 'calc(100% - 1.5rem)' }}>
-                    {(() => {
-                      const today = new Date();
-                      today.setHours(0, 0, 0, 0);
+                let overdueTasks: Array<{
+                  id: string;
+                  description: string;
+                  project: string;
+                  dueDate?: string;
+                  daysUntil: number;
+                }> = [];
 
-                      let overdueTasks: Array<{
-                        id: string;
-                        description: string;
-                        project: string;
-                        dueDate?: string;
-                        daysUntil: number;
-                      }> = [];
+                projects.forEach(project => {
+                  project.tasks.forEach(task => {
+                    const isAssignedToMe = task.assignedTo?.includes(user?.id || '') || false;
 
-                      projects.forEach(project => {
-                        project.tasks.forEach(task => {
-                          const isAssignedToMe = task.assignedTo?.includes(user?.id || '') || false;
+                    if (isAssignedToMe && task.status !== 'completed' && task.dueDate && !task.isOngoing) {
+                      const taskDate = new Date(task.dueDate + 'T00:00:00');
+                      const daysUntil = Math.ceil((taskDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
-                          if (isAssignedToMe && task.status !== 'completed' && task.dueDate && !task.isOngoing) {
-                            const taskDate = new Date(task.dueDate + 'T00:00:00');
-                            const daysUntil = Math.ceil((taskDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-
-                            if (daysUntil < 0) {
-                              overdueTasks.push({
-                                id: task.id,
-                                description: task.description || task.content || 'Untitled task',
-                                project: project.name,
-                                dueDate: task.dueDate,
-                                daysUntil: daysUntil
-                              });
-                            }
-                          }
+                      if (daysUntil < 0) {
+                        overdueTasks.push({
+                          id: task.id,
+                          description: task.description || task.content || 'Untitled task',
+                          project: project.name,
+                          dueDate: task.dueDate,
+                          daysUntil: daysUntil
                         });
-                      });
-
-                      overdueTasks.sort((a, b) => {
-                        if (a.dueDate && b.dueDate) {
-                          return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
-                        }
-                        return 0;
-                      });
-
-                      if (overdueTasks.length === 0) {
-                        return (
-                          <div className="flex items-center justify-center h-full text-gray-400 text-xs">
-                            None
-                          </div>
-                        );
                       }
+                    }
+                  });
+                });
 
-                      return (
-                        <div className="space-y-1.5">
+                overdueTasks.sort((a, b) => {
+                  if (a.dueDate && b.dueDate) {
+                    return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+                  }
+                  return 0;
+                });
+
+                // Only render the box if there are overdue tasks
+                if (overdueTasks.length === 0) {
+                  return null;
+                }
+
+                // Calculate height based on number of tasks (max 5 before scroll)
+                const maxVisibleTasks = 5;
+                const tasksToShow = Math.min(overdueTasks.length, maxVisibleTasks);
+                const needsScroll = overdueTasks.length > maxVisibleTasks;
+                
+                // Calculate approximate height: header (60px) + padding (32px) + task height (80px each)
+                const taskHeight = 80;
+                const headerHeight = 60;
+                const paddingHeight = 32;
+                const calculatedHeight = headerHeight + paddingHeight + (tasksToShow * taskHeight);
+                const maxHeight = needsScroll ? 400 : calculatedHeight; // Max 400px if scrolling
+
+                return (
+                  <div 
+                    className="bg-red-50 rounded-lg border border-red-200 overflow-hidden flex flex-col flex-shrink-0"
+                    style={{ height: `${Math.min(calculatedHeight, maxHeight)}px` }}
+                  >
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-red-200 flex-shrink-0 bg-red-100">
+                      <h3 className="text-lg font-semibold text-red-700">Overdue Tasks ({overdueTasks.length})</h3>
+                    </div>
+                    <div className="p-4 flex-1 min-h-0 overflow-hidden">
+                      <div className={`${needsScroll ? 'overflow-y-auto light-scrollbar' : ''} h-full`}>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                           {overdueTasks.map((task) => (
                             <div
                               key={task.id}
-                              className="p-2 bg-red-50 border border-red-100 rounded cursor-pointer hover:bg-red-100 transition-colors"
+                              className="p-3 bg-red-50 border border-red-100 rounded cursor-pointer hover:bg-red-100 transition-colors"
                               onClick={() => {
                                 const project = projects.find(p => p.name === task.project);
                                 if (project && onNavigateToProject) {
@@ -4610,176 +4617,186 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
                                 }
                               }}
                             >
-                              <div className="text-xs font-medium text-gray-900 truncate">
+                              <div className="text-sm font-medium text-gray-900 truncate">
                                 {task.description}
                               </div>
-                              <div className="text-[10px] text-gray-500 truncate">
+                              <div className="text-xs text-gray-500 truncate mt-1">
                                 {task.project}
+                              </div>
+                              <div className="text-xs text-red-600 font-medium mt-1">
+                                {Math.abs(task.daysUntil)} days overdue
                               </div>
                             </div>
                           ))}
                         </div>
-                      );
-                    })()}
+                      </div>
+                    </div>
                   </div>
-                </div>
+                );
+              })()}
 
-                {/* Ongoing Column */}
-                <div className="flex flex-col h-full min-h-0">
-                  <div className="mb-2 flex-shrink-0">
-                    <h4 className="text-xs font-semibold text-blue-600">Ongoing</h4>
+              {/* Today's Tasks and Ongoing Tasks - Side by Side */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Today's Tasks Box */}
+                <div className="bg-white rounded-lg border border-gray-200 overflow-hidden h-80 flex flex-col flex-shrink-0">
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 flex-shrink-0" style={{ backgroundColor: BRAND.orange }}>
+                    <h3 className="text-lg font-semibold text-white">Today's Tasks</h3>
                   </div>
-                  <div className="overflow-y-auto light-scrollbar" style={{ maxHeight: 'calc(100% - 1.5rem)' }}>
-                    {(() => {
-                      let ongoingTasks: Array<{
-                        id: string;
-                        description: string;
-                        project: string;
-                      }> = [];
+                  <div className="p-4 flex-1 min-h-0 overflow-hidden">
+                    <div className="overflow-y-auto light-scrollbar h-full">
+                      {(() => {
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
 
-                      projects.forEach(project => {
-                        // Get current phase of the project
-                        const getCurrentPhase = (project: Project) => {
-                          if (!project.segments || project.segments.length === 0) {
-                            return project.phase;
-                          }
+                        let todayTasks: Array<{
+                          id: string;
+                          description: string;
+                          project: string;
+                          dueDate?: string;
+                        }> = [];
 
-                          const today = new Date();
-                          const todayStr = today.toISOString().split('T')[0];
+                        projects.forEach(project => {
+                          project.tasks.forEach(task => {
+                            const isAssignedToMe = task.assignedTo?.includes(user?.id || '') || false;
 
-                          const currentSegment = project.segments.find(segment =>
-                            todayStr >= segment.startDate && todayStr <= segment.endDate
-                          );
+                            if (isAssignedToMe && task.status !== 'completed' && task.dueDate && !task.isOngoing) {
+                              const taskDate = new Date(task.dueDate + 'T00:00:00');
+                              const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 
-                          return currentSegment ? currentSegment.phase : project.phase;
-                        };
-
-                        const currentPhase = getCurrentPhase(project);
-
-                        project.tasks.forEach(task => {
-                          const isAssignedToMe = task.assignedTo?.includes(user?.id || '') || false;
-
-                          if (isAssignedToMe && task.status !== 'completed' && task.isOngoing && task.phase === currentPhase) {
-                            ongoingTasks.push({
-                              id: task.id,
-                              description: task.description || task.content || 'Untitled task',
-                              project: project.name
-                            });
-                          }
+                              if (taskDate.getTime() === todayDate.getTime()) {
+                                todayTasks.push({
+                                  id: task.id,
+                                  description: task.description || task.content || 'Untitled task',
+                                  project: project.name,
+                                  dueDate: task.dueDate
+                                });
+                              }
+                            }
+                          });
                         });
-                      });
 
-                      if (ongoingTasks.length === 0) {
+                        todayTasks.sort((a, b) => {
+                          if (a.dueDate && b.dueDate) {
+                            return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+                          }
+                          return 0;
+                        });
+
+                        if (todayTasks.length === 0) {
+                          return (
+                            <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+                              No tasks due today
+                            </div>
+                          );
+                        }
+
                         return (
-                          <div className="flex items-center justify-center h-full text-gray-400 text-xs">
-                            None
+                          <div className="space-y-1">
+                            {todayTasks.map((task) => (
+                              <div
+                                key={task.id}
+                                className="p-2 bg-orange-50 border border-orange-100 rounded cursor-pointer hover:bg-orange-100 transition-colors"
+                                onClick={() => {
+                                  const project = projects.find(p => p.name === task.project);
+                                  if (project && onNavigateToProject) {
+                                    onNavigateToProject(project);
+                                  }
+                                }}
+                              >
+                                <div className="text-sm font-medium text-gray-900 truncate">
+                                  {task.description}
+                                </div>
+                                <div className="text-xs text-gray-500 truncate mt-1">
+                                  {task.project}
+                                </div>
+                              </div>
+                            ))}
                           </div>
                         );
-                      }
-
-                      return (
-                        <div className="space-y-1.5">
-                          {ongoingTasks.map((task) => (
-                            <div
-                              key={task.id}
-                              className="p-2 bg-blue-50 border border-blue-100 rounded cursor-pointer hover:bg-blue-100 transition-colors"
-                              onClick={() => {
-                                const project = projects.find(p => p.name === task.project);
-                                if (project && onNavigateToProject) {
-                                  onNavigateToProject(project);
-                                }
-                              }}
-                            >
-                              <div className="text-xs font-medium text-gray-900 truncate">
-                                {task.description}
-                              </div>
-                              <div className="text-[10px] text-gray-500 truncate">
-                                {task.project}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    })()}
+                      })()}
+                    </div>
                   </div>
                 </div>
 
-                {/* Today Column */}
-                <div className="flex flex-col h-full min-h-0">
-                  <div className="mb-2 flex-shrink-0">
-                    <h4 className="text-xs font-semibold text-orange-600">Today</h4>
+                {/* Ongoing Tasks Box */}
+                <div className="bg-white rounded-lg border border-gray-200 overflow-hidden h-80 flex flex-col flex-shrink-0">
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 flex-shrink-0" style={{ backgroundColor: '#1E40AF' }}>
+                    <h3 className="text-lg font-semibold text-white">Ongoing Tasks</h3>
                   </div>
-                  <div className="overflow-y-auto light-scrollbar" style={{ maxHeight: 'calc(100% - 1.5rem)' }}>
-                    {(() => {
-                      const today = new Date();
-                      today.setHours(0, 0, 0, 0);
+                  <div className="p-4 flex-1 min-h-0 overflow-hidden">
+                    <div className="overflow-y-auto light-scrollbar h-full">
+                      {(() => {
+                        let ongoingTasks: Array<{
+                          id: string;
+                          description: string;
+                          project: string;
+                        }> = [];
 
-                      let todayTasks: Array<{
-                        id: string;
-                        description: string;
-                        project: string;
-                        dueDate?: string;
-                      }> = [];
+                        projects.forEach(project => {
+                          // Get current phase of the project
+                          const getCurrentPhase = (project: Project) => {
+                            if (!project.segments || project.segments.length === 0) {
+                              return project.phase;
+                            }
 
-                      projects.forEach(project => {
-                        project.tasks.forEach(task => {
-                          const isAssignedToMe = task.assignedTo?.includes(user?.id || '') || false;
+                            const today = new Date();
+                            const todayStr = today.toISOString().split('T')[0];
 
-                          if (isAssignedToMe && task.status !== 'completed' && task.dueDate && !task.isOngoing) {
-                            const taskDate = new Date(task.dueDate + 'T00:00:00');
-                            const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                            const currentSegment = project.segments.find(segment =>
+                              todayStr >= segment.startDate && todayStr <= segment.endDate
+                            );
 
-                            if (taskDate.getTime() === todayDate.getTime()) {
-                              todayTasks.push({
+                            return currentSegment ? currentSegment.phase : project.phase;
+                          };
+
+                          const currentPhase = getCurrentPhase(project);
+
+                          project.tasks.forEach(task => {
+                            const isAssignedToMe = task.assignedTo?.includes(user?.id || '') || false;
+
+                            if (isAssignedToMe && task.status !== 'completed' && task.isOngoing && task.phase === currentPhase) {
+                              ongoingTasks.push({
                                 id: task.id,
                                 description: task.description || task.content || 'Untitled task',
-                                project: project.name,
-                                dueDate: task.dueDate
+                                project: project.name
                               });
                             }
-                          }
+                          });
                         });
-                      });
 
-                      todayTasks.sort((a, b) => {
-                        if (a.dueDate && b.dueDate) {
-                          return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+                        if (ongoingTasks.length === 0) {
+                          return (
+                            <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+                              No ongoing tasks
+                            </div>
+                          );
                         }
-                        return 0;
-                      });
 
-                      if (todayTasks.length === 0) {
                         return (
-                          <div className="flex items-center justify-center h-full text-gray-400 text-xs">
-                            None
+                          <div className="space-y-1">
+                            {ongoingTasks.map((task) => (
+                              <div
+                                key={task.id}
+                                className="p-2 bg-blue-50 border border-blue-100 rounded cursor-pointer hover:bg-blue-100 transition-colors"
+                                onClick={() => {
+                                  const project = projects.find(p => p.name === task.project);
+                                  if (project && onNavigateToProject) {
+                                    onNavigateToProject(project);
+                                  }
+                                }}
+                              >
+                                <div className="text-sm font-medium text-gray-900 truncate">
+                                  {task.description}
+                                </div>
+                                <div className="text-xs text-gray-500 truncate mt-1">
+                                  {task.project}
+                                </div>
+                              </div>
+                            ))}
                           </div>
                         );
-                      }
-
-                      return (
-                        <div className="space-y-1.5">
-                          {todayTasks.map((task) => (
-                            <div
-                              key={task.id}
-                              className="p-2 bg-orange-50 border border-orange-100 rounded cursor-pointer hover:bg-orange-100 transition-colors"
-                              onClick={() => {
-                                const project = projects.find(p => p.name === task.project);
-                                if (project && onNavigateToProject) {
-                                  onNavigateToProject(project);
-                                }
-                              }}
-                            >
-                              <div className="text-xs font-medium text-gray-900 truncate">
-                                {task.description}
-                              </div>
-                              <div className="text-[10px] text-gray-500 truncate">
-                                {task.project}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    })()}
+                      })()}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -4788,11 +4805,11 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
           {/* Current Projects Section */}
           <div className="flex flex-col h-full">
             <div className="bg-white rounded-lg border border-gray-200 overflow-hidden flex flex-col h-full">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 flex-shrink-0">
-                <h3 className="text-lg font-semibold" style={{ color: BRAND.gray }}>Current Projects</h3>
+              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 flex-shrink-0" style={{ backgroundColor: BRAND.gray }}>
+                <h3 className="text-lg font-semibold text-white">Current Projects</h3>
                 <button
                   onClick={() => setRoute('Project Hub')}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                  className="text-gray-200 hover:text-white transition-colors"
                   title="Go to Project Hub"
                 >
                   <FolderIcon className="w-5 h-5" />
@@ -4801,12 +4818,12 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
 
               <div className="flex-1 overflow-y-auto light-scrollbar">
                 <table className="w-full">
-                  <thead>
+                  <thead className="bg-gray-100">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-300" style={{ borderRight: 'none' }}>Project</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-300" style={{ borderRight: 'none' }}>Team</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-300" style={{ borderRight: 'none' }}>Phase</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-300 w-48">Progress</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider border-b border-gray-300" style={{ borderRight: 'none' }}>Project</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider border-b border-gray-300" style={{ borderRight: 'none' }}>Team</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider border-b border-gray-300" style={{ borderRight: 'none' }}>Phase</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider border-b border-gray-300 w-48">Progress</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">

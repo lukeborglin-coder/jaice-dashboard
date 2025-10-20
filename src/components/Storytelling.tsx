@@ -1007,6 +1007,7 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
         if (data.reportData) {
           console.log('🔍 Loading report data:', data.reportData);
           setReportData(data.reportData);
+          setReportOutline(data.reportData);  // Also set reportOutline for display
         } else {
           console.log('🔍 No report data found in loaded data:', Object.keys(data));
         }
@@ -1696,57 +1697,31 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
     setGeneratingStoryboard(true);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/storytelling/${selectedProject.id}/dynamic-report/generate`, {
+      const response = await fetch(`${API_BASE_URL}/api/storytelling/${selectedProject.id}/storyboard/generate`, {
         method: 'POST',
         headers: {
           ...getAuthHeaders(),
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ 
-          analysisId: selectedProject?.analysisId || analysisId
+        body: JSON.stringify({
+          analysisId: selectedContentAnalysis?.id || selectedProject?.analysisId || analysisId,
+          detailLevel: 'comprehensive'
         })
       });
 
       if (response.ok) {
-        const dynamicReport = await response.json();
-        setDynamicReport(dynamicReport);
-        
-        // Convert dynamic report to storyboard format and update storyboards state
-        // First, create the title slide with actual project data
-        const titleSlide = {
-          type: 'title',
-          title: `${getProjectName(selectedProject) || 'Project Name'} - Report Outline`,
-          subtitle: `Client: ${getClientName(selectedProject) || 'Client Name'}`,
-          generated: `Generated: ${new Date().toLocaleDateString()}`
-        };
+        const newStoryboard = await response.json();
 
-        // Process all slides, replacing the AI-generated title slide with our actual project data
-        const processedSlides = dynamicReport.slides?.map((slide: any, index: number) => {
-          if (index === 0 && slide.type === 'title') {
-            // Replace the first slide (title) with our actual project data
-            return titleSlide;
-          }
-          return slide;
-        }) || [];
+        // Add respondent count and strategic questions to storyboard
+        newStoryboard.respondentCount = selectedContentAnalysis ?
+          (() => {
+            const allData = Object.values(selectedContentAnalysis.data || {}).flat();
+            const uniqueRespondents = new Set(allData.map((item: any) => item.respno).filter(Boolean));
+            return uniqueRespondents.size;
+          })() :
+          (projectMap[selectedProject.id]?.respondentCount ?? selectedProject?.respondentCount ?? 0);
+        newStoryboard.strategicQuestions = strategicQuestions;
 
-        const newStoryboard: Storyboard = {
-          id: `storyboard-${Date.now()}`,
-          title: `Storyboard for ${selectedProject.name}`,
-          detailLevel: 'comprehensive',
-          sections: processedSlides.map((slide: any) => ({
-            title: slide.title || slide.headline,
-            content: slide.type === 'title' 
-              ? `# ${slide.title}\n\n**Client:** ${slide.subtitle}\n\n*${slide.generated}*`
-              : slide.type === 'executive_summary'
-              ? `# ${slide.title}\n\n${slide.headline}\n\n${slide.findings?.map((f: any) => `**${f.question}**\n${f.answer}\n\n*${f.insight}*`).join('\n\n') || ''}`
-              : `# ${slide.title}\n\n${slide.headline}\n\n${slide.content?.map((c: any) => `## ${c.subheading}\n${c.bullets?.map((b: string) => `- ${b}`).join('\n') || ''}\n${c.paragraph || ''}`).join('\n\n') || ''}\n\n${slide.quotes?.map((q: any) => `> "${q.text}"\n> - ${q.respno || 'Respondent'}`).join('\n\n') || ''}`,
-            generatedAt: new Date().toISOString()
-          })),
-          generatedAt: new Date().toISOString(),
-          respondentCount: projectMap[selectedProject.id]?.respondentCount ?? selectedProject?.respondentCount ?? 0,
-          strategicQuestions: strategicQuestions
-        };
-        
         // Add new storyboard to the beginning of the array
         setStoryboards(prev => [newStoryboard, ...prev]);
 
@@ -1754,10 +1729,11 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
         setActiveTab('storyboard');
       } else {
         const error = await response.json();
-        alert(`Failed to generate dynamic report: ${error.error}`);
+        alert(`Failed to generate storyboard: ${error.error || error.message}`);
       }
     } catch (error) {
-      alert('Failed to generate dynamic report');
+      console.error('Error generating storyboard:', error);
+      alert('Failed to generate storyboard');
     } finally {
       setGeneratingStoryboard(false);
     }
@@ -2037,8 +2013,8 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
     await handleAnswerClick(mockMessage);
   };
 
-  // Project view - show list of content analyses
-  if (selectedProject && viewMode === 'project') {
+  // Project view - show list of content analyses (when no analysis is selected yet)
+  if (selectedProject && viewMode === 'project' && !selectedContentAnalysis) {
     return (
       <main className="flex-1 overflow-y-auto" style={{ backgroundColor: BRAND_BG }}>
         <div className="flex-1 p-6 space-y-6 max-w-full overflow-hidden">
@@ -2147,8 +2123,8 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
     );
   }
 
-  // Project view with tabs
-  if (selectedProject && viewMode === 'project') {
+  // Project view with tabs (when a content analysis is selected)
+  if (selectedProject && viewMode === 'project' && selectedContentAnalysis) {
     return (
       <main className="flex-1 overflow-y-auto" style={{ backgroundColor: BRAND_BG }}>
         <div className="flex-1 p-6 space-y-6 max-w-full overflow-hidden">
@@ -2156,13 +2132,12 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
             <div>
               <button
                 onClick={() => {
-                  setSelectedProject(null);
-                  setViewMode('home');
+                  setSelectedContentAnalysis(null);
                 }}
                 className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition mb-2"
               >
                 <ArrowLeftIcon className="h-4 w-4" />
-                Back to Projects
+                Back to Content Analyses
               </button>
               <h2 className="text-2xl font-bold" style={{ color: BRAND_GRAY }}>
                 {selectedProject.name} - Storytelling
@@ -2391,7 +2366,7 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
                           className="px-4 py-2 rounded-lg text-white text-sm font-medium flex items-center gap-2 disabled:opacity-50"
                           style={{ backgroundColor: BRAND_ORANGE }}
                         >
-                          {generatingStoryboard ? 'Generating...' : 'Generate Report'}
+                          {generatingStoryboard ? 'Generating...' : 'Generate Storyboard'}
                           <DocumentTextIcon className="h-4 w-4" />
                         </button>
                         {showNoChangesMessageStoryboard && (
@@ -2474,6 +2449,120 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
                       <DocumentTextIcon className="h-5 w-5" />
                     </button>
                   </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Report Outline Tab */}
+          {activeTab === 'report' && (
+            <div className="space-y-4">
+              {reportOutline && reportOutline.slides && reportOutline.slides.length > 0 ? (
+                <div className="space-y-4">
+                  {/* Report Outline Display */}
+                  <div className="bg-white shadow-sm border border-gray-200 rounded-lg p-6">
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <h4 className="text-xl font-semibold text-gray-900">{selectedProject?.name} - Report Outline</h4>
+                        {reportOutline.generatedAt && (
+                          <p className="text-sm text-gray-500 mt-1">
+                            Generated: {new Date(reportOutline.generatedAt).toLocaleString()}
+                          </p>
+                        )}
+                      </div>
+                      <span className="text-sm text-gray-500">
+                        {reportOutline.slides.length} slide{reportOutline.slides.length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+
+                    {/* Generate Report Button */}
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <button
+                          onClick={() => setShowGenerateOptionsModal(true)}
+                          disabled={generatingReport}
+                          className="px-4 py-2 rounded-lg text-white text-sm font-medium flex items-center gap-2 disabled:opacity-50"
+                          style={{ backgroundColor: BRAND_ORANGE }}
+                        >
+                          {generatingReport ? 'Generating...' : 'Generate Report'}
+                          <PresentationChartBarIcon className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Horizontal line separator */}
+                    <div className="h-px bg-gray-200 -mx-6 mb-4" />
+
+                    {/* Slides Display - Slide Preview Navigation */}
+                    <div className="flex gap-4 items-start">
+                      {/* Slide Thumbnails/Preview List */}
+                      <div className="flex-1 min-w-[200px] max-w-[400px] space-y-2 overflow-y-auto pr-2 h-[500px]">
+                        {reportOutline.slides.map((slide: any, index: number) => (
+                          <button
+                            key={index}
+                            onClick={() => setCurrentSlideIndex(index)}
+                            className={`w-full text-left p-3 rounded-lg border-2 transition-all h-16 ${
+                              currentSlideIndex === index
+                                ? 'border-orange-500 bg-orange-50'
+                                : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
+                            }`}
+                          >
+                            <div className="flex flex-col justify-center h-full">
+                              <p className={`text-xs font-medium line-clamp-1 leading-tight ${
+                                currentSlideIndex === index ? 'text-gray-900' : 'text-gray-700'
+                              }`}>
+                                {slide.title || `Slide ${index + 1}`}
+                              </p>
+                              <p className={`text-xs font-normal mt-1 ${
+                                currentSlideIndex === index ? 'text-orange-600' : 'text-gray-500'
+                              }`}>
+                                Slide {index + 1}
+                              </p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Current Slide Display */}
+                      <div className="flex-shrink-0 w-[800px] max-h-[800px] overflow-y-auto">
+                        <ReportSlide
+                          slide={reportOutline.slides[currentSlideIndex]}
+                          slideNumber={currentSlideIndex + 1}
+                          totalSlides={reportOutline.slides.length}
+                          getIcon={(iconName: string) => {
+                            const icons: Record<string, any> = {
+                              SparklesIcon,
+                              LightBulbIcon,
+                              ChartBarIcon,
+                              DocumentTextIcon,
+                              UserGroupIcon,
+                              ChatBubbleLeftRightIcon,
+                              PresentationChartBarIcon,
+                              CheckCircleIcon
+                            };
+                            return icons[iconName] || DocumentTextIcon;
+                          }}
+                          selectedProject={selectedProject}
+                          projectMap={projectMap}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-white shadow-sm border border-gray-200 rounded-lg p-12 text-center">
+                  <PresentationChartBarIcon className="h-16 w-16 mx-auto mb-4 text-gray-400" />
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No Report Outline Yet</h3>
+                  <p className="text-gray-600 mb-6">Generate a report outline to see the structure here.</p>
+                  <button
+                    onClick={() => setShowGenerateOptionsModal(true)}
+                    disabled={generatingReport}
+                    className="px-6 py-3 rounded-lg text-white font-medium flex items-center gap-2 disabled:opacity-50 mx-auto"
+                    style={{ backgroundColor: BRAND_ORANGE }}
+                  >
+                    {generatingReport ? 'Generating...' : 'Generate Report Outline'}
+                    <PresentationChartBarIcon className="h-5 w-5" />
+                  </button>
                 </div>
               )}
             </div>
@@ -2704,16 +2793,9 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
                   ></div>
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900">
-                      {generateStoryboardChecked && generateReportChecked
-                        ? 'Generating Storyboard and Report'
-                        : generateStoryboardChecked
-                        ? 'Generating Storyboard'
-                        : 'Generating Report'}
+                      {activeTab === 'report' ? 'Generating Report' : 'Generating Storyboard'}
                     </h3>
-                    <p className="mt-1 text-sm text-gray-500">
-                      This may take a few minutes. Please keep this page open.
-                    </p>
-                    <div className="flex items-center justify-center space-x-2 mt-2">
+                    <div className="flex items-center justify-center space-x-2 mt-4">
                       <div className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: BRAND_ORANGE }}></div>
                       <div className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: BRAND_ORANGE, animationDelay: '0.1s' }}></div>
                       <div className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: BRAND_ORANGE, animationDelay: '0.2s' }}></div>
@@ -2724,8 +2806,10 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
                 <>
                   <div className="flex items-start justify-between mb-4">
                     <div>
-                      <h3 className="text-lg font-semibold text-black">Generate Content</h3>
-                      <p className="text-sm text-gray-600 mt-1">Select what you want to generate</p>
+                      <h3 className="text-lg font-semibold text-black">
+                        {activeTab === 'report' ? 'Generate Report' : 'Generate Storyboard'}
+                      </h3>
+                      <p className="text-sm text-gray-600 mt-1">Confirm generation and review estimated cost</p>
                     </div>
                     <button
                       onClick={() => setShowGenerateOptionsModal(false)}
@@ -2737,88 +2821,36 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
                     </button>
                   </div>
 
-                  <div className="space-y-3">
-                {/* Generate Storyboard Checkbox */}
-                <label
-                  className={`w-full p-4 border-2 rounded-lg cursor-pointer transition-all flex items-start gap-3 ${
-                    generateStoryboardChecked
-                      ? 'border-orange-500 bg-orange-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={generateStoryboardChecked}
-                    onChange={(e) => setGenerateStoryboardChecked(e.target.checked)}
-                    className="mt-1 h-4 w-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-start gap-2">
-                      <ViewColumnsIcon className={`h-5 w-5 flex-shrink-0 mt-0.5 ${generateStoryboardChecked ? 'text-orange-600' : 'text-gray-400'}`} />
+                  {/* Storyboard/Report Info */}
+                  <div className="mb-4 p-4 border-2 rounded-lg bg-orange-50 border-orange-200">
+                    <div className="flex items-start gap-3">
+                      <ViewColumnsIcon className="h-6 w-6 flex-shrink-0 mt-0.5 text-orange-600" />
                       <div className="flex-1">
-                        <h4 className="text-sm font-semibold text-gray-900 mb-1">Generate Storyboard</h4>
-                        <p className="text-xs text-gray-600 mb-2">Create a new text-based storyboard with sections and content</p>
+                        <h4 className="text-sm font-semibold text-gray-900 mb-1">
+                          {activeTab === 'report' ? 'Report Generation' : 'Storyboard Generation'}
+                        </h4>
+                        <p className="text-xs text-gray-600 mb-3">
+                          {activeTab === 'report'
+                            ? 'Create a comprehensive market research report presentation with slides, key findings, and supporting quotes from your research data.'
+                            : 'Create a new text-based storyboard with sections and content based on your research data.'}
+                        </p>
                         {estimatingCost ? (
                           <p className="text-xs text-gray-500 italic">Estimating cost...</p>
                         ) : storyboardCostEstimate ? (
-                          <p className="text-xs font-medium" style={{ color: BRAND_ORANGE }}>
-                            Est. cost: ${storyboardCostEstimate.cost?.toFixed(2) || '0.00'}
-                            {storyboardCostEstimate.inputTokens && ` (${(storyboardCostEstimate.inputTokens + storyboardCostEstimate.outputTokens).toLocaleString()} tokens)`}
-                          </p>
+                          <div className="space-y-1">
+                            <p className="text-sm font-bold" style={{ color: BRAND_ORANGE }}>
+                              Estimated Cost: ${storyboardCostEstimate.cost?.toFixed(2) || '0.00'}
+                            </p>
+                            {storyboardCostEstimate.inputTokens && (
+                              <p className="text-xs text-gray-600">
+                                Total Tokens: {(storyboardCostEstimate.inputTokens + storyboardCostEstimate.outputTokens).toLocaleString()}
+                              </p>
+                            )}
+                          </div>
                         ) : null}
                       </div>
                     </div>
                   </div>
-                </label>
-
-                {/* Generate Report Checkbox */}
-                <label
-                  className={`w-full p-4 border-2 rounded-lg cursor-pointer transition-all flex items-start gap-3 ${
-                    generateReportChecked
-                      ? 'border-orange-500 bg-orange-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={generateReportChecked}
-                    onChange={(e) => setGenerateReportChecked(e.target.checked)}
-                    className="mt-1 h-4 w-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-start gap-2">
-                      <PresentationChartBarIcon className={`h-5 w-5 flex-shrink-0 mt-0.5 ${generateReportChecked ? 'text-orange-600' : 'text-gray-400'}`} />
-                      <div className="flex-1">
-                        <h4 className="text-sm font-semibold text-gray-900 mb-1">Generate Report View</h4>
-                        <p className="text-xs text-gray-600 mb-2">Create a slide-based report presentation</p>
-                        {estimatingCost ? (
-                          <p className="text-xs text-gray-500 italic">Estimating cost...</p>
-                        ) : reportCostEstimate ? (
-                          <p className="text-xs font-medium" style={{ color: BRAND_ORANGE }}>
-                            Est. cost: ${reportCostEstimate.cost?.toFixed(2) || '0.00'}
-                            {reportCostEstimate.inputTokens && ` (${(reportCostEstimate.inputTokens + reportCostEstimate.outputTokens).toLocaleString()} tokens)`}
-                          </p>
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
-                </label>
-              </div>
-
-              {/* Total Cost */}
-              {(storyboardCostEstimate || reportCostEstimate) && (
-                <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-700">Total Estimated Cost:</span>
-                    <span className="text-sm font-bold" style={{ color: BRAND_ORANGE }}>
-                      ${(
-                        (generateStoryboardChecked && storyboardCostEstimate?.cost ? storyboardCostEstimate.cost : 0) +
-                        (generateReportChecked && reportCostEstimate?.cost ? reportCostEstimate.cost : 0)
-                      ).toFixed(2)}
-                    </span>
-                  </div>
-                </div>
-              )}
 
               {/* No Changes Warning */}
               {showNoChangesWarning && (
@@ -2874,24 +2906,20 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
                         setIsGenerating(true);
                         // Small delay to show the loading state
                         setTimeout(async () => {
-                          if (generateStoryboardChecked && generateReportChecked) {
-                            // Generate both - storyboard first, then report
-                            await confirmGenerateStoryboard();
+                          if (activeTab === 'report') {
                             await handleGenerateReport();
-                          } else if (generateStoryboardChecked) {
+                          } else {
                             await confirmGenerateStoryboard();
-                          } else if (generateReportChecked) {
-                            await handleGenerateReport();
                           }
                           setIsGenerating(false);
                           setShowGenerateOptionsModal(false);
                         }, 100);
                       }}
-                      disabled={!generateStoryboardChecked && !generateReportChecked || (generateButtonDisabledTime > 0 && Date.now() < generateButtonDisabledTime)}
+                      disabled={generateButtonDisabledTime > 0 && Date.now() < generateButtonDisabledTime}
                       className="flex-1 px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       style={{ backgroundColor: BRAND_ORANGE }}
                     >
-                      Generate
+                      {activeTab === 'report' ? 'Generate Report' : 'Generate Storyboard'}
                     </button>
                   </div>
                 </>

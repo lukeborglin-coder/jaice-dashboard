@@ -10,8 +10,9 @@ import path from 'path';
 
 // Estimate tokens for cost calculation (rough approximation)
 function estimateTokens(text) {
-  // Rough estimate: 1 token ≈ 4 characters for English text
-  return Math.ceil(text.length / 4);
+  // More accurate estimate for structured/JSON data: 1 token ≈ 2.5 characters
+  // (JSON has more tokens due to brackets, quotes, commas vs plain English prose)
+  return Math.ceil(text.length / 2.5);
 }
 
 
@@ -28,32 +29,44 @@ function estimateTokens(text) {
  * @returns {object} - Cost estimate with inputTokens, outputTokens, cost, formattedCost
  */
 export function estimateStorytellingCost(transcriptsText, caDataObj, detailLevel = 'moderate', quoteLevel = 'moderate', operationType = 'general') {
-  // For Q&A operations, don't include transcripts since we only use CA data
+  // Modern approach: Use ONLY content analysis data for all operations
+  // The CA data already contains all the synthesized findings from transcripts
   let inputText = '';
-  
+
   if (operationType === 'qa') {
-    // Q&A operations only use content analysis data
+    // Q&A operations use content analysis data (up to 30k chars)
     const caDataString = JSON.stringify(caDataObj.data || {}, null, 2);
-    inputText = caDataString.length > 30000 
+    inputText = caDataString.length > 30000
       ? caDataString.substring(0, 30000) + '...[truncated]'
       : caDataString;
+  } else if (operationType === 'storyboard') {
+    // Storyboard uses CA data with generous limit (up to 200k tokens = 500k chars)
+    const caDataString = JSON.stringify(caDataObj.data || {}, null, 2);
+    const maxChars = 500000; // Allows up to ~200k tokens
+    inputText = caDataString.length > maxChars
+      ? caDataString.substring(0, maxChars) + '...[truncated]'
+      : caDataString;
   } else {
-    // Other operations (key findings, storyboard) use both transcripts and CA data
-    const maxSampleSize = 50000; // ~12,500 tokens max
-    
-    const sampleTranscripts = transcriptsText.length > maxSampleSize 
+    // Legacy operations (key findings, etc.) - keep old approach for now
+    const maxSampleSize = 50000;
+
+    const sampleTranscripts = transcriptsText.length > maxSampleSize
       ? transcriptsText.substring(0, maxSampleSize) + '...[truncated]'
       : transcriptsText;
-      
+
     const caDataString = JSON.stringify(caDataObj.data || {}, null, 2);
-    const sampleCAData = caDataString.length > 20000 
+    const sampleCAData = caDataString.length > 20000
       ? caDataString.substring(0, 20000) + '...[truncated]'
       : caDataString;
-      
+
     inputText = sampleTranscripts + sampleCAData;
   }
   
-  const inputTokens = estimateTokens(inputText);
+  const dataTokens = estimateTokens(inputText);
+
+  // Add overhead for system prompt (~400 tokens) and user prompt template (~200 tokens)
+  const promptOverhead = 600;
+  const inputTokens = dataTokens + promptOverhead;
 
   // Estimate output tokens based on detail level
   let outputMultiplier = 0.3; // default for moderate
@@ -65,11 +78,20 @@ export function estimateStorytellingCost(transcriptsText, caDataObj, detailLevel
   else if (quoteLevel === 'moderate') outputMultiplier *= 1.2;
   else if (quoteLevel === 'few') outputMultiplier *= 1.1;
 
-  const outputTokens = Math.ceil(inputTokens * outputMultiplier);
+  const outputTokens = Math.ceil(dataTokens * outputMultiplier);
 
-  // GPT-4o pricing: $2.50 per 1M input, $10.00 per 1M output
-  const inputCost = (inputTokens / 1_000_000) * 2.50;
-  const outputCost = (outputTokens / 1_000_000) * 10.00;
+  // Model pricing (operation-specific)
+  let inputPrice = 2.50;  // GPT-4o default
+  let outputPrice = 10.00;
+
+  if (operationType === 'storyboard') {
+    // GPT-4o-mini pricing for storyboard (15x cheaper!)
+    inputPrice = 0.15;
+    outputPrice = 0.60;
+  }
+
+  const inputCost = (inputTokens / 1_000_000) * inputPrice;
+  const outputCost = (outputTokens / 1_000_000) * outputPrice;
   const totalCost = inputCost + outputCost;
 
   // Debug logging
@@ -245,17 +267,21 @@ Style Guidelines:
 
 IMPORTANT - ANONYMIZATION REQUIREMENTS:
 - NEVER use actual respondent names (like "Tara", "John", "Sarah", etc.) in your storyboard
-- ALWAYS refer to respondents as "Respondent" or "Participant" 
-- If you see actual names in the transcript data, replace them with generic terms in your storyboard
+- ALWAYS refer to respondents as "Respondent" or "Participant"
+- If you see actual names in the data, replace them with generic terms in your storyboard
 - Maintain anonymity and confidentiality in all content`;
 
-  const userPrompt = `Create a research storyboard from the following data.
+  // Use generous limit for storyboard (up to 200k tokens = 500k chars)
+  const caDataString = JSON.stringify(caDataObj.data, null, 2);
+  const maxChars = 500000;
+  const caDataForPrompt = caDataString.length > maxChars
+    ? caDataString.substring(0, maxChars) + '\n\n...[Content truncated due to length]'
+    : caDataString;
 
-TRANSCRIPT DATA:
-${transcriptsText.substring(0, 50000)} ${transcriptsText.length > 50000 ? '...[truncated]' : ''}
+  const userPrompt = `Create a research storyboard from the following content analysis data.
 
 CONTENT ANALYSIS DATA:
-${JSON.stringify(caDataObj.data, null, 2).substring(0, 20000)} ${JSON.stringify(caDataObj.data).length > 20000 ? '...[truncated]' : ''}
+${caDataForPrompt}
 
 Structure your storyboard with these sections:
 1. Executive Summary
@@ -277,7 +303,7 @@ Return your response as a JSON object with this structure:
 }`;
 
   const response = await client.chat.completions.create({
-    model: 'gpt-4o',
+    model: 'gpt-4o-mini',
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt }
@@ -293,7 +319,7 @@ Return your response as a JSON object with this structure:
     await logCost(
       projectId,
       COST_CATEGORIES.STORYTELLING,
-      'gpt-4o',
+      'gpt-4o-mini',
       response.usage.prompt_tokens,
       response.usage.completion_tokens,
       `Storyboard Generation (${detailLevel} detail, ${quoteLevel} quotes)`
@@ -399,7 +425,7 @@ export async function generateDynamicReport(projectId, transcriptsText, caDataOb
 
   const systemPrompt = `You are a senior market research analyst creating a comprehensive research report presentation.
 
-Your task is to create a dynamic, high-level market research report with 15-20 slides that tells the complete story of the research findings.
+Your task is to create a dynamic, high-level market research report with 5-20 slides that tells the complete story of the research findings.
 
 Report Structure:
 - Slide 1: Title slide with project name and "Report Outline" (centered, no header)
@@ -415,6 +441,14 @@ For each content slide (3-20), create varied and detailed content:
   * Key statistics or data points
   * Multiple supporting quotes (3-5 quotes per slide)
   * Detailed explanations and context
+
+CRITICAL - CONTENT REQUIREMENTS:
+- DO NOT structure your slides around the strategic questions provided
+- The strategic questions are ONLY for Slide 2 (Executive Summary)
+- Slides 3-20 should be based on the FULL CONTENT ANALYSIS DATA, not the strategic questions
+- Analyze the entire content analysis data and extract the most important themes, insights, and findings
+- Create slides that cover diverse topics: barriers, opportunities, behaviors, attitudes, motivations, pain points, preferences, etc.
+- Tell the complete research story across ALL the insights in the content analysis, not just answers to the strategic questions
 
 Guidelines:
 - Focus on overall insights from content analysis, not just strategic questions
@@ -488,6 +522,13 @@ IMPORTANT - ANONYMIZATION REQUIREMENTS:
 - If you see actual names in the transcript data, replace them with generic terms in your analysis
 - Maintain anonymity and confidentiality in all findings`;
 
+  // Use CA data only (like storyboard) - up to 500k chars (200k tokens)
+  const caDataString = JSON.stringify(caDataObj.data, null, 2);
+  const maxChars = 500000;
+  const caDataForPrompt = caDataString.length > maxChars
+    ? caDataString.substring(0, maxChars) + '\n\n...[Content truncated due to length]'
+    : caDataString;
+
   const userPrompt = `Create a comprehensive market research report presentation from the following data.
 
 PROJECT INFORMATION:
@@ -497,11 +538,8 @@ PROJECT INFORMATION:
 STRATEGIC QUESTIONS (for Slide 2 only):
 ${strategicQuestions.map((q, i) => `${i + 1}. ${q}`).join('\n')}
 
-TRANSCRIPT DATA:
-${transcriptsText.substring(0, 50000)} ${transcriptsText.length > 50000 ? '...[truncated]' : ''}
-
 CONTENT ANALYSIS DATA:
-${JSON.stringify(caDataObj.data, null, 2).substring(0, 20000)} ${JSON.stringify(caDataObj.data).length > 20000 ? '...[truncated]' : ''}
+${caDataForPrompt}
 
 Create 15-20 slides that tell the complete research story. 
 
@@ -582,7 +620,7 @@ Return your response as a JSON object with this structure:
 }`;
 
   const response = await client.chat.completions.create({
-    model: 'gpt-4o',
+    model: 'gpt-4o-mini',
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt }
@@ -598,7 +636,7 @@ Return your response as a JSON object with this structure:
     await logCost(
       projectId,
       COST_CATEGORIES.STORYTELLING,
-      'gpt-4o',
+      'gpt-4o-mini',
       response.usage.prompt_tokens,
       response.usage.completion_tokens,
       'Dynamic Report Generation'
@@ -678,14 +716,23 @@ function extractKeyFindingsFromSlide(slide) {
  * @returns {string} - Randomized transcript text
  */
 function randomizeTranscriptOrder(transcriptsText) {
-  // Split transcripts by respondent markers (R01:, R02:, etc. at the start of a line)
-  const respondentPattern = /(?=^R\d+:)/gm;
-  const transcriptSegments = transcriptsText.split(respondentPattern).filter(seg => seg.trim().length > 0);
+  // Split transcripts by respondent markers (R01:, R02:, or capitalized names like Shelby: at the start of a line)
+  // This pattern matches: R01:, R02:, Shelby:, John:, etc. at line start
+  const respondentPattern = /(?=^[A-Z][a-zA-Z0-9]*:\s*$)/gm;
+  let transcriptSegments = transcriptsText.split(respondentPattern).filter(seg => seg.trim().length > 0);
 
-  // If we couldn't split (no clear respondent markers), return original
+  // If that didn't work, try looking for === markers that separate transcripts
+  if (transcriptSegments.length <= 1) {
+    const separatorPattern = /(?=^===.*===\s*$)/gm;
+    transcriptSegments = transcriptsText.split(separatorPattern).filter(seg => seg.trim().length > 0);
+  }
+
+  // If we still couldn't split (no clear respondent markers), return original
   if (transcriptSegments.length <= 1) {
     return transcriptsText;
   }
+
+  console.log(`📊 Found ${transcriptSegments.length} respondents to randomize`);
 
   // Shuffle the transcript segments using Fisher-Yates algorithm
   const shuffled = [...transcriptSegments];
@@ -706,9 +753,15 @@ function randomizeTranscriptOrder(transcriptsText) {
  * @returns {string} - Balanced transcript sample
  */
 function createBalancedTranscriptSample(transcriptsText, maxChars = 150000) {
-  // Split transcripts by respondent markers
-  const respondentPattern = /(?=^R\d+:)/gm;
-  const transcriptSegments = transcriptsText.split(respondentPattern).filter(seg => seg.trim().length > 0);
+  // Split transcripts by respondent markers (R01:, R02:, or capitalized names like Shelby:)
+  const respondentPattern = /(?=^[A-Z][a-zA-Z0-9]*:\s*$)/gm;
+  let transcriptSegments = transcriptsText.split(respondentPattern).filter(seg => seg.trim().length > 0);
+
+  // If that didn't work, try looking for === markers that separate transcripts
+  if (transcriptSegments.length <= 1) {
+    const separatorPattern = /(?=^===.*===\s*$)/gm;
+    transcriptSegments = transcriptsText.split(separatorPattern).filter(seg => seg.trim().length > 0);
+  }
 
   // If we couldn't split or only have one segment, just return truncated
   if (transcriptSegments.length <= 1) {
@@ -808,7 +861,7 @@ ${transcriptSample}`;
 
   try {
     const response = await client.chat.completions.create({
-      model: 'gpt-4o',
+      model: 'gpt-4o-mini',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
@@ -850,8 +903,9 @@ ${transcriptSample}`;
     quotes = quotes.map(quote => {
       let cleanedText = quote.text;
 
-      // Remove speaker labels (R01:, M:, etc.) from the beginning
-      cleanedText = cleanedText.replace(/^[A-Z]\d*:\s*/gm, '');
+      // Remove speaker labels (R01:, M:, Shelby:, etc.) from the beginning and throughout
+      // This matches: R01:, M:, Shelby:, John:, any capitalized name followed by colon
+      cleanedText = cleanedText.replace(/^[A-Z][a-zA-Z0-9]*:\s*/gm, '');
 
       // Extract only respondent responses, removing moderator questions
       // Split on common moderator patterns and keep only respondent parts

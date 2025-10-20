@@ -11,21 +11,7 @@ import {
 import { IconScript } from '@tabler/icons-react';
 import { API_BASE_URL } from '../config';
 import { useAuth } from '../contexts/AuthContext';
-// import { normalizeTranscriptList, normalizeAnalysisRespnos, buildTranscriptDisplayName } from '../utils/respnoUtils';
-
-// Simple local replacements for QNR utils
-const normalizeTranscriptList = (list: any[]) => {
-  return { orderedAsc: list.sort((a, b) => (a.respno || '').localeCompare(b.respno || '')) };
-};
-
-const normalizeAnalysisRespnos = (analysis: any, transcripts: any[]) => {
-  return analysis; // Simple passthrough for now
-};
-
-const buildTranscriptDisplayName = ({ projectName, respno, interviewDate }: any) => {
-  const dateStr = interviewDate ? new Date(interviewDate).toLocaleDateString() : '';
-  return `${projectName}_${respno}${dateStr ? `_${dateStr}` : ''}`;
-};
+import { normalizeTranscriptList, normalizeAnalysisRespnos, buildTranscriptDisplayName } from '../utils/respnoUtils';
 
 const BRAND_ORANGE = '#D14A2D';
 const BRAND_BG = '#F7F7F8';
@@ -308,12 +294,49 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
         console.log('📊 Raw saved analyses data:', data);
         const currentTranscriptsMap = transcriptMapOverride || transcripts;
         const normalizedAnalyses = Array.isArray(data)
-          ? data.map((analysis: any) =>
-              normalizeAnalysisRespnos(
-                analysis,
-                currentTranscriptsMap[analysis.projectId] || []
-              )
-            )
+          ? await Promise.all(data.map(async (analysis: any) => {
+              // Load project transcripts for this specific analysis
+              let projectTranscripts = currentTranscriptsMap[analysis.projectId] || [];
+              
+              // If we don't have transcripts for this project, fetch them
+              if (projectTranscripts.length === 0 && analysis.projectId) {
+                try {
+                  const transcriptResponse = await fetch(`${API_BASE_URL}/api/transcripts/all`, {
+                    headers: getAuthHeaders()
+                  });
+                  if (transcriptResponse.ok) {
+                    const transcriptData = await transcriptResponse.json();
+                    const projectTranscriptsData = Array.isArray(transcriptData?.[analysis.projectId]) ? transcriptData[analysis.projectId] : [];
+                    projectTranscripts = projectTranscriptsData.map((item: any) => ({
+                      id: item.id,
+                      respno: item.respno,
+                      interviewDate: item.interviewDate || item['Interview Date'] || null,
+                      interviewTime: item.interviewTime || item['Interview Time'] || null
+                    }));
+                  }
+                } catch (error) {
+                  console.error('Failed to load project transcripts for normalization:', error);
+                }
+              }
+              
+              const normalized = normalizeAnalysisRespnos(analysis, projectTranscripts);
+              console.log('🔍 Normalizing analysis in transcripts view:', {
+                analysisId: analysis.id,
+                projectId: analysis.projectId,
+                projectTranscriptsCount: projectTranscripts.length,
+                demographicsBefore: analysis?.data?.Demographics?.map((r: any) => ({
+                  respno: r['Respondent ID'] || r['respno'],
+                  date: r['Interview Date'] || r['Date'],
+                  time: r['Interview Time'] || r['Time']
+                })),
+                demographicsAfter: normalized?.data?.Demographics?.map((r: any) => ({
+                  respno: r['Respondent ID'] || r['respno'],
+                  date: r['Interview Date'] || r['Date'],
+                  time: r['Interview Time'] || r['Time']
+                }))
+              });
+              return normalized;
+            }))
           : [];
         console.log('📊 Normalized saved analyses:', normalizedAnalyses);
         setSavedAnalyses(normalizedAnalyses);

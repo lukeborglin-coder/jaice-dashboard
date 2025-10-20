@@ -4,6 +4,7 @@ import fsSync from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { Document, Paragraph, TextRun, HeadingLevel, AlignmentType, Packer } from 'docx';
+import mammoth from 'mammoth';
 import OpenAI from 'openai';
 import { authenticateToken } from '../middleware/auth.middleware.mjs';
 import {
@@ -169,7 +170,9 @@ async function getTranscriptsText(projectId, analysisId = null) {
       const filePath = transcript.cleanedPath || transcript.originalPath;
       if (filePath) {
         try {
-          const content = await fs.readFile(filePath, 'utf8');
+          // Use mammoth to extract text from .docx files (filters out images and binary data)
+          const result = await mammoth.extractRawText({ path: filePath });
+          const content = result.value; // This is plain text without images
           combinedText += `\n\n=== ${transcript.respno || 'Transcript'} ===\n${content}`;
         } catch (err) {
           console.warn(`Could not read transcript ${transcript.id}:`, err);
@@ -1083,7 +1086,7 @@ router.post('/:projectId/report-data', authenticateToken, async (req, res) => {
   }
 });
 
-// POST /api/storytelling/:projectId/estimate - Estimate cost
+// POST /api/storytelling/:projectId/estimate - Estimate cost for storyboard
 router.post('/:projectId/estimate', authenticateToken, async (req, res) => {
   try {
     const { projectId } = req.params;
@@ -1092,7 +1095,7 @@ router.post('/:projectId/estimate', authenticateToken, async (req, res) => {
     const transcriptsText = await getTranscriptsText(projectId, analysisId);
     const caDataObj = await getCAData(projectId, analysisId);
 
-    const estimate = estimateStorytellingCost(transcriptsText, caDataObj, detailLevel, 'moderate', 'qa');
+    const estimate = estimateStorytellingCost(transcriptsText, caDataObj, detailLevel, 'moderate', 'storyboard');
 
     res.json(estimate);
   } catch (error) {
