@@ -166,8 +166,8 @@ function parseDateTimeFromTranscript(transcriptText) {
     /(\w+\s+\d{1,2},?\s*\d{4})\s*\|\s*\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm)?/i,
     /(\d{1,2}\/\d{1,2}\/\d{4})/,
     /(\d{4}-\d{2}-\d{2})/,
-    // Match dates but avoid lines with "Transcript" word before the date
-    /(?<!Transcript\s*)(?<![a-zA-Z])([A-Z][a-z]+\s+\d{1,2},?\s*\d{4})(?!\s*Transcript)(?!.*\.docx)(?!.*\.txt)/
+    // Match dates but avoid lines with "Transcript" word before the date - improved regex
+    /(?<!Transcript\s*)(?<!Transcript)(?<![a-zA-Z])([A-Z][a-z]+\s+\d{1,2},?\s*\d{4})(?!\s*Transcript)(?!.*\.docx)(?!.*\.txt)/
   ];
 
   const timePatterns = [
@@ -198,6 +198,11 @@ function parseDateTimeFromTranscript(transcriptText) {
         break;
       }
     }
+  }
+
+  // Clean up any dates that still have "Transcript" prefix
+  if (rawDate && rawDate.includes('Transcript')) {
+    rawDate = rawDate.replace(/^Transcript\s*/i, '').trim();
   }
 
   const interviewDate = normalizeDateString(rawDate);

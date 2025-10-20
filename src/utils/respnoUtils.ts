@@ -396,8 +396,13 @@ const sanitizeFilenameComponent = (value: string): string => {
 
 const formatShortDate = (value?: string | null): string | null => {
   if (!value) return null;
-  const trimmed = value.trim();
+  let trimmed = value.trim();
   if (!trimmed) return null;
+
+  // Clean up any dates that have "Transcript" prefix
+  if (trimmed.includes('Transcript')) {
+    trimmed = trimmed.replace(/^Transcript\s*/i, '').trim();
+  }
 
   const parsed = new Date(trimmed);
   if (!Number.isNaN(parsed.getTime())) {
