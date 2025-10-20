@@ -12,6 +12,24 @@ import OpenAI from 'openai';
 import { logCost, COST_CATEGORIES } from '../services/costTracking.service.mjs';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
 
+// Safe JSON parse utility
+function safeJsonParse(data, fallback = null) {
+  try {
+    if (!data || data.trim().length === 0) {
+      return fallback;
+    }
+    return JSON.parse(data);
+  } catch (error) {
+    console.error('JSON parse error:', error.message);
+    console.log('Data length:', data?.length || 0);
+    if (data && data.length > 0) {
+      console.log('Data preview (first 200 chars):', data.substring(0, 200));
+      console.log('Data preview (last 200 chars):', data.substring(Math.max(0, data.length - 200)));
+    }
+    return fallback;
+  }
+}
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uploadsDir = process.env.FILES_DIR || path.join(process.env.DATA_DIR || path.join(__dirname, '../data'), 'uploads');
 
@@ -101,7 +119,23 @@ async function loadSavedAnalyses() {
     await ensureDataDir();
     if (await fs.access(savedAnalysesFile).then(() => true).catch(() => false)) {
       const data = await fs.readFile(savedAnalysesFile, 'utf8');
-      return JSON.parse(data);
+      
+      // Check if data is empty or just whitespace
+      if (!data || data.trim().length === 0) {
+        console.log('Saved analyses file is empty, returning empty array');
+        return [];
+      }
+      
+      // Use safe JSON parse
+      const parsed = safeJsonParse(data, []);
+      
+      if (parsed === null) {
+        console.log('JSON parse returned null, resetting to empty array');
+        await saveAnalysesToFile([]);
+        return [];
+      }
+      
+      return parsed;
     }
   } catch (error) {
     console.error('Error loading saved analyses:', error);
@@ -365,7 +399,7 @@ router.put('/update', async (req, res) => {
     if (projectChanged) {
       try {
         const projectsPath = path.join(process.env.DATA_DIR || path.join(__dirname, '../data'), 'projects.json');
-        const allProj = JSON.parse(await fs.readFile(projectsPath, 'utf8'));
+        const allProj = safeJsonParse(await fs.readFile(projectsPath, 'utf8'), {});
 
         // Find and remove file from old project
         if (oldProjectId) {
@@ -596,7 +630,7 @@ router.post('/save', async (req, res) => {
       const projectsPath = path.join(process.env.DATA_DIR || path.join(__dirname, '../data'), 'projects.json');
       if (await fs.access(projectsPath).then(() => true).catch(() => false)) {
         const rawProj = await fs.readFile(projectsPath, 'utf8');
-        const allProj = JSON.parse(rawProj || '{}');
+        const allProj = safeJsonParse(rawProj || '{}', {});
 
         // Find and update the project
         for (const [uid, arr] of Object.entries(allProj || {})) {
@@ -743,7 +777,7 @@ router.delete('/delete/:id', async (req, res) => {
         const projectsPath = path.join(process.env.DATA_DIR || path.join(__dirname, '../data'), 'projects.json');
         if (await fs.access(projectsPath).then(() => true).catch(() => false)) {
           const rawProj = await fs.readFile(projectsPath, 'utf8');
-          const allProj = JSON.parse(rawProj || '{}');
+          const allProj = safeJsonParse(rawProj || '{}', {});
 
           // Find and update the project
           for (const [uid, arr] of Object.entries(allProj || {})) {
@@ -880,7 +914,7 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
         let transcriptsData = {};
         if (await fs.access(transcriptsPath).then(() => true).catch(() => false)) {
           const raw = await fs.readFile(transcriptsPath, 'utf8');
-          transcriptsData = JSON.parse(raw || '{}');
+          transcriptsData = safeJsonParse(raw || '{}', {});
           console.log('📁 Loaded transcripts.json for project:', projectId);
         } else {
           console.warn('⚠️ transcripts.json file not found');
@@ -993,7 +1027,7 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
     cleanedTranscript = transcriptText;
     // Get the current content analysis data structure from the request body
     // The frontend should send the current data structure
-    const currentData = req.body.currentData ? JSON.parse(req.body.currentData) : getProjectData(projectId);
+    const currentData = req.body.currentData ? safeJsonParse(req.body.currentData, null) : getProjectData(projectId);
     if (!currentData) {
       return res.status(404).json({ error: 'Content analysis not found for this project' });
     }
@@ -1021,7 +1055,7 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
       const projectsPath = path.join(process.env.DATA_DIR || path.join(__dirname, '../data'), 'projects.json');
       if (await fs.access(projectsPath).then(() => true).catch(() => false)) {
         const rawProj = await fs.readFile(projectsPath, 'utf8');
-        const allProj = JSON.parse(rawProj || '{}');
+        const allProj = safeJsonParse(rawProj || '{}', {});
         for (const [uid, arr] of Object.entries(allProj || {})) {
           if (String(uid).includes('_archived')) continue;
           if (!Array.isArray(arr)) continue;
