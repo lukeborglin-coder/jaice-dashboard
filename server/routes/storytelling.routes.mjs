@@ -7,6 +7,91 @@ import { Document, Paragraph, TextRun, HeadingLevel, AlignmentType, Packer } fro
 import mammoth from 'mammoth';
 import OpenAI from 'openai';
 import { authenticateToken } from '../middleware/auth.middleware.mjs';
+
+// Safe JSON parse utility with repair capabilities
+function safeJsonParse(data, fallback = null) {
+  try {
+    if (!data || data.trim().length === 0) {
+      return fallback;
+    }
+    return JSON.parse(data);
+  } catch (error) {
+    console.error('JSON parse error:', error.message);
+    console.log('Data length:', data?.length || 0);
+    if (data && data.length > 0) {
+      console.log('Data preview (first 200 chars):', data.substring(0, 200));
+      console.log('Data preview (last 200 chars):', data.substring(Math.max(0, data.length - 200)));
+    }
+    
+    // Try to repair common JSON issues
+    try {
+      console.log('Attempting to repair JSON...');
+      let repairedData = data.trim();
+      
+      // Remove trailing extra brackets and braces
+      while (repairedData.endsWith(']') || repairedData.endsWith('}')) {
+        const lastBracket = repairedData.lastIndexOf(']');
+        const lastBrace = repairedData.lastIndexOf('}');
+        const lastChar = Math.max(lastBracket, lastBrace);
+        
+        if (lastChar > 0) {
+          const beforeLast = repairedData.substring(0, lastChar).trim();
+          if (beforeLast.endsWith(']') || beforeLast.endsWith('}')) {
+            repairedData = beforeLast;
+          } else {
+            break;
+          }
+        } else {
+          break;
+        }
+      }
+      
+      console.log('Repaired data preview (last 100 chars):', repairedData.substring(Math.max(0, repairedData.length - 100)));
+      
+      const repaired = JSON.parse(repairedData);
+      console.log('JSON repair successful!');
+      return repaired;
+    } catch (repairError) {
+      console.error('JSON repair failed:', repairError.message);
+      
+      // If repair failed, try to extract valid JSON by finding the last complete object
+      try {
+        console.log('Attempting advanced JSON repair...');
+        
+        // Find the last complete array/object by counting brackets
+        let bracketCount = 0;
+        let braceCount = 0;
+        let lastValidPosition = -1;
+        
+        for (let i = 0; i < repairedData.length; i++) {
+          const char = repairedData[i];
+          if (char === '[') bracketCount++;
+          else if (char === ']') bracketCount--;
+          else if (char === '{') braceCount++;
+          else if (char === '}') braceCount--;
+          
+          // If we're back to balanced state, this might be a valid end
+          if (bracketCount === 0 && braceCount === 0) {
+            lastValidPosition = i;
+          }
+        }
+        
+        if (lastValidPosition > 0) {
+          const truncatedData = repairedData.substring(0, lastValidPosition + 1);
+          console.log('Truncated data preview (last 100 chars):', truncatedData.substring(Math.max(0, truncatedData.length - 100)));
+          
+          const truncated = JSON.parse(truncatedData);
+          console.log('Advanced JSON repair successful!');
+          return truncated;
+        }
+      } catch (advancedRepairError) {
+        console.error('Advanced JSON repair failed:', advancedRepairError.message);
+      }
+    }
+    
+    return fallback;
+  }
+}
 import {
   estimateStorytellingCost,
   generateKeyFindings,
@@ -244,7 +329,7 @@ router.get('/projects', authenticateToken, async (req, res) => {
       const caDataContent = await fs.readFile(CAX_PATH, 'utf8');
       console.log('🔍 CA File Content Length:', caDataContent.length);
       
-      caData = JSON.parse(caDataContent);
+      caData = safeJsonParse(caDataContent, []);
       console.log('🔍 CA Data Structure Debug:', {
         totalAnalyses: caData.length,
         isArray: Array.isArray(caData),

@@ -57,6 +57,40 @@ function safeJsonParse(data, fallback = null) {
       return repaired;
     } catch (repairError) {
       console.error('JSON repair failed:', repairError.message);
+      
+      // If repair failed, try to extract valid JSON by finding the last complete object
+      try {
+        console.log('Attempting advanced JSON repair...');
+        
+        // Find the last complete array/object by counting brackets
+        let bracketCount = 0;
+        let braceCount = 0;
+        let lastValidPosition = -1;
+        
+        for (let i = 0; i < repairedData.length; i++) {
+          const char = repairedData[i];
+          if (char === '[') bracketCount++;
+          else if (char === ']') bracketCount--;
+          else if (char === '{') braceCount++;
+          else if (char === '}') braceCount--;
+          
+          // If we're back to balanced state, this might be a valid end
+          if (bracketCount === 0 && braceCount === 0) {
+            lastValidPosition = i;
+          }
+        }
+        
+        if (lastValidPosition > 0) {
+          const truncatedData = repairedData.substring(0, lastValidPosition + 1);
+          console.log('Truncated data preview (last 100 chars):', truncatedData.substring(Math.max(0, truncatedData.length - 100)));
+          
+          const truncated = JSON.parse(truncatedData);
+          console.log('Advanced JSON repair successful!');
+          return truncated;
+        }
+      } catch (advancedRepairError) {
+        console.error('Advanced JSON repair failed:', advancedRepairError.message);
+      }
     }
     
     return fallback;
