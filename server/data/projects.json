@@ -3,7 +3,7 @@
     {
       "name": "2025 SMA Access Promo  Messaging Qual",
       "client": "Genentech",
-      "methodologyType": "Qualitative",
+      "methodologyType": "Qual",
       "methodology": "In-Depth Interviews",
       "startDate": "",
       "endDate": "",
@@ -1736,7 +1736,7 @@
     {
       "name": "test",
       "client": "test",
-      "methodologyType": "Quantitative",
+      "methodologyType": "Quant",
       "methodology": "ATU (Awareness, Trial, Usage)",
       "startDate": "",
       "endDate": "",
@@ -1753,7 +1753,7 @@
       "customTasks": [],
       "id": "P-1759946470404",
       "phase": "Kickoff",
-      "methodologyDisplay": "Quantitative - ATU (Awareness, Trial, Usage)",
+      "methodologyDisplay": "Quant - ATU (Awareness, Trial, Usage)",
       "phaseTimeline": {
         "Kickoff": {
           "start": "2025-10-08",
@@ -2356,7 +2356,7 @@
       "customTasks": [],
       "id": "P-1759946810566",
       "phase": "Fielding",
-      "methodologyDisplay": "Quantitative - ATU (Awareness, Trial, Usage)",
+      "methodologyDisplay": "Quant - ATU (Awareness, Trial, Usage)",
       "phaseTimeline": {
         "Kickoff": {
           "start": "2025-10-06",
@@ -2982,7 +2982,7 @@
       "customTasks": [],
       "id": "P-1759947344069",
       "phase": "Reporting",
-      "methodologyDisplay": "Quantitative - Conjoint Analysis",
+      "methodologyDisplay": "Quant - Conjoint Analysis",
       "phaseTimeline": {
         "Kickoff": {
           "start": "2025-08-04",
@@ -3575,7 +3575,7 @@
     {
       "name": "testet",
       "client": "test",
-      "methodologyType": "Qualitative",
+      "methodologyType": "Qual",
       "methodology": "Focus Groups",
       "startDate": "",
       "endDate": "",
@@ -4194,7 +4194,7 @@
     {
       "name": "test",
       "client": "Genentech",
-      "methodologyType": "Quantitative",
+      "methodologyType": "Quant",
       "methodology": "Conjoint Analysis",
       "startDate": "",
       "endDate": "",
@@ -4211,7 +4211,7 @@
       "customTasks": [],
       "id": "P-1760707443280",
       "phase": "Kickoff",
-      "methodologyDisplay": "Quantitative - Conjoint Analysis",
+      "methodologyDisplay": "Quant - Conjoint Analysis",
       "phaseTimeline": {
         "Kickoff": {
           "start": "2025-10-17",
@@ -4860,7 +4860,7 @@
     {
       "name": "test QUAL",
       "client": "Genentech",
-      "methodologyType": "Qualitative",
+      "methodologyType": "Qual",
       "methodology": "In-Depth Interviews",
       "startDate": "",
       "endDate": "",
