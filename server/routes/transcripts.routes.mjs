@@ -732,9 +732,14 @@ router.delete('/:projectId/:transcriptId', authenticateToken, async (req, res) =
 // Parse date/time from transcript file
 router.post('/parse-datetime', authenticateToken, upload.single('file'), async (req, res) => {
   try {
+    console.log('📅 Parse datetime request received');
+
     if (!req.file) {
+      console.log('❌ No file uploaded');
       return res.status(400).json({ error: 'No file uploaded' });
     }
+
+    console.log('📄 File:', req.file.originalname);
 
     // Read the file
     let transcriptText = '';
@@ -745,15 +750,27 @@ router.post('/parse-datetime', authenticateToken, upload.single('file'), async (
       transcriptText = await fs.readFile(req.file.path, 'utf8');
     }
 
+    console.log('📝 Transcript text length:', transcriptText.length);
+
     // Parse date and time
     const { interviewDate, interviewTime } = parseDateTimeFromTranscript(transcriptText);
 
-    // Clean up uploaded file
-    await fs.unlink(req.file.path);
+    console.log('📅 Parsed date:', interviewDate);
+    console.log('🕐 Parsed time:', interviewTime);
 
-    res.json({ date: interviewDate, time: interviewTime });
+    // Clean up uploaded file
+    try {
+      await fs.unlink(req.file.path);
+    } catch (e) {
+      console.warn('Failed to clean up file:', e);
+    }
+
+    const response = { date: interviewDate, time: interviewTime };
+    console.log('✅ Sending response:', response);
+
+    return res.json(response);
   } catch (error) {
-    console.error('Error parsing date/time:', error);
+    console.error('❌ Error parsing date/time:', error);
     // Clean up file if it exists
     if (req.file) {
       try {
@@ -762,7 +779,7 @@ router.post('/parse-datetime', authenticateToken, upload.single('file'), async (
         console.warn('Failed to clean up file:', e);
       }
     }
-    res.status(500).json({ error: 'Failed to parse date/time from transcript' });
+    return res.status(500).json({ error: 'Failed to parse date/time from transcript' });
   }
 });
 
