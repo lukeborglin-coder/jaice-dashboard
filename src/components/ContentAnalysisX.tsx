@@ -1511,7 +1511,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
 
   const filteredProjects = useMemo(() => {
     const qualProjects = projects.filter(
-      p => !p.archived && p.methodologyType === 'Qualitative'
+      p => !p.archived && p.methodologyType === 'Qual'
     );
 
     return qualProjects.filter(matchesUserMembership);
