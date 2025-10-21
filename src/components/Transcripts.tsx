@@ -605,7 +605,7 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
       formData.append('file', file);
 
       console.log('Fetching /api/transcripts/parse-datetime...');
-      const response = await fetch('/api/transcripts/parse-datetime', {
+      const response = await fetch(`${API_BASE_URL}/api/transcripts/parse-datetime`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: formData
