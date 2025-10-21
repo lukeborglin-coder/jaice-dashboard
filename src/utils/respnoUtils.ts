@@ -195,16 +195,24 @@ export const normalizeAnalysisRespnos = (
   const rowOrderMeta = demographicsRows.map((row: any, idx: number) => {
     const normalizedRespno = normalizeRespnoValue(row['Respondent ID'] || row['respno']);
     const metadata = extractInterviewMetadataFromRow(row);
+    // Match by transcriptId first (most reliable), fall back to respno
     const projectTranscript = projectTranscripts?.find(
+      t => row.transcriptId && t.id === row.transcriptId
+    ) || projectTranscripts?.find(
       t => normalizeRespnoValue(t.respno) === normalizedRespno
     );
 
     console.log('🔧 Processing row:', {
       idx,
       normalizedRespno,
+      transcriptId: row.transcriptId,
       metadata,
       foundTranscript: !!projectTranscript,
+      matchedBy: projectTranscript ? (
+        row.transcriptId && projectTranscript.id === row.transcriptId ? 'transcriptId' : 'respno'
+      ) : 'none',
       transcriptData: projectTranscript ? {
+        id: projectTranscript.id,
         respno: projectTranscript.respno,
         interviewDate: projectTranscript.interviewDate,
         interviewTime: projectTranscript.interviewTime
@@ -239,7 +247,12 @@ export const normalizeAnalysisRespnos = (
   });
 
   rowOrderMeta.forEach((meta, idx) => {
-    const newRespno = formatRespno(idx + 1);
+    // If we found the transcript by transcriptId, use its respno directly
+    const matchedTranscript = projectTranscripts?.find(
+      t => meta.row.transcriptId && t.id === meta.row.transcriptId
+    );
+    const newRespno = matchedTranscript?.respno || formatRespno(idx + 1);
+
     if (meta.normalizedRespno) {
       previousToNew.set(meta.normalizedRespno, newRespno);
     }
@@ -247,8 +260,11 @@ export const normalizeAnalysisRespnos = (
     meta.row['respno'] = newRespno;
     
     // Update date/time fields from transcript data if available
+    // Match by transcriptId first (most reliable), fall back to the new respno
     const projectTranscript = projectTranscripts?.find(
-      t => normalizeRespnoValue(t.respno) === meta.normalizedRespno
+      t => meta.row.transcriptId && t.id === meta.row.transcriptId
+    ) || projectTranscripts?.find(
+      t => normalizeRespnoValue(t.respno) === newRespno
     );
     
     if (projectTranscript) {
@@ -406,9 +422,10 @@ const formatShortDate = (value?: string | null): string | null => {
 
   const parsed = new Date(trimmed);
   if (!Number.isNaN(parsed.getTime())) {
-    const month = String(parsed.getMonth() + 1).padStart(2, '0');
-    const day = String(parsed.getDate()).padStart(2, '0');
-    const year = parsed.getFullYear().toString().slice(-2);
+    // Use UTC methods to avoid timezone shifting
+    const month = String(parsed.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(parsed.getUTCDate()).padStart(2, '0');
+    const year = parsed.getUTCFullYear().toString().slice(-2);
     return `${month}.${day}.${year}`;
   }
 

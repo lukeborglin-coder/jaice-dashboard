@@ -3036,35 +3036,51 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {qualProjects.map(project => (
-                    <tr
-                      key={project.id}
-                      className="hover:bg-gray-50 cursor-pointer transition-colors"
+                  {qualProjects.map(project => {
+                    const hasRespondents = (project.respondentCount || 0) > 0;
+                    return (
+                      <tr
+                        key={project.id}
+                        className={`transition-colors ${
+                          hasRespondents
+                            ? 'hover:bg-gray-50 cursor-pointer'
+                            : 'opacity-50 cursor-not-allowed bg-gray-50'
+                        }`}
                         onClick={async () => {
-                        setSelectedProject(project);
+                          if (!hasRespondents) return; // Don't allow clicking if no respondents
+                          setSelectedProject(project);
                           setViewMode('project');
                           // Load content analyses for this project
                           await loadContentAnalysesForProject(project.id);
-                      }}
-                    >
+                        }}
+                      >
                         <td className="pl-6 pr-2 py-4 whitespace-nowrap w-0">
-                          <div className="inline-block text-sm font-medium text-gray-900">{project.name}</div>
-                      </td>
+                          <div className={`inline-block text-sm font-medium ${hasRespondents ? 'text-gray-900' : 'text-gray-400'}`}>
+                            {project.name}
+                          </div>
+                        </td>
                         <td className="pl-2 pr-6 py-4 whitespace-nowrap w-32">
-                          <div className="text-sm text-gray-900 truncate">{project.client || '-'}</div>
-                      </td>
+                          <div className={`text-sm truncate ${hasRespondents ? 'text-gray-900' : 'text-gray-400'}`}>
+                            {project.client || '-'}
+                          </div>
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap text-center w-24">
-                          <div className="text-sm text-gray-900">{project.methodologyType || '-'}</div>
-                      </td>
+                          <div className={`text-sm ${hasRespondents ? 'text-gray-900' : 'text-gray-400'}`}>
+                            {project.methodologyType || '-'}
+                          </div>
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap text-center w-32">
-                          <div className="flex items-center justify-center gap-1 text-sm text-gray-900">
+                          <div className={`flex items-center justify-center gap-1 text-sm ${hasRespondents ? 'text-gray-900' : 'text-gray-400'}`}>
                             <IconBook2 className="h-4 w-4 text-gray-400" />
                             {project.analysisCount || 0}
-                            {/* Debug: {JSON.stringify(project.analysisCount)} */}
+                            {!hasRespondents && (
+                              <span className="ml-2 text-xs text-gray-400">(No respondents)</span>
+                            )}
                           </div>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
           )}

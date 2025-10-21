@@ -946,6 +946,8 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
     let storedOriginalFilePath = req.file ? req.file.path : null;
     let storedCleanedFilePath = null;
     let existingTranscriptRespno = null; // Store respno from transcript if using existing transcript
+    let existingTranscriptDate = null; // Store date from transcript if using existing transcript
+    let existingTranscriptTime = null; // Store time from transcript if using existing transcript
 
     // Process transcript synchronously
     console.log(`Processing transcript for project: ${projectId}, sheet: ${activeSheet}`);
@@ -1029,8 +1031,15 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
           return res.status(404).json({ error: 'Transcript not found for this project' });
         }
 
-        // Store the respno from the existing transcript
+        // Store the respno and date/time from the existing transcript
         existingTranscriptRespno = existingTranscript.respno;
+        existingTranscriptDate = existingTranscript.interviewDate;
+        existingTranscriptTime = existingTranscript.interviewTime;
+        console.log('📋 Using existing transcript metadata:', {
+          respno: existingTranscriptRespno,
+          date: existingTranscriptDate,
+          time: existingTranscriptTime
+        });
 
         const resolvePath = (filePath) => {
           if (!filePath) return null;
@@ -1127,11 +1136,22 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
       ? Object.keys(currentData.Demographics[0])
       : [];
 
-    // Extract date and time from the beginning of the transcript
+    // Extract date and time - prioritize existing transcript metadata over text extraction
     console.log('=== EXTRACTING DATE/TIME ===');
-    console.log('First 500 chars of transcript:', transcriptText.substring(0, 500));
-    const dateTimeInfo = extractDateTimeFromTranscript(transcriptText);
-    console.log('Extracted date/time from transcript:', dateTimeInfo);
+    let dateTimeInfo;
+    if (existingTranscriptDate || existingTranscriptTime) {
+      // Use date/time from existing transcript record (already parsed and stored)
+      dateTimeInfo = {
+        date: existingTranscriptDate,
+        time: existingTranscriptTime
+      };
+      console.log('✅ Using date/time from existing transcript record:', dateTimeInfo);
+    } else {
+      // Extract from transcript text for new uploads
+      console.log('First 500 chars of transcript:', transcriptText.substring(0, 500));
+      dateTimeInfo = extractDateTimeFromTranscript(transcriptText);
+      console.log('Extracted date/time from transcript text:', dateTimeInfo);
+    }
 
     // Derive moderator aliases and project name from the associated project (projects.json)
     const moderatorAliases = [];
@@ -1330,16 +1350,57 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
     console.log('=== STARTING MAIN TRANSCRIPT PROCESSING ===');
     console.log('⏱️  Directly populating CA cells from raw transcript...');
 
-    // Extract sheetsColumns from currentData
+    // Extract sheetsColumns from currentData or saved analysis context
     const sheetsColumns = {};
-    for (const [sheetName, respArray] of Object.entries(currentData || {})) {
-      if (Array.isArray(respArray) && respArray.length > 0 && typeof respArray[0] === 'object') {
-        const columns = Object.keys(respArray[0]).filter(key => key !== 'respno');
-        sheetsColumns[sheetName] = columns;
-      } else {
-        sheetsColumns[sheetName] = [];
+
+    // First, try to get column structure from saved analysis if it exists
+    let savedAnalysis = null;
+    if (analysisId) {
+      const savedAnalyses = await loadSavedAnalyses();
+      savedAnalysis = savedAnalyses.find(a => a.id === analysisId);
+      console.log('📋 Found saved analysis:', !!savedAnalysis);
+      console.log('📋 Has context?:', !!savedAnalysis?.context);
+      if (savedAnalysis?.context) {
+        console.log('📋 Context keys:', Object.keys(savedAnalysis.context));
       }
     }
+
+    for (const [sheetName, respArray] of Object.entries(currentData || {})) {
+      console.log(`📋 Processing sheet "${sheetName}": respArray.length = ${respArray?.length}, has context = ${!!savedAnalysis?.context?.[sheetName]}`);
+
+      if (Array.isArray(respArray) && respArray.length > 0 && typeof respArray[0] === 'object') {
+        // Extract columns from existing data
+        const columns = Object.keys(respArray[0]).filter(key =>
+          key !== 'respno' &&
+          key !== 'transcriptId' &&
+          !key.startsWith('New Column') // Filter out "New Column X" entries
+        );
+        sheetsColumns[sheetName] = columns;
+        console.log(`📋 Extracted ${columns.length} columns from existing data for "${sheetName}"`);
+      } else if (savedAnalysis?.context?.[sheetName]) {
+        // Sheet is empty, but we have context from a previous save - extract column names
+        const contextObj = savedAnalysis.context[sheetName];
+        const firstRespondent = Object.keys(contextObj)[0];
+        console.log(`📋 Context for "${sheetName}": firstRespondent = ${firstRespondent}`);
+        if (firstRespondent && contextObj[firstRespondent]) {
+          const columns = Object.keys(contextObj[firstRespondent]).filter(key =>
+            key !== 'respno' &&
+            key !== 'transcriptId' &&
+            !key.startsWith('New Column') // Filter out "New Column X" entries
+          );
+          sheetsColumns[sheetName] = columns;
+          console.log(`📋 Loaded ${columns.length} columns for "${sheetName}" from saved context: ${columns.join(', ')}`);
+        } else {
+          sheetsColumns[sheetName] = [];
+          console.log(`📋 No respondent data in context for "${sheetName}"`);
+        }
+      } else {
+        sheetsColumns[sheetName] = [];
+        console.log(`📋 No data or context for "${sheetName}"`);
+      }
+    }
+
+    console.log('📋 Final sheetsColumns:', JSON.stringify(sheetsColumns, null, 2));
 
     // Call fillRespondentRowsFromTranscript directly on raw transcript
     const caResult = await fillRespondentRowsFromTranscript({
@@ -1383,16 +1444,46 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
     }
 
     for (const [sheetName, rowData] of Object.entries(caResult.rows || {})) {
+      console.log(`📝 Processing sheet "${sheetName}": rowData keys =`, Object.keys(rowData || {}));
+      console.log(`📝 rowData sample:`, JSON.stringify(rowData, null, 2).substring(0, 500));
+
       if (!currentData[sheetName]) {
         currentData[sheetName] = [];
       }
 
+      // Remove any empty placeholder rows before adding new data
+      currentData[sheetName] = currentData[sheetName].filter((row) => {
+        const hasRespno = row.respno || row['Respondent ID'];
+        const hasData = Object.values(row).some(val => val && String(val).trim() !== '');
+        // Keep rows that have a respno OR have any non-empty data
+        return hasRespno || hasData;
+      });
+
       // Add new row with proper metadata
-      currentData[sheetName].push({
+      const newRow = {
         ...rowData,
         'Respondent ID': respno,
         respno: respno
-      });
+      };
+      console.log(`📝 newRow keys for "${sheetName}":`, Object.keys(newRow));
+
+      // For Demographics sheet ONLY, add transcript tracking and date/time fields
+      if (sheetName === 'Demographics') {
+        // Store transcript ID to track even when respno changes
+        newRow.transcriptId = usedTranscriptId;
+
+        // Add date/time fields if we have them
+        if (dateTimeInfo.date) {
+          newRow['Interview Date'] = dateTimeInfo.date;
+          console.log(`📅 Added Interview Date to Demographics: ${dateTimeInfo.date}`);
+        }
+        if (dateTimeInfo.time) {
+          newRow['Interview Time'] = dateTimeInfo.time;
+          console.log(`🕐 Added Interview Time to Demographics: ${dateTimeInfo.time}`);
+        }
+      }
+
+      currentData[sheetName].push(newRow);
     }
 
     const processed = {
@@ -4028,6 +4119,18 @@ router.post('/get-verbatim-quotes', async (req, res) => {
     console.log(`Key Finding: "${keyFinding}"`);
 
     // Find the transcript for this respondent
+    // First, try to get transcriptId from Demographics row
+    let transcriptIdFromDemographics = null;
+    if (analysis.data?.Demographics) {
+      const demographicsRow = analysis.data.Demographics.find(row =>
+        row['Respondent ID'] === respondentId || row.respno === respondentId
+      );
+      if (demographicsRow?.transcriptId) {
+        transcriptIdFromDemographics = demographicsRow.transcriptId;
+        console.log(`Found transcriptId from Demographics: ${transcriptIdFromDemographics}`);
+      }
+    }
+
     console.log(`Looking for transcript for respondent: ${respondentId}`);
     console.log(`Available transcripts in analysis:`, analysis.transcripts?.map(t => ({
       id: t.id,
@@ -4036,12 +4139,24 @@ router.post('/get-verbatim-quotes', async (req, res) => {
       hasOriginalPath: !!t.originalPath,
       hasCleanedPath: !!t.cleanedPath
     })));
-    
-    const transcript = analysis.transcripts?.find(t => 
-      t.respno === respondentId || 
-      t.id === respondentId ||
-      t.sourceTranscriptId === respondentId
-    );
+
+    // Match by transcriptId ONLY if found from Demographics (most reliable)
+    // If we have transcriptId from Demographics, use ONLY that for matching (don't fall back to respno)
+    // Otherwise, try matching by id or sourceTranscriptId
+    let transcript;
+    if (transcriptIdFromDemographics) {
+      transcript = analysis.transcripts?.find(t =>
+        t.id === transcriptIdFromDemographics || t.sourceTranscriptId === transcriptIdFromDemographics
+      );
+      console.log(`Matching by transcriptId from Demographics: ${transcriptIdFromDemographics}`);
+    } else {
+      transcript = analysis.transcripts?.find(t =>
+        t.respno === respondentId ||
+        t.id === respondentId ||
+        t.sourceTranscriptId === respondentId
+      );
+      console.log(`Matching by respondentId: ${respondentId}`);
+    }
 
     if (!transcript) {
       console.log(`No transcript found for respondent ${respondentId}`);

@@ -783,5 +783,84 @@ router.post('/parse-datetime', authenticateToken, upload.single('file'), async (
   }
 });
 
+// PUT transcript date/time
+router.put('/:projectId/:transcriptId/datetime', authenticateToken, async (req, res) => {
+  try {
+    const { projectId, transcriptId } = req.params;
+    const { field, value } = req.body;
+
+    if (!field || !value) {
+      return res.status(400).json({ error: 'Field and value are required' });
+    }
+
+    if (field !== 'date' && field !== 'time') {
+      return res.status(400).json({ error: 'Field must be "date" or "time"' });
+    }
+
+    const data = await fs.readFile(TRANSCRIPTS_PATH, 'utf8');
+    const transcripts = JSON.parse(data);
+
+    if (!transcripts[projectId]) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    const transcriptIndex = transcripts[projectId].findIndex(t => t.id === transcriptId);
+    if (transcriptIndex === -1) {
+      return res.status(404).json({ error: 'Transcript not found' });
+    }
+
+    // Update the transcript
+    if (field === 'date') {
+      // Convert short date format (MM/DD/YY) to standard format for storage
+      const shortDateRegex = /^\d{1,2}\/\d{1,2}\/\d{2}$/;
+      if (shortDateRegex.test(value)) {
+        const [month, day, year] = value.split('/').map(Number);
+        const fullYear = year < 50 ? 2000 + year : 1900 + year;
+        // Format as YYYY-MM-DD directly to avoid timezone issues
+        const formattedDate = `${fullYear}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+        transcripts[projectId][transcriptIndex].interviewDate = formattedDate;
+      } else {
+        transcripts[projectId][transcriptIndex].interviewDate = value;
+      }
+    } else if (field === 'time') {
+      // Validate and standardize time format
+      const timeRegex = /^\d{1,2}:\d{2}\s*(AM|PM)$/i;
+      if (timeRegex.test(value)) {
+        // Convert to uppercase for consistency
+        transcripts[projectId][transcriptIndex].interviewTime = value.toUpperCase();
+      } else {
+        // Try to parse and convert to standard format
+        try {
+          const time = new Date(`2000-01-01 ${value}`);
+          if (!isNaN(time.getTime())) {
+            const hours = time.getHours();
+            const minutes = time.getMinutes();
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            const displayHours = hours % 12 || 12;
+            const displayMinutes = minutes.toString().padStart(2, '0');
+            transcripts[projectId][transcriptIndex].interviewTime = `${displayHours}:${displayMinutes} ${ampm}`;
+          } else {
+            transcripts[projectId][transcriptIndex].interviewTime = value;
+          }
+        } catch (error) {
+          transcripts[projectId][transcriptIndex].interviewTime = value;
+        }
+      }
+    }
+
+    // Reassign respnos based on chronological order after update
+    // This function returns the sorted array, so we need to use it
+    const sortedTranscripts = assignRespnos(transcripts[projectId]);
+    transcripts[projectId] = sortedTranscripts;
+
+    await fs.writeFile(TRANSCRIPTS_PATH, JSON.stringify(transcripts, null, 2));
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error updating transcript date/time:', error);
+    res.status(500).json({ error: 'Failed to update transcript date/time' });
+  }
+});
+
 export default router;
 

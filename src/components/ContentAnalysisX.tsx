@@ -68,7 +68,6 @@ function formatQuoteText(text: string) {
         // Add line break before each speaker except the first
         if (matchIndex > 0) {
           allElements.push(<br key={key++} />);
-          allElements.push(<br key={key++} />);
         }
         
         allElements.push(
@@ -189,8 +188,8 @@ function VerbatimQuotesSection({ analysisId, respondentId, columnName, sheetName
       <div className="bg-red-50 border border-red-200 rounded-lg p-4">
         <h3 className="text-sm font-semibold text-red-900 mb-2">Error Loading Quotes</h3>
         <p className="text-sm text-red-700">{error}</p>
-        <button 
-          onClick={fetchVerbatimQuotes}
+        <button
+          onClick={() => fetchVerbatimQuotes()}
           className="mt-2 text-xs text-red-600 hover:text-red-800 underline"
         >
           Try Again
@@ -620,12 +619,13 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
       }
       
       // Start with base headers, then add any additional columns that aren't in the base set
-      const additionalColumns = Array.from(allColumns).filter(col => 
-        !baseHeaders.includes(col) && 
-        col !== 'Original Transcript' && 
-        col !== 'Cleaned Transcript' && 
+      const additionalColumns = Array.from(allColumns).filter(col =>
+        !baseHeaders.includes(col) &&
+        col !== 'Original Transcript' &&
+        col !== 'Cleaned Transcript' &&
         col !== 'Populate C.A.' &&
-        col !== 'respno' // Exclude respno since we're using Respondent ID
+        col !== 'respno' && // Exclude respno since we're using Respondent ID
+        col !== 'transcriptId' // Exclude transcriptId (internal metadata)
       );
       
       return [...baseHeaders, ...additionalColumns];
@@ -1026,11 +1026,11 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
 
       if (filteredRows.length === 0) return;
 
-      // Get all possible columns from filtered rows, excluding "New Column" entries
+      // Get all possible columns from filtered rows, excluding "New Column" entries and internal metadata
       const allCols = new Set<string>();
       filteredRows.forEach((row: any) => {
         Object.keys(row).forEach(key => {
-          if (!key.startsWith('New Column')) {
+          if (!key.startsWith('New Column') && key !== 'transcriptId') {
             allCols.add(key);
           }
         });
@@ -1039,7 +1039,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
       // Remove "Respondent ID" if "respno" exists, and ensure "respno" is first
       const cols = Array.from(allCols);
       let headerArray = cols;
-      
+
       if (cols.includes('respno')) {
         // Remove "Respondent ID" if it exists
         headerArray = cols.filter(col => col !== 'Respondent ID');
@@ -1217,17 +1217,8 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
           return rowRespondentId !== respondentId;
         });
 
-        // If sheet is now empty after deletion, add back an empty template row
-        // to preserve column structure
-        if (updatedData[sheetName].length === 0 && currentAnalysis.data[sheetName]?.length > 0) {
-          // Get column names from the original sheet structure
-          const sampleRow = currentAnalysis.data[sheetName][0];
-          const emptyRow: any = {};
-          Object.keys(sampleRow).forEach(col => {
-            emptyRow[col] = '';
-          });
-          updatedData[sheetName] = [emptyRow];
-        }
+        // Don't add empty placeholder rows - let the sheet be empty
+        // Column structure will be preserved when new data is added
       }
     });
 
@@ -3195,7 +3186,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                                   handleCellClick(row, k);
                                 }}
                               >
-                                {activeSheet === 'Demographics' && k !== 'Respondent ID' && k !== 'respno' && k !== 'Original Transcript' && k !== 'Cleaned Transcript' && k !== 'Populate C.A.' ? (
+                                {activeSheet === 'Demographics' && k !== 'Respondent ID' && k !== 'respno' && k !== 'Original Transcript' && k !== 'Cleaned Transcript' && k !== 'Populate C.A.' && k !== 'Interview Date' && k !== 'Interview Time' ? (
                                   <input
                                     type="text"
                                     value={String(row[k] ?? '')}
@@ -3281,6 +3272,54 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                                       );
                                     })()}
                                   </div>
+                                ) : k === 'Interview Date' ? (
+                                  (() => {
+                                    const dateValue = row[k];
+                                    if (!dateValue) return '-';
+                                    try {
+                                      // Handle YYYY-MM-DD format directly to avoid timezone issues
+                                      if (/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+                                        const [year, month, day] = dateValue.split('-').map(Number);
+                                        const shortYear = year.toString().slice(-2);
+                                        return `${month}/${day}/${shortYear}`;
+                                      }
+                                      
+                                      // For other formats, try parsing with Date
+                                      const date = new Date(dateValue);
+                                      if (isNaN(date.getTime())) return dateValue;
+                                      const month = date.getMonth() + 1;
+                                      const day = date.getDate();
+                                      const year = date.getFullYear().toString().slice(-2);
+                                      return `${month}/${day}/${year}`;
+                                    } catch (error) {
+                                      return dateValue;
+                                    }
+                                  })()
+                                ) : k === 'Interview Time' ? (
+                                  (() => {
+                                    const timeValue = row[k];
+                                    if (!timeValue) return '-';
+                                    try {
+                                      // If it's already in the correct format, return it
+                                      if (/^\d{1,2}:\d{2}\s*(AM|PM)$/i.test(timeValue)) {
+                                        return timeValue.toUpperCase();
+                                      }
+                                      
+                                      // Try to parse and convert to standard format
+                                      const time = new Date(`2000-01-01 ${timeValue}`);
+                                      if (isNaN(time.getTime())) return timeValue;
+                                      
+                                      const hours = time.getHours();
+                                      const minutes = time.getMinutes();
+                                      const ampm = hours >= 12 ? 'PM' : 'AM';
+                                      const displayHours = hours % 12 || 12;
+                                      const displayMinutes = minutes.toString().padStart(2, '0');
+                                      
+                                      return `${displayHours}:${displayMinutes} ${ampm}`;
+                                    } catch (error) {
+                                      return timeValue;
+                                    }
+                                  })()
                                 ) : (
                                   String(row[k] ?? '')
                                 )}
@@ -3507,16 +3546,33 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                       .filter(([key, value]) => {
                         const keyLower = key.toLowerCase();
                         // Show all demographic fields except system ones
-                        return value && 
+                        return value &&
                                value.toString().trim() !== '' &&
-                               key !== 'Respondent ID' && 
+                               key !== 'Respondent ID' &&
                                key !== 'respno' &&
+                               key !== 'transcriptId' &&
                                !keyLower.includes('original transcript') &&
                                !keyLower.includes('cleaned transcript') &&
                                !keyLower.includes('populate c.a.') &&
                                !keyLower.includes('new column');
                       })
-                      .map(([key, value]) => `${key}: ${value}`)
+                      .map(([key, value]) => {
+                        // Format Interview Date to short format (MM/DD/YY)
+                        if (key === 'Interview Date' && value) {
+                          try {
+                            const dateStr = value.toString();
+                            // Parse YYYY-MM-DD format
+                            if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+                              const [year, month, day] = dateStr.split('-');
+                              const shortYear = year.slice(-2);
+                              return `${key}: ${month}/${day}/${shortYear}`;
+                            }
+                          } catch (error) {
+                            console.error('Error formatting date:', error);
+                          }
+                        }
+                        return `${key}: ${value}`;
+                      })
                       .join(' | ');
 
                     return demographics || null;

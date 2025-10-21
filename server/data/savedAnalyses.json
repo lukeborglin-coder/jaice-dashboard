@@ -6,56 +6,29 @@
     "data": {
       "Demographics": [
         {
-          "Respondent ID": "R01",
-          "Interview Date": "Oct 3, 2025",
-          "Interview Time": "3:00 PM",
-          "Specialty": "",
-          "respno": "R01"
-        },
-        {
           "Respondent ID": "R02",
-          "Interview Date": "Oct 7, 2025",
+          "Interview Date": "2025-10-17",
           "Interview Time": "3:00 PM",
-          "Specialty": "",
-          "respno": "R02"
+          "respno": "R02",
+          "transcriptId": "T-1761007636028"
         }
       ],
       "BACKGROUND": [
         {
-          "Respondent ID": "R01",
-          "Living Situation": "The respondent, Elsie, is 77 years old and lives in Green, Oregon with her husband and one son. She is in a wheelchair but maintains a high level of independence, performing tasks such as cooking and dressing herself. Despite her mobility limitations, she expresses contentment with her living situation, emphasizing her ability to manage daily activities independently. Elsie does not drive anymore but utilizes online shopping to manage household needs, indicating a well-adapted lifestyle to her current circumstances.",
-          "Free Time Activities": "Elsie spends her free time engaging in activities that she can manage independently, such as cooking and online shopping. She values her independence and strives to maintain it as much as possible. Although she does not participate in SMA communities or groups, she is involved in other activities like protests, indicating her interest in civic engagement. Her focus is on activities that she can control and enjoy, reflecting her optimistic outlook on life.",
-          "Journey with SMA": "Elsie was diagnosed with SMA in 1984 at the age of 36. She experienced a significant decline in mobility around 1998, transitioning from a manual to a motorized wheelchair. Since then, her condition has progressed very slowly, which she does not notice on a daily basis. Elsie does not dwell on her condition, viewing this as a survival mechanism to avoid depression and focus on what she can do rather than what she cannot.",
-          "Current Health Description": "Elsie describes her overall health as good, despite having upper GI problems and the challenges of sitting in a wheelchair all day. She emphasizes the importance of adjusting her position to avoid discomfort. Her health has been stable, with no significant changes in her SMA symptoms recently. Elsie focuses on maintaining her current level of independence and managing her health proactively.",
-          "HCPs for SMA Care": "Elsie rarely sees a neurologist, with her last visit being about a year ago. Her primary care physician does not discuss SMA with her unless there is a significant change or recommendation. Elsie feels there is not much to discuss regarding her SMA unless something is bothering her. She relies on her primary care physician to recommend visits to the neurologist if necessary.",
-          "Reasons for Not Seeing HCPs": "Elsie does not frequently see healthcare providers for her SMA because there have been no significant changes in her condition. She feels there is not much to discuss unless something is bothering her. Her visits to the neurologist are primarily to assess muscle loss and breathing, and she only goes when recommended by her primary care physician.",
-          "Current SMA Management": "Elsie manages her SMA by maintaining her independence and adjusting her daily activities to accommodate her limitations. She does not actively seek treatment or frequent healthcare provider visits unless necessary. Her focus is on staying stable and managing her health through lifestyle adaptations rather than medical interventions.",
-          "Number of HCPs": "Elsie primarily interacts with her primary care physician and occasionally sees a neurologist. She does not have a large team of healthcare providers involved in her SMA care. Her interactions with healthcare providers are limited to necessary visits and recommendations from her primary care physician.",
-          "HCP Involvement in Treatment Decisions": "Elsie's healthcare providers are not heavily involved in her treatment decisions for SMA. She relies on her primary care physician for recommendations and only sees a neurologist when necessary. There is no active discussion about treatment options unless there is a significant change in her condition.",
-          "Primary SMA Doctor": "Elsie's primary SMA doctor is her neurologist, whom she sees infrequently. Her primary care physician also plays a role in her SMA care by recommending visits to the neurologist when necessary. There is no regular engagement with a specific SMA specialist.",
-          "Others Involved in Health Decisions": "Elsie's husband is involved in discussions about her health and treatment options. They have not discussed treatment options recently due to the perceived inaccessibility of treatments. Her husband is her primary support in health-related decisions.",
-          "Support System Involvement": "Elsie's support system primarily consists of her husband, who is involved in discussions about her health. They have not actively pursued treatment options due to cost barriers. Elsie does not engage with SMA communities or support groups for additional support.",
-          "Comfort in Making Treatment Decisions": "Elsie feels comfortable making treatment decisions with the support of her husband. However, the high cost of treatments has deterred them from actively pursuing options. She would consider treatments if they were accessible and recommended by her healthcare providers.",
-          "Health Goals - Short-term": "Elsie's short-term health goal is to maintain her current level of independence and manage her daily activities effectively. She focuses on staying stable and avoiding further progression of her SMA symptoms. Her primary concern is maintaining her quality of life and independence.",
-          "Health Goals - Long-term": "In the long term, Elsie aims to remain as independent as possible and manage her SMA symptoms effectively. She hopes to maintain her current health status and avoid further decline. Her focus is on sustaining her quality of life and independence for as long as possible.",
-          "Personal Aspirations": "Elsie's personal aspirations revolve around maintaining her independence and quality of life. She values her ability to manage daily activities and hopes to continue doing so. Her aspirations are centered on sustaining her current lifestyle and avoiding further progression of her SMA symptoms.",
-          "respno": "R01"
-        },
-        {
           "Respondent ID": "R02",
-          "Living Situation": "The respondent currently lives with a roommate who assists with nighttime needs, but this arrangement will change in February when his mother moves back in. This change is due to the progression of his SMA, which has increased his care needs. The respondent's living situation reflects a need for more consistent and familiar support as his condition evolves.",
-          "Free Time Activities": "The respondent enjoys social activities and has a history of attending MDA camps, which he found to be a fun and social experience. He also follows content creators on social media who share his interests in ADHD, Dungeons and Dragons, and comedy skits. These activities indicate a preference for engaging with communities and content that align with his interests and provide a sense of connection.",
-          "Journey with SMA": "Diagnosed with SMA at a year and a half, the respondent's journey has involved regular medical checkups and participation in MDA camps. He recalls early medical experiences at Saint Louis Children's Hospital and has seen a natural progression of the disease over the past year, with increased muscle loss and decreased mobility. His journey reflects a long-term adaptation to living with SMA and managing its progression.",
-          "Current Health Description": "The respondent describes his current health as experiencing a natural progression of SMA, with increased muscle loss and decreased arm mobility over the past year. A recent cold further impacted his health, reducing his swallowing capability. Despite these challenges, he maintains a pragmatic view, accepting the progression as part of living with SMA.",
-          "HCPs for SMA Care": "The respondent does not have regular discussions with healthcare providers about his SMA, only attending yearly checkups. He uses doctors as needed and expresses skepticism about their independence from pharmaceutical companies. This indicates a limited engagement with healthcare professionals for SMA management.",
-          "Reasons for Not Seeing HCPs": "The respondent does not engage deeply with his primary care physician about SMA, citing a lack of necessity and a belief that doctors are often influenced by pharmaceutical companies. He prefers to use doctors only when necessary, reflecting a self-reliant approach to managing his condition.",
-          "Current SMA Management": "The respondent manages his SMA with minimal medical intervention, relying on yearly checkups and personal judgment. He does not actively seek new treatments unless they present significant benefits without side effects. His management approach is cautious and informed by personal experience and peer insights.",
+          "Living Situation": "The respondent currently lives with a roommate who assists with nighttime needs, but this arrangement will change in February when his mother moves back in due to his elevated needs. This change is prompted by the natural progression of his disease, which has recently affected his swallowing capability and movement. The respondent's living situation is closely tied to his health needs, which have been increasing over time.",
+          "Free Time Activities": "The respondent enjoys social activities and has fond memories of attending an MDA camp during his youth, where he engaged in activities like swimming and dancing. He describes himself as relatively social and enjoys being around people who share his interests, such as video games. Currently, he follows content creators on social media who focus on ADHD and Dungeons and Dragons, indicating a continued interest in social and recreational activities.",
+          "Journey with SMA": "Diagnosed with SMA at a year and a half, the respondent's journey has been marked by a gradual progression of symptoms, including muscle atrophy and decreased mobility. He recalls early medical care at Saint Louis Children's Hospital and participation in MDA camps, which provided social interaction and a sense of normalcy. His journey reflects a long-term adaptation to living with SMA, with a focus on maintaining quality of life despite the disease's progression.",
+          "Current Health Description": "The respondent describes his current health as declining, with recent issues such as decreased swallowing capability and reduced arm mobility. These changes are attributed to the natural progression of SMA, which has been ongoing for about a year. Despite these challenges, he maintains a pragmatic outlook, accepting the situation as it is.",
+          "HCPs for SMA Care": "The respondent does not have regular discussions with healthcare providers specifically about SMA, relying instead on yearly checkups. He uses doctors as needed but does not engage in in-depth conversations about his condition with his primary care physician. This approach reflects a level of independence in managing his health.",
+          "Reasons for Not Seeing HCPs": "The respondent's limited engagement with healthcare providers is partly due to a perception that doctors are influenced by pharmaceutical companies. He prefers to rely on his own judgment and peer experiences rather than frequent medical consultations. This indicates a cautious approach to medical advice and treatment options.",
+          "Current SMA Management": "The respondent manages his SMA with a focus on maintaining quality of life and independence. He does not actively seek new treatments unless they offer significant benefits without adverse side effects. His management strategy is informed by personal experience and a desire to avoid unnecessary interventions.",
           "Number of HCPs": "",
-          "HCP Involvement in Treatment Decisions": "The respondent does not heavily involve healthcare providers in his treatment decisions, preferring to rely on peer insights and personal research. He expresses skepticism about the influence of pharmaceutical companies on doctors, indicating a preference for independent information sources.",
+          "HCP Involvement in Treatment Decisions": "The respondent does not heavily involve healthcare providers in his treatment decisions, preferring to rely on peer experiences and his own research. He expresses skepticism about the influence of pharmaceutical companies on doctors, which affects his trust in their recommendations.",
           "Primary SMA Doctor": "",
-          "Others Involved in Health Decisions": "The respondent values peer insights and raw data when considering treatment options, indicating that peers play a significant role in his health decisions. He is skeptical of manufacturer information and prefers honest feedback from those with firsthand experience.",
-          "Support System Involvement": "The respondent's support system includes his mother, who will be moving in to assist with his care needs. This change reflects an increased reliance on family support as his condition progresses. His support system is crucial for managing daily living and health needs.",
-          "Comfort in Making Treatment Decisions": "The respondent is cautious and prefers to know all variables before making treatment decisions. He values stability but is wary of potential side effects that could impact his quality of life. His comfort in decision-making is influenced by a desire for comprehensive information and peer feedback.",
+          "Others Involved in Health Decisions": "The respondent values peer input when considering treatment options, indicating that he trusts the experiences of others with SMA more than healthcare professionals. This peer-driven approach highlights the importance of community support in his decision-making process.",
+          "Support System Involvement": "The respondent's support system includes his mother, who will be moving in to assist with his increased needs. This change reflects the importance of family support in managing his condition. He also maintains connections with past camp counselors, though these are more social than supportive in nature.",
+          "Comfort in Making Treatment Decisions": "The respondent is comfortable making treatment decisions independently, relying on his own research and peer experiences. He is cautious about potential side effects and the impact on his quality of life, indicating a thoughtful and measured approach to treatment consideration.",
           "Health Goals - Short-term": "",
           "Health Goals - Long-term": "",
           "Personal Aspirations": "",
@@ -64,35 +37,8 @@
       ],
       "CURRENT PERCEPTIONS & ATTITUDES": [
         {
-          "Respondent ID": "R01",
-          "Treatments Awareness": "Elsie is aware of several SMA treatments, including Evrysdi, Spinraza, and Zolgensma. She knows that Evrysdi is available in liquid form and has heard about a potential tablet version. Her awareness of these treatments is limited to basic information, and she has not explored them further due to cost concerns.",
-          "Treatments Experience": "Elsie has not had any personal experience with SMA treatments. She has not taken any of the available treatments due to concerns about cost and insurance coverage. Her experience with treatments is limited to discussions with her neurologist and information from SMA Cares.",
-          "Benefits of Discontinued Treatment": "",
-          "Drawbacks of Discontinued Treatment": "",
-          "Reasons for Discontinuation": "",
-          "Life Changes Impact on Discontinuation": "",
-          "Insurance Coverage Impact": "Insurance coverage has significantly impacted Elsie's consideration of SMA treatments. Her neurologist informed her that her insurance would not cover Spinraza, which discouraged her from pursuing it further. She assumes similar coverage issues would apply to other treatments like Evrysdi.",
-          "Restarting Treatment Consideration": "",
-          "Impressions of Untaken Treatment": "Elsie has mixed impressions of untaken treatments like Evrysdi and Spinraza. She finds the idea of Spinraza injections intimidating but would consider it if it offered significant benefits. Her impressions are shaped by the high cost and lack of insurance coverage, which make these treatments seem inaccessible.",
-          "Information Source for Untaken Treatment": "Elsie learned about SMA treatments through her neurologist and online resources like SMA Cares. She does not recall exactly how she first heard about them but mentioned discussing Spinraza with her neurologist when she first learned about it. Her information sources are limited and not actively pursued.",
-          "Consideration of Untaken Treatment": "Elsie would consider untaken treatments like Evrysdi and Spinraza if they were accessible and recommended by her healthcare providers. However, the high cost and lack of insurance coverage have deterred her from actively pursuing these options. She remains open to considering treatments if circumstances change.",
-          "Discussion with HCP about Untaken Treatment": "Elsie has discussed Spinraza with her neurologist in the past but has not had recent conversations about untaken treatments. Her discussions were limited by the high cost and insurance coverage issues. She has not brought up Evrysdi with her healthcare providers due to similar concerns.",
-          "Impact of HCP on Untaken Treatment Decision": "Healthcare providers have influenced Elsie's decision not to pursue untaken treatments due to cost and insurance coverage issues. Her neurologist informed her that Spinraza was not covered by her insurance, which discouraged her from considering it further. The lack of proactive recommendations from her providers has also impacted her decision.",
-          "Discussion with Others about Untaken Treatment": "Elsie has only discussed untaken treatments with her husband. They have not talked about it recently due to the perceived inaccessibility of treatments. Their discussions were initially hopeful but were halted by the high cost and lack of insurance coverage.",
-          "Consideration of Future Treatment": "Elsie is open to considering future treatments if they become accessible and are recommended by her healthcare providers. She is interested in treatments that could help her maintain her current level of independence and prevent further progression of her SMA symptoms.",
-          "Drivers for Future Treatment Consideration": "The primary driver for Elsie's consideration of future treatments is the potential to maintain her current health status and independence. She is motivated by the possibility of preventing further progression of her SMA symptoms. Accessibility and insurance coverage would also be significant factors in her decision.",
-          "Candidate for Future Treatment": "Elsie considers herself a candidate for future treatments if they are accessible and recommended by her healthcare providers. She is interested in treatments that could help her maintain her current level of independence and prevent further progression of her SMA symptoms.",
-          "Awareness of Treatments in Development": "Elsie is not aware of any treatments in development for SMA. She has not actively sought information about new treatments and relies on her healthcare providers and SMA Cares for updates. Her awareness is limited to the treatments currently available.",
-          "Impressions of Treatments in Development": "",
-          "Candidate for Treatments in Development": "",
-          "Consideration of Treatments in Development": "",
-          "Drivers for Consideration of Treatments in Development": "",
-          "Hesitations for Treatments in Development": "",
-          "respno": "R01"
-        },
-        {
           "Respondent ID": "R02",
-          "Treatments Awareness": "The respondent is aware of several SMA treatments, including Spinraza, Evrysdi, and Zolgensma, and has recently heard of another treatment. His awareness comes from surveys and general exposure, but he does not actively seek out new information unless it presents a significant advancement.",
+          "Treatments Awareness": "The respondent is aware of several SMA treatments, including Spinraza, Evrysdi, and Zolgensma, and has recently heard of another treatment through surveys. His awareness is primarily driven by incidental exposure rather than active research, reflecting a passive approach to staying informed about treatment options.",
           "Treatments Experience": "",
           "Benefits of Discontinued Treatment": "",
           "Drawbacks of Discontinued Treatment": "",
@@ -100,113 +46,69 @@
           "Life Changes Impact on Discontinuation": "",
           "Insurance Coverage Impact": "",
           "Restarting Treatment Consideration": "",
-          "Impressions of Untaken Treatment": "The respondent views Evrysdi as a treatment that halts progression rather than reversing it, which does not meet his criteria for significant benefit. He is concerned about potential side effects and the practicality of taking the medication, such as the need for refrigeration.",
-          "Information Source for Untaken Treatment": "The respondent learned about Evrysdi through a rare patient survey, which provided information about its accessibility and effectiveness compared to Spinraza. He values surveys as a source of information but remains cautious about the lack of side effect details.",
-          "Consideration of Untaken Treatment": "The respondent is hesitant to consider Evrysdi due to concerns about side effects and the impact on his quality of life. He requires assurance of no side effects and practical considerations, such as ease of administration, before considering it.",
+          "Impressions of Untaken Treatment": "The respondent views Evrysdi as a treatment that halts disease progression rather than reversing it, which influences his perception of its benefits. He is cautious about potential side effects and the impact on his quality of life, preferring to know all variables before considering it.",
+          "Information Source for Untaken Treatment": "The respondent learned about Evrysdi through a rare patient survey, which introduced him to the treatment as an option. This indicates that his knowledge of treatments is often gained through indirect sources rather than direct medical advice.",
+          "Consideration of Untaken Treatment": "The respondent is hesitant to consider Evrysdi due to concerns about side effects and the impact on his quality of life. He prefers to have a clear understanding of potential outcomes before making a decision, highlighting his cautious approach to treatment.",
           "Discussion with HCP about Untaken Treatment": "",
           "Impact of HCP on Untaken Treatment Decision": "",
           "Discussion with Others about Untaken Treatment": "",
-          "Consideration of Future Treatment": "The respondent is open to considering future treatments if they show mild to moderate improvement in motor function without side effects. He emphasizes the importance of insurance coverage and peer feedback in his decision-making process.",
-          "Drivers for Future Treatment Consideration": "Insurance coverage and peer feedback are critical drivers for the respondent's consideration of future treatments. He seeks honest insights from peers and requires financial feasibility to pursue new treatment options.",
+          "Consideration of Future Treatment": "The respondent is open to considering future treatments if they offer significant benefits without adverse side effects. He is particularly interested in treatments that show improvement in motor function and are covered by insurance, indicating practical considerations in his decision-making.",
+          "Drivers for Future Treatment Consideration": "Insurance coverage and peer experiences are key drivers for the respondent when considering future treatments. He values honest feedback from peers and financial feasibility as critical factors in his decision-making process.",
           "Candidate for Future Treatment": "",
-          "Awareness of Treatments in Development": "The respondent is aware of ongoing research and potential treatments in development, such as a higher dose of Spinraza and anti-myostatin medication. He is cautiously optimistic about advancements that target muscle improvement.",
-          "Impressions of Treatments in Development": "The respondent views treatments in development, like anti-myostatin medication, as a positive step if they can demonstrate improvement in motor function without side effects. He is interested in treatments that offer tangible benefits for his age group.",
+          "Awareness of Treatments in Development": "The respondent is aware of ongoing research and potential treatments in development, such as a higher dose of Spinraza and an anti-myostatin medication. His awareness is primarily through surveys and indirect sources, reflecting a passive approach to staying informed.",
+          "Impressions of Treatments in Development": "The respondent views treatments in development, such as the anti-myostatin medication, as promising if they show improvement in motor function without side effects. He is cautiously optimistic about these developments, indicating a willingness to consider them if they meet his criteria.",
           "Candidate for Treatments in Development": "",
-          "Consideration of Treatments in Development": "The respondent would consider treatments in development if they show clear benefits and are financially accessible. He values peer insights and insurance coverage as essential factors in his consideration.",
-          "Drivers for Consideration of Treatments in Development": "The potential for improved motor function and the absence of side effects are key drivers for the respondent's consideration of treatments in development. He also emphasizes the importance of insurance coverage and peer feedback.",
-          "Hesitations for Treatments in Development": "The respondent hesitates to consider treatments in development due to concerns about side effects and the practicality of administration. He requires comprehensive information and assurance of benefits before pursuing new options.",
+          "Consideration of Treatments in Development": "The respondent would consider treatments in development if they demonstrate clear benefits and are financially accessible. He emphasizes the importance of insurance coverage and peer feedback in his decision-making process.",
+          "Drivers for Consideration of Treatments in Development": "The potential for improved motor function and the absence of side effects are key drivers for the respondent when considering treatments in development. He values practical benefits and financial feasibility as critical factors in his decision-making.",
+          "Hesitations for Treatments in Development": "The respondent's hesitations about treatments in development stem from concerns about side effects and the impact on his quality of life. He prefers to have a clear understanding of potential outcomes before making a decision, highlighting his cautious approach to treatment.",
           "respno": "R02"
         }
       ],
       "BARRIERS TO TREATMENT & UNMET NEEDS": [
         {
-          "Respondent ID": "R01",
-          "Reasons for Not Being on Treatment": "Elsie is not on any SMA treatment primarily due to the high cost and lack of insurance coverage. Her neurologist informed her that Spinraza was not covered by her insurance, which discouraged her from pursuing it. She assumes similar issues would apply to other treatments like Evrysdi.",
-          "Factors Driving Treatment Consideration": "The potential to maintain her current health status and independence drives Elsie's consideration of treatment. She is interested in treatments that could prevent further progression of her SMA symptoms. Accessibility and insurance coverage would also be significant factors in her decision.",
-          "Symptom Tracking Frequency": "",
-          "Symptom Tracking Methods": "",
-          "Discussion with HCP about Treatment Need": "Elsie has not had regular discussions with her healthcare providers about her treatment needs. Her interactions with her neurologist are infrequent, and her primary care physician does not discuss SMA with her unless there is a significant change. She relies on her providers to recommend visits and treatment options.",
-          "Emotional Factors": "Elsie views her approach to SMA as a survival mechanism, focusing on what she can do rather than what she cannot. She avoids dwelling on her condition to prevent depression and maintains an optimistic outlook. The high cost of treatments has been disheartening, but she remains hopeful for accessible options.",
-          "Practical or Logistical Factors": "Practical factors such as the high cost of treatments and lack of insurance coverage have been significant barriers for Elsie. She has not actively pursued treatment options due to these issues. Her focus is on maintaining her independence through lifestyle adaptations rather than medical interventions.",
-          "Clinical Factors": "",
-          "Treatment Benefit Requirement": "Elsie would consider treatment if it could help her maintain her current level of independence and prevent further progression of her SMA symptoms. She is interested in treatments that offer significant benefits and are accessible. Her decision would be influenced by recommendations from her healthcare providers.",
-          "Challenges in Accessing Treatment": "The primary challenge Elsie faces in accessing treatment is the high cost and lack of insurance coverage. Her neurologist informed her that Spinraza was not covered by her insurance, which discouraged her from pursuing it. She assumes similar issues would apply to other treatments like Evrysdi.",
-          "Unmet Needs": "Elsie's unmet needs include access to affordable SMA treatments and more information about available options. She is interested in treatments that could help her maintain her independence and prevent further progression of her symptoms. She also desires more proactive engagement from her healthcare providers regarding treatment options.",
-          "Most Important Unmet Need": "The most important unmet need for Elsie is access to affordable SMA treatments. The high cost and lack of insurance coverage have been significant barriers, preventing her from pursuing treatment options. She desires treatments that could help her maintain her independence and prevent further progression of her symptoms.",
-          "respno": "R01"
-        },
-        {
           "Respondent ID": "R02",
-          "Reasons for Not Being on Treatment": "The respondent is not currently on treatment due to concerns about side effects and the lack of significant benefits. He prefers to wait for treatments that offer clear improvements without compromising his quality of life.",
-          "Factors Driving Treatment Consideration": "Insurance coverage and peer feedback are significant factors driving the respondent's consideration of treatment. He values honest insights from peers and requires financial feasibility to pursue new treatment options.",
+          "Reasons for Not Being on Treatment": "The respondent is not currently on treatment due to concerns about side effects and the impact on his quality of life. He prefers to have a clear understanding of potential outcomes before making a decision, indicating a cautious approach to treatment.",
+          "Factors Driving Treatment Consideration": "Insurance coverage and peer experiences are key factors driving the respondent's consideration of treatment. He values honest feedback from peers and financial feasibility as critical factors in his decision-making process.",
           "Symptom Tracking Frequency": "",
           "Symptom Tracking Methods": "",
-          "Discussion with HCP about Treatment Need": "",
-          "Emotional Factors": "The respondent's emotional factors include a desire for stability and a cautious approach to treatment decisions. He values knowing all variables and is wary of potential side effects that could impact his quality of life.",
-          "Practical or Logistical Factors": "Practical factors such as the need for refrigeration and ease of administration influence the respondent's treatment decisions. He considers these logistical aspects crucial in evaluating the feasibility of new treatments.",
-          "Clinical Factors": "The respondent considers clinical factors such as the potential for improved motor function and the absence of side effects when evaluating treatments. He requires clear evidence of benefits before considering new options.",
-          "Treatment Benefit Requirement": "The respondent requires treatments to offer significant benefits, such as improved motor function, without side effects. He is cautious and seeks comprehensive information before making treatment decisions.",
+          "Discussion with HCP about Treatment Need": "The respondent does not have regular discussions with healthcare providers about his treatment needs, relying instead on his own judgment and peer experiences. This approach reflects a level of independence in managing his health.",
+          "Emotional Factors": "The respondent's emotional approach to treatment is influenced by a desire to maintain quality of life and independence. He is cautious about potential side effects and the impact on his daily life, indicating a thoughtful and measured approach to treatment consideration.",
+          "Practical or Logistical Factors": "Practical considerations, such as insurance coverage and the ease of accessing treatment, are important to the respondent. He prefers treatments that are financially feasible and do not require significant logistical challenges.",
+          "Clinical Factors": "The respondent is concerned about the clinical aspects of treatment, such as potential side effects and the impact on his quality of life. He prefers to have a clear understanding of potential outcomes before making a decision, highlighting his cautious approach to treatment.",
+          "Treatment Benefit Requirement": "The respondent requires treatments to offer significant benefits without adverse side effects to consider them. He values practical benefits and financial feasibility as critical factors in his decision-making process.",
           "Challenges in Accessing Treatment": "",
-          "Unmet Needs": "The respondent's unmet needs include treatments that offer clear benefits without side effects and are financially accessible. He seeks advancements that improve motor function and quality of life.",
-          "Most Important Unmet Need": "The most important unmet need for the respondent is a treatment that offers significant improvements in motor function without compromising his quality of life. He emphasizes the importance of insurance coverage and peer feedback in accessing such treatments.",
+          "Unmet Needs": "",
+          "Most Important Unmet Need": "",
           "respno": "R02"
         }
       ],
       "MOTIVATIONS & FUTURE CONSIDERATION": [
         {
-          "Respondent ID": "R01",
-          "Likelihood of Future Treatment Consideration": "Elsie is likely to consider future treatments if they become accessible and are recommended by her healthcare providers. She is motivated by the potential to maintain her current health status and independence. The high cost and lack of insurance coverage have been significant barriers, but she remains open to considering treatments if circumstances change.",
-          "Factors Influencing Future Consideration": "Factors influencing Elsie's future treatment consideration include accessibility, insurance coverage, and the potential to maintain her current health status. She is motivated by the possibility of preventing further progression of her SMA symptoms. Recommendations from her healthcare providers would also play a significant role in her decision.",
-          "Expected Improvements from Treatment": "Elsie hopes that treatment would allow her to maintain her current level of independence and prevent further progression of her SMA symptoms. She values her ability to manage daily activities and desires to sustain her quality of life. Her focus is on treatments that offer significant benefits and are accessible.",
-          "Influential Decision Makers": "Elsie's husband is an influential decision maker in her health-related decisions. They have discussed treatment options in the past, but the high cost and lack of insurance coverage have deterred them from pursuing options. Recommendations from her healthcare providers would also influence her decision.",
-          "Confidence Factors in Treatment Decision": "Elsie's confidence in treatment decisions would be influenced by recommendations from her healthcare providers and the potential benefits of the treatment. She values her independence and desires treatments that could help her maintain her current health status. Accessibility and insurance coverage would also be significant factors in her decision.",
-          "respno": "R01"
-        },
-        {
           "Respondent ID": "R02",
-          "Likelihood of Future Treatment Consideration": "The respondent is likely to consider future treatments if they demonstrate clear benefits and are financially accessible. He values peer feedback and insurance coverage as critical factors in his decision-making process.",
-          "Factors Influencing Future Consideration": "Insurance coverage and peer feedback are significant factors influencing the respondent's future treatment consideration. He seeks honest insights from peers and requires financial feasibility to pursue new treatment options.",
-          "Expected Improvements from Treatment": "The respondent expects treatments to offer improvements in motor function without side effects. He is cautious and requires comprehensive information before making treatment decisions.",
-          "Influential Decision Makers": "Peers play a significant role in the respondent's treatment decisions, providing honest insights and feedback. He values peer experiences and raw data as influential in evaluating treatment options.",
-          "Confidence Factors in Treatment Decision": "The respondent's confidence in treatment decisions is influenced by comprehensive information, peer feedback, and financial feasibility. He requires assurance of benefits and the absence of side effects to feel confident in pursuing new treatments.",
+          "Likelihood of Future Treatment Consideration": "The respondent is open to considering future treatments if they offer significant benefits without adverse side effects. He is particularly interested in treatments that show improvement in motor function and are covered by insurance, indicating practical considerations in his decision-making.",
+          "Factors Influencing Future Consideration": "Insurance coverage and peer experiences are key factors influencing the respondent's consideration of future treatments. He values honest feedback from peers and financial feasibility as critical factors in his decision-making process.",
+          "Expected Improvements from Treatment": "The respondent expects treatments to offer improvements in motor function and quality of life without adverse side effects. He values practical benefits and financial feasibility as critical factors in his decision-making process.",
+          "Influential Decision Makers": "Peers are influential decision-makers for the respondent when considering treatment options. He values honest feedback from others with SMA more than healthcare professionals, highlighting the importance of community support in his decision-making process.",
+          "Confidence Factors in Treatment Decision": "The respondent's confidence in treatment decisions is influenced by peer feedback and financial feasibility. He values honest feedback from peers and insurance coverage as critical factors in his decision-making process.",
           "respno": "R02"
         }
       ],
       "COMMUNITY ENGAGEMENT & INFO SOURCES": [
         {
-          "Respondent ID": "R01",
-          "Connection to SMA Community": "Elsie does not have a strong connection to the SMA community. She has not participated in SMA groups or engaged with other individuals with SMA. Her involvement is limited to receiving information from SMA Cares, an online resource that provides updates on SMA treatments and developments.",
-          "Participation in SMA Groups": "Elsie has not participated in SMA groups or communities. She is not a big group participant and has not engaged with others with SMA. Her involvement is limited to receiving information from SMA Cares, an online resource that provides updates on SMA treatments and developments.",
-          "Reasons for Non-involvement in SMA Communities": "Elsie is not involved in SMA communities because she is not a big group participant. She has not engaged with others with SMA and does not feel a strong need to participate in groups. Her focus is on maintaining her independence and managing her health through lifestyle adaptations.",
-          "Information Sources on SMA": "Elsie receives information about SMA from SMA Cares, an online resource that provides updates on treatments and developments. She also relies on her healthcare providers for information, although her interactions with them are limited. Her information sources are not actively pursued, and she desires more proactive engagement from her providers.",
-          "Trusted Information Sources": "Elsie trusts information from SMA Cares and her healthcare providers. However, her interactions with her providers are limited, and she desires more proactive engagement regarding treatment options. She values reliable information that can help her make informed decisions about her health.",
-          "Untrusted Information Sources": "",
-          "Discovery of New Treatments": "Elsie has not actively discovered new treatments for SMA. She relies on SMA Cares and her healthcare providers for updates, although her awareness is limited. She desires more information about new treatments and developments in the field.",
-          "Preferred Information Format": "",
-          "Improving Information Accessibility": "Elsie desires more accessible information about SMA treatments and developments. She values reliable information from trusted sources like SMA Cares and her healthcare providers. She also desires more proactive engagement from her providers regarding treatment options and accessibility.",
-          "respno": "R01"
-        },
-        {
           "Respondent ID": "R02",
-          "Connection to SMA Community": "The respondent does not feel connected to the SMA community, finding online groups more depressing than supportive. He prefers to engage with content that aligns with his interests and provides a sense of connection.",
-          "Participation in SMA Groups": "The respondent does not participate in SMA groups, as he finds them more depressing than beneficial. He prefers to engage with content that aligns with his interests and provides a sense of connection.",
-          "Reasons for Non-involvement in SMA Communities": "The respondent's non-involvement in SMA communities is due to his perception that they adopt a victim identity, which he does not relate to. He prefers to focus on content that aligns with his interests and provides a positive outlook.",
-          "Information Sources on SMA": "The respondent relies on surveys and peer feedback as primary sources of information on SMA. He values honest insights and raw data but remains skeptical of manufacturer information.",
-          "Trusted Information Sources": "Peers and raw data are the respondent's most trusted sources of information on SMA treatment. He values honest insights and experiences from those with firsthand knowledge.",
-          "Untrusted Information Sources": "The respondent is skeptical of manufacturer information, believing it may gloss over potential downsides. He prefers to rely on peer feedback and raw data for honest insights.",
-          "Discovery of New Treatments": "The respondent discovers new treatments through surveys and general exposure but does not actively seek out new information. He is open to learning about advancements if they present significant benefits.",
+          "Connection to SMA Community": "The respondent does not feel connected to the SMA community, finding online groups more depressing than helpful. He maintains some social connections from past experiences, such as camp counselors, but does not actively engage with the community.",
+          "Participation in SMA Groups": "The respondent does not participate in SMA groups, either online or in person, due to a perception that they focus on a victim mentality. He prefers to maintain a positive outlook and does not find value in these groups.",
+          "Reasons for Non-involvement in SMA Communities": "The respondent's non-involvement in SMA communities is due to a perception that they focus on a victim mentality, which he does not share. He prefers to maintain a positive outlook and does not find value in these groups.",
+          "Information Sources on SMA": "The respondent's information sources on SMA are limited, as he does not actively seek out new information. He relies on incidental exposure through surveys and indirect sources rather than direct medical advice.",
+          "Trusted Information Sources": "The respondent trusts peer feedback and raw data as information sources on SMA treatment. He values honest feedback from others with SMA more than healthcare professionals, highlighting the importance of community support in his decision-making process.",
+          "Untrusted Information Sources": "The respondent is skeptical of information from pharmaceutical companies and healthcare providers, perceiving them as potentially biased. He prefers to rely on peer feedback and raw data for information on SMA treatment.",
+          "Discovery of New Treatments": "The respondent discovers new treatments primarily through surveys and incidental exposure rather than active research. His awareness is driven by indirect sources, reflecting a passive approach to staying informed.",
           "Preferred Information Format": "",
           "Improving Information Accessibility": "",
           "respno": "R02"
         }
       ],
       "Misc.": [
-        {
-          "Respondent ID": "R01",
-          "Final Comments": "Elsie emphasizes the prohibitive cost of SMA treatments as a significant barrier to access. She desires more affordable options and proactive engagement from healthcare providers regarding treatment accessibility. Her focus is on maintaining her independence and quality of life, and she remains hopeful for accessible treatment options in the future.",
-          "Additional Notes": "",
-          "respno": "R01"
-        },
         {
           "Respondent ID": "R02",
           "Final Comments": "",
@@ -219,7 +121,7 @@
       "bySheet": {}
     },
     "quotes": {},
-    "savedAt": "2025-10-21T14:16:22.060Z",
+    "savedAt": "2025-10-21T19:29:26.343Z",
     "savedBy": "You",
     "context": {
       "Demographics": {
@@ -532,8 +434,8 @@
       {
         "id": "T-1761006777303",
         "sourceTranscriptId": "T-1761006777303",
-        "respno": "R01",
-        "addedAt": "2025-10-21T00:40:51.603Z",
+        "respno": "R03",
+        "addedAt": "2025-10-21T19:11:10.862Z",
         "filename": "cleaned_1761007143480_Discontinued Patient_ENGLISH (UNITED STATES)_MT (1).docx",
         "originalPath": "C:\\Users\\LukeBorglin\\Desktop\\Apps\\JaiceDashboard_master\\server\\data\\uploads\\original_1761007143483_Discontinued Patient_ENGLISH (UNITED STATES)_MT (1).docx",
         "cleanedPath": "C:\\Users\\LukeBorglin\\Desktop\\Apps\\JaiceDashboard_master\\server\\data\\uploads\\cleaned_1761007143480_Discontinued Patient_ENGLISH (UNITED STATES)_MT (1).docx",
@@ -567,7 +469,7 @@
         "id": "T-1761007636028",
         "sourceTranscriptId": "T-1761007636028",
         "respno": "R02",
-        "addedAt": "2025-10-21T00:50:42.099Z",
+        "addedAt": "2025-10-21T19:29:26.343Z",
         "filename": "cleaned_1761007758953_Treatment Naive_ENGLISH (UNITED STATES)_MT.docx",
         "originalPath": "C:\\Users\\LukeBorglin\\Desktop\\Apps\\JaiceDashboard_master\\server\\data\\uploads\\original_1761007758955_Treatment Naive_ENGLISH (UNITED STATES)_MT.docx",
         "cleanedPath": "C:\\Users\\LukeBorglin\\Desktop\\Apps\\JaiceDashboard_master\\server\\data\\uploads\\cleaned_1761007758953_Treatment Naive_ENGLISH (UNITED STATES)_MT.docx",
@@ -594,6 +496,18 @@
           "Respondent ID": "R04",
           "respno": "R04"
         }
+      },
+      {
+        "id": "T-1761054350535",
+        "sourceTranscriptId": "T-1761054350535",
+        "respno": "R01",
+        "addedAt": "2025-10-21T19:18:52.811Z",
+        "filename": "cleaned_1761054696320_Discontinued Patient_ENGLISH (UNITED STATES)_MT (6).docx",
+        "originalPath": "C:\\Users\\LukeBorglin\\Desktop\\Apps\\JaiceDashboard_master\\server\\data\\uploads\\original_1761054696321_Discontinued Patient_ENGLISH (UNITED STATES)_MT (6).docx",
+        "cleanedPath": "C:\\Users\\LukeBorglin\\Desktop\\Apps\\JaiceDashboard_master\\server\\data\\uploads\\cleaned_1761054696320_Discontinued Patient_ENGLISH (UNITED STATES)_MT (6).docx",
+        "originalFilename": "Discontinued Patient_ENGLISH (UNITED STATES)_MT (6).docx",
+        "cleanedFilename": "cleaned_1761054696320_Discontinued Patient_ENGLISH (UNITED STATES)_MT (6).docx",
+        "isCleaned": true
       }
     ],
     "projectName": "2025 SMA Adult Activation Qual",
@@ -737,6 +651,25 @@
             "transcriptType": "original",
             "savedAt": "2025-10-19T12:19:36.839Z",
             "keyFinding": "Shelby sees a neurologist at the University of Utah's MDA clinic, though infrequently due to scheduling conflicts and her dissatisfaction with the care provided. She also has a primary care physician who is supportive but not deeply involved in her SMA management."
+          },
+          "Journey with SMA": {
+            "quotes": [
+              {
+                "text": "Moderator: Remind me when you were diagnosed with SMA, how old were you?\n\nRespondent: A year and a half.",
+                "context": "This quote confirms the age at which the respondent was diagnosed with SMA, aligning with the key finding that mentions the diagnosis at a year and a half."
+              },
+              {
+                "text": "Moderator: What other declines have you seen in that year?\n\nRespondent: Mostly just arm mobility and muscle loss, which is expected with SMA, the atrophy of the muscles.",
+                "context": "This quote illustrates the gradual progression of symptoms, specifically muscle atrophy and decreased mobility, as mentioned in the key finding."
+              },
+              {
+                "text": "Moderator: What are your memories about the care you had from medical professionals in your childhood and younger adulthood?\n\nRespondent: Probably the earliest I have is around five. We would go to Saint Louis Children's Hospital, where the MDA clinic was. I would see the same five or six doctors, and they would poke and prod and test reflexes and muscle strength. It was just a yearly checkup kind of thing. I became friends with a few of them.",
+                "context": "This quote provides details about the respondent's early medical care at Saint Louis Children's Hospital, supporting the key finding's mention of early medical care experiences."
+              }
+            ],
+            "transcriptType": "cleaned",
+            "savedAt": "2025-10-21T19:43:22.718Z",
+            "keyFinding": "Diagnosed with SMA at a year and a half, the respondent's journey has been marked by a gradual progression of symptoms, including muscle atrophy and decreased mobility. He recalls early medical care at Saint Louis Children's Hospital and participation in MDA camps, which provided social interaction and a sense of normalcy. His journey reflects a long-term adaptation to living with SMA, with a focus on maintaining quality of life despite the disease's progression."
           }
         }
       },
@@ -879,6 +812,40 @@
             "transcriptType": "original",
             "savedAt": "2025-10-17T18:33:50.157Z",
             "keyFinding": "Shelby does not track her symptoms systematically, which contributes to the difficulty in assessing treatment effectiveness. She relies on general observations of her health."
+          },
+          "Factors Driving Treatment Consideration": {
+            "quotes": [
+              {
+                "text": "Moderator: If new information about treatment happened to come across your screen, would that be something you'd want to learn about?\n\nRespondent: If it's something I came across and it wasn't one of the four I already know, then I would be interested to see what the differences were.",
+                "context": "This quote shows that the respondent is open to learning about new treatments if they come across them, indicating that he considers new information as a factor in treatment consideration."
+              },
+              {
+                "text": "Moderator: Are you interested in finding out information about developments in SMA?\n\nRespondent: I don't really have a drive to. If I come across new information by happenstance, that's fine, but I don't go looking for it. It's not part of my daily routine.",
+                "context": "This quote illustrates that while the respondent does not actively seek out information, he is open to considering new developments if they come to his attention, suggesting that passive exposure to peer experiences or new treatments could influence his treatment decisions."
+              },
+              {
+                "text": "Moderator: How do you feel about that?\n\nRespondent: It would be great. I've heard horror stories of disabled people getting on planes and watching their chairs get thrown in the luggage, arriving at their destination destroyed.",
+                "context": "This quote highlights the respondent's awareness of peer experiences, specifically negative ones, which could influence his considerations regarding treatment or related decisions, such as travel for treatment."
+              }
+            ],
+            "transcriptType": "cleaned",
+            "savedAt": "2025-10-21T19:43:38.572Z",
+            "keyFinding": "Insurance coverage and peer experiences are key factors driving the respondent's consideration of treatment. He values honest feedback from peers and financial feasibility as critical factors in his decision-making process."
+          },
+          "Discussion with HCP about Treatment Need": {
+            "quotes": [
+              {
+                "text": "Moderator: Do you have regular discussions with your healthcare providers about your treatment needs?\n\nRespondent: Not really. I tend to rely on my own judgment and what I hear from others in similar situations. I feel like I know my body best.",
+                "context": "This quote illustrates the respondent's independence in managing his health, as he does not regularly consult healthcare providers about his treatment needs, preferring to rely on his own judgment and peer experiences."
+              },
+              {
+                "text": "Moderator: How do you decide on what treatments to consider or not?\n\nRespondent: I usually talk to people who have tried different treatments and see what their experiences were like. I trust their firsthand accounts more than just what a doctor might say.",
+                "context": "This quote shows that the respondent values peer experiences over professional medical advice when considering treatments, highlighting his independent approach to managing his health."
+              }
+            ],
+            "transcriptType": "cleaned",
+            "savedAt": "2025-10-21T19:46:17.540Z",
+            "keyFinding": "The respondent does not have regular discussions with healthcare providers about his treatment needs, relying instead on his own judgment and peer experiences. This approach reflects a level of independence in managing his health."
           }
         }
       }

@@ -6,7 +6,8 @@ import {
   TrashIcon,
   ArrowLeftIcon,
   CheckCircleIcon,
-  ExclamationTriangleIcon
+  ExclamationTriangleIcon,
+  PencilIcon
 } from '@heroicons/react/24/outline';
 import { IconScript } from '@tabler/icons-react';
 import { API_BASE_URL } from '../config';
@@ -154,6 +155,88 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
   const [duplicateWarning, setDuplicateWarning] = useState<boolean>(false);
   const [uploadStep, setUploadStep] = useState<'select' | 'options'>('select');
   const [isParsingFile, setIsParsingFile] = useState(false);
+  
+  // Date/time editing state
+  const [editingTranscriptId, setEditingTranscriptId] = useState<string | null>(null);
+  const [editingField, setEditingField] = useState<'date' | 'time' | null>(null);
+  const [editingValue, setEditingValue] = useState<string>('');
+  const [isSavingDateTime, setIsSavingDateTime] = useState(false);
+
+  // Date formatting utilities
+  const formatDateToShort = (dateStr: string | undefined): string => {
+    if (!dateStr) return '-';
+    try {
+      // Handle YYYY-MM-DD format directly to avoid timezone issues
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+        const [year, month, day] = dateStr.split('-').map(Number);
+        const shortYear = year.toString().slice(-2);
+        return `${month}/${day}/${shortYear}`;
+      }
+      
+      // For other formats, try parsing with Date
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return dateStr; // Return original if can't parse
+      
+      const month = date.getMonth() + 1;
+      const day = date.getDate();
+      const year = date.getFullYear().toString().slice(-2);
+      
+      return `${month}/${day}/${year}`;
+    } catch (error) {
+      return dateStr; // Return original if parsing fails
+    }
+  };
+
+  const validateShortDate = (dateStr: string): boolean => {
+    // Check if it matches MM/DD/YY or M/D/YY format
+    const shortDateRegex = /^\d{1,2}\/\d{1,2}\/\d{2}$/;
+    if (!shortDateRegex.test(dateStr)) return false;
+    
+    const [month, day, year] = dateStr.split('/').map(Number);
+    const fullYear = year < 50 ? 2000 + year : 1900 + year;
+    
+    // Validate the date
+    const date = new Date(fullYear, month - 1, day);
+    return date.getFullYear() === fullYear && 
+           date.getMonth() === month - 1 && 
+           date.getDate() === day;
+  };
+
+  const formatTimeToStandard = (timeStr: string | undefined): string => {
+    if (!timeStr) return '-';
+    try {
+      // If it's already in the correct format, return it
+      if (/^\d{1,2}:\d{2}\s*(AM|PM)$/i.test(timeStr)) {
+        return timeStr.toUpperCase();
+      }
+      
+      // Try to parse various time formats and convert to standard
+      const time = new Date(`2000-01-01 ${timeStr}`);
+      if (isNaN(time.getTime())) return timeStr; // Return original if can't parse
+      
+      const hours = time.getHours();
+      const minutes = time.getMinutes();
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      const displayHours = hours % 12 || 12;
+      const displayMinutes = minutes.toString().padStart(2, '0');
+      
+      return `${displayHours}:${displayMinutes} ${ampm}`;
+    } catch (error) {
+      return timeStr; // Return original if parsing fails
+    }
+  };
+
+  const validateTimeFormat = (timeStr: string): boolean => {
+    // Check if it matches HH:MM AM/PM format
+    const timeRegex = /^\d{1,2}:\d{2}\s*(AM|PM)$/i;
+    if (!timeRegex.test(timeStr)) return false;
+    
+    const [timePart, ampm] = timeStr.split(/\s+/);
+    const [hours, minutes] = timePart.split(':').map(Number);
+    
+    // Validate hours (1-12) and minutes (0-59)
+    return hours >= 1 && hours <= 12 && minutes >= 0 && minutes <= 59;
+  };
 
   const qualActiveProjects = useMemo(
     () => projects.filter(isQualitative),
@@ -357,22 +440,20 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
   };
 
   const isTranscriptInAnalysis = (transcriptId: string): boolean => {
-    const transcript = transcripts[selectedProject?.id || '']?.find(t => t.id === transcriptId);
-    const respno = transcript?.respno;
-    
     // ONLY check analyses that belong to the current project
     const projectAnalyses = savedAnalyses.filter(analysis => analysis.projectId === selectedProject?.id);
-    
+
     const result = projectAnalyses.some(analysis => {
-      // ONLY consider it added if there's actual analysis data with the respno
-      if (analysis.data && respno) {
+      // Check if the transcript ID exists in any CA row (not respno, which can change)
+      if (analysis.data) {
         let foundInData = false;
         Object.entries(analysis.data).forEach(([sheetName, sheetData]) => {
           if (Array.isArray(sheetData)) {
-            const hasRespno = sheetData.some((row: any) => 
-              row.respno === respno || row['Respondent ID'] === respno
+            // Check by transcript ID first (preferred method)
+            const hasTranscript = sheetData.some((row: any) =>
+              row.transcriptId === transcriptId
             );
-            if (hasRespno) {
+            if (hasTranscript) {
               foundInData = true;
             }
           }
@@ -381,11 +462,11 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
           return true;
         }
       }
-      
-      // If no data found, don't consider it added even if it's in transcripts array
+
+      // If no data found, don't consider it added
       return false;
     });
-    
+
     return result;
   };
 
@@ -795,8 +876,187 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
     }
   };
 
+  // Date/time editing functions
+  const handleStartEditing = (transcriptId: string, field: 'date' | 'time', currentValue: string) => {
+    setEditingTranscriptId(transcriptId);
+    setEditingField(field);
+    setEditingValue(currentValue || '');
+  };
+
+  const handleCancelEditing = () => {
+    setEditingTranscriptId(null);
+    setEditingField(null);
+    setEditingValue('');
+  };
+
+  const handleSaveDateTime = async (transcriptId: string, field: 'date' | 'time', newValue: string) => {
+    if (!selectedProject || !newValue.trim()) return;
+
+    // Validate date format if it's a date field
+    if (field === 'date' && !validateShortDate(newValue.trim())) {
+      alert('Please enter date in MM/DD/YY format (e.g., 8/21/25)');
+      return;
+    }
+
+    // Validate time format if it's a time field
+    if (field === 'time' && !validateTimeFormat(newValue.trim())) {
+      alert('Please enter time in HH:MM AM/PM format (e.g., 2:30 PM)');
+      return;
+    }
+
+    setIsSavingDateTime(true);
+    try {
+      // Update the transcript in the database
+      const response = await fetch(
+        `${API_BASE_URL}/api/transcripts/${selectedProject.id}/${transcriptId}/datetime`,
+        {
+          method: 'PUT',
+          headers: {
+            ...getAuthHeaders(),
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            field: field,
+            value: newValue.trim()
+          })
+        }
+      );
+
+      if (response.ok) {
+        // Reload transcripts to get updated data
+        const updatedTranscripts = await loadTranscripts();
+
+        // Reload saved analyses to get current CA data
+        await loadSavedAnalyses();
+
+        // Update content analysis if this transcript is in an analysis
+        await updateContentAnalysisDateTime(transcriptId, field, newValue.trim());
+
+        // Update content analysis ordering with the backend-sorted transcripts
+        if (selectedProject && updatedTranscripts) {
+          const projectTranscripts = updatedTranscripts[selectedProject.id] || [];
+          await updateContentAnalysisOrdering(selectedProject.id, projectTranscripts);
+        }
+
+        handleCancelEditing();
+      } else {
+        const error = await response.json();
+        alert(`Failed to update ${field}: ${error.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error(`Failed to update ${field}:`, error);
+      alert(`Failed to update ${field}`);
+    } finally {
+      setIsSavingDateTime(false);
+    }
+  };
+
+  const updateContentAnalysisDateTime = async (transcriptId: string, field: 'date' | 'time', newValue: string) => {
+    try {
+      // Update all saved analyses that contain this transcript
+      for (const analysis of savedAnalyses) {
+        if (analysis.data?.Demographics) {
+          const demographics = analysis.data.Demographics;
+          // Find row by transcriptId instead of respno (respno changes when date changes)
+          const rowIndex = demographics.findIndex((row: any) =>
+            row.transcriptId === transcriptId
+          );
+
+          if (rowIndex !== -1) {
+            const columnName = field === 'date' ? 'Interview Date' : 'Interview Time';
+            demographics[rowIndex][columnName] = newValue;
+            
+            // Save the updated analysis
+            await fetch(`${API_BASE_URL}/api/caX/saved/${analysis.id}`, {
+              method: 'PUT',
+              headers: {
+                ...getAuthHeaders(),
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(analysis)
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to update content analysis:', error);
+    }
+  };
+
+
+  const updateContentAnalysisOrdering = async (projectId: string, sortedTranscripts: Transcript[]) => {
+    try {
+      console.log('🔄 updateContentAnalysisOrdering called');
+      console.log('Sorted transcripts:', sortedTranscripts.map(t => ({ id: t.id, respno: t.respno, date: t.interviewDate })));
+
+      // Update all saved analyses for this project
+      for (const analysis of savedAnalyses) {
+        if (analysis.projectId === projectId && analysis.data?.Demographics) {
+          const demographics = analysis.data.Demographics;
+          console.log('Current demographics:', demographics.map((r: any) => ({ transcriptId: r.transcriptId, respno: r['Respondent ID'], date: r['Interview Date'] })));
+
+          // Create a map of transcriptId to new respno
+          const transcriptIdToRespno = new Map();
+          sortedTranscripts.forEach((transcript) => {
+            if (transcript.id && transcript.respno) {
+              transcriptIdToRespno.set(transcript.id, transcript.respno);
+            }
+          });
+          console.log('TranscriptId to Respno mapping:', Array.from(transcriptIdToRespno.entries()));
+
+          // Update respnos in all demographics rows based on transcriptId
+          const updatedDemographics = demographics.map((row: any) => {
+            if (row.transcriptId) {
+              const newRespno = transcriptIdToRespno.get(row.transcriptId);
+              console.log(`Row ${row.transcriptId}: old respno=${row['Respondent ID']}, new respno=${newRespno}`);
+              if (newRespno) {
+                return {
+                  ...row,
+                  'Respondent ID': newRespno,
+                  respno: newRespno
+                };
+              }
+            }
+            return row;
+          });
+
+          // Sort demographics by the new respno order
+          updatedDemographics.sort((a: any, b: any) => {
+            const respnoA = a['Respondent ID'] || a['respno'];
+            const respnoB = b['Respondent ID'] || b['respno'];
+            const numA = parseInt(respnoA?.replace(/\D/g, '') || '999');
+            const numB = parseInt(respnoB?.replace(/\D/g, '') || '999');
+            return numA - numB;
+          });
+
+          // Update the analysis with updated demographics
+          const updatedAnalysis = {
+            ...analysis,
+            data: {
+              ...analysis.data,
+              Demographics: updatedDemographics
+            }
+          };
+
+          // Save the updated analysis
+          await fetch(`${API_BASE_URL}/api/caX/saved/${analysis.id}`, {
+            method: 'PUT',
+            headers: {
+              ...getAuthHeaders(),
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(updatedAnalysis)
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Failed to update content analysis ordering:', error);
+    }
+  };
+
   if (selectedProject) {
     const projectTranscripts = transcripts[selectedProject.id] || [];
+    // Backend now handles the sorting, so we use the transcripts as they come
     const duplicateIds = findDuplicateInterviewTimes(projectTranscripts);
 
     return (
@@ -918,9 +1178,41 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                             <div className={`text-sm flex items-center justify-center gap-1 ${
                               duplicateIds.has(transcript.id) ? 'text-red-600' : 'text-gray-900'
                             }`}>
-                              {transcript.interviewDate || '-'}
-                              {duplicateIds.has(transcript.id) && (
-                                <ExclamationTriangleIcon className="h-4 w-4 text-red-600" />
+                              {editingTranscriptId === transcript.id && editingField === 'date' ? (
+                                <div className="flex items-center gap-1">
+                                  <input
+                                    type="text"
+                                    value={editingValue}
+                                    onChange={(e) => setEditingValue(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        handleSaveDateTime(transcript.id, 'date', editingValue);
+                                      } else if (e.key === 'Escape') {
+                                        handleCancelEditing();
+                                      }
+                                    }}
+                                    onBlur={() => handleSaveDateTime(transcript.id, 'date', editingValue)}
+                                    className="text-sm border border-gray-300 rounded px-2 py-1 w-24 text-center"
+                                    placeholder="MM/DD/YY"
+                                    autoFocus
+                                    disabled={isSavingDateTime}
+                                  />
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-1">
+                                  <span>{formatDateToShort(transcript.interviewDate)}</span>
+                                  <button
+                                    onClick={() => handleStartEditing(transcript.id, 'date', formatDateToShort(transcript.interviewDate))}
+                                    className="text-gray-400 hover:text-gray-600 p-0.5 rounded"
+                                    title="Edit date (MM/DD/YY format)"
+                                    disabled={isSavingDateTime}
+                                  >
+                                    <PencilIcon className="h-3 w-3" />
+                                  </button>
+                                  {duplicateIds.has(transcript.id) && (
+                                    <ExclamationTriangleIcon className="h-4 w-4 text-red-600" />
+                                  )}
+                                </div>
                               )}
                             </div>
                           </td>
@@ -928,9 +1220,41 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                             <div className={`text-sm flex items-center justify-center gap-1 ${
                               duplicateIds.has(transcript.id) ? 'text-red-600' : 'text-gray-900'
                             }`}>
-                              {transcript.interviewTime || '-'}
-                              {duplicateIds.has(transcript.id) && (
-                                <ExclamationTriangleIcon className="h-4 w-4 text-red-600" />
+                              {editingTranscriptId === transcript.id && editingField === 'time' ? (
+                                <div className="flex items-center gap-1">
+                                  <input
+                                    type="text"
+                                    value={editingValue}
+                                    onChange={(e) => setEditingValue(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        handleSaveDateTime(transcript.id, 'time', editingValue);
+                                      } else if (e.key === 'Escape') {
+                                        handleCancelEditing();
+                                      }
+                                    }}
+                                    onBlur={() => handleSaveDateTime(transcript.id, 'time', editingValue)}
+                                    className="text-sm border border-gray-300 rounded px-2 py-1 w-24 text-center"
+                                    placeholder="HH:MM AM/PM"
+                                    autoFocus
+                                    disabled={isSavingDateTime}
+                                  />
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-1">
+                                  <span>{formatTimeToStandard(transcript.interviewTime)}</span>
+                                  <button
+                                    onClick={() => handleStartEditing(transcript.id, 'time', formatTimeToStandard(transcript.interviewTime))}
+                                    className="text-gray-400 hover:text-gray-600 p-0.5 rounded"
+                                    title="Edit time (HH:MM AM/PM format)"
+                                    disabled={isSavingDateTime}
+                                  >
+                                    <PencilIcon className="h-3 w-3" />
+                                  </button>
+                                  {duplicateIds.has(transcript.id) && (
+                                    <ExclamationTriangleIcon className="h-4 w-4 text-red-600" />
+                                  )}
+                                </div>
                               )}
                             </div>
                           </td>
