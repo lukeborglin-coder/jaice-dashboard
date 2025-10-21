@@ -4935,4 +4935,232 @@ Create a detailed storyboard that prioritizes findings based on the research obj
   }
 });
 
+// GET /api/caX/sync/preview - Preview sync changes without applying them
+router.get('/sync/preview', async (req, res) => {
+  try {
+    console.log('🔍 Preview sync requested');
+
+    const transcriptsByProject = await loadTranscripts();
+    const analyses = await loadSavedAnalyses();
+
+    const results = {
+      totalAnalyses: 0,
+      totalRowsToRemove: 0,
+      totalDuplicatesToRemove: 0,
+      analysisPreviews: []
+    };
+
+    function normalizeDateTime(date, time) {
+      const normalizedDate = (date || '').trim();
+      const normalizedTime = (time || '').trim();
+      return `${normalizedDate}|${normalizedTime}`;
+    }
+
+    // Process each analysis
+    for (const analysis of analyses) {
+      if (!analysis.data || !analysis.projectId) continue;
+
+      results.totalAnalyses++;
+      const projectId = analysis.projectId;
+      const projectTranscripts = transcriptsByProject[projectId] || [];
+
+      // Build valid respondents set
+      const validRespondents = new Set();
+      projectTranscripts.forEach(t => {
+        const respno = t.respno || t['Respondent ID'];
+        if (respno) validRespondents.add(respno);
+      });
+
+      const analysisPreview = {
+        analysisId: analysis.id,
+        analysisName: analysis.name,
+        projectId,
+        transcriptCount: projectTranscripts.length,
+        validRespondents: Array.from(validRespondents),
+        sheets: []
+      };
+
+      // Check each sheet
+      for (const [sheetName, sheetData] of Object.entries(analysis.data)) {
+        if (!Array.isArray(sheetData)) continue;
+
+        const rowsToRemove = [];
+        const duplicates = [];
+        const seenDateTimes = new Set();
+
+        for (let i = 0; i < sheetData.length; i++) {
+          const row = sheetData[i];
+          const rowRespno = row['Respondent ID'] || row['respno'];
+          const rowDate = row['Interview Date'] || row['interviewDate'];
+          const rowTime = row['Interview Time'] || row['interviewTime'];
+
+          // Check if respondent exists
+          if (rowRespno && !validRespondents.has(rowRespno)) {
+            rowsToRemove.push({
+              index: i,
+              respno: rowRespno,
+              date: rowDate,
+              time: rowTime,
+              reason: 'Transcript not found in project'
+            });
+          }
+
+          // Check for duplicates
+          if (rowDate && rowTime) {
+            const dateTimeKey = normalizeDateTime(rowDate, rowTime);
+            if (seenDateTimes.has(dateTimeKey)) {
+              duplicates.push({
+                index: i,
+                respno: rowRespno,
+                date: rowDate,
+                time: rowTime,
+                reason: 'Duplicate date/time'
+              });
+            }
+            seenDateTimes.add(dateTimeKey);
+          }
+        }
+
+        if (rowsToRemove.length > 0 || duplicates.length > 0) {
+          analysisPreview.sheets.push({
+            sheetName,
+            currentRows: sheetData.length,
+            rowsToRemove,
+            duplicates,
+            afterCleanup: sheetData.length - rowsToRemove.length - duplicates.length
+          });
+
+          results.totalRowsToRemove += rowsToRemove.length;
+          results.totalDuplicatesToRemove += duplicates.length;
+        }
+      }
+
+      if (analysisPreview.sheets.length > 0) {
+        results.analysisPreviews.push(analysisPreview);
+      }
+    }
+
+    console.log(`✅ Preview complete: ${results.totalRowsToRemove} orphaned, ${results.totalDuplicatesToRemove} duplicates`);
+    res.json(results);
+
+  } catch (error) {
+    console.error('Error in sync preview:', error);
+    res.status(500).json({ error: 'Failed to preview sync' });
+  }
+});
+
+// POST /api/caX/sync/execute - Execute sync to clean up CA data
+router.post('/sync/execute', async (req, res) => {
+  try {
+    console.log('🔄 Sync execution requested');
+
+    const transcriptsByProject = await loadTranscripts();
+    const analyses = await loadSavedAnalyses();
+
+    const results = {
+      totalAnalysesProcessed: 0,
+      totalRowsRemoved: 0,
+      totalDuplicatesRemoved: 0,
+      changedAnalyses: []
+    };
+
+    function normalizeDateTime(date, time) {
+      const normalizedDate = (date || '').trim();
+      const normalizedTime = (time || '').trim();
+      return `${normalizedDate}|${normalizedTime}`;
+    }
+
+    // Process each analysis
+    for (const analysis of analyses) {
+      if (!analysis.data || !analysis.projectId) continue;
+
+      results.totalAnalysesProcessed++;
+      const projectId = analysis.projectId;
+      const projectTranscripts = transcriptsByProject[projectId] || [];
+
+      // Build valid respondents set
+      const validRespondents = new Set();
+      projectTranscripts.forEach(t => {
+        const respno = t.respno || t['Respondent ID'];
+        if (respno) validRespondents.add(respno);
+      });
+
+      let analysisChanged = false;
+      const analysisChanges = {
+        analysisId: analysis.id,
+        analysisName: analysis.name,
+        sheets: []
+      };
+
+      // Process each sheet
+      for (const [sheetName, sheetData] of Object.entries(analysis.data)) {
+        if (!Array.isArray(sheetData)) continue;
+
+        const originalRowCount = sheetData.length;
+        let rowsRemoved = 0;
+        let duplicatesRemoved = 0;
+
+        const seenDateTimes = new Set();
+        const filteredData = [];
+
+        for (const row of sheetData) {
+          const rowRespno = row['Respondent ID'] || row['respno'];
+          const rowDate = row['Interview Date'] || row['interviewDate'];
+          const rowTime = row['Interview Time'] || row['interviewTime'];
+
+          // Check if respondent exists
+          if (rowRespno && !validRespondents.has(rowRespno)) {
+            rowsRemoved++;
+            continue;
+          }
+
+          // Check for duplicates
+          if (rowDate && rowTime) {
+            const dateTimeKey = normalizeDateTime(rowDate, rowTime);
+            if (seenDateTimes.has(dateTimeKey)) {
+              duplicatesRemoved++;
+              rowsRemoved++;
+              continue;
+            }
+            seenDateTimes.add(dateTimeKey);
+          }
+
+          filteredData.push(row);
+        }
+
+        // Update sheet data
+        analysis.data[sheetName] = filteredData;
+
+        if (rowsRemoved > 0) {
+          analysisChanged = true;
+          analysisChanges.sheets.push({
+            sheetName,
+            before: originalRowCount,
+            after: filteredData.length,
+            removed: rowsRemoved,
+            duplicates: duplicatesRemoved
+          });
+
+          results.totalRowsRemoved += (rowsRemoved - duplicatesRemoved);
+          results.totalDuplicatesRemoved += duplicatesRemoved;
+        }
+      }
+
+      if (analysisChanged) {
+        results.changedAnalyses.push(analysisChanges);
+      }
+    }
+
+    // Save updated analyses
+    await saveAnalysesToFile(analyses);
+
+    console.log(`✅ Sync complete: ${results.totalRowsRemoved} orphaned rows removed, ${results.totalDuplicatesRemoved} duplicates removed`);
+    res.json(results);
+
+  } catch (error) {
+    console.error('Error executing sync:', error);
+    res.status(500).json({ error: 'Failed to execute sync' });
+  }
+});
+
 export default router;
