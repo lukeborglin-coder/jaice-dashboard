@@ -2950,10 +2950,10 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
                 onClick={() => setShowMyProjectsOnly(!showMyProjectsOnly)}
                 className={`px-3 py-1 text-xs rounded-lg shadow-sm transition-colors ${
                   showMyProjectsOnly
-                    ? 'text-white hover:opacity-90'
-                    : 'bg-white border border-gray-300 hover:bg-gray-50'
+                    ? 'bg-white border border-gray-300 hover:bg-gray-50'
+                    : 'text-white hover:opacity-90'
                 }`}
-                style={showMyProjectsOnly ? { backgroundColor: BRAND_ORANGE } : {}}
+                style={showMyProjectsOnly ? {} : { backgroundColor: BRAND_ORANGE }}
               >
                 {showMyProjectsOnly ? 'Only My Projects' : 'All Cognitive Projects'}
               </button>

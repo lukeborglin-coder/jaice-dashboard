@@ -150,6 +150,10 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
   const [isAddingToCA, setIsAddingToCA] = useState(false);
   const [showMyProjectsOnly, setShowMyProjectsOnly] = useState(true);
   const [pendingProjectNavigation, setPendingProjectNavigation] = useState<string | null>(null);
+  const [parsedDateTime, setParsedDateTime] = useState<{ date: string; time: string } | null>(null);
+  const [duplicateWarning, setDuplicateWarning] = useState<boolean>(false);
+  const [uploadStep, setUploadStep] = useState<'select' | 'options'>('select');
+  const [isParsingFile, setIsParsingFile] = useState(false);
 
   const qualActiveProjects = useMemo(
     () => projects.filter(isQualitative),
@@ -576,6 +580,70 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
     }
   }, [canAddTranscriptToCA, addToCA]);
 
+  const handleFileSelect = async (file: File | null) => {
+    console.log('handleFileSelect called with file:', file?.name);
+
+    if (!file || !selectedProject) {
+      setUploadFile(null);
+      setParsedDateTime(null);
+      setDuplicateWarning(false);
+      setUploadStep('select');
+      setIsParsingFile(false);
+      return;
+    }
+
+    console.log('Starting file parsing...');
+    setUploadFile(file);
+    setIsParsingFile(true);
+    setParsedDateTime(null);
+    setDuplicateWarning(false);
+    setUploadStep('select'); // Still on select step while parsing
+
+    // Parse date/time from the file
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      console.log('Fetching /api/transcripts/parse-datetime...');
+      const response = await fetch('/api/transcripts/parse-datetime', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: formData
+      });
+
+      console.log('Response status:', response.status);
+
+      if (response.ok) {
+        const data = await response.json();
+        setParsedDateTime(data);
+
+        // Check for duplicate
+        const projectTranscripts = transcripts[selectedProject.id] || [];
+        const isDuplicate = projectTranscripts.some(t =>
+          t.interviewDate === data.date && t.interviewTime === data.time
+        );
+        setDuplicateWarning(isDuplicate);
+
+        // Move to options step
+        setUploadStep('options');
+
+        // Auto-select CA if only one exists
+        if (analysesForSelectedProject.length === 1) {
+          setSelectedAnalysisId(analysesForSelectedProject[0].id);
+        }
+      } else {
+        // If parsing fails, still allow upload
+        setUploadStep('options');
+      }
+    } catch (error) {
+      console.error('Error parsing date/time:', error);
+      // Still allow upload even if parsing fails
+      setUploadStep('options');
+    } finally {
+      setIsParsingFile(false);
+    }
+  };
+
   const handleUploadTranscript = async () => {
     if (!uploadFile || !selectedProject) {
       alert('Please select a project and choose a file to upload');
@@ -803,7 +871,7 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
                         Interview Date
                       </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-28">
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-28 whitespace-nowrap">
                         Interview Time
                       </th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
@@ -971,6 +1039,7 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                   </div>
                 ) : (
                   <div className="space-y-5">
+                    {/* Step 1: File Selection */}
                     <div>
                       <label className="mb-2 block text-sm font-medium text-gray-700">
                         Select transcript file
@@ -979,7 +1048,7 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                         type="file"
                         accept=".docx,.txt"
                         onChange={e =>
-                          setUploadFile(e.target.files?.[0] || null)
+                          handleFileSelect(e.target.files?.[0] || null)
                         }
                         className="block w-full cursor-pointer rounded-lg border border-gray-300 bg-gray-50 text-sm text-gray-900 focus:outline-none file:mr-4 file:py-2 file:px-4 file:rounded-l-lg file:border-0 file:text-sm file:font-medium file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100"
                       />
@@ -988,79 +1057,127 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                       </p>
                     </div>
 
-                    <div>
-                      <label className="flex items-center gap-2 text-sm text-gray-700">
-                        <input
-                          type="checkbox"
-                          checked={cleanTranscript}
-                          onChange={e => setCleanTranscript(e.target.checked)}
-                          className="h-4 w-4 rounded border-gray-300"
-                          style={{ accentColor: BRAND_ORANGE }}
-                        />
-                        Clean this transcript (remove timestamps, tidy formatting)
-                      </label>
-                      {cleanTranscript && uploadFile && (
-                        <p className="mt-2 text-xs text-red-600 font-medium">
-                          Estimated cost: {estimateCleaningCost(uploadFile.size)}
-                        </p>
-                      )}
-                    </div>
+                    {/* Parsing Loading State */}
+                    {isParsingFile && uploadFile && (
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="h-5 w-5 animate-spin rounded-full border-2 border-gray-300"
+                            style={{ borderTopColor: BRAND_ORANGE }}
+                          ></div>
+                          <p className="text-sm text-gray-600">Parsing interview date and time...</p>
+                        </div>
+                      </div>
+                    )}
 
-                    <div>
-                      <label
-                        className={`flex items-center gap-2 text-sm ${
-                          canAddTranscriptToCA ? 'text-gray-700' : 'text-gray-400'
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={addToCA}
-                          onChange={e => {
-                            setAddToCA(e.target.checked);
-                            if (!e.target.checked) {
-                              setSelectedAnalysisId('');
-                            }
-                          }}
-                          disabled={!canAddTranscriptToCA}
-                          className={`h-4 w-4 rounded border-gray-300 ${
-                            !canAddTranscriptToCA ? 'cursor-not-allowed opacity-40' : ''
-                          }`}
-                          style={{ accentColor: BRAND_ORANGE }}
-                        />
-                        Add to Content Analysis
-                      </label>
-                      {!canAddTranscriptToCA && selectedProject && (
-                        <p className="mt-2 text-xs text-gray-500">
-                          No Content Analysis Found For {selectedProject.name}. Please visit the Content Analysis page to generate one.
-                        </p>
-                      )}
-                      {addToCA && canAddTranscriptToCA && (
-                        <div className="mt-3 space-y-2">
-                          <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-1">
-                              Select Content Analysis
-                            </label>
-                            <select
-                              value={selectedAnalysisId}
-                              onChange={e => setSelectedAnalysisId(e.target.value)}
-                              className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
-                            >
-                              <option value="">Select an analysis...</option>
-                              {analysesForSelectedProject.map(analysis => (
-                                <option key={analysis.id} value={analysis.id}>
-                                  {analysis.name}
-                                </option>
-                              ))}
-                            </select>
+                    {/* Step 2: Show parsed date/time and options */}
+                    {uploadStep === 'options' && uploadFile && !isParsingFile && (
+                      <>
+                        {/* Parsed Date/Time Display */}
+                        {parsedDateTime && (
+                          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                            <h4 className="text-sm font-medium text-blue-900 mb-2">Detected Interview Information:</h4>
+                            <div className="text-sm text-blue-800">
+                              <p><strong>Date:</strong> {parsedDateTime.date}</p>
+                              <p><strong>Time:</strong> {parsedDateTime.time}</p>
+                            </div>
                           </div>
-                          {uploadFile && (
-                            <p className="text-xs text-red-600 font-medium">
+                        )}
+
+                        {/* Duplicate Warning */}
+                        {duplicateWarning && (
+                          <div className="bg-yellow-50 border border-yellow-400 rounded-lg p-3">
+                            <div className="flex items-start gap-2">
+                              <svg className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                              </svg>
+                              <div>
+                                <h4 className="text-sm font-medium text-yellow-800">Possible Duplicate</h4>
+                                <p className="text-xs text-yellow-700 mt-1">
+                                  A transcript with the same interview date and time already exists in this project.
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Clean Transcript Option */}
+                        <div>
+                          <label className="flex items-center gap-2 text-sm text-gray-700">
+                            <input
+                              type="checkbox"
+                              checked={cleanTranscript}
+                              onChange={e => setCleanTranscript(e.target.checked)}
+                              className="h-4 w-4 rounded border-gray-300"
+                              style={{ accentColor: BRAND_ORANGE }}
+                            />
+                            Clean this transcript (remove timestamps, tidy formatting)
+                          </label>
+                          {cleanTranscript && uploadFile && (
+                            <p className="mt-2 text-xs text-red-600 font-medium">
                               Estimated cost: {estimateCleaningCost(uploadFile.size)}
                             </p>
                           )}
                         </div>
-                      )}
-                    </div>
+
+                        {/* Add to CA Option */}
+                        <div>
+                          <label
+                            className={`flex items-center gap-2 text-sm ${
+                              canAddTranscriptToCA ? 'text-gray-700' : 'text-gray-400'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={addToCA}
+                              onChange={e => {
+                                setAddToCA(e.target.checked);
+                                if (!e.target.checked) {
+                                  setSelectedAnalysisId('');
+                                }
+                              }}
+                              disabled={!canAddTranscriptToCA}
+                              className={`h-4 w-4 rounded border-gray-300 ${
+                                !canAddTranscriptToCA ? 'cursor-not-allowed opacity-40' : ''
+                              }`}
+                              style={{ accentColor: BRAND_ORANGE }}
+                            />
+                            Add to Content Analysis
+                          </label>
+                          {!canAddTranscriptToCA && selectedProject && (
+                            <p className="mt-2 text-xs text-gray-500">
+                              No Content Analysis Found For {selectedProject.name}. Please visit the Content Analysis page to generate one.
+                            </p>
+                          )}
+                          {addToCA && canAddTranscriptToCA && (
+                            <div className="mt-3 space-y-2">
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">
+                                  Select Content Analysis
+                                </label>
+                                <select
+                                  value={selectedAnalysisId}
+                                  onChange={e => setSelectedAnalysisId(e.target.value)}
+                                  className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                                >
+                                  <option value="">Select an analysis...</option>
+                                  {analysesForSelectedProject.map(analysis => (
+                                    <option key={analysis.id} value={analysis.id}>
+                                      {analysis.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              {uploadFile && (
+                                <p className="text-xs text-red-600 font-medium">
+                                  Estimated cost: {estimateCleaningCost(uploadFile.size)}
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
@@ -1088,6 +1205,10 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                         setCleanTranscript(false);
                         setAddToCA(false);
                         setSelectedAnalysisId('');
+                        setParsedDateTime(null);
+                        setDuplicateWarning(false);
+                        setUploadStep('select');
+                        setIsParsingFile(false);
                       }}
                       className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
                     >
@@ -1201,10 +1322,10 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
               onClick={() => setShowMyProjectsOnly(!showMyProjectsOnly)}
               className={`px-3 py-1 text-xs rounded-lg shadow-sm transition-colors ${
                 showMyProjectsOnly
-                  ? 'text-white hover:opacity-90'
-                  : 'bg-white border border-gray-300 hover:bg-gray-50'
+                  ? 'bg-white border border-gray-300 hover:bg-gray-50'
+                  : 'text-white hover:opacity-90'
               }`}
-              style={showMyProjectsOnly ? { backgroundColor: BRAND_ORANGE } : {}}
+              style={showMyProjectsOnly ? {} : { backgroundColor: BRAND_ORANGE }}
             >
               {showMyProjectsOnly ? 'Only My Projects' : 'All Cognitive Projects'}
             </button>

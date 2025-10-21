@@ -649,7 +649,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
   }, [currentAnalysis?.data, activeSheet, transcripts.length]);
 
   // Handler for deleting a demographic column
-  const handleDeleteDemographicColumn = (columnName: string) => {
+  const handleDeleteDemographicColumn = async (columnName: string) => {
     if (!currentAnalysis || activeSheet !== 'Demographics') return;
     if (columnName === 'Respondent ID' || columnName === 'respno') return; // Don't delete respondent ID
 
@@ -669,6 +669,30 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
       ...currentAnalysis,
       data: updatedData
     });
+
+    // Auto-save if this is a saved analysis
+    if (currentAnalysis.projectId && !currentAnalysis.id?.startsWith('temp-')) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/caX/update`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
+          },
+          body: JSON.stringify({
+            id: currentAnalysis.id,
+            data: updatedData,
+            quotes: currentAnalysis.quotes || {}
+          })
+        });
+
+        if (!response.ok) {
+          console.error('Auto-save failed for demographic column deletion');
+        }
+      } catch (error) {
+        console.error('Failed to auto-save demographic column deletion:', error);
+      }
+    }
   };
 
   // Handler for renaming a demographic column
@@ -2412,10 +2436,10 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                     (viewMode !== 'home' && viewMode !== 'create') || uploading || generatingAnalysis
                       ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
                       : showMyProjectsOnly
-                      ? 'text-white hover:opacity-90'
-                      : 'bg-white border border-gray-300 hover:bg-gray-50'
+                      ? 'bg-white border border-gray-300 hover:bg-gray-50'
+                      : 'text-white hover:opacity-90'
                   }`}
-                  style={(viewMode === 'home' || viewMode === 'create') && !uploading && !generatingAnalysis && showMyProjectsOnly ? { backgroundColor: '#D14A2D' } : {}}
+                  style={(viewMode === 'home' || viewMode === 'create') && !uploading && !generatingAnalysis && !showMyProjectsOnly ? { backgroundColor: '#D14A2D' } : {}}
                 >
                   {showMyProjectsOnly ? 'Only My Projects' : 'All Cognitive Projects'}
                 </button>

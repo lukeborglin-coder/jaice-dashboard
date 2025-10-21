@@ -1363,7 +1363,7 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
         }
       });
 
-      respno = `R${String(maxRespno + 1).padStart(3, '0')}`;
+      respno = `R${String(maxRespno + 1).padStart(2, '0')}`;
       console.log(`Calculated new respno: ${respno}`);
     }
 
@@ -1600,12 +1600,12 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
         });
         
         // Generate new respondent ID
-        respno = `R${String(maxRespno + 1).padStart(3, '0')}`;
-        
+        respno = `R${String(maxRespno + 1).padStart(2, '0')}`;
+
         // Update the last row with the new respondent ID
         lastRow['Respondent ID'] = respno;
         lastRow['respno'] = respno;
-        
+
         console.log('Generated new respondent ID:', respno);
       }
     }
@@ -3693,7 +3693,7 @@ async function processTranscriptWithAI(transcriptText, currentData, discussionGu
   
   // Insert new respondent at the correct position
   allRespondents.splice(newRespondentPosition, 0, {
-    id: `R${String(newRespondentId).padStart(3, '0')}`,
+    id: `R${String(newRespondentId).padStart(2, '0')}`,
     numericId: newRespondentId,
     date: newInterviewDate || currentDate,
     sheetName: 'Demographics', // Will be updated for all sheets
@@ -3703,7 +3703,7 @@ async function processTranscriptWithAI(transcriptText, currentData, discussionGu
   // Assign new sequential IDs based on chronological order
   allRespondents.forEach((respondent, index) => {
     const newId = index + 1;
-    const newFormattedId = `R${String(newId).padStart(3, '0')}`;
+    const newFormattedId = `R${String(newId).padStart(2, '0')}`;
     idMapping.set(respondent.id, newFormattedId);
   });
 
@@ -3811,7 +3811,7 @@ async function processTranscriptWithAI(transcriptText, currentData, discussionGu
     }
 
     // Use the new respondent's assigned ID
-    const newFormattedId = `R${String(newRespondentId).padStart(3, '0')}`;
+    const newFormattedId = `R${String(newRespondentId).padStart(2, '0')}`;
     if ('Respondent ID' in newRow) newRow['Respondent ID'] = newFormattedId;
     else if ('respno' in newRow) newRow['respno'] = newFormattedId;
 
@@ -3847,7 +3847,7 @@ async function processTranscriptWithAI(transcriptText, currentData, discussionGu
 
     // Reassign IDs based on chronological order
     allDemographics.forEach((row, index) => {
-      const newId = `R${String(index + 1).padStart(3, '0')}`;
+      const newId = `R${String(index + 1).padStart(2, '0')}`;
       if ('Respondent ID' in row) row['Respondent ID'] = newId;
       if ('respno' in row) row['respno'] = newId;
     });
@@ -3876,7 +3876,7 @@ async function processTranscriptWithAI(transcriptText, currentData, discussionGu
     }
 
     // Use the new respondent's assigned ID
-    const newFormattedId = `R${String(newRespondentId).padStart(3, '0')}`;
+    const newFormattedId = `R${String(newRespondentId).padStart(2, '0')}`;
     if ('Respondent ID' in newRow) newRow['Respondent ID'] = newFormattedId;
     else if ('respno' in newRow) newRow['respno'] = newFormattedId;
 

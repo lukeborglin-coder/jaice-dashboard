@@ -541,7 +541,14 @@ ${strategicQuestions.map((q, i) => `${i + 1}. ${q}`).join('\n')}
 CONTENT ANALYSIS DATA:
 ${caDataForPrompt}
 
-Create 15-20 slides that tell the complete research story. 
+Create 5-20 slides that tell the complete research story based on ALL the insights in the content analysis data.
+
+CRITICAL INSTRUCTIONS:
+- DO NOT create one slide per strategic question
+- The strategic questions are ONLY for Slide 2 (Executive Summary)
+- All other slides (3-20) should explore the FULL breadth of findings from the content analysis
+- Look through ALL the content analysis data and identify the most important themes and insights
+- Create slides that tell the complete story, not just answer the strategic questions 
 
 CRITICAL - FOR SLIDE 1 (TITLE SLIDE):
 You MUST use the EXACT project name and client shown above. Do NOT use any placeholder text.

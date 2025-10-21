@@ -4583,33 +4583,28 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
                   return null;
                 }
 
-                // Calculate height based on number of tasks (max 5 before scroll)
-                const maxVisibleTasks = 5;
-                const tasksToShow = Math.min(overdueTasks.length, maxVisibleTasks);
+                // Calculate if we need scrolling (max 3 tasks before scroll)
+                const maxVisibleTasks = 3;
                 const needsScroll = overdueTasks.length > maxVisibleTasks;
-                
-                // Calculate approximate height: header (60px) + padding (32px) + task height (80px each)
-                const taskHeight = 80;
-                const headerHeight = 60;
-                const paddingHeight = 32;
-                const calculatedHeight = headerHeight + paddingHeight + (tasksToShow * taskHeight);
-                const maxHeight = needsScroll ? 400 : calculatedHeight; // Max 400px if scrolling
 
                 return (
                   <div 
                     className="bg-red-50 rounded-lg border border-red-200 overflow-hidden flex flex-col flex-shrink-0"
-                    style={{ height: `${Math.min(calculatedHeight, maxHeight)}px` }}
+                    style={{ 
+                      maxHeight: needsScroll ? '400px' : 'none',
+                      height: needsScroll ? '400px' : 'auto'
+                    }}
                   >
                     <div className="flex items-center justify-between px-4 py-3 border-b border-red-200 flex-shrink-0 bg-red-100">
                       <h3 className="text-lg font-semibold text-red-700">Overdue Tasks ({overdueTasks.length})</h3>
                     </div>
-                    <div className="p-4 flex-1 min-h-0 overflow-hidden">
+                    <div className="p-2 flex-1 min-h-0 overflow-hidden">
                       <div className={`${needsScroll ? 'overflow-y-auto light-scrollbar' : ''} h-full`}>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        <div className="space-y-1">
                           {overdueTasks.map((task) => (
                             <div
                               key={task.id}
-                              className="p-3 bg-red-50 border border-red-100 rounded cursor-pointer hover:bg-red-100 transition-colors"
+                              className="p-2 bg-red-50 border border-red-100 rounded cursor-pointer hover:bg-red-100 transition-colors"
                               onClick={() => {
                                 const project = projects.find(p => p.name === task.project);
                                 if (project && onNavigateToProject) {
@@ -4620,11 +4615,13 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
                               <div className="text-sm font-medium text-gray-900 truncate">
                                 {task.description}
                               </div>
-                              <div className="text-xs text-gray-500 truncate mt-1">
-                                {task.project}
-                              </div>
-                              <div className="text-xs text-red-600 font-medium mt-1">
-                                {Math.abs(task.daysUntil)} days overdue
+                              <div className="flex items-center justify-between mt-1">
+                                <div className="text-xs text-gray-500 truncate">
+                                  {task.project}
+                                </div>
+                                <div className="text-xs text-red-600 font-medium">
+                                  {Math.abs(task.daysUntil)} days overdue
+                                </div>
                               </div>
                             </div>
                           ))}
@@ -8773,10 +8770,10 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
               onClick={() => setShowMyProjectsOnly(!showMyProjectsOnly)}
               className={`px-3 py-1 text-xs rounded-lg shadow-sm transition-colors ${
                 showMyProjectsOnly
-                  ? 'text-white hover:opacity-90'
-                  : 'bg-white border border-gray-300 hover:bg-gray-50'
+                  ? 'bg-white border border-gray-300 hover:bg-gray-50'
+                  : 'text-white hover:opacity-90'
               }`}
-              style={showMyProjectsOnly ? { backgroundColor: BRAND.orange } : {}}
+              style={showMyProjectsOnly ? {} : { backgroundColor: BRAND.orange }}
             >
               {showMyProjectsOnly ? 'Only My Projects' : 'All Cognitive Projects'}
             </button>

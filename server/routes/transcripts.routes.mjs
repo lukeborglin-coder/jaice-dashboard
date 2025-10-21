@@ -604,6 +604,7 @@ router.delete('/:projectId/:transcriptId', authenticateToken, async (req, res) =
     }
 
     const transcript = transcripts[projectId][transcriptIndex];
+    const deletedRespno = transcript.respno; // Store respno before deletion
 
     // Delete files
     try {
@@ -623,10 +624,146 @@ router.delete('/:projectId/:transcriptId', authenticateToken, async (req, res) =
 
     await fs.writeFile(TRANSCRIPTS_PATH, JSON.stringify(transcripts, null, 2));
 
+    // Also remove from Content Analysis data if it exists
+    try {
+      const ANALYSES_PATH = path.join(process.env.DATA_DIR || path.join(__dirname, '../data'), 'savedAnalyses.json');
+      const analysesData = await fs.readFile(ANALYSES_PATH, 'utf8');
+      const analyses = JSON.parse(analysesData);
+
+      if (analyses[projectId]) {
+        const analysis = analyses[projectId];
+
+        // Remove rows matching the deleted respno from all sheets
+        if (analysis.data) {
+          for (const sheetName of Object.keys(analysis.data)) {
+            if (Array.isArray(analysis.data[sheetName])) {
+              analysis.data[sheetName] = analysis.data[sheetName].filter(row => {
+                const rowRespno = row['Respondent ID'] || row['respno'];
+                return rowRespno !== deletedRespno;
+              });
+            }
+          }
+        }
+
+        // Remove context for deleted respno
+        if (analysis.context) {
+          for (const sheetName of Object.keys(analysis.context)) {
+            if (analysis.context[sheetName] && analysis.context[sheetName][deletedRespno]) {
+              delete analysis.context[sheetName][deletedRespno];
+            }
+          }
+        }
+
+        // Remove quotes for deleted respno
+        if (analysis.quotes && analysis.quotes[deletedRespno]) {
+          delete analysis.quotes[deletedRespno];
+        }
+
+        // Now reassign respnos in CA data to match the updated transcript respnos
+        // Build mapping from old respnos to new respnos based on updated transcripts
+        const respnoMapping = new Map();
+        transcripts[projectId].forEach((t, index) => {
+          const newRespno = t.respno; // Already reassigned above
+          // We need to find which old respno this transcript had
+          // We can use the transcript ID to track it
+          if (analysis.data && analysis.data.Demographics) {
+            const demographicsRow = analysis.data.Demographics.find(row => {
+              // Match by some unique identifier - we'll use position after sorting
+              return true; // Will be fixed by chronological re-sort below
+            });
+          }
+        });
+
+        // Re-sort Demographics by date and reassign all respnos chronologically
+        if (analysis.data && analysis.data.Demographics) {
+          const demographics = analysis.data.Demographics;
+
+          // Sort by interview date
+          demographics.sort((a, b) => {
+            const dateA = a['Interview Date'] || a['Date'] || '';
+            const dateB = b['Interview Date'] || b['Date'] || '';
+
+            if (dateA && dateB) {
+              const parsedA = new Date(dateA);
+              const parsedB = new Date(dateB);
+              if (!isNaN(parsedA.getTime()) && !isNaN(parsedB.getTime())) {
+                return parsedA.getTime() - parsedB.getTime();
+              }
+            }
+            return 0;
+          });
+
+          // Reassign respnos sequentially
+          demographics.forEach((row, index) => {
+            const newRespno = `R${String(index + 1).padStart(2, '0')}`;
+            if ('Respondent ID' in row) row['Respondent ID'] = newRespno;
+            if ('respno' in row) row['respno'] = newRespno;
+          });
+
+          // Update other sheets to match Demographics respnos
+          const sheetNames = Object.keys(analysis.data).filter(name => name !== 'Demographics');
+          for (const sheetName of sheetNames) {
+            const rows = analysis.data[sheetName];
+            if (Array.isArray(rows)) {
+              rows.forEach((row, index) => {
+                if (index < demographics.length) {
+                  const newRespno = demographics[index]['Respondent ID'] || demographics[index]['respno'];
+                  if ('Respondent ID' in row) row['Respondent ID'] = newRespno;
+                  if ('respno' in row) row['respno'] = newRespno;
+                }
+              });
+            }
+          }
+        }
+
+        await fs.writeFile(ANALYSES_PATH, JSON.stringify(analyses, null, 2));
+        console.log(`Cleaned up CA data for deleted transcript ${deletedRespno}`);
+      }
+    } catch (error) {
+      console.warn('Failed to clean up Content Analysis data:', error);
+    }
+
     res.json({ success: true });
   } catch (error) {
     console.error('Error deleting transcript:', error);
     res.status(500).json({ error: 'Failed to delete transcript' });
+  }
+});
+
+// Parse date/time from transcript file
+router.post('/parse-datetime', authenticateToken, upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    // Read the file
+    let transcriptText = '';
+    if (req.file.originalname.endsWith('.docx')) {
+      const result = await mammoth.extractRawText({ path: req.file.path });
+      transcriptText = result.value;
+    } else {
+      transcriptText = await fs.readFile(req.file.path, 'utf8');
+    }
+
+    // Parse date and time
+    const { interviewDate, interviewTime } = parseDateTimeFromTranscript(transcriptText);
+
+    // Clean up uploaded file
+    await fs.unlink(req.file.path);
+
+    res.json({ date: interviewDate, time: interviewTime });
+  } catch (error) {
+    console.error('Error parsing date/time:', error);
+    // Clean up file if it exists
+    if (req.file) {
+      try {
+        await fs.unlink(req.file.path);
+      } catch (e) {
+        console.warn('Failed to clean up file:', e);
+      }
+    }
+    res.status(500).json({ error: 'Failed to parse date/time from transcript' });
   }
 });
 
