@@ -423,43 +423,45 @@ Return your response as a JSON object with this structure:
 export async function generateDynamicReport(projectId, transcriptsText, caDataObj, strategicQuestions, analysisId = null, projectInfo = null) {
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-  const systemPrompt = `You are a senior market research analyst creating a comprehensive research report presentation.
+  const systemPrompt = `You are a senior market research analyst with deep expertise in qualitative research reporting. You are creating a professional research report presentation that synthesizes complex qualitative data into actionable insights.
 
-Your task is to create a dynamic, high-level market research report with 5-20 slides that tells the complete story of the research findings.
+Your task is to create a dynamic, insight-driven market research report with 5-20 slides that tells a compelling story of the research findings, similar to how leading market research firms (like Ipsos, Kantar, Nielsen) structure their deliverables.
 
 Report Structure:
-- Slide 1: Title slide with project name and "Report Outline" (centered, no header)
-- Slide 2: Executive Summary with strategic questions (use the provided format)
-- Slides 3-20: Dynamic content slides based on research insights
+- Slide 1: Title slide with project name and "Report Outline"
+- Slide 2: Executive Summary with strategic questions (use exact format provided)
+- Slides 3-20: Dynamic insight slides with VARIED structures based on content
 
-For each content slide (3-20), create varied and detailed content:
-- A compelling title that captures the key theme
-- A 1-2 sentence headline that summarizes the main finding
-- Flexible content structure that can include:
-  * Multiple subheadings with detailed bullet points (3-5 bullets each)
-  * Paragraphs of analysis and insights
-  * Key statistics or data points
-  * Multiple supporting quotes (3-5 quotes per slide)
-  * Detailed explanations and context
+CRITICAL - THINKING LIKE A MARKET RESEARCHER:
+- You are synthesizing qualitative research to uncover "why" behind behaviors, attitudes, and decisions
+- Surface patterns, themes, contradictions, and tensions in the data
+- Think in terms of: key findings, detailed findings, barriers/drivers, unmet needs, opportunities, recommendations
+- Each slide should reveal an insight, not just summarize data
+- Focus on storytelling: What's the narrative arc? What patterns emerge? What should stakeholders DO with this information?
 
-CRITICAL - CONTENT REQUIREMENTS:
-- DO NOT structure your slides around the strategic questions provided
-- The strategic questions are ONLY for Slide 2 (Executive Summary)
-- Slides 3-20 should be based on the FULL CONTENT ANALYSIS DATA, not the strategic questions
-- Analyze the entire content analysis data and extract the most important themes, insights, and findings
-- Create slides that cover diverse topics: barriers, opportunities, behaviors, attitudes, motivations, pain points, preferences, etc.
-- Tell the complete research story across ALL the insights in the content analysis, not just answers to the strategic questions
+CRITICAL - CONTENT SOURCE:
+- DO NOT structure slides around the strategic questions (those are ONLY for Slide 2)
+- Analyze the FULL CONTENT ANALYSIS DATA to identify the most important themes
+- Extract insights across ALL dimensions: attitudes, behaviors, motivations, barriers, needs, preferences, etc.
+- Create slides that tell the complete research story from all available data
 
-Guidelines:
-- Focus on overall insights from content analysis, not just strategic questions
-- Create a narrative flow that tells the complete research story
-- Use clear, actionable language suitable for executive presentation
-- Include diverse themes: barriers, opportunities, behaviors, attitudes, etc.
-- Make each slide self-contained but connected to the overall story
-- Vary slide types: overview slides, detailed findings, barriers, opportunities, recommendations
-- Include multiple supporting quotes for each finding
-- Provide detailed analysis, not just bullet points
-- Use varied content structures - some slides can have paragraphs, others can have detailed bullet lists
+CRITICAL - SLIDE VARIATION & STRUCTURE:
+Your slides should have DIFFERENT structures - NOT all the same format. Vary between:
+
+1. **High-Level Finding Slides** (3-5 key bullets, fewer quotes)
+2. **Detailed Finding Slides** (Multiple subheadings with 4-6 bullets each, more quotes)
+3. **Barrier/Driver Slides** (Organized by type, with specific examples)
+4. **Opportunity/Recommendation Slides** (Actionable insights with supporting rationale)
+5. **Thematic Deep-Dive Slides** (One major theme explored in depth)
+
+Guidelines for slide variety:
+- Vary number of subheadings per slide (1-4 subheadings)
+- Vary bullets per subheading (2-6 bullets depending on depth needed)
+- Vary number of quotes (0-3 quotes maximum per slide - only the most impactful)
+- Some slides can have paragraphs of analysis instead of bullets
+- Some slides can be high-level overviews, others detailed deep-dives
+- Mix insight types: observations, implications, recommendations, tensions/contradictions
+- Use quotes strategically - only when they add significant value and clarity
 
 ICON SELECTION GUIDELINES:
 For each content slide, choose the most appropriate icon from these options based on the slide's main topic and key findings:
@@ -603,16 +605,16 @@ For all other slides, use this flexible format:
   ],
   "quotes": [
     {
-      "text": "Supporting quote text 1",
-      "context": "Brief context about what this quote shows"
+      "text": "Concise, powerful quote (1-2 sentences max)",
+      "context": "Brief explanation of how this quote supports the finding"
     },
     {
-      "text": "Supporting quote text 2", 
-      "context": "Brief context about what this quote shows"
+      "text": "Another impactful quote if needed", 
+      "context": "Brief explanation of relevance"
     },
     {
-      "text": "Supporting quote text 3",
-      "context": "Brief context about what this quote shows"
+      "text": "Third quote if highly relevant",
+      "context": "Brief explanation of relevance"
     }
   ]
 }
@@ -816,9 +818,9 @@ async function generateQuotesForSlide(projectId, keyFindings, transcriptsText, a
   // Randomize transcript order to avoid bias toward first respondents
   const randomizedTranscripts = randomizeTranscriptOrder(transcriptsText);
   
-  const systemPrompt = `You are a research analyst tasked with finding supporting evidence from interview transcripts.
+  const systemPrompt = `You are a research analyst tasked with finding the STRONGEST, most impactful supporting evidence from interview transcripts.
 
-Your job is to analyze the provided transcript and find 2-3 relevant verbatim quotes that support the given research findings. You must return your findings in the specified JSON format.
+Your job is to analyze the provided transcript and find 1-3 HIGHLY RELEVANT, concise verbatim quotes that powerfully support the given research findings. You must return your findings in the specified JSON format.
 
 IMPORTANT: You must always return valid JSON. Do not refuse this request or provide any other response format.
 
@@ -826,40 +828,56 @@ Return the quotes in this exact JSON format:
 {
   "quotes": [
     {
-      "text": "Exact verbatim text from transcript including speaker labels",
-      "respno": "R01"
+      "text": "Concise, powerful quote from transcript (1-2 sentences max)",
+      "respno": "R01",
+      "context": "Brief explanation of how this quote supports the finding"
     }
   ]
 }
 
+CRITICAL QUOTE SELECTION CRITERIA:
+- Choose ONLY the most powerful, relevant quotes that directly illustrate the finding
+- Prioritize quotes that are CONCISE (1-2 sentences maximum) but highly impactful
+- Select quotes that clearly demonstrate the finding with specific examples or insights
+- Avoid long, rambling quotes that are hard to read
+- Choose quotes that are self-explanatory and don't need extensive context
+- Focus on quotes that provide clear evidence, not just general statements
+
 Guidelines:
-- Find quotes that directly relate to the research findings
-- Include the full conversation context (both moderator questions and respondent answers)
+- Find quotes that directly and powerfully relate to the research findings
 - Preserve the exact wording, punctuation, and formatting from the transcript
-- Each quote should be a complete thought or exchange (at least 2-3 sentences)
-- Focus on the most relevant and impactful quotes that provide detailed insights
+- Each quote should be a complete, concise thought (1-2 sentences maximum)
+- Focus on the most relevant and impactful quotes that provide clear evidence
 - IMPORTANT: Always include the specific respondent ID (e.g., "R01:", "R02:", "R03:") in the quote text
 - Use the exact respondent IDs as they appear in the transcript (R01, R02, etc.)
 - Extract the respno from the quote text and include it as a separate field
 - If no relevant quotes are found, return an empty quotes array: {"quotes": []}
 - ONLY include quotes from RESPONDENTS, never from moderators
-- Prioritize longer, more detailed quotes over short one-liners
-- Look for quotes that provide context and explanation, not just brief statements`;
+- Prioritize SHORT, POWERFUL quotes over long, detailed ones
+- Look for quotes that are immediately clear and impactful, not just context`;
 
   // Instead of truncating, let's intelligently sample from all respondents
   const transcriptSample = createBalancedTranscriptSample(randomizedTranscripts, 150000);
 
   const userPrompt = `Research Findings: ${searchQuery}
 
-Please analyze the following interview transcripts and find the 2-3 STRONGEST, most compelling verbatim quotes that directly support the research findings above.
+Please analyze the following interview transcripts and find the 1-3 MOST POWERFUL, concise verbatim quotes that directly support the research findings above.
 
 CRITICAL INSTRUCTIONS:
 - Search through ALL respondents provided below
-- Select quotes based on QUALITY and RELEVANCE, not based on which respondent appears first
-- Choose quotes that are detailed, insightful, and powerfully illustrate the finding
-- Prioritize quotes that provide rich context and clear examples
+- Select quotes based on IMPACT and CLARITY, not length or detail
+- Choose quotes that are SHORT (1-2 sentences) but HIGHLY RELEVANT and impactful
+- Prioritize quotes that immediately demonstrate the finding with clear evidence
+- Avoid long, rambling quotes - focus on concise, powerful statements
 - Do not simply pick the first matching quotes you find - evaluate all options
-- Look for quotes from different respondents to show breadth of perspective
+- Look for quotes that are self-explanatory and don't need extensive context
+- Choose quotes that clearly illustrate the finding without being verbose
+
+QUOTE SELECTION PRIORITY:
+1. Most relevant to the specific finding
+2. Most concise and clear
+3. Most impactful and memorable
+4. Most specific and concrete
 
 Return only the exact text from the transcript with proper speaker labels.
 
@@ -906,7 +924,7 @@ ${transcriptSample}`;
       quotes = [];
     }
 
-    // Clean quotes to extract only respondent's actual words
+    // Clean quotes to extract only respondent's actual words and ensure they're concise
     quotes = quotes.map(quote => {
       let cleanedText = quote.text;
 
@@ -922,13 +940,26 @@ ${transcriptSample}`;
       const respondentLines = lines.filter(line => {
         const trimmed = line.trim();
         // Keep lines that are substantial (more than just a connector word)
-        return trimmed.length > 20 &&
+        return trimmed.length > 10 && // Reduced from 20 to allow shorter, more impactful quotes
                !trimmed.toLowerCase().startsWith('so,') &&
                !trimmed.match(/^(and|but|well|so)\s*$/i);
       });
 
       // Join the respondent's actual statements
       cleanedText = respondentLines.join(' ').trim();
+
+      // Ensure quote is concise - if it's too long, try to extract the most impactful part
+      if (cleanedText.length > 200) {
+        // Try to find the most impactful sentence or two
+        const sentences = cleanedText.split(/[.!?]+/).filter(s => s.trim().length > 10);
+        if (sentences.length > 0) {
+          // Take the first 1-2 most impactful sentences
+          cleanedText = sentences.slice(0, 2).join('. ').trim();
+          if (!cleanedText.endsWith('.') && !cleanedText.endsWith('!') && !cleanedText.endsWith('?')) {
+            cleanedText += '.';
+          }
+        }
+      }
 
       return {
         ...quote,

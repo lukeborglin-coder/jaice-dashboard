@@ -491,7 +491,7 @@ const ReportSlide: React.FC<ReportSlideProps> = ({ slide, slideNumber, totalSlid
 
               {/* Main content area that fills the slide */}
               <div className="flex-1 flex flex-col w-full min-h-0">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 flex-1 w-full h-full min-h-0">
+                <div className={`grid gap-3 flex-1 w-full h-full min-h-0 ${slide.quotes && slide.quotes.length > 0 ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'}`}>
                 {/* Left side - Content */}
                   <div className="space-y-1.5 w-full h-full overflow-y-auto pr-2" style={{ scrollbarWidth: 'thin' }}>
                   {slide.content && slide.content.map((section: any, idx: number) => {
@@ -529,9 +529,9 @@ const ReportSlide: React.FC<ReportSlideProps> = ({ slide, slideNumber, totalSlid
                   })}
                 </div>
 
-                {/* Right side - Supporting Quotes */}
+                {/* Right side - Supporting Quotes (only render if quotes exist) */}
+                {slide.quotes && slide.quotes.length > 0 && (
                   <div className="space-y-2 w-full h-full overflow-y-auto pr-2" style={{ scrollbarWidth: 'thin' }}>
-                  {slide.quotes && slide.quotes.length > 0 ? (
                     <div className="space-y-2">
                       {slide.quotes.map((quote: any, quoteIdx: number) => (
                           <div key={quoteIdx} className="p-3 bg-gray-50 rounded border-l-2" style={{ borderLeftColor: BRAND_ORANGE }}>
@@ -542,10 +542,8 @@ const ReportSlide: React.FC<ReportSlideProps> = ({ slide, slideNumber, totalSlid
                         </div>
                       ))}
                     </div>
-                  ) : (
-                    <p className="text-[10px] text-gray-500 italic">No supporting quotes available for this slide.</p>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
               </div>
             </div>
