@@ -1490,12 +1490,13 @@
           "id": "t53",
           "description": "Clean project folder",
           "assignedTo": [
-            ""
+            "",
+            "3"
           ],
           "status": "pending",
           "phase": "Post-Field Analysis",
           "isOngoing": false,
-          "dueDate": "2025-10-21"
+          "dueDate": "2025-10-20"
         },
         {
           "id": "t54",
@@ -1518,7 +1519,7 @@
           ],
           "status": "pending",
           "phase": "Post-Field Analysis",
-          "dueDate": "2025-10-20",
+          "dueDate": "2025-10-17",
           "isOngoing": false
         },
         {
@@ -2670,7 +2671,7 @@
         {
           "id": "t35",
           "description": "Copy cost tracker shell to job folder and update",
-          "status": "pending",
+          "status": "completed",
           "phase": "Fielding",
           "dueDate": "2025-10-14",
           "isOngoing": false,
@@ -2736,7 +2737,7 @@
         {
           "id": "t41",
           "description": "Request invoice if required by client schedule",
-          "status": "pending",
+          "status": "completed",
           "phase": "Fielding",
           "dueDate": "2025-10-13",
           "isOngoing": false,
