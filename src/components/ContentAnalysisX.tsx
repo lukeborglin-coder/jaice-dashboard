@@ -1248,13 +1248,31 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
     // Filter out transcripts for deleted respondent
     const filteredTranscripts = transcripts.filter(t => t.respno !== respondentId);
 
+    // Preserve column schema when deleting respondents
+    const columnSchema = { ...currentAnalysis.columnSchema };
+    for (const [sheetName, sheetData] of Object.entries(updatedData)) {
+      if (Array.isArray(sheetData) && sheetData.length === 0 && currentAnalysis.data[sheetName] && currentAnalysis.data[sheetName].length > 0) {
+        // Sheet is now empty, preserve its column structure
+        const lastRow = currentAnalysis.data[sheetName][0];
+        if (lastRow) {
+          const columns = Object.keys(lastRow).filter(key => 
+            key !== 'respno' && 
+            key !== 'transcriptId' && 
+            !key.startsWith('New Column')
+          );
+          columnSchema[sheetName] = columns;
+        }
+      }
+    }
+
     // Update the analysis with transcripts (no reordering - maintain upload order)
     const updatedAnalysis = {
       ...currentAnalysis,
       data: updatedData,
       quotes: filteredQuotes,
       context: filteredContext,
-      transcripts: filteredTranscripts
+      transcripts: filteredTranscripts,
+      columnSchema: columnSchema
     };
 
     const normalizedAnalysis = normalizeAnalysisRespnos(updatedAnalysis, projectTranscriptsForUpload);
@@ -2378,66 +2396,8 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
   };
 
   return (
-    <div className="flex-1 p-6 space-y-4 max-w-full overflow-hidden">
+    <div className="flex-1 p-6 space-y-4 max-w-full overflow-hidden" style={{ height: 'calc(100vh - 80px)', marginTop: '80px' }}>
       <div className="space-y-3">
-        {/* Header */}
-        <section className="flex items-start justify-between gap-3">
-          <div>
-            <h2 className="text-2xl font-bold" style={{ color: BRAND_GRAY }}>Content Analysis</h2>
-            <p className="mt-1 text-sm text-gray-500">
-              View and manage your saved content analyses
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            {onNavigate && currentAnalysis?.projectId && !currentAnalysis.id?.startsWith('temp-') && (
-              <button
-                onClick={() => {
-                  try {
-                    sessionStorage.setItem('cognitive_dash_transcripts_focus_project', currentAnalysis.projectId);
-                  } catch (err) {
-                    console.warn('Unable to persist transcripts navigation target', err);
-                  }
-                  onNavigate('Transcripts');
-                }}
-                className="flex items-center justify-center h-8 w-8 rounded-full transition-colors"
-                style={{ backgroundColor: 'rgba(37, 99, 235, 0.65)' }}
-                title="Open Transcripts"
-                aria-label="Open Transcripts"
-              >
-                <IconScript className="h-4 w-4 text-white" />
-              </button>
-            )}
-            {onNavigateToStorytelling && currentAnalysis?.id && !currentAnalysis.id.startsWith('temp-') && (
-              <button
-                onClick={() => onNavigateToStorytelling(currentAnalysis.id, currentAnalysis.projectId)}
-                className="flex items-center justify-center h-8 w-8 rounded-full transition-colors"
-                style={{ backgroundColor: 'rgba(37, 99, 235, 0.65)' }}
-                title="Open Storytelling"
-              >
-                <IconBook2 className="h-4 w-4 text-white" />
-              </button>
-            )}
-            {viewMode !== 'viewer' && (
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-600">Current View:</span>
-                <button
-                  onClick={() => (viewMode === 'home' || viewMode === 'create') && !uploading && !generatingAnalysis && setShowMyProjectsOnly(!showMyProjectsOnly)}
-                  disabled={(viewMode !== 'home' && viewMode !== 'create') || uploading || generatingAnalysis}
-                  className={`px-3 py-1 text-xs rounded-lg shadow-sm transition-colors ${
-                    (viewMode !== 'home' && viewMode !== 'create') || uploading || generatingAnalysis
-                      ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                      : showMyProjectsOnly
-                      ? 'bg-white border border-gray-300 hover:bg-gray-50'
-                      : 'text-white hover:opacity-90'
-                  }`}
-                  style={(viewMode === 'home' || viewMode === 'create') && !uploading && !generatingAnalysis && !showMyProjectsOnly ? { backgroundColor: '#D14A2D' } : {}}
-                >
-                  {showMyProjectsOnly ? 'Only My Projects' : 'All Cognitive Projects'}
-                </button>
-              </div>
-            )}
-          </div>
-        </section>
 
         {/* Viewer mode action bar */}
         {viewMode === 'viewer' && (
@@ -2535,6 +2495,24 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                   Archived Projects ({filteredArchivedProjects.length})
                 </button>
               </nav>
+              
+              {/* Right-aligned controls */}
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-600">Current View:</span>
+                  <button
+                    onClick={() => setShowMyProjectsOnly(!showMyProjectsOnly)}
+                    className={`px-3 py-1 text-xs rounded-lg shadow-sm transition-colors ${
+                      showMyProjectsOnly
+                        ? 'bg-white border border-gray-300 hover:bg-gray-50'
+                        : 'text-white hover:opacity-90'
+                    }`}
+                    style={showMyProjectsOnly ? {} : { backgroundColor: BRAND_ORANGE }}
+                  >
+                    {showMyProjectsOnly ? 'Only My Projects' : 'All Cognitive Projects'}
+                  </button>
+                </div>
+              </div>
             </div>
             <div className="border-b border-gray-200"></div>
           </div>
@@ -2689,6 +2667,9 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                       <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Respondents
                       </th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -2705,7 +2686,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                           )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {analysis.createdAt ? new Date(analysis.createdAt).toLocaleDateString() : '-'}
+                          {analysis.savedAt ? new Date(analysis.savedAt).toLocaleDateString() : (analysis.createdAt ? new Date(analysis.createdAt).toLocaleDateString() : '-')}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-center">
                           <div className="flex items-center justify-center gap-1 text-sm text-gray-900">
@@ -2718,6 +2699,20 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                               return uniqueRespondents.size;
                             })() : 0}
                           </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation(); // Prevent row click
+                              deleteSavedAnalysis(analysis.id, analysis.name || 'Untitled Analysis');
+                            }}
+                            className="text-red-600 hover:text-red-800 p-1 rounded-lg hover:bg-red-50 transition-colors"
+                            title="Delete Analysis"
+                          >
+                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -2948,7 +2943,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                       className="border border-orange-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-orange-400"
                     >
                       <option value="">Unassigned</option>
-                      {projects.filter(p => p.methodologyType === 'Qualitative').map(p => (<option key={p.id} value={p.id}>{p.name}</option>))}
+                      {displayProjects.map(p => (<option key={p.id} value={p.id}>{p.name}</option>))}
                     </select>
                   ) : (
                     <>

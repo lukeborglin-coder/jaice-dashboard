@@ -1062,9 +1062,9 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
     return (
       <main
         className="flex-1 overflow-y-auto"
-        style={{ backgroundColor: BRAND_BG }}
+        style={{ backgroundColor: BRAND_BG, height: 'calc(100vh - 80px)', marginTop: '80px' }}
       >
-        <div className="flex-1 p-6 space-y-6 max-w-full overflow-hidden">
+        <div className="flex-1 p-6 space-y-6 max-w-full overflow-hidden h-full">
           <section className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <button
@@ -1625,40 +1625,12 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
   return (
     <main
       className="flex-1 overflow-y-auto"
-      style={{ backgroundColor: BRAND_BG }}
+      style={{ backgroundColor: BRAND_BG, height: 'calc(100vh - 80px)', marginTop: '80px' }}
     >
-      <div className="flex-1 p-6 space-y-6 max-w-full overflow-hidden">
-        <section className="flex items-center justify-between">
-          <div>
-            <h2
-              className="text-2xl font-bold"
-              style={{ color: BRAND_GRAY }}
-            >
-              Transcripts
-            </h2>
-            <p className="mt-1 text-sm text-gray-500">
-              Manage transcripts for qualitative projects
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600">Current View:</span>
-            <button
-              onClick={() => setShowMyProjectsOnly(!showMyProjectsOnly)}
-              className={`px-3 py-1 text-xs rounded-lg shadow-sm transition-colors ${
-                showMyProjectsOnly
-                  ? 'bg-white border border-gray-300 hover:bg-gray-50'
-                  : 'text-white hover:opacity-90'
-              }`}
-              style={showMyProjectsOnly ? {} : { backgroundColor: BRAND_ORANGE }}
-            >
-              {showMyProjectsOnly ? 'Only My Projects' : 'All Cognitive Projects'}
-            </button>
-          </div>
-        </section>
-
+      <div className="flex-1 p-6 space-y-6 max-w-full overflow-hidden h-full">
         {/* Tabs */}
         <div className="border-b border-gray-200">
-          <div className="flex items-center">
+          <div className="flex items-center justify-between">
             <nav className="-mb-px flex space-x-8 items-center">
               <button
                 onClick={() => setActiveTab('active')}
@@ -1683,6 +1655,24 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                 Archived Projects ({filteredArchivedProjects.length})
               </button>
             </nav>
+            
+            {/* Right-aligned controls */}
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600">Current View:</span>
+                <button
+                  onClick={() => setShowMyProjectsOnly(!showMyProjectsOnly)}
+                  className={`px-3 py-1 text-xs rounded-lg shadow-sm transition-colors ${
+                    showMyProjectsOnly
+                      ? 'bg-white border border-gray-300 hover:bg-gray-50'
+                      : 'text-white hover:opacity-90'
+                  }`}
+                  style={showMyProjectsOnly ? {} : { backgroundColor: BRAND_ORANGE }}
+                >
+                  {showMyProjectsOnly ? 'Only My Projects' : 'All Cognitive Projects'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 

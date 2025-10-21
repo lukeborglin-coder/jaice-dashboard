@@ -417,8 +417,8 @@ export default function QuestionnaireParser({ projectId, projects = [], onNaviga
   };
 
   return (
-    <main className="flex-1 overflow-y-auto" style={{ backgroundColor: BRAND_BG }}>
-      <div className="flex-1 p-6 space-y-6 max-w-full -mt-5 -mx-5">
+    <main className="flex-1 overflow-y-auto" style={{ backgroundColor: BRAND_BG, height: 'calc(100vh - 80px)', marginTop: '80px' }}>
+      <div className="flex-1 p-6 space-y-6 max-w-full overflow-hidden h-full">
         <section className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold" style={{ color: BRAND_GRAY }}>Questionnaire Parser</h2>

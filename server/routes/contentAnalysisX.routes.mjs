@@ -1377,6 +1377,10 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
         );
         sheetsColumns[sheetName] = columns;
         console.log(`📋 Extracted ${columns.length} columns from existing data for "${sheetName}"`);
+      } else if (savedAnalysis?.columnSchema?.[sheetName]) {
+        // Sheet is empty, but we have preserved column schema - use it
+        sheetsColumns[sheetName] = savedAnalysis.columnSchema[sheetName];
+        console.log(`📋 Loaded ${sheetsColumns[sheetName].length} columns for "${sheetName}" from column schema: ${sheetsColumns[sheetName].join(', ')}`);
       } else if (savedAnalysis?.context?.[sheetName]) {
         // Sheet is empty, but we have context from a previous save - extract column names
         const contextObj = savedAnalysis.context[sheetName];
@@ -1396,11 +1400,36 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
         }
       } else {
         sheetsColumns[sheetName] = [];
-        console.log(`📋 No data or context for "${sheetName}"`);
+        console.log(`📋 No data, context, or column schema for "${sheetName}"`);
       }
     }
 
     console.log('📋 Final sheetsColumns:', JSON.stringify(sheetsColumns, null, 2));
+
+    // Check for duplicate transcript processing
+    if (usedTranscriptId && currentData && currentData.Demographics) {
+      const existingTranscript = currentData.Demographics.find(row => 
+        row.transcriptId === usedTranscriptId || 
+        (row.respno && row.respno === existingTranscriptRespno)
+      );
+      
+      if (existingTranscript) {
+        console.log(`⚠️ Duplicate transcript detected: ${usedTranscriptId} already exists in analysis`);
+        console.log(`Existing transcript respno: ${existingTranscript.respno || existingTranscript['Respondent ID']}`);
+        
+        // Return existing data without reprocessing
+        return res.json({
+          success: true,
+          data: currentData,
+          quotes: savedAnalysis?.quotes || {},
+          context: savedAnalysis?.context || {},
+          respno: existingTranscript.respno || existingTranscript['Respondent ID'],
+          analysisId: analysisId || null,
+          message: 'Transcript already exists in analysis - no changes made',
+          duplicate: true
+        });
+      }
+    }
 
     // Call fillRespondentRowsFromTranscript directly on raw transcript
     const caResult = await fillRespondentRowsFromTranscript({
@@ -1670,6 +1699,27 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
             existingTranscript.addedAt = new Date().toISOString();
             console.log(`Updated transcript tracking: ${usedTranscriptId} -> ${respno}`);
           }
+        }
+        
+        // Preserve column schema to prevent header loss when all respondents are deleted
+        if (processed.data) {
+          const columnSchema = {};
+          for (const [sheetName, sheetData] of Object.entries(processed.data)) {
+            if (Array.isArray(sheetData) && sheetData.length > 0) {
+              // Extract column names from the first row
+              const columns = Object.keys(sheetData[0] || {}).filter(key => 
+                key !== 'respno' && 
+                key !== 'transcriptId' && 
+                !key.startsWith('New Column')
+              );
+              columnSchema[sheetName] = columns;
+            } else if (savedAnalyses[idx].columnSchema && savedAnalyses[idx].columnSchema[sheetName]) {
+              // Preserve existing schema if sheet is empty
+              columnSchema[sheetName] = savedAnalyses[idx].columnSchema[sheetName];
+            }
+          }
+          savedAnalyses[idx].columnSchema = columnSchema;
+          console.log('Preserved column schema:', Object.keys(columnSchema));
         }
         
         savedAnalyses[idx].savedAt = new Date().toISOString();

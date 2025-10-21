@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JAICE Dashboard</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            cursor: pointer;
+        }
+        .container {
+            text-align: center;
+            color: white;
+        }
+        .logo {
+            width: 120px;
+            height: 120px;
+            background: white;
+            border-radius: 50%;
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            font-weight: bold;
+            color: #667eea;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            transition: transform 0.3s ease;
+        }
+        .logo:hover {
+            transform: scale(1.1);
+        }
+        .title {
+            font-size: 28px;
+            font-weight: 300;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            font-size: 16px;
+            opacity: 0.8;
+            margin-bottom: 30px;
+        }
+        .status {
+            font-size: 14px;
+            opacity: 0.7;
+        }
+        .click-hint {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 12px;
+            opacity: 0.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">J</div>
+        <div class="title">JAICE Dashboard</div>
+        <div class="subtitle">Click to Launch</div>
+        <div class="status" id="status">Ready to start...</div>
+    </div>
+    <div class="click-hint">Double-click to launch JAICE Dashboard</div>
+
+    <script>
+        // Handle click to launch
+        document.body.addEventListener('click', function() {
+            document.getElementById('status').textContent = 'Starting JAICE Dashboard...';
+            
+            // Try to launch the VBS script
+            try {
+                const shell = new ActiveXObject("WScript.Shell");
+                shell.Run("JAICE-Dashboard.vbs", 0, false);
+                document.getElementById('status').textContent = 'JAICE Dashboard launched!';
+            } catch (e) {
+                // Fallback to batch file
+                try {
+                    const shell = new ActiveXObject("WScript.Shell");
+                    shell.Run("JAICE-Dashboard.bat", 1, false);
+                    document.getElementById('status').textContent = 'JAICE Dashboard launched!';
+                } catch (e2) {
+                    document.getElementById('status').textContent = 'Error: Could not launch. Please run JAICE-Dashboard.bat manually.';
+                }
+            }
+        });
+
+        // Auto-refresh status
+        setInterval(function() {
+            fetch('http://localhost:5173')
+                .then(response => {
+                    if (response.ok) {
+                        document.getElementById('status').textContent = 'JAICE Dashboard is running!';
+                        document.body.style.background = 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)';
+                    }
+                })
+                .catch(() => {
+                    document.getElementById('status').textContent = 'Click to start JAICE Dashboard';
+                    document.body.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+                });
+        }, 5000);
+    </script>
+</body>
+</html>
+
+

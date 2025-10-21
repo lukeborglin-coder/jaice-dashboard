@@ -690,13 +690,6 @@ function VendorLibrary({ projects }: { projects: any[] }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold" style={{ color: BRAND.gray }}>Vendor Library</h1>
-          <p className="text-gray-600">Manage your network of moderators, sample vendors, and analytics partners</p>
-        </div>
-      </div>
-
       {/* Section Navigation */}
       <div className="border-b border-gray-200">
         <nav className="-mb-px flex space-x-8">
@@ -745,18 +738,18 @@ function VendorLibrary({ projects }: { projects: any[] }) {
         </nav>
       </div>
 
-      {/* Tab-specific Add Button */}
-      <div className="flex justify-between items-center">
+      {/* Section Title with Add Button */}
+      <div className="flex items-center gap-4">
         <h2 className="text-lg font-semibold text-gray-900">
           {activeSection === 'moderators' ? 'Moderators' :
            activeSection === 'sampleVendors' ? 'Sample Vendors' : 'Analytics Partners'}
         </h2>
         <button
           onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2 px-4 py-2 text-white rounded-lg hover:opacity-90 transition-colors"
+          className="flex items-center gap-1 rounded-lg px-3 py-1 text-xs shadow-sm transition-colors text-white hover:opacity-90"
           style={{ backgroundColor: BRAND.orange }}
         >
-          <PlusIcon className="h-5 w-5" />
+          <PlusSmallIcon className="h-4 w-4" />
           Add {activeSection === 'moderators' ? 'Moderator' :
                activeSection === 'sampleVendors' ? 'Sample Vendor' : 'Analytics Partner'}
         </button>
@@ -3054,10 +3047,26 @@ export default function App() {
   const [projectToNavigate, setProjectToNavigate] = useState<Project | null>(null);
   const [isLoadingProjectFile, setIsLoadingProjectFile] = useState(false);
   const [savedContentAnalyses, setSavedContentAnalyses] = useState<any[]>([]);
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
 
   // Admin notification state
   const [adminNotificationCount, setAdminNotificationCount] = useState(0);
   const [allUsers, setAllUsers] = useState<any[]>([]);
+
+  // Close profile dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      const target = event.target as Element;
+      if (!target.closest('[data-profile-dropdown]')) {
+        setShowProfileDropdown(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   // Load admin notification count
   useEffect(() => {
@@ -3680,6 +3689,99 @@ export default function App() {
   return (
     <AuthWrapper>
     <div className="min-h-screen w-full flex bg-gray-50 text-gray-800">
+      {/* Top Header - Full Width */}
+      <div className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200" style={{ height: '80px' }}>
+        <div className="h-full flex items-center">
+          {/* Left side - Logo area (matches sidebar logo height) */}
+          <div className="flex items-center border-r border-gray-200 pr-4" style={{ width: sidebarOpen ? '256px' : '80px', height: '80px' }}>
+            <div className="flex items-center justify-center w-full">
+              <img
+                src={sidebarOpen ? "/CogDashLogo.png" : "/Circle.png"}
+                alt="Cognitive Dash Logo"
+                className={`object-contain transition-all cursor-pointer hover:opacity-70 ${sidebarOpen ? "h-16 w-full max-w-48" : "h-12 w-12"}`}
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+              />
+            </div>
+          </div>
+          
+          {/* Right side - Header content */}
+          <div className="flex-1 flex items-center justify-between px-6">
+            {/* Page Title - show on all pages */}
+            {route === "Home" && (
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-bold" style={{ color: BRAND.gray }}>Hello {user?.name?.split(' ')[0] || 'User'}!</h1>
+              </div>
+            )}
+            {route === "Project Hub" && (
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-bold" style={{ color: BRAND.gray }}>Project Hub</h1>
+              </div>
+            )}
+            {route === "Vendor Library" && (
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-bold" style={{ color: BRAND.gray }}>Vendor Library</h1>
+              </div>
+            )}
+            {route === "Transcripts" && (
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-bold" style={{ color: BRAND.gray }}>Transcripts</h1>
+              </div>
+            )}
+            {route === "Content Analysis" && (
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-bold" style={{ color: BRAND.gray }}>Content Analysis</h1>
+              </div>
+            )}
+            {route === "Storytelling" && (
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-bold" style={{ color: BRAND.gray }}>Storytelling</h1>
+              </div>
+            )}
+            {route === "Stat Testing" && (
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-bold" style={{ color: BRAND.gray }}>Statistical Testing</h1>
+              </div>
+            )}
+            
+            {/* Spacer for non-Home pages to push icon to the right */}
+            {route !== "Home" && route !== "Project Hub" && route !== "Vendor Library" && route !== "Transcripts" && route !== "Content Analysis" && route !== "Storytelling" && route !== "Stat Testing" && <div></div>}
+            
+            {/* User Profile Dropdown */}
+            <div className="relative" data-profile-dropdown>
+              <button
+                onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+                className="w-10 h-10 rounded-full flex items-center justify-center hover:opacity-80 transition-opacity shadow-md" 
+                style={{ backgroundColor: BRAND.orange }}
+              >
+                <span className="text-white text-base font-bold">
+                  {user?.name ? user.name.split(' ').map(n => n.charAt(0)).join('') : 'U'}
+                </span>
+              </button>
+
+              {/* Dropdown Menu */}
+              {showProfileDropdown && (
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                  <div className="px-4 py-2 border-b border-gray-100">
+                    <div className="text-sm font-medium text-gray-900 truncate">{user?.name || 'User'}</div>
+                    <div className="text-xs text-gray-500 truncate">{user?.email || 'user@example.com'}</div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      logout();
+                      setShowProfileDropdown(false);
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2"
+                  >
+                    <ArrowRightOnRectangleIcon className="h-4 w-4" />
+                    Sign out
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Mobile backdrop overlay - only on very small screens */}
       {sidebarOpen && (
         <div 
@@ -3689,18 +3791,9 @@ export default function App() {
       )}
       <aside
           className={`${sidebarOpen ? "w-64" : "w-20"} ${sidebarOpen ? "flex" : "hidden lg:flex"} flex-col border-r bg-white/90 backdrop-blur-sm sticky top-0 h-screen flex-shrink-0 z-40`}
-          style={{ width: sidebarOpen ? 256 : 80, minWidth: sidebarOpen ? 256 : 80 }}
+          style={{ width: sidebarOpen ? 256 : 80, minWidth: sidebarOpen ? 256 : 80, top: '80px', height: 'calc(100vh - 80px)' }}
         >
-        <div className={`flex items-center border-b pt-3 pb-1 ${sidebarOpen ? 'justify-center' : 'justify-center'}`}>
-          <div className="flex items-center">
-            <img
-              src={sidebarOpen ? "/CogDashLogo.png" : "/Circle.png"}
-              alt="Cognitive Dash Logo"
-              className={`object-contain transition-all cursor-pointer hover:opacity-70 ${sidebarOpen ? "h-16 w-full max-w-48" : "h-12 w-12"}`}
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-            />
-          </div>
-        </div>
+        {/* Logo area removed from sidebar since it's now in the header */}
         <nav className="p-2 space-y-1 overflow-y-auto flex-1">
           {/* Main Navigation */}
           {mainNav.map((item) => (
@@ -3832,23 +3925,12 @@ export default function App() {
           </div>
         )}
         
-        {/* User info and sign out */}
+        {/* Report bug and feature request links */}
         <div className={`mt-auto p-3 border-t ${!sidebarOpen ? 'flex justify-center' : ''}`}>
-          <div className={`flex items-center gap-3 mb-3 ${!sidebarOpen ? 'mb-0' : ''}`}>
-            <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: BRAND.orange }}>
-              <span className="text-white text-sm font-bold">
-                {getInitials(user?.name || 'User')}
-              </span>
-            </div>
+          <div className={`flex items-center gap-3 ${!sidebarOpen ? 'mb-0' : ''}`}>
             {sidebarOpen && (
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium text-gray-900 truncate">
-                  {user?.name || 'User'}
-                </div>
-                <div className="text-xs text-gray-500 truncate">
-                  {user?.email || 'user@example.com'}
-                </div>
-                <div className="text-xs text-gray-600 space-x-3 mt-1">
+                <div className="text-xs text-gray-600 space-x-3">
                   <button
                     className="underline hover:text-gray-800"
                     onClick={() => { try { window.history.replaceState(null, '', '?route=Feedback&type=bug'); } catch {} setRoute('Feedback'); }}
@@ -3862,15 +3944,20 @@ export default function App() {
                     Feature request
                   </button>
                 </div>
-                <div 
-                  className="text-xs text-red-600 cursor-pointer hover:text-red-700 transition mt-1"
-                  onClick={logout}
-                >
-                  Sign out
-                </div>
               </div>
             )}
-            {/* When collapsed, show only initials icon (centered). No extra actions. */}
+            {/* When collapsed, show only a small icon or indicator */}
+            {!sidebarOpen && (
+              <button
+                className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors"
+                onClick={() => { try { window.history.replaceState(null, '', '?route=Feedback&type=bug'); } catch {} setRoute('Feedback'); }}
+                title="Report bug"
+              >
+                <svg className="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+              </button>
+            )}
           </div>
         </div>
       </aside>
@@ -3897,9 +3984,9 @@ export default function App() {
       ) : route === "QNR" || route === "qnr" ? (
         <QuestionnaireParser />
       ) : (
-        <main className="flex-1 overflow-visible min-w-0" style={{ background: BRAND.bg }}>
+        <main className="flex-1 overflow-visible min-w-0" style={{ background: BRAND.bg, marginTop: '80px' }}>
           {/* Mobile menu button - only visible on very small screens */}
-          <div className="sm:hidden fixed top-4 left-4 z-50">
+          <div className="sm:hidden fixed top-20 left-4 z-50">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
               className="p-2 bg-white rounded-lg shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors"
@@ -3907,7 +3994,7 @@ export default function App() {
               <Bars3Icon className="h-6 w-6" style={{ color: BRAND.gray }} />
             </button>
           </div>
-          <div className="p-5 overflow-y-auto h-screen w-full min-w-0">
+          <div className="p-5 overflow-y-auto w-full min-w-0" style={{ height: 'calc(100vh - 80px)' }}>
             {isNavigatingToProject || isLoadingProjectFile ? (
               <div className="flex items-center justify-center h-screen">
                 <div className="text-center">
@@ -4520,11 +4607,6 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
 
   return (
     <div className="space-y-6 w-full max-w-full overflow-x-hidden">
-      {/* Header with greeting */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold" style={{ color: BRAND.gray }}>Hello {firstName}!</h1>
-        <p className="text-lg text-gray-600 mt-1">Welcome Back!</p>
-      </div>
 
 
 
@@ -8742,79 +8824,80 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
       {/* Project Hub View */}
       {!showDashboard && !isTransitioning && (
       <div className="space-y-5">
-        {/* Header */}
-        <section className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold" style={{ color: BRAND.gray }}>Project Hub</h2>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600">Current View:</span>
-            <button
-              onClick={() => {
-                const newViewMode = viewMode === 'list' ? 'timeline' : 'list';
-                setViewMode(newViewMode);
-                // Clear filters when switching to timeline view except project name
-                if (newViewMode === 'timeline') {
-                  setFilterPhase('All');
-                  setSearchTerm('');
-                }
-              }}
-              className={`px-3 py-1 text-xs rounded-lg shadow-sm transition-colors ${
-                viewMode === 'timeline'
-                  ? 'text-white hover:opacity-90'
-                  : 'bg-white border border-gray-300 hover:bg-gray-50'
-              }`}
-              style={viewMode === 'timeline' ? { backgroundColor: BRAND.orange } : {}}
-            >
-              {viewMode === 'list' ? 'List View' : 'Timeline View'}
-            </button>
-            <button
-              onClick={() => setShowMyProjectsOnly(!showMyProjectsOnly)}
-              className={`px-3 py-1 text-xs rounded-lg shadow-sm transition-colors ${
-                showMyProjectsOnly
-                  ? 'bg-white border border-gray-300 hover:bg-gray-50'
-                  : 'text-white hover:opacity-90'
-              }`}
-              style={showMyProjectsOnly ? {} : { backgroundColor: BRAND.orange }}
-            >
-              {showMyProjectsOnly ? 'Only My Projects' : 'All Cognitive Projects'}
-            </button>
-          </div>
-        </section>
 
-        {/* Tabs and New Project Button */}
+        {/* Tabs and Controls */}
         <div className="border-b border-gray-200">
-          <div className="flex items-center">
+          <div className="flex items-center justify-between">
             <nav className="-mb-px flex space-x-8 items-center">
-            <button
-              onClick={() => setActiveTab('active')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'active'
-                  ? 'text-white'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-              style={activeTab === 'active' ? { borderBottomColor: BRAND.orange, color: BRAND.orange } : {}}
-            >
-              Active ({filteredCounts.active})
-            </button>
-            <button
-              onClick={() => setActiveTab('archived')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'archived'
-                  ? 'text-white'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-              style={activeTab === 'archived' ? { borderBottomColor: BRAND.orange, color: BRAND.orange } : {}}
-            >
-              Archived ({filteredCounts.archived})
-            </button>
-            <button
-              onClick={() => setShowProjectWizard(true)}
-              className="flex items-center gap-1 rounded-lg px-3 py-1 text-xs shadow-sm transition-colors text-white hover:opacity-90 ml-4"
-              style={{ backgroundColor: BRAND.orange }}
-            >
-              <PlusSmallIcon className="h-4 w-4" />
-              New Project
-            </button>
+              <button
+                onClick={() => setActiveTab('active')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'active'
+                    ? 'text-white'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+                style={activeTab === 'active' ? { borderBottomColor: BRAND.orange, color: BRAND.orange } : {}}
+              >
+                Active ({filteredCounts.active})
+              </button>
+              <button
+                onClick={() => setActiveTab('archived')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'archived'
+                    ? 'text-white'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+                style={activeTab === 'archived' ? { borderBottomColor: BRAND.orange, color: BRAND.orange } : {}}
+              >
+                Archived ({filteredCounts.archived})
+              </button>
+              <button
+                onClick={() => setShowProjectWizard(true)}
+                className="flex items-center gap-1 rounded-lg px-3 py-1 text-xs shadow-sm transition-colors text-white hover:opacity-90 ml-4"
+                style={{ backgroundColor: BRAND.orange }}
+              >
+                <PlusSmallIcon className="h-4 w-4" />
+                New Project
+              </button>
             </nav>
+            
+            {/* Right-aligned controls */}
+            <div className="flex items-center gap-3">
+              {/* View Mode Toggle */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600">Current View:</span>
+                <button
+                  onClick={() => {
+                    const newViewMode = viewMode === 'list' ? 'timeline' : 'list';
+                    setViewMode(newViewMode);
+                    // Clear filters when switching to timeline view except project name
+                    if (newViewMode === 'timeline') {
+                      setFilterPhase('All');
+                      setSearchTerm('');
+                    }
+                  }}
+                  className={`px-3 py-1 text-xs rounded-lg shadow-sm transition-colors ${
+                    viewMode === 'timeline'
+                      ? 'text-white hover:opacity-90'
+                      : 'bg-white border border-gray-300 hover:bg-gray-50'
+                  }`}
+                  style={viewMode === 'timeline' ? { backgroundColor: BRAND.orange } : {}}
+                >
+                  {viewMode === 'list' ? 'List View' : 'Timeline View'}
+                </button>
+                <button
+                  onClick={() => setShowMyProjectsOnly(!showMyProjectsOnly)}
+                  className={`px-3 py-1 text-xs rounded-lg shadow-sm transition-colors ${
+                    showMyProjectsOnly
+                      ? 'bg-white border border-gray-300 hover:bg-gray-50'
+                      : 'text-white hover:opacity-90'
+                  }`}
+                  style={showMyProjectsOnly ? {} : { backgroundColor: BRAND.orange }}
+                >
+                  {showMyProjectsOnly ? 'Only My Projects' : 'All Cognitive Projects'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 

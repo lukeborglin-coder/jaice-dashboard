@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, TrashIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 
 const BRAND = {
   orange: "#D14A2D",
@@ -175,11 +175,82 @@ const StatTesting: React.FC = () => {
     }));
   };
 
+  const exportToExcel = () => {
+    // Create CSV content with proper formatting
+    let csvContent = '';
+    
+    // Add BOM for proper UTF-8 encoding
+    csvContent = '\uFEFF';
+    
+    // Add row 1: Subgroup titles
+    csvContent += 'Subgroup,';
+    columns.forEach((col, index) => {
+      const title = col.title || `Subgroup ${col.letter}`;
+      csvContent += `"${title}"`;
+      if (index < columns.length - 1) csvContent += ',';
+    });
+    csvContent += '\n';
+    
+    // Add row 2: Sample sizes
+    csvContent += 'Sample Size,';
+    columns.forEach((col, index) => {
+      const sampleSize = col.sampleSize || '';
+      csvContent += `"${sampleSize}"`;
+      if (index < columns.length - 1) csvContent += ',';
+    });
+    csvContent += '\n';
+    
+    // Add row 3: Column letters (A, B, C, etc.)
+    csvContent += ',';
+    columns.forEach((col, index) => {
+      csvContent += `"(${col.letter})"`;
+      if (index < columns.length - 1) csvContent += ',';
+    });
+    csvContent += '\n';
+    
+    // Add data rows with statistical significance
+    const numRows = getNumRows();
+    for (let rowIndex = 0; rowIndex < numRows; rowIndex++) {
+      csvContent += `${rowIndex + 1},`;
+      
+      columns.forEach((col, colIndex) => {
+        const value = col.values[rowIndex] || '';
+        const significantDiffs = getSignificantDifferences(rowIndex, colIndex);
+        const hasSignificance = significantDiffs.length > 0;
+        
+        let cellContent = value;
+        if (value && !isNaN(parseFloat(value))) {
+          cellContent = `${value}%`;
+        }
+        
+        if (hasSignificance) {
+          cellContent += ` (${significantDiffs.join(', ')})`;
+        }
+        
+        csvContent += `"${cellContent}"`;
+        if (colIndex < columns.length - 1) csvContent += ',';
+      });
+      
+      csvContent += '\n';
+    }
+    
+    // Create and download the file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'statistical_testing_data.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
-    <div className="h-screen overflow-hidden flex flex-col w-full" style={{ background: BRAND.bg }}>
-      <div className="p-6 border-b border-gray-200 bg-white flex-shrink-0 w-full">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold" style={{ color: BRAND.gray }}>Statistical Testing</h1>
+    <div className="h-screen overflow-hidden flex flex-col w-full" style={{ background: BRAND.bg, marginTop: '80px', height: 'calc(100vh - 80px)' }}>
+      <div className="flex-1 overflow-auto p-6 w-full">
+        {/* Confidence Level Controls */}
+        <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <label className="text-sm font-medium" style={{ color: BRAND.gray }}>
               Confidence Level:
@@ -194,21 +265,19 @@ const StatTesting: React.FC = () => {
               <option value={80}>80%</option>
             </select>
           </div>
+          <button
+            onClick={exportToExcel}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            <ArrowDownTrayIcon className="h-4 w-4" />
+            Export to Excel
+          </button>
         </div>
-        <p className="text-sm text-gray-600">
-          Compare subgroup percentages and identify statistically significant differences.
-          Values significantly higher than others will be marked with red letters.
-        </p>
-      </div>
-
-      <div className="flex-1 overflow-auto p-6 w-full">
+        
         <div className="bg-white rounded-lg border border-gray-200 overflow-auto w-full">
-          <table className="w-full border-collapse">
+          <table className="border-collapse" style={{ width: 'auto', minWidth: '100%' }}>
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="w-12 px-4 py-3 text-left text-xs font-semibold text-gray-600 border-r border-gray-200">
-                  Subgroup
-                </th>
                 {columns.map((col) => (
                   <th key={col.id} className="px-4 py-3 text-center border-r border-gray-200 last:border-r-0">
                     <input
@@ -216,7 +285,7 @@ const StatTesting: React.FC = () => {
                       value={col.title}
                       onChange={(e) => updateColumnTitle(col.id, e.target.value)}
                       placeholder="Subgroup Title"
-                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500"
+                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500 text-center"
                     />
                   </th>
                 ))}
@@ -231,9 +300,6 @@ const StatTesting: React.FC = () => {
                 </th>
               </tr>
               <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="w-12 px-4 py-3 text-left text-xs font-semibold text-gray-600 border-r border-gray-200">
-                  Sample
-                </th>
                 {columns.map((col) => (
                   <th key={`sample-${col.id}`} className="px-4 py-3 text-center border-r border-gray-200">
                     <input
@@ -245,15 +311,13 @@ const StatTesting: React.FC = () => {
                           updateColumnSampleSize(col.id, value);
                         }
                       }}
-                      placeholder="0"
+                      placeholder="sample size"
                       className="w-full px-2 py-1 text-sm text-center border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500"
                     />
                   </th>
                 ))}
               </tr>
               <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="w-12 px-4 py-2 text-left text-xs font-semibold text-gray-600 border-r border-gray-200">
-                </th>
                 {columns.map((col) => (
                   <th key={`header-${col.id}`} className="px-4 py-2 text-center border-r border-gray-200">
                     <div className="flex items-center justify-center gap-2">
@@ -286,9 +350,6 @@ const StatTesting: React.FC = () => {
                     key={rowIndex}
                     className={`border-b border-gray-200 last:border-b-0 ${isLastRow ? 'bg-gray-50' : 'hover:bg-gray-50'}`}
                   >
-                    <td className={`px-4 py-2 text-center text-sm font-medium border-r border-gray-200 ${isLastRow ? 'text-gray-400' : 'text-gray-600'}`}>
-                      {rowIndex + 1}
-                    </td>
                     {columns.map((col, colIndex) => {
                       const significantDiffs = getSignificantDifferences(rowIndex, colIndex);
                       return (

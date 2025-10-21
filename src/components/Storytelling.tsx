@@ -2014,8 +2014,8 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
   // Project view - show list of content analyses (when no analysis is selected yet)
   if (selectedProject && viewMode === 'project' && !selectedContentAnalysis) {
     return (
-      <main className="flex-1 overflow-y-auto" style={{ backgroundColor: BRAND_BG }}>
-        <div className="flex-1 p-6 space-y-6 max-w-full overflow-hidden">
+      <main className="flex-1 overflow-y-auto" style={{ backgroundColor: BRAND_BG, height: 'calc(100vh - 80px)', marginTop: '80px' }}>
+        <div className="flex-1 p-6 space-y-6 max-w-full overflow-hidden h-full">
           <section className="flex items-center justify-between">
             <div>
               <button
@@ -2124,8 +2124,8 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
   // Project view with tabs (when a content analysis is selected)
   if (selectedProject && viewMode === 'project' && selectedContentAnalysis) {
     return (
-      <main className="flex-1 overflow-y-auto" style={{ backgroundColor: BRAND_BG }}>
-        <div className="flex-1 p-6 space-y-6 max-w-full overflow-hidden">
+      <main className="flex-1 overflow-y-auto" style={{ backgroundColor: BRAND_BG, height: 'calc(100vh - 80px)', marginTop: '80px' }}>
+        <div className="flex-1 p-6 space-y-6 max-w-full overflow-hidden h-full">
           <section className="flex items-center justify-between">
             <div>
               <button
@@ -2930,35 +2930,8 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
   }
 
   return (
-    <main className="flex-1 overflow-y-auto" style={{ backgroundColor: BRAND_BG }}>
-      <div className="flex-1 p-6 space-y-6 max-w-full overflow-hidden">
-        <section className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold" style={{ color: BRAND_GRAY }}>
-              Storytelling
-            </h2>
-            <p className="mt-1 text-sm text-gray-500">
-              AI-powered insights from qualitative research
-            </p>
-          </div>
-          {viewMode === 'home' && (
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600">Current View:</span>
-              <button
-                onClick={() => setShowMyProjectsOnly(!showMyProjectsOnly)}
-                className={`px-3 py-1 text-xs rounded-lg shadow-sm transition-colors ${
-                  showMyProjectsOnly
-                    ? 'bg-white border border-gray-300 hover:bg-gray-50'
-                    : 'text-white hover:opacity-90'
-                }`}
-                style={showMyProjectsOnly ? {} : { backgroundColor: BRAND_ORANGE }}
-              >
-                {showMyProjectsOnly ? 'Only My Projects' : 'All Cognitive Projects'}
-              </button>
-            </div>
-          )}
-        </section>
-
+    <main className="flex-1 overflow-y-auto" style={{ backgroundColor: BRAND_BG, height: 'calc(100vh - 80px)', marginTop: '80px' }}>
+      <div className="flex-1 p-6 space-y-6 max-w-full overflow-hidden h-full">
         {/* Tabs - only show on home view */}
         {viewMode === 'home' && (
           <div>
@@ -2987,6 +2960,24 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
                   Archived Projects ({filteredArchivedProjects.length})
                 </button>
               </nav>
+              
+              {/* Right-aligned controls */}
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-600">Current View:</span>
+                  <button
+                    onClick={() => setShowMyProjectsOnly(!showMyProjectsOnly)}
+                    className={`px-3 py-1 text-xs rounded-lg shadow-sm transition-colors ${
+                      showMyProjectsOnly
+                        ? 'bg-white border border-gray-300 hover:bg-gray-50'
+                        : 'text-white hover:opacity-90'
+                    }`}
+                    style={showMyProjectsOnly ? {} : { backgroundColor: BRAND_ORANGE }}
+                  >
+                    {showMyProjectsOnly ? 'Only My Projects' : 'All Cognitive Projects'}
+                  </button>
+                </div>
+              </div>
             </div>
             <div className="border-b border-gray-200"></div>
           </div>
