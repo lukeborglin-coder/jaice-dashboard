@@ -630,17 +630,25 @@ router.delete('/:projectId/:transcriptId', authenticateToken, async (req, res) =
       const analysesData = await fs.readFile(ANALYSES_PATH, 'utf8');
       const analyses = JSON.parse(analysesData);
 
-      if (analyses[projectId]) {
-        const analysis = analyses[projectId];
+      // analyses is an array, so find all analyses for this project
+      const projectAnalyses = analyses.filter(a => a.projectId === projectId);
+
+      for (const analysis of projectAnalyses) {
+        console.log(`Processing analysis ${analysis.id} for deleted transcript ${deletedRespno}`);
 
         // Remove rows matching the deleted respno from all sheets
         if (analysis.data) {
           for (const sheetName of Object.keys(analysis.data)) {
             if (Array.isArray(analysis.data[sheetName])) {
+              const beforeLength = analysis.data[sheetName].length;
               analysis.data[sheetName] = analysis.data[sheetName].filter(row => {
                 const rowRespno = row['Respondent ID'] || row['respno'];
                 return rowRespno !== deletedRespno;
               });
+              const afterLength = analysis.data[sheetName].length;
+              if (beforeLength !== afterLength) {
+                console.log(`  Removed from ${sheetName}: ${beforeLength} → ${afterLength} rows`);
+              }
             }
           }
         }
@@ -659,33 +667,20 @@ router.delete('/:projectId/:transcriptId', authenticateToken, async (req, res) =
           delete analysis.quotes[deletedRespno];
         }
 
-        // Now reassign respnos in CA data to match the updated transcript respnos
-        // Build mapping from old respnos to new respnos based on updated transcripts
-        const respnoMapping = new Map();
-        transcripts[projectId].forEach((t, index) => {
-          const newRespno = t.respno; // Already reassigned above
-          // We need to find which old respno this transcript had
-          // We can use the transcript ID to track it
-          if (analysis.data && analysis.data.Demographics) {
-            const demographicsRow = analysis.data.Demographics.find(row => {
-              // Match by some unique identifier - we'll use position after sorting
-              return true; // Will be fixed by chronological re-sort below
-            });
-          }
-        });
-
-        // Re-sort Demographics by date and reassign all respnos chronologically
+        // Re-sort Demographics by date and reassign all respnos chronologically to match transcripts
         if (analysis.data && analysis.data.Demographics) {
           const demographics = analysis.data.Demographics;
 
-          // Sort by interview date
+          // Sort by interview date and time
           demographics.sort((a, b) => {
-            const dateA = a['Interview Date'] || a['Date'] || '';
-            const dateB = b['Interview Date'] || b['Date'] || '';
+            const dateA = a['Interview Date'] || '';
+            const timeA = a['Interview Time'] || '';
+            const dateB = b['Interview Date'] || '';
+            const timeB = b['Interview Time'] || '';
 
             if (dateA && dateB) {
-              const parsedA = new Date(dateA);
-              const parsedB = new Date(dateB);
+              const parsedA = new Date(dateA + ' ' + timeA);
+              const parsedB = new Date(dateB + ' ' + timeB);
               if (!isNaN(parsedA.getTime()) && !isNaN(parsedB.getTime())) {
                 return parsedA.getTime() - parsedB.getTime();
               }
@@ -693,7 +688,7 @@ router.delete('/:projectId/:transcriptId', authenticateToken, async (req, res) =
             return 0;
           });
 
-          // Reassign respnos sequentially
+          // Reassign respnos sequentially to match the transcript order
           demographics.forEach((row, index) => {
             const newRespno = `R${String(index + 1).padStart(2, '0')}`;
             if ('Respondent ID' in row) row['Respondent ID'] = newRespno;
@@ -714,10 +709,14 @@ router.delete('/:projectId/:transcriptId', authenticateToken, async (req, res) =
               });
             }
           }
-        }
 
+          console.log(`  Updated respnos in CA to match new transcript order`);
+        }
+      }
+
+      if (projectAnalyses.length > 0) {
         await fs.writeFile(ANALYSES_PATH, JSON.stringify(analyses, null, 2));
-        console.log(`Cleaned up CA data for deleted transcript ${deletedRespno}`);
+        console.log(`✅ Cleaned up ${projectAnalyses.length} CA(s) for deleted transcript ${deletedRespno}`);
       }
     } catch (error) {
       console.warn('Failed to clean up Content Analysis data:', error);
