@@ -183,22 +183,37 @@ async function ensureDataDir() {
   }
 }
 
+// Load transcripts from file
+async function loadTranscripts() {
+  try {
+    const transcriptsPath = path.join(process.env.DATA_DIR || path.join(__dirname, '../data'), 'transcripts.json');
+    if (await fs.access(transcriptsPath).then(() => true).catch(() => false)) {
+      const data = await fs.readFile(transcriptsPath, 'utf8');
+      return safeJsonParse(data, {});
+    }
+    return {};
+  } catch (error) {
+    console.error('Error loading transcripts:', error);
+    return {};
+  }
+}
+
 // Load saved analyses from file
 async function loadSavedAnalyses() {
   try {
     await ensureDataDir();
     if (await fs.access(savedAnalysesFile).then(() => true).catch(() => false)) {
       const data = await fs.readFile(savedAnalysesFile, 'utf8');
-      
+
       // Check if data is empty or just whitespace
       if (!data || data.trim().length === 0) {
         console.log('Saved analyses file is empty, returning empty array');
         return [];
       }
-      
+
       // Use safe JSON parse
       const parsed = safeJsonParse(data, []);
-      
+
       if (parsed === null) {
         console.log('JSON parse returned null, resetting to empty array');
         await saveAnalysesToFile([]);
