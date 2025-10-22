@@ -1,0 +1,1029 @@
+[
+  {
+    "id": "task-001",
+    "quantQual": "Quant",
+    "phase": "Kickoff",
+    "task": "Create Kick Off (KO) deck",
+    "dateNotes": "1 day before KO date",
+    "role": "Project Manager",
+    "notes": ""
+  },
+  {
+    "id": "task-002",
+    "quantQual": "Quant",
+    "phase": "Kickoff",
+    "task": "Create detailed timeline",
+    "dateNotes": "1 day before KO date",
+    "role": "Project Manager",
+    "notes": ""
+  },
+  {
+    "id": "task-003",
+    "quantQual": "Quant",
+    "phase": "Kickoff",
+    "task": "Hold Internal Pre-Kick Off: Talk through study overview, roles, deadlines, and any other key project info prior to KO with client.",
+    "dateNotes": "1 day before KO date",
+    "role": "Project Manager",
+    "notes": ""
+  },
+  {
+    "id": "task-004",
+    "quantQual": "Quant",
+    "phase": "Kickoff",
+    "task": "Create or review Proposal based on RFP (Request For Proposal)",
+    "dateNotes": "",
+    "role": "Project Manager",
+    "notes": ""
+  },
+  {
+    "id": "task-005",
+    "quantQual": "Quant",
+    "phase": "Kickoff",
+    "task": "Create a job folder for the study in the 'Proposals' folder (within appropriate client folder)",
+    "dateNotes": "",
+    "role": "Logistics",
+    "notes": ""
+  },
+  {
+    "id": "task-006",
+    "quantQual": "Quant",
+    "phase": "Kickoff",
+    "task": "Ensure any new vendors you are bringing on board have signed the NDA",
+    "dateNotes": "",
+    "role": "Recruit Coordinator",
+    "notes": ""
+  },
+  {
+    "id": "task-007",
+    "quantQual": "Quant",
+    "phase": "Kickoff",
+    "task": "Create Internal Cost Worksheet, send to supervisor",
+    "dateNotes": "",
+    "role": "Logistics",
+    "notes": ""
+  },
+  {
+    "id": "task-008",
+    "quantQual": "Quant",
+    "phase": "Kickoff",
+    "task": "Move study docs from 'Proposals' folder to main client folder",
+    "dateNotes": "",
+    "role": "Project Manager",
+    "notes": ""
+  },
+  {
+    "id": "task-009",
+    "quantQual": "Quant",
+    "phase": "Kickoff",
+    "task": "Set up Invoice Schedule & Worksheet (Reference PO/SOW for client specific invoice timeline)",
+    "dateNotes": "",
+    "role": "",
+    "notes": ""
+  },
+  {
+    "id": "task-010",
+    "quantQual": "Quant",
+    "phase": "Kickoff",
+    "task": "Bid project out to vendors",
+    "dateNotes": "",
+    "role": "Recruit Coordinator",
+    "notes": ""
+  },
+  {
+    "id": "task-011",
+    "quantQual": "Quant",
+    "phase": "Kickoff",
+    "task": "Save vendors' bids to job folder",
+    "dateNotes": "",
+    "role": "Recruit Coordinator",
+    "notes": ""
+  },
+  {
+    "id": "task-012",
+    "quantQual": "Quant",
+    "phase": "Kickoff",
+    "task": "Alert sample/programming vendor that the project is moving forward",
+    "dateNotes": "",
+    "role": "Recruit Coordinator",
+    "notes": ""
+  },
+  {
+    "id": "task-013",
+    "quantQual": "Quant",
+    "phase": "Kickoff",
+    "task": "After client KO call, confirm final sample quotas with vendor",
+    "dateNotes": "",
+    "role": "Recruit Coordinator",
+    "notes": ""
+  },
+  {
+    "id": "task-014",
+    "quantQual": "Quant",
+    "phase": "Pre-Field",
+    "task": "Draft QNR",
+    "dateNotes": "",
+    "role": "",
+    "notes": ""
+  },
+  {
+    "id": "task-015",
+    "quantQual": "Quant",
+    "phase": "Pre-Field",
+    "task": "Proof QNR",
+    "dateNotes": "",
+    "role": "",
+    "notes": ""
+  },
+  {
+    "id": "task-016",
+    "quantQual": "Quant",
+    "phase": "Pre-Field",
+    "task": "Send QNR draft to client",
+    "dateNotes": "",
+    "role": "Project Manager",
+    "notes": ""
+  },
+  {
+    "id": "task-017",
+    "quantQual": "Quant",
+    "phase": "Pre-Field",
+    "task": "Confirm final quota targets with client",
+    "dateNotes": "",
+    "role": "Project Manager",
+    "notes": ""
+  },
+  {
+    "id": "task-018",
+    "quantQual": "Quant",
+    "phase": "Pre-Field",
+    "task": "Add AE submission forms & contact info to job folder",
+    "dateNotes": "",
+    "role": "AE Manager",
+    "notes": ""
+  },
+  {
+    "id": "task-019",
+    "quantQual": "Quant",
+    "phase": "Pre-Field",
+    "task": "Update folder name with job #",
+    "dateNotes": "",
+    "role": "Logistics",
+    "notes": ""
+  },
+  {
+    "id": "task-020",
+    "quantQual": "Quant",
+    "phase": "Pre-Field",
+    "task": "Submit first client invoice request to accounting",
+    "dateNotes": "",
+    "role": "Project Manager",
+    "notes": ""
+  },
+  {
+    "id": "task-021",
+    "quantQual": "Quant",
+    "phase": "Pre-Field",
+    "task": "Send final QNR to vendor (after client sign off)",
+    "dateNotes": "",
+    "role": "Recruit Coordinator",
+    "notes": ""
+  },
+  {
+    "id": "task-022",
+    "quantQual": "Quant",
+    "phase": "Pre-Field",
+    "task": "Create specs & engage statistician",
+    "dateNotes": "",
+    "role": "",
+    "notes": "IF ADVANCED ANALYTICS"
+  },
+  {
+    "id": "task-023",
+    "quantQual": "Quant",
+    "phase": "Pre-Field",
+    "task": "Ensure signed/final documents are saved to job folder",
+    "dateNotes": "",
+    "role": "",
+    "notes": ""
+  },
+  {
+    "id": "task-024",
+    "quantQual": "Quant",
+    "phase": "Pre-Field",
+    "task": "Test survey program",
+    "dateNotes": "",
+    "role": "",
+    "notes": ""
+  },
+  {
+    "id": "task-025",
+    "quantQual": "Quant",
+    "phase": "Pre-Field",
+    "task": "Review translations in survey program",
+    "dateNotes": "",
+    "role": "",
+    "notes": "IF TRANSLATIONS"
+  },
+  {
+    "id": "task-026",
+    "quantQual": "Quant",
+    "phase": "Pre-Field",
+    "task": "Send translations to client-approved translators",
+    "dateNotes": "",
+    "role": "",
+    "notes": "IF TRANSLATIONS"
+  },
+  {
+    "id": "task-027",
+    "quantQual": "Quant",
+    "phase": "Pre-Field",
+    "task": "If requested: send tested survey link to client",
+    "dateNotes": "",
+    "role": "Project Manager",
+    "notes": ""
+  },
+  {
+    "id": "task-028",
+    "quantQual": "Quant",
+    "phase": "Pre-Field",
+    "task": "Create data quality check plan",
+    "dateNotes": "1 day before fieldwork start",
+    "role": "Recruit Coordinator",
+    "notes": ""
+  },
+  {
+    "id": "task-029",
+    "quantQual": "Quant",
+    "phase": "Pre-Field",
+    "task": "Create AE check plan",
+    "dateNotes": "1 day before fieldwork start",
+    "role": "AE Manager",
+    "notes": ""
+  },
+  {
+    "id": "task-030",
+    "quantQual": "Quant",
+    "phase": "Pre-Field",
+    "task": "Approve survey for soft launch",
+    "dateNotes": "first day of fieldwork",
+    "role": "Recruit Coordinator",
+    "notes": ""
+  },
+  {
+    "id": "task-031",
+    "quantQual": "Quant",
+    "phase": "Fielding",
+    "task": "Create report shell",
+    "dateNotes": "",
+    "role": "",
+    "notes": ""
+  },
+  {
+    "id": "task-032",
+    "quantQual": "Quant",
+    "phase": "Fielding",
+    "task": "Share fielding updates with client",
+    "dateNotes": "Ongoing",
+    "role": "Project Manager",
+    "notes": ""
+  },
+  {
+    "id": "task-033",
+    "quantQual": "Quant",
+    "phase": "Fielding",
+    "task": "Copy cost tracker shell to job folder and update",
+    "dateNotes": "",
+    "role": "",
+    "notes": ""
+  },
+  {
+    "id": "task-034",
+    "quantQual": "Quant",
+    "phase": "Fielding",
+    "task": "Create tab banner plan draft",
+    "dateNotes": "",
+    "role": "",
+    "notes": ""
+  },
+  {
+    "id": "task-035",
+    "quantQual": "Quant",
+    "phase": "Fielding",
+    "task": "Review and finalize tab banner plan",
+    "dateNotes": "",
+    "role": "Project Manager",
+    "notes": ""
+  },
+  {
+    "id": "task-036",
+    "quantQual": "Quant",
+    "phase": "Fielding",
+    "task": "Send tab banner plan to vendor",
+    "dateNotes": "",
+    "role": "Recruit Coordinator",
+    "notes": ""
+  },
+  {
+    "id": "task-037",
+    "quantQual": "Quant",
+    "phase": "Fielding",
+    "task": "If coding: share questions and required codes with vendor",
+    "dateNotes": "",
+    "role": "Recruit Coordinator",
+    "notes": ""
+  },
+  {
+    "id": "task-038",
+    "quantQual": "Quant",
+    "phase": "Fielding",
+    "task": "Request invoice if required by client schedule",
+    "dateNotes": "",
+    "role": "Project Manager",
+    "notes": ""
+  },
+  {
+    "id": "task-039",
+    "quantQual": "Quant",
+    "phase": "Fielding",
+    "task": "Request prelim tables (if needed)",
+    "dateNotes": "",
+    "role": "Recruit Coordinator",
+    "notes": ""
+  },
+  {
+    "id": "task-040",
+    "quantQual": "Quant",
+    "phase": "Fielding",
+    "task": "Check prelim tables (if needed)",
+    "dateNotes": "",
+    "role": "",
+    "notes": ""
+  },
+  {
+    "id": "task-041",
+    "quantQual": "Quant",
+    "phase": "Fielding",
+    "task": "Frequent data quality checks",
+    "dateNotes": "ongoing",
+    "role": "Recruit Coordinator",
+    "notes": ""
+  },
+  {
+    "id": "task-042",
+    "quantQual": "Quant",
+    "phase": "Fielding",
+    "task": "Frequent AE checks",
+    "dateNotes": "ongoing",
+    "role": "AE Manager",
+    "notes": ""
+  },
+  {
+    "id": "task-043",
+    "quantQual": "Quant",
+    "phase": "Post-Field Analysis",
+    "task": "Final data quality check",
+    "dateNotes": "last day of field",
+    "role": "Recruit Coordinator",
+    "notes": ""
+  },
+  {
+    "id": "task-044",
+    "quantQual": "Quant",
+    "phase": "Post-Field Analysis",
+    "task": "Save final raw data files to folder: raw excel file, SPSS file, verbatim file, etc.",
+    "dateNotes": "1 day after fieldwork ends",
+    "role": "Logistics",
+    "notes": ""
+  },
+  {
+    "id": "task-045",
+    "quantQual": "Quant",
+    "phase": "Post-Field Analysis",
+    "task": "Send final verbatim file to vendor for coding (if needed)",
+    "dateNotes": "1 day after fieldwork ends",
+    "role": "Recruit Coordinator",
+    "notes": ""
+  },
+  {
+    "id": "task-046",
+    "quantQual": "Quant",
+    "phase": "Post-Field Analysis",
+    "task": "Request final tables",
+    "dateNotes": "1 day after fieldwork ends",
+    "role": "Recruit Coordinator",
+    "notes": ""
+  },
+  {
+    "id": "task-047",
+    "quantQual": "Quant",
+    "phase": "Post-Field Analysis",
+    "task": "Send SPSS file to statistician (if applicable)",
+    "dateNotes": "1 day after fieldwork ends",
+    "role": "",
+    "notes": ""
+  },
+  {
+    "id": "task-048",
+    "quantQual": "Quant",
+    "phase": "Post-Field Analysis",
+    "task": "Check final tables",
+    "dateNotes": "",
+    "role": "",
+    "notes": ""
+  },
+  {
+    "id": "task-049",
+    "quantQual": "Quant",
+    "phase": "Post-Field Analysis",
+    "task": "Submit AE Reconciliation",
+    "dateNotes": "1 day after fieldwork ends",
+    "role": "AE Manager",
+    "notes": ""
+  },
+  {
+    "id": "task-050",
+    "quantQual": "Quant",
+    "phase": "Reporting",
+    "task": "Populate data in report shell",
+    "dateNotes": "",
+    "role": "",
+    "notes": ""
+  },
+  {
+    "id": "task-051",
+    "quantQual": "Quant",
+    "phase": "Reporting",
+    "task": "Write findings & exec summary",
+    "dateNotes": "",
+    "role": "",
+    "notes": ""
+  },
+  {
+    "id": "task-052",
+    "quantQual": "Quant",
+    "phase": "Reporting",
+    "task": "Have data proofed",
+    "dateNotes": "",
+    "role": "",
+    "notes": ""
+  },
+  {
+    "id": "task-053",
+    "quantQual": "Quant",
+    "phase": "Reporting",
+    "task": "Have exec summary and headlines proofed",
+    "dateNotes": "",
+    "role": "",
+    "notes": ""
+  },
+  {
+    "id": "task-054",
+    "quantQual": "Quant",
+    "phase": "Reporting",
+    "task": "Have full final report proofed",
+    "dateNotes": "1 day before report due date",
+    "role": "",
+    "notes": ""
+  },
+  {
+    "id": "task-055",
+    "quantQual": "Quant",
+    "phase": "Reporting",
+    "task": "Have full final report have a final review (for final sign off)",
+    "dateNotes": "final report due date",
+    "role": "",
+    "notes": ""
+  },
+  {
+    "id": "task-056",
+    "quantQual": "Quant",
+    "phase": "Reporting",
+    "task": "Send report to client",
+    "dateNotes": "final report due date",
+    "role": "Project Manager",
+    "notes": ""
+  },
+  {
+    "id": "task-057",
+    "quantQual": "Quant",
+    "phase": "Reporting",
+    "task": "Save vendor invoices, compare to bids, confirm costs",
+    "dateNotes": "final report due date",
+    "role": "Recruit Coordinator",
+    "notes": ""
+  },
+  {
+    "id": "task-058",
+    "quantQual": "Quant",
+    "phase": "Reporting",
+    "task": "Approve final vendor invoices",
+    "dateNotes": "",
+    "role": "Recruit Coordinator",
+    "notes": ""
+  },
+  {
+    "id": "task-059",
+    "quantQual": "Quant",
+    "phase": "Reporting",
+    "task": "Send final vendor invoices to Sharon",
+    "dateNotes": "",
+    "role": "Recruit Coordinator",
+    "notes": ""
+  },
+  {
+    "id": "task-060",
+    "quantQual": "Quant",
+    "phase": "Reporting",
+    "task": "Fill out Cost Tracker with final invoices from vendors",
+    "dateNotes": "",
+    "role": "Recruit Coordinator",
+    "notes": ""
+  },
+  {
+    "id": "task-061",
+    "quantQual": "",
+    "phase": "",
+    "task": "",
+    "dateNotes": "",
+    "role": "",
+    "notes": ""
+  },
+  {
+    "id": "task-062",
+    "quantQual": "Qual",
+    "phase": "Kickoff",
+    "task": "Create Kick Off (KO) deck",
+    "dateNotes": "1 day before KO date",
+    "role": "Project Manager",
+    "notes": ""
+  },
+  {
+    "id": "task-063",
+    "quantQual": "Qual",
+    "phase": "Kickoff",
+    "task": "Create detailed timeline",
+    "dateNotes": "1 day before KO date",
+    "role": "Project Manager",
+    "notes": ""
+  },
+  {
+    "id": "task-064",
+    "quantQual": "Qual",
+    "phase": "Kickoff",
+    "task": "Hold Internal Pre-Kick Off: Talk through study overview, roles, deadlines, and any other key project info prior to KO with client.",
+    "dateNotes": "1 day before KO date",
+    "role": "Project Manager",
+    "notes": ""
+  },
+  {
+    "id": "task-065",
+    "quantQual": "Qual",
+    "phase": "Kickoff",
+    "task": "Create or review Proposal based on RFP (Request For Proposal)",
+    "dateNotes": "1 day before KO date",
+    "role": "Project Manager",
+    "notes": ""
+  },
+  {
+    "id": "task-066",
+    "quantQual": "Qual",
+    "phase": "Kickoff",
+    "task": "Bid project out to vendors/moderators",
+    "dateNotes": "",
+    "role": "Recruit Coordinator",
+    "notes": ""
+  },
+  {
+    "id": "task-067",
+    "quantQual": "Qual",
+    "phase": "Kickoff",
+    "task": "Get moderator availability",
+    "dateNotes": "",
+    "role": "Recruit Coordinator",
+    "notes": ""
+  },
+  {
+    "id": "task-068",
+    "quantQual": "Qual",
+    "phase": "Kickoff",
+    "task": "Create a job folder for the study in the 'Proposals' folder (within appropriate client folder)",
+    "dateNotes": "",
+    "role": "Logistics",
+    "notes": ""
+  },
+  {
+    "id": "task-069",
+    "quantQual": "Qual",
+    "phase": "Kickoff",
+    "task": "Save vendors' bids to job folder",
+    "dateNotes": "",
+    "role": "Recruit Coordinator",
+    "notes": ""
+  },
+  {
+    "id": "task-070",
+    "quantQual": "Qual",
+    "phase": "Kickoff",
+    "task": "Ensure any new vendors have signed the NDA",
+    "dateNotes": "",
+    "role": "Recruit Coordinator",
+    "notes": ""
+  },
+  {
+    "id": "task-071",
+    "quantQual": "Qual",
+    "phase": "Kickoff",
+    "task": "Create Internal Cost Worksheet, send to supervisor",
+    "dateNotes": "",
+    "role": "Logistics",
+    "notes": ""
+  },
+  {
+    "id": "task-072",
+    "quantQual": "Qual",
+    "phase": "Kickoff",
+    "task": "Move study docs from 'Proposals' folder to main client folder",
+    "dateNotes": "",
+    "role": "Logistics",
+    "notes": ""
+  },
+  {
+    "id": "task-073",
+    "quantQual": "Qual",
+    "phase": "Kickoff",
+    "task": "Update folder name with job #",
+    "dateNotes": "",
+    "role": "Logistics",
+    "notes": ""
+  },
+  {
+    "id": "task-074",
+    "quantQual": "Qual",
+    "phase": "Kickoff",
+    "task": "Add AE submission forms & contact info to job folder",
+    "dateNotes": "",
+    "role": "AE Manager",
+    "notes": ""
+  },
+  {
+    "id": "task-075",
+    "quantQual": "Qual",
+    "phase": "Kickoff",
+    "task": "Set up Invoice Schedule & Worksheet",
+    "dateNotes": "",
+    "role": "Logistics",
+    "notes": ""
+  },
+  {
+    "id": "task-076",
+    "quantQual": "Qual",
+    "phase": "Kickoff",
+    "task": "Alert recruiter and moderator that project is moving forward",
+    "dateNotes": "",
+    "role": "Recruit Coordinator",
+    "notes": ""
+  },
+  {
+    "id": "task-077",
+    "quantQual": "Qual",
+    "phase": "Kickoff",
+    "task": "Draft screener",
+    "dateNotes": "1 day before KO date",
+    "role": "",
+    "notes": ""
+  },
+  {
+    "id": "task-078",
+    "quantQual": "Qual",
+    "phase": "Kickoff",
+    "task": "Draft discussion guide",
+    "dateNotes": "first day of pre-field",
+    "role": "",
+    "notes": ""
+  },
+  {
+    "id": "task-079",
+    "quantQual": "Qual",
+    "phase": "Kickoff",
+    "task": "Start Discuss.io project",
+    "dateNotes": "first day of pre-field",
+    "role": "Recruit Coordinator",
+    "notes": ""
+  },
+  {
+    "id": "task-080",
+    "quantQual": "Qual",
+    "phase": "Kickoff",
+    "task": "Send screener to client",
+    "dateNotes": "",
+    "role": "Project Manager",
+    "notes": ""
+  },
+  {
+    "id": "task-081",
+    "quantQual": "Qual",
+    "phase": "Kickoff",
+    "task": "Send discussion guide draft to client",
+    "dateNotes": "1 week prior to fieldwork start",
+    "role": "Project Manager",
+    "notes": ""
+  },
+  {
+    "id": "task-082",
+    "quantQual": "Qual",
+    "phase": "Kickoff",
+    "task": "Schedule KO with moderator",
+    "dateNotes": "1 week prior to fieldwork start",
+    "role": "Recruit Coordinator",
+    "notes": ""
+  },
+  {
+    "id": "task-083",
+    "quantQual": "Qual",
+    "phase": "Pre-Field",
+    "task": "Create respondent grid for recruiters",
+    "dateNotes": "first day of pre-field",
+    "role": "Recruit Coordinator",
+    "notes": ""
+  },
+  {
+    "id": "task-084",
+    "quantQual": "Qual",
+    "phase": "Pre-Field",
+    "task": "Create shared/client respondent grid",
+    "dateNotes": "first day of pre-field",
+    "role": "Recruit Coordinator",
+    "notes": ""
+  },
+  {
+    "id": "task-085",
+    "quantQual": "Qual",
+    "phase": "Pre-Field",
+    "task": "Get screener approval from client",
+    "dateNotes": "",
+    "role": "Project Manager",
+    "notes": ""
+  },
+  {
+    "id": "task-086",
+    "quantQual": "Qual",
+    "phase": "Pre-Field",
+    "task": "Alert moderator and confirm availability",
+    "dateNotes": "",
+    "role": "Recruit Coordinator",
+    "notes": ""
+  },
+  {
+    "id": "task-087",
+    "quantQual": "Qual",
+    "phase": "Pre-Field",
+    "task": "Submit first invoice request",
+    "dateNotes": "",
+    "role": "Project Manager",
+    "notes": ""
+  },
+  {
+    "id": "task-088",
+    "quantQual": "Qual",
+    "phase": "Pre-Field",
+    "task": "Ensure signed documents are saved to job folder",
+    "dateNotes": "",
+    "role": "Logistics",
+    "notes": ""
+  },
+  {
+    "id": "task-089",
+    "quantQual": "Qual",
+    "phase": "Pre-Field",
+    "task": "Schedule DG walk-through with client and moderator",
+    "dateNotes": "",
+    "role": "Project Manager",
+    "notes": ""
+  },
+  {
+    "id": "task-090",
+    "quantQual": "Qual",
+    "phase": "Pre-Field",
+    "task": "Copy cost tracker shell to job folder",
+    "dateNotes": "",
+    "role": "Logistics",
+    "notes": ""
+  },
+  {
+    "id": "task-091",
+    "quantQual": "Qual",
+    "phase": "Pre-Field",
+    "task": "Confirm attendee list with client",
+    "dateNotes": "",
+    "role": "Project Manager",
+    "notes": ""
+  },
+  {
+    "id": "task-092",
+    "quantQual": "Qual",
+    "phase": "Pre-Field",
+    "task": "Get final stimuli from client",
+    "dateNotes": "1 day before first day of field",
+    "role": "Project Manager",
+    "notes": ""
+  },
+  {
+    "id": "task-093",
+    "quantQual": "Qual",
+    "phase": "Pre-Field",
+    "task": "Monitor recruits and update quotas",
+    "dateNotes": "ongoing",
+    "role": "Recruit Coordinator",
+    "notes": ""
+  },
+  {
+    "id": "task-094",
+    "quantQual": "Qual",
+    "phase": "Pre-Field",
+    "task": "Create outlook invite template",
+    "dateNotes": "",
+    "role": "Recruit Coordinator",
+    "notes": ""
+  },
+  {
+    "id": "task-095",
+    "quantQual": "Qual",
+    "phase": "Pre-Field",
+    "task": "Create content analysis (CA)",
+    "dateNotes": "1 day before first day of field",
+    "role": "Logistics",
+    "notes": ""
+  },
+  {
+    "id": "task-096",
+    "quantQual": "Qual",
+    "phase": "Pre-Field",
+    "task": "Send Outlook invites with respondent details and observer login info",
+    "dateNotes": "ongoing",
+    "role": "Recruit Coordinator",
+    "notes": ""
+  },
+  {
+    "id": "task-097",
+    "quantQual": "Qual",
+    "phase": "Pre-Field",
+    "task": "Create notetaking schedule and align team",
+    "dateNotes": "",
+    "role": "",
+    "notes": ""
+  },
+  {
+    "id": "task-098",
+    "quantQual": "Qual",
+    "phase": "Pre-Field",
+    "task": "Send final stimuli/workbooks/guide to moderator",
+    "dateNotes": "1 day before first day of field",
+    "role": "Recruit Coordinator",
+    "notes": ""
+  },
+  {
+    "id": "task-099",
+    "quantQual": "Qual",
+    "phase": "Pre-Field",
+    "task": "Schedule client debrief after first 1-2 interviews",
+    "dateNotes": "1 day before first day of field",
+    "role": "Project Manager",
+    "notes": ""
+  },
+  {
+    "id": "task-100",
+    "quantQual": "Qual",
+    "phase": "Fielding",
+    "task": "Create report shell based on discussion guide and objectives",
+    "dateNotes": "",
+    "role": "",
+    "notes": ""
+  },
+  {
+    "id": "task-101",
+    "quantQual": "Qual",
+    "phase": "Fielding",
+    "task": "Schedule second client debrief (if needed)",
+    "dateNotes": "",
+    "role": "Project Manager",
+    "notes": ""
+  },
+  {
+    "id": "task-102",
+    "quantQual": "Qual",
+    "phase": "Fielding",
+    "task": "Submit AEs within 24 hours of interviews",
+    "dateNotes": "ongoing",
+    "role": "",
+    "notes": ""
+  },
+  {
+    "id": "task-103",
+    "quantQual": "Qual",
+    "phase": "Post-Field Analysis",
+    "task": "Clean project folder",
+    "dateNotes": "first day of post-field",
+    "role": "Logistics",
+    "notes": ""
+  },
+  {
+    "id": "task-104",
+    "quantQual": "Qual",
+    "phase": "Post-Field Analysis",
+    "task": "Internal download: all audio files, CA, transcripts, and notes",
+    "dateNotes": "first day of post-field",
+    "role": "Logistics",
+    "notes": ""
+  },
+  {
+    "id": "task-105",
+    "quantQual": "Qual",
+    "phase": "Post-Field Analysis",
+    "task": "Submit AE reconciliation (if needed)",
+    "dateNotes": "first day of post-field",
+    "role": "AE Manager",
+    "notes": ""
+  },
+  {
+    "id": "task-106",
+    "quantQual": "Qual",
+    "phase": "Reporting",
+    "task": "Populate report shell with key fidings",
+    "dateNotes": "",
+    "role": "",
+    "notes": ""
+  },
+  {
+    "id": "task-107",
+    "quantQual": "Qual",
+    "phase": "Reporting",
+    "task": "Clean and finalize report",
+    "dateNotes": "",
+    "role": "",
+    "notes": ""
+  },
+  {
+    "id": "task-108",
+    "quantQual": "Qual",
+    "phase": "Reporting",
+    "task": "Have report proofed",
+    "dateNotes": "1 day before report due date",
+    "role": "",
+    "notes": ""
+  },
+  {
+    "id": "task-109",
+    "quantQual": "Qual",
+    "phase": "Reporting",
+    "task": "Final review of report",
+    "dateNotes": "final report due date",
+    "role": "",
+    "notes": ""
+  },
+  {
+    "id": "task-110",
+    "quantQual": "Qual",
+    "phase": "Reporting",
+    "task": "Send report to client",
+    "dateNotes": "final report due date",
+    "role": "Project Manager",
+    "notes": ""
+  },
+  {
+    "id": "task-111",
+    "quantQual": "Qual",
+    "phase": "Reporting",
+    "task": "Request invoice (if needed)",
+    "dateNotes": "",
+    "role": "Project Manager",
+    "notes": ""
+  },
+  {
+    "id": "task-112",
+    "quantQual": "Qual",
+    "phase": "Reporting",
+    "task": "Save vendor invoices and submit to accounting",
+    "dateNotes": "",
+    "role": "Recruit Coordinator",
+    "notes": ""
+  },
+  {
+    "id": "task-113",
+    "quantQual": "Qual",
+    "phase": "Reporting",
+    "task": "Reconcile with client-specific finance process",
+    "dateNotes": "",
+    "role": "Project Manager",
+    "notes": ""
+  },
+  {
+    "id": "task-114",
+    "quantQual": "Qual",
+    "phase": "Reporting",
+    "task": "Fill out Cost Tracker",
+    "dateNotes": "",
+    "role": "Logistics",
+    "notes": ""
+  }
+]
+

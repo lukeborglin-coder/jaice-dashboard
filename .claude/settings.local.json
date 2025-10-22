@@ -40,7 +40,9 @@
       "Bash(claude --usage)",
       "Bash(PORT=3005 node \"C:\\Users\\LukeBorglin\\Desktop\\Apps\\JaiceDashboard_master\\server\\server.mjs\")",
       "Bash(npm run dev:client:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(PORT=3005 node:*)",
+      "Bash(rd /s /q \"node_modules\\.vite\")"
     ],
     "deny": [],
     "ask": []

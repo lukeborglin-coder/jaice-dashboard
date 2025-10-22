@@ -1,0 +1,18 @@
+[
+  {
+    "role": "Project Manager",
+    "description": "Client communications, responsible for finalizations of all materials, etc."
+  },
+  {
+    "role": "Recruit Coordinator",
+    "description": "Manages communications with recruiters, vendors, and moderators"
+  },
+  {
+    "role": "AE Manager",
+    "description": "Responsible for ensuring all AE policies are being met"
+  },
+  {
+    "role": "Logistics",
+    "description": "Responsible for keeping project on track, keeping project files updated, and assisting in day to day responsibilities"
+  }
+]

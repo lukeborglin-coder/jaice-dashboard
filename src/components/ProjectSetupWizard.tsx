@@ -4,6 +4,11 @@ import { XMarkIcon, ChevronLeftIcon, ChevronRightIcon, PlusIcon } from '@heroico
 import { useAuth } from '../contexts/AuthContext';
 import UserSearch from './UserSearch';
 import { createPortal } from 'react-dom';
+import type { TeamMemberWithRoles } from '../types/roles';
+import { autoAssignByRoles } from '../lib/autoAssignByRoles';
+import { calculateTaskDueDate, type ProjectTimeline } from '../lib/dateCalculator';
+import jaiceRoles from '../data/jaice_roles.json';
+import jaiceTasks from '../data/jaice_tasks.json';
 
 const BRAND = { orange: "#D14A2D" };
 
@@ -568,7 +573,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
       }
     };
   };
-  const [teamMembers, setTeamMembers] = useState<Array<{ id: string; name: string; role: string }>>([]);
+  const [teamMembers, setTeamMembers] = useState<TeamMemberWithRoles[]>([]);
   const [showAddTeamMember, setShowAddTeamMember] = useState(false);
   const [showAllTeamMembers, setShowAllTeamMembers] = useState(false);
   const [saveTimeout, setSaveTimeout] = useState<NodeJS.Timeout | null>(null);
@@ -663,7 +668,8 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
       setTeamMembers([{
         id: user.id,
         name: user.name || 'Current User',
-        role: 'Project Manager'
+        role: '',
+        roles: []
       }]);
     } else {
       setTeamMembers([]);
@@ -707,10 +713,11 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
 
   // Team member handling functions
   const handleAddTeamMember = (user: User) => {
-    const newTeamMember = {
+    const newTeamMember: TeamMemberWithRoles = {
       id: user.id,
       name: user.name,
-      role: '' // No role tag
+      role: '', // Keep for backward compatibility
+      roles: [] // New: multiple role assignment
     };
     
     // Check if user is already a team member
@@ -1228,14 +1235,25 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
   // Add current user as team member when wizard opens
   useEffect(() => {
     if (isOpen && user && teamMembers.length === 0) {
-      const currentUserMember = {
+      const currentUserMember: TeamMemberWithRoles = {
         id: user.id,
         name: user.name || 'Current User',
-        role: 'Project Manager'
+        role: '', // No default role
+        roles: [] // No default roles
       };
       setTeamMembers([currentUserMember]);
     }
   }, [isOpen, user, teamMembers.length]);
+
+  // Handle role updates for team members
+  const handleUpdateMemberRoles = (memberId: string, roles: string[]) => {
+    setTeamMembers(prev => prev.map(member => 
+      member.id === memberId 
+        ? { ...member, roles, role: roles[0] || '' } // Update roles and set primary role
+        : member
+    ));
+    autoSave(); // Trigger auto-save
+  };
 
   const handleSubmit = async () => {
     setLoading(true);
@@ -1276,19 +1294,90 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
           { label: "Fielding Start", date: formatDateForKeyDeadline(calculatedTimeline['Fielding']?.start) },
           { label: "Final Report", date: formatDateForKeyDeadline(projectEndDate) }
         ],
-        tasks: formData.usePreloadedTasks ? getDefaultTasks(formData.methodologyType) : formData.customTasks.map((task, index) => ({
-          id: `t${index + 1}`,
-          description: task,
-          assignedTo: undefined,
-          status: 'pending',
-          phase: 'Custom',
-          dueDate: null
-        })),
+        tasks: (() => {
+          const tasks = formData.usePreloadedTasks ? getDefaultTasks(formData.methodologyType, calculatedTimeline) : [];
+          
+          // Debug: Check for duplicate task IDs
+          const taskIds = tasks.map(t => t.id);
+          const uniqueIds = new Set(taskIds);
+          if (taskIds.length !== uniqueIds.size) {
+            console.log('Duplicate task IDs found:', taskIds.filter((id, index) => taskIds.indexOf(id) !== index));
+          }
+          
+          // Debug: Check for task-057 specifically
+          const task057 = tasks.find(t => t.id === 'task-057');
+          if (task057) {
+            console.log('Found task-057 in final tasks:', task057);
+          }
+
+          // Apply auto-assignment based on team member roles
+          if (formData.usePreloadedTasks && teamMembers.length > 0) {
+            try {
+              console.log('Starting auto-assignment with team members:', teamMembers);
+              const assignments = autoAssignByRoles(teamMembers);
+              console.log('Generated assignments:', assignments);
+              
+              // Create a map of taskId to assigneeId for quick lookup
+              const assignmentMap = new Map<string, string>();
+              assignments.forEach(assignment => {
+                assignmentMap.set(assignment.taskId, assignment.assigneeId);
+              });
+
+              console.log('Assignment map:', assignmentMap);
+              console.log('Tasks before assignment:', tasks);
+
+              // Update tasks with assignments
+              tasks.forEach(task => {
+                const assigneeId = assignmentMap.get(task.id);
+                if (assigneeId) {
+                  task.assignedTo = [assigneeId]; // assignedTo should be an array
+                  console.log(`Assigned task ${task.id} to ${assigneeId}`);
+                }
+              });
+
+              console.log('Auto-assigned tasks:', assignments.length, 'assignments made');
+              console.log('Final tasks with assignments:', tasks.filter(t => t.assignedTo).length, 'out of', tasks.length);
+              console.log('Final tasks with due dates:', tasks.filter(t => t.dueDate).length, 'out of', tasks.length);
+              console.log('Sample final tasks:', tasks.slice(0, 3).map(t => ({ 
+                id: t.id, 
+                description: t.description, 
+                assignedTo: t.assignedTo, 
+                dueDate: t.dueDate,
+                phase: t.phase 
+              })));
+            } catch (error) {
+              console.warn('Auto-assignment failed:', error);
+              // Continue without auto-assignment if it fails
+            }
+          } else {
+            console.log('Auto-assignment skipped:', { usePreloadedTasks: formData.usePreloadedTasks, teamMembersLength: teamMembers.length });
+          }
+
+          return tasks;
+        })(),
         teamMembers: teamMembers,
         sampleDetails: formatSampleDetails(formData.sampleSize, formData.subgroups),
         files: [],
         segments: generateProjectSegments(projectStartDate, projectEndDate)
       };
+
+      // Debug: Log team members with roles before save
+      console.log('📋 Team members before save:', teamMembers);
+      console.log('📋 Team members with roles:', teamMembers.map(m => ({
+        id: m.id,
+        name: m.name,
+        roles: m.roles,
+        role: m.role
+      })));
+
+      // Debug: Log tasks with assignments before save
+      const tasksWithAssignments = project.tasks.filter(t => t.assignedTo && t.assignedTo.length > 0);
+      console.log(`📋 Tasks with assignments: ${tasksWithAssignments.length} out of ${project.tasks.length}`);
+      console.log('📋 Sample assigned tasks:', tasksWithAssignments.slice(0, 5).map(t => ({
+        id: t.id,
+        description: t.description,
+        assignedTo: t.assignedTo
+      })));
 
       // Check user authentication
       if (!user?.id) {
@@ -1343,68 +1432,67 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
     }
   };
 
-  const getDefaultTasks = (methodologyType: string) => {
-    const tasks: any[] = [];
-    let taskId = 1;
-
-    if (!methodologyType || !(methodologyType in TASK_LIST_BY_PHASE)) {
+  const getDefaultTasks = (methodologyType: string, timeline: any) => {
+    console.log('getDefaultTasks called with methodologyType:', methodologyType);
+    if (!methodologyType) {
+      console.log('No methodology type, returning empty array');
       return [];
     }
-
-    const phaseData = TASK_LIST_BY_PHASE[methodologyType as keyof typeof TASK_LIST_BY_PHASE];
-
-    Object.entries(phaseData).forEach(([phase, phaseTasks]) => {
-      phaseTasks.forEach((taskDescription: string) => {
-        tasks.push({
-          id: `t${taskId++}`,
-          description: taskDescription,
-          assignedTo: undefined,
-          status: 'pending',
-          phase: phase,
-          dueDate: null,
-          isOngoing: false
-        });
-      });
+    
+    // Filter JAICE tasks by methodology type (Quant/Qual)
+    const filteredTasks = jaiceTasks.filter(task => {
+      if (!task.quantQual) return true; // Include tasks without quantQual field
+      
+      // Handle different methodology type formats
+      const taskType = task.quantQual.toLowerCase();
+      const methodology = methodologyType.toLowerCase();
+      
+      // Map different variations to standard types
+      if (methodology === 'quantitative' || methodology === 'quant') {
+        return taskType === 'quant';
+      } else if (methodology === 'qualitative' || methodology === 'qual') {
+        return taskType === 'qual';
+      }
+      
+      return taskType === methodology;
     });
 
-    // Add ongoing tasks for each phase
-    const ongoingTasksByPhase: { [key: string]: string[] } = {
-      "Kickoff": [
-        "Keep internal team aligned on roles, deliverables, and client expectations throughout kickoff."
-      ],
-      "Pre-Field": [
-        "Confirm all client expectations are documented before launch",
-        "Ensure version control across QNR revisions"
-      ],
-      "Fielding": [
-        "Soft data quality check (10% of total sample), continue quality checks throughout",
-        "Monitor completes and update quotas as needed",
-        "Monitor open end comments for AEs and submit within 24 hours",
-        "Ensure timely completion of field, troubleshoot as needed"
-      ],
-      "Post-Field Analysis": [
-        "Confirm all deliverables are complete and documented for handoff to reporting"
-      ],
-      "Reporting": [
-        "Maintain consistent story flow and formatting across deliverables"
-      ]
+    console.log('Filtered tasks for methodology:', filteredTasks.length, 'tasks');
+
+    // Create project timeline for date calculation
+    const projectTimeline: ProjectTimeline = {
+      koDate: timeline['Kickoff']?.start || '',
+      fieldworkStart: timeline['Fielding']?.start || '',
+      fieldworkEnd: timeline['Fielding']?.end || '',
+      reportDue: timeline['Reporting']?.end || ''
     };
 
-    Object.entries(ongoingTasksByPhase).forEach(([phase, ongoingTasks]) => {
-      ongoingTasks.forEach((taskDescription: string) => {
-        tasks.push({
-          id: `t${taskId++}`,
-          description: taskDescription,
-          assignedTo: undefined,
-          status: 'pending',
-          phase: phase,
-          dueDate: null,
-          isOngoing: true
-        });
-      });
-    });
+    // Convert JAICE tasks to the expected format with calculated due dates
+    const convertedTasks = filteredTasks
+      .filter(task => task.task && task.task.trim() !== '') // Filter out tasks with empty descriptions
+      .map((task, index) => {
+        // Calculate due date based on dateNotes and project timeline
+        const dueDate = calculateTaskDueDate(task, projectTimeline);
+        
+        // Check if task is ongoing
+        const isOngoing = task.dateNotes?.toLowerCase().includes('ongoing') || false;
 
-    return tasks;
+        return {
+          id: task.id, // Use the JAICE task ID for role mapping
+          description: task.task,
+          assignedTo: [], // Will be set by auto-assignment (array format)
+          status: 'pending',
+          phase: task.phase,
+          dueDate: dueDate,
+          isOngoing: isOngoing,
+          dateNotes: task.dateNotes,
+          notes: task.notes
+        };
+      });
+
+    console.log('Converted tasks:', convertedTasks.length, 'tasks');
+    console.log('Sample converted tasks:', convertedTasks.slice(0, 3).map(t => ({ id: t.id, description: t.description, phase: t.phase })));
+    return convertedTasks;
   };
 
   // Helper function to format dates using UTC methods to avoid timezone issues
@@ -1604,7 +1692,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
                   </div>
                 )}
                 
-                {/* Team Members List - Fixed Display */}
+                {/* Team Members List - Simple Display */}
                 <div className="min-h-[60px]">
                   {teamMembers.length > 0 && (
                     <div className="flex flex-col">
@@ -1689,16 +1777,16 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
                       const selectedDate = new Date(year, month - 1, day);
                       const dayOfWeek = selectedDate.getDay();
                       
-                      // If weekend is selected, move to next Monday
-                      if (dayOfWeek === 0) { // Sunday
-                        selectedDate.setDate(selectedDate.getDate() + 1);
-                      } else if (dayOfWeek === 6) { // Saturday
-                        selectedDate.setDate(selectedDate.getDate() + 2);
+                      // Prevent weekend selection
+                      if (dayOfWeek === 0 || dayOfWeek === 6) { // Sunday or Saturday
+                        return; // Don't update the date
                       }
                       
-                      // Format back to YYYY-MM-DD
-                      const formattedDate = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
-                      handleTimelineDateChange('kickoffDate', formattedDate);
+                      handleTimelineDateChange('kickoffDate', dateString);
+                    }}
+                    onFocus={(e) => {
+                      // Add a custom attribute to help with styling
+                      e.target.setAttribute('data-weekend-disabled', 'true');
                     }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                   />
@@ -1721,16 +1809,12 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
                       const selectedDate = new Date(year, month - 1, day);
                       const dayOfWeek = selectedDate.getDay();
                       
-                      // If weekend is selected, move to next Monday
-                      if (dayOfWeek === 0) { // Sunday
-                        selectedDate.setDate(selectedDate.getDate() + 1);
-                      } else if (dayOfWeek === 6) { // Saturday
-                        selectedDate.setDate(selectedDate.getDate() + 2);
+                      // Prevent weekend selection
+                      if (dayOfWeek === 0 || dayOfWeek === 6) { // Sunday or Saturday
+                        return; // Don't update the date
                       }
                       
-                      // Format back to YYYY-MM-DD
-                      const formattedDate = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
-                      handleTimelineDateChange('fieldworkStartDate', formattedDate);
+                      handleTimelineDateChange('fieldworkStartDate', dateString);
                     }}
                     onFocus={(e) => {
                       // Set min date to day after KO date
@@ -1767,16 +1851,12 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
                       const selectedDate = new Date(year, month - 1, day);
                       const dayOfWeek = selectedDate.getDay();
                       
-                      // If weekend is selected, move to next Monday
-                      if (dayOfWeek === 0) { // Sunday
-                        selectedDate.setDate(selectedDate.getDate() + 1);
-                      } else if (dayOfWeek === 6) { // Saturday
-                        selectedDate.setDate(selectedDate.getDate() + 2);
+                      // Prevent weekend selection
+                      if (dayOfWeek === 0 || dayOfWeek === 6) { // Sunday or Saturday
+                        return; // Don't update the date
                       }
                       
-                      // Format back to YYYY-MM-DD
-                      const formattedDate = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
-                      handleTimelineDateChange('fieldworkEndDate', formattedDate);
+                      handleTimelineDateChange('fieldworkEndDate', dateString);
                     }}
                     onFocus={(e) => {
                       // Set min date to fieldwork start date
@@ -1810,16 +1890,12 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
                       const selectedDate = new Date(year, month - 1, day);
                       const dayOfWeek = selectedDate.getDay();
                       
-                      // If weekend is selected, move to next Monday
-                      if (dayOfWeek === 0) { // Sunday
-                        selectedDate.setDate(selectedDate.getDate() + 1);
-                      } else if (dayOfWeek === 6) { // Saturday
-                        selectedDate.setDate(selectedDate.getDate() + 2);
+                      // Prevent weekend selection
+                      if (dayOfWeek === 0 || dayOfWeek === 6) { // Sunday or Saturday
+                        return; // Don't update the date
                       }
                       
-                      // Format back to YYYY-MM-DD
-                      const formattedDate = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
-                      handleTimelineDateChange('reportDeadlineDate', formattedDate);
+                      handleTimelineDateChange('reportDeadlineDate', dateString);
                     }}
                     onFocus={(e) => {
                       // Set min date to fieldwork end date
@@ -1836,7 +1912,6 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
                   />
                 </div>
 
-                {/* Removed validation message per requirements */}
               </div>
 
               {/* Removed calculated timeline preview per requirements */}
@@ -2192,7 +2267,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
 
           {currentStep === 4 && (
             <div className="space-y-6">
-              <h3 className="text-lg font-semibold text-gray-900">Task Configuration</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Task Configuration & Role Assignment</h3>
 
               <div>
                 <label className="flex items-center">
@@ -2207,23 +2282,92 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
                   </span>
                 </label>
                 <p className="text-xs text-gray-500 mt-1">
-                  This will automatically create relevant tasks based on your selected methodology
+                  This will automatically create relevant tasks based on your selected methodology. If unchecked, no tasks will be created.
                 </p>
               </div>
 
-              {!formData.usePreloadedTasks && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Custom Tasks
-                  </label>
-                  <textarea
-                    value={formData.customTasks.join('\n')}
-                    onChange={(e) => handleInputChange('customTasks', e.target.value.split('\n').filter(task => task.trim()))}
-                    rows={6}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2"
-                  style={{ '--tw-ring-color': BRAND.orange } as React.CSSProperties}
-                    placeholder="Enter custom tasks, one per line"
-                  />
+              {/* Role Assignment Section - Only show if preloaded tasks is selected */}
+              {formData.usePreloadedTasks && (
+                <div className="border-t pt-6">
+                  <h4 className="text-md font-semibold text-gray-900 mb-4">Assign Team Members to Roles</h4>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Assign team members to roles to automatically distribute tasks based on their responsibilities.
+                  </p>
+                  
+                  <div className="space-y-4">
+                    {jaiceRoles.map((role) => {
+                      // Find team members assigned to this role
+                      const assignedMembers = teamMembers.filter(member => 
+                        member.roles && member.roles.includes(role.role)
+                      );
+                      
+                      return (
+                        <div key={role.role} className="border border-gray-200 rounded-lg p-4 bg-white">
+                          <div className="mb-3">
+                            <h5 className="text-sm font-semibold text-gray-900 mb-1">{role.role}</h5>
+                            <p className="text-xs text-gray-600">{role.description}</p>
+                          </div>
+                          
+                          {/* Show assigned members or dropdown */}
+                          {assignedMembers.length > 0 ? (
+                            <div className="flex flex-wrap gap-2">
+                              {assignedMembers.map((member) => (
+                                <div key={member.id} className="flex items-center gap-2 px-2 py-1 bg-gray-100 rounded-md">
+                                  <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-medium" style={{ backgroundColor: getMemberColor(member.id) }}>
+                                    {member.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                                  </div>
+                                  <span className="text-xs text-gray-700">{member.name}</span>
+                                  <button
+                                    onClick={() => {
+                                      const currentRoles = member.roles || [];
+                                      const updatedRoles = currentRoles.filter(r => r !== role.role);
+                                      handleUpdateMemberRoles(member.id, updatedRoles);
+                                    }}
+                                    className="text-gray-400 hover:text-red-600 text-xs"
+                                  >
+                                    ×
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="relative">
+                              <select
+                                onChange={(e) => {
+                                  if (e.target.value) {
+                                    const selectedMember = teamMembers.find(m => m.id === e.target.value);
+                                    if (selectedMember) {
+                                      const currentRoles = selectedMember.roles || [];
+                                      if (!currentRoles.includes(role.role)) {
+                                        handleUpdateMemberRoles(selectedMember.id, [...currentRoles, role.role]);
+                                      }
+                                    }
+                                    e.target.value = ''; // Reset selection
+                                  }
+                                }}
+                                className="px-3 py-1 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                defaultValue=""
+                              >
+                                <option value="">Assign to...</option>
+                                {teamMembers.map((member) => {
+                                  const alreadyAssigned = member.roles && member.roles.includes(role.role);
+                                  return (
+                                    <option 
+                                      key={member.id} 
+                                      value={member.id}
+                                      disabled={alreadyAssigned}
+                                    >
+                                      {member.name} {alreadyAssigned ? '(Already assigned)' : ''}
+                                    </option>
+                                  );
+                                })}
+                              </select>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>
@@ -2258,7 +2402,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
             {currentStep === 4 ? (
               <button
                 onClick={handleSubmit}
-                disabled={loading || !formData.name || !formData.client || !formData.methodologyType || !formData.methodology || (formData.methodologyType === 'Qualitative' && !formData.moderator) || !timelineDates.kickoffDate || !timelineDates.fieldworkStartDate || !timelineDates.fieldworkEndDate || !timelineDates.reportDeadlineDate}
+                disabled={loading || !formData.name || !formData.client || !formData.methodologyType || !formData.methodology || !timelineDates.kickoffDate || !timelineDates.fieldworkStartDate || !timelineDates.fieldworkEndDate || !timelineDates.reportDeadlineDate}
                 className="px-6 py-2 text-sm font-medium text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ backgroundColor: BRAND.orange }}
                 onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#B83D1A'}

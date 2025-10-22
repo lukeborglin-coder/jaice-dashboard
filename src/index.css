@@ -173,7 +173,7 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 /* Grid layout for task headers and rows to ensure perfect alignment */
 .task-grid {
   display: grid;
-  grid-template-columns: 1rem 1fr 3rem 6rem; /* checkbox | task | due | assigned - reduced spacing */
+  grid-template-columns: 1rem 1fr auto; /* checkbox | task | assigned+calendar */
   column-gap: 0.25rem; /* reduced gap */
   align-items: center;
 }

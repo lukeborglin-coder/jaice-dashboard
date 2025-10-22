@@ -17,6 +17,7 @@ import costsRouter from './routes/costs.routes.mjs';
 import storytellingRouter from './routes/storytelling.routes.mjs';
 import migrateTranscriptsRouter from './routes/migrate-transcripts.mjs';
 import questionnaireRouter from './routes/questionnaire.routes.mjs';
+import openEndCodingRouter from './routes/openEndCoding.routes.mjs';
 
 // Load environment variables
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -69,15 +70,16 @@ app.use('/uploads', express.static(FILES_DIR));
 // Rate limiting
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // Limit each IP to 5 requests per windowMs for login/register
+  max: 50, // Increased limit for development (was 5)
   message: 'Too many authentication attempts, please try again later',
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => {
-    // Skip rate limiting for authenticated admin operations
+    // Skip rate limiting for authenticated admin operations and token verification
     const path = req.path;
     const isAdminRoute = path.startsWith('/users') || path.startsWith('/vendors');
-    return isAdminRoute;
+    const isVerifyRoute = path === '/verify'; // Skip rate limiting for token verification
+    return isAdminRoute || isVerifyRoute;
   }
 });
 
@@ -105,6 +107,7 @@ app.use('/api/costs', apiLimiter, costsRouter);
 app.use('/api/storytelling', apiLimiter, storytellingRouter);
 app.use('/api/migrate', apiLimiter, migrateTranscriptsRouter);
 app.use('/api/questionnaire', apiLimiter, questionnaireRouter);
+app.use('/api/openend', apiLimiter, openEndCodingRouter);
 
 // Health check
 app.get('/health', (req, res) => {

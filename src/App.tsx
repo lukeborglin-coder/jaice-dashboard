@@ -50,12 +50,13 @@ import {
   RocketLaunchIcon as RocketLaunchIconSolid,
   PlayIcon as PlayIconSolid
 } from "@heroicons/react/24/solid";
-import { IconCalendarShare, IconCalendarWeek, IconBallAmericanFootball, IconRocket, IconFileAnalyticsFilled, IconLayoutSidebarFilled, IconTable, IconCheckbox, IconDatabaseExclamation, IconBook2, IconScript, IconChartBar } from "@tabler/icons-react";
+import { IconCalendarShare, IconCalendarWeek, IconBallAmericanFootball, IconRocket, IconFileAnalyticsFilled, IconLayoutSidebarFilled, IconTable, IconCheckbox, IconDatabaseExclamation, IconBook2, IconScript, IconChartBar, IconCode } from "@tabler/icons-react";
 import ContentAnalysisX from "./components/ContentAnalysisX";
 import Transcripts from "./components/Transcripts";
 import Storytelling from "./components/Storytelling";
 import QuestionnaireParser from "./components/QuestionnaireParser";
 import StatTesting from "./components/StatTesting";
+import OpenEndCoding from "./components/OpenEndCoding";
 import AuthWrapper from "./components/AuthWrapper";
 import TopBar from "./components/TopBar";
 import Feedback from "./components/Feedback";
@@ -1809,8 +1810,9 @@ function VendorLibrary({ projects }: { projects: any[] }) {
 }
 
 // Admin Center Component
-function AdminCenter() {
-  const [activeTab, setActiveTab] = useState<'users' | 'cost-tracker' | 'feature-requests' | 'bug-reports'>('users');
+function AdminCenter({ onProjectUpdate }: { onProjectUpdate?: () => void }) {
+  const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState<'users' | 'cost-tracker' | 'feature-requests' | 'bug-reports' | 'settings'>('users');
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateUser, setShowCreateUser] = useState(false);
@@ -1831,6 +1833,12 @@ function AdminCenter() {
   const [costData, setCostData] = useState<any[]>([]);
   const [expandedProject, setExpandedProject] = useState<string | null>(null);
   const [costFilter, setCostFilter] = useState<'all' | 'active' | 'archived'>('all');
+
+  // Settings state
+  const [projects, setProjects] = useState<any[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
+  const [isResettingTasks, setIsResettingTasks] = useState(false);
+  const [isResettingAllTasks, setIsResettingAllTasks] = useState(false);
   const loadCostData = useCallback(async () => {
     try {
       const headers: any = { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` };
@@ -1844,6 +1852,140 @@ function AdminCenter() {
       setCostData([]);
     }
   }, []);
+
+  const loadProjects = useCallback(async () => {
+    try {
+      const headers: any = { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` };
+      const resp = await fetch(`${API_BASE_URL}/api/projects/all`, { headers });
+      if (resp.ok) {
+        const data = await resp.json();
+        console.log('Settings: Loaded projects data:', data);
+        setProjects(Array.isArray(data.projects) ? data.projects : []);
+      } else {
+        console.error('Settings: Failed to load projects:', resp.status, resp.statusText);
+      }
+    } catch (e) {
+      console.error('Error loading projects:', e);
+      setProjects([]);
+    }
+  }, []);
+
+  const resetProjectTasks = useCallback(async (projectId: string) => {
+    if (!projectId) {
+      alert('Please select a project first.');
+      return;
+    }
+
+    if (!confirm('Are you sure you want to reset all tasks for this project? This will clear all existing tasks and replace them with the appropriate task list based on the project type. This action cannot be undone.')) {
+      return;
+    }
+
+    setIsResettingTasks(true);
+    try {
+      const headers: any = { 
+        'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`,
+        'Content-Type': 'application/json'
+      };
+      
+      const resp = await fetch(`${API_BASE_URL}/api/projects/${projectId}/reset-tasks`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ userId: user?.id })
+      });
+      
+      console.log('Reset tasks response status:', resp.status);
+      console.log('Reset tasks response headers:', resp.headers);
+      
+      if (resp.ok) {
+        const responseData = await resp.json();
+        console.log('Reset tasks success response:', responseData);
+        alert(`Project tasks have been successfully reset! ${responseData.taskCount} ${responseData.projectType} tasks loaded.`);
+        // Reload projects to get updated data
+        loadProjects();
+        // Also refresh the main app's project data
+        if (onProjectUpdate) {
+          onProjectUpdate();
+        }
+      } else {
+        const responseText = await resp.text();
+        console.log('Reset tasks error response:', responseText);
+        try {
+          const errorData = JSON.parse(responseText);
+          alert(`Failed to reset tasks: ${errorData.error || 'Unknown error'}`);
+        } catch (e) {
+          alert(`Failed to reset tasks: Server returned ${resp.status} - ${responseText.substring(0, 100)}...`);
+        }
+      }
+    } catch (e) {
+      console.error('Error resetting project tasks:', e);
+      alert('Error resetting project tasks. Please try again.');
+    } finally {
+      setIsResettingTasks(false);
+    }
+  }, [loadProjects]);
+
+  const resetAllProjectsTasks = useCallback(async () => {
+    if (!confirm('Are you sure you want to reset ALL active projects\' tasks? This will clear all existing tasks and replace them with the appropriate task lists based on each project type. This action cannot be undone.')) {
+      return;
+    }
+
+    setIsResettingAllTasks(true);
+    try {
+      const headers: any = { 
+        'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`,
+        'Content-Type': 'application/json'
+      };
+
+      let successCount = 0;
+      let errorCount = 0;
+      const errors: string[] = [];
+
+      // Reset tasks for each active project
+      for (const project of projects) {
+        try {
+          const resp = await fetch(`${API_BASE_URL}/api/projects/${project.id}/reset-tasks`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ userId: user?.id })
+          });
+          
+          if (resp.ok) {
+            const responseData = await resp.json();
+            console.log(`Successfully reset tasks for project: ${project.name}`);
+            successCount++;
+          } else {
+            const responseText = await resp.text();
+            console.error(`Failed to reset tasks for project: ${project.name}`);
+            errorCount++;
+            errors.push(`${project.name}: ${responseText.substring(0, 50)}...`);
+          }
+        } catch (e) {
+          console.error(`Error resetting tasks for project: ${project.name}`, e);
+          errorCount++;
+          errors.push(`${project.name}: ${e}`);
+        }
+      }
+
+      // Show results
+      if (errorCount === 0) {
+        alert(`Successfully reset tasks for all ${successCount} projects!`);
+      } else {
+        alert(`Reset completed with some errors:\n\nSuccess: ${successCount} projects\nErrors: ${errorCount} projects\n\nError details:\n${errors.join('\n')}`);
+      }
+
+      // Reload projects to get updated data
+      loadProjects();
+      // Also refresh the main app's project data
+      if (onProjectUpdate) {
+        onProjectUpdate();
+      }
+    } catch (e) {
+      console.error('Error resetting all project tasks:', e);
+      alert('Error resetting all project tasks. Please try again.');
+    } finally {
+      setIsResettingAllTasks(false);
+    }
+  }, [projects, loadProjects, user?.id, onProjectUpdate]);
 
   const loadAdminFeedback = useCallback(async () => {
     try {
@@ -1910,8 +2052,10 @@ function AdminCenter() {
       loadCostData();
     } else if (activeTab === 'feature-requests' || activeTab === 'bug-reports') {
       loadAdminFeedback();
+    } else if (activeTab === 'settings') {
+      loadProjects();
     }
-  }, [activeTab, loadCostData, loadAdminFeedback]);
+  }, [activeTab, loadCostData, loadAdminFeedback, loadProjects]);
 
   // Create new user
   const handleCreateUser = async (e: React.FormEvent) => {
@@ -2216,6 +2360,20 @@ function AdminCenter() {
             <div className="flex items-center gap-2">
               <ExclamationTriangleIcon className="w-5 h-5" />
               Bug Reports ({bugReports.filter((r:any) => r.status === 'pending review').length})
+            </div>
+          </button>
+          <button
+            onClick={() => setActiveTab('settings')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'settings'
+                ? 'text-gray-900'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+            style={activeTab === 'settings' ? { borderBottomColor: '#D14A2D', color: '#D14A2D' } : {}}
+          >
+            <div className="flex items-center gap-2">
+              <Cog6ToothIcon className="w-5 h-5" />
+              Settings
             </div>
           </button>
         </nav>
@@ -2720,6 +2878,124 @@ function AdminCenter() {
         </div>
       )}
 
+      {activeTab === 'settings' && (
+        <div className="bg-white shadow-sm rounded-lg border border-gray-200 p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-semibold text-gray-900">Project Task Management</h3>
+          </div>
+          
+          <div className="space-y-6">
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <div className="flex items-start">
+                <ExclamationTriangleIcon className="h-5 w-5 text-yellow-400 mt-0.5 mr-3" />
+                <div>
+                  <h4 className="text-sm font-medium text-yellow-800">Reset Project Tasks</h4>
+                  <p className="text-sm text-yellow-700 mt-1">
+                    This will clear all existing tasks for the selected project and replace them with the appropriate task list based on the project type (qualitative or quantitative). This action cannot be undone.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Select Project
+                </label>
+                <select
+                  value={selectedProjectId}
+                  onChange={(e) => setSelectedProjectId(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:border-gray-300 focus:outline-none"
+                  style={{ '--tw-ring-color': '#D14A2D' } as React.CSSProperties}
+                >
+                  <option value="">Choose a project...</option>
+                  {projects.map((project) => (
+                    <option key={project.id} value={project.id}>
+                      {project.name} ({project.methodologyType || 'Unknown Type'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={() => resetProjectTasks(selectedProjectId)}
+                  disabled={!selectedProjectId || isResettingTasks}
+                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                    !selectedProjectId || isResettingTasks
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      : 'bg-red-600 text-white hover:bg-red-700'
+                  }`}
+                >
+                  {isResettingTasks ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Resetting Tasks...
+                    </div>
+                  ) : (
+                    'Reset Project Tasks'
+                  )}
+                </button>
+                
+                {selectedProjectId && (
+                  <div className="text-sm text-gray-600">
+                    Selected: {projects.find(p => p.id === selectedProjectId)?.name}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Bulk Reset Section */}
+            <div className="border-t border-gray-200 pt-6">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                <div className="flex items-start">
+                  <ExclamationTriangleIcon className="h-5 w-5 text-red-400 mt-0.5 mr-3" />
+                  <div>
+                    <h4 className="text-sm font-medium text-red-800">Reset ALL Active Projects</h4>
+                    <p className="text-sm text-red-700 mt-1">
+                      This will reset tasks for ALL active projects at once. Each project will get the appropriate task list based on its type (qualitative or quantitative). This action cannot be undone.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={resetAllProjectsTasks}
+                  disabled={projects.length === 0 || isResettingAllTasks}
+                  className={`px-6 py-3 rounded-lg font-medium transition-colors ${
+                    projects.length === 0 || isResettingAllTasks
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      : 'bg-red-700 text-white hover:bg-red-800'
+                  }`}
+                >
+                  {isResettingAllTasks ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Resetting All Projects...
+                    </div>
+                  ) : (
+                    `Reset All ${projects.length} Projects`
+                  )}
+                </button>
+                
+                {projects.length > 0 && (
+                  <div className="text-sm text-gray-600">
+                    {projects.length} active projects will be updated
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {projects.length === 0 && (
+              <div className="text-center py-8">
+                <p className="text-sm text-gray-500">No projects found. Please ensure you have access to projects.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Full Details Modal */}
       {selectedItem && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center overflow-y-auto py-8 z-[9999]" onClick={() => setSelectedItem(null)}>
@@ -3009,6 +3285,11 @@ const getMemberColor = (memberId: string, teamMembers?: any[]) => {
     '#6B7280'  // Gray
   ];
 
+  // Handle undefined or null memberId
+  if (!memberId || typeof memberId !== 'string') {
+    return colors[0]; // Return first color as fallback
+  }
+
   // If teamMembers array is provided, use sequential color assignment
   if (Array.isArray(teamMembers) && teamMembers.length > 0) {
     const memberIndex = teamMembers.findIndex(member => {
@@ -3226,6 +3507,14 @@ export default function App() {
       if (response.ok) {
         const data = await response.json();
 
+        // Filter out "Project Creator" from all projects' team members
+        const filterProjectCreator = (projects: Project[]) => {
+          return projects.map(project => ({
+            ...project,
+            teamMembers: (project.teamMembers || []).filter(member => member.name !== 'Project Creator')
+          }));
+        };
+
         // Add demo saved content analyses to some projects
         const addDemoContentAnalyses = (projects: Project[]) => {
           return projects.map((project, index) => {
@@ -3266,6 +3555,7 @@ export default function App() {
 
         // Function to update existing projects with corrected task lists
         const updateProjectsWithCorrectedTasks = (projects: Project[]) => {
+          console.log('🔄 updateProjectsWithCorrectedTasks called with', projects.length, 'projects');
           const UPDATED_TASK_LIST = {
             "Qualitative": {
               "Kickoff": [
@@ -3299,45 +3589,33 @@ export default function App() {
                 "Submit first invoice request",
                 "Ensure signed documents are saved to job folder",
                 "Schedule DG walk-through with client and moderator",
-                "Copy Cost Tracker shell to job folder",
-                "Coordinate discussion guide updates from client",
+                "Copy cost tracker shell to job folder",
                 "Confirm attendee list with client",
-                "Get and finalize stimuli",
+                "Get final stimuli from client",
                 "Monitor recruits and update quotas",
-                "Create invite template",
-                "Create Content Analysis (CA)",
+                "Create outlook invite template",
+                "Create content analysis (CA)",
                 "Send Outlook invites with respondent details and observer login info",
-                "Brief moderator",
                 "Create notetaking schedule and align team",
-                "Set up ShareFile folder",
                 "Send final stimuli/workbooks/guide to moderator",
                 "Schedule client debrief after first 1-2 interviews"
               ],
               "Fielding": [
                 "Create report shell based on discussion guide and objectives",
-                "Engage transcriptionist (if needed)",
-                "Request invoice (if needed)",
-                "Continue updating report shell with interview content",
-                "Submit AE reports within 24 hours",
-                "Download audio files and transcripts daily",
-                "Manage stimuli changes",
-                "Track high-level findings for client",
-                "Ensure objectives are being met",
-                "Engage with moderator and ask probes",
-                "Schedule second client debrief (if needed)"
+                "Schedule second client debrief (if needed)",
+                "Submit AEs within 24 hours of interviews"
               ],
               "Post-Field Analysis": [
                 "Clean project folder",
-                "Internal download: all audio files, CA, transcripts, lessons, and notes",
+                "Internal download: all audio files, CA, transcripts, and notes",
                 "Submit AE reconciliation (if needed)"
               ],
               "Reporting": [
-                "Write findings",
-                "Write executive summary",
+                "Populate report shell with key fidings",
+                "Clean and finalize report",
                 "Have report proofed",
-                "Have report reviewed internally",
+                "Final review of report",
                 "Send report to client",
-                "Update report based on client comments",
                 "Request invoice (if needed)",
                 "Save vendor invoices and submit to accounting",
                 "Reconcile with client-specific finance process",
@@ -3347,50 +3625,90 @@ export default function App() {
           };
 
           return projects.map(project => {
-            // Only update Qualitative projects that have outdated task counts
-            if (project.methodologyType === 'Qualitative' && project.tasks) {
-              const kickoffTasks = project.tasks.filter((task: any) => task.phase === 'Kickoff');
-              const reportingTasks = project.tasks.filter((task: any) => task.phase === 'Reporting');
+            // Clear ALL existing tasks and replace with correct ones
+            if (project.tasks && project.tasks.length > 0) {
+              // Determine project type
+              const isQualitativeProject = project.methodologyType === 'Qualitative' || 
+                project.methodologyType === 'Qual' ||
+                (project.name && project.name.toLowerCase().includes('qual'));
+              
+              console.log(`🔄 Clearing and replacing tasks for ${isQualitativeProject ? 'qualitative' : 'quantitative'} project:`, project.name);
 
-              // Check if project has outdated task lists (less than expected tasks)
-              const needsUpdate = kickoffTasks.length < 21 || reportingTasks.length < 10;
+              // Get the appropriate tasks based on project type
+              const tasksToUse = isQualitativeProject ? 
+                Object.entries(UPDATED_TASK_LIST.Qualitative).flatMap(([phase, taskList]) => 
+                  taskList.map((taskContent, index) => ({
+                    id: `task-${String(index + 1).padStart(3, '0')}`,
+                    task: taskContent,
+                    phase: phase,
+                    quantQual: 'Qual',
+                    dateNotes: '',
+                    notes: ''
+                  }))
+                ) : 
+                // For quantitative projects, use a simple set of quantitative tasks
+                // TODO: Load from jaice_tasks.json when we can use dynamic imports
+                [
+                  { id: 'task-001', task: 'Create project timeline', phase: 'Kickoff', quantQual: 'Quant', dateNotes: '', notes: '' },
+                  { id: 'task-002', task: 'Set up data collection system', phase: 'Kickoff', quantQual: 'Quant', dateNotes: '', notes: '' },
+                  { id: 'task-003', task: 'Design survey instrument', phase: 'Pre-Field', quantQual: 'Quant', dateNotes: '', notes: '' },
+                  { id: 'task-004', task: 'Test survey instrument', phase: 'Pre-Field', quantQual: 'Quant', dateNotes: '', notes: '' },
+                  { id: 'task-005', task: 'Launch data collection', phase: 'Fielding', quantQual: 'Quant', dateNotes: '', notes: '' },
+                  { id: 'task-006', task: 'Monitor data collection', phase: 'Fielding', quantQual: 'Quant', dateNotes: '', notes: '' },
+                  { id: 'task-007', task: 'Analyze quantitative data', phase: 'Post-Field Analysis', quantQual: 'Quant', dateNotes: '', notes: '' },
+                  { id: 'task-008', task: 'Create final report', phase: 'Post-Field Analysis', quantQual: 'Quant', dateNotes: '', notes: '' }
+                ];
+              
+              // Group tasks by phase
+              const tasksByPhase = tasksToUse.reduce((acc: any, task: any) => {
+                if (!acc[task.phase]) acc[task.phase] = [];
+                acc[task.phase].push(task);
+                return acc;
+              }, {});
 
-              if (needsUpdate) {
+              // Create new tasks
+              const newTasks: any[] = [];
 
-                // Keep completed tasks and non-Qualitative tasks
-                const nonQualTasks = project.tasks.filter((task: any) =>
-                  !['Kickoff', 'Pre-Field', 'Fielding', 'Post-Field Analysis', 'Reporting'].includes(task.phase)
-                );
+              Object.entries(tasksByPhase).forEach(([phase, phaseTasks]: [string, any[]]) => {
+                phaseTasks.forEach((taskData) => {
+                  // Calculate due date only if dateNotes is not empty
+                  let dueDate = null;
+                  if (taskData.dateNotes && taskData.dateNotes.trim() !== '') {
+                    if (project.segments && project.segments.length > 0) {
+                      const phaseSegment = project.segments.find(s => s.phase === phase);
+                      if (phaseSegment && phaseSegment.startDate) {
+                        // Use the dateCalculator to properly calculate due dates
+                        const { calculateTaskDueDate } = require('./lib/dateCalculator');
+                        try {
+                          dueDate = calculateTaskDueDate(phaseSegment.startDate, taskData.dateNotes);
+                        } catch (error) {
+                          console.log(`Could not calculate due date for task ${taskData.id}: ${taskData.dateNotes}`);
+                        }
+                      }
+                    }
+                  }
 
-                // Create all new tasks for each phase
-                const newTasks: any[] = [];
-
-                Object.entries(UPDATED_TASK_LIST.Qualitative).forEach(([phase, taskList]) => {
-                  taskList.forEach((taskContent, index) => {
-                    // Check if this exact task already exists and is completed
-                    const existingTask = project.tasks.find((task: any) =>
-                      task.phase === phase && task.content === taskContent && task.completed
-                    );
-
-                    newTasks.push({
-                      id: existingTask?.id || `${phase.toLowerCase()}-${project.id}-${index}`,
-                      content: taskContent,
-                      phase: phase,
-                      completed: existingTask?.completed || false,
-                      assignedTo: existingTask?.assignedTo || undefined,
-                      dueDate: existingTask?.dueDate || null,
-                      notes: existingTask?.notes || '',
-                      completedBy: existingTask?.completedBy || null,
-                      completedDate: existingTask?.completedDate || null
-                    });
+                  newTasks.push({
+                    id: taskData.id,
+                    description: taskData.task,
+                    phase: taskData.phase,
+                    status: 'pending',
+                    assignedTo: [],
+                    dueDate: dueDate,
+                    notes: taskData.notes || '',
+                    isOngoing: false,
+                    dateNotes: taskData.dateNotes || '',
+                    // No existing data - completely fresh
                   });
                 });
+              });
 
-                return {
-                  ...project,
-                  tasks: [...nonQualTasks, ...newTasks]
-                };
-              }
+              console.log(`✅ Replaced ${project.tasks.length} old tasks with ${newTasks.length} new ${isQualitativeProject ? 'qualitative' : 'quantitative'} tasks for project: ${project.name}`);
+              
+              return {
+                ...project,
+                tasks: newTasks
+              };
             }
 
             return project;
@@ -3459,10 +3777,67 @@ export default function App() {
         };
 
         // Fix timezone issues and regenerate key dates for all projects
-        const projectsWithCA = addDemoContentAnalyses(data.projects || []);
+        const projectsFiltered = filterProjectCreator(data.projects || []);
+        const projectsWithCA = addDemoContentAnalyses(projectsFiltered);
         const projectsWithMigratedTasks = migrateTaskAssignees(projectsWithCA);
         const projectsWithOngoingTasks = markOngoingTasks(projectsWithMigratedTasks);
-        const projectsWithCorrectedTasks = updateProjectsWithCorrectedTasks(projectsWithOngoingTasks);
+        // DISABLED: const projectsWithCorrectedTasks = updateProjectsWithCorrectedTasks(projectsWithOngoingTasks);
+        const projectsWithCorrectedTasks = projectsWithOngoingTasks;
+        
+        // Save updated projects to backend if any were modified
+        const saveUpdatedProjects = async () => {
+          try {
+            const modifiedProjects = projectsWithCorrectedTasks.filter((project, index) => {
+              const originalProject = projectsWithOngoingTasks[index];
+              const isModified = JSON.stringify(project.tasks) !== JSON.stringify(originalProject.tasks);
+              return isModified;
+            });
+            
+            if (modifiedProjects.length > 0) {
+              for (const project of modifiedProjects) {
+                const response = await fetch(`${API_BASE_URL}/api/projects/${project.id}`, {
+                  method: 'PUT',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
+                  },
+                  body: JSON.stringify({
+                    userId: user?.id,
+                    project: project
+                  })
+                });
+              }
+            } else {
+              // Force save all qualitative projects if no modifications detected
+              const qualitativeProjects = projectsWithCorrectedTasks.filter(project => {
+                const isQualitativeProject = project.methodologyType === 'Qualitative' || 
+                  project.methodologyType === 'Qual' ||
+                  (project.name && project.name.toLowerCase().includes('qual'));
+                return isQualitativeProject;
+              });
+              
+              for (const project of qualitativeProjects) {
+                const response = await fetch(`${API_BASE_URL}/api/projects/${project.id}`, {
+                  method: 'PUT',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
+                  },
+                  body: JSON.stringify({
+                    userId: user?.id,
+                    project: project
+                  })
+                });
+              }
+            }
+          } catch (error) {
+            console.error('Error saving updated projects:', error);
+          }
+        };
+        
+        // DISABLED: Save updated projects in the background
+        // saveUpdatedProjects();
+        
         const updatedProjects = projectsWithCorrectedTasks.map(project => {
           const fixedProject = fixProjectSegments(project);
           const fixedFieldingSegment = fixedProject.segments?.find(s => s.phase === 'Fielding');
@@ -3665,6 +4040,7 @@ export default function App() {
   const quantitativeTools = useMemo(
     () => [
       { name: "Stat Testing", icon: IconChartBar },
+      { name: "Open-End Coding", icon: IconCode },
       { name: "QNR (Coming Soon)", icon: IconCheckbox, disabled: true },
       { name: "Data QA (Coming Soon)", icon: IconDatabaseExclamation, disabled: true },
     ],
@@ -3740,6 +4116,11 @@ export default function App() {
             {route === "Stat Testing" && (
               <div className="flex items-center gap-3">
                 <h1 className="text-2xl font-bold" style={{ color: BRAND.gray }}>Statistical Testing</h1>
+              </div>
+            )}
+            {route === "Open-End Coding" && (
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-bold" style={{ color: BRAND.gray }}>Open-End Coding</h1>
               </div>
             )}
             
@@ -3981,6 +4362,8 @@ export default function App() {
         <Storytelling analysisId={currentAnalysisId} projectId={currentProjectId} />
       ) : route === "Stat Testing" ? (
         <StatTesting />
+      ) : route === "Open-End Coding" ? (
+        <OpenEndCoding />
       ) : route === "QNR" || route === "qnr" ? (
         <QuestionnaireParser />
       ) : (
@@ -4015,7 +4398,7 @@ export default function App() {
               </>
             )}
             {route === "Vendor Library" && <VendorLibrary projects={projects} />}
-            {route === "Admin Center" && <AdminCenter />}
+            {route === "Admin Center" && <AdminCenter onProjectUpdate={loadProjects} />}
             {route === "QNR" && <QuestionnaireParser projects={projects} />}
             {route !== "Home" && route !== "Project Hub" && route !== "Content Analysis" && route !== "Vendor Library" && route !== "Admin Center" && route !== "Feedback" && route !== "QNR" && <Placeholder name={route} />}
           </div>
@@ -4624,15 +5007,26 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
 
-                let overdueTasks: Array<{
-                  id: string;
-                  description: string;
-                  project: string;
-                  dueDate?: string;
-                  daysUntil: number;
-                }> = [];
+                // Group overdue tasks by project
+                const overdueByProject = new Map<string, {
+                  project: any;
+                  tasks: Array<{
+                    id: string;
+                    description: string;
+                    dueDate: string;
+                    daysUntil: number;
+                  }>;
+                  totalCount: number;
+                }>();
 
                 projects.forEach(project => {
+                  let projectOverdueTasks: Array<{
+                    id: string;
+                    description: string;
+                    dueDate: string;
+                    daysUntil: number;
+                  }> = [];
+
                   project.tasks.forEach(task => {
                     const isAssignedToMe = task.assignedTo?.includes(user?.id || '') || false;
 
@@ -4641,73 +5035,68 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
                       const daysUntil = Math.ceil((taskDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
                       if (daysUntil < 0) {
-                        overdueTasks.push({
+                        projectOverdueTasks.push({
                           id: task.id,
                           description: task.description || task.content || 'Untitled task',
-                          project: project.name,
                           dueDate: task.dueDate,
                           daysUntil: daysUntil
                         });
                       }
                     }
                   });
-                });
 
-                overdueTasks.sort((a, b) => {
-                  if (a.dueDate && b.dueDate) {
-                    return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+                  if (projectOverdueTasks.length > 0) {
+                    overdueByProject.set(project.name, {
+                      project: project,
+                      tasks: projectOverdueTasks,
+                      totalCount: projectOverdueTasks.length
+                    });
                   }
-                  return 0;
                 });
 
                 // Only render the box if there are overdue tasks
-                if (overdueTasks.length === 0) {
+                if (overdueByProject.size === 0) {
                   return null;
                 }
 
-                // Calculate if we need scrolling (max 3 tasks before scroll)
-                const maxVisibleTasks = 3;
-                const needsScroll = overdueTasks.length > maxVisibleTasks;
+                // Calculate total overdue tasks across all projects
+                const totalOverdueTasks = Array.from(overdueByProject.values()).reduce((sum, project) => sum + project.totalCount, 0);
 
                 return (
-                  <div 
-                    className="bg-red-50 rounded-lg border border-red-200 overflow-hidden flex flex-col flex-shrink-0"
-                    style={{ 
-                      maxHeight: needsScroll ? '400px' : 'none',
-                      height: needsScroll ? '400px' : 'auto'
-                    }}
-                  >
+                  <div className="bg-red-50 rounded-lg border border-red-200 overflow-hidden flex flex-col flex-shrink-0">
                     <div className="flex items-center justify-between px-4 py-3 border-b border-red-200 flex-shrink-0 bg-red-100">
-                      <h3 className="text-lg font-semibold text-red-700">Overdue Tasks ({overdueTasks.length})</h3>
+                      <h3 className="text-lg font-semibold text-red-700">Overdue Tasks ({totalOverdueTasks})</h3>
                     </div>
                     <div className="p-2 flex-1 min-h-0 overflow-hidden">
-                      <div className={`${needsScroll ? 'overflow-y-auto light-scrollbar' : ''} h-full`}>
-                        <div className="space-y-1">
-                          {overdueTasks.map((task) => (
-                            <div
-                              key={task.id}
-                              className="p-2 bg-red-50 border border-red-100 rounded cursor-pointer hover:bg-red-100 transition-colors"
-                              onClick={() => {
-                                const project = projects.find(p => p.name === task.project);
-                                if (project && onNavigateToProject) {
-                                  onNavigateToProject(project);
-                                }
-                              }}
-                            >
+                      <div className="space-y-2">
+                        {Array.from(overdueByProject.values()).map((projectData, index) => (
+                          <div
+                            key={`overdue-project-${projectData.project.id}-${index}`}
+                            className="flex items-center justify-between p-3 bg-red-50 border border-red-100 rounded cursor-pointer hover:bg-red-100 transition-colors"
+                            onClick={() => {
+                              if (onNavigateToProject) {
+                                onNavigateToProject(projectData.project);
+                              }
+                            }}
+                          >
+                            <div className="flex-1 min-w-0">
                               <div className="text-sm font-medium text-gray-900 truncate">
-                                {task.description}
+                                {projectData.project.name}
                               </div>
-                              <div className="flex items-center justify-between mt-1">
-                                <div className="text-xs text-gray-500 truncate">
-                                  {task.project}
-                                </div>
-                                <div className="text-xs text-red-600 font-medium">
-                                  {Math.abs(task.daysUntil)} days overdue
-                                </div>
+                              <div className="text-xs text-gray-500 truncate">
+                                {projectData.project.client}
                               </div>
                             </div>
-                          ))}
-                        </div>
+                            <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+                              <div className="bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-full min-w-[20px] text-center">
+                                {projectData.totalCount}
+                              </div>
+                              <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                              </svg>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </div>
@@ -4717,7 +5106,7 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
               {/* Today's Tasks and Ongoing Tasks - Side by Side */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {/* Today's Tasks Box */}
-                <div className="bg-white rounded-lg border border-gray-200 overflow-hidden h-80 flex flex-col flex-shrink-0">
+                <div className="bg-white rounded-lg border border-gray-200 overflow-hidden max-h-80 flex flex-col flex-shrink-0">
                   <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 flex-shrink-0" style={{ backgroundColor: BRAND.orange }}>
                     <h3 className="text-lg font-semibold text-white">Today's Tasks</h3>
                   </div>
@@ -4771,9 +5160,9 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
 
                         return (
                           <div className="space-y-1">
-                            {todayTasks.map((task) => (
+                            {todayTasks.map((task, index) => (
                               <div
-                                key={task.id}
+                                key={`today-${task.id}-${task.projectName}-${index}`}
                                 className="p-2 bg-orange-50 border border-orange-100 rounded cursor-pointer hover:bg-orange-100 transition-colors"
                                 onClick={() => {
                                   const project = projects.find(p => p.name === task.project);
@@ -4798,7 +5187,7 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
                 </div>
 
                 {/* Ongoing Tasks Box */}
-                <div className="bg-white rounded-lg border border-gray-200 overflow-hidden h-80 flex flex-col flex-shrink-0">
+                <div className="bg-white rounded-lg border border-gray-200 overflow-hidden max-h-80 flex flex-col flex-shrink-0">
                   <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 flex-shrink-0" style={{ backgroundColor: '#1E40AF' }}>
                     <h3 className="text-lg font-semibold text-white">Ongoing Tasks</h3>
                   </div>
@@ -4853,9 +5242,9 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
 
                         return (
                           <div className="space-y-1">
-                            {ongoingTasks.map((task) => (
+                            {ongoingTasks.map((task, index) => (
                               <div
-                                key={task.id}
+                                key={`ongoing-${task.id}-${task.projectName}-${index}`}
                                 className="p-2 bg-blue-50 border border-blue-100 rounded cursor-pointer hover:bg-blue-100 transition-colors"
                                 onClick={() => {
                                   const project = projects.find(p => p.name === task.project);
@@ -5413,7 +5802,7 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
                       
                       tasksForThisDayRender.push(
                         <div
-                          key={`${task.id}-${dateKey}`}
+                          key={`${task.id}-${task.projectId}-${dateKey}-${dayContentAddedCount}`}
                           className="flex items-center gap-3 p-1.5 rounded-lg cursor-pointer mb-1 hover:bg-gray-50"
                           onClick={() => {
                             if (project && onNavigateToProject) {
@@ -7715,17 +8104,17 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
   useEffect(() => {
     if (initialProject) {
       console.log('ProjectHub: initialProject provided:', initialProject.name);
-      setSelectedProject(initialProject);
+      // Filter out "Project Creator" from initialProject
+      const cleanedInitialProject = {
+        ...initialProject,
+        teamMembers: (initialProject.teamMembers || []).filter(member => member.name !== 'Project Creator')
+      };
+      setSelectedProject(cleanedInitialProject);
       setShowDashboard(true);
       setIsTransitioning(false);
 
-      // Initialize team members with project team members + creator
-      const creator = initialProject.teamMembers?.find((m: any) => m.id === initialProject.createdBy);
-      const allMembers = creator
-        ? initialProject.teamMembers
-        : [...(initialProject.teamMembers || []), { id: initialProject.createdBy, name: 'Project Creator', role: 'Owner' }];
-
-      setLocalTeamMembers(allMembers || []);
+      // Initialize team members with cleaned project team members (already filtered)
+      setLocalTeamMembers(cleanedInitialProject.teamMembers || []);
     }
   }, [initialProject]);
   const [archivedProjects, setArchivedProjects] = useState<Project[]>([]);
@@ -7735,6 +8124,7 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
   const [showDashboard, setShowDashboard] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [showAddTeamMember, setShowAddTeamMember] = useState(false);
+  const [showAddRoleDropdown, setShowAddRoleDropdown] = useState<string | null>(null);
   const [localTeamMembers, setLocalTeamMembers] = useState<Array<{ id: string; name: string; role: string; email?: string }>>([]);
   const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
   const [showMyProjectsOnly, setShowMyProjectsOnly] = useState(true);
@@ -7841,6 +8231,24 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [showAddTeamMember]);
+
+  // Close role dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showAddRoleDropdown) {
+        const target = event.target as HTMLElement;
+        // Check if click is outside the role dropdown
+        if (!target.closest('.role-dropdown') && !target.closest('.add-role-button')) {
+          setShowAddRoleDropdown(null);
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showAddRoleDropdown]);
 
   // Load vendors data on mount
   useEffect(() => {
@@ -8045,17 +8453,6 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                           (project.methodology?.includes('Focus') || project.methodology?.includes('Interview') || project.methodology?.includes('Ethnographic') || 
                            project.name?.toLowerCase().includes('qual') ? 'Qualitative' : 'Quantitative');
     
-    // Debug logging
-    console.log('Project methodology detection:', {
-      projectName: project.name,
-      methodology: project.methodology,
-      methodologyType: project.methodologyType,
-      detectedType: methodologyType,
-      hasQualInName: project.name?.toLowerCase().includes('qual'),
-      hasFocusInMethodology: project.methodology?.includes('Focus'),
-      hasInterviewInMethodology: project.methodology?.includes('Interview'),
-      hasEthnographicInMethodology: project.methodology?.includes('Ethnographic')
-    });
     const displayMethodologyType = methodologyType === 'Quantitative' ? 'Quant' : methodologyType === 'Qualitative' ? 'Qual' : methodologyType;
 
     // Get sample details
@@ -8431,23 +8828,60 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
   };
 
   const handleProjectView = useCallback((project: Project) => {
-    setSelectedProject(project);
+    console.log('🔍 handleProjectView called for project:', project.name);
+    console.log('📋 Project team members:', project.teamMembers);
+
+    // Filter out "Project Creator" from the project before setting it
+    const cleanedProject = {
+      ...project,
+      teamMembers: (project.teamMembers || []).filter(member => member.name !== 'Project Creator')
+    };
+
+    setSelectedProject(cleanedProject);
     setIsTransitioning(true);
 
     // Initialize team members with project team members + creator
-    const initialTeamMembers = [...(project.teamMembers || [])];
+    console.log('🔄 Loading project team members:', project.teamMembers);
+    const initialTeamMembers = (project.teamMembers || [])
+      .filter(member => member.name !== 'Project Creator') // Filter out legacy "Project Creator" members
+      .map(member => {
+      console.log('👤 Processing team member:', member.name, 'Current roles:', member.roles, 'Old role:', member.role);
+      console.log('🔍 Full member object:', member);
+      console.log('🔍 Member roles array:', member.roles);
+      console.log('🔍 Member roles type:', typeof member.roles);
+      console.log('🔍 Member roles length:', member.roles?.length);
+      
+      // Handle migration from old role system to new roles array
+      let roles = member.roles || [];
 
-    // Add project creator if not already in team members
-    if (user && !initialTeamMembers.some(member => member.id === user.id)) {
-      initialTeamMembers.unshift({
-        id: user.id,
-        name: user.name,
-        role: 'Project Creator',
-        email: user.email
-      });
-    }
+      // Only migrate if roles array is truly empty AND there's an old role field
+      // AND the old role is not a default role
+      if (roles.length === 0 && member.role &&
+          member.role !== 'Team Member' &&
+          member.role !== 'Project Creator') {
+        // Migrate all roles including Project Manager
+        console.log('🔄 Migrating old role to new roles array:', member.role);
+        roles = [member.role];
+      }
 
+      return {
+        ...member,
+        roles: roles // Use the migrated roles
+      };
+    });
+
+    console.log('🎯 Final initial team members:', initialTeamMembers);
     setLocalTeamMembers(initialTeamMembers);
+    
+    // Trigger task assignment for initial team members after project is fully loaded
+    setTimeout(async () => {
+      console.log('🔄 Triggering initial task assignment for team members');
+      if (selectedProject && selectedProject.tasks && selectedProject.tasks.length > 0) {
+        await reassignTasksByRoles(initialTeamMembers);
+      } else {
+        console.log('⚠️ Cannot trigger initial task assignment - project or tasks not ready');
+      }
+    }, 500);
 
     // Start transition animation
     setTimeout(() => {
@@ -8468,14 +8902,39 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
   };
 
   // Save team members to backend
-  const saveTeamMembersToProject = async (updatedTeamMembers: Array<{ id: string; name: string; role: string; email?: string }>) => {
-    if (!selectedProject || !user?.id) return;
+  const saveTeamMembersToProject = async (updatedTeamMembers: Array<{ id: string; name: string; role: string; email?: string; roles?: string[] }>) => {
+    if (!selectedProject || !user?.id) {
+      console.error('❌ Cannot save team members - missing project or user:', { selectedProject: !!selectedProject, userId: user?.id });
+      return;
+    }
+
+    console.log('💾 Saving team members to backend:', updatedTeamMembers);
+    console.log('👤 User ID:', user.id);
+    console.log('📋 Project ID:', selectedProject.id);
+    
+    // Debug: Show detailed role information for each member
+    updatedTeamMembers.forEach(member => {
+      console.log(`🔍 Saving member ${member.name}:`, {
+        id: member.id,
+        roles: member.roles,
+        role: member.role,
+        fullObject: member
+      });
+    });
 
     try {
       const updatedProject = {
         ...selectedProject,
         teamMembers: updatedTeamMembers
       };
+
+      console.log('📤 Sending project update to backend:', {
+        projectId: selectedProject.id,
+        teamMembers: updatedProject.teamMembers
+      });
+      
+      // Debug: Show what's being sent to backend
+      console.log('🔍 Backend payload team members:', JSON.stringify(updatedProject.teamMembers, null, 2));
 
       const response = await fetch(`${API_BASE_URL}/api/projects/${selectedProject.id}`, {
         method: 'PUT',
@@ -8489,7 +8948,12 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
         })
       });
 
+      console.log('📡 Backend response status:', response.status);
+      
       if (response.ok) {
+        const responseData = await response.json();
+        console.log('✅ Team members saved successfully:', responseData);
+        
         // Update the project in the projects list
         setProjects(prevProjects =>
           prevProjects.map(p =>
@@ -8500,12 +8964,18 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
         );
         // Update the selected project
         setSelectedProject(prev => prev ? { ...prev, teamMembers: updatedTeamMembers } : null);
-        console.log('Team members saved successfully');
+        
+        // Also update localTeamMembers to ensure consistency
+        setLocalTeamMembers(updatedTeamMembers);
+        console.log('✅ Local state updated successfully');
       } else {
-        console.error('Failed to save team members');
+        console.error('❌ Failed to save team members:', response.status);
+        const errorText = await response.text();
+        console.error('Error details:', errorText);
+        alert(`Failed to save team members: ${errorText}`);
       }
     } catch (error) {
-      console.error('Error saving team members:', error);
+      console.error('💥 Error saving team members:', error);
     }
   };
 
@@ -8515,6 +8985,7 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
       id: user.id,
       name: user.name,
       role: 'Team Member',
+      roles: [], // Initialize with empty roles array
       email: user.email
     };
 
@@ -8532,12 +9003,205 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
   };
 
   const handleRemoveTeamMember = async (memberId: string) => {
-    const updatedTeamMembers = selectedProject?.teamMembers?.filter(member => member.id !== memberId) || [];
+    if (!selectedProject) return;
+    
+    const updatedTeamMembers = selectedProject.teamMembers?.filter(member => member.id !== memberId) || [];
     setLocalTeamMembers(updatedTeamMembers);
+
+    // Update the selected project with new team members
+    const updatedProject = {
+      ...selectedProject,
+      teamMembers: updatedTeamMembers
+    };
+    setSelectedProject(updatedProject);
 
     // Save to backend
     await saveTeamMembersToProject(updatedTeamMembers);
+    
+    // Reassign tasks after removing team member
+    await reassignTasksByRoles(updatedTeamMembers);
+    
     console.log('Removing team member:', memberId);
+  };
+
+  // Handle role toggle and automatic task reassignment
+  const handleRoleToggle = async (memberId: string, role: string) => {
+    if (!selectedProject) return;
+
+    console.log('🔄 handleRoleToggle called:', { memberId, role, currentLocalTeamMembers: localTeamMembers });
+
+    const updatedTeamMembers = localTeamMembers.map(member => {
+      if (member.id === memberId) {
+        const currentRoles = member.roles || [];
+        const hasRole = currentRoles.includes(role);
+        
+        let newRoles;
+        if (hasRole) {
+          // Remove role
+          newRoles = currentRoles.filter(r => r !== role);
+          console.log(`🗑️ Removing role "${role}" from ${member.name}. New roles:`, newRoles);
+        } else {
+          // Add role
+          newRoles = [...currentRoles, role];
+          console.log(`➕ Adding role "${role}" to ${member.name}. New roles:`, newRoles);
+        }
+
+        // Update both roles array and legacy role field for backward compatibility
+        const primaryRole = newRoles.length > 0 ? newRoles[0] : 'Team Member';
+        return { 
+          ...member, 
+          roles: newRoles,
+          role: primaryRole // Keep legacy role field in sync
+        };
+      }
+      return member;
+    });
+
+    console.log('📝 Updated team members:', updatedTeamMembers);
+    setLocalTeamMembers(updatedTeamMembers);
+
+    // Update the selected project with new team members
+    const updatedProject = {
+      ...selectedProject,
+      teamMembers: updatedTeamMembers
+    };
+    setSelectedProject(updatedProject);
+
+    // Save team members to backend
+    await saveTeamMembersToProject(updatedTeamMembers);
+
+    // Automatically reassign tasks based on new role assignments
+    await reassignTasksByRoles(updatedTeamMembers);
+  };
+
+  // Reassign tasks based on current role assignments
+  const reassignTasksByRoles = async (teamMembers: any[]) => {
+    if (!selectedProject || !selectedProject.tasks) {
+      console.log('Cannot reassign tasks: no project or tasks available');
+      return;
+    }
+
+    try {
+      // Import the auto-assignment function
+      const { autoAssignByRoles } = await import('./lib/autoAssignByRoles');
+      
+      // Convert team members to the expected format
+      const teamWithRoles = teamMembers.map(member => ({
+        id: member.id,
+        name: member.name,
+        roles: member.roles || []
+      }));
+
+      console.log('Team with roles for reassignment:', teamWithRoles);
+      console.log('Project tasks sample:', selectedProject.tasks.slice(0, 5).map(t => ({ id: t.id, description: t.description })));
+
+      // Get assignments based on roles
+      const assignments = await autoAssignByRoles(teamWithRoles);
+      console.log('Generated assignments:', assignments);
+      
+      // Debug: Show which roles are being processed
+      teamWithRoles.forEach(member => {
+        console.log(`Member ${member.name} has roles:`, member.roles);
+      });
+
+      // Update project tasks with new assignments
+      const updatedTasks = selectedProject.tasks.map(task => {
+        // Find assignments for this task - handle both t1/t2 format and task-001/task-002 format
+        const taskAssignments = assignments.filter(a => {
+          // Try exact match first
+          if (a.taskId === task.id) {
+            console.log(`Exact match: ${task.id} === ${a.taskId}`);
+            return true;
+          }
+          
+          // Convert t1, t2, t3... to task-001, task-002, task-003...
+          const tMatch = task.id.match(/^t(\d+)$/);
+          if (tMatch) {
+            const taskNumber = tMatch[1].padStart(3, '0');
+            const expectedTaskId = `task-${taskNumber}`;
+            if (a.taskId === expectedTaskId) {
+              console.log(`Converted match: ${task.id} -> ${expectedTaskId} === ${a.taskId}`);
+              return true;
+            }
+          }
+          
+          // Convert task-001, task-002... to t1, t2...
+          const taskMatch = task.id.match(/^task-(\d+)$/);
+          if (taskMatch) {
+            const taskNumber = parseInt(taskMatch[1]);
+            const expectedTaskId = `t${taskNumber}`;
+            if (a.taskId === expectedTaskId) {
+              console.log(`Reverse match: ${task.id} -> ${expectedTaskId} === ${a.taskId}`);
+              return true;
+            }
+          }
+          
+          return false;
+        });
+        
+        if (taskAssignments.length > 0) {
+          // Assign to members who have the role for this task
+          const assignedTo = taskAssignments.map(a => a.assigneeId);
+          console.log(`Assigning task ${task.id} to:`, assignedTo);
+          console.log(`Task assignments for ${task.id}:`, taskAssignments.map(a => ({ role: a.role, assigneeId: a.assigneeId })));
+          return { ...task, assignedTo };
+        } else {
+          // If no one has the role for this task, remove all assignments
+          console.log(`No assignments for task ${task.id}`);
+          return { ...task, assignedTo: [] };
+        }
+      });
+
+      // Validate task updates before applying
+      if (!Array.isArray(updatedTasks)) {
+        console.error('Invalid task updates:', updatedTasks);
+        return;
+      }
+
+      // Update the project with new task assignments AND ensure team members are up-to-date
+      const updatedProject = {
+        ...selectedProject,
+        tasks: updatedTasks,
+        teamMembers: teamMembers  // Use the passed-in team members to ensure roles are included
+      };
+
+      console.log('💾 Saving updated project with team members:', JSON.stringify(teamMembers, null, 2));
+
+      // Save to backend
+      const response = await fetch(`${API_BASE_URL}/api/projects/${selectedProject.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
+        },
+        body: JSON.stringify({
+          userId: user?.id,
+          project: updatedProject
+        })
+      });
+
+      if (response.ok) {
+        // Update local state with error handling and slight delay to prevent rapid updates
+        try {
+          // Use setTimeout to prevent rapid state updates
+          setTimeout(() => {
+            setSelectedProject(updatedProject);
+            if (setProjects) {
+              setProjects(prevProjects =>
+                prevProjects.map(p => p.id === selectedProject.id ? updatedProject : p)
+              );
+            }
+            console.log('Tasks reassigned based on role changes');
+          }, 100);
+        } catch (stateError) {
+          console.error('Error updating state:', stateError);
+        }
+      } else {
+        console.error('Failed to update task assignments');
+      }
+    } catch (error) {
+      console.error('Error reassigning tasks:', error);
+    }
   };
 
   // Generate project update
@@ -8713,10 +9377,11 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
               <div className="w-px h-4 bg-gray-300"></div>
               <div className="flex items-center gap-2">
                 {selectedProject.teamMembers?.slice(0, 4).map((member, index) => {
+                  console.log('Header team member:', member, 'ID:', member.id);
                   const initials = member.name.split(' ').map(n => n[0]).join('').toUpperCase();
                   return (
                     <div
-                      key={member.id}
+                      key={member.id || `member-${index}`}
                       className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-medium relative group"
                       style={{ backgroundColor: getMemberColor(member.id, selectedProject.teamMembers) }}
                     >
@@ -8742,7 +9407,12 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
 
               {/* Add Team Member Popup Dropdown */}
               {showAddTeamMember && (
-                <div className="team-member-dropdown absolute top-full right-0 mt-2 bg-white rounded-lg border shadow-lg z-50 w-80">
+                <>
+                  {/* Backdrop */}
+                  <div className="fixed inset-0 bg-black bg-opacity-50 z-[9998]" onClick={() => setShowAddTeamMember(false)}></div>
+                  
+                  {/* Modal */}
+                  <div className="team-member-dropdown fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg border shadow-xl z-[9999] w-80 max-h-[80vh] overflow-y-auto">
                   <div className="p-4">
                     <div className="flex items-center justify-between mb-3">
                       <h4 className="text-sm font-semibold text-gray-900">Manage Team Members</h4>
@@ -8768,35 +9438,120 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                     <div>
                       <h5 className="text-xs font-medium text-gray-500 mb-2">Current Members</h5>
                       <div className="space-y-2 max-h-48 overflow-y-auto">
-                        {selectedProject.teamMembers?.map((member) => (
-                          <div key={member.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
-                            <div className="flex items-center gap-2">
-                              <div
-                                className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium"
-                                style={{ backgroundColor: getMemberColor(member.id, selectedProject.teamMembers) }}
-                              >
-                                {member.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                        {localTeamMembers?.filter(member => {
+                          console.log('Filtering member:', member);
+                          return member && member.id && member.name;
+                        }).map((member, index) => (
+                          <div key={member.id || `modal-member-${index}`} className="p-2 bg-gray-50 rounded-lg relative">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <div
+                                  className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium"
+                                  style={{ backgroundColor: getMemberColor(member.id, localTeamMembers) }}
+                                >
+                                  {member.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                                </div>
+                                <span className="text-sm text-gray-900">{member.name}</span>
                               </div>
-                              <span className="text-sm text-gray-900">{member.name}</span>
+                              <button
+                                onClick={() => {
+                                  // Show confirmation dialog
+                                  if (window.confirm(`Are you sure you want to remove ${member.name} from this project?`)) {
+                                    handleRemoveTeamMember(member.id);
+                                  }
+                                }}
+                                className="text-gray-400 hover:text-red-600 transition-colors"
+                                title="Remove member"
+                              >
+                                <XMarkIcon className="w-4 h-4" />
+                              </button>
                             </div>
-                            <button
-                              onClick={() => {
-                                // Show confirmation dialog
-                                if (window.confirm(`Are you sure you want to remove ${member.name} from this project?`)) {
-                                  handleRemoveTeamMember(member.id);
-                                }
-                              }}
-                              className="text-gray-400 hover:text-red-600 transition-colors"
-                              title="Remove member"
-                            >
-                              <XMarkIcon className="w-4 h-4" />
-                            </button>
+                            
+                            {/* Role Assignment */}
+                            <div className="ml-8">
+                              <div className="flex flex-wrap gap-1 items-center">
+                                {(member.roles || []).map((role) => (
+                                  <div
+                                    key={role}
+                                    className="flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-orange-100 text-orange-800 border border-orange-200"
+                                  >
+                                    <span>{role}</span>
+                                    <button
+                                      onClick={() => handleRoleToggle(member.id, role)}
+                                      className="text-orange-600 hover:text-orange-800 transition-colors"
+                                      title={`Remove ${role} role`}
+                                    >
+                                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                ))}
+                                
+                                {/* Add Role Button */}
+                                <div className="relative">
+                                  <button
+                                    onClick={() => {
+                                      const currentShowAddRole = showAddRoleDropdown;
+                                      setShowAddRoleDropdown(currentShowAddRole === member.id ? null : member.id);
+                                    }}
+                                    className="add-role-button w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center text-gray-500 hover:text-gray-700 hover:border-gray-400 transition-colors"
+                                    title="Add role"
+                                  >
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                    </svg>
+                                  </button>
+                                  
+                                  {/* Role Dropdown */}
+                                  {showAddRoleDropdown === member.id && (
+                                    <>
+                                      {/* Backdrop for role dropdown */}
+                                      <div className="fixed inset-0 bg-black bg-opacity-25 z-[9999]" onClick={() => setShowAddRoleDropdown(null)}></div>
+                                      
+                                      {/* Role dropdown modal */}
+                                      <div className="role-dropdown fixed bg-white border border-gray-300 rounded-lg shadow-xl z-[10000] min-w-[180px] max-h-[200px] overflow-y-auto" 
+                                           style={{
+                                             top: '50%',
+                                             left: '50%',
+                                             transform: 'translate(-50%, -50%)',
+                                             maxWidth: '300px'
+                                           }}>
+                                      {['Project Manager', 'Logistics', 'Recruit Coordinator', 'AE Manager']
+                                        .filter(role => !(member.roles || []).includes(role))
+                                        .map(role => (
+                                          <button
+                                            key={role}
+                                            onClick={() => {
+                                              handleRoleToggle(member.id, role);
+                                              setShowAddRoleDropdown(null);
+                                            }}
+                                            className="w-full px-3 py-2 text-left text-xs hover:bg-gray-100 first:rounded-t-lg last:rounded-b-lg"
+                                          >
+                                            {role}
+                                          </button>
+                                        ))}
+                                      {['Project Manager', 'Logistics', 'Recruit Coordinator', 'AE Manager']
+                                        .filter(role => !(member.roles || []).includes(role)).length === 0 && (
+                                        <div className="px-3 py-2 text-xs text-gray-500">All roles assigned</div>
+                                      )}
+                                    </div>
+                                    </>
+                                  )}
+                                </div>
+                                
+                                {(member.roles || []).length === 0 && (
+                                  <span className="text-xs text-gray-400 italic">No roles assigned</span>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         ))}
                       </div>
                     </div>
                   </div>
                 </div>
+                </>
               )}
             </div>
           </div>
@@ -10557,6 +11312,35 @@ function ProjectForm({
 function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUpdate, savedContentAnalyses = [], setRoute, setAnalysisToLoad, setIsLoadingProjectFile }: { project: Project; onEdit: () => void; onArchive: (projectId: string) => void; setProjects?: (projects: Project[] | ((prev: Project[]) => Project[])) => void; onProjectUpdate?: (project: Project) => void; savedContentAnalyses?: any[]; setRoute?: (route: string) => void; setAnalysisToLoad?: (analysisId: string | null) => void; setIsLoadingProjectFile?: (loading: boolean) => void }) {
   const { user } = useAuth();
 
+  // Function to get current phase based on today's date
+  const getCurrentPhase = (project: Project): string => {
+    if (!project.segments || project.segments.length === 0) {
+      return project.phase; // Fallback to stored phase
+    }
+
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+
+    // Find which phase today falls into
+    for (const segment of project.segments) {
+      if (todayStr >= segment.startDate && todayStr <= segment.endDate) {
+        return segment.phase;
+      }
+    }
+
+    // If today is before the first phase, return the first phase
+    if (todayStr < project.segments[0].startDate) {
+      return project.segments[0].phase;
+    }
+
+    // If today is after the last phase, return the last phase
+    if (todayStr > project.segments[project.segments.length - 1].endDate) {
+      return project.segments[project.segments.length - 1].phase;
+    }
+
+    return project.phase; // Fallback
+  };
+
   // Edit modal states
   const [showProjectNameEdit, setShowProjectNameEdit] = useState(false);
   const [showClientEdit, setShowClientEdit] = useState(false);
@@ -10659,35 +11443,6 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
       return 'Invalid Date';
     }
   };
-  
-  // Function to get current phase based on today's date
-  const getCurrentPhase = (project: Project): string => {
-    if (!project.segments || project.segments.length === 0) {
-      return project.phase; // Fallback to stored phase
-    }
-
-    const today = new Date();
-    const todayStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format
-
-    // Find which phase today falls into
-    for (const segment of project.segments) {
-      if (todayStr >= segment.startDate && todayStr <= segment.endDate) {
-        return segment.phase;
-      }
-    }
-
-    // If today is before the first phase, return the first phase
-    if (todayStr < project.segments[0].startDate) {
-      return project.segments[0].phase;
-    }
-
-    // If today is after the last phase, return the last phase
-    if (todayStr > project.segments[project.segments.length - 1].endDate) {
-      return project.segments[project.segments.length - 1].phase;
-    }
-
-    return project.phase; // Fallback
-  };
 
   // Helper function to get start and end of current week
   const getThisWeekRange = () => {
@@ -10768,6 +11523,12 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
 
     return projectKeyDates
       .map(keyDate => {
+        // Safety check for keyDate.date
+        if (!keyDate.date || typeof keyDate.date !== 'string') {
+          console.warn('Invalid keyDate.date:', keyDate.date);
+          return null;
+        }
+        
         let dateStr: string;
 
         if (keyDate.date.includes('/')) {
@@ -10790,6 +11551,11 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
 
   const currentPhase = getCurrentPhase(project);
   const phaseColor = PHASE_COLORS[currentPhase] || PHASE_COLORS['Kickoff'];
+  
+  // Safety check to ensure project is valid
+  if (!project || !project.id) {
+    return <div className="p-4 text-center text-gray-500">Loading project...</div>;
+  }
   const [showAddTask, setShowAddTask] = useState(false);
   const [newTask, setNewTask] = useState({ description: "", assignedTo: [] as string[], status: "pending" as Task['status'], dueDate: "" });
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -10797,7 +11563,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
   const [editingTimeline, setEditingTimeline] = useState(false);
   const [editingSegments, setEditingSegments] = useState(project.segments || []);
   const [activePhase, setActivePhase] = useState(getCurrentPhase(project));
-  const [projectTasks, setProjectTasks] = useState(project.tasks);
+  const [projectTasks, setProjectTasks] = useState(project.tasks || []);
   const [showAllTasks, setShowAllTasks] = useState(false);
   const [maxVisibleTasks, setMaxVisibleTasks] = useState(8);
   const taskContainerRef = useRef<HTMLDivElement>(null);
@@ -10806,6 +11572,15 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
   const [showDatePickerForTaskInDashboard, setShowDatePickerForTaskInDashboard] = useState(false);
   const [selectedTaskForDateInDashboard, setSelectedTaskForDateInDashboard] = useState<string | null>(null);
   const [showAssignmentDropdown, setShowAssignmentDropdown] = useState<string | null>(null);
+  const [assignmentDropdownPosition, setAssignmentDropdownPosition] = useState<{top: number, left: number} | null>(null);
+  const [calendarDropdownPosition, setCalendarDropdownPosition] = useState<{top: number, left: number} | null>(null);
+
+  // Sync projectTasks with project.tasks when it changes (e.g., after role-based assignment)
+  useEffect(() => {
+    if (project.tasks) {
+      setProjectTasks(project.tasks);
+    }
+  }, [project.tasks]);
 
   // Close calendar dropdown when clicking outside
   useEffect(() => {
@@ -10902,10 +11677,10 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
     };
 
     // Only save if tasks have actually changed from the initial project tasks
-    if (JSON.stringify(projectTasks) !== JSON.stringify(project.tasks)) {
+    if (JSON.stringify(projectTasks) !== JSON.stringify(project.tasks || [])) {
       saveProject();
     }
-  }, [projectTasks, project.id, project.tasks, user?.id]);
+  }, [projectTasks, project.id, project.tasks || [], user?.id]);
   const [selectedDay, setSelectedDay] = useState<{ day: number; date: Date; phase: string; deadlines: string[]; notes: string[]; tasks: any[] } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [showAddNote, setShowAddNote] = useState(false);
@@ -10949,8 +11724,6 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
     const loadStorytellingData = async () => {
       if (!project?.id) return;
       
-      console.log('🔍 Loading storytelling data for project:', project.id, project.name);
-      console.log('🔍 Project object:', project);
       setStorytellingLoading(true);
       try {
         // Check if project has analysisId (from storytelling API) or get it from saved content analyses
@@ -10969,7 +11742,6 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
           ? `${API_BASE_URL}/api/storytelling/${project.id}?analysisId=${analysisId}`
           : `${API_BASE_URL}/api/storytelling/${project.id}`;
         
-        console.log('🔍 Fetching from URL:', url);
         const response = await fetch(url, {
           headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
         });
@@ -11040,6 +11812,12 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
     const keyDates = project.keyDeadlines || [];
     return keyDates.filter(keyDate => {
       try {
+        // Safety check for keyDate.date
+        if (!keyDate.date || typeof keyDate.date !== 'string') {
+          console.warn('Invalid keyDate.date:', keyDate.date);
+          return false;
+        }
+        
         if (keyDate.date.includes('/')) {
           const [month, day, year] = keyDate.date.split('/');
           const fullYear = parseInt(year) < 50 ? 2000 + parseInt(year) : 1900 + parseInt(year);
@@ -11676,6 +12454,12 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
     // Find relevant key dates
     const relevantKeyDates = projectKeyDates.filter(keyDate => {
       try {
+        // Safety check for keyDate.date
+        if (!keyDate.date || typeof keyDate.date !== 'string') {
+          console.warn('Invalid keyDate.date:', keyDate.date);
+          return false;
+        }
+        
         // Handle different date formats
         let keyDateObj;
         
@@ -12347,10 +13131,6 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
     }
   };
 
-  const handleRemoveTeamMember = (memberId: string) => {
-    setLocalTeamMembers(prev => prev.filter(member => member.id !== memberId));
-    console.log('Removing team member:', memberId);
-  };
 
   const hasKeyDateOnDay = (date: Date) => {
     const currentYear = date.getFullYear();
@@ -12359,6 +13139,12 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
     
     return projectKeyDates.some(keyDate => {
       try {
+        // Safety check for keyDate.date
+        if (!keyDate.date || typeof keyDate.date !== 'string') {
+          console.warn('Invalid keyDate.date:', keyDate.date);
+          return false;
+        }
+        
         // Handle different date formats
         let keyDateObj;
         
@@ -12556,6 +13342,12 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
 
     const keyDate = projectKeyDates.find(keyDate => {
       try {
+        // Safety check for keyDate.date
+        if (!keyDate.date || typeof keyDate.date !== 'string') {
+          console.warn('Invalid keyDate.date:', keyDate.date);
+          return false;
+        }
+        
         // Handle different date formats
         let keyDateObj;
         
@@ -13277,7 +14069,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                 })
                 .map((task) => {
                   return (
-                    <div key={task.id} className="task-grid px-3 py-2 border rounded-lg bg-gray-100 hover:bg-gray-50">
+                    <div key={task.id} className={`task-grid px-3 py-2 border rounded-lg ${isTaskOverdue(task) ? 'bg-red-50 hover:bg-red-100' : 'bg-gray-100 hover:bg-gray-50'}`}>
                       {/* Task Status Checkbox */}
                       <button
                         className={`w-3 h-3 rounded border-2 flex items-center justify-center text-[10px] ${
@@ -13294,27 +14086,60 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                       <div className="min-w-0">
                         <div className={`text-[10px] flex items-center gap-2 ${task.status === 'completed' ? 'line-through text-gray-500' : 'text-gray-900'}`}>
                           <span>{task.description}</span>
-                          {isTaskOverdue(task) && (
-                            <span className="px-0.5 sm:px-1 md:px-2 py-1 rounded-full text-[8px] font-medium bg-red-500/20 text-red-600 h-4 flex items-center">
-                              overdue
-                            </span>
-                          )}
                         </div>
                       </div>
 
-                      {/* Calendar Icon for Due Date or Ongoing Indicator */}
-                      <div className="relative justify-self-end ml-1">
-                        {task.isOngoing ? (
-                          <div className="w-full flex items-center justify-end">
-                            <div
-                              className="px-1 py-0.5 rounded-full text-[8px] font-medium text-white"
-                              style={{ backgroundColor: PHASE_COLORS[activePhase] || '#6B7280', opacity: 0.8 }}
-                            >
-                              Ongoing
+                      {/* Assignment and Calendar Section */}
+                      <div className="relative flex items-center justify-end ml-1">
+                        {/* Team Member Avatars and Assignment Button */}
+                        <div className="flex items-center gap-0.5">
+                          {task.assignedTo && task.assignedTo.filter(id => id && id.trim() !== '').length > 0 && (
+                            <div className="flex items-center flex-shrink-0">
+                              {task.assignedTo.filter(id => id && id.trim() !== '').slice(0, 2).map((memberId, index) => (
+                                <div key={memberId} className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-medium overflow-hidden border-2 border-gray-100 ${index > 0 ? '-ml-1' : ''}`} style={{ backgroundColor: getMemberColor(memberId, project.teamMembers), zIndex: index === 0 ? 2 : 1 }}>
+                                  <span className="truncate leading-none">{getInitials(project.teamMembers.find(m => m.id === memberId)?.name || 'Unknown')}</span>
+                                </div>
+                              ))}
+                              {task.assignedTo.filter(id => id && id.trim() !== '').length > 2 && (
+                                <div className="relative group flex items-center">
+                                  <span className="text-[10px] italic text-gray-500 ml-0.5 mr-1 cursor-help">
+                                    +{task.assignedTo.filter(id => id && id.trim() !== '').length - 2}
+                                  </span>
+                                  <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs rounded p-2 whitespace-nowrap z-10 left-0 top-8">
+                                    {task.assignedTo.filter(id => id && id.trim() !== '').slice(2).map(id => project.teamMembers.find(m => m.id === id)?.name || 'Unknown').join(', ')}
+                                  </div>
+                                </div>
+                              )}
                             </div>
+                          )}
+
+                          {/* Assignment Button */}
+                          <button
+                            onClick={(e) => {
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              setAssignmentDropdownPosition({
+                                top: rect.bottom + window.scrollY + 5,
+                                left: rect.left + window.scrollX
+                              });
+                              setShowAssignmentDropdown(showAssignmentDropdown === task.id ? null : task.id);
+                            }}
+                            className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+                            title="Assign team members"
+                          >
+                            +
+                          </button>
+                        </div>
+
+                        {/* Calendar Icon for Due Date */}
+                        <div className="ml-2">
+                          {task.isOngoing ? (
+                          <div className="px-1 py-0.5 rounded-full text-[8px] font-medium text-white"
+                            style={{ backgroundColor: PHASE_COLORS[activePhase] || '#6B7280', opacity: 0.8 }}
+                          >
+                            Ongoing
                           </div>
                         ) : task.dueDate ? (
-                          <div className="w-full flex items-center justify-end">
+                          <div className="relative">
                             <div
                               className={`px-0.5 sm:px-1 md:px-2 py-1 rounded-full text-[8px] font-medium ${isTaskOverdue(task) ? 'text-red-600' : 'text-white opacity-60'}`}
                               style={{ backgroundColor: isTaskOverdue(task) ? 'rgba(239, 68, 68, 0.2)' : (PHASE_COLORS[activePhase] || '#6B7280') }}
@@ -13348,18 +14173,53 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                             </button>
                           </div>
                         ) : (
-                          <div className="w-full flex items-center justify-end">
-                            <button
-                              onClick={() => {
-                                setSelectedTaskForDate(task.id);
-                                setShowCalendarDropdown(!showCalendarDropdown);
-                              }}
-                              className="p-1 rounded-lg transition-colors text-gray-400 hover:text-gray-600 hover:bg-gray-50"
-                              title="Set due date"
-                            >
-                              <CalendarIcon className="h-3 w-3" />
-                            </button>
-                          </div>
+                          <button
+                            onClick={(e) => {
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              setCalendarDropdownPosition({
+                                top: rect.bottom + window.scrollY + 5,
+                                left: rect.left + window.scrollX
+                              });
+                              setSelectedTaskForDate(task.id);
+                              setShowCalendarDropdown(!showCalendarDropdown);
+                            }}
+                            className="p-1 rounded-lg transition-colors text-gray-400 hover:text-gray-600 hover:bg-gray-50"
+                            title="Set due date"
+                          >
+                            <CalendarIcon className="h-3 w-3" />
+                          </button>
+                        )}
+                        </div>
+
+                        {/* Assignment Dropdown */}
+                        {showAssignmentDropdown === task.id && createPortal(
+                          <div className="assignment-dropdown fixed z-[9999] bg-white border border-gray-300 rounded-lg shadow-lg p-2 min-w-[200px]"
+                            style={{
+                              top: assignmentDropdownPosition?.top || '50%',
+                              left: assignmentDropdownPosition?.left || '50%',
+                              transform: assignmentDropdownPosition ? 'none' : 'translate(-50%, -50%)'
+                            }}>
+                            <div className="space-y-1">
+                              {project.teamMembers.map(member => (
+                                <label key={member.id} className="flex items-center gap-2 px-0.5 sm:px-1 md:px-2 py-1 hover:bg-gray-50 rounded cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={task.assignedTo?.includes(member.id) || false}
+                                    onChange={(e) => {
+                                      const currentAssigned = task.assignedTo || [];
+                                      const newAssigned = e.target.checked
+                                        ? [...currentAssigned, member.id]
+                                        : currentAssigned.filter(id => id !== member.id);
+                                      updateTaskAssignment(task.id, newAssigned);
+                                    }}
+                                    className="rounded border-gray-300"
+                                  />
+                                  <span className="text-sm">{member.name}</span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>,
+                          document.body
                         )}
                         
                         {/* Calendar Dropdown */}
@@ -13368,9 +14228,9 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                             className="calendar-dropdown fixed z-[9999] bg-white border rounded-lg shadow-lg p-4 w-80"
                             onClick={(e) => e.stopPropagation()}
                             style={{
-                              top: '50%',
-                              left: '50%',
-                              transform: 'translate(-50%, -50%)'
+                              top: calendarDropdownPosition?.top || '50%',
+                              left: calendarDropdownPosition?.left || '50%',
+                              transform: calendarDropdownPosition ? 'none' : 'translate(-50%, -50%)'
                             }}
                           >
                             <div className="flex justify-between items-center mb-3">
@@ -13415,64 +14275,6 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                         )}
                       </div>
 
-                      {/* Assignment Section */}
-                      <div className="relative flex items-center justify-self-end justify-end ml-1 gap-0">
-                        {task.assignedTo && task.assignedTo.filter(id => id && id.trim() !== '').length > 0 && (
-                          <div className="flex items-center flex-shrink-0">
-                            {task.assignedTo.filter(id => id && id.trim() !== '').slice(0, 2).map((memberId, index) => (
-                              <div key={memberId} className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium overflow-hidden border-2 border-gray-100 ${index > 0 ? '-ml-1' : ''}`} style={{ backgroundColor: getMemberColor(memberId, project.teamMembers), zIndex: index === 0 ? 2 : 1 }}>
-                                <span className="truncate leading-none">{getInitials(project.teamMembers.find(m => m.id === memberId)?.name || 'Unknown')}</span>
-                              </div>
-                            ))}
-                            {task.assignedTo.filter(id => id && id.trim() !== '').length > 2 && (
-                              <div className="relative group flex items-center">
-                                <span className="text-[10px] italic text-gray-500 ml-0.5 mr-1 cursor-help">
-                                  +{task.assignedTo.filter(id => id && id.trim() !== '').length - 2}
-                                </span>
-                                <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs rounded p-2 whitespace-nowrap z-10 left-0 top-8">
-                                  {task.assignedTo.filter(id => id && id.trim() !== '').slice(2).map(id => project.teamMembers.find(m => m.id === id)?.name || 'Unknown').join(', ')}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                          <button
-                            onClick={() => setShowAssignmentDropdown(showAssignmentDropdown === task.id ? null : task.id)}
-                            className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
-                            title="Assign team members"
-                          >
-                            +
-                          </button>
-                        {showAssignmentDropdown === task.id && createPortal(
-                          <div className="assignment-dropdown fixed z-[9999] bg-white border border-gray-300 rounded-lg shadow-lg p-2 min-w-[200px]"
-                            style={{
-                              top: '50%',
-                              left: '50%',
-                              transform: 'translate(-50%, -50%)'
-                            }}>
-                            <div className="space-y-1">
-                              {project.teamMembers.map(member => (
-                                <label key={member.id} className="flex items-center gap-2 px-0.5 sm:px-1 md:px-2 py-1 hover:bg-gray-50 rounded cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    checked={task.assignedTo?.includes(member.id) || false}
-                                    onChange={(e) => {
-                                      const currentAssigned = task.assignedTo || [];
-                                      const newAssigned = e.target.checked
-                                        ? [...currentAssigned, member.id]
-                                        : currentAssigned.filter(id => id !== member.id);
-                                      updateTaskAssignment(task.id, newAssigned);
-                                    }}
-                                    className="rounded border-gray-300"
-                                  />
-                                  <span className="text-sm">{member.name}</span>
-                                </label>
-                              ))}
-                            </div>
-                          </div>,
-                          document.body
-                        )}
-                      </div>
                     </div>
                   );
                 })}
@@ -13573,14 +14375,6 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                   const dateStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
                   const mondayStart = new Date(mondayOfWeek.getFullYear(), mondayOfWeek.getMonth(), mondayOfWeek.getDate());
                   const fridayStart = new Date(fridayOfWeek.getFullYear(), fridayOfWeek.getMonth(), fridayOfWeek.getDate());
-                  
-                  console.log('Week calculation:', {
-                    date: dateStart.toDateString(),
-                    monday: mondayStart.toDateString(),
-                    friday: fridayStart.toDateString(),
-                    isInRange: dateStart >= mondayStart && dateStart <= fridayStart
-                  });
-                  
                   return dateStart >= mondayStart && dateStart <= fridayStart;
                 };
 
@@ -13598,15 +14392,6 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                     const isCurrentMonth = dayObj.isCurrentMonth;
                     const isPastDate = dayDate < new Date(new Date().setHours(0, 0, 0, 0));
                     
-                    // Debug logging for Monday
-                    if (dayDate.getDay() === 1) {
-                      console.log('Monday debug:', {
-                        dayDate: dayDate.toDateString(),
-                        isCurrentWeekDay,
-                        isPastDate,
-                        isCurrentDay
-                      });
-                    }
                     const phaseForDay = project.segments?.find(segment =>
                       isDateInPhase(dayObj, segment)
                     );
@@ -13743,13 +14528,6 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                   (project.methodology?.includes('Focus') || project.methodology?.includes('Interview') || project.methodology?.includes('Ethnographic') || 
                    project.name?.toLowerCase().includes('qual') ? 'Qualitative' : 'Quantitative');
                 
-                console.log('Project Details - Moderator field check:', {
-                  projectName: project.name,
-                  methodology: project.methodology,
-                  methodologyType: project.methodologyType,
-                  detectedType: methodologyType,
-                  shouldShowModerator: methodologyType === 'Qualitative' || methodologyType === 'Qual'
-                });
                 
                 return methodologyType === 'Qualitative' || methodologyType === 'Qual';
               })() && (
@@ -15345,6 +16123,12 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
     
     return project.keyDeadlines?.some(keyDate => {
       try {
+        // Safety check for keyDate.date
+        if (!keyDate.date || typeof keyDate.date !== 'string') {
+          console.warn('Invalid keyDate.date:', keyDate.date);
+          return false;
+        }
+        
         // Handle different date formats
         let keyDateObj;
         
@@ -15387,6 +16171,12 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
 
     const keyDate = project.keyDeadlines?.find(keyDate => {
       try {
+        // Safety check for keyDate.date
+        if (!keyDate.date || typeof keyDate.date !== 'string') {
+          console.warn('Invalid keyDate.date:', keyDate.date);
+          return false;
+        }
+        
         // Handle different date formats
         let keyDateObj;
         
@@ -15422,35 +16212,6 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
     return keyDate ? keyDate.label : null;
   };
 
-  // Function to get current phase based on today's date
-  const getCurrentPhase = (project: Project): string => {
-    if (!project.segments || project.segments.length === 0) {
-      return project.phase; // Fallback to stored phase
-    }
-
-    const today = new Date();
-    const todayStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format
-
-    // Find which phase today falls into
-    for (const segment of project.segments) {
-      if (todayStr >= segment.startDate && todayStr <= segment.endDate) {
-        return segment.phase;
-      }
-    }
-
-    // If today is before the first phase, return the first phase
-    if (todayStr < project.segments[0].startDate) {
-      return project.segments[0].phase;
-    }
-
-    // If today is after the last phase, return the last phase
-    if (todayStr > project.segments[project.segments.length - 1].endDate) {
-      return project.segments[project.segments.length - 1].phase;
-    }
-
-    return project.phase; // Fallback
-  };
-
   const currentPhase = getCurrentPhase(project);
   const phaseColor = PHASE_COLORS[currentPhase];
   const [showAddTask, setShowAddTask] = useState(false);
@@ -15459,10 +16220,17 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
   const [editingTimeline, setEditingTimeline] = useState(false);
   const [editingSegments, setEditingSegments] = useState(project.segments || []);
   const [activePhase, setActivePhase] = useState(getCurrentPhase(project));
-  const [projectTasks, setProjectTasks] = useState(project.tasks);
+  const [projectTasks, setProjectTasks] = useState(project.tasks || []);
   const [maxVisibleTasks, setMaxVisibleTasks] = useState(8);
   const taskContainerRef = useRef<HTMLDivElement>(null);
   const [showAllTasks, setShowAllTasks] = useState(false);
+
+  // Sync projectTasks with project.tasks when it changes (e.g., after role-based assignment)
+  useEffect(() => {
+    if (project.tasks) {
+      setProjectTasks(project.tasks);
+    }
+  }, [project.tasks]);
 
   // Function to calculate optimal number of tasks to display
   const calculateMaxTasks = useCallback(() => {
@@ -16577,6 +17345,33 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
           </div>
       </div>
       </div>
+
+      {/* Calendar Picker Modal for Tasks */}
+      {showCalendarDropdown && selectedTaskForDate && (
+        <CalendarPicker
+          selectedDate={projectTasks.find(t => t.id === selectedTaskForDate)?.dueDate || ''}
+          onDateSelect={(date) => {
+            const updatedTasks = projectTasks.map(t =>
+              t.id === selectedTaskForDate ? { ...t, dueDate: date } : t
+            );
+            setProjectTasks(updatedTasks);
+            if (setProjects) {
+              setProjects((prev: Project[]) =>
+                prev.map(p =>
+                  p.id === project.id ? { ...p, tasks: updatedTasks } : p
+                )
+              );
+            }
+            setShowCalendarDropdown(false);
+            setSelectedTaskForDate(null);
+          }}
+          onClose={() => {
+            setShowCalendarDropdown(false);
+            setSelectedTaskForDate(null);
+          }}
+          title="Set Due Date"
+        />
+      )}
 
     </div>
   );

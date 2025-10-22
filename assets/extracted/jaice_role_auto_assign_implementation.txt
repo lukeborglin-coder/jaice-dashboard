@@ -1,0 +1,197 @@
+JAICE Role-Based Auto-Assignment — Implementation Guide (TXT)
+Updated: 2025-10-21
+
+Overview
+--------
+Goal: On the final step of your Project Setup Wizard, assign roles to team members. When a team member is assigned a role, auto-assign them to the tasks mapped to that role from your Excel.
+
+Inputs (from your Excel)
+------------------------
+Sheets detected:
+- Tasks: columns = Quant/Qual, Phase, Task, Date Notes, Assigned, Notes (114 rows)
+- Roles: columns = Role, Description (4 rows)
+
+Generated JSON artifacts (place in your app and import at build-time or serve via API):
+- /data/jaice_tasks.json              // each task with id, phase, task, role, etc.
+- /data/jaice_roles.json              // role names + descriptions
+- /data/jaice_role_task_map.json      // { role: [taskIds...] } built from Tasks["Assigned"]
+
+Download the prepared JSONs (export them into your repo under /data/):
+- jaice_tasks.json          (get from ChatGPT link in prior message)
+- jaice_roles.json          (get from ChatGPT link in prior message)
+- jaice_role_task_map.json  (get from ChatGPT link in prior message)
+
+If you regenerate from Excel later, keep the same filenames and structure.
+
+Directory Suggestion
+--------------------
+<your-repo>/
+  src/
+    types/
+      types.ts
+    lib/
+      autoAssignByRoles.ts
+    components/
+      RolePicker.tsx
+  public/ or src/data/   // put the three JSON files here (adjust import paths accordingly)
+
+Type Definitions (types.ts)
+---------------------------
+export type Task = {
+  id: string;            // e.g., "task-001"
+  quantQual?: string;
+  phase: string;
+  task: string;
+  dateNotes?: string;
+  role?: string;         // from Excel "Assigned"
+  notes?: string;
+};
+
+export type TeamMember = {
+  id: string;            // your internal user id
+  name: string;
+  roles: string[];       // e.g., ["Project Manager", "Logistics"]
+};
+
+Core Logic (autoAssignByRoles.ts)
+---------------------------------
+import tasks from '@/data/jaice_tasks.json';
+import roleMap from '@/data/jaice_role_task_map.json';
+import type { TeamMember } from '@/types/types';
+
+type Assignment = { taskId: string; assigneeId: string; role: string };
+
+/**
+ * Given team members with selected roles, return task assignments.
+ * - If multiple members share a role, tasks are round-robined across them.
+ * - If no member has a role, tasks for that role remain unassigned (skipped here).
+ */
+export function autoAssignByRoles(team: TeamMember[]): Assignment[] {
+  // Build role -> memberIds map
+  const roleToMembers = new Map<string, string[]>();
+  team.forEach(m =>
+    (m.roles || []).forEach(r => {
+      const list = roleToMembers.get(r) || [];
+      list.push(m.id);
+      roleToMembers.set(r, list);
+    })
+  );
+
+  const assignments: Assignment[] = [];
+
+  // roleMap is: { [role: string]: string[] /* taskIds */ }
+  Object.entries(roleMap as Record<string, string[]>).forEach(([role, taskIds]) => {
+    const members = roleToMembers.get(role) || [];
+    if (members.length === 0) return; // nobody has this role
+
+    taskIds.forEach((tid, idx) => {
+      // Round-robin among members who share the role
+      const assigneeId = members[idx % members.length];
+      assignments.push({ taskId: tid, assigneeId, role });
+    });
+  });
+
+  return assignments;
+}
+
+Wizard Integration (Finish Step)
+--------------------------------
+/**
+ * Call this on the final “Finish” step of your setup wizard after users select roles.
+ * Persist to your backend the same way you currently create/update tasks.
+ */
+import { autoAssignByRoles } from '@/lib/autoAssignByRoles';
+import type { TeamMember } from '@/types/types';
+
+async function onFinish(projectId: string, teamMembers: TeamMember[]) {
+  const assignments = autoAssignByRoles(teamMembers);
+
+  // Persist on backend
+  await fetch(`/api/projects/${projectId}/assign-by-roles`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ assignments })
+  });
+}
+
+Minimal Backend Endpoint (Node/Express example)
+-----------------------------------------------
+// POST /api/projects/:id/assign-by-roles
+app.post('/api/projects/:id/assign-by-roles', async (req, res) => {
+  const { assignments } = req.body as {
+    assignments: { taskId: string; assigneeId: string; role: string }[];
+  };
+  const projectId = req.params.id;
+
+  // TODO: Translate taskId -> your task record, then set assigneeId
+  // Example pseudo-logic:
+  // for (const a of assignments) {
+  //   await db.tasks.update(
+  //     { projectId, externalTaskId: a.taskId },   // or match by id field you persisted from jaice_tasks.json
+  //     { assigneeId: a.assigneeId, role: a.role }
+  //   );
+  // }
+
+  res.json({ ok: true, count: assignments.length });
+});
+
+Role Selection UI (RolePicker.tsx)
+----------------------------------
+/**
+ * Use this in the wizard to assign roles to each team member.
+ * Save the result as member.roles: string[] and pass to onFinish().
+ */
+import roles from '@/data/jaice_roles.json';
+
+export function RolePicker({
+  member,
+  onChange
+}: {
+  member: { id: string; name: string; roles: string[] };
+  onChange: (roles: string[]) => void;
+}) {
+  return (
+    <div className="flex items-center gap-3">
+      <div className="w-40">{member.name}</div>
+      <select
+        multiple
+        value={member.roles}
+        onChange={(e) => {
+          const vals = Array.from(e.target.selectedOptions).map(o => o.value);
+          onChange(vals);
+        }}
+      >
+        {(roles as { role: string }[]).map(r => (
+          <option key={r.role} value={r.role}>{r.role}</option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+Data Notes & Conventions
+------------------------
+- The role-to-task mapping is derived from the Excel 'Assigned' column in the Tasks sheet.
+- The JSON artifacts were generated to be stable for imports:
+  * jaice_tasks.json: [{ id, quantQual, phase, task, dateNotes, role, notes } ...]
+  * jaice_roles.json: [{ role, description } ...]
+  * jaice_role_task_map.json: { "<Role>": ["task-001","task-017", ...], ... }
+- If you change assignments in Excel, regenerate these JSONs to keep your app in sync.
+- If no member is assigned to a role, those tasks remain unassigned (you can surface a warning in the UI).
+- If multiple members share a role, tasks are automatically load-balanced via round-robin.
+
+Edge Cases & Options
+--------------------
+- You can prefer “primary owner” logic instead of round-robin (e.g., assign all to the first member), by changing the selection line to: const assigneeId = members[0].
+- You can filter which tasks get auto-assigned at Finish by phase or quant/qual if needed (pre-filter the taskIds before iteration).
+- If you already have tasks in your DB, ensure each imported task has a stable reference to the generated taskId (e.g., externalTaskId).
+
+Implementation Checklist
+------------------------
+1) Copy the three JSON files into /src/data (or /public/data) and fix import paths.
+2) Add types.ts, autoAssignByRoles.ts, RolePicker.tsx in the suggested locations.
+3) In your wizard “Finish” handler, call autoAssignByRoles(teamMembers), POST to your backend, and persist assignments.
+4) Test with two members sharing the same role to confirm round-robin behavior.
+5) (Optional) Show a toast/banner listing tasks that remained unassigned due to missing role assignees.
+
+Done.

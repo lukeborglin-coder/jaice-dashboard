@@ -42,6 +42,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       if (storedUser && token) {
         try {
+          console.log('🔐 Verifying token with backend:', API_BASE_URL);
           // Verify token with backend
           const response = await fetch(`${API_BASE_URL}/api/auth/verify`, {
             headers: {
@@ -49,30 +50,33 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             },
           });
 
+          console.log('📡 Auth verification response:', response.status, response.statusText);
+          
           if (response.ok) {
+            console.log('✅ Token verified successfully');
             const userData = JSON.parse(storedUser);
             setUser(userData);
           } else if (response.status === 401) {
             // Only clear storage if token is actually invalid (401)
-            console.log('Token invalid, clearing storage');
+            console.log('❌ Token invalid, clearing storage');
             localStorage.removeItem('cognitive_dash_user');
             localStorage.removeItem('cognitive_dash_token');
             localStorage.removeItem('cognitive_dash_vendors');
           } else {
             // For other errors (500, network issues), keep user logged in
-            console.log('Server error during auth verification, keeping user logged in');
+            console.log('⚠️ Server error during auth verification, keeping user logged in. Status:', response.status);
             const userData = JSON.parse(storedUser);
             setUser(userData);
           }
         } catch (error) {
           // Network error - keep user logged in rather than forcing logout
-          console.log('Network error during auth verification, keeping user logged in');
+          console.log('🌐 Network error during auth verification, keeping user logged in:', error);
           try {
             const userData = JSON.parse(storedUser);
             setUser(userData);
           } catch (parseError) {
             // Only clear if stored data is corrupted
-            console.log('Corrupted user data, clearing storage');
+            console.log('💥 Corrupted user data, clearing storage:', parseError);
             localStorage.removeItem('cognitive_dash_user');
             localStorage.removeItem('cognitive_dash_token');
             localStorage.removeItem('cognitive_dash_vendors');
