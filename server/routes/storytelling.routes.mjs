@@ -689,11 +689,10 @@ router.post('/:projectId/dynamic-report/generate', authenticateToken, async (req
     const { analysisId } = req.body;
 
     const projectData = await loadProjectStorytelling(projectId, analysisId);
-    const strategicQuestions = projectData.strategicQuestions;
+    const strategicQuestions = projectData.strategicQuestions || [];
 
-    if (!strategicQuestions || strategicQuestions.length === 0) {
-      return res.status(400).json({ error: 'No strategic questions defined for this project' });
-    }
+    // Allow report generation even without strategic questions
+    // The executive summary slide will show a message when no questions are available
 
     const transcriptsText = await getTranscriptsText(projectId, analysisId);
     const caDataObj = await getCAData(projectId, analysisId);

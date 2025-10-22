@@ -538,7 +538,7 @@ PROJECT INFORMATION:
 - Client: ${projectInfo?.client || 'Client Name'}
 
 STRATEGIC QUESTIONS (for Slide 2 only):
-${strategicQuestions.map((q, i) => `${i + 1}. ${q}`).join('\n')}
+${strategicQuestions.length > 0 ? strategicQuestions.map((q, i) => `${i + 1}. ${q}`).join('\n') : 'No strategic questions have been defined for this project yet.'}
 
 CONTENT ANALYSIS DATA:
 ${caDataForPrompt}
@@ -579,6 +579,21 @@ For Slide 2, use this exact format for strategic questions:
       "question": "Strategic question text",
       "answer": "Detailed 2-3 sentence answer with specific findings, data points, and context",
       "insight": "Comprehensive 2-3 sentence strategic insight with actionable recommendations and implications"
+    }
+  ]
+}
+
+IMPORTANT - HANDLING NO STRATEGIC QUESTIONS:
+If no strategic questions are provided, create an executive summary slide with this format:
+{
+  "type": "executive_summary",
+  "title": "Executive Summary",
+  "headline": "Strategic questions will be defined to guide analysis",
+  "findings": [
+    {
+      "question": "Strategic questions to be defined",
+      "answer": "Strategic questions have not yet been established for this project. These will be developed to guide the analysis and provide focused insights.",
+      "insight": "Once strategic questions are defined, they will drive the analysis to uncover specific insights and actionable recommendations."
     }
   ]
 }
