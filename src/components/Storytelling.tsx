@@ -353,7 +353,7 @@ const ReportSlide: React.FC<ReportSlideProps> = ({ slide, slideNumber, totalSlid
   const IconComponent = getIcon(slide.icon);
 
   return (
-    <div className="bg-white rounded-lg shadow-lg border border-gray-200 mb-3 flex flex-col relative" style={{ aspectRatio: '16/9', height: '500px', width: '100%', maxWidth: '888px', overflow: 'hidden' }}>
+    <div className="bg-white rounded-lg shadow-lg border border-gray-200 mb-3 flex flex-col relative" style={{ aspectRatio: '16/9', height: '500px', width: '100%', maxWidth: '888px' }}>
       {/* Slide Header - Only show for non-title slides */}
       {slide.type !== 'title' && (
         <div className="flex items-center p-3 border-b border-gray-200 flex-shrink-0" style={{ backgroundColor: BRAND_ORANGE }}>
@@ -385,7 +385,7 @@ const ReportSlide: React.FC<ReportSlideProps> = ({ slide, slideNumber, totalSlid
 
         {slide.type === 'executive_summary' && (
           <div className="h-full flex flex-col">
-            <div className="flex-1 flex flex-col p-4 pb-0 overflow-hidden">
+            <div className="flex-1 flex flex-col p-4 pb-0">
               {slide.findings && slide.findings.length > 0 ? (
                 <div className="flex-1 flex flex-col space-y-2 min-h-0">
                   {/* Header Row */}
@@ -395,20 +395,20 @@ const ReportSlide: React.FC<ReportSlideProps> = ({ slide, slideNumber, totalSlid
                     <div className="col-span-5">Strategic Insights</div>
                   </div>
 
-                  {/* Content Rows - Each finding in its own row with equal height distribution */}
-                  <div className="flex-1 grid gap-3 overflow-hidden" style={{ gridTemplateRows: `repeat(${slide.findings.length}, 1fr)` }}>
+                  {/* Content Rows - Each finding in its own row with matching box heights */}
+                  <div className="flex-1 space-y-3 overflow-y-auto">
                   {slide.findings.map((finding: any, idx: number) => (
-                      <div key={idx} className="grid grid-cols-12 gap-3 min-h-0">
+                      <div key={idx} className="grid grid-cols-12 gap-3">
                       {/* Question Column */}
-                      <div className="col-span-2">
-                          <div className="bg-gray-50 p-2 rounded border-l-4 h-full flex items-start" style={{ borderLeftColor: BRAND_ORANGE }}>
+                      <div className="col-span-2 flex">
+                          <div className="bg-gray-50 p-2 rounded border-l-4 w-full flex items-start" style={{ borderLeftColor: BRAND_ORANGE }}>
                           <p className="text-[10px] text-gray-700 font-medium leading-tight">{finding.question}</p>
                         </div>
                       </div>
 
                       {/* Answer Column */}
-                      <div className="col-span-5">
-                          <div className="bg-blue-50 p-2 rounded border-l-4 h-full flex items-start" style={{ borderLeftColor: '#3B82F6' }}>
+                      <div className="col-span-5 flex">
+                          <div className="bg-blue-50 p-2 rounded border-l-4 w-full flex items-start" style={{ borderLeftColor: '#3B82F6' }}>
                           <p className="text-[10px] text-gray-700 leading-tight">
                             {finding.answer}
                           </p>
@@ -416,8 +416,8 @@ const ReportSlide: React.FC<ReportSlideProps> = ({ slide, slideNumber, totalSlid
                       </div>
 
                       {/* Insight Column */}
-                      <div className="col-span-5">
-                          <div className="bg-orange-50 p-2 rounded border-l-4 h-full flex items-start" style={{ borderLeftColor: BRAND_ORANGE }}>
+                      <div className="col-span-5 flex">
+                          <div className="bg-orange-50 p-2 rounded border-l-4 w-full flex items-start" style={{ borderLeftColor: BRAND_ORANGE }}>
                           <p className="text-[10px] text-gray-700 leading-tight">
                             {finding.insight || 'Key insight to be developed'}
                           </p>
@@ -457,8 +457,8 @@ const ReportSlide: React.FC<ReportSlideProps> = ({ slide, slideNumber, totalSlid
             <div className="flex-1 p-4 pb-0 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
                   <div className="space-y-3">
                 {slide.content.map((bullet: string, idx: number) => (
-                  <div key={idx} className="flex items-start gap-3">
-                    <div className="w-2 h-2 rounded-full mt-2 flex-shrink-0" style={{ backgroundColor: BRAND_ORANGE }}></div>
+                  <div key={idx} className="flex items-start gap-3 pl-4">
+                    <div className="w-1 h-1 rounded-full mt-2 flex-shrink-0" style={{ backgroundColor: BRAND_ORANGE }}></div>
                     <p className="text-xs text-gray-700 leading-relaxed">{bullet}</p>
                   </div>
                 ))}
@@ -487,7 +487,7 @@ const ReportSlide: React.FC<ReportSlideProps> = ({ slide, slideNumber, totalSlid
 
         {slide.type === 'content_slide' && (
           <div className="h-full flex flex-col">
-            <div className="flex-1 flex flex-col min-h-0 p-3 pb-0 overflow-hidden">
+            <div className="flex-1 flex flex-col min-h-0 p-3 pb-0">
               {/* Slide Headline - Use Key Insights content as headline */}
               {(() => {
                 const keyInsightsSection = slide.content?.find((section: any) => section.subheading === 'Key Insights');
@@ -523,8 +523,8 @@ const ReportSlide: React.FC<ReportSlideProps> = ({ slide, slideNumber, totalSlid
                         {section.bullets && section.bullets.length > 0 && (
                           <ul className="space-y-1">
                             {section.bullets.map((bullet: string, bulletIdx: number) => (
-                              <li key={bulletIdx} className="flex items-start gap-2">
-                                  <div className="w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5" style={{ backgroundColor: BRAND_ORANGE }}></div>
+                              <li key={bulletIdx} className="flex items-start gap-2 pl-4">
+                                  <div className="w-1 h-1 rounded-full flex-shrink-0 mt-1.5" style={{ backgroundColor: BRAND_ORANGE }}></div>
                                   <p className="text-xs text-gray-700 leading-relaxed flex-1">{bullet}</p>
                               </li>
                             ))}
@@ -2028,7 +2028,7 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
   if (selectedProject && viewMode === 'project' && !selectedContentAnalysis) {
     return (
       <main className="flex-1 overflow-y-auto" style={{ backgroundColor: BRAND_BG, height: 'calc(100vh - 80px)', marginTop: '80px' }}>
-        <div className="flex-1 p-6 space-y-6 max-w-full overflow-hidden h-full">
+        <div className="flex-1 p-6 space-y-6 max-w-full">
           <section className="flex items-center justify-between">
             <div>
               <button
@@ -2138,7 +2138,7 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
   if (selectedProject && viewMode === 'project' && selectedContentAnalysis) {
     return (
       <main className="flex-1 overflow-y-auto" style={{ backgroundColor: BRAND_BG, height: 'calc(100vh - 80px)', marginTop: '80px' }}>
-        <div className="flex-1 p-6 space-y-6 max-w-full overflow-hidden h-full">
+        <div className="flex-1 p-6 space-y-6 max-w-full">
           <section className="flex items-center justify-between">
             <div>
               <button
@@ -2944,7 +2944,7 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
 
   return (
     <main className="flex-1 overflow-y-auto" style={{ backgroundColor: BRAND_BG, height: 'calc(100vh - 80px)', marginTop: '80px' }}>
-      <div className="flex-1 p-6 space-y-6 max-w-full overflow-hidden h-full">
+      <div className="flex-1 p-6 space-y-6 max-w-full">
         {/* Tabs - only show on home view */}
         {viewMode === 'home' && (
           <div>

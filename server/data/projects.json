@@ -1493,7 +1493,7 @@
             "",
             "3"
           ],
-          "status": "pending",
+          "status": "completed",
           "phase": "Post-Field Analysis",
           "isOngoing": false,
           "dueDate": "2025-10-20"
@@ -1517,7 +1517,7 @@
             "",
             "3"
           ],
-          "status": "pending",
+          "status": "completed",
           "phase": "Post-Field Analysis",
           "dueDate": "2025-10-17",
           "isOngoing": false
