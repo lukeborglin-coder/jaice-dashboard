@@ -42,7 +42,8 @@
       "Bash(npm run dev:client:*)",
       "Bash(npm run:*)",
       "Bash(PORT=3005 node:*)",
-      "Bash(rd /s /q \"node_modules\\.vite\")"
+      "Bash(rd /s /q \"node_modules\\.vite\")",
+      "Bash(do echo \"=== $file ===\")"
     ],
     "deny": [],
     "ask": []

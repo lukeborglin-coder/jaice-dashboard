@@ -491,7 +491,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
   // Function to calculate phase timeline based on the 4 key dates
   const calculatePhaseTimeline = (dates: typeof timelineDates): Record<string, {start: string, end: string}> => {
     const { kickoffDate, fieldworkStartDate, fieldworkEndDate, reportDeadlineDate } = dates;
-    
+
     if (!kickoffDate || !fieldworkStartDate || !fieldworkEndDate || !reportDeadlineDate) {
       return {};
     }
@@ -502,6 +502,28 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
       return new Date(Date.UTC(year, month - 1, day));
     };
 
+    // Helper to ensure a date is a weekday (Monday-Friday) using UTC
+    const ensureWeekdayUTC = (date: Date): Date => {
+      const dayOfWeek = date.getUTCDay();
+      if (dayOfWeek === 0) { // Sunday - move to Monday
+        date.setUTCDate(date.getUTCDate() + 1);
+      } else if (dayOfWeek === 6) { // Saturday - move to Monday
+        date.setUTCDate(date.getUTCDate() + 2);
+      }
+      return date;
+    };
+
+    // Helper to go back to previous weekday
+    const previousWeekdayUTC = (date: Date): Date => {
+      const dayOfWeek = date.getUTCDay();
+      if (dayOfWeek === 0) { // Sunday - move to Friday
+        date.setUTCDate(date.getUTCDate() - 2);
+      } else if (dayOfWeek === 6) { // Saturday - move to Friday
+        date.setUTCDate(date.getUTCDate() - 1);
+      }
+      return date;
+    };
+
     const koDate = parseDate(kickoffDate);
     const fieldStartDate = parseDate(fieldworkStartDate);
     const fieldEndDate = parseDate(fieldworkEndDate);
@@ -510,37 +532,43 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
     // Calculate reporting week (full week leading up to report deadline)
     const reportDayOfWeek = reportDate.getUTCDay(); // 0 = Sunday, 1 = Monday, etc.
     const daysToSubtract = reportDayOfWeek === 0 ? 6 : reportDayOfWeek - 1; // Monday = 0, Sunday = 6
-    const reportingStartDate = new Date(Date.UTC(
+    let reportingStartDate = new Date(Date.UTC(
       reportDate.getUTCFullYear(),
       reportDate.getUTCMonth(),
       reportDate.getUTCDate() - daysToSubtract
     ));
+    // Ensure reporting start is a weekday
+    reportingStartDate = ensureWeekdayUTC(reportingStartDate);
 
     // Calculate pre-field phase (day after KO to day before fieldwork start)
-    const preFieldStartDate = new Date(Date.UTC(
+    let preFieldStartDate = new Date(Date.UTC(
       koDate.getUTCFullYear(),
       koDate.getUTCMonth(),
       koDate.getUTCDate() + 1
     ));
-    
-    const preFieldEndDate = new Date(Date.UTC(
+    preFieldStartDate = ensureWeekdayUTC(preFieldStartDate);
+
+    let preFieldEndDate = new Date(Date.UTC(
       fieldStartDate.getUTCFullYear(),
       fieldStartDate.getUTCMonth(),
       fieldStartDate.getUTCDate() - 1
     ));
+    preFieldEndDate = previousWeekdayUTC(preFieldEndDate);
 
     // Calculate post-field phase (day after fieldwork end to day before reporting start)
-    const postFieldStartDate = new Date(Date.UTC(
+    let postFieldStartDate = new Date(Date.UTC(
       fieldEndDate.getUTCFullYear(),
       fieldEndDate.getUTCMonth(),
       fieldEndDate.getUTCDate() + 1
     ));
-    
-    const postFieldEndDate = new Date(Date.UTC(
+    postFieldStartDate = ensureWeekdayUTC(postFieldStartDate);
+
+    let postFieldEndDate = new Date(Date.UTC(
       reportingStartDate.getUTCFullYear(),
       reportingStartDate.getUTCMonth(),
       reportingStartDate.getUTCDate() - 1
     ));
+    postFieldEndDate = previousWeekdayUTC(postFieldEndDate);
 
     // Format dates as YYYY-MM-DD using UTC methods
     const formatDate = (date: Date) => {

@@ -4069,7 +4069,7 @@ export default function App() {
       <div className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200" style={{ height: '80px' }}>
         <div className="h-full flex items-center">
           {/* Left side - Logo area (matches sidebar logo height) */}
-          <div className="flex items-center border-r border-gray-200 pr-4" style={{ width: sidebarOpen ? '256px' : '80px', height: '80px' }}>
+          <div className={`flex items-center border-r border-gray-200 ${sidebarOpen ? 'pr-4' : ''}`} style={{ width: sidebarOpen ? '256px' : '80px', height: '80px' }}>
             <div className="flex items-center justify-center w-full">
               <img
                 src={sidebarOpen ? "/CogDashLogo.png" : "/Circle.png"}
@@ -9232,6 +9232,14 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
     };
 
     const nextPhase = getNextPhaseTimeline();
+    
+    // Debug logging for phase detection
+    console.log('Phase generation debug:', {
+      hasNextPhase: !!nextPhase,
+      nextPhaseName: nextPhase?.phase,
+      currentPhase: currentPhaseData.phase,
+      segments: project.segments?.map(s => ({ phase: s.phase, startDate: s.startDate, endDate: s.endDate }))
+    });
 
     // Get upcoming key dates (within next 2 weeks)
     const twoWeeksFromNow = new Date(today);
@@ -9264,14 +9272,21 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
     const teamMemberNames = (project.teamMembers || []).map(m => m.name).join(', ') || 'No team members assigned';
     let updateText = `**Team Members:** ${teamMemberNames}\n\n`;
     updateText += `**Client:** ${project.client}\n\n`;
-    if (currentPhaseData.segment) {
-      updateText += `[PHASE] Current Phase:|${currentPhaseData.phase}|${formatDate(currentPhaseData.segment.startDate)} - ${formatDate(currentPhaseData.segment.endDate)}\n\n`;
-    } else {
-      updateText += `**Current Phase:** ${currentPhaseData.phase}\n\n`;
-    }
-
     if (nextPhase) {
-      updateText += `[PHASE] Upcoming Phase:|${nextPhase.phase}|${formatDate(nextPhase.startDate)} - ${formatDate(nextPhase.endDate)}\n\n`;
+      // If there's an upcoming phase, always render current phase as [PHASE] for side-by-side display
+      if (currentPhaseData.segment) {
+        updateText += `[PHASE] Current Phase:|${currentPhaseData.phase}|${formatDate(currentPhaseData.segment.startDate)} - ${formatDate(currentPhaseData.segment.endDate)}\n`;
+      } else {
+        updateText += `[PHASE] Current Phase:|${currentPhaseData.phase}|No date range available\n`;
+      }
+      updateText += `[PHASE] Upcoming Phase:|${nextPhase.phase}|${formatDate(nextPhase.startDate)} - ${formatDate(nextPhase.endDate)}\n`;
+    } else {
+      // No upcoming phase, render current phase normally
+      if (currentPhaseData.segment) {
+        updateText += `[PHASE] Current Phase:|${currentPhaseData.phase}|${formatDate(currentPhaseData.segment.startDate)} - ${formatDate(currentPhaseData.segment.endDate)}\n`;
+      } else {
+        updateText += `**Current Phase:** ${currentPhaseData.phase}\n`;
+      }
     }
 
     if (tasksToday.length > 0) {
@@ -9300,19 +9315,10 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
     }
 
     if (upcomingKeyDates.length > 0) {
+      updateText += `[DIVIDER]\n`;
       updateText += `**Key Dates Coming Up:**\n`;
       upcomingKeyDates.forEach(deadline => {
-        // Determine icon type based on label
-        let iconType = 'default';
-        const labelLower = deadline.label.toLowerCase();
-        if (labelLower.includes('kickoff') || labelLower.includes('ko')) {
-          iconType = 'kickoff';
-        } else if (labelLower.includes('fieldwork') || labelLower.includes('field')) {
-          iconType = 'fieldwork';
-        } else if (labelLower.includes('report') || labelLower.includes('final')) {
-          iconType = 'report';
-        }
-        updateText += `[ICON:${iconType}] ${deadline.label}: ${formatDate(deadline.date)}\n`;
+        updateText += `[KEYDATE] ${deadline.label}|${formatDate(deadline.date)}\n`;
       });
       updateText += `\n`;
     }
@@ -10029,208 +10035,6 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
       </div>
       )}
 
-      {/* Project Update Modal */}
-      {projectUpdateModal.show && (
-        <div className="fixed bg-black bg-opacity-50 flex items-center justify-center" style={{ top: 0, left: 0, right: 0, bottom: 0, position: 'fixed', zIndex: 9999 }}>
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden flex flex-col">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-xl font-semibold" style={{ color: BRAND.gray }}>
-                Project Update: {projectUpdateModal.project?.name}
-              </h2>
-            </div>
-            <div className="p-6 overflow-y-auto flex-1">
-              <div className="prose prose-sm max-w-none">
-                {projectUpdateModal.update?.split('\n').map((line, index) => {
-                  if (line.trim() === '') {
-                    // Empty lines
-                    return <div key={index} className="h-2"></div>;
-                  } else if (line === '[DIVIDER]') {
-                    // Divider line
-                    return <hr key={index} className="my-3 border-gray-300" />;
-                  } else if (line.startsWith('[PHASE]')) {
-                    // Phase lines with inline right-aligned date range
-                    const phaseMatch = line.match(/\[PHASE\]\s*(.+?):\|(.+?)\|(.+)$/);
-                    if (phaseMatch) {
-                      const label = phaseMatch[1]; // "Current Phase" or "Upcoming Phase"
-                      const phaseName = phaseMatch[2];
-                      const dateRange = phaseMatch[3];
-
-                      return (
-                        <div key={index} className="flex items-center justify-between mb-1">
-                          <p className="text-sm text-gray-700">
-                            <strong className="font-semibold" style={{ color: BRAND.gray }}>{label}:</strong> {phaseName}
-                          </p>
-                          <p className="text-xs italic text-gray-500 ml-4 flex-shrink-0">{dateRange}</p>
-                        </div>
-                      );
-                    }
-                    return null;
-                  } else if (line.startsWith('[TASK]')) {
-                    // Task lines with box styling
-                    const taskMatch = line.match(/\[TASK\]\s*(.+?)\|(.+?)\|(.+?)(?:\|(.+))?$/);
-                    if (taskMatch) {
-                      const description = taskMatch[1];
-                      const projectName = taskMatch[2];
-                      const dueDateOrAssigned = taskMatch[3];
-                      const assigned = taskMatch[4];
-
-                      // Determine what to show under description and on the right
-                      const assignedToShow = assigned || dueDateOrAssigned;
-                      const dueDateToShow = assigned ? dueDateOrAssigned : null;
-
-                      return (
-                        <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg mb-1">
-                          <div className="flex-1 min-w-0">
-                            <div className="text-xs font-medium text-gray-900 truncate">
-                              {description}
-                            </div>
-                            <div className="text-[10px] text-gray-500 truncate">
-                              {assignedToShow}
-                            </div>
-                          </div>
-                          {dueDateToShow && (
-                            <div className="flex-shrink-0 ml-2 text-right">
-                              <div className="text-xs text-gray-600">
-                                {dueDateToShow}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    }
-                    return null;
-                  } else if (line.startsWith('[ICON:')) {
-                    // Key date lines with icons
-                    const iconMatch = line.match(/\[ICON:(\w+)\]\s*(.*)/);
-                    if (iconMatch) {
-                      const iconType = iconMatch[1];
-                      const text = iconMatch[2];
-
-                      let IconComponent = null;
-                      let iconColor = BRAND.gray;
-
-                      if (iconType === 'kickoff') {
-                        IconComponent = IconBallAmericanFootball;
-                        iconColor = '#6B7280'; // Gray
-                      } else if (iconType === 'fieldwork') {
-                        IconComponent = IconRocket;
-                        iconColor = '#7C3AED'; // Purple
-                      } else if (iconType === 'report') {
-                        IconComponent = IconFileAnalyticsFilled;
-                        iconColor = '#DC2626'; // Red
-                      }
-
-                      return (
-                        <div key={index} className="flex items-center gap-2 mb-1">
-                          {IconComponent && (
-                            <IconComponent className="w-4 h-4 flex-shrink-0" style={{ color: iconColor }} />
-                          )}
-                          <p className="text-sm text-gray-700">{text}</p>
-                        </div>
-                      );
-                    }
-                    return null;
-                  } else if (line.startsWith('[FILE:')) {
-                    // File lines with clickable links
-                    const fileMatch = line.match(/\[FILE:(\w+)\]\s*(.+?)\|(.+)$/);
-                    if (fileMatch) {
-                      const fileType = fileMatch[1] as ProjectFile['type'];
-                      const fileName = fileMatch[2];
-                      const fileUrl = fileMatch[3];
-
-                      // Get icon based on file type
-                      let fileIcon;
-                      switch (fileType) {
-                        case 'content-analysis':
-                          fileIcon = <ChartBarIcon className="h-4 w-4 text-blue-600" />;
-                          break;
-                        case 'qnr':
-                          fileIcon = <ClipboardDocumentIcon className="h-4 w-4 text-green-600" />;
-                          break;
-                        case 'report':
-                          fileIcon = <DocumentIcon className="h-4 w-4 text-purple-600" />;
-                          break;
-                        case 'word':
-                          fileIcon = <DocumentIcon className="h-4 w-4 text-blue-600" />;
-                          break;
-                        case 'excel':
-                          fileIcon = <ChartBarIcon className="h-4 w-4 text-green-600" />;
-                          break;
-                        case 'powerpoint':
-                          fileIcon = <DocumentIcon className="h-4 w-4 text-orange-600" />;
-                          break;
-                        default:
-                          fileIcon = <DocumentIcon className="h-4 w-4 text-gray-600" />;
-                      }
-
-                      return (
-                        <a
-                          key={index}
-                          href={fileUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg hover:bg-gray-100 mb-1 transition-colors"
-                        >
-                          {fileIcon}
-                          <span className="text-sm text-gray-900">{fileName}</span>
-                          <ArrowTopRightOnSquareIcon className="h-3 w-3 text-gray-400 ml-auto" />
-                        </a>
-                      );
-                    }
-                    return null;
-                  } else if (line.startsWith('*') && line.endsWith('*') && !line.includes('**')) {
-                    // Italic lines (date ranges) - make sure it's not a bold line
-                    const text = line.replace(/\*/g, '');
-                    return <p key={index} className="text-xs italic text-gray-500 mb-1">{text}</p>;
-                  } else if (line.includes('**')) {
-                    // Line with bold text - parse inline bold
-                    const parts = line.split('**');
-                    return (
-                      <p key={index} className="text-sm text-gray-700 mb-1">
-                        {parts.map((part, i) => {
-                          // Every odd index is bold (between ** markers)
-                          if (i % 2 === 1) {
-                            return <strong key={i} className="font-semibold" style={{ color: BRAND.gray }}>{part}</strong>;
-                          }
-                          return <span key={i}>{part}</span>;
-                        })}
-                      </p>
-                    );
-                  } else if (line.startsWith('•')) {
-                    // Bullet points
-                    return <p key={index} className="text-sm text-gray-700 ml-4 mb-1">{line}</p>;
-                  } else {
-                    // Regular text
-                    return <p key={index} className="text-sm text-gray-700 mb-1">{line}</p>;
-                  }
-                })}
-              </div>
-            </div>
-            <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-200">
-              <button
-                onClick={() => {
-                  if (projectUpdateModal.update) {
-                    navigator.clipboard.writeText(projectUpdateModal.update.replace(/\*\*/g, ''));
-                  }
-                }}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Copy to Clipboard
-              </button>
-              <button
-                onClick={() => setProjectUpdateModal({ show: false, project: null, update: null })}
-                className="px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors"
-                style={{ backgroundColor: BRAND.orange }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#B8392A'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = BRAND.orange}
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
         {/* Timeline View */}
         {viewMode === 'timeline' && (
           <div className="bg-white shadow-sm border border-gray-200 rounded-lg mt-5" style={{ overflow: 'visible' }}>
@@ -10525,24 +10329,144 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
         {/* Project Update Modal */}
         {projectUpdateModal.show && projectUpdateModal.project && projectUpdateModal.update && createPortal(
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10101]" style={{ top: 0, left: 0, right: 0, bottom: 0 }}>
-            <div className="bg-white rounded-lg max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900">Project Update: {projectUpdateModal.project.name}</h3>
+            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden flex flex-col">
+              <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between" style={{ backgroundColor: BRAND.orange }}>
+                <h3 className="text-lg font-semibold text-white">Project Update: {projectUpdateModal.project.name}</h3>
+                <button
+                  onClick={() => setProjectUpdateModal({ show: false, project: null, update: null })}
+                  className="text-white hover:text-gray-200 transition-colors"
+                  aria-label="Close"
+                >
+                  <XMarkIcon className="h-6 w-6" />
+                </button>
               </div>
-              <div className="px-6 py-4">
+              <div className="px-6 py-4 overflow-y-auto flex-1">
                 <div className="prose max-w-none">
                   {projectUpdateModal.update.split('\n').map((line, index) => {
-                    if (line.startsWith('[PHASE]')) {
+                    if (line.trim() === '') {
+                      // Empty lines
+                      return <div key={index} className="h-2"></div>;
+                    } else if (line.trim() === '[DIVIDER]') {
+                      // Divider line
+                      return <hr key={index} className="my-3 border-gray-300" />;
+                    } else if (line.startsWith('[PHASE]')) {
                       // Phase lines with special styling
                       const phaseMatch = line.match(/\[PHASE\]\s*(.+?)\|(.+?)\|(.+)/);
                       if (phaseMatch) {
                         const [, phaseType, phaseName, dateRange] = phaseMatch;
+                        const phaseColor = PHASE_COLORS[phaseName] || '#6B7280';
+                        
+                        // Check if this is the first phase (Current Phase) and if there's an upcoming phase next
+                        const updateLines = projectUpdateModal.update.split('\n');
+                        const nextLine = updateLines[index + 1];
+                        const isCurrentPhase = phaseType.includes('Current');
+                        
+                        // Alternative approach: search for upcoming phase in the entire text
+                        const upcomingPhaseLine = updateLines.find(line => 
+                          line.startsWith('[PHASE]') && line.includes('Upcoming Phase')
+                        );
+                        const hasUpcomingPhase = isCurrentPhase && upcomingPhaseLine;
+                        
+                        // Debug logging
+                        console.log('Phase rendering debug:', {
+                          phaseType,
+                          isCurrentPhase,
+                          hasUpcomingPhase,
+                          nextLine: nextLine?.substring(0, 100),
+                          upcomingPhaseLine: upcomingPhaseLine?.substring(0, 100),
+                          currentLine: line.substring(0, 100),
+                          index,
+                          totalLines: updateLines.length,
+                          allLines: updateLines.slice(index - 1, index + 3)
+                        });
+                        
+                        if (isCurrentPhase && hasUpcomingPhase) {
+                          // Render both phases side by side
+                          const upcomingMatch = upcomingPhaseLine.match(/\[PHASE\]\s*(.+?)\|(.+?)\|(.+)/);
+                          const upcomingPhaseName = upcomingMatch ? upcomingMatch[2] : '';
+                          const upcomingDateRange = upcomingMatch ? upcomingMatch[3] : '';
+                          const upcomingPhaseColor = PHASE_COLORS[upcomingPhaseName] || '#6B7280';
+                          
+                          return (
+                            <div key={index} className="flex gap-4 mb-2">
+                              {/* Current Phase */}
+                              <div className="flex-1 p-3 bg-gray-50 rounded-lg">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-sm font-medium text-gray-900">{phaseType}</span>
+                                  <span
+                                    className="inline-flex items-center justify-center w-24 px-0.5 sm:px-1 md:px-2 py-1 rounded-full text-xs font-medium text-white"
+                                    style={{ 
+                                      backgroundColor: phaseColor,
+                                      opacity: 0.6
+                                    }}
+                                  >
+                                    {getPhaseDisplayName(phaseName)}
+                                  </span>
+                                </div>
+                                <div className="text-xs text-gray-600">{dateRange}</div>
+                              </div>
+                              
+                              {/* Upcoming Phase */}
+                              <div className="flex-1 p-3 bg-gray-50 rounded-lg">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-sm font-medium text-gray-900">Upcoming Phase</span>
+                                  <span
+                                    className="inline-flex items-center justify-center w-24 px-0.5 sm:px-1 md:px-2 py-1 rounded-full text-xs font-medium text-white"
+                                    style={{ 
+                                      backgroundColor: upcomingPhaseColor,
+                                      opacity: 0.6
+                                    }}
+                                  >
+                                    {getPhaseDisplayName(upcomingPhaseName)}
+                                  </span>
+                                </div>
+                                <div className="text-xs text-gray-600">{upcomingDateRange}</div>
+                              </div>
+                            </div>
+                          );
+                        } else if (isCurrentPhase && !hasUpcomingPhase) {
+                          // Only current phase, render normally
+                          return (
+                            <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg mb-2">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-sm font-medium text-gray-900">{phaseType}</span>
+                                  <span
+                                    className="inline-flex items-center justify-center w-24 px-0.5 sm:px-1 md:px-2 py-1 rounded-full text-xs font-medium text-white"
+                                    style={{ 
+                                      backgroundColor: phaseColor,
+                                      opacity: 0.6
+                                    }}
+                                  >
+                                    {getPhaseDisplayName(phaseName)}
+                                  </span>
+                                </div>
+                                <div className="text-xs text-gray-600">{dateRange}</div>
+                              </div>
+                            </div>
+                          );
+                        } else if (phaseType.includes('Upcoming')) {
+                          // Skip upcoming phase as it's already rendered with current phase
+                          return null;
+                        }
+                        
+                        // Fallback for other cases
                         return (
                           <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg mb-2">
-                            <div className="w-2 h-2 rounded-full bg-orange-500"></div>
                             <div className="flex-1">
-                              <div className="text-sm font-medium text-gray-900">{phaseType}</div>
-                              <div className="text-xs text-gray-600">{phaseName} • {dateRange}</div>
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-sm font-medium text-gray-900">{phaseType}</span>
+                                <span
+                                  className="inline-flex items-center justify-center w-24 px-0.5 sm:px-1 md:px-2 py-1 rounded-full text-xs font-medium text-white"
+                                  style={{ 
+                                    backgroundColor: phaseColor,
+                                    opacity: 0.6
+                                  }}
+                                >
+                                  {getPhaseDisplayName(phaseName)}
+                                </span>
+                              </div>
+                              <div className="text-xs text-gray-600">{dateRange}</div>
                             </div>
                           </div>
                         );
@@ -10572,6 +10496,27 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                                 </div>
                               </div>
                             )}
+                          </div>
+                        );
+                      }
+                    } else if (line.startsWith('[KEYDATE]')) {
+                      // Key date lines with task-like styling
+                      const keyDateMatch = line.match(/\[KEYDATE\]\s*(.+?)\|(.+)/);
+                      if (keyDateMatch) {
+                        const [, label, date] = keyDateMatch;
+
+                        return (
+                          <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg mb-1">
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs font-medium text-gray-900 truncate">
+                                {label}
+                              </div>
+                            </div>
+                            <div className="flex-shrink-0 ml-2 text-right">
+                              <div className="text-xs text-gray-600">
+                                {date}
+                              </div>
+                            </div>
                           </div>
                         );
                       }
@@ -10644,7 +10589,7 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                           {parts.map((part, i) => {
                             // Every odd index is bold (between ** markers)
                             if (i % 2 === 1) {
-                              return <strong key={i} className="font-semibold" style={{ color: BRAND.gray }}>{part}</strong>;
+                              return <strong key={i} className="font-semibold text-black">{part}</strong>;
                             }
                             return <span key={i}>{part}</span>;
                           })}
@@ -10659,27 +10604,6 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                     }
                   })}
                 </div>
-              </div>
-              <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-200">
-                <button
-                  onClick={() => {
-                    if (projectUpdateModal.update) {
-                      navigator.clipboard.writeText(projectUpdateModal.update.replace(/\*\*/g, ''));
-                    }
-                  }}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Copy to Clipboard
-                </button>
-                <button
-                  onClick={() => setProjectUpdateModal({ show: false, project: null, update: null })}
-                  className="px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors"
-                  style={{ backgroundColor: BRAND.orange }}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#B8392A'}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = BRAND.orange}
-                >
-                  Close
-                </button>
               </div>
             </div>
           </div>
