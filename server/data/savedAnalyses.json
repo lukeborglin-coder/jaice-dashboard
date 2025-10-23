@@ -1,101 +1,431 @@
 [
   {
-    "id": "1761079281027",
-    "projectId": "P-1759172986363",
-    "name": "AA CA",
+    "id": "1761251648433",
+    "projectId": "P-1761243049041",
+    "name": "test CA 2",
     "data": {
       "Demographics": [
         {
           "Respondent ID": "R01",
+          "Interview Date": "Sep 9, 2025",
+          "Interview Time": "11:00 AM",
           "respno": "R01",
-          "transcriptId": "T-1761078307773",
+          "transcriptId": "T-1761251220504"
+        },
+        {
+          "Respondent ID": "R02",
+          "Interview Date": "Sep 10, 2025",
+          "Interview Time": "12:00 PM",
+          "respno": "R02",
+          "transcriptId": "T-1761250872583"
+        },
+        {
+          "Respondent ID": "R04",
+          "Interview Date": "Oct 7, 2025",
+          "Interview Time": "3:00 PM",
+          "respno": "R04",
+          "transcriptId": "T-1761244346544"
+        },
+        {
+          "Respondent ID": "R03",
           "Interview Date": "Oct 1, 2025",
-          "Interview Time": "3:00 PM"
+          "Interview Time": "12:00 PM",
+          "respno": "R03",
+          "transcriptId": "T-1761252705435"
         }
       ],
       "BACKGROUND": [
         {
           "Respondent ID": "R01",
-          "Living Situation": "The respondent is 50 years old, married, and has two stepchildren who are now adults and living independently. He resides in Georgia with his wife and a small dog. He moved from Ohio to Georgia about sixteen years ago and has recently stopped working due to his SMA-related health issues.",
-          "Free Time Activities": "Since quitting his job in October 2024, the respondent spends his days walking his dog, reading, and engaging with his computer. He no longer participates in the corporate hustle and bustle and enjoys a more relaxed lifestyle. He also mentioned attending an abilities expo and being involved in Facebook support groups for SMA.",
-          "Journey with SMA": "The respondent was diagnosed with SMA Type 3 around the age of 10 or 11 after experiencing unexplained falls. Initially, he avoided regular medical consultations due to denial and a lack of actionable advice from doctors. He re-engaged with healthcare providers in 2017-2018 upon learning about potential treatments through Facebook support groups.",
-          "Current Health Description": "The respondent describes his health as generally good except for the impact of SMA. He experiences significant limitations in daily activities, requiring assistance from his wife and a caregiver for tasks like bathing and dressing. He notes a progressive decline in upper body strength over the past six to seven years.",
-          "HCPs for SMA Care": "The respondent does not have a dedicated SMA care team but sees a neurologist who is knowledgeable about SMA. He sought out this neurologist several years ago when he became aware of potential treatments. However, he does not see her regularly and has not visited her office in about three years.",
-          "Reasons for Not Seeing HCPs": "The respondent feels that neurologists do not provide him with tangible benefits, as they do not offer new insights or treatments beyond what he already knows. He finds the process of visiting a neurologist cumbersome and prefers the familiarity and convenience of his primary care physician.",
-          "Current SMA Management": "The respondent manages his SMA with the help of his wife and a caregiver. He has participated in clinical trials and has taken medications like Evrysdi and Spinraza, but is currently not on any treatment. He is considering future treatment options but is hesitant due to past experiences and logistical challenges.",
-          "Number of HCPs": "The respondent primarily interacts with his primary care physician and a neurologist, though he does not see the neurologist regularly. He also mentioned having a nurse practitioner, but she is no longer available, and he would need to establish a relationship with a new one.",
-          "HCP Involvement in Treatment Decisions": "The respondent feels that he is the primary decision-maker in his treatment journey. He seeks out information and initiates discussions with healthcare providers when necessary, but does not rely on them for proactive guidance or treatment recommendations.",
-          "Primary SMA Doctor": "The respondent's primary SMA doctor is a neurologist he sought out due to her expertise in SMA. However, he does not see her regularly and has not visited her office in about three years. He primarily consults her for prescriptions and treatment-related decisions.",
-          "Others Involved in Health Decisions": "The respondent's wife is involved in his health decisions, providing daily assistance and support. He also mentioned an advocate for Evrysdi who has been helpful in navigating treatment options and insurance approvals.",
-          "Support System Involvement": "The respondent's support system includes his wife, who assists with daily activities, and a caregiver who helps with bathing and household tasks. He also has an advocate for Evrysdi who provides support in navigating treatment options.",
-          "Comfort in Making Treatment Decisions": "The respondent expresses a level of comfort in making treatment decisions, as he feels in charge of his healthcare. However, he acknowledges the challenges and logistical hurdles involved in accessing treatments and navigating the healthcare system.",
-          "Health Goals - Short-term": "The respondent's short-term health goals include maintaining his current level of functionality and managing his SMA symptoms effectively. He is considering the possibility of restarting treatment with Evrysdi if it becomes more accessible.",
-          "Health Goals - Long-term": "The respondent's long-term health goals focus on maintaining his quality of life and independence. He is open to exploring new treatments as they become available but is cautious about the potential challenges and costs involved.",
-          "Personal Aspirations": "The respondent aspires to live a fulfilling life despite his SMA diagnosis. He values his independence and aims to continue engaging in activities he enjoys, such as reading and spending time with his family and dog.",
+          "Living Situation": "The respondent lives with her husband and three children, aged 19, 17, and 15, along with two dogs. She balances her time between family responsibilities and her part-time job at a local school. Additionally, she is pursuing a bachelor's degree in human resource management, indicating a busy and structured living environment.",
+          "Free Time Activities": "In her free time, the respondent is focused on her education, as she is enrolled in school to earn her bachelor's degree in human resource management. She also works part-time at a local school, which involves managing the front desk and handling data entry tasks. Her activities suggest a commitment to personal and professional development.",
+          "Journey with SMA": "The respondent was diagnosed with SMA Type 3 in October 2012 at the age of 30. Her diagnosis journey began when a physical therapist noticed her gait and suggested seeing a neurologist. Despite initial tests for other conditions coming back negative, she requested to be tested for SMA, which led to her diagnosis. This journey highlights her proactive approach to understanding her health condition.",
+          "Current Health Description": "The respondent describes her health as stable but has experienced changes such as losing the ability to run and attributing some symptoms to weight gain. She initially thought her symptoms were related to childbirth or weight changes, but later realized they were due to SMA. This reflects a period of adjustment and learning about her condition.",
+          "HCPs for SMA Care": "The respondent's initial neurologist was not well-versed in SMA, prompting her to seek further information from a muscular dystrophy clinic. This indicates a reliance on specialized care for managing her condition. Her experience underscores the importance of knowledgeable healthcare providers in SMA care.",
+          "Reasons for Not Seeing HCPs": "",
+          "Current SMA Management": "",
+          "Number of HCPs": "",
+          "HCP Involvement in Treatment Decisions": "",
+          "Primary SMA Doctor": "",
+          "Others Involved in Health Decisions": "",
+          "Support System Involvement": "",
+          "Comfort in Making Treatment Decisions": "",
+          "Health Goals - Short-term": "",
+          "Health Goals - Long-term": "",
+          "Personal Aspirations": "",
           "respno": "R01"
+        },
+        {
+          "Respondent ID": "R02",
+          "Living Situation": "The respondent lives with her husband and three children, aged 19, 17, and 15, along with two dogs. She works part-time at a local school and is pursuing a bachelor's degree in human resource management. Her daily life involves balancing work, studies, and family responsibilities.",
+          "Free Time Activities": "In her free time, the respondent is focused on her education, as she is enrolled in school to earn her bachelor's degree in human resource management. She also manages her household and spends time with her family, which includes her husband and three children.",
+          "Journey with SMA": "The respondent was diagnosed with SMA Type 3 in October 2012 at the age of 30. Her diagnosis came after a physical therapist noticed her gait and suggested seeing a neurologist. Initially, she was tested for other conditions like MS, but she requested to be tested for SMA due to a friend's daughter having the condition.",
+          "Current Health Description": "Currently, the respondent sees a neurologist twice a year to track her strength and manage her SMA. She has experienced a loss of ability to climb stairs without a railing but can still do so with support. She is in the process of switching neurologists to better manage her condition.",
+          "HCPs for SMA Care": "The respondent's healthcare for SMA involves seeing a neurologist every six months and her primary care doctor. She has been proactive in seeking specialists, having traveled to Utah to see a well-regarded SMA doctor for more comprehensive care.",
+          "Reasons for Not Seeing HCPs": "",
+          "Current SMA Management": "The respondent manages her SMA by regularly visiting a neurologist and tracking her strength. She has sought dietary advice and other management strategies from specialists to maintain her health.",
+          "Number of HCPs": "The respondent currently sees two healthcare providers for her SMA care: a neurologist and her primary care doctor.",
+          "HCP Involvement in Treatment Decisions": "The respondent has been actively involved in her treatment decisions, pushing for specialist care and regular monitoring of her condition. She has sought out knowledgeable doctors and requested more frequent visits to track her health.",
+          "Primary SMA Doctor": "The respondent's primary SMA doctor is a neurologist whom she sees twice a year. She is in the process of switching to a new neurologist to better meet her needs.",
+          "Others Involved in Health Decisions": "",
+          "Support System Involvement": "",
+          "Comfort in Making Treatment Decisions": "",
+          "Health Goals - Short-term": "",
+          "Health Goals - Long-term": "",
+          "Personal Aspirations": "The respondent aspires to complete her bachelor's degree in human resource management. She is balancing her education with her responsibilities at home and work, aiming to advance her career while managing her health.",
+          "respno": "R02"
+        },
+        {
+          "Respondent ID": "R04",
+          "Living Situation": "The respondent currently lives with a roommate who assists with nighttime needs, but this arrangement will change in February when his mother moves back in. This change is due to the progression of his disease, which has increased his care needs. The respondent's living situation is closely tied to his health condition, as he requires assistance with daily activities.",
+          "Free Time Activities": "In his free time, the respondent enjoys activities that align with his interests, such as following content creators with ADHD who engage in Dungeons and Dragons or comedy skits. He also reminisces about past experiences, like attending MDA camp, which he found enjoyable and socially fulfilling. These activities reflect his preference for engaging with content and communities that resonate with his personal interests.",
+          "Journey with SMA": "The respondent was diagnosed with SMA at a very young age, around one and a half years old, through a spinal tap and genetic testing. His journey with SMA has been marked by a gradual progression of symptoms, including muscle atrophy and decreased mobility. He recalls early medical care experiences at Saint Louis Children's Hospital and attending MDA camps, which provided social and recreational opportunities.",
+          "Current Health Description": "The respondent describes his current health as experiencing a natural progression of SMA, with recent declines in arm mobility and muscle loss. A cold he caught over a month ago exacerbated his condition, affecting his swallowing capability. Despite these challenges, he maintains a pragmatic outlook, accepting the progression as part of living with SMA.",
+          "HCPs for SMA Care": "The respondent does not have regular discussions with healthcare providers specifically about SMA. He mentions having a yearly checkup with his primary care physician but does not engage in in-depth conversations about his condition. His approach to healthcare is more reactive, seeking medical attention as needed rather than maintaining ongoing specialist care.",
+          "Reasons for Not Seeing HCPs": "The respondent's limited engagement with healthcare providers for SMA is influenced by his perception that doctors are often influenced by pharmaceutical companies. He prefers to use doctors as needed and relies on his own judgment and peer experiences for treatment decisions. This reflects a level of skepticism towards the healthcare system.",
+          "Current SMA Management": "The respondent manages his SMA primarily through personal routines and lifestyle adjustments rather than active medical treatment. He values stability and routine, expressing concerns about potential side effects of treatments that could disrupt his daily life. His management approach is cautious and focused on maintaining quality of life.",
+          "Number of HCPs": "",
+          "HCP Involvement in Treatment Decisions": "Healthcare providers have minimal involvement in the respondent's treatment decisions. He does not engage in detailed discussions with his primary care physician about SMA, and his decision-making is more influenced by personal research and peer experiences. This indicates a preference for autonomy in managing his condition.",
+          "Primary SMA Doctor": "",
+          "Others Involved in Health Decisions": "The respondent does not mention others being actively involved in his health decisions. He relies on his own judgment and occasionally seeks peer input when considering treatment options. This suggests a self-reliant approach to managing his health.",
+          "Support System Involvement": "The respondent's support system includes his mother, who will be moving in to assist with his care needs. This change reflects the increasing demands of his condition and the need for familial support. His support system is primarily family-based, with limited external involvement.",
+          "Comfort in Making Treatment Decisions": "The respondent expresses a level of comfort in making treatment decisions independently, though he values peer input for additional perspectives. He is cautious about potential side effects and prioritizes maintaining his quality of life. His decision-making process is informed by personal research and experiences.",
+          "Health Goals - Short-term": "",
+          "Health Goals - Long-term": "",
+          "Personal Aspirations": "The respondent's personal aspirations are not explicitly detailed, but his focus on maintaining quality of life and routine suggests a desire for stability and independence. He values activities that align with his interests and seeks to manage his condition in a way that allows him to continue engaging in these pursuits.",
+          "respno": "R04"
+        },
+        {
+          "Respondent ID": "R03",
+          "Living Situation": "The respondent lives with her husband and three children, aged 19, 17, and 15, along with two dogs. She works part-time at a local school and is also pursuing a bachelor's degree in human resource management. Her family life is busy, balancing work, education, and family responsibilities.",
+          "Free Time Activities": "In her free time, the respondent is focused on her education, as she is enrolled in school to earn her bachelor's degree. She also manages daily activities and responsibilities at home, indicating a structured and busy lifestyle.",
+          "Journey with SMA": "The respondent was diagnosed with SMA Type 3 in October 2012 at around 30 years old. Her diagnosis came after a physical therapist noticed her gait and suggested seeing a neurologist. Initially, she was tested for other conditions like MS, but she requested to be tested for SMA due to a friend's daughter having the condition.",
+          "Current Health Description": "Currently, the respondent sees a neurologist twice a year to track her strength and manage her SMA. She has experienced a loss of ability to climb stairs without a railing but can still manage it during testing. She is in the process of switching neurologists to better track her condition.",
+          "HCPs for SMA Care": "The respondent's primary healthcare providers for SMA include a neurologist whom she sees every six months and her primary care doctor. She is in the process of changing her neurologist to ensure better monitoring of her condition.",
+          "Reasons for Not Seeing HCPs": "The respondent initially faced challenges with healthcare providers who were not well-versed in SMA, leading her to seek specialists outside her local area. She felt a lack of guidance from local neurologists, prompting her to push for specialized care.",
+          "Current SMA Management": "Her current management involves regular check-ups with a neurologist and primary care doctor. She actively tracks her strength and seeks to maintain her health through informed decisions and specialist consultations.",
+          "Number of HCPs": "The respondent currently sees two healthcare providers for her SMA care: a neurologist and a primary care doctor.",
+          "HCP Involvement in Treatment Decisions": "The respondent's treatment decisions are influenced by her neurologist and primary care doctor, with whom she consults regularly to track her condition and make informed decisions.",
+          "Primary SMA Doctor": "Her primary SMA doctor is a neurologist whom she sees twice a year. She is in the process of switching to a new neurologist to better manage her condition.",
+          "Others Involved in Health Decisions": "The respondent's health decisions are primarily influenced by her healthcare providers, with no mention of other individuals being involved in her treatment decisions.",
+          "Support System Involvement": "The respondent's support system includes her family, but there is no specific mention of their involvement in her health decisions. Her focus is on healthcare providers for SMA management.",
+          "Comfort in Making Treatment Decisions": "The respondent appears comfortable making treatment decisions, as she actively seeks specialist care and tracks her condition. She is proactive in managing her health and ensuring she receives appropriate care.",
+          "Health Goals - Short-term": "Her short-term health goals include tracking her strength and maintaining her current level of mobility. She is focused on regular check-ups and monitoring her condition closely.",
+          "Health Goals - Long-term": "Long-term, the respondent aims to maintain her independence and manage her SMA effectively. She seeks to stay informed and make decisions that support her health and well-being.",
+          "Personal Aspirations": "The respondent aspires to complete her bachelor's degree in human resource management while balancing her family and work responsibilities. She is focused on personal growth and maintaining her health.",
+          "respno": "R03"
         }
       ],
       "CURRENT PERCEPTIONS & ATTITUDES": [
         {
           "Respondent ID": "R01",
-          "Treatments Awareness": "The respondent is aware of treatments like Spinraza and Evrysdi, having learned about them through Facebook support groups. He is also aware of developmental treatments in the pipeline, though he has not followed them closely.",
-          "Treatments Experience": "The respondent has experience with both Evrysdi and Spinraza. He took Evrysdi on two separate occasions and participated in a clinical trial for a higher dose of Spinraza. His experiences with these treatments have been mixed, with initial improvements followed by declines.",
-          "Discontinued Treatment Experience": "The respondent discontinued Evrysdi after insurance denied coverage, despite experiencing initial benefits. He also chose to exit the Spinraza clinical trial due to a lack of response and dissatisfaction with the testing process.",
-          "Discontinued Treatment Reasons": "The respondent discontinued Evrysdi due to insurance denial after a year of treatment. He stopped participating in the Spinraza trial because he was a non-responder and was dissatisfied with the testing methods used in the trial.",
-          "Discontinued Treatment Insurance Coverage": "Insurance coverage was a significant factor in the respondent's decision to discontinue Evrysdi. He was denied renewal after an annual baseline test showed no progress, which influenced his decision to stop the treatment.",
-          "Restarting Discontinued Treatment": "The respondent is considering restarting Evrysdi, particularly now that it is available in pill form. However, he is hesitant due to past experiences and the logistical challenges involved in accessing the treatment.",
-          "Treatment Impressions": "The respondent has mixed impressions of treatments like Evrysdi and Spinraza. While he experienced initial improvements with Evrysdi, he also faced declines and insurance challenges. He is cautious about the benefits and costs of these treatments.",
-          "Information Source about Treatment": "The respondent primarily learns about treatments through Facebook support groups and updates from organizations like SMNA. He values the information shared by peers and advocates in these communities.",
-          "Consideration of Starting Treatment": "The respondent is open to considering treatment options like Evrysdi again, especially given its new pill form. However, he is cautious about the potential challenges and costs involved in restarting treatment.",
-          "Consideration Drivers": "The respondent's consideration of treatment is driven by the potential for improved stability and functionality. He is also influenced by the experiences and recommendations of peers in support groups.",
-          "Consideration Hesitations": "The respondent hesitates to restart treatment due to past experiences with insurance denials and the logistical challenges of accessing healthcare. He is also concerned about the potential costs and benefits of treatment.",
-          "Developmental Treatments Awareness": "The respondent is aware of developmental treatments in the pipeline, including anti-myostatin therapies. However, he has not followed them closely and is waiting for more information as they progress through clinical trials.",
-          "Developmental Treatments Impressions": "The respondent has a cautious impression of developmental treatments, recognizing their potential but also the uncertainties involved. He is particularly concerned about the costs and insurance coverage for these new therapies.",
-          "Developmental Treatments Consideration": "The respondent is open to considering developmental treatments once they become more established and approved. However, he is cautious about the potential challenges and costs involved in accessing these therapies.",
-          "Anti-myostatins Awareness": "The respondent is aware of anti-myostatin therapies as a potential treatment option. He understands that they are still in development and is waiting for more information as they progress through clinical trials.",
-          "Anti-myostatins Consideration": "The respondent is open to considering anti-myostatin therapies in the future, but he is cautious about the potential costs and insurance coverage. He is waiting for more information as these therapies become more established.",
+          "Treatments Awareness": "",
+          "Evrysdi Experience": "",
+          "Spinraza Experience": "",
+          "Zolgensma Experience": "",
+          "Discontinued Treatment Experience": "",
+          "Discontinued Treatment Benefits": "",
+          "Discontinued Treatment Drawbacks": "",
+          "Discontinuation Reason": "",
+          "Life Changes Impact": "",
+          "Insurance Coverage Impact": "",
+          "Restarting Consideration": "",
+          "Treatment Impressions": "",
+          "Information Source": "",
+          "Consideration Factors": "",
+          "Developmental Treatments Awareness": "",
+          "Developmental Treatments Impressions": "",
+          "Candidate Consideration": "",
+          "Future Treatment Consideration": "",
+          "Consideration Drivers": "",
+          "Consideration Hesitations": "",
+          "Anti-myostatins Awareness": "",
+          "Anti-myostatins Brands": "",
           "respno": "R01"
+        },
+        {
+          "Respondent ID": "R02",
+          "Treatments Awareness": "",
+          "Evrysdi Experience": "",
+          "Spinraza Experience": "",
+          "Zolgensma Experience": "",
+          "Discontinued Treatment Experience": "",
+          "Discontinued Treatment Benefits": "",
+          "Discontinued Treatment Drawbacks": "",
+          "Discontinuation Reason": "",
+          "Life Changes Impact": "",
+          "Insurance Coverage Impact": "",
+          "Restarting Consideration": "",
+          "Treatment Impressions": "",
+          "Information Source": "The respondent has used Facebook pages and support groups to gather information about SMA and potential treatments. She has been proactive in seeking out knowledgeable doctors and resources to better understand her condition.",
+          "Consideration Factors": "",
+          "Developmental Treatments Awareness": "",
+          "Developmental Treatments Impressions": "",
+          "Candidate Consideration": "",
+          "Future Treatment Consideration": "",
+          "Consideration Drivers": "",
+          "Consideration Hesitations": "",
+          "Anti-myostatins Awareness": "",
+          "Anti-myostatins Brands": "",
+          "respno": "R02"
+        },
+        {
+          "Respondent ID": "R04",
+          "Treatments Awareness": "The respondent is aware of several SMA treatments, including Spinraza, Evrysdi, and Zolgensma. He learned about Evrysdi through a rare patient survey and appreciates that it offers a different form of administration compared to Spinraza. His awareness of treatments is informed by surveys and personal research.",
+          "Evrysdi Experience": "The respondent has not used Evrysdi but is aware of its availability in tablet and liquid forms. He considers the liquid form preferable due to swallowing difficulties but is concerned about potential side effects and the impact on his routine. His interest in Evrysdi is hypothetical, contingent on the absence of side effects.",
+          "Spinraza Experience": "",
+          "Zolgensma Experience": "",
+          "Discontinued Treatment Experience": "",
+          "Discontinued Treatment Benefits": "",
+          "Discontinued Treatment Drawbacks": "",
+          "Discontinuation Reason": "",
+          "Life Changes Impact": "",
+          "Insurance Coverage Impact": "",
+          "Restarting Consideration": "",
+          "Treatment Impressions": "The respondent views current SMA treatments as 'plug in the hole' solutions rather than cures. He is cautious about side effects and the impact on his quality of life, preferring to maintain stability. His impressions are shaped by a desire for treatments that offer tangible benefits without disrupting his routine.",
+          "Information Source": "The respondent gathers information from surveys, personal research, and peer experiences. He is skeptical of manufacturer information, preferring raw data and peer insights. His information sources reflect a preference for independent research and firsthand accounts.",
+          "Consideration Factors": "When considering treatments, the respondent prioritizes the absence of side effects, ease of administration, and insurance coverage. He values peer input and seeks treatments that align with his lifestyle and routine. These factors guide his cautious approach to treatment consideration.",
+          "Developmental Treatments Awareness": "The respondent is aware of developmental treatments, including a higher dose of Spinraza and anti-myostatin medications. His awareness comes from surveys and general knowledge of ongoing research. He is open to learning about new treatments if they offer significant benefits.",
+          "Developmental Treatments Impressions": "The respondent views developmental treatments as a positive step forward, particularly if they show improvement in motor function without side effects. He is interested in treatments that target muscle function and would consider them if they align with his criteria for treatment consideration.",
+          "Candidate Consideration": "",
+          "Future Treatment Consideration": "The respondent is open to considering future treatments if they meet his criteria for safety, efficacy, and lifestyle compatibility. He is particularly interested in treatments that offer improvements in motor function without significant side effects. His consideration is influenced by personal research and peer experiences.",
+          "Consideration Drivers": "Key drivers for treatment consideration include the potential for improved motor function, absence of side effects, and insurance coverage. The respondent values treatments that enhance quality of life without disrupting his routine. These drivers reflect his cautious and pragmatic approach to treatment decisions.",
+          "Consideration Hesitations": "The respondent hesitates to consider treatments due to concerns about side effects, disruption to his routine, and the potential impact on his quality of life. He is wary of treatments that do not offer clear benefits or that require significant lifestyle adjustments. His hesitations are rooted in a desire for stability and predictability.",
+          "Anti-myostatins Awareness": "The respondent is aware of anti-myostatin treatments being tested in combination with existing SMA therapies. He views them as a promising development if they can demonstrate improvements in motor function without side effects. His awareness is informed by surveys and general knowledge of treatment research.",
+          "Anti-myostatins Brands": "",
+          "respno": "R04"
+        },
+        {
+          "Respondent ID": "R03",
+          "Treatments Awareness": "",
+          "Evrysdi Experience": "",
+          "Spinraza Experience": "",
+          "Zolgensma Experience": "",
+          "Discontinued Treatment Experience": "",
+          "Discontinued Treatment Benefits": "",
+          "Discontinued Treatment Drawbacks": "",
+          "Discontinuation Reason": "",
+          "Life Changes Impact": "",
+          "Insurance Coverage Impact": "",
+          "Restarting Consideration": "",
+          "Treatment Impressions": "",
+          "Information Source": "",
+          "Consideration Factors": "",
+          "Developmental Treatments Awareness": "",
+          "Developmental Treatments Impressions": "",
+          "Candidate Consideration": "",
+          "Future Treatment Consideration": "",
+          "Consideration Drivers": "",
+          "Consideration Hesitations": "",
+          "Anti-myostatins Awareness": "",
+          "Anti-myostatins Brands": "",
+          "respno": "R03"
         }
       ],
       "BARRIERS TO TREATMENT & UNMET NEEDS": [
         {
           "Respondent ID": "R01",
-          "Reasons for Not on Treatment": "The respondent is not currently on treatment due to past experiences with insurance denials and the logistical challenges of accessing healthcare. He is also cautious about the potential costs and benefits of treatment.",
-          "Factors Driving Treatment Consideration": "The respondent's consideration of treatment is driven by the potential for improved stability and functionality. He is also influenced by the experiences and recommendations of peers in support groups.",
-          "Symptom Tracking Frequency": "The respondent does not track his symptoms on a daily basis but notices changes over a period of months. He reflects on his abilities retrospectively to assess any decline or improvement.",
-          "Symptom Tracking Methods": "The respondent does not use formal methods to track his symptoms. Instead, he relies on retrospective reflection to notice changes in his abilities over time.",
-          "Symptom Tracking Discussion with HCP": "The respondent does not have regular discussions with healthcare providers about symptom tracking. He feels that neurologists do not provide him with tangible benefits or insights beyond what he already knows.",
-          "Barriers Categories": "Barriers to treatment for the respondent include insurance denials, logistical challenges in accessing healthcare, and dissatisfaction with the testing methods used in clinical trials. He is also concerned about the potential costs and benefits of treatment.",
-          "Access Challenges": "The respondent faces access challenges due to the logistical difficulties of visiting healthcare providers, particularly neurologists. He also experiences challenges with insurance coverage and approvals for treatments.",
-          "Unmet Needs Categories": "Unmet needs for the respondent include a more streamlined process for accessing treatments, better communication and support from healthcare providers, and more reliable information about treatment options and their potential benefits.",
-          "Most Important Unmet Need": "The respondent's most important unmet need is a more streamlined and supportive process for accessing treatments. He desires better communication and support from healthcare providers and advocates to navigate the complexities of treatment options and insurance coverage.",
+          "Reasons for Not on Treatment": "",
+          "Manageable Severity Impact": "",
+          "Consideration Drivers": "",
+          "Muscle Loss Impact": "",
+          "Symptom Tracking Frequency": "",
+          "Symptom Tracking Method": "",
+          "Symptom Tracking Discussion": "",
+          "Emotional Factors Impact": "",
+          "Practical Factors Impact": "",
+          "Clinical Factors Impact": "",
+          "Treatment Benefit Requirement": "",
+          "Treatment Benefit Discussion": "",
+          "Financial Barriers Impact": "",
+          "Financial Challenges": "",
+          "Access Challenges": "",
+          "Specialized Care Availability": "",
+          "HCP Trust": "",
+          "Support System Gaps": "",
+          "Unmet Needs": "",
           "respno": "R01"
+        },
+        {
+          "Respondent ID": "R02",
+          "Reasons for Not on Treatment": "",
+          "Manageable Severity Impact": "",
+          "Consideration Drivers": "",
+          "Muscle Loss Impact": "",
+          "Symptom Tracking Frequency": "",
+          "Symptom Tracking Method": "",
+          "Symptom Tracking Discussion": "",
+          "Emotional Factors Impact": "",
+          "Practical Factors Impact": "",
+          "Clinical Factors Impact": "",
+          "Treatment Benefit Requirement": "",
+          "Treatment Benefit Discussion": "",
+          "Financial Barriers Impact": "",
+          "Financial Challenges": "",
+          "Access Challenges": "",
+          "Specialized Care Availability": "",
+          "HCP Trust": "",
+          "Support System Gaps": "",
+          "Unmet Needs": "",
+          "respno": "R02"
+        },
+        {
+          "Respondent ID": "R04",
+          "Reasons for Not on Treatment": "The respondent is not currently on treatment due to concerns about side effects, the impact on his routine, and the lack of perceived benefits. He values stability and is cautious about introducing new variables that could affect his quality of life. His decision is influenced by a desire to maintain his current lifestyle.",
+          "Manageable Severity Impact": "",
+          "Consideration Drivers": "",
+          "Muscle Loss Impact": "The respondent acknowledges muscle loss as a significant impact of SMA, contributing to decreased mobility and increased care needs. This progression influences his living situation and care arrangements. Muscle loss is a key factor in his health management and decision-making process.",
+          "Symptom Tracking Frequency": "",
+          "Symptom Tracking Method": "",
+          "Symptom Tracking Discussion": "",
+          "Emotional Factors Impact": "",
+          "Practical Factors Impact": "",
+          "Clinical Factors Impact": "",
+          "Treatment Benefit Requirement": "",
+          "Treatment Benefit Discussion": "",
+          "Financial Barriers Impact": "Financial barriers, particularly insurance coverage, are a significant consideration for the respondent when evaluating treatment options. He acknowledges that without insurance, the cost of treatment would be prohibitive. Financial considerations are a critical factor in his treatment decision-making process.",
+          "Financial Challenges": "",
+          "Access Challenges": "",
+          "Specialized Care Availability": "",
+          "HCP Trust": "The respondent expresses skepticism towards healthcare providers, perceiving them as influenced by pharmaceutical companies. He prefers to rely on personal research and peer experiences for treatment decisions. This lack of trust affects his engagement with healthcare providers and his approach to treatment.",
+          "Support System Gaps": "",
+          "Unmet Needs": "",
+          "respno": "R04"
+        },
+        {
+          "Respondent ID": "R03",
+          "Reasons for Not on Treatment": "",
+          "Manageable Severity Impact": "",
+          "Consideration Drivers": "",
+          "Muscle Loss Impact": "",
+          "Symptom Tracking Frequency": "",
+          "Symptom Tracking Method": "",
+          "Symptom Tracking Discussion": "",
+          "Emotional Factors Impact": "",
+          "Practical Factors Impact": "",
+          "Clinical Factors Impact": "",
+          "Treatment Benefit Requirement": "",
+          "Treatment Benefit Discussion": "",
+          "Financial Barriers Impact": "",
+          "Financial Challenges": "",
+          "Access Challenges": "",
+          "Specialized Care Availability": "",
+          "HCP Trust": "",
+          "Support System Gaps": "",
+          "Unmet Needs": "",
+          "respno": "R03"
         }
       ],
       "MOTIVATIONS & FUTURE CONSIDERATION": [
         {
           "Respondent ID": "R01",
-          "Future Treatment Consideration Likelihood": "The respondent is open to considering future treatments but is cautious due to past experiences with insurance denials and logistical challenges. He is waiting for more information on developmental treatments and their potential benefits.",
-          "Factors Influencing Consideration": "Factors influencing the respondent's consideration of treatment include the potential for improved stability and functionality, the experiences and recommendations of peers, and the availability of new treatment options.",
-          "Expected Treatment Outcomes": "The respondent hopes for improved stability and functionality from treatment. He is particularly interested in treatments that are non-intrusive and easy to administer, such as oral medications.",
-          "Influential Decision-makers": "Influential decision-makers for the respondent include his wife, who provides daily support, and advocates who assist with navigating treatment options and insurance approvals. He also values the experiences and recommendations of peers in support groups.",
-          "Confidence in Treatment Decision": "The respondent expresses a level of confidence in his treatment decisions, as he feels in charge of his healthcare. However, he acknowledges the challenges and logistical hurdles involved in accessing treatments and navigating the healthcare system.",
+          "Future Treatment Likelihood": "",
+          "Consideration Influences": "",
+          "Consideration Situations": "",
+          "Consideration Drivers": "",
+          "Consideration Hesitations": "",
+          "Improvement Expectations": "",
+          "Influential Decision Makers": "",
+          "Decision Maker Involvement": "",
+          "Decision Confidence Factors": "",
           "respno": "R01"
+        },
+        {
+          "Respondent ID": "R02",
+          "Future Treatment Likelihood": "",
+          "Consideration Influences": "",
+          "Consideration Situations": "",
+          "Consideration Drivers": "",
+          "Consideration Hesitations": "",
+          "Improvement Expectations": "",
+          "Influential Decision Makers": "",
+          "Decision Maker Involvement": "",
+          "Decision Confidence Factors": "",
+          "respno": "R02"
+        },
+        {
+          "Respondent ID": "R04",
+          "Future Treatment Likelihood": "The respondent is open to future treatments if they meet his criteria for safety, efficacy, and lifestyle compatibility. He is particularly interested in treatments that offer improvements in motor function without significant side effects. His openness is contingent on the treatment aligning with his personal priorities and circumstances.",
+          "Consideration Influences": "Influences on the respondent's treatment consideration include peer experiences, insurance coverage, and the potential for improved motor function. He values firsthand accounts and financial feasibility as key factors in his decision-making process. These influences guide his cautious approach to evaluating treatment options.",
+          "Consideration Situations": "",
+          "Consideration Drivers": "",
+          "Consideration Hesitations": "",
+          "Improvement Expectations": "",
+          "Influential Decision Makers": "",
+          "Decision Maker Involvement": "",
+          "Decision Confidence Factors": "",
+          "respno": "R04"
+        },
+        {
+          "Respondent ID": "R03",
+          "Future Treatment Likelihood": "",
+          "Consideration Influences": "",
+          "Consideration Situations": "",
+          "Consideration Drivers": "",
+          "Consideration Hesitations": "",
+          "Improvement Expectations": "",
+          "Influential Decision Makers": "",
+          "Decision Maker Involvement": "",
+          "Decision Confidence Factors": "",
+          "respno": "R03"
         }
       ],
       "COMMUNITY ENGAGEMENT & INFO SOURCES": [
         {
           "Respondent ID": "R01",
-          "Connection to SMA Community": "The respondent is connected to the SMA community through Facebook support groups. He values the information and support shared by peers in these groups and has participated in discussions about treatment options.",
-          "Participation in Support Groups": "The respondent participates in Facebook support groups for SMA, where he engages with peers and learns about treatment options. He describes himself as a 'lurker' who observes and reads more than he posts.",
-          "Reasons for Non-involvement": "The respondent initially avoided involvement with the disabled community due to personal prejudices and denial about his condition. However, he has since engaged with support groups to learn about treatment options and connect with others.",
-          "Information Sources": "The respondent primarily relies on Facebook support groups and updates from organizations like SMNA for information about treatments and developments in SMA care. He values the experiences and recommendations shared by peers in these communities.",
-          "Trusted Sources": "Trusted sources for the respondent include Facebook support groups and advocates who assist with navigating treatment options and insurance approvals. He values the information and support shared by peers in these communities.",
-          "Untrusted Sources": "",
-          "New Treatment Awareness": "The respondent is aware of new treatments in the pipeline, including anti-myostatin therapies. He is waiting for more information as these treatments progress through clinical trials and become more established.",
-          "Preferred Information Format": "The respondent prefers information in the form of updates from support groups and organizations like SMNA. He values the experiences and recommendations shared by peers and advocates in these communities.",
-          "Improving Information Accessibility": "Improving information accessibility for the respondent would involve more streamlined and supportive communication from healthcare providers and advocates. He desires better access to reliable information about treatment options and their potential benefits.",
+          "Community Connection": "",
+          "Community Participation": "",
+          "Community Involvement Reasons": "",
+          "Information Sources": "",
+          "Trusted Sources": "",
+          "Distrusted Sources": "",
+          "New Information Awareness": "",
+          "Information Preferences": "",
+          "Preferred Information Format": "",
+          "Facilitation Suggestions": "",
           "respno": "R01"
+        },
+        {
+          "Respondent ID": "R02",
+          "Community Connection": "",
+          "Community Participation": "",
+          "Community Involvement Reasons": "",
+          "Information Sources": "The respondent has utilized Facebook pages and support groups as her primary sources of information about SMA. She has actively sought out these communities to gain insights and connect with others who have similar experiences.",
+          "Trusted Sources": "",
+          "Distrusted Sources": "",
+          "New Information Awareness": "",
+          "Information Preferences": "",
+          "Preferred Information Format": "",
+          "Facilitation Suggestions": "",
+          "respno": "R02"
+        },
+        {
+          "Respondent ID": "R04",
+          "Community Connection": "The respondent has limited connection to the SMA community, both online and in person. He maintains some social connections from past experiences, such as MDA camp, but does not actively engage with SMA groups. His limited involvement is due to a preference for independence and a perception that online communities often adopt a victim mentality.",
+          "Community Participation": "",
+          "Community Involvement Reasons": "",
+          "Information Sources": "The respondent's information sources include personal research, surveys, and peer experiences. He is skeptical of manufacturer information and prefers raw data and firsthand accounts. His information-gathering approach reflects a desire for independent and reliable sources.",
+          "Trusted Sources": "The respondent trusts peer experiences and raw data as sources of information about SMA treatments. He values firsthand accounts for their authenticity and practical insights. These trusted sources guide his treatment considerations and decision-making process.",
+          "Distrusted Sources": "The respondent is skeptical of information from manufacturers and healthcare providers, perceiving them as potentially biased. He is cautious about accepting information that may be influenced by commercial interests. This skepticism affects his engagement with these sources.",
+          "New Information Awareness": "",
+          "Information Preferences": "",
+          "Preferred Information Format": "",
+          "Facilitation Suggestions": "",
+          "respno": "R04"
+        },
+        {
+          "Respondent ID": "R03",
+          "Community Connection": "",
+          "Community Participation": "",
+          "Community Involvement Reasons": "",
+          "Information Sources": "",
+          "Trusted Sources": "",
+          "Distrusted Sources": "",
+          "New Information Awareness": "",
+          "Information Preferences": "",
+          "Preferred Information Format": "",
+          "Facilitation Suggestions": "",
+          "respno": "R03"
         }
       ],
       "Misc.": [
@@ -104,6 +434,24 @@
           "Final Comments": "",
           "Additional Notes": "",
           "respno": "R01"
+        },
+        {
+          "Respondent ID": "R02",
+          "Final Comments": "",
+          "Additional Notes": "",
+          "respno": "R02"
+        },
+        {
+          "Respondent ID": "R04",
+          "Final Comments": "",
+          "Additional Notes": "",
+          "respno": "R04"
+        },
+        {
+          "Respondent ID": "R03",
+          "Final Comments": "",
+          "Additional Notes": "",
+          "respno": "R03"
         }
       ]
     },
@@ -111,280 +459,302 @@
       "bySheet": {}
     },
     "quotes": {},
-    "savedAt": "2025-10-21T20:48:06.206Z",
+    "savedAt": "2025-10-23T20:53:59.196Z",
     "savedBy": "You",
-    "context": {
-      "Demographics": {
-        "R01": {}
-      },
-      "BACKGROUND": {
-        "R01": {
-          "Respondent ID": [],
-          "Living Situation": [
-            "Yeah. So I'm 50 years old. I'm married. We have two kids, but the kids are from a previous marriage, but I've been in their life. Corona was three, Jaden's eight months. They're now 24 and 22, out of the house.",
-            "We have a little dog, a little Morkey. I just quit working back in October 2024."
-          ],
-          "Free Time Activities": [
-            "I walk the dog every day, sort of fiddle fart on the computer, might watch stuff, I read a lot. Not no longer the corporate hustle and bustle anymore.",
-            "We recently just got a caregiver just about a month ago that comes in and bathes me and then helps me with little things around the house."
-          ],
-          "Journey with SMA": [
-            "I was around 10, 11 years old. I don't remember the exact date and time. There was a little bit of trying to figure out what was going on with me. I kept on falling down when running. Not all the time. So it was just my right leg that would give out.",
-            "To be honest, I was never seeing a neurologist on a regular basis. So when I got diagnosed at a young age, right, 11, 12 years old when my official diagnosis came in, I went into denial. I was still playing sports. I was still active. I did not want to hear what they were telling me what was going to happen, and so I sort of avoided doctors like the plague."
-          ],
-          "Current Health Description": [
-            "Everything but SMA, I'm as healthy as any, but I mean, I have my regular physicals and all that. And I mean, I'm just, she was like, you are in great health, but you have muscular dystrophy.",
-            "Where it's affecting my life now is just my day-to-day abilities to do meaningful activities. My wife gets me in and out of bed. She dresses me. Up until recently, she was bathing me."
-          ],
-          "HCPs for SMA Care": [
-            "No. I have a neurologist that she is in the world of SMA. So she knows, and I sought her out several years ago. I wasn't seeing anybody for a long time specifically.",
-            "But I don't see her on a regular basis. I was doing a case study, which I had stopped doing, and she knew the doctor that was leading some of that case study."
-          ],
-          "Reasons for Not Seeing HCPs": [
-            "Because what does the neurologist do for me when I see the neurologist? They don't do anything for me. I don't get any benefit from seeing a neurologist.",
-            "I am able to update them on where I'm at, and unless I need something from them that is outside of the scope of what a primary physician who is closer to me can provide, there's nothing that I get from that."
-          ],
-          "Current SMA Management": [
-            "We recently just got a caregiver just about a month ago that comes in and bathes me and then helps me with little things around the house.",
-            "I think for right now, I just don't want to put my foot back into the arena. But I'm not going to close the door on it completely. I don't know which way I want to go."
-          ],
-          "Number of HCPs": [
-            "No. I have a neurologist that she is in the world of SMA. So she knows, and I sought her out several years ago.",
-            "Because what does the neurologist do for me when I see the neurologist? They don't do anything for me. I don't get any benefit from seeing a neurologist."
-          ],
-          "HCP Involvement in Treatment Decisions": [
-            "Because what does the neurologist do for me when I see the neurologist? They don't do anything for me. I don't get any benefit from seeing a neurologist.",
-            "I am able to update them on where I'm at, and unless I need something from them that is outside of the scope of what a primary physician who is closer to me can provide, there's nothing that I get from that."
-          ],
-          "Primary SMA Doctor": [
-            "No. I have a neurologist that she is in the world of SMA. So she knows, and I sought her out several years ago.",
-            "But I don't see her on a regular basis. I was doing a case study, which I had stopped doing, and she knew the doctor that was leading some of that case study."
-          ],
-          "Others Involved in Health Decisions": [
-            "My wife gets me in and out of bed. She dresses me. Up until recently, she was bathing me.",
-            "And she still keeps in touch with us, which is cool. She reached out to me just a month ago."
-          ],
-          "Support System Involvement": [
-            "My wife gets me in and out of bed. She dresses me. Up until recently, she was bathing me.",
-            "We recently just got a caregiver just about a month ago that comes in and bathes me and then helps me with little things around the house."
-          ],
-          "Comfort in Making Treatment Decisions": [
-            "Because what does the neurologist do for me when I see the neurologist? They don't do anything for me. I don't get any benefit from seeing a neurologist.",
-            "I think for right now, I just don't want to put my foot back into the arena. But I'm not going to close the door on it completely. I don't know which way I want to go."
-          ],
-          "Health Goals - Short-term": [
-            "If I can get comfortable with where I'm at today, if we could just stay like this, okay, I can function the rest of my life like this.",
-            "I think for right now, I just don't want to put my foot back into the arena. But I'm not going to close the door on it completely. I don't know which way I want to go."
-          ],
-          "Health Goals - Long-term": [
-            "If I can get comfortable with where I'm at today, if we could just stay like this, okay, I can function the rest of my life like this.",
-            "I think for right now, I just don't want to put my foot back into the arena. But I'm not going to close the door on it completely. I don't know which way I want to go."
-          ],
-          "Personal Aspirations": [
-            "I walk the dog every day, sort of fiddle fart on the computer, might watch stuff, I read a lot. Not no longer the corporate hustle and bustle anymore.",
-            "If I can get comfortable with where I'm at today, if we could just stay like this, okay, I can function the rest of my life like this."
-          ]
-        }
-      },
-      "CURRENT PERCEPTIONS & ATTITUDES": {
-        "R01": {
-          "Respondent ID": [],
-          "Treatments Awareness": [
-            "Through Facebook. That was the only thing that I was getting my information from was these Facebook support groups that I was a part of for spinal muscular atrophy.",
-            "I know there's some other things on the horizon, but they've not been approved yet."
-          ],
-          "Treatments Experience": [
-            "I started in April 2021, and I took it until April 2022. I stopped because insurance wouldn't pay for it.",
-            "I could have kept on doing it. I could have kept doing it. I'm a non-responder to that medication. It did not keep me low. I continued to digress the entire time. There was no change. It actually I got worse."
-          ],
-          "Discontinued Treatment Experience": [
-            "I started in April 2021, and I took it until April 2022. I stopped because insurance wouldn't pay for it.",
-            "I could have kept on doing it. I could have kept doing it. I'm a non-responder to that medication. It did not keep me low. I continued to digress the entire time. There was no change. It actually I got worse."
-          ],
-          "Discontinued Treatment Reasons": [
-            "I started in April 2021, and I took it until April 2022. I stopped because insurance wouldn't pay for it.",
-            "I could have kept on doing it. I could have kept doing it. I'm a non-responder to that medication. It did not keep me low. I continued to digress the entire time. There was no change. It actually I got worse."
-          ],
-          "Discontinued Treatment Insurance Coverage": [
-            "I started in April 2021, and I took it until April 2022. I stopped because insurance wouldn't pay for it.",
-            "So there was part of me going, wait a minute. This is I got worse. And then the other part was like, well, insurance has denied it anyways. That's the writing on the wall."
-          ],
-          "Restarting Discontinued Treatment": [
-            "To be honest, I had reached back out to the neurologist to see if I could get back on Evrysdi after that year hiatus anyways, because I wanted to see if I could get the same boost because I got one hell of a boost from it the first time I was on it.",
-            "And then there's always in the back of my mind, do I just want to try the Evrysdi again? Right? Because now it's in pill form. Let's just take a pill."
-          ],
-          "Treatment Impressions": [
-            "It made me feel hopeful that wait a minute. Because for so long, I heard that there's nothing. There is nothing they didn't even know what was causing it.",
-            "But with the administrating of it with Spinraza, I just did not like I don't know why I was so against it. I think because I just want something that's non-intrusive, that's easy."
-          ],
-          "Information Source about Treatment": [
-            "Through Facebook. That was the only thing that I was getting my information from was these Facebook support groups that I was a part of for spinal muscular atrophy.",
-            "I know there's some other things on the horizon, but they've not been approved yet."
-          ],
-          "Consideration of Starting Treatment": [
-            "And then there's always in the back of my mind, do I just want to try the Evrysdi again? Right? Because now it's in pill form. Let's just take a pill.",
-            "I think for right now, I just don't want to put my foot back into the arena. But I'm not going to close the door on it completely. I don't know which way I want to go."
-          ],
-          "Consideration Drivers": [
-            "To be honest, I had reached back out to the neurologist to see if I could get back on Evrysdi after that year hiatus anyways, because I wanted to see if I could get the same boost because I got one hell of a boost from it the first time I was on it.",
-            "And then there's always in the back of my mind, do I just want to try the Evrysdi again? Right? Because now it's in pill form. Let's just take a pill."
-          ],
-          "Consideration Hesitations": [
-            "Probably my own laziness to go make an appointment with a neurologist and have to get somebody to take me down to and fight the Atlanta traffic, and I am not a very good passenger because I drove all my life and being on the highway with eight lanes of cars and it freaks me out.",
-            "And then having to then go through the whole process of will it get denied and just the, I mean, if it was as simple as calling the neurologist, prescribe it, get it shipped to me, I'd probably just take it. It's the process. I just don't like the process."
-          ],
-          "Developmental Treatments Awareness": [
-            "I know there's some other things on the horizon, but they've not been approved yet.",
-            "I don't know them off the top of my I know there's one that's more associated with a muscle therapy, to actually strengthen the actual and I forget what it's called, and that one's real close."
-          ],
-          "Developmental Treatments Impressions": [
-            "I don't know them off the top of my I know there's one that's more associated with a muscle therapy, to actually strengthen the actual and I forget what it's called, and that one's real close.",
-            "And then my concern is what's insurance going to pay? I mean, the other ones are pretty expensive and then you're adding that one as well."
-          ],
-          "Developmental Treatments Consideration": [
-            "I think for right now, I just don't want to put my foot back into the arena. But I'm not going to close the door on it completely. I don't know which way I want to go.",
-            "And then there's always in the back of my mind, do I just want to try the Evrysdi again? Right? Because now it's in pill form. Let's just take a pill."
-          ],
-          "Anti-myostatins Awareness": [
-            "I don't know them off the top of my I know there's one that's more associated with a muscle therapy, to actually strengthen the actual and I forget what it's called, and that one's real close.",
-            "And then my concern is what's insurance going to pay? I mean, the other ones are pretty expensive and then you're adding that one as well."
-          ],
-          "Anti-myostatins Consideration": [
-            "I think for right now, I just don't want to put my foot back into the arena. But I'm not going to close the door on it completely. I don't know which way I want to go.",
-            "And then there's always in the back of my mind, do I just want to try the Evrysdi again? Right? Because now it's in pill form. Let's just take a pill."
-          ]
-        }
-      },
-      "BARRIERS TO TREATMENT & UNMET NEEDS": {
-        "R01": {
-          "Respondent ID": [],
-          "Reasons for Not on Treatment": [
-            "I think for right now, I just don't want to put my foot back into the arena. But I'm not going to close the door on it completely. I don't know which way I want to go.",
-            "And then there's always in the back of my mind, do I just want to try the Evrysdi again? Right? Because now it's in pill form. Let's just take a pill."
-          ],
-          "Factors Driving Treatment Consideration": [
-            "To be honest, I had reached back out to the neurologist to see if I could get back on Evrysdi after that year hiatus anyways, because I wanted to see if I could get the same boost because I got one hell of a boost from it the first time I was on it.",
-            "And then there's always in the back of my mind, do I just want to try the Evrysdi again? Right? Because now it's in pill form. Let's just take a pill."
-          ],
-          "Symptom Tracking Frequency": [
-            "It's hard to, you know, I don't track it day to day. It's like you look back on it, like, a month or a couple months, and it's like, oh, I'm doing it different, or I'm not doing it at all, or I'm avoiding it.",
-            "I don't track it, number one, and it's not necessarily something you see changes day to day, but over a couple months, you can see differences. You can see how it evolves."
-          ],
-          "Symptom Tracking Methods": [
-            "It's hard to, you know, I don't track it day to day. It's like you look back on it, like, a month or a couple months, and it's like, oh, I'm doing it different, or I'm not doing it at all, or I'm avoiding it.",
-            "I don't track it, number one, and it's not necessarily something you see changes day to day, but over a couple months, you can see differences. You can see how it evolves."
-          ],
-          "Symptom Tracking Discussion with HCP": [
-            "Because what does the neurologist do for me when I see the neurologist? They don't do anything for me. I don't get any benefit from seeing a neurologist.",
-            "I am able to update them on where I'm at, and unless I need something from them that is outside of the scope of what a primary physician who is closer to me can provide, there's nothing that I get from that."
-          ],
-          "Barriers Categories": [
-            "Probably my own laziness to go make an appointment with a neurologist and have to get somebody to take me down to and fight the Atlanta traffic, and I am not a very good passenger because I drove all my life and being on the highway with eight lanes of cars and it freaks me out.",
-            "And then having to then go through the whole process of will it get denied and just the, I mean, if it was as simple as calling the neurologist, prescribe it, get it shipped to me, I'd probably just take it. It's the process. I just don't like the process."
-          ],
-          "Access Challenges": [
-            "Probably my own laziness to go make an appointment with a neurologist and have to get somebody to take me down to and fight the Atlanta traffic, and I am not a very good passenger because I drove all my life and being on the highway with eight lanes of cars and it freaks me out.",
-            "And then having to then go through the whole process of will it get denied and just the, I mean, if it was as simple as calling the neurologist, prescribe it, get it shipped to me, I'd probably just take it. It's the process. I just don't like the process."
-          ],
-          "Unmet Needs Categories": [
-            "Here's the latest and greatest, you know, for Michael. Should I go by middle name? Never mind. So I've been re I'm looking into this knowing your particular situation. Here's the latest and greatest.",
-            "I know somebody that can get you into this trial or I know what we should do. I want to get you on this. And then in turn with that, we're gonna get you set up to do these certain activities to help benefit not only the medicine, but your physical abilities."
-          ],
-          "Most Important Unmet Need": [
-            "Here's the latest and greatest, you know, for Michael. Should I go by middle name? Never mind. So I've been re I'm looking into this knowing your particular situation. Here's the latest and greatest.",
-            "I know somebody that can get you into this trial or I know what we should do. I want to get you on this. And then in turn with that, we're gonna get you set up to do these certain activities to help benefit not only the medicine, but your physical abilities."
-          ]
-        }
-      },
-      "MOTIVATIONS & FUTURE CONSIDERATION": {
-        "R01": {
-          "Respondent ID": [],
-          "Future Treatment Consideration Likelihood": [
-            "I think for right now, I just don't want to put my foot back into the arena. But I'm not going to close the door on it completely. I don't know which way I want to go.",
-            "And then there's always in the back of my mind, do I just want to try the Evrysdi again? Right? Because now it's in pill form. Let's just take a pill."
-          ],
-          "Factors Influencing Consideration": [
-            "To be honest, I had reached back out to the neurologist to see if I could get back on Evrysdi after that year hiatus anyways, because I wanted to see if I could get the same boost because I got one hell of a boost from it the first time I was on it.",
-            "And then there's always in the back of my mind, do I just want to try the Evrysdi again? Right? Because now it's in pill form. Let's just take a pill."
-          ],
-          "Expected Treatment Outcomes": [
-            "If I can get comfortable with where I'm at today, if we could just stay like this, okay, I can function the rest of my life like this.",
-            "And then there's always in the back of my mind, do I just want to try the Evrysdi again? Right? Because now it's in pill form. Let's just take a pill."
-          ],
-          "Influential Decision-makers": [
-            "My wife gets me in and out of bed. She dresses me. Up until recently, she was bathing me.",
-            "And she still keeps in touch with us, which is cool. She reached out to me just a month ago."
-          ],
-          "Confidence in Treatment Decision": [
-            "Because what does the neurologist do for me when I see the neurologist? They don't do anything for me. I don't get any benefit from seeing a neurologist.",
-            "I think for right now, I just don't want to put my foot back into the arena. But I'm not going to close the door on it completely. I don't know which way I want to go."
-          ]
-        }
-      },
-      "COMMUNITY ENGAGEMENT & INFO SOURCES": {
-        "R01": {
-          "Respondent ID": [],
-          "Connection to SMA Community": [
-            "Through Facebook. That was the only thing that I was getting my information from was these Facebook support groups that I was a part of for spinal muscular atrophy.",
-            "I don't know if I joined them before or after, but one of the changes that occurred when we moved to Georgia, we went to an abilities expo type conference thing, trade show that had different things."
-          ],
-          "Participation in Support Groups": [
-            "Through Facebook. That was the only thing that I was getting my information from was these Facebook support groups that I was a part of for spinal muscular atrophy.",
-            "I don't know if I joined them before or after, but one of the changes that occurred when we moved to Georgia, we went to an abilities expo type conference thing, trade show that had different things."
-          ],
-          "Reasons for Non-involvement": [
-            "That's a difficult one as well. Just on the basis of I've tried to not associate myself with the disability disabled community. But, obviously, my reality was becoming I am part of the disabled community.",
-            "So it was sort of me sort of tiptoeing into that without full-fledged being in it. I went to a face-to-face support group. This was I can read about it and sort of see what other people are doing about it."
-          ],
-          "Information Sources": [
-            "Through Facebook. That was the only thing that I was getting my information from was these Facebook support groups that I was a part of for spinal muscular atrophy.",
-            "I know there's some other things on the horizon, but they've not been approved yet."
-          ],
-          "Trusted Sources": [
-            "Through Facebook. That was the only thing that I was getting my information from was these Facebook support groups that I was a part of for spinal muscular atrophy.",
-            "I don't know if I joined them before or after, but one of the changes that occurred when we moved to Georgia, we went to an abilities expo type conference thing, trade show that had different things."
-          ],
-          "Untrusted Sources": [],
-          "New Treatment Awareness": [
-            "I know there's some other things on the horizon, but they've not been approved yet.",
-            "I don't know them off the top of my I know there's one that's more associated with a muscle therapy, to actually strengthen the actual and I forget what it's called, and that one's real close."
-          ],
-          "Preferred Information Format": [
-            "Through Facebook. That was the only thing that I was getting my information from was these Facebook support groups that I was a part of for spinal muscular atrophy.",
-            "I know there's some other things on the horizon, but they've not been approved yet."
-          ],
-          "Improving Information Accessibility": [
-            "Here's the latest and greatest, you know, for Michael. Should I go by middle name? Never mind. So I've been re I'm looking into this knowing your particular situation. Here's the latest and greatest.",
-            "I know somebody that can get you into this trial or I know what we should do. I want to get you on this. And then in turn with that, we're gonna get you set up to do these certain activities to help benefit not only the medicine, but your physical abilities."
-          ]
-        }
-      },
-      "Misc.": {
-        "R01": {
-          "Respondent ID": [],
-          "Final Comments": [],
-          "Additional Notes": []
-        }
-      }
-    },
+    "context": {},
     "transcripts": [
       {
-        "id": "1761079686188",
+        "id": "T-1761244346544",
+        "sourceTranscriptId": "T-1761244346544",
+        "respno": "R03",
+        "addedAt": "2025-10-23T20:44:50.612Z",
+        "filename": "cleaned_1761244424155_Treatment Naive_ENGLISH (UNITED STATES)_MT.docx",
+        "originalPath": "C:\\Users\\LukeBorglin\\Desktop\\Apps\\JaiceDashboard_master\\server\\data\\uploads\\original_1761244424156_Treatment Naive_ENGLISH (UNITED STATES)_MT.docx",
+        "cleanedPath": "C:\\Users\\LukeBorglin\\Desktop\\Apps\\JaiceDashboard_master\\server\\data\\uploads\\cleaned_1761244424155_Treatment Naive_ENGLISH (UNITED STATES)_MT.docx",
+        "originalFilename": "Treatment Naive_ENGLISH (UNITED STATES)_MT.docx",
+        "cleanedFilename": "cleaned_1761244424155_Treatment Naive_ENGLISH (UNITED STATES)_MT.docx",
+        "isCleaned": true
+      },
+      {
+        "id": "T-1761251220504",
+        "sourceTranscriptId": "T-1761251220504",
         "respno": "R01",
-        "demographics": {
-          "transcriptId": "T-1761078307773",
+        "addedAt": "2025-10-23T20:50:19.728Z",
+        "filename": "cleaned_1761251233286_transcript example 3.docx",
+        "originalPath": "C:\\Users\\LukeBorglin\\Desktop\\Apps\\JaiceDashboard_master\\server\\data\\uploads\\original_1761251233287_transcript example 3.docx",
+        "cleanedPath": "C:\\Users\\LukeBorglin\\Desktop\\Apps\\JaiceDashboard_master\\server\\data\\uploads\\cleaned_1761251233286_transcript example 3.docx",
+        "originalFilename": "transcript example 3.docx",
+        "cleanedFilename": "cleaned_1761251233286_transcript example 3.docx",
+        "isCleaned": true
+      },
+      {
+        "id": "T-1761250872583",
+        "sourceTranscriptId": "T-1761250872583",
+        "respno": "R02",
+        "addedAt": "2025-10-23T20:51:08.128Z",
+        "filename": "cleaned_1761250900961_transcript example 2.docx",
+        "originalPath": "C:\\Users\\LukeBorglin\\Desktop\\Apps\\JaiceDashboard_master\\server\\data\\uploads\\original_1761250900962_transcript example 2.docx",
+        "cleanedPath": "C:\\Users\\LukeBorglin\\Desktop\\Apps\\JaiceDashboard_master\\server\\data\\uploads\\cleaned_1761250900961_transcript example 2.docx",
+        "originalFilename": "transcript example 2.docx",
+        "cleanedFilename": "cleaned_1761250900961_transcript example 2.docx",
+        "isCleaned": true
+      },
+      {
+        "id": "T-1761252705435",
+        "sourceTranscriptId": "T-1761252705435",
+        "respno": "R03",
+        "addedAt": "2025-10-23T20:53:59.196Z",
+        "filename": "cleaned_1761252772006_transcript example.docx",
+        "originalPath": "C:\\Users\\LukeBorglin\\Desktop\\Apps\\JaiceDashboard_master\\server\\data\\uploads\\original_1761252772007_transcript example.docx",
+        "cleanedPath": "C:\\Users\\LukeBorglin\\Desktop\\Apps\\JaiceDashboard_master\\server\\data\\uploads\\cleaned_1761252772006_transcript example.docx",
+        "originalFilename": "transcript example.docx",
+        "cleanedFilename": "cleaned_1761252772006_transcript example.docx",
+        "isCleaned": true
+      }
+    ],
+    "columnSchema": {
+      "Demographics": [
+        "Respondent ID",
+        "Interview Date",
+        "Interview Time"
+      ],
+      "BACKGROUND": [
+        "Respondent ID",
+        "Living Situation",
+        "Free Time Activities",
+        "Journey with SMA",
+        "Current Health Description",
+        "HCPs for SMA Care",
+        "Reasons for Not Seeing HCPs",
+        "Current SMA Management",
+        "Number of HCPs",
+        "HCP Involvement in Treatment Decisions",
+        "Primary SMA Doctor",
+        "Others Involved in Health Decisions",
+        "Support System Involvement",
+        "Comfort in Making Treatment Decisions",
+        "Health Goals - Short-term",
+        "Health Goals - Long-term",
+        "Personal Aspirations"
+      ],
+      "CURRENT PERCEPTIONS & ATTITUDES": [
+        "Respondent ID",
+        "Treatments Awareness",
+        "Evrysdi Experience",
+        "Spinraza Experience",
+        "Zolgensma Experience",
+        "Discontinued Treatment Experience",
+        "Discontinued Treatment Benefits",
+        "Discontinued Treatment Drawbacks",
+        "Discontinuation Reason",
+        "Life Changes Impact",
+        "Insurance Coverage Impact",
+        "Restarting Consideration",
+        "Treatment Impressions",
+        "Information Source",
+        "Consideration Factors",
+        "Developmental Treatments Awareness",
+        "Developmental Treatments Impressions",
+        "Candidate Consideration",
+        "Future Treatment Consideration",
+        "Consideration Drivers",
+        "Consideration Hesitations",
+        "Anti-myostatins Awareness",
+        "Anti-myostatins Brands"
+      ],
+      "BARRIERS TO TREATMENT & UNMET NEEDS": [
+        "Respondent ID",
+        "Reasons for Not on Treatment",
+        "Manageable Severity Impact",
+        "Consideration Drivers",
+        "Muscle Loss Impact",
+        "Symptom Tracking Frequency",
+        "Symptom Tracking Method",
+        "Symptom Tracking Discussion",
+        "Emotional Factors Impact",
+        "Practical Factors Impact",
+        "Clinical Factors Impact",
+        "Treatment Benefit Requirement",
+        "Treatment Benefit Discussion",
+        "Financial Barriers Impact",
+        "Financial Challenges",
+        "Access Challenges",
+        "Specialized Care Availability",
+        "HCP Trust",
+        "Support System Gaps",
+        "Unmet Needs"
+      ],
+      "MOTIVATIONS & FUTURE CONSIDERATION": [
+        "Respondent ID",
+        "Future Treatment Likelihood",
+        "Consideration Influences",
+        "Consideration Situations",
+        "Consideration Drivers",
+        "Consideration Hesitations",
+        "Improvement Expectations",
+        "Influential Decision Makers",
+        "Decision Maker Involvement",
+        "Decision Confidence Factors"
+      ],
+      "COMMUNITY ENGAGEMENT & INFO SOURCES": [
+        "Respondent ID",
+        "Community Connection",
+        "Community Participation",
+        "Community Involvement Reasons",
+        "Information Sources",
+        "Trusted Sources",
+        "Distrusted Sources",
+        "New Information Awareness",
+        "Information Preferences",
+        "Preferred Information Format",
+        "Facilitation Suggestions"
+      ],
+      "Misc.": [
+        "Respondent ID",
+        "Final Comments",
+        "Additional Notes"
+      ]
+    },
+    "verbatimQuotes": {
+      "BACKGROUND": {
+        "R01": {
+          "Living Situation": {
+            "quotes": [
+              {
+                "text": "Moderator: Can you tell me a little bit about yourself, if you live with anybody else, how you spend your days, just so I have a sense of who you are?\n\nRespondent: Sure. I live with my children and my husband, and we have two dogs. I work part-time for a local school, and I am enrolled in school to earn my bachelor's. I do all the other daily things in between.",
+                "context": "This quote provides a direct description of the respondent's living situation, including her family members, pets, part-time job, and pursuit of a bachelor's degree, illustrating her busy and structured living environment."
+              },
+              {
+                "text": "Moderator: How old are your kids?\n\nRespondent: I've got 19, 17, and 15.",
+                "context": "This quote specifies the ages of the respondent's children, confirming the details about her family composition as mentioned in the key finding."
+              },
+              {
+                "text": "Moderator: And amazing you're getting your bachelor's. What are you majoring in? Sorry, these are just nosy questions. They're not crucial, but it helps me get to know you a little bit.\n\nRespondent: You're good. I've got my associates in medical coding and billing and medical office admin, so I thought it'd be fun to get my bachelor's in human resource management.",
+                "context": "This quote highlights the respondent's educational pursuits, specifically her goal to earn a bachelor's degree in human resource management, which is part of her structured living environment."
+              }
+            ],
+            "transcriptType": "cleaned",
+            "savedAt": "2025-10-23T20:55:49.249Z",
+            "keyFinding": "The respondent lives with her husband and three children, aged 19, 17, and 15, along with two dogs. She balances her time between family responsibilities and her part-time job at a local school. Additionally, she is pursuing a bachelor's degree in human resource management, indicating a busy and structured living environment."
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "1761237964523",
+    "projectId": "P-1759172819869",
+    "name": "aa CA",
+    "data": {
+      "Demographics": [
+        {
+          "Respondent ID": "R01",
           "Interview Date": "Oct 1, 2025",
           "Interview Time": "3:00 PM",
-          "Respondent ID": "R01",
           "respno": "R01"
-        },
-        "cleanedTranscript": "2025 SMA Adult Activation Qual test\n\nOct 1, 2025 | 3:00 PM | R01 Transcript\n\nDate: October 1, 2025\n\nTime: 3:00 PM\n\n\n\nModerator: I'm seeing you're a Buckeyes fan. Do you live in Columbus, or did you go to school there or have a kid who went to school there?\n\n\n\nRespondent: Well, we used to live in Ohio. We moved to Georgia about sixteen years ago. I went to Ohio University, not the Ohio State.\n\n\n\nModerator: Interesting.\n\n\n\nRespondent: They didn't have a football team, so you grow up with the one that has a football team. I mean, they had a football team, but just not a very good one.\n\n\n\nModerator: That's an important distinction. I actually used to work out with a woman who was the captain of her field hockey team at Ohio State, and it was my first entrance into superior athlete land. Her husband played for the baseball team. Remarkably driven human beings. Thank you so much for joining. Let me give you my intro, and then we can get to talking. It's really nice to meet you. I'm an independent market researcher. This is what I do for a living. I ask people typically somewhat nosy questions, and then you usually don't ever have to see me again. So, part of what makes the nosiness a little bit more tolerable is that I have no idea who you are, and we'll just keep it that way. So don't tell me your last name or the name of your doctor. I don't know what your phone number is or how to contact you or who you are beyond Michael who went to Ohio University. I do have a few colleagues listening in who just really want to understand everything I'm going to ask you about your journey with SMA. We are recording, but it's just for research purposes. Your name doesn't get attached to that or anything like that. Everyone's here just to learn and to understand your experience.\n\n\n\nRespondent: I'm an open mic. I'm not really too concerned about any of that, but I appreciate it.\n\n\n\nModerator: Good. Two last things I'm required to say. One of them is my most formal thing I will say is that if by any chance you mentioned that you've had a less than ideal experience on a medication that my client makes, I have to write up what's called an adverse event report, and I might ask you some additional questions about that. Finally, you are my first interview in this study. Sometimes what happens in the first interview, like, I'm sorting out the timing just to be completely transparent. And so what'll happen is that I'll sometimes be going down, I really want to understand. Also, I'll look at the time and say, oh, no. I need us to keep moving, and then I might interrupt us and move us along. So this is my upfront blanket apology for any of my interruptions. Are you good with everything?\n\n\n\nRespondent: I'm good with that. Just cut me off.\n\n\n\nModerator: Thank you. So can you tell me a little bit about yourself? How old you are, if you live with anybody, how you spend your days, just so I have a sense of who you are.\n\n\n\nRespondent: Yeah. So I'm 50 years old. I'm married. We have two kids, but the kids are from a previous marriage, but I've been in their life. Corona was three, Jaden's eight months. They're now 24 and 22, out of the house.\n\n\n\nModerator: Congratulations.\n\n\n\nRespondent: Thanks. We have a little dog, a little Morkey. I just quit working back in October 2024. So my days are now filled with, I don't know, a lot. I walk the dog every day, sort of fiddle fart on the computer, might watch stuff, I read a lot. Not no longer the corporate hustle and bustle anymore.\n\n\n\nModerator: Wow. What kind of work did you do until a year ago?\n\n\n\nRespondent: I was a service manager for a telecom company. So I sort of was like a customer advocate liaison between the technical team and the customer, normally, the director VP level.\n\n\n\nModerator: That sounds like a high-pressure job because if there's anything wrong with anyone's digital or telecommunications in a company, that's very stressful. What prompted you to stop working?\n\n\n\nRespondent: My upper body is now being affected, so I was struggling to type. I tried doing text to speech, and I just could not reinvent the wheel. I just couldn't keep up. I'm a perfectionist at heart. Used to be an A player. I started to fall back into like a B minus C player, and that wasn't good for me.\n\n\n\nModerator: Yeah. Are you on disability at this point?\n\n\n\nRespondent: Yeah. So I just got, I went on my employer's long-term disability, and then I just got approved from Social Security disability, like, a month ago.\n\n\n\nModerator: Congratulations. I know it's like maybe a mixed bag on the congratulations, but...\n\n\n\nRespondent: It could be worse. Right? There could be nothing, so I'm grateful.\n\n\n\nModerator: Yeah. So I have written down that you're type three SMA. Is that correct?\n\n\n\nRespondent: That's correct.\n\n\n\nModerator: Okay. So when were you first diagnosed with SMA? How old were you?\n\n\n\nRespondent: I was around 10, 11 years old. I don't remember the exact date and time. There was a little bit of trying to figure out what was going on with me. I kept on falling down when running. Not all the time. So it was just my right leg that would give out. So then that started doctor's appointments. And about a year into that journey, I saw a doctor that said you're showing all the signs of muscular dystrophy, which then led me to the Ohio State University and a doctor who was a leading pioneer in that then diagnosed me officially.\n\n\n\nModerator: That's so interesting. How is your, I mean, you just talked about sort of things evolving for you. But how would you describe sort of the role of SMA in your life now? And I don't know. Just talk to me a little bit about SMA's impact in your life.\n\n\n\nRespondent: Where it's affecting my life now is just my day-to-day abilities to do meaningful activities. My wife gets me in and out of bed. She dresses me. Up until recently, she was bathing me. We recently just got a caregiver just about a month ago that comes in and bathes me and then helps me with little things around the house. You know, as a man, I'm a fix-it guy, and I look around and I can't fix anything. In fact, when I try, I end up causing more issues. So quality of life is diminished a lot.\n\n\n\nModerator: Thank you for sharing that. When did you start to lose more of your, I mean, you talked about your upper body struggling with your upper body to get stuff done at work. When did that evolution, I don't know if it was a slow process over time, or was there a certain moment?\n\n\n\nRespondent: No. It's been slow. I've never been super strong in my upper body, but I've been stronger than most. But I would say probably over the last six, seven years, it's just started to get worse and worse. It's hard to, you know, I don't track it day to day. It's like you look back on it, like, a month or a couple months, and it's like, oh, I'm doing it different, or I'm not doing it at all, or I'm avoiding it.\n\n\n\nModerator: Wow. So you don't track it, number one, and it's not necessarily something you see changes day to day, but over a couple months, you can see differences. You can see how it evolves. Okay. Broadly, how would you describe your current health, Michael?\n\n\n\nRespondent: Everything but SMA, I'm as healthy as any, but I mean, I have my regular physicals and all that. And I mean, I'm just, she was like, you are in great health, but you have muscular dystrophy.\n\n\n\nModerator: Wait. Muscular dystrophy?\n\n\n\nRespondent: Or spinal muscular atrophy. My doctor does that. My primary care physician, it's sort of funny that they don't really know the intricacies of the different diseases, so they just sort of lump it in as muscular dystrophy. Sometimes I have to remind them, well, it is, but it isn't.\n\n\n\nModerator: That's so interesting. How does that make you feel? How is that for you, the doctor? Your primary sort of not really understanding the intricacies of SMA?\n\n\n\nRespondent: I think it used to bother me until I really understood what health care is. A doctor can't know everything, especially a primary care physician that's more treating your sort of immediate needs of, you know, a rash or this, that, and the other. So having a very, I know I'm very special. Right? I have a very unique situation. So it doesn't bother me as much. But when I was younger, looking at the medical, I guess, looking at doctors as they're supposed to be the experts. They're supposed to know. And then, you know, you get a little bit older and wiser and you realize, no. Nobody can know everything. So I cut them some slack nowadays.\n\n\n\nModerator: That's so interesting. Speaking of doctors, who are you seeing, if anyone, specifically for health care providers for SMA-related care? Who makes up your, do you have an SMA team?\n\n\n\nRespondent: No. I have a neurologist that she is in the world of SMA. So she knows, and I sought her out several years ago. I wasn't seeing anybody for a long time specifically. But when I started to get wind of possible treatments, that's when I was like, I need to associate and get connected. But I don't see her on a regular basis. I was doing a case study, which I had stopped doing, and she knew the doctor that was leading some of that case study. So she would come over and visit and do some of the testing when they needed a neurologist or somebody to do that testing. So then I would have, I wouldn't have an appointment with her, but we had an appointment. Right? It was we would catch up on, but I haven't officially went to her office in probably three years at this point.\n\n\n\nModerator: Okay. When you say case study, I'm familiar with the language clinical trial. Is that what you mean?\n\n\n\nRespondent: A little trial case study.\n\n\n\nModerator: Okay. This is everything you just said was so interesting to me, and I want to dig into all of that. So I'm just making note out loud. Okay. So you said maybe we could just do a little bit of a timeline. You said you weren't seeing anyone for a while. When were you last seeing a neurologist regularly? When was that?\n\n\n\nRespondent: To be honest, I was never seeing a neurologist on a regular basis. So when I got diagnosed at a young age, right, 11, 12 years old when my official diagnosis came in, I went into denial. I was still playing sports. I was still active. I did not want to hear what they were telling me what was going to happen, and so I sort of avoided doctors like the plague. I then went back to a neurologist when I graduated college. I was 24 years old to see if there were any changes. When I was young, I had asked what should I be doing? Should I be on a diet? Should I be exercising? This, that, and the other. And the answer that I got when I was young was we don't know. Try it and tell us. So when I went back at 24, here's almost like twelve years later. Right? I went back and I got the same response. The only thing that they did different when I was 24 was they did a genetic test to then confirm and verify because before I had a muscle biopsy that confirmed what I had. At 24, they did the genetic test, which was, you know, yes, you have spinal muscular atrophy type three. They were able to zero it in. But since they couldn't give me any hope of what to do, why I didn't want to wrap myself up into doctor appointments. And I was young and ambitious and I wanted to make money and so I worked. Then I did not then go back to see a neurologist until, that would have been 2017, 2018.\n\n\n\nModerator: And let's pause there for a second because you, I think you alluded to this, but I want to make sure I understand what motivated you to go back. First of all, it's very compelling what you just said earlier. I wish I had like four hours to talk to you because you're such, first of all, you're very articulate, and you have a really interesting story. So thank you so much for taking part in this. It's been so helpful already.\n\n\n\nRespondent: Okay. Great.\n\n\n\nModerator: But it's striking what you just said. Like, the combination of denial and not getting any hope from the medical that didn't feel like there's anything they could do for you.\n\n\n\nRespondent: Right.\n\n\n\nModerator: Yeah. So that okay. And yeah. And maybe there was even sort of negative association with going okay. Alright. So what happened in 2017 and 2018 that prompted you to go back to the doctor?\n\n\n\nRespondent: I was aware of a particular treatment, but I did not like the way that it was administered. That was not something that I wanted to go down.\n\n\n\nModerator: Can you tell me more about that? I think I know what you're saying, but just want to make sure.\n\n\n\nRespondent: There was a drug called Spinraza and you had to get a lumbar puncture for it. The way that it was being administered, I just didn't know if I wanted to do that. But I had started to hear that there was something on the horizon about an oral medication. So and that's called Evrysdi. I was like, well, if I'm going to be able to get this prescribed, I need to get aligned with a neurologist because my primary physician who just lumps everything together as muscular dystrophy, he was not going to be able to help.\n\n\n\nModerator: Let me pause. Okay. I'm sorry I keep pausing you, but everything you're saying is interesting. It's a problem. You're too interesting. So it's striking that you said in 2017 that you were aware of treatment and also that you're saying that oral was on the horizon. So you weren't going to a doctor. How are you learning about these developments in the SMA treatment?\n\n\n\nRespondent: Through Facebook. That was the only thing that I was getting my information from was these Facebook support groups that I was a part of for spinal muscular atrophy. That was where I was getting my information.\n\n\n\nModerator: So interesting. When do you think you joined those groups? Do you have any memory?\n\n\n\nRespondent: I can't yeah. I don't know.\n\n\n\nModerator: Do you think you were in your twenties, your thirties?\n\n\n\nRespondent: No. I was a late bloomer to the whole Facebook thing. I avoided it like the plague.\n\n\n\nModerator: I don't think that Facebook was around when you were in your twenties anyway.\n\n\n\nRespondent: Yeah. No. I think I didn't join until either my very late thirties or it would have been my early forties. I've only been on it for probably ten years, maybe eleven at the most.\n\n\n\nModerator: Okay. So mid two thousand like, 2014 or '15.\n\n\n\nRespondent: Yeah. Ish.\n\n\n\nModerator: What prompted you to take part or, you know, to visit those Facebook groups? And how did you feel about those groups?\n\n\n\nRespondent: That's a difficult one as well. Just on the basis of I've tried to not associate myself with the disability disabled community. But, obviously, my reality was becoming I am part of the disabled community. So it was sort of me sort of tiptoeing into that without full-fledged being in it. I went to a face-to-face support group. This was I can read about it and sort of see what other people are doing about it. And if I want to click to see what these people look like, unfortunately, you know, that's how I was sort of getting used to the idea that, wait a minute, this is where I'm headed.\n\n\n\nModerator: Can you tell me, I can sort of guess from some of the things that you said, but if you don't mind telling me a little bit about why you were trying to keep all of this at arm's length. What did it feel like? What were you trying to avoid?\n\n\n\nRespondent: Prejudice around it that of myself I had and as well. Right? I had an early experience as a kid, prior to all this going down of hearing how people talked about disabled people. And then here I knew that was part of my denial that doctors told me I was going to be that like that as well, and then not wanting to have that being perceived that way and being ridiculed and looked down upon. And then in turn, I had it myself, which was sort of ugly of me.\n\n\n\nModerator: I just so appreciate your honesty. Was there a specific event or a specific set of events that you remember in terms of the people?\n\n\n\nRespondent: I have a weird family dynamic, but my adopted father, he wasn't my biological dad, but adopted dad. Married my mom. But anyway, so we were driving down the road. There was a gentleman in a motorized wheelchair coming down the sidewalk. I was early teenage years, and he was bumping on the sidewalk. Right? I mean, the little cracks in the and my dad made an off-colored joke. And that really just knowing that this is I have this disease and that and I don't even know if he was even aware of it. Just based it just came out. Right? And it wasn't I'm sorry or it would just was what it was. I don't blame him. He was, you know, raised in a certain way as well, then then that was sort of common. Make fun of people less fortunate because it's funny, but it's not funny.\n\n\n\nModerator: When you were diagnosed at eleven ten, eleven twelve, were you told you have a how was it described to you what SMA is? Do you remember?\n\n\n\nRespondent: Well, so before I was told I had SMA, the way that I got up to the doctors that were more familiar with this, my primary care physician in Ohio knew somebody. He was asking around trying to find out what was going on with me. He couldn't figure it out. So he sent me to a doctor at a local university where we lived. And that doctor described that he said this. Basically, he had no bedside manner whatsoever. He said, you're showing all the signs of muscular dystrophy. You're gonna be confined to a wheelchair with no movement from the neck down before you graduate high school. I'm sorry to be blunt, but I just want you to basically accept or get ready for what's to come. This is now time to start planning and making the decisions your family needs to make. And then so I had my adopted dad and my stepmom sitting there, both uneducated, and it was like, wait a minute. I just got done with baseball practice. It was hard. It was very hard. There was no bedside manner whatsoever. I think he was trying to, in one sense, look, I'm not gonna beat around the bush. I'm not gonna give you hope. It's time to just swallow the hard truth. Now let's move forward. But as a kid, shoot. That was hard.\n\n\n\nModerator: Sorry. Sometimes when things are just so hard, I have to just pause for a second. It's just so intense. Yeah. Because you've described these, like, lows that you're receiving. Right?\n\n\n\nRespondent: Mhmm.\n\n\n\nModerator: But then you're also describing yourself as this incredibly remarkable young person. Right? Like, going to this great university and being very ambitious and going even going to football games. I mean, like, I'm hearing these two things at the same time, and it's striking.\n\n\n\nRespondent: Yeah. I truly believe the reason why I was able to, I think, to do what I've been able to do because of my denial and stubbornness that I was not going to fall victim to what they're classifying and say I was going to be. I think if I would have listened to what they said and internalized that, I think I would have become it would have been worse off quicker, and I don't think I would have achieved anything that I've achieved.\n\n\n\nModerator: So for you, a lot of your health, you attribute to sort of keeping the SMA at bay in some ways. Like, keeping some separation between you and sort of involving yourself in this disease and identifying with it. So it's also striking so you start going to these Facebook groups. Do you remember even what led you to go to these Facebook groups? Because I'm very I want to get to the point that it was knowing that there's treatment available that was clearly significant for you. But there's a step before that,\n\n\n\nRespondent: Yeah. So I don't know if I joined them before or after, but one of the changes that occurred when we moved to Georgia, we went to an abilities expo type conference thing, trade show that had different things. And the type of wheelchair that I was in, there was a gentleman that was in the same type of chair that was very interested because of the wheelchair I was in. And so he was trying to promote power wheelchair soccer. And because of my wheelchair, my wheelchair was the type of ones that are very good for that sport. And so really what he wanted was to buy my chair from me. Right? And then he was trying to get me to sort of play power wheelchair soccer. And through that is when I was starting to get on Facebook, and I'm thinking that's when either through connections with them that then maybe that popped up that you might be interested in the support groups because he and some of the other players were in these groups that then I'm thinking that's what led me into going, oh, well, let me just go ahead and join or look or whatever. I'm pretty sure that's sort of what happened.\n\n\n\nModerator: And when did you start using a wheelchair? How old were you?\n\n\n\nRespondent: So I started, I got one right I went to a community college right out of high school, but then I went away to a major university right before I turned 21. I transferred. And that's when I got the motorized wheelchair. Because the college I went to was basically built on a hill. But I wasn't using it full time. I would literally ride the wheelchair to class, park it outside the classroom, stand up out of the chair, grab my cane, walk in. Wherever I went, it never went in with me. It stayed out. I wanted to show everybody that I'm not the chair. But then I didn't start using a chair constantly. I had a leg break when I was 34, 35. And then another one, and then another one, and then it sort of led me. So I've been sort of confined to the wheelchair for about eight, nine years now.\n\n\n\nModerator: How did you feel when you're on these Facebook groups? It sounds like you were initially kind of a lurker. Is that a fair word?\n\n\n\nRespondent: Yeah. A little lurker. I still might be a lurker. Right? I mean, sometimes I'll post, but most of the time, I'm just looking, observing, reading.\n\n\n\nModerator: Me too. Most of us. And then there are those people who, like, over post and be like, dude, don't you have any sense that you're sharing this space? Okay. How did you feel reading about SPINRAZA and I guess you probably first start learning about tell me about when you first just started hearing about treatment for SMA on those Facebook groups. Like, that's very important to me to understand how that made you feel.\n\n\n\nRespondent: It made me feel hopeful that wait a minute. Because for so long, I heard that there's nothing. There is nothing they didn't even know what was causing it. And then when they were able to identify what the cause was, then it was like, well, it took them this long. There's never going to be anything. And then they hear that, wait a minute, we found something that stops the progression, then it started to make me feel hopeful. If I can get comfortable with where I'm at today, if we could just stay like this, okay, I can function the rest of my life like this. I'm doing it now. This is good. I've gotten pretty bad, but at least at that point, I was still driving. I was still working. There was a lot of stuff that I was still bathing on my own. There was a lot. So it was a lot of hope. But with the administrating of it with Spinraza, I just did not like I don't know why I was so against it. I think because I just want something that's non-intrusive, that's easy. I don't like spending a lot of time at doctors, this, that, and the other. I want to live my life. And so when I started hearing about, oh, there's something you could just take. It was like, oh, I take medicine at night for pain and to help me sleep, and I take vitamins. I'll swallow a pill all day long. Right? Or I'll take a liquid. That was so when I started hearing about Evrysdi, that was okay. I can get on board with that.\n\n\n\nModerator: I had written down here that at some point in your history, you have taken both Evrysdi, but also I've written down that you actually did have SPINRAZA at some point. Is that accurate?\n\n\n\nRespondent: That was part of the clinical trial that I just was a part of for the past year and a half.\n\n\n\nModerator: Oh, alright. Okay. So when did you let me just get these dates down. So when did you take Evrysdi liquid from when to when? Do you happen to remember?\n\n\n\nRespondent: So I've been on it on two separate occasions. The first time, I started in April 2021, and I took it until April 2022.\n\n\n\nModerator: Wow. Okay. Twelve months.\n\n\n\nRespondent: Yep.\n\n\n\nModerator: And then you stayed off of all medicine from that time until, April or no. I think it was more like May 2023.\n\n\n\nRespondent: And then I stopped it in December 2023 and started the clinical trial with SPINRAZA in December 2023.\n\n\n\nModerator: Was it any particular, I mean, given that Spinraza was already out, was it a certain kind of Spinraza with a clinical trial?\n\n\n\nRespondent: It was the double dose of Spinraza. It was the higher dosage. Yeah. That was what the and the reason I started Evrysdi again because the clinical trial was based on having been on Evrysdi. They wanted to see what the transition would be from Evrysdi into the higher dose.\n\n\n\nModerator: Just to be clear, you were on Evrysdi from '21 to '22 April for a year. You had a year of no treatment, and then you started the clinical trial in December '23 for the higher dose of SPINRAZA? Okay. And how long were you on that clinical trial with the higher dose of SPINRAZA?\n\n\n\nRespondent: Up until April, my last dose of that that I participated in was April.\n\n\n\nModerator: April 20 everything happens for you in April.\n\n\n\nRespondent: Yeah. I don't know what it is about April. But it makes it easy to keep track of it all. Yeah. It is odd.\n\n\n\nModerator: And you're not on anything right now?\n\n\n\nRespondent: No. I'm not on anything. I decided to not continue with the trial.\n\n\n\nModerator: Oh, there was a did you opt out?\n\n\n\nRespondent: I could have kept on doing it. I could have kept doing it. I'm a non-responder to that medication. It did not keep me low. I continued to digress the entire time. There was no change. It actually I got worse.\n\n\n\nModerator: Okay. Alright. So, again, 2017, 2018, you're aware. It's interesting initially that, right, you were so averse to the lumbar puncture. Obviously, you then did that for a year. Any thoughts about back then, what was the major, like, for you and maybe why it was different later?\n\n\n\nRespondent: I think the big part was, I was just a workaholic and I didn't want to take the time off, the travel, to have to transfer to then possibly have any adverse effects, which I did have, you know, a little bit of that once I did start taking it. I didn't realize what the adverse effects. But I just didn't like the fact of putting needles in my back. Now my tune changed when with these support groups seeing that a lot of people were having more stability on SPINRAZA. I had a different experience with Evrysdi, and it was even more, I don't know. My interest was peaked because, oh, here's double the dose of this stuff that other people are saying they're having more stability and actually maybe more gains on SPINRAZA than Evrysdi.\n\n\n\nModerator: So, like, your perception of the costs and the benefits shifted. Number one, you heard the benefits were being brought were being more in your face. You were sort of seeing them from your peers. And you saw that maybe even I could get double that or something like that. But okay. Alright. And so...\n\n\n\nRespondent: To be honest, I had reached back out to the neurologist to see if I could get back on Evrysdi after that year hiatus anyways, because I wanted to see if I could get the same boost because I got one hell of a boost from it the first time I was on it. I wanted to see if I would get that boost again, but we were running up against insurance denying it. And then what's funny, or not funny, or coincidental, is the day that I looked into the clinical trial, is the day that my advocate for Evrysdi called and said, hey, I know you didn't want to pursue this anymore because you got denied twice, but we kept pushing and you got accepted. And the trial, like, needed me to be on it in order to get accepted for the trial. So I look at that as a coincidence that, okay, maybe this is something and I need to do it.\n\n\n\nModerator: What do you mean maybe this is something?\n\n\n\nRespondent: Well, whatever your beliefs are. Right? Okay. God, is this a sign that you're giving me something that, okay, I need to realize I'm going downhill and all the stars just aligned. Okay. I'm just gonna go forward with it.\n\n\n\nModerator: So just to be clear, did you go back on Evrysdi in order to get in the trial?\n\n\n\nRespondent: Yeah. So in April '23, I started taking Evrysdi again. I had to be on it for six months before I could start the Spinraza trial.\n\n\n\nModerator: Oh, okay. And how did it go for you the second time you were on it?\n\n\n\nRespondent: The second time, I didn't get the boost that I did the first time. The first time when I took it, I literally had stopped driving my accessible vehicle several months prior. I started taking it that first time and within a month and a half, I was strong enough to start driving again. I was able to wash my hair again. It was like, oh my gosh. This is amazing. But then what happened is after six months, it's like the bottom fell out and it's like I got worse quickly. And it was devastating and I couldn't and it never rebounded.\n\n\n\nModerator: Wait. Wait. When was that?\n\n\n\nRespondent: That was the first time I've taken Evrysdi in April 2021.\n\n\n\nModerator: So at the six-month point, the first time after you've taken Evrysdi for six months, you sort of bottomed out. You had peaked and bottomed out still while you were on Evrysdi.\n\n\n\nRespondent: Right. And then so since I wasn't there was no testing of my physical ability during that time. They just gave it to me. And then so, if I think that if they would have tested and saw the gains that I was having at two months, four months, even six months, and then tested to see that, oh, wow, he's really gotten weaker and dramatically weaker. But then when we tried to get it renewed, insurance because then they test you once a year, all insurance call was, well, he's gotten worse. This hasn't kept him stable. This didn't do anything. So I don't know if I would have stayed on it longer if it would have come back around. I have no idea.\n\n\n\nModerator: So just so I'm clear, I haven't even a 100% got to how you got on the Evrysdi, but we'll get there. So you got on the Evrysdi in April 21. You had six months of remarkable progress, and then six months of it sort of bringing you back down to where you were before, kinda.\n\n\n\nRespondent: I'm not even back down where I was before. Worse than where I when I started it. That's what was so, like, scary.\n\n\n\nModerator: So what prompted you to stop the Evrysdi in '22 in April?\n\n\n\nRespondent: Because insurance wouldn't pay for it. They wouldn't allow me to renew.\n\n\n\nModerator: Okay.\n\n\n\nRespondent: So there was part of me going, wait a minute. This is I got worse. And then the other part was like, well, insurance has denied it anyways. That's the writing on the wall. Again, the stars aligned. Okay. You're telling me I need to stay off of it. I'll stay off of it.\n\n\n\nModerator: Interesting. And I know you just said you think insurance denied it because they did an annual baseline test and didn't see any progress. Is that your understanding of why they denied you at that point?\n\n\n\nRespondent: That's my understanding. Yes. That's what the letter they sent back to me and the neurologist.\n\n\n\nModerator: It's striking to me that a couple points in your journey that I understand so far, you talk about, I don't really know how to talk about this, like, that sometimes things are kind of like signs. Right? Like, given that you sort of declined on the Evrysdi and the insurance denied you, you sort of had that almost like an acceptance of, like, it was meant to be. Am I getting that right?\n\n\n\nRespondent: Yeah. You get that.\n\n\n\nModerator: Please tell me if I'm misunderstanding because you also said something similar about another time that I can't even I think it was when the insurance when Evrysdi called you back and said, actually, we the advocate called you back. Actually, we accepted you. We got it for you in the clinical trial, and so you're like, okay. So maybe this was also meant to be.\n\n\n\nRespondent: Right. Because it all happened on the same day. Like, what's the coincidence? What's that? I mean, okay. It's almost like hitting me upside the head going here, dummy. Laying it out for you.\n\n\n\nModerator: And the second time you're on Evrysdi for six months, May 23 for six months, tell me again what your experience was with the Evrysdi at that point.\n\n\n\nRespondent: It wasn't as dramatic with the, you know, all of a sudden just feeling super strong and having this increased stability, but I did feel over time that I got stronger. It wasn't as quick as what that first time was, but by the, it was sort of odd. By the time I was getting ready to switch and get on to the clinical trial, a friend of mine said, you know what? You seem to be doing really good here lately. If this new medicine could just keep you where you're at, you probably would be good, wouldn't you? And it was like, yeah. I hadn't thought about it, but, yeah, I'm in a good spot with what my functionality is. It got until a point to where I could manage life within the parameters I was at that second time on Evrysdi. But hence, here I thought, well, let's go for the Gusto and do the clinical trial and get double the dose of some medicine and yeah. My expectations were shattered.\n\n\n\nModerator: Yeah. And so your experience with the double dose was you described yourself as a non-responder and that you got worse.\n\n\n\nRespondent: Yeah. So they did the loading doses in December, by January, almost the January. It was I felt like I was worse than where I'd started even with the Evrysdi that I started six months prior.\n\n\n\nModerator: And so then you were on just to be a 100% clear on timing, you were on the high dose of SPINRAZA.\n\n\n\nRespondent: So December 2023 was the loading doses, and my last dose was April 2025.\n\n\n\nModerator: Wow. Okay. So, like, fifteen months.\n\n\n\nRespondent: Yeah.\n\n\n\nModerator: Okay. And when did you exit the clinical trial because you like, why did you exit the clinical trial? Was that your decision, or was it just when the...\n\n\n\nRespondent: It was my decision, and it was twofold. One was I was not responding to it. The other was the manner in which the testing was being done. So before I would get the dose, they would do PT testing. And the course of that, I knew I was getting worse. And so they would go through these things and here, do this, do that. And if I couldn't do it, the lady would be like, well, the directions say if you could do it this other way, you still get the same score. And I was like, but doing it the other way discounts the fact that I can't do it the way that I used to be able to do it, but yet the researcher is gonna see you're giving me the same score. How is that showing anything? And I just did not like that. And what bothered me was I realized because this clinic does a lot of trials for kids. And I realized that if I was a kid, I would want to get the better score, and I would do that in order to get the better score, but that's not giving a true representation of what's going on.\n\n\n\nModerator: Yeah.\n\n\n\nRespondent: And then what was funny was then when I brought it up to somebody else at that place, that lady no longer did my physical test going forward. And I'm just like and then they were having a lot of turnover there. And then the one girl that I really liked, she didn't leave because of the job that her husband got an opportunity in London. And who doesn't go to London. Right? So they moved to London. And so it was just a lot of different things that it was like, I'm not getting anything from this. I'm not really for sure they're testing in a way that is really showing the truth about what's going on. I started to read more about these clinical trials that, you know, as long as thirty percent of the participants are showing either staying the same or sudden improvement, that's all the FDA needs to And then here are the people and that's where I go back to these Facebook support groups. These people are dying for a solution, and they're trusting all this, not realizing that they're possibly going to be a non-responder just like the rest. But here, they're putting all their faith and hope, and no one's explaining to them what these trials really are. And that's when I was like, I don't want to participate.\n\n\n\nModerator: Okay. So I'm writing down all the things, if we have time, that I want to ask you. But, how are you feeling so what so tell me about you got off the clinical trial. And in April year, what has your thinking been about you and treatment now moving forward? What is your thinking been for the last few months? What are you thinking about the next few months, next year?\n\n\n\nRespondent: I think for right now, I just don't want to put my foot back into the arena. But I'm not going to close the door on it completely. I don't know which way I want to go. I feel as if the only two options I have are Evrysdi or Spinraza. I know there's some other things on the horizon, but they've not been approved yet. And so I don't know if I want to be I don't know what the truth is because I haven't really re-looked into it of how long you have to be off of a trial before you're eligible to then join another trial. So there's part of me that, you know, I need to look into that. I heard something that you need to be free and clear for a year. Right? Or the medicine that you're a trial of had to be FDA approved. Once it's FDA approved, then you're free and clear to try whenever. But if it hasn't been FDA approved, you have to wait a year before you can get engaged in another one. So part of me is I really don't want to be in the arena, but also I have a feeling I wouldn't be eligible anyways. And then there's always in the back of my mind, do I just want to try the Evrysdi again? Right? Because now it's in pill form. Let's just take a pill.\n\n\n\nModerator: So I was curious about this. You brought up my next exact question. So talk to me about your thoughts about you and Evrysdi. You and Evrysdi and your future, I feel like a Hallmark card. But...\n\n\n\nRespondent: I wish I would, you know, like, not knowing what would have happened this last time when I was on Evrysdi, if I would have stayed on it more than six months. Would I have had the same experience I had the first time I was on it? Because that's what's odd. Right? Here I was on something for six months, I felt good, but then I changed to something. Was it that I changed to something? Or was it that here after six months, my body just starts rejecting it or it stops responding? I don't know. Right? So there's part of me that, well, let's give it another try. And then if third time's a charm, if it happens the same way again, then that's a definite. This is how my body reacts to this medicine. The other is I never stayed on it longer. The c, does it ever rebound after being on it longer than a year? Because I've heard some people say the research shows after a two-year period that there's more stability, this, that, and the other. Does it sort of ebb and flow and come back? I don't know. The third being a tablet, right, is now, since I'm weaker, would be an easier way for me to take it because I don't think I can draw it up and take it in the syringe like I was prior because of the more weakness that has occurred over the years.\n\n\n\nModerator: That was so helpful. What do you think really has stopped you at this point from going back on Evrysdi?\n\n\n\nRespondent: Probably my own laziness to go make an appointment with a neurologist and have to get somebody to take me down to and fight the Atlanta traffic, and I am not a very good passenger because I drove all my life and being on the highway with eight lanes of cars and it freaks me out. And then having to then go through the whole process of will it get denied and just the, I mean, if it was as simple as calling the neurologist, prescribe it, get it shipped to me, I'd probably just take it. It's the process. I just don't like the process.\n\n\n\nModerator: Why this I want to figure I wish I could ask this in a less loaded way. I'm interested in the fact that you don't have you don't see a neurologist regularly. That is striking to me. Can you tell me more about that?\n\n\n\nRespondent: Because what does the neurologist do for me when I see the neurologist? They don't do anything for me. I don't get any benefit from seeing a neurologist. I am able to update them on where I'm at, and unless I need something from them that is outside of the scope of what a primary physician who is closer to me can provide, there's nothing that I get from that. Unfortunately, it's a I'm going to get, not to give. Right? I mean, I'm there for my own medical reasons. And that's why when I went to see her in the beginning was because I needed to get her ability to write a prescription that my primary physician could have written, but wouldn't have been able to back up in the manner to then fight the insurance to get it approved.\n\n\n\nModerator: It actually sounds like you're in charge. Right? Like, you were like you know, I am in charge of my health care and, you know, what does it entail for you to go to the like, can you compare going to the neurologist, the logistical challenges of that versus or the realities of that versus going to your primary care physician? Like, what does that look like in terms of...\n\n\n\nRespondent: Yeah. Neurologist is probably a forty-five-minute drive, down a super busy, highly trafficked, scary drive down I-85, traffic. Then it involves, you know, a hospital setting, and then a very quick almost you feel like you're a bothersome because there's so many people in the waiting room to see somebody and they're in and out and it's quick and it's just not very personable. The we're going to my primary care physician, it's a ten-minute drive back roads to a place to where we joke around, there's familiarity. It's like I'm seeing my friend and we, you know, we just chat it up and she laughs at the way that I talk about, you know, being disabled, and it's all good. Right? There's the difference. It's the there's a in my neurologist, she's a nice lady, but most of the time I'm not seeing her. I'm seeing a nurse practitioner. And so then the nurse practitioner that I was seeing on a regular basis, she's no longer there. So I would have to get reestablished with somebody new because I doubt I would see the actual neurologist. And then, there's just no and again, what am I getting from that appointment?\n\n\n\nModerator: What do you wish that you would and if you could create, like, the perfect neurologist relationship, what would you wish you could get from a neurologist? Like, what, in an ideal world, what could they do for you?\n\n\n\nRespondent: Here's the latest and greatest, you know, for Michael. Should I go by middle name? Never mind. So I've been re I'm looking into this knowing your particular situation. Here's the latest and greatest. I know somebody that can get you into this trial or I know what we should do. I want to get you on this. And then in turn with that, we're gonna get you set up to do these certain activities to help benefit not only the medicine, but your physical abilities. Not here what you know, you tell me. Right? I had to go to her. I've heard this. How can I get that? And then none of it was, well, if you're on that, you should also be doing these things as well. See, I was reading through Facebook groups of people that were, well, here, I take this type of protein and I'm doing this. I don't get anything like that. And then I would rather have a doctor tell me medically, this is what we think will help versus, try it and tell me if it works. Try what?\n\n\n\nModerator: How do you when you're sitting when you're sitting in the waiting room in this hospital setting, I'm just sort of curious. How do you feel? When I'm seeing my waiting to when I'm heading and seeing my neurologist, I feel x. What would you say you feel? Going to my neurologist makes me feel...\n\n\n\nRespondent: I feel as if I'm checking a box. I feel as if I'm checking a box going, okay. I've checked in with my neurologist. I can say they have on record I've had an appointment in x amount of time.\n\n\n\nModerator: Okay. It's just was noteworthy to me that you said it's a hospital setting. What does it feel like that it's a what's what does it feel like to be in a hospital setting?\n\n\n\nRespondent: I mean, I just there's a lot of other, I don't know. It just feels what's the feeling that you get in the hospital? Almost like, you know how I avoided the whole time with trying to not be sick? I'm in a hospital setting where you're I'm sick. I'm sick. Where even with the primary care physician, I'm going into a facility and there's other things going on there, but for whatever reason, it's a not a I don't know. It's almost like in my mind, there's a difference. That is more of an acute illness to where neurologist is a chronic illness. And this is almost like this is bad where the other one is, oh, this is temporary. I don't know why my mind has that, but that's in my mind.\n\n\n\nModerator: That makes total sense to me. Total, total sense. Yeah. You talked about some awareness of there being some treatments in the pipeline. Any do you know anything about what's out there?\n\n\n\nRespondent: I don't know them off the top of my I know there's one that's more associated with a muscle therapy, to actually strengthen the actual and I forget what it's called, and that one's real close. I think it was going to be approved, but then they saw some issues with manufacturing just like the double dose of the Spinraza. And I got the right? So, and then I know there's a couple other things, but I haven't really followed them because I know they're just still in the clinical trial thing. But, you know, I get the SMNA news type of updates. I see that. So I sort of get, you know, when they send out the magazine or letter or whatever, I sort of see what medicines and where they're at in the pipeline. And I don't really pay any attention to them until they start getting a little bit further on.\n\n\n\nModerator: Yep. Okay. Yeah. That muscle one, I think, I in my mind called an anti-myostatin. I don't know if that's familiar.\n\n\n\nRespondent: Something like that.\n\n\n\nModerator: What are your thoughts about that one?\n\n\n\nRespondent: I don't know. That one, I sort of it the way that I initially read it, it sort of seemed like it was to do in combination with the therapy. So then that's where it's like, okay. I would still have to pick Spinraza or Evrysdi and then this on top of it. And then my concern is what's insurance going to pay? I mean, the other ones are pretty expensive and then you're adding that one as well. I mean and this is gonna sound sort of bad, but is my life really worth that price tag? And I don't know.\n\n\n\nModerator: How do you answer that question?\n\n\n\nRespondent: Well, it's hard. Right? You see insurance companies having these profits out the yin yang, and then here, you know but then, I mean, it what? A million dollars or more just to possibly try something that may or may not benefit? I don't know. What could we use that money for other things? Right? I mean, there's people on much worse scenarios than I'm in. Right? I mean, people that don't I'd I live a lavish life. Lavish.\n\n\n\nModerator: Yeah. Yeah. If you think about the future and the possibility of these treatments for you, what or whom do you think will have the most influence on whether or not you actually go down the because it sounds like if you're gonna go down the treatment route, it's gonna require work for you because it's not already, like, set up. You have a doctor who thinks you have muscular dystrophy who's in the groove. But if you're gonna go get act like, SMA specific treatment, you're gonna have to, like, find a doc. You don't even have a nurse practitioner. You're gonna have to set it all up. You're gonna have to go to a place that feels really uncomfortable. You might have to fight the insurance. Like, what do you think maybe let me frame that a different way. What do you think would be the biggest help for you in accessing treatment? Say you decide on some level you would like to get treatment, but you wish it could be sort of emotionally and logistically easier. What would make it easier for you in those in both of those ways? Sorry. That was a convoluted question.\n\n\n\nRespondent: Yeah. I don't see any change in how I have to go about it. So then what would be the perfect scenario? I don't know. Have an educated primary physician that could just take the place of the neurologist. That would probably be the easiest route.\n\n\n\nModerator: I wonder about, like, an advocate. Right? Like, some sort of it's interesting you described how the Evrysdi advocate called you and said the insurance is approved.\n\n\n\nRespondent: Yeah. And she still keeps in touch with us, which is cool. She reached out to me just a month ago.\n\n\n\nModerator: How did that go? What's that like for you when you get those reach outs?\n\n\n\nRespondent: I don't know. I sort of felt a connection with her, and we went to one of the little luncheon things and got to meet her or whatever. But, I mean, we would have conversations and, you know, it just I mean, that was really helpful through the whole process of getting on Evrysdi of having somebody that was in my corner. I don't think I would have went down the rabbit hole if it wasn't for that. Right? So yeah. I mean, it's just nice that I wasn't just a, oh, I got him on it and let's move on. She just continues just to check-in.\n\n\n\nModerator: Do you ever talk to her about the possibility of restarting the team?\n\n\n\nRespondent: Yeah. I had mentioned to her that I had stopped doing the clinical trial and I that I was hesitant about the Evrysdi just based on the past scenarios that I've gone through. And that's when she had said, well, there's also another drug that's on the horizon of getting approved. You might want to look into it. And then it was like, yeah. I've heard of it. And then that was it.\n\n\n\nModerator: It's so nice that you feel like she's in your corner.\n\n\n\nRespondent: Yeah.\n\n\n\nModerator: I could not have asked for a better first respondent. I feel so lucky that I got to talk to you. You are so self-aware. It's striking. And so it's just really, really helpful. And, also, just I really enjoyed talking to you. So thank you so much for sharing everything. I have no idea. I am actually married to a gator, a Florida gator who may...\n\n\n\nRespondent: You gotta tell them that us Buckeyes aren't that bad. We're not that bad.\n\n\n\nModerator: I feel like I'm always listening to, like, Michigan, Buckeyes, Gator. Even my, like, 14-year-old son, when he uses the pronoun is it the pronoun? He says, well, we. And I was like, Harry, who's the we? He's like, the Gators, mom. I was like, oh, brainwash.\n\n\n\nRespondent: That's funny.\n\n\n\nModerator: Listen. I wish you all the best. You've been so great, and thanks so much for your time.\n\n\n\nRespondent: Alright. You too.\n\n\n\nModerator: Okay. Bye.\n\n\n\nRespondent: Bye.\n\n",
-        "originalTranscript": "2025 SMA Adult Activation Qual test\n\nOct 1, 2025 | 3:00 PM | R01 Transcript\n\nDate: October 1, 2025\n\nTime: 3:00 PM\n\n\n\nModerator: I'm seeing you're a Buckeyes fan. Do you live in Columbus, or did you go to school there or have a kid who went to school there?\n\n\n\nRespondent: Well, we used to live in Ohio. We moved to Georgia about sixteen years ago. I went to Ohio University, not the Ohio State.\n\n\n\nModerator: Interesting.\n\n\n\nRespondent: They didn't have a football team, so you grow up with the one that has a football team. I mean, they had a football team, but just not a very good one.\n\n\n\nModerator: That's an important distinction. I actually used to work out with a woman who was the captain of her field hockey team at Ohio State, and it was my first entrance into superior athlete land. Her husband played for the baseball team. Remarkably driven human beings. Thank you so much for joining. Let me give you my intro, and then we can get to talking. It's really nice to meet you. I'm an independent market researcher. This is what I do for a living. I ask people typically somewhat nosy questions, and then you usually don't ever have to see me again. So, part of what makes the nosiness a little bit more tolerable is that I have no idea who you are, and we'll just keep it that way. So don't tell me your last name or the name of your doctor. I don't know what your phone number is or how to contact you or who you are beyond Michael who went to Ohio University. I do have a few colleagues listening in who just really want to understand everything I'm going to ask you about your journey with SMA. We are recording, but it's just for research purposes. Your name doesn't get attached to that or anything like that. Everyone's here just to learn and to understand your experience.\n\n\n\nRespondent: I'm an open mic. I'm not really too concerned about any of that, but I appreciate it.\n\n\n\nModerator: Good. Two last things I'm required to say. One of them is my most formal thing I will say is that if by any chance you mentioned that you've had a less than ideal experience on a medication that my client makes, I have to write up what's called an adverse event report, and I might ask you some additional questions about that. Finally, you are my first interview in this study. Sometimes what happens in the first interview, like, I'm sorting out the timing just to be completely transparent. And so what'll happen is that I'll sometimes be going down, I really want to understand. Also, I'll look at the time and say, oh, no. I need us to keep moving, and then I might interrupt us and move us along. So this is my upfront blanket apology for any of my interruptions. Are you good with everything?\n\n\n\nRespondent: I'm good with that. Just cut me off.\n\n\n\nModerator: Thank you. So can you tell me a little bit about yourself? How old you are, if you live with anybody, how you spend your days, just so I have a sense of who you are.\n\n\n\nRespondent: Yeah. So I'm 50 years old. I'm married. We have two kids, but the kids are from a previous marriage, but I've been in their life. Corona was three, Jaden's eight months. They're now 24 and 22, out of the house.\n\n\n\nModerator: Congratulations.\n\n\n\nRespondent: Thanks. We have a little dog, a little Morkey. I just quit working back in October 2024. So my days are now filled with, I don't know, a lot. I walk the dog every day, sort of fiddle fart on the computer, might watch stuff, I read a lot. Not no longer the corporate hustle and bustle anymore.\n\n\n\nModerator: Wow. What kind of work did you do until a year ago?\n\n\n\nRespondent: I was a service manager for a telecom company. So I sort of was like a customer advocate liaison between the technical team and the customer, normally, the director VP level.\n\n\n\nModerator: That sounds like a high-pressure job because if there's anything wrong with anyone's digital or telecommunications in a company, that's very stressful. What prompted you to stop working?\n\n\n\nRespondent: My upper body is now being affected, so I was struggling to type. I tried doing text to speech, and I just could not reinvent the wheel. I just couldn't keep up. I'm a perfectionist at heart. Used to be an A player. I started to fall back into like a B minus C player, and that wasn't good for me.\n\n\n\nModerator: Yeah. Are you on disability at this point?\n\n\n\nRespondent: Yeah. So I just got, I went on my employer's long-term disability, and then I just got approved from Social Security disability, like, a month ago.\n\n\n\nModerator: Congratulations. I know it's like maybe a mixed bag on the congratulations, but...\n\n\n\nRespondent: It could be worse. Right? There could be nothing, so I'm grateful.\n\n\n\nModerator: Yeah. So I have written down that you're type three SMA. Is that correct?\n\n\n\nRespondent: That's correct.\n\n\n\nModerator: Okay. So when were you first diagnosed with SMA? How old were you?\n\n\n\nRespondent: I was around 10, 11 years old. I don't remember the exact date and time. There was a little bit of trying to figure out what was going on with me. I kept on falling down when running. Not all the time. So it was just my right leg that would give out. So then that started doctor's appointments. And about a year into that journey, I saw a doctor that said you're showing all the signs of muscular dystrophy, which then led me to the Ohio State University and a doctor who was a leading pioneer in that then diagnosed me officially.\n\n\n\nModerator: That's so interesting. How is your, I mean, you just talked about sort of things evolving for you. But how would you describe sort of the role of SMA in your life now? And I don't know. Just talk to me a little bit about SMA's impact in your life.\n\n\n\nRespondent: Where it's affecting my life now is just my day-to-day abilities to do meaningful activities. My wife gets me in and out of bed. She dresses me. Up until recently, she was bathing me. We recently just got a caregiver just about a month ago that comes in and bathes me and then helps me with little things around the house. You know, as a man, I'm a fix-it guy, and I look around and I can't fix anything. In fact, when I try, I end up causing more issues. So quality of life is diminished a lot.\n\n\n\nModerator: Thank you for sharing that. When did you start to lose more of your, I mean, you talked about your upper body struggling with your upper body to get stuff done at work. When did that evolution, I don't know if it was a slow process over time, or was there a certain moment?\n\n\n\nRespondent: No. It's been slow. I've never been super strong in my upper body, but I've been stronger than most. But I would say probably over the last six, seven years, it's just started to get worse and worse. It's hard to, you know, I don't track it day to day. It's like you look back on it, like, a month or a couple months, and it's like, oh, I'm doing it different, or I'm not doing it at all, or I'm avoiding it.\n\n\n\nModerator: Wow. So you don't track it, number one, and it's not necessarily something you see changes day to day, but over a couple months, you can see differences. You can see how it evolves. Okay. Broadly, how would you describe your current health, Michael?\n\n\n\nRespondent: Everything but SMA, I'm as healthy as any, but I mean, I have my regular physicals and all that. And I mean, I'm just, she was like, you are in great health, but you have muscular dystrophy.\n\n\n\nModerator: Wait. Muscular dystrophy?\n\n\n\nRespondent: Or spinal muscular atrophy. My doctor does that. My primary care physician, it's sort of funny that they don't really know the intricacies of the different diseases, so they just sort of lump it in as muscular dystrophy. Sometimes I have to remind them, well, it is, but it isn't.\n\n\n\nModerator: That's so interesting. How does that make you feel? How is that for you, the doctor? Your primary sort of not really understanding the intricacies of SMA?\n\n\n\nRespondent: I think it used to bother me until I really understood what health care is. A doctor can't know everything, especially a primary care physician that's more treating your sort of immediate needs of, you know, a rash or this, that, and the other. So having a very, I know I'm very special. Right? I have a very unique situation. So it doesn't bother me as much. But when I was younger, looking at the medical, I guess, looking at doctors as they're supposed to be the experts. They're supposed to know. And then, you know, you get a little bit older and wiser and you realize, no. Nobody can know everything. So I cut them some slack nowadays.\n\n\n\nModerator: That's so interesting. Speaking of doctors, who are you seeing, if anyone, specifically for health care providers for SMA-related care? Who makes up your, do you have an SMA team?\n\n\n\nRespondent: No. I have a neurologist that she is in the world of SMA. So she knows, and I sought her out several years ago. I wasn't seeing anybody for a long time specifically. But when I started to get wind of possible treatments, that's when I was like, I need to associate and get connected. But I don't see her on a regular basis. I was doing a case study, which I had stopped doing, and she knew the doctor that was leading some of that case study. So she would come over and visit and do some of the testing when they needed a neurologist or somebody to do that testing. So then I would have, I wouldn't have an appointment with her, but we had an appointment. Right? It was we would catch up on, but I haven't officially went to her office in probably three years at this point.\n\n\n\nModerator: Okay. When you say case study, I'm familiar with the language clinical trial. Is that what you mean?\n\n\n\nRespondent: A little trial case study.\n\n\n\nModerator: Okay. This is everything you just said was so interesting to me, and I want to dig into all of that. So I'm just making note out loud. Okay. So you said maybe we could just do a little bit of a timeline. You said you weren't seeing anyone for a while. When were you last seeing a neurologist regularly? When was that?\n\n\n\nRespondent: To be honest, I was never seeing a neurologist on a regular basis. So when I got diagnosed at a young age, right, 11, 12 years old when my official diagnosis came in, I went into denial. I was still playing sports. I was still active. I did not want to hear what they were telling me what was going to happen, and so I sort of avoided doctors like the plague. I then went back to a neurologist when I graduated college. I was 24 years old to see if there were any changes. When I was young, I had asked what should I be doing? Should I be on a diet? Should I be exercising? This, that, and the other. And the answer that I got when I was young was we don't know. Try it and tell us. So when I went back at 24, here's almost like twelve years later. Right? I went back and I got the same response. The only thing that they did different when I was 24 was they did a genetic test to then confirm and verify because before I had a muscle biopsy that confirmed what I had. At 24, they did the genetic test, which was, you know, yes, you have spinal muscular atrophy type three. They were able to zero it in. But since they couldn't give me any hope of what to do, why I didn't want to wrap myself up into doctor appointments. And I was young and ambitious and I wanted to make money and so I worked. Then I did not then go back to see a neurologist until, that would have been 2017, 2018.\n\n\n\nModerator: And let's pause there for a second because you, I think you alluded to this, but I want to make sure I understand what motivated you to go back. First of all, it's very compelling what you just said earlier. I wish I had like four hours to talk to you because you're such, first of all, you're very articulate, and you have a really interesting story. So thank you so much for taking part in this. It's been so helpful already.\n\n\n\nRespondent: Okay. Great.\n\n\n\nModerator: But it's striking what you just said. Like, the combination of denial and not getting any hope from the medical that didn't feel like there's anything they could do for you.\n\n\n\nRespondent: Right.\n\n\n\nModerator: Yeah. So that okay. And yeah. And maybe there was even sort of negative association with going okay. Alright. So what happened in 2017 and 2018 that prompted you to go back to the doctor?\n\n\n\nRespondent: I was aware of a particular treatment, but I did not like the way that it was administered. That was not something that I wanted to go down.\n\n\n\nModerator: Can you tell me more about that? I think I know what you're saying, but just want to make sure.\n\n\n\nRespondent: There was a drug called Spinraza and you had to get a lumbar puncture for it. The way that it was being administered, I just didn't know if I wanted to do that. But I had started to hear that there was something on the horizon about an oral medication. So and that's called Evrysdi. I was like, well, if I'm going to be able to get this prescribed, I need to get aligned with a neurologist because my primary physician who just lumps everything together as muscular dystrophy, he was not going to be able to help.\n\n\n\nModerator: Let me pause. Okay. I'm sorry I keep pausing you, but everything you're saying is interesting. It's a problem. You're too interesting. So it's striking that you said in 2017 that you were aware of treatment and also that you're saying that oral was on the horizon. So you weren't going to a doctor. How are you learning about these developments in the SMA treatment?\n\n\n\nRespondent: Through Facebook. That was the only thing that I was getting my information from was these Facebook support groups that I was a part of for spinal muscular atrophy. That was where I was getting my information.\n\n\n\nModerator: So interesting. When do you think you joined those groups? Do you have any memory?\n\n\n\nRespondent: I can't yeah. I don't know.\n\n\n\nModerator: Do you think you were in your twenties, your thirties?\n\n\n\nRespondent: No. I was a late bloomer to the whole Facebook thing. I avoided it like the plague.\n\n\n\nModerator: I don't think that Facebook was around when you were in your twenties anyway.\n\n\n\nRespondent: Yeah. No. I think I didn't join until either my very late thirties or it would have been my early forties. I've only been on it for probably ten years, maybe eleven at the most.\n\n\n\nModerator: Okay. So mid two thousand like, 2014 or '15.\n\n\n\nRespondent: Yeah. Ish.\n\n\n\nModerator: What prompted you to take part or, you know, to visit those Facebook groups? And how did you feel about those groups?\n\n\n\nRespondent: That's a difficult one as well. Just on the basis of I've tried to not associate myself with the disability disabled community. But, obviously, my reality was becoming I am part of the disabled community. So it was sort of me sort of tiptoeing into that without full-fledged being in it. I went to a face-to-face support group. This was I can read about it and sort of see what other people are doing about it. And if I want to click to see what these people look like, unfortunately, you know, that's how I was sort of getting used to the idea that, wait a minute, this is where I'm headed.\n\n\n\nModerator: Can you tell me, I can sort of guess from some of the things that you said, but if you don't mind telling me a little bit about why you were trying to keep all of this at arm's length. What did it feel like? What were you trying to avoid?\n\n\n\nRespondent: Prejudice around it that of myself I had and as well. Right? I had an early experience as a kid, prior to all this going down of hearing how people talked about disabled people. And then here I knew that was part of my denial that doctors told me I was going to be that like that as well, and then not wanting to have that being perceived that way and being ridiculed and looked down upon. And then in turn, I had it myself, which was sort of ugly of me.\n\n\n\nModerator: I just so appreciate your honesty. Was there a specific event or a specific set of events that you remember in terms of the people?\n\n\n\nRespondent: I have a weird family dynamic, but my adopted father, he wasn't my biological dad, but adopted dad. Married my mom. But anyway, so we were driving down the road. There was a gentleman in a motorized wheelchair coming down the sidewalk. I was early teenage years, and he was bumping on the sidewalk. Right? I mean, the little cracks in the and my dad made an off-colored joke. And that really just knowing that this is I have this disease and that and I don't even know if he was even aware of it. Just based it just came out. Right? And it wasn't I'm sorry or it would just was what it was. I don't blame him. He was, you know, raised in a certain way as well, then then that was sort of common. Make fun of people less fortunate because it's funny, but it's not funny.\n\n\n\nModerator: When you were diagnosed at eleven ten, eleven twelve, were you told you have a how was it described to you what SMA is? Do you remember?\n\n\n\nRespondent: Well, so before I was told I had SMA, the way that I got up to the doctors that were more familiar with this, my primary care physician in Ohio knew somebody. He was asking around trying to find out what was going on with me. He couldn't figure it out. So he sent me to a doctor at a local university where we lived. And that doctor described that he said this. Basically, he had no bedside manner whatsoever. He said, you're showing all the signs of muscular dystrophy. You're gonna be confined to a wheelchair with no movement from the neck down before you graduate high school. I'm sorry to be blunt, but I just want you to basically accept or get ready for what's to come. This is now time to start planning and making the decisions your family needs to make. And then so I had my adopted dad and my stepmom sitting there, both uneducated, and it was like, wait a minute. I just got done with baseball practice. It was hard. It was very hard. There was no bedside manner whatsoever. I think he was trying to, in one sense, look, I'm not gonna beat around the bush. I'm not gonna give you hope. It's time to just swallow the hard truth. Now let's move forward. But as a kid, shoot. That was hard.\n\n\n\nModerator: Sorry. Sometimes when things are just so hard, I have to just pause for a second. It's just so intense. Yeah. Because you've described these, like, lows that you're receiving. Right?\n\n\n\nRespondent: Mhmm.\n\n\n\nModerator: But then you're also describing yourself as this incredibly remarkable young person. Right? Like, going to this great university and being very ambitious and going even going to football games. I mean, like, I'm hearing these two things at the same time, and it's striking.\n\n\n\nRespondent: Yeah. I truly believe the reason why I was able to, I think, to do what I've been able to do because of my denial and stubbornness that I was not going to fall victim to what they're classifying and say I was going to be. I think if I would have listened to what they said and internalized that, I think I would have become it would have been worse off quicker, and I don't think I would have achieved anything that I've achieved.\n\n\n\nModerator: So for you, a lot of your health, you attribute to sort of keeping the SMA at bay in some ways. Like, keeping some separation between you and sort of involving yourself in this disease and identifying with it. So it's also striking so you start going to these Facebook groups. Do you remember even what led you to go to these Facebook groups? Because I'm very I want to get to the point that it was knowing that there's treatment available that was clearly significant for you. But there's a step before that,\n\n\n\nRespondent: Yeah. So I don't know if I joined them before or after, but one of the changes that occurred when we moved to Georgia, we went to an abilities expo type conference thing, trade show that had different things. And the type of wheelchair that I was in, there was a gentleman that was in the same type of chair that was very interested because of the wheelchair I was in. And so he was trying to promote power wheelchair soccer. And because of my wheelchair, my wheelchair was the type of ones that are very good for that sport. And so really what he wanted was to buy my chair from me. Right? And then he was trying to get me to sort of play power wheelchair soccer. And through that is when I was starting to get on Facebook, and I'm thinking that's when either through connections with them that then maybe that popped up that you might be interested in the support groups because he and some of the other players were in these groups that then I'm thinking that's what led me into going, oh, well, let me just go ahead and join or look or whatever. I'm pretty sure that's sort of what happened.\n\n\n\nModerator: And when did you start using a wheelchair? How old were you?\n\n\n\nRespondent: So I started, I got one right I went to a community college right out of high school, but then I went away to a major university right before I turned 21. I transferred. And that's when I got the motorized wheelchair. Because the college I went to was basically built on a hill. But I wasn't using it full time. I would literally ride the wheelchair to class, park it outside the classroom, stand up out of the chair, grab my cane, walk in. Wherever I went, it never went in with me. It stayed out. I wanted to show everybody that I'm not the chair. But then I didn't start using a chair constantly. I had a leg break when I was 34, 35. And then another one, and then another one, and then it sort of led me. So I've been sort of confined to the wheelchair for about eight, nine years now.\n\n\n\nModerator: How did you feel when you're on these Facebook groups? It sounds like you were initially kind of a lurker. Is that a fair word?\n\n\n\nRespondent: Yeah. A little lurker. I still might be a lurker. Right? I mean, sometimes I'll post, but most of the time, I'm just looking, observing, reading.\n\n\n\nModerator: Me too. Most of us. And then there are those people who, like, over post and be like, dude, don't you have any sense that you're sharing this space? Okay. How did you feel reading about SPINRAZA and I guess you probably first start learning about tell me about when you first just started hearing about treatment for SMA on those Facebook groups. Like, that's very important to me to understand how that made you feel.\n\n\n\nRespondent: It made me feel hopeful that wait a minute. Because for so long, I heard that there's nothing. There is nothing they didn't even know what was causing it. And then when they were able to identify what the cause was, then it was like, well, it took them this long. There's never going to be anything. And then they hear that, wait a minute, we found something that stops the progression, then it started to make me feel hopeful. If I can get comfortable with where I'm at today, if we could just stay like this, okay, I can function the rest of my life like this. I'm doing it now. This is good. I've gotten pretty bad, but at least at that point, I was still driving. I was still working. There was a lot of stuff that I was still bathing on my own. There was a lot. So it was a lot of hope. But with the administrating of it with Spinraza, I just did not like I don't know why I was so against it. I think because I just want something that's non-intrusive, that's easy. I don't like spending a lot of time at doctors, this, that, and the other. I want to live my life. And so when I started hearing about, oh, there's something you could just take. It was like, oh, I take medicine at night for pain and to help me sleep, and I take vitamins. I'll swallow a pill all day long. Right? Or I'll take a liquid. That was so when I started hearing about Evrysdi, that was okay. I can get on board with that.\n\n\n\nModerator: I had written down here that at some point in your history, you have taken both Evrysdi, but also I've written down that you actually did have SPINRAZA at some point. Is that accurate?\n\n\n\nRespondent: That was part of the clinical trial that I just was a part of for the past year and a half.\n\n\n\nModerator: Oh, alright. Okay. So when did you let me just get these dates down. So when did you take Evrysdi liquid from when to when? Do you happen to remember?\n\n\n\nRespondent: So I've been on it on two separate occasions. The first time, I started in April 2021, and I took it until April 2022.\n\n\n\nModerator: Wow. Okay. Twelve months.\n\n\n\nRespondent: Yep.\n\n\n\nModerator: And then you stayed off of all medicine from that time until, April or no. I think it was more like May 2023.\n\n\n\nRespondent: And then I stopped it in December 2023 and started the clinical trial with SPINRAZA in December 2023.\n\n\n\nModerator: Was it any particular, I mean, given that Spinraza was already out, was it a certain kind of Spinraza with a clinical trial?\n\n\n\nRespondent: It was the double dose of Spinraza. It was the higher dosage. Yeah. That was what the and the reason I started Evrysdi again because the clinical trial was based on having been on Evrysdi. They wanted to see what the transition would be from Evrysdi into the higher dose.\n\n\n\nModerator: Just to be clear, you were on Evrysdi from '21 to '22 April for a year. You had a year of no treatment, and then you started the clinical trial in December '23 for the higher dose of SPINRAZA? Okay. And how long were you on that clinical trial with the higher dose of SPINRAZA?\n\n\n\nRespondent: Up until April, my last dose of that that I participated in was April.\n\n\n\nModerator: April 20 everything happens for you in April.\n\n\n\nRespondent: Yeah. I don't know what it is about April. But it makes it easy to keep track of it all. Yeah. It is odd.\n\n\n\nModerator: And you're not on anything right now?\n\n\n\nRespondent: No. I'm not on anything. I decided to not continue with the trial.\n\n\n\nModerator: Oh, there was a did you opt out?\n\n\n\nRespondent: I could have kept on doing it. I could have kept doing it. I'm a non-responder to that medication. It did not keep me low. I continued to digress the entire time. There was no change. It actually I got worse.\n\n\n\nModerator: Okay. Alright. So, again, 2017, 2018, you're aware. It's interesting initially that, right, you were so averse to the lumbar puncture. Obviously, you then did that for a year. Any thoughts about back then, what was the major, like, for you and maybe why it was different later?\n\n\n\nRespondent: I think the big part was, I was just a workaholic and I didn't want to take the time off, the travel, to have to transfer to then possibly have any adverse effects, which I did have, you know, a little bit of that once I did start taking it. I didn't realize what the adverse effects. But I just didn't like the fact of putting needles in my back. Now my tune changed when with these support groups seeing that a lot of people were having more stability on SPINRAZA. I had a different experience with Evrysdi, and it was even more, I don't know. My interest was peaked because, oh, here's double the dose of this stuff that other people are saying they're having more stability and actually maybe more gains on SPINRAZA than Evrysdi.\n\n\n\nModerator: So, like, your perception of the costs and the benefits shifted. Number one, you heard the benefits were being brought were being more in your face. You were sort of seeing them from your peers. And you saw that maybe even I could get double that or something like that. But okay. Alright. And so...\n\n\n\nRespondent: To be honest, I had reached back out to the neurologist to see if I could get back on Evrysdi after that year hiatus anyways, because I wanted to see if I could get the same boost because I got one hell of a boost from it the first time I was on it. I wanted to see if I would get that boost again, but we were running up against insurance denying it. And then what's funny, or not funny, or coincidental, is the day that I looked into the clinical trial, is the day that my advocate for Evrysdi called and said, hey, I know you didn't want to pursue this anymore because you got denied twice, but we kept pushing and you got accepted. And the trial, like, needed me to be on it in order to get accepted for the trial. So I look at that as a coincidence that, okay, maybe this is something and I need to do it.\n\n\n\nModerator: What do you mean maybe this is something?\n\n\n\nRespondent: Well, whatever your beliefs are. Right? Okay. God, is this a sign that you're giving me something that, okay, I need to realize I'm going downhill and all the stars just aligned. Okay. I'm just gonna go forward with it.\n\n\n\nModerator: So just to be clear, did you go back on Evrysdi in order to get in the trial?\n\n\n\nRespondent: Yeah. So in April '23, I started taking Evrysdi again. I had to be on it for six months before I could start the Spinraza trial.\n\n\n\nModerator: Oh, okay. And how did it go for you the second time you were on it?\n\n\n\nRespondent: The second time, I didn't get the boost that I did the first time. The first time when I took it, I literally had stopped driving my accessible vehicle several months prior. I started taking it that first time and within a month and a half, I was strong enough to start driving again. I was able to wash my hair again. It was like, oh my gosh. This is amazing. But then what happened is after six months, it's like the bottom fell out and it's like I got worse quickly. And it was devastating and I couldn't and it never rebounded.\n\n\n\nModerator: Wait. Wait. When was that?\n\n\n\nRespondent: That was the first time I've taken Evrysdi in April 2021.\n\n\n\nModerator: So at the six-month point, the first time after you've taken Evrysdi for six months, you sort of bottomed out. You had peaked and bottomed out still while you were on Evrysdi.\n\n\n\nRespondent: Right. And then so since I wasn't there was no testing of my physical ability during that time. They just gave it to me. And then so, if I think that if they would have tested and saw the gains that I was having at two months, four months, even six months, and then tested to see that, oh, wow, he's really gotten weaker and dramatically weaker. But then when we tried to get it renewed, insurance because then they test you once a year, all insurance call was, well, he's gotten worse. This hasn't kept him stable. This didn't do anything. So I don't know if I would have stayed on it longer if it would have come back around. I have no idea.\n\n\n\nModerator: So just so I'm clear, I haven't even a 100% got to how you got on the Evrysdi, but we'll get there. So you got on the Evrysdi in April 21. You had six months of remarkable progress, and then six months of it sort of bringing you back down to where you were before, kinda.\n\n\n\nRespondent: I'm not even back down where I was before. Worse than where I when I started it. That's what was so, like, scary.\n\n\n\nModerator: So what prompted you to stop the Evrysdi in '22 in April?\n\n\n\nRespondent: Because insurance wouldn't pay for it. They wouldn't allow me to renew.\n\n\n\nModerator: Okay.\n\n\n\nRespondent: So there was part of me going, wait a minute. This is I got worse. And then the other part was like, well, insurance has denied it anyways. That's the writing on the wall. Again, the stars aligned. Okay. You're telling me I need to stay off of it. I'll stay off of it.\n\n\n\nModerator: Interesting. And I know you just said you think insurance denied it because they did an annual baseline test and didn't see any progress. Is that your understanding of why they denied you at that point?\n\n\n\nRespondent: That's my understanding. Yes. That's what the letter they sent back to me and the neurologist.\n\n\n\nModerator: It's striking to me that a couple points in your journey that I understand so far, you talk about, I don't really know how to talk about this, like, that sometimes things are kind of like signs. Right? Like, given that you sort of declined on the Evrysdi and the insurance denied you, you sort of had that almost like an acceptance of, like, it was meant to be. Am I getting that right?\n\n\n\nRespondent: Yeah. You get that.\n\n\n\nModerator: Please tell me if I'm misunderstanding because you also said something similar about another time that I can't even I think it was when the insurance when Evrysdi called you back and said, actually, we the advocate called you back. Actually, we accepted you. We got it for you in the clinical trial, and so you're like, okay. So maybe this was also meant to be.\n\n\n\nRespondent: Right. Because it all happened on the same day. Like, what's the coincidence? What's that? I mean, okay. It's almost like hitting me upside the head going here, dummy. Laying it out for you.\n\n\n\nModerator: And the second time you're on Evrysdi for six months, May 23 for six months, tell me again what your experience was with the Evrysdi at that point.\n\n\n\nRespondent: It wasn't as dramatic with the, you know, all of a sudden just feeling super strong and having this increased stability, but I did feel over time that I got stronger. It wasn't as quick as what that first time was, but by the, it was sort of odd. By the time I was getting ready to switch and get on to the clinical trial, a friend of mine said, you know what? You seem to be doing really good here lately. If this new medicine could just keep you where you're at, you probably would be good, wouldn't you? And it was like, yeah. I hadn't thought about it, but, yeah, I'm in a good spot with what my functionality is. It got until a point to where I could manage life within the parameters I was at that second time on Evrysdi. But hence, here I thought, well, let's go for the Gusto and do the clinical trial and get double the dose of some medicine and yeah. My expectations were shattered.\n\n\n\nModerator: Yeah. And so your experience with the double dose was you described yourself as a non-responder and that you got worse.\n\n\n\nRespondent: Yeah. So they did the loading doses in December, by January, almost the January. It was I felt like I was worse than where I'd started even with the Evrysdi that I started six months prior.\n\n\n\nModerator: And so then you were on just to be a 100% clear on timing, you were on the high dose of SPINRAZA.\n\n\n\nRespondent: So December 2023 was the loading doses, and my last dose was April 2025.\n\n\n\nModerator: Wow. Okay. So, like, fifteen months.\n\n\n\nRespondent: Yeah.\n\n\n\nModerator: Okay. And when did you exit the clinical trial because you like, why did you exit the clinical trial? Was that your decision, or was it just when the...\n\n\n\nRespondent: It was my decision, and it was twofold. One was I was not responding to it. The other was the manner in which the testing was being done. So before I would get the dose, they would do PT testing. And the course of that, I knew I was getting worse. And so they would go through these things and here, do this, do that. And if I couldn't do it, the lady would be like, well, the directions say if you could do it this other way, you still get the same score. And I was like, but doing it the other way discounts the fact that I can't do it the way that I used to be able to do it, but yet the researcher is gonna see you're giving me the same score. How is that showing anything? And I just did not like that. And what bothered me was I realized because this clinic does a lot of trials for kids. And I realized that if I was a kid, I would want to get the better score, and I would do that in order to get the better score, but that's not giving a true representation of what's going on.\n\n\n\nModerator: Yeah.\n\n\n\nRespondent: And then what was funny was then when I brought it up to somebody else at that place, that lady no longer did my physical test going forward. And I'm just like and then they were having a lot of turnover there. And then the one girl that I really liked, she didn't leave because of the job that her husband got an opportunity in London. And who doesn't go to London. Right? So they moved to London. And so it was just a lot of different things that it was like, I'm not getting anything from this. I'm not really for sure they're testing in a way that is really showing the truth about what's going on. I started to read more about these clinical trials that, you know, as long as thirty percent of the participants are showing either staying the same or sudden improvement, that's all the FDA needs to And then here are the people and that's where I go back to these Facebook support groups. These people are dying for a solution, and they're trusting all this, not realizing that they're possibly going to be a non-responder just like the rest. But here, they're putting all their faith and hope, and no one's explaining to them what these trials really are. And that's when I was like, I don't want to participate.\n\n\n\nModerator: Okay. So I'm writing down all the things, if we have time, that I want to ask you. But, how are you feeling so what so tell me about you got off the clinical trial. And in April year, what has your thinking been about you and treatment now moving forward? What is your thinking been for the last few months? What are you thinking about the next few months, next year?\n\n\n\nRespondent: I think for right now, I just don't want to put my foot back into the arena. But I'm not going to close the door on it completely. I don't know which way I want to go. I feel as if the only two options I have are Evrysdi or Spinraza. I know there's some other things on the horizon, but they've not been approved yet. And so I don't know if I want to be I don't know what the truth is because I haven't really re-looked into it of how long you have to be off of a trial before you're eligible to then join another trial. So there's part of me that, you know, I need to look into that. I heard something that you need to be free and clear for a year. Right? Or the medicine that you're a trial of had to be FDA approved. Once it's FDA approved, then you're free and clear to try whenever. But if it hasn't been FDA approved, you have to wait a year before you can get engaged in another one. So part of me is I really don't want to be in the arena, but also I have a feeling I wouldn't be eligible anyways. And then there's always in the back of my mind, do I just want to try the Evrysdi again? Right? Because now it's in pill form. Let's just take a pill.\n\n\n\nModerator: So I was curious about this. You brought up my next exact question. So talk to me about your thoughts about you and Evrysdi. You and Evrysdi and your future, I feel like a Hallmark card. But...\n\n\n\nRespondent: I wish I would, you know, like, not knowing what would have happened this last time when I was on Evrysdi, if I would have stayed on it more than six months. Would I have had the same experience I had the first time I was on it? Because that's what's odd. Right? Here I was on something for six months, I felt good, but then I changed to something. Was it that I changed to something? Or was it that here after six months, my body just starts rejecting it or it stops responding? I don't know. Right? So there's part of me that, well, let's give it another try. And then if third time's a charm, if it happens the same way again, then that's a definite. This is how my body reacts to this medicine. The other is I never stayed on it longer. The c, does it ever rebound after being on it longer than a year? Because I've heard some people say the research shows after a two-year period that there's more stability, this, that, and the other. Does it sort of ebb and flow and come back? I don't know. The third being a tablet, right, is now, since I'm weaker, would be an easier way for me to take it because I don't think I can draw it up and take it in the syringe like I was prior because of the more weakness that has occurred over the years.\n\n\n\nModerator: That was so helpful. What do you think really has stopped you at this point from going back on Evrysdi?\n\n\n\nRespondent: Probably my own laziness to go make an appointment with a neurologist and have to get somebody to take me down to and fight the Atlanta traffic, and I am not a very good passenger because I drove all my life and being on the highway with eight lanes of cars and it freaks me out. And then having to then go through the whole process of will it get denied and just the, I mean, if it was as simple as calling the neurologist, prescribe it, get it shipped to me, I'd probably just take it. It's the process. I just don't like the process.\n\n\n\nModerator: Why this I want to figure I wish I could ask this in a less loaded way. I'm interested in the fact that you don't have you don't see a neurologist regularly. That is striking to me. Can you tell me more about that?\n\n\n\nRespondent: Because what does the neurologist do for me when I see the neurologist? They don't do anything for me. I don't get any benefit from seeing a neurologist. I am able to update them on where I'm at, and unless I need something from them that is outside of the scope of what a primary physician who is closer to me can provide, there's nothing that I get from that. Unfortunately, it's a I'm going to get, not to give. Right? I mean, I'm there for my own medical reasons. And that's why when I went to see her in the beginning was because I needed to get her ability to write a prescription that my primary physician could have written, but wouldn't have been able to back up in the manner to then fight the insurance to get it approved.\n\n\n\nModerator: It actually sounds like you're in charge. Right? Like, you were like you know, I am in charge of my health care and, you know, what does it entail for you to go to the like, can you compare going to the neurologist, the logistical challenges of that versus or the realities of that versus going to your primary care physician? Like, what does that look like in terms of...\n\n\n\nRespondent: Yeah. Neurologist is probably a forty-five-minute drive, down a super busy, highly trafficked, scary drive down I-85, traffic. Then it involves, you know, a hospital setting, and then a very quick almost you feel like you're a bothersome because there's so many people in the waiting room to see somebody and they're in and out and it's quick and it's just not very personable. The we're going to my primary care physician, it's a ten-minute drive back roads to a place to where we joke around, there's familiarity. It's like I'm seeing my friend and we, you know, we just chat it up and she laughs at the way that I talk about, you know, being disabled, and it's all good. Right? There's the difference. It's the there's a in my neurologist, she's a nice lady, but most of the time I'm not seeing her. I'm seeing a nurse practitioner. And so then the nurse practitioner that I was seeing on a regular basis, she's no longer there. So I would have to get reestablished with somebody new because I doubt I would see the actual neurologist. And then, there's just no and again, what am I getting from that appointment?\n\n\n\nModerator: What do you wish that you would and if you could create, like, the perfect neurologist relationship, what would you wish you could get from a neurologist? Like, what, in an ideal world, what could they do for you?\n\n\n\nRespondent: Here's the latest and greatest, you know, for Michael. Should I go by middle name? Never mind. So I've been re I'm looking into this knowing your particular situation. Here's the latest and greatest. I know somebody that can get you into this trial or I know what we should do. I want to get you on this. And then in turn with that, we're gonna get you set up to do these certain activities to help benefit not only the medicine, but your physical abilities. Not here what you know, you tell me. Right? I had to go to her. I've heard this. How can I get that? And then none of it was, well, if you're on that, you should also be doing these things as well. See, I was reading through Facebook groups of people that were, well, here, I take this type of protein and I'm doing this. I don't get anything like that. And then I would rather have a doctor tell me medically, this is what we think will help versus, try it and tell me if it works. Try what?\n\n\n\nModerator: How do you when you're sitting when you're sitting in the waiting room in this hospital setting, I'm just sort of curious. How do you feel? When I'm seeing my waiting to when I'm heading and seeing my neurologist, I feel x. What would you say you feel? Going to my neurologist makes me feel...\n\n\n\nRespondent: I feel as if I'm checking a box. I feel as if I'm checking a box going, okay. I've checked in with my neurologist. I can say they have on record I've had an appointment in x amount of time.\n\n\n\nModerator: Okay. It's just was noteworthy to me that you said it's a hospital setting. What does it feel like that it's a what's what does it feel like to be in a hospital setting?\n\n\n\nRespondent: I mean, I just there's a lot of other, I don't know. It just feels what's the feeling that you get in the hospital? Almost like, you know how I avoided the whole time with trying to not be sick? I'm in a hospital setting where you're I'm sick. I'm sick. Where even with the primary care physician, I'm going into a facility and there's other things going on there, but for whatever reason, it's a not a I don't know. It's almost like in my mind, there's a difference. That is more of an acute illness to where neurologist is a chronic illness. And this is almost like this is bad where the other one is, oh, this is temporary. I don't know why my mind has that, but that's in my mind.\n\n\n\nModerator: That makes total sense to me. Total, total sense. Yeah. You talked about some awareness of there being some treatments in the pipeline. Any do you know anything about what's out there?\n\n\n\nRespondent: I don't know them off the top of my I know there's one that's more associated with a muscle therapy, to actually strengthen the actual and I forget what it's called, and that one's real close. I think it was going to be approved, but then they saw some issues with manufacturing just like the double dose of the Spinraza. And I got the right? So, and then I know there's a couple other things, but I haven't really followed them because I know they're just still in the clinical trial thing. But, you know, I get the SMNA news type of updates. I see that. So I sort of get, you know, when they send out the magazine or letter or whatever, I sort of see what medicines and where they're at in the pipeline. And I don't really pay any attention to them until they start getting a little bit further on.\n\n\n\nModerator: Yep. Okay. Yeah. That muscle one, I think, I in my mind called an anti-myostatin. I don't know if that's familiar.\n\n\n\nRespondent: Something like that.\n\n\n\nModerator: What are your thoughts about that one?\n\n\n\nRespondent: I don't know. That one, I sort of it the way that I initially read it, it sort of seemed like it was to do in combination with the therapy. So then that's where it's like, okay. I would still have to pick Spinraza or Evrysdi and then this on top of it. And then my concern is what's insurance going to pay? I mean, the other ones are pretty expensive and then you're adding that one as well. I mean and this is gonna sound sort of bad, but is my life really worth that price tag? And I don't know.\n\n\n\nModerator: How do you answer that question?\n\n\n\nRespondent: Well, it's hard. Right? You see insurance companies having these profits out the yin yang, and then here, you know but then, I mean, it what? A million dollars or more just to possibly try something that may or may not benefit? I don't know. What could we use that money for other things? Right? I mean, there's people on much worse scenarios than I'm in. Right? I mean, people that don't I'd I live a lavish life. Lavish.\n\n\n\nModerator: Yeah. Yeah. If you think about the future and the possibility of these treatments for you, what or whom do you think will have the most influence on whether or not you actually go down the because it sounds like if you're gonna go down the treatment route, it's gonna require work for you because it's not already, like, set up. You have a doctor who thinks you have muscular dystrophy who's in the groove. But if you're gonna go get act like, SMA specific treatment, you're gonna have to, like, find a doc. You don't even have a nurse practitioner. You're gonna have to set it all up. You're gonna have to go to a place that feels really uncomfortable. You might have to fight the insurance. Like, what do you think maybe let me frame that a different way. What do you think would be the biggest help for you in accessing treatment? Say you decide on some level you would like to get treatment, but you wish it could be sort of emotionally and logistically easier. What would make it easier for you in those in both of those ways? Sorry. That was a convoluted question.\n\n\n\nRespondent: Yeah. I don't see any change in how I have to go about it. So then what would be the perfect scenario? I don't know. Have an educated primary physician that could just take the place of the neurologist. That would probably be the easiest route.\n\n\n\nModerator: I wonder about, like, an advocate. Right? Like, some sort of it's interesting you described how the Evrysdi advocate called you and said the insurance is approved.\n\n\n\nRespondent: Yeah. And she still keeps in touch with us, which is cool. She reached out to me just a month ago.\n\n\n\nModerator: How did that go? What's that like for you when you get those reach outs?\n\n\n\nRespondent: I don't know. I sort of felt a connection with her, and we went to one of the little luncheon things and got to meet her or whatever. But, I mean, we would have conversations and, you know, it just I mean, that was really helpful through the whole process of getting on Evrysdi of having somebody that was in my corner. I don't think I would have went down the rabbit hole if it wasn't for that. Right? So yeah. I mean, it's just nice that I wasn't just a, oh, I got him on it and let's move on. She just continues just to check-in.\n\n\n\nModerator: Do you ever talk to her about the possibility of restarting the team?\n\n\n\nRespondent: Yeah. I had mentioned to her that I had stopped doing the clinical trial and I that I was hesitant about the Evrysdi just based on the past scenarios that I've gone through. And that's when she had said, well, there's also another drug that's on the horizon of getting approved. You might want to look into it. And then it was like, yeah. I've heard of it. And then that was it.\n\n\n\nModerator: It's so nice that you feel like she's in your corner.\n\n\n\nRespondent: Yeah.\n\n\n\nModerator: I could not have asked for a better first respondent. I feel so lucky that I got to talk to you. You are so self-aware. It's striking. And so it's just really, really helpful. And, also, just I really enjoyed talking to you. So thank you so much for sharing everything. I have no idea. I am actually married to a gator, a Florida gator who may...\n\n\n\nRespondent: You gotta tell them that us Buckeyes aren't that bad. We're not that bad.\n\n\n\nModerator: I feel like I'm always listening to, like, Michigan, Buckeyes, Gator. Even my, like, 14-year-old son, when he uses the pronoun is it the pronoun? He says, well, we. And I was like, Harry, who's the we? He's like, the Gators, mom. I was like, oh, brainwash.\n\n\n\nRespondent: That's funny.\n\n\n\nModerator: Listen. I wish you all the best. You've been so great, and thanks so much for your time.\n\n\n\nRespondent: Alright. You too.\n\n\n\nModerator: Okay. Bye.\n\n\n\nRespondent: Bye.\n\n",
-        "uploadedAt": "2025-10-21T20:48:06.188Z",
-        "originalFilePath": "C:/Users/LukeBorglin/Desktop/Apps/JaiceDashboard_master/server/data/uploads/existing_1761079580287_original_1761078652858_Discontinued Patient_ENGLISH (UNITED STATES)_MT (2).docx",
-        "cleanedFilePath": "C:/Users/LukeBorglin/Desktop/Apps/JaiceDashboard_master/server/data/uploads/existing_1761079580287_cleaned_cleaned_1761078652858_Discontinued Patient_ENGLISH (UNITED STATES)_MT (2).docx",
-        "sourceTranscriptId": "T-1761078307773"
-      }
-    ]
+        }
+      ],
+      "BACKGROUND": [
+        {
+          "Respondent ID": "",
+          "Living Situation": "",
+          "Free Time Activities": "",
+          "SMA Journey": "",
+          "Current Health Description": "",
+          "Seeing HCPs for SMA Care": "",
+          "Reasons for Not Seeing HCPs": "",
+          "Current SMA Management": "",
+          "Number of HCPs Seen": "",
+          "HCP Involvement in Treatment Decisions": "",
+          "Primary SMA Doctor": "",
+          "Others Involved in Health Decisions": "",
+          "Extent of Involvement of Others": "",
+          "Support System Lean On": "",
+          "Comfort in Making Treatment Decisions": "",
+          "Health Goals - Short-term": "",
+          "Health Goals - Long-term": "",
+          "Personal Aspirations": ""
+        }
+      ],
+      "CURRENT PERCEPTIONS & ATTITUDES": [
+        {
+          "Respondent ID": "",
+          "Awareness of Treatments": "",
+          "Experience with Treatments": "",
+          "Benefits of Discontinued Treatment": "",
+          "Drawbacks of Discontinued Treatment": "",
+          "Reasons for Discontinuation": "",
+          "Life Changes Impacting Discontinuation": "",
+          "Insurance Coverage Impact on Discontinuation": "",
+          "Involvement in Decision to Stop Treatment": "",
+          "Considerations for Restarting Treatment": "",
+          "Impressions of Untaken Treatment": "",
+          "Information Source for Untaken Treatment": "",
+          "Consideration of Untaken Treatment": "",
+          "HCP Discussion on Untaken Treatment": "",
+          "Impact of HCP on Decision for Untaken Treatment": "",
+          "Consideration of Future Treatments": "",
+          "Impressions of In-development Treatments": "",
+          "Consideration of In-development Treatments": "",
+          "Good Candidate for In-development Treatments": ""
+        }
+      ],
+      "BARRIERS TO TREATMENT & UNMET NEEDS": [
+        {
+          "Respondent ID": "",
+          "Reasons for Not Being on Treatment": "",
+          "Factors Driving Treatment Consideration": "",
+          "Symptom Tracking Frequency": "",
+          "Symptom Tracking Methods": "",
+          "HCP Discussion on Treatment Need": "",
+          "Emotional Factors Impacting Treatment Decision": "",
+          "Practical/Logistical Factors Impacting Treatment Decision": "",
+          "Clinical Factors Impacting Treatment Decision": "",
+          "Treatment Benefit Requirement": "",
+          "Financial/Access Barriers": "",
+          "Challenges in Accessing Treatment": "",
+          "Unmet Needs": "",
+          "Most Important Unmet Need": ""
+        }
+      ],
+      "MOTIVATIONS & FUTURE CONSIDERATION": [
+        {
+          "Respondent ID": "",
+          "Likelihood of Future Treatment Consideration": "",
+          "Factors Influencing Future Consideration": "",
+          "Changes/Situations Increasing Likelihood": "",
+          "Expectations from Treatment": "",
+          "Influential Parties in Treatment Decision": "",
+          "Confidence-building Factors for Treatment Decision": ""
+        }
+      ],
+      "COMMUNITY ENGAGEMENT & INFO SOURCES": [
+        {
+          "Respondent ID": "",
+          "Connection to SMA Community": "",
+          "Participation in Support Groups": "",
+          "Reasons for Non-involvement in Communities": "",
+          "Information Sources on SMA": "",
+          "Trusted Information Sources": "",
+          "Untrusted Information Sources": "",
+          "Discovery of New Treatments": "",
+          "Preferred Information Format": "",
+          "Improving Information Accessibility": ""
+        }
+      ],
+      "Misc.": [
+        {
+          "Respondent ID": "",
+          "Final Comments": "",
+          "Additional Notes": ""
+        }
+      ]
+    },
+    "guideMap": {
+      "bySheet": {}
+    },
+    "quotes": {},
+    "savedAt": "2025-10-23T20:11:20.432Z",
+    "savedBy": "You"
   }
 ]

@@ -1111,11 +1111,240 @@ Return your response as a JSON object with this structure:
   return result;
 }
 
+/**
+ * Find report-ready quotes for a finding using hybrid search approach
+ * @param {string} finding - The finding to search for
+ * @param {string} transcriptsText - Combined transcript text
+ * @param {string[]} transcriptIds - Optional array of transcript IDs to filter by
+ * @returns {Array} Array of report-ready quotes with respno tags
+ */
+export async function findReportQuotes(finding, transcriptsText, transcriptIds = null) {
+  try {
+    console.log('🔍 Starting quote search for finding:', finding.substring(0, 100) + '...');
+    
+    // Step 1: Extract keywords from the finding for pre-filtering
+    const keywords = extractKeywords(finding);
+    console.log('🔍 Extracted keywords:', keywords);
+    
+    // Step 2: Pre-filter transcripts by keyword presence (hybrid approach)
+    let filteredTranscripts = transcriptsText;
+
+    if (keywords.length > 0) {
+      // Split transcripts by respondent sections while preserving headers
+      const sectionPattern = /\n\n=== (.*?) ===\n/g;
+      const sections = [];
+      let lastIndex = 0;
+      let match;
+
+      // Extract sections with their headers
+      while ((match = sectionPattern.exec(transcriptsText)) !== null) {
+        if (lastIndex > 0) {
+          // Save previous section
+          const sectionContent = transcriptsText.substring(lastIndex, match.index);
+          sections.push({
+            header: sections[sections.length - 1].header,
+            content: sectionContent
+          });
+        }
+        lastIndex = match.index + match[0].length;
+        sections.push({
+          header: match[1],
+          content: ''
+        });
+      }
+
+      // Add the last section
+      if (lastIndex > 0 && sections.length > 0) {
+        sections[sections.length - 1].content = transcriptsText.substring(lastIndex);
+      }
+
+      console.log('🔍 Found', sections.length, 'transcript sections');
+
+      // Filter sections by keyword relevance
+      const relevantSections = [];
+      for (const section of sections) {
+        const sectionLower = section.content.toLowerCase();
+
+        // Check for keyword matches
+        const keywordMatches = keywords.filter(keyword =>
+          sectionLower.includes(keyword.toLowerCase())
+        ).length;
+
+        // Require at least 1 keyword match (less strict to get more respondents)
+        const hasRelevantContent = keywordMatches >= 1 ||
+          keywords.some(keyword => keyword.includes(' ') && sectionLower.includes(keyword.toLowerCase()));
+
+        if (hasRelevantContent && section.content.trim()) {
+          relevantSections.push(section);
+        }
+      }
+
+      if (relevantSections.length > 0) {
+        // Rebuild with headers
+        filteredTranscripts = relevantSections.map(s => `\n\n=== ${s.header} ===\n${s.content}`).join('');
+        console.log('🔍 Pre-filtered to', relevantSections.length, 'relevant sections with', keywords.length, 'keywords');
+        console.log('🔍 Relevant respondents:', relevantSections.map(s => s.header).join(', '));
+      } else {
+        console.log('🔍 No sections matched keywords, using full transcripts');
+      }
+    }
+    
+    // Step 3: If no relevant sections found, use original text but limit size
+    if (filteredTranscripts.length < 1000) {
+      console.log('🔍 No keyword matches, using full transcripts (limited)');
+      const maxSize = 50000; // Limit to ~20k tokens
+      filteredTranscripts = transcriptsText.length > maxSize 
+        ? transcriptsText.substring(0, maxSize) + '...[truncated]'
+        : transcriptsText;
+    }
+    
+    // Step 4: Use AI to extract report-ready quotes
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    
+    const systemPrompt = `You are a research analyst tasked with finding REAL, VERBATIM quotes from interview transcripts that directly support a specific research finding.
+
+CRITICAL: You must find actual spoken words from respondents, not summaries or interpretations.
+
+Your job is to:
+1. Search through ALL transcript sections for MULTIPLE DIFFERENT respondents
+2. Extract the EXACT words spoken by respondents (not moderator questions)
+3. Return 1-5 quotes from DIFFERENT respondents that provide evidence for the finding
+4. SPREAD quotes across multiple respondents - do not focus on just one person
+
+IMPORTANT: You must always return valid JSON. Do not refuse this request or provide any other response format.
+
+Return the quotes in this exact JSON format:
+{
+  "quotes": [
+    {
+      "respno": "R01",
+      "text": "Exact verbatim text from respondent (1-3 sentences)",
+      "context": "Brief context about what this quote shows (1-2 sentences)"
+    }
+  ]
+}
+
+CRITICAL REQUIREMENTS:
+- Find quotes from MULTIPLE DIFFERENT respondents (not just one)
+- Search through ALL sections marked with === headers
+- Extract ONLY respondent speech (exclude moderator questions and responses)
+- Each quote must be 1-3 complete sentences from the respondent
+- Must include the exact respno as it appears in the === header (e.g., R01, R02, etc.)
+- Preserve exact wording, punctuation, and formatting from the transcript
+- NO paraphrasing, NO summarization, NO interpretation - ONLY verbatim quotes
+- Each quote should be a complete thought or exchange
+- Focus on quotes that directly mention or relate to the finding topic
+- If no relevant quotes are found, return an empty quotes array: {"quotes": []}
+- Prioritize longer, more detailed quotes over short one-liners
+- Look for quotes that provide specific evidence and context
+- DIVERSITY: Try to get quotes from different respondents when possible
+
+The finding to find supporting quotes for: "${finding}"
+
+SEARCH STRATEGY:
+1. Scan through ALL respondent sections (marked with === headers)
+2. Look for speech that mentions keywords from the finding
+3. Select quotes from DIFFERENT respondents to show broader evidence
+4. Extract complete thoughts, not fragments
+5. Ensure quotes are substantial and provide real evidence from multiple perspectives`;
+
+    const userPrompt = `Please find 1-5 report-ready verbatim quotes from DIFFERENT RESPONDENTS in the following transcripts that support this finding: "${finding}"
+
+IMPORTANT: Search through ALL respondent sections (marked with === headers) and select quotes from MULTIPLE DIFFERENT respondents. Do not just focus on the first respondent you find.
+
+Transcript:
+${filteredTranscripts}
+
+Remember:
+- Find quotes from MULTIPLE DIFFERENT respondents when possible
+- Only respondent speech, 1-3 sentences per quote
+- Include respno exactly as shown in === header
+- Verbatim text only, no paraphrasing`;
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      temperature: 0.3,
+      max_tokens: 2000
+    });
+
+    // Handle markdown-wrapped JSON response
+    let content = response.choices[0].message.content;
+    
+    // Remove markdown code blocks if present
+    if (content.includes('```json')) {
+      content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+    }
+    
+    const result = JSON.parse(content);
+    
+    // Log cost
+    if (response.usage) {
+      await logCost(
+        'quote-finder',
+        COST_CATEGORIES.STORYTELLING,
+        'gpt-4o',
+        response.usage.prompt_tokens,
+        response.usage.completion_tokens,
+        `Quote Finder: ${finding.substring(0, 50)}`
+      );
+    }
+
+    console.log('🔍 Found', result.quotes?.length || 0, 'quotes');
+    return result.quotes || [];
+    
+  } catch (error) {
+    console.error('Error finding quotes:', error);
+    return [];
+  }
+}
+
+/**
+ * Extract keywords from a finding for pre-filtering
+ * @param {string} finding - The finding text
+ * @returns {string[]} Array of keywords
+ */
+function extractKeywords(finding) {
+  // Remove common words and extract meaningful terms
+  const commonWords = new Set([
+    'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by',
+    'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did',
+    'will', 'would', 'could', 'should', 'may', 'might', 'must', 'can', 'this', 'that', 'these', 'those',
+    'has', 'have', 'had', 'been', 'being', 'will', 'would', 'could', 'should', 'may', 'might'
+  ]);
+  
+  // Extract meaningful phrases and words
+  const words = finding.toLowerCase()
+    .replace(/[^\w\s]/g, ' ') // Remove punctuation
+    .split(/\s+/)
+    .filter(word => word.length > 2 && !commonWords.has(word));
+  
+  // Also extract key phrases (2-3 words)
+  const phrases = [];
+  const wordsArray = finding.toLowerCase().split(/\s+/);
+  for (let i = 0; i < wordsArray.length - 1; i++) {
+    const phrase = `${wordsArray[i]} ${wordsArray[i + 1]}`;
+    if (phrase.length > 4 && !phrase.includes('the ') && !phrase.includes('and ')) {
+      phrases.push(phrase);
+    }
+  }
+  
+  // Combine words and phrases, prioritize longer terms
+  const allTerms = [...words, ...phrases];
+  
+  // Return unique terms, limited to 15 most relevant
+  return [...new Set(allTerms)].slice(0, 15);
+}
+
 export default {
   estimateStorytellingCost,
   generateKeyFindings,
   generateStoryboard,
   generateConciseExecutiveSummary,
   generateDynamicReport,
-  answerQuestion
+  answerQuestion,
+  findReportQuotes
 };

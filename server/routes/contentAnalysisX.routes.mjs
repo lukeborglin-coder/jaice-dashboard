@@ -1407,15 +1407,25 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
     console.log('📋 Final sheetsColumns:', JSON.stringify(sheetsColumns, null, 2));
 
     // Check for duplicate transcript processing
+    // CRITICAL: Only check for duplicate transcriptId, NOT respno
+    // Respnos can change due to re-ordering, but transcriptId is unique
     if (usedTranscriptId && currentData && currentData.Demographics) {
+      console.log('🔍 Checking for duplicate transcript:', usedTranscriptId);
+      console.log('🔍 Current Demographics rows:', currentData.Demographics.map(r => ({ 
+        transcriptId: r.transcriptId, 
+        respno: r['Respondent ID'] || r.respno 
+      })));
+      
+      // Check if this transcriptId actually exists in the data
       const existingTranscript = currentData.Demographics.find(row => 
-        row.transcriptId === usedTranscriptId || 
-        (row.respno && row.respno === existingTranscriptRespno)
+        row.transcriptId === usedTranscriptId
       );
       
       if (existingTranscript) {
         console.log(`⚠️ Duplicate transcript detected: ${usedTranscriptId} already exists in analysis`);
         console.log(`Existing transcript respno: ${existingTranscript.respno || existingTranscript['Respondent ID']}`);
+        console.log(`Current transcript respno: ${existingTranscriptRespno}`);
+        console.log(`🔍 Full existing transcript row:`, existingTranscript);
         
         // Return existing data without reprocessing
         return res.json({
@@ -1428,16 +1438,30 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
           message: 'Transcript already exists in analysis - no changes made',
           duplicate: true
         });
+      } else {
+        console.log('✅ No duplicate found - proceeding with transcript processing');
+        console.log('🔍 All transcriptIds in Demographics:', currentData.Demographics.map(r => r.transcriptId));
       }
     }
 
     // Call fillRespondentRowsFromTranscript directly on raw transcript
+    console.log('🤖 Starting AI processing for transcript:', usedTranscriptId);
+    console.log('📊 Sheets to process:', Object.keys(sheetsColumns));
+    console.log('📝 Transcript length:', transcriptText.length);
+    
     const caResult = await fillRespondentRowsFromTranscript({
       transcript: transcriptText,
       sheetsColumns: sheetsColumns,
       discussionGuide: enrichedGuide,
       messageTestingDetails: messageTestingDetailsParsed
     });
+    
+    console.log('✅ AI processing completed');
+    console.log('📊 AI returned data for sheets:', Object.keys(caResult.rows || {}));
+    for (const [sheetName, rowData] of Object.entries(caResult.rows || {})) {
+      const filledCols = Object.entries(rowData).filter(([k, v]) => v && String(v).trim().length > 0);
+      console.log(`  📝 Sheet "${sheetName}": ${filledCols.length}/${Object.keys(rowData).length} columns filled`);
+    }
 
     // Integrate the results into currentData
     // Use existing respno from transcript if available, otherwise calculate next respno
@@ -1513,6 +1537,12 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
       }
 
       currentData[sheetName].push(newRow);
+      console.log(`✅ Added row to ${sheetName} with respno: ${respno}`);
+    }
+    
+    console.log('📊 Final data summary:');
+    for (const [sheetName, sheetData] of Object.entries(currentData)) {
+      console.log(`  ${sheetName}: ${Array.isArray(sheetData) ? sheetData.length : 0} rows`);
     }
 
     const processed = {
@@ -2349,6 +2379,10 @@ router.post('/fill-content-analysis', async (req, res) => {
 
     // Process the CLEANED transcript with AI to extract key findings for ALL sheets
     const messageTestingDetailsParsed = messageTestingDetails ? JSON.parse(messageTestingDetails) : null;
+    console.log('🔍 DEBUG: About to call processTranscriptWithAI');
+    console.log('🔍 DEBUG: analysis.data keys:', Object.keys(analysis.data || {}));
+    console.log('🔍 DEBUG: analysis.data.Demographics length:', analysis.data?.Demographics?.length || 0);
+    console.log('🔍 DEBUG: analysis.data.Demographics content:', analysis.data?.Demographics);
     const processed = await processTranscriptWithAI(cleanedTranscript, analysis.data, enrichedGuide, messageTestingDetailsParsed);
 
     console.log('=== CONTENT ANALYSIS FILLING COMPLETED ===');
@@ -3774,6 +3808,9 @@ OUTPUT ONLY THE CLEANED TRANSCRIPT - NO explanations, NO preamble, NO meta-comme
 
 // Helper function to process transcript with AI
 async function processTranscriptWithAI(transcriptText, currentData, discussionGuide, messageTestingDetails = null) {
+  console.log('🔍 DEBUG: processTranscriptWithAI called');
+  console.log('🔍 DEBUG: currentData keys:', Object.keys(currentData || {}));
+  console.log('🔍 DEBUG: currentData.Demographics length:', currentData?.Demographics?.length || 0);
   console.log('Processing transcript with AI for ALL sheets...');
   const sheetNames = Object.keys(currentData);
   console.log('Available sheets:', sheetNames);
@@ -3814,6 +3851,8 @@ async function processTranscriptWithAI(transcriptText, currentData, discussionGu
   });
 
   console.log('Existing respondents sorted by date:', existingRespondents.map(r => ({ id: r.id, date: r.date })));
+  console.log('🔍 DEBUG: existingRespondents.length:', existingRespondents.length);
+  console.log('🔍 DEBUG: newInterviewDate:', newInterviewDate);
 
   // Determine where the new respondent should be inserted based on their date
   let newRespondentPosition = existingRespondents.length; // Default to end
@@ -3824,6 +3863,7 @@ async function processTranscriptWithAI(transcriptText, currentData, discussionGu
   }
 
   console.log('New respondent position based on date:', newRespondentPosition);
+  console.log('🔍 DEBUG: Will re-ordering be triggered?', existingRespondents.length > 0);
 
   // Determine the new respondent's ID
   let newRespondentId;
@@ -3847,6 +3887,9 @@ async function processTranscriptWithAI(transcriptText, currentData, discussionGu
   const idMapping = new Map();
   const allRespondents = [...existingRespondents];
   
+  console.log('🔍 DEBUG: Creating ID mapping for reassignment');
+  console.log('🔍 DEBUG: allRespondents before insertion:', allRespondents.map(r => ({ id: r.id, date: r.date })));
+  
   // Insert new respondent at the correct position
   allRespondents.splice(newRespondentPosition, 0, {
     id: `R${String(newRespondentId).padStart(2, '0')}`,
@@ -3855,6 +3898,8 @@ async function processTranscriptWithAI(transcriptText, currentData, discussionGu
     sheetName: 'Demographics', // Will be updated for all sheets
     row: null // Will be created
   });
+  
+  console.log('🔍 DEBUG: allRespondents after insertion:', allRespondents.map(r => ({ id: r.id, date: r.date })));
 
   // Assign new sequential IDs based on chronological order
   allRespondents.forEach((respondent, index) => {
@@ -3864,6 +3909,7 @@ async function processTranscriptWithAI(transcriptText, currentData, discussionGu
   });
 
   console.log('ID mapping for reassignment:', Array.from(idMapping.entries()));
+  console.log('🔍 DEBUG: All respondents before mapping:', allRespondents.map(r => ({ id: r.id, date: r.date })));
 
   // Build per-sheet columns
   const sheetsColumns = {};
@@ -3934,8 +3980,11 @@ async function processTranscriptWithAI(transcriptText, currentData, discussionGu
       const oldId = row && (row["respno"] ?? row["Respondent ID"]);
       if (oldId && idMapping.has(oldId.toString())) {
         const newId = idMapping.get(oldId.toString());
+        console.log(`🔍 DEBUG: Mapping ${oldId} -> ${newId} in sheet ${sheetName}`);
         if ('Respondent ID' in newRow) newRow['Respondent ID'] = newId;
         if ('respno' in newRow) newRow['respno'] = newId;
+      } else {
+        console.log(`🔍 DEBUG: No mapping found for ${oldId} in sheet ${sheetName}`);
       }
       return newRow;
     });

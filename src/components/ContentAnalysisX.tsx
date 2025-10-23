@@ -28,6 +28,7 @@ interface ContentAnalysisXProps {
   analysisToLoad?: string | null;
   onAnalysisLoaded?: () => void;
   onNavigateToStorytelling?: (analysisId: string, projectId: string) => void;
+  currentProjectId?: string | null;
 }
 
 interface VerbatimQuote {
@@ -267,7 +268,7 @@ function VerbatimQuotesSection({ analysisId, respondentId, columnName, sheetName
   );
 }
 
-export default function ContentAnalysisX({ projects = [], onNavigate, onNavigateToProject, onProjectsChange, analysisToLoad, onAnalysisLoaded, onNavigateToStorytelling }: ContentAnalysisXProps) {
+export default function ContentAnalysisX({ projects = [], onNavigate, onNavigateToProject, onProjectsChange, analysisToLoad, onAnalysisLoaded, onNavigateToStorytelling, currentProjectId }: ContentAnalysisXProps) {
   const { user } = useAuth();
   const [showMyProjectsOnly, setShowMyProjectsOnly] = useState(true);
   const [archivedProjects, setArchivedProjects] = useState<any[]>([]);
@@ -303,6 +304,13 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
   const [editingProject, setEditingProject] = useState(false);
   // Create form state
   const [createFormData, setCreateFormData] = useState({ title: '', projectId: '', discussionGuide: null as File | null });
+
+  // Auto-set project when currentProjectId is provided
+  useEffect(() => {
+    if (currentProjectId && !createFormData.projectId) {
+      setCreateFormData(prev => ({ ...prev, projectId: currentProjectId }));
+    }
+  }, [currentProjectId, createFormData.projectId]);
   const [generatingAnalysis, setGeneratingAnalysis] = useState(false);
   // Discussion guide modal state
   const [showDiscussionGuideModal, setShowDiscussionGuideModal] = useState(false);
@@ -1696,11 +1704,12 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
         console.log('Generate from Project response - originalDocxId:', result.originalDocxId);
 
         // Create a new analysis with the generated data
+        const projectId = createFormData.projectId || currentProjectId;
         const newAnalysis = {
           id: `temp-${Date.now()}`,
           name: createFormData.title,
-          projectId: createFormData.projectId || null,
-          projectName: createFormData.projectId ? projects.find(p => p.id === createFormData.projectId)?.name || 'Unknown Project' : 'No Project',
+          projectId: projectId || null,
+          projectName: projectId ? projects.find(p => p.id === projectId)?.name || 'Unknown Project' : 'No Project',
           data: result.data,
           quotes: {},
           rawGuideText: result.rawGuideText,
@@ -1717,9 +1726,9 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
         setViewMode('viewer');
 
         // Auto-save if project is selected
-        if (createFormData.projectId) {
+        if (projectId) {
           try {
-            const selectedProject = projects.find(p => p.id === createFormData.projectId);
+            const selectedProject = projects.find(p => p.id === projectId);
             console.log('Auto-saving content analysis with originalDocxId:', newAnalysis.originalDocxId);
             const saveResponse = await fetch(`${API_BASE_URL}/api/caX/save`, {
               method: 'POST',
@@ -1728,7 +1737,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
               },
               body: JSON.stringify({
-                projectId: createFormData.projectId,
+                projectId: projectId,
                 name: createFormData.title,
                 description: `Content analysis generated from discussion guide`,
                 data: newAnalysis.data,
@@ -2776,20 +2785,28 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Project <span className="text-red-500">*</span>
                 </label>
-                <select
-                  value={createFormData.projectId}
-                  onChange={(e) => setCreateFormData({ ...createFormData, projectId: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  required
-                >
-                  <option value="">Select a project...</option>
-                  {filteredProjects.map(project => (
-                    <option key={project.id} value={project.id}>{project.name}</option>
-                  ))}
-                </select>
-                <p className="mt-1 text-xs text-gray-500">
-                  {showMyProjectsOnly ? 'Showing only your Qualitative projects' : 'Showing all Qualitative projects'}
-                </p>
+                {currentProjectId ? (
+                  <div className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm bg-gray-50 text-gray-700">
+                    {projects.find(p => p.id === currentProjectId)?.name || 'Selected Project'}
+                  </div>
+                ) : (
+                  <>
+                    <select
+                      value={createFormData.projectId}
+                      onChange={(e) => setCreateFormData({ ...createFormData, projectId: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      required
+                    >
+                      <option value="">Select a project...</option>
+                      {filteredProjects.map(project => (
+                        <option key={project.id} value={project.id}>{project.name}</option>
+                      ))}
+                    </select>
+                    <p className="mt-1 text-xs text-gray-500">
+                      {showMyProjectsOnly ? 'Showing only your Qualitative projects' : 'Showing all Qualitative projects'}
+                    </p>
+                  </>
+                )}
               </div>
 
               <div>
@@ -2828,7 +2845,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
               <div className="flex justify-end pt-4">
                 <button
                   onClick={handleCreateFormSubmit}
-                  disabled={!createFormData.title || !createFormData.discussionGuide || !createFormData.projectId}
+                  disabled={!createFormData.title || !createFormData.discussionGuide || (!createFormData.projectId && !currentProjectId)}
                   className="px-6 py-2 text-sm text-white rounded-lg hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{ backgroundColor: '#D14A2D' }}
                 >

@@ -236,13 +236,20 @@ async function getTranscriptsText(projectId, analysisId = null) {
       const beforeFilter = projectTranscripts.length;
       const transcriptsWithAnalysisId = projectTranscripts.filter(t => t.analysisId === analysisId);
       
-      // If no transcripts have the analysisId, fall back to using all transcripts
-      // This handles the case where transcripts were uploaded before analysisId scoping was implemented
-      if (transcriptsWithAnalysisId.length === 0) {
-        console.log('🔍 No transcripts found with analysisId, using all transcripts as fallback');
-        projectTranscripts = projectTranscripts; // Keep all transcripts
-      } else {
+      // If transcripts have analysisId, filter by it
+      // If no transcripts have analysisId, use all transcripts (legacy behavior)
+      if (transcriptsWithAnalysisId.length > 0) {
         projectTranscripts = transcriptsWithAnalysisId;
+        console.log('🔍 Filtered to transcripts with matching analysisId');
+      } else {
+        // Check if any transcripts have analysisId at all
+        const hasAnyAnalysisId = projectTranscripts.some(t => t.analysisId);
+        if (hasAnyAnalysisId) {
+          console.log('🔍 No transcripts found with analysisId, returning empty result');
+          return '';
+        } else {
+          console.log('🔍 No transcripts have analysisId, using all transcripts (legacy behavior)');
+        }
       }
       
       console.log('🔍 Transcript filtering:', {
@@ -1188,6 +1195,41 @@ router.post('/:projectId/estimate', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error estimating cost:', error);
     res.status(500).json({ error: 'Failed to estimate cost' });
+  }
+});
+
+// POST /api/storytelling/:projectId/find-quotes - Find report-ready quotes for a finding
+router.post('/:projectId/find-quotes', authenticateToken, async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const { finding, transcriptIds, analysisId } = req.body;
+
+    if (!finding || !finding.trim()) {
+      return res.status(400).json({ error: 'Finding is required' });
+    }
+
+    // Get transcripts for this project
+    const transcriptsText = await getTranscriptsText(projectId, analysisId);
+    if (!transcriptsText) {
+      return res.status(404).json({ error: 'No transcripts available for this project' });
+    }
+
+    // Import the quote finding service
+    const storytellingService = await import('../services/storytelling.service.mjs');
+    const { findReportQuotes } = storytellingService.default;
+
+    // Find quotes using hybrid search approach
+    const quotes = await findReportQuotes(finding, transcriptsText, transcriptIds);
+
+    res.json({
+      success: true,
+      quotes: quotes,
+      finding: finding,
+      totalFound: quotes.length
+    });
+  } catch (error) {
+    console.error('Error finding quotes:', error);
+    res.status(500).json({ error: 'Failed to find quotes', message: error.message });
   }
 });
 

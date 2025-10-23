@@ -45,11 +45,13 @@ import {
   HandRaisedIcon,
   FaceSmileIcon,
   FaceFrownIcon,
-  CloudArrowUpIcon
+  CloudArrowUpIcon,
+  MagnifyingGlassIcon,
+  FunnelIcon
 } from '@heroicons/react/24/outline';
 import { API_BASE_URL } from '../config';
 import { useAuth } from '../contexts/AuthContext';
-import { IconTable, IconBook2, IconUsers } from '@tabler/icons-react';
+import { IconTable, IconBook2, IconUsers, IconQuoteFilled, IconCopy } from '@tabler/icons-react';
 
 const BRAND_ORANGE = '#D14A2D';
 const BRAND_BG = '#F7F7F8';
@@ -597,7 +599,7 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
   const [forceListView, setForceListView] = useState<boolean>(false);
   const [contentAnalyses, setContentAnalyses] = useState<any[]>([]);
   const [selectedContentAnalysis, setSelectedContentAnalysis] = useState<any | null>(null);
-  const [activeTab, setActiveTab] = useState<'key-findings' | 'storyboard' | 'report' | 'ask'>('key-findings');
+  const [activeTab, setActiveTab] = useState<'key-findings' | 'storyboard' | 'report' | 'ask' | 'quotes'>('key-findings');
   const [projectTab, setProjectTab] = useState<'active' | 'archived'>('active');
   const [showMyProjectsOnly, setShowMyProjectsOnly] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -670,6 +672,15 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
   const [detailLevel, setDetailLevel] = useState<'straightforward' | 'moderate' | 'max'>('moderate');
   const [currentQuestion, setCurrentQuestion] = useState('');
   const [showOldStoryboards, setShowOldStoryboards] = useState(false);
+  
+  // Quote Finder state
+  const [quoteFinding, setQuoteFinding] = useState('');
+  const [selectedTranscriptIds, setSelectedTranscriptIds] = useState<string[]>([]);
+  const [quoteResults, setQuoteResults] = useState<any[]>([]);
+  const [searchingQuotes, setSearchingQuotes] = useState(false);
+  const [quoteSearchError, setQuoteSearchError] = useState<string | null>(null);
+  const [availableTranscripts, setAvailableTranscripts] = useState<any[]>([]);
+  const [showTranscriptFilter, setShowTranscriptFilter] = useState(false);
   
   // Quotes modal state
   const [showQuotesModal, setShowQuotesModal] = useState(false);
@@ -1138,30 +1149,91 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
   };
 
   const loadProjects = useCallback(async () => {
+    if (!user?.id) return;
+    setLoading(true);
     try {
-      setLoading(true);
-      // Use the storytelling-specific API to get projects with analysisId
-      const response = await fetch(`${API_BASE_URL}/api/storytelling/projects`, {
+      // Load all projects first
+      const projectsResponse = await fetch(`${API_BASE_URL}/api/projects?userId=${user.id}`, {
         headers: getAuthHeaders()
       });
-      if (response.ok) {
-        const data = await response.json();
-        const projectsArray: Project[] = Array.isArray(data.projects) ? data.projects : [];
+      
+      if (projectsResponse.ok) {
+        const projectsData = await projectsResponse.json();
+        const allProjects = projectsData.projects || [];
         
-        // Projects from storytelling API already have analysisId and respondentCount
-        // Just log them for debugging
-        projectsArray.forEach((project: any) => {
-          console.log(`Processing project: ${project.name} (ID: ${project.id}, analysisId: ${project.analysisId})`);
-        });
+        console.log('🔍 All projects loaded:', allProjects.length);
+        console.log('🔍 Project methodologies:', allProjects.map(p => ({ 
+          name: p.name, 
+          methodologyType: p.methodologyType, 
+          methodology: p.methodology 
+        })));
+        
+        // Filter to only qualitative projects using the same logic as isQualitative function
+        const qualProjects = allProjects.filter((project: any) => {
+          const methodology = project?.methodologyType?.toLowerCase();
+          console.log('🔍 Storytelling - Checking project:', project?.name, 'methodology:', methodology);
 
-        // Use projects as-is since they already have all needed data from storytelling API
-        const projectsWithAnalysisCounts = projectsArray;
+          // If no methodology type, assume it's qualitative (for backward compatibility)
+          if (!methodology) {
+            console.log('🔍 Storytelling - No methodology type, assuming qualitative');
+            return true;
+          }
+
+          const isQual = methodology?.includes('qual') ||
+                         methodology?.includes('interview') ||
+                         methodology?.includes('focus group') ||
+                         methodology?.includes('ethnography') ||
+                         methodology?.includes('observation');
+          console.log('🔍 Storytelling - Is qualitative:', isQual);
+          return isQual;
+        });
+        
+        console.log('🔍 Qualitative projects found:', qualProjects.length);
+        console.log('🔍 Qualitative project names:', qualProjects.map(p => p.name));
+        console.log('🔍 Qualitative project IDs:', qualProjects.map(p => ({ name: p.name, id: p.id })));
+        
+        // Load content analysis data for each project to get analysis counts (optional)
+        const projectsWithAnalysisCounts = await Promise.all(
+          qualProjects.map(async (project: any) => {
+            try {
+              console.log(`🔍 Loading analysis data for project: ${project.name} (${project.id})`);
+              const analysisResponse = await fetch(`${API_BASE_URL}/api/caX/saved`, {
+                headers: getAuthHeaders()
+              });
+              if (analysisResponse.ok) {
+                const analysisData = await analysisResponse.json();
+                const allAnalyses = Array.isArray(analysisData) ? analysisData : (analysisData.analyses || []);
+                const projectAnalyses = allAnalyses.filter((analysis: any) => analysis.projectId === project.id);
+                
+                console.log(`🔍 Project ${project.name} (${project.id}): found ${projectAnalyses.length} analyses`);
+                console.log(`🔍 All analyses projectIds:`, allAnalyses.map(a => ({ id: a.id, projectId: a.projectId, name: a.name })));
+                console.log(`🔍 Project analyses:`, projectAnalyses.map(a => ({ id: a.id, projectId: a.projectId, name: a.name })));
+                
+                return {
+                  ...project,
+                  analysisCount: projectAnalyses.length,
+                  hasContentAnalysis: projectAnalyses.length > 0
+                };
+              } else {
+                console.log(`🔍 Failed to load analysis data for ${project.name}: ${analysisResponse.status}`);
+              }
+            } catch (error) {
+              console.error(`Failed to load analysis data for project ${project.id}:`, error);
+            }
+            // Return project even if no content analysis found
+            return {
+              ...project,
+              analysisCount: 0,
+              hasContentAnalysis: false
+            };
+          })
+        );
         
         setProjects(projectsWithAnalysisCounts);
         setAllProjects(projectsWithAnalysisCounts);
-            const map: Record<string, any> = {};
+        const map: Record<string, any> = {};
         projectsWithAnalysisCounts.forEach((p: any) => { if (p?.id) map[p.id] = p; });
-            setProjectMap(map);
+        setProjectMap(map);
       } else {
         console.error('Failed to load projects');
       }
@@ -1172,20 +1244,23 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
     }
   }, [user?.id, getAuthHeaders]);
 
-  // Project filtering logic (same as Transcripts tab)
+  // Project filtering logic (same as Content Analysis tab)
   const isQualitative = (project: any) => {
     const methodology = project?.methodologyType?.toLowerCase();
+    console.log('🔍 Storytelling - Checking project:', project?.name, 'methodology:', methodology);
+    
     // If no methodology type, assume it's qualitative (for backward compatibility)
     if (!methodology) {
+      console.log('🔍 Storytelling - No methodology type, assuming qualitative');
       return true;
     }
     
-    const isQual = methodology?.includes('qualitative') || 
-           methodology?.includes('qual') ||
+    const isQual = methodology?.includes('qual') ||
            methodology?.includes('interview') ||
            methodology?.includes('focus group') ||
            methodology?.includes('ethnography') ||
            methodology?.includes('observation');
+    console.log('🔍 Storytelling - Is qualitative:', isQual);
     return isQual;
   };
 
@@ -1230,10 +1305,6 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
         console.log('🔍 Returning all projects (showMyProjectsOnly=false or no user)');
         return list;
       }
-
-      // TEMPORARY: Always return all projects for debugging
-      console.log('🔍 TEMPORARY: Returning all projects for debugging');
-      return list;
 
       const uid = String((user as any)?.id || '').toLowerCase();
       const uemail = String((user as any)?.email || '').toLowerCase();
@@ -1554,6 +1625,45 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
     setShowNoChangesMessage(false);
     setShowNoChangesMessageStoryboard(false);
   }, [selectedProject, activeTab]);
+
+  // Load available transcripts when Quote Finder tab is accessed
+  useEffect(() => {
+    if (activeTab === 'quotes' && selectedProject && availableTranscripts.length === 0) {
+      const loadTranscripts = async () => {
+        try {
+          console.log('🔍 Loading transcripts for project:', selectedProject.id);
+          const response = await fetch(`${API_BASE_URL}/api/transcripts/${selectedProject.id}`, {
+            headers: getAuthHeaders()
+          });
+          console.log('🔍 Transcript response status:', response.status);
+          if (response.ok) {
+            const data = await response.json();
+            console.log('🔍 Raw transcript data:', data);
+            // Filter transcripts to only show those from the current content analysis
+            // If transcripts don't have analysisId, show all transcripts for this project
+            const filteredTranscripts = data.filter((transcript: any) => {
+              // If transcript has analysisId, match it to current analysis
+              if (transcript.analysisId) {
+                return transcript.analysisId === selectedProject?.analysisId || 
+                       transcript.analysisId === analysisId;
+              }
+              // If no analysisId, include all transcripts (legacy behavior)
+              return true;
+            });
+            console.log('🔍 Filtered transcripts:', filteredTranscripts);
+            setAvailableTranscripts(filteredTranscripts || []);
+          } else {
+            console.error('Failed to load transcripts, status:', response.status);
+            const errorText = await response.text();
+            console.error('Error response:', errorText);
+          }
+        } catch (error) {
+          console.error('Failed to load transcripts:', error);
+        }
+      };
+      loadTranscripts();
+    }
+  }, [activeTab, selectedProject, analysisId]);
 
   const handleSaveQuestions = async () => {
     if (!selectedProject) return;
@@ -2024,6 +2134,64 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
     await handleAnswerClick(mockMessage);
   };
 
+  // Quote Finder handlers
+  const handleFindQuotes = async () => {
+    if (!selectedProject || !quoteFinding.trim()) return;
+
+    setSearchingQuotes(true);
+    setQuoteSearchError(null);
+    setQuoteResults([]);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/storytelling/${selectedProject.id}/find-quotes`, {
+        method: 'POST',
+        headers: {
+          ...getAuthHeaders(),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          finding: quoteFinding,
+          transcriptIds: selectedTranscriptIds.length > 0 ? selectedTranscriptIds : undefined,
+          analysisId: selectedProject?.analysisId || analysisId
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setQuoteResults(data.quotes || []);
+      } else {
+        const errorData = await response.json();
+        setQuoteSearchError(errorData.error || 'Failed to find quotes');
+      }
+    } catch (error) {
+      setQuoteSearchError('Network error while searching for quotes');
+    } finally {
+      setSearchingQuotes(false);
+    }
+  };
+
+  const copyQuoteToClipboard = async (quote: any) => {
+    try {
+      const quoteText = `"${quote.text}"\n- ${quote.respno}`;
+      await navigator.clipboard.writeText(quoteText);
+      
+      // Show a brief success indicator
+      const button = document.querySelector(`[data-quote-index="${quoteResults.indexOf(quote)}"]`);
+      if (button) {
+        const originalContent = button.innerHTML;
+        button.innerHTML = '<svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>';
+        button.classList.add('bg-green-100', 'text-green-700');
+        setTimeout(() => {
+          button.innerHTML = originalContent;
+          button.classList.remove('bg-green-100', 'text-green-700');
+        }, 2000);
+      }
+    } catch (error) {
+      console.error('Failed to copy quote:', error);
+      alert('Failed to copy quote to clipboard');
+    }
+  };
+
   // Project view - show list of content analyses (when no analysis is selected yet)
   if (selectedProject && viewMode === 'project' && !selectedContentAnalysis) {
     return (
@@ -2191,7 +2359,8 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
                   { id: 'key-findings', label: 'Key Findings', icon: SparklesIcon },
                   { id: 'storyboard', label: 'Storyboard', icon: DocumentTextIcon },
                   { id: 'report', label: 'Report Outline', icon: PresentationChartBarIcon },
-                  { id: 'ask', label: 'Q&A', icon: ChatBubbleLeftRightIcon }
+                  { id: 'ask', label: 'Q&A', icon: ChatBubbleLeftRightIcon },
+                  { id: 'quotes', label: 'Quote Finder', icon: MagnifyingGlassIcon }
                 ].map(tab => (
                   <button
                     key={tab.id}
@@ -2626,6 +2795,146 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
               </div>
             </div>
           )}
+
+          {/* Quote Finder Tab */}
+          {activeTab === 'quotes' && (
+            <div className="space-y-4">
+              <div className="bg-white shadow-sm border border-gray-200 rounded-lg p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Find Report-Ready Quotes</h3>
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowTranscriptFilter(!showTranscriptFilter)}
+                      className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-full transition-colors relative"
+                      disabled={searchingQuotes}
+                    >
+                      <FunnelIcon className="h-5 w-5" />
+                      {selectedTranscriptIds.length > 0 && (
+                        <span className="absolute -top-1 -right-1 bg-orange-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                          {selectedTranscriptIds.length}
+                        </span>
+                      )}
+                    </button>
+
+                    {/* Transcript Filter Popup */}
+                    {showTranscriptFilter && (
+                      <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                        <div className="p-3">
+                          <h4 className="text-sm font-semibold text-gray-900 mb-2">Filter Transcripts</h4>
+                          <div className="max-h-64 overflow-y-auto">
+                            {availableTranscripts.length === 0 ? (
+                              <p className="text-xs text-gray-500 italic">Loading transcripts...</p>
+                            ) : (
+                              <div className="space-y-1">
+                                {availableTranscripts.map(transcript => (
+                                  <label key={transcript.id} className="flex items-center space-x-2 text-xs cursor-pointer hover:bg-gray-50 px-2 py-1 rounded">
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedTranscriptIds.includes(transcript.id)}
+                                      onChange={e => {
+                                        if (e.target.checked) {
+                                          setSelectedTranscriptIds([...selectedTranscriptIds, transcript.id]);
+                                        } else {
+                                          setSelectedTranscriptIds(selectedTranscriptIds.filter(id => id !== transcript.id));
+                                        }
+                                      }}
+                                      className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 flex-shrink-0"
+                                      disabled={searchingQuotes}
+                                    />
+                                    <span className="text-gray-700 flex-1 truncate">
+                                      {transcript.respno} - {transcript.originalFilename}
+                                    </span>
+                                  </label>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          <div className="mt-2 pt-2 border-t border-gray-200">
+                            <button
+                              onClick={() => setShowTranscriptFilter(false)}
+                              className="w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                            >
+                              Close
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {/* Finding Input */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Enter your finding or topic to search for supporting quotes
+                    </label>
+                    <div className="flex gap-3">
+                      <textarea
+                        value={quoteFinding}
+                        onChange={e => setQuoteFinding(e.target.value)}
+                        placeholder="Enter your finding or topic (e.g., 'Patients prefer morning appointments')..."
+                        className="flex-1 border border-gray-300 rounded-lg px-4 py-3 text-sm resize-none h-[84px]"
+                        rows={3}
+                        disabled={searchingQuotes}
+                      />
+                      <button
+                        onClick={handleFindQuotes}
+                        disabled={searchingQuotes || !quoteFinding.trim()}
+                        className="px-6 rounded-lg text-white font-medium disabled:opacity-50 flex items-center justify-center gap-2 whitespace-nowrap h-[84px]"
+                        style={{ backgroundColor: BRAND_ORANGE }}
+                      >
+                        {searchingQuotes ? (
+                          <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        ) : (
+                          <div className="relative">
+                            <IconQuoteFilled size={56} style={{ color: 'white' }} />
+                            <IconQuoteFilled size={56} style={{ color: BRAND_ORANGE, opacity: 0.4, position: 'absolute', top: 0, left: 0 }} />
+                          </div>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+
+              {/* Results */}
+              {quoteSearchError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <h4 className="text-sm font-semibold text-red-900 mb-2">Error</h4>
+                  <p className="text-sm text-red-700">{quoteSearchError}</p>
+                </div>
+              )}
+
+              {quoteResults.length > 0 && (
+                <div className="space-y-3">
+                  {quoteResults.map((quote, index) => (
+                    <div key={index} className="bg-white border border-gray-200 rounded-lg p-4">
+                      <div className="flex items-center gap-4">
+                        <div className="flex-1">
+                          <div className="text-gray-800 text-base leading-relaxed mb-2 italic">
+                            "{quote.text}"
+                          </div>
+                          <div className="text-xs font-medium" style={{ color: BRAND_ORANGE }}>
+                            - {quote.respno}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => copyQuoteToClipboard(quote)}
+                          data-quote-index={quoteResults.indexOf(quote)}
+                          className="flex items-center justify-center px-3 bg-white hover:bg-gray-50 rounded-lg border border-gray-300 transition-colors self-stretch"
+                          title="Copy to clipboard"
+                        >
+                          <IconCopy size={20} className="text-gray-600" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
 
@@ -3039,17 +3348,16 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {qualProjects.map(project => {
-                    const hasRespondents = (project.respondentCount || 0) > 0;
+                    const hasContentAnalysis = project.hasContentAnalysis || (project.analysisCount || 0) > 0;
                     return (
                       <tr
                         key={project.id}
                         className={`transition-colors ${
-                          hasRespondents
+                          hasContentAnalysis
                             ? 'hover:bg-gray-50 cursor-pointer'
-                            : 'opacity-50 cursor-not-allowed bg-gray-50'
+                            : 'hover:bg-gray-50 cursor-pointer opacity-75'
                         }`}
                         onClick={async () => {
-                          if (!hasRespondents) return; // Don't allow clicking if no respondents
                           setSelectedProject(project);
                           setViewMode('project');
                           // Load content analyses for this project
@@ -3057,26 +3365,26 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
                         }}
                       >
                         <td className="pl-6 pr-2 py-4 whitespace-nowrap w-0">
-                          <div className={`inline-block text-sm font-medium ${hasRespondents ? 'text-gray-900' : 'text-gray-400'}`}>
+                          <div className={`inline-block text-sm font-medium ${hasContentAnalysis ? 'text-gray-900' : 'text-gray-400'}`}>
                             {project.name}
                           </div>
                         </td>
                         <td className="pl-2 pr-6 py-4 whitespace-nowrap w-32">
-                          <div className={`text-sm truncate ${hasRespondents ? 'text-gray-900' : 'text-gray-400'}`}>
+                          <div className={`text-sm truncate ${hasContentAnalysis ? 'text-gray-900' : 'text-gray-400'}`}>
                             {project.client || '-'}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-center w-24">
-                          <div className={`text-sm ${hasRespondents ? 'text-gray-900' : 'text-gray-400'}`}>
+                          <div className={`text-sm ${hasContentAnalysis ? 'text-gray-900' : 'text-gray-400'}`}>
                             {project.methodologyType || '-'}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-center w-32">
-                          <div className={`flex items-center justify-center gap-1 text-sm ${hasRespondents ? 'text-gray-900' : 'text-gray-400'}`}>
+                          <div className={`flex items-center justify-center gap-1 text-sm ${hasContentAnalysis ? 'text-gray-900' : 'text-gray-400'}`}>
                             <IconBook2 className="h-4 w-4 text-gray-400" />
                             {project.analysisCount || 0}
-                            {!hasRespondents && (
-                              <span className="ml-2 text-xs text-gray-400">(No respondents)</span>
+                            {!hasContentAnalysis && (
+                              <span className="ml-2 text-xs text-gray-400">(No content analysis)</span>
                             )}
                           </div>
                         </td>

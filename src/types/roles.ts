@@ -22,7 +22,7 @@ export type TeamMemberWithRoles = {
 
 export type Assignment = {
   taskId: string;
-  assigneeId: string;
+  assignedTo: string;
   role: string;
 };
 

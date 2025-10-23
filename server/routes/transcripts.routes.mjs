@@ -349,6 +349,20 @@ router.get('/all', authenticateToken, async (req, res) => {
   }
 });
 
+// GET transcripts for a specific project
+router.get('/:projectId', authenticateToken, async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const data = await fs.readFile(TRANSCRIPTS_PATH, 'utf8');
+    const transcripts = JSON.parse(data);
+    const projectTranscripts = transcripts[projectId] || [];
+    res.json(projectTranscripts);
+  } catch (error) {
+    console.error('Error loading project transcripts:', error);
+    res.status(500).json({ error: 'Failed to load project transcripts' });
+  }
+});
+
 // POST upload transcript
 router.post('/upload', authenticateToken, upload.single('transcript'), async (req, res) => {
   try {
@@ -549,6 +563,94 @@ Output ONLY the cleaned transcript. No explanations or notes.`;
     // Save the final transcripts array with correct respnos
     await fs.writeFile(TRANSCRIPTS_PATH, JSON.stringify(transcripts, null, 2));
 
+    // CRITICAL: Update content analysis data to reflect new respno assignments
+    try {
+      console.log('🔄 Updating content analysis data after transcript re-ordering...');
+      const ANALYSES_PATH = path.join(DATA_DIR, 'savedAnalyses.json');
+      const analysesData = await fs.readFile(ANALYSES_PATH, 'utf8');
+      const analyses = JSON.parse(analysesData);
+
+      const projectAnalyses = analyses.filter(analysis => analysis.projectId === projectId);
+      console.log(`🔍 Found ${projectAnalyses.length} analyses for project ${projectId}`);
+
+      for (const analysis of projectAnalyses) {
+        if (analysis.data && analysis.data.Demographics && analysis.data.Demographics.length > 0) {
+          console.log(`🔍 Updating analysis ${analysis.id} with ${analysis.data.Demographics.length} demographics rows`);
+          
+          // Create mapping of transcriptId to new respno from current transcript order
+          const transcriptIdToRespno = new Map();
+          transcripts[projectId].forEach((transcript) => {
+            if (transcript.id && transcript.respno) {
+              transcriptIdToRespno.set(transcript.id, transcript.respno);
+            }
+          });
+          
+          console.log('🔍 TranscriptId to Respno mapping:', Array.from(transcriptIdToRespno.entries()));
+
+          // Update respnos in all demographics rows based on transcriptId
+          const updatedDemographics = analysis.data.Demographics.map((row) => {
+            if (row.transcriptId) {
+              const newRespno = transcriptIdToRespno.get(row.transcriptId);
+              if (newRespno) {
+                return {
+                  ...row,
+                  'Respondent ID': newRespno,
+                  respno: newRespno
+                };
+              }
+            }
+            return row;
+          });
+
+          // Sort demographics by the new respno order
+          updatedDemographics.sort((a, b) => {
+            const respnoA = a['Respondent ID'] || a['respno'];
+            const respnoB = b['Respondent ID'] || b['respno'];
+
+            // Extract numeric part for comparison (e.g., R01 -> 1)
+            const numA = parseInt(String(respnoA).replace('R', ''), 10);
+            const numB = parseInt(String(respnoB).replace('R', ''), 10);
+
+            return numA - numB;
+          });
+
+          // Update the analysis data
+          analysis.data.Demographics = updatedDemographics;
+
+          // Update other sheets to match Demographics respnos and transcriptIds
+          const sheetNames = Object.keys(analysis.data).filter(name => name !== 'Demographics');
+          console.log('🔍 Updating other sheets:', sheetNames);
+
+          for (const sheetName of sheetNames) {
+            const rows = analysis.data[sheetName];
+            if (Array.isArray(rows)) {
+              rows.forEach((row, index) => {
+                if (index < updatedDemographics.length) {
+                  const newRespno = updatedDemographics[index]['Respondent ID'] || updatedDemographics[index]['respno'];
+                  const newTranscriptId = updatedDemographics[index]['transcriptId'];
+
+                  if ('Respondent ID' in row) row['Respondent ID'] = newRespno;
+                  if ('respno' in row) row['respno'] = newRespno;
+                  if (newTranscriptId) row['transcriptId'] = newTranscriptId;
+                }
+              });
+            }
+          }
+
+          console.log(`✅ Updated content analysis ${analysis.id} with new respno assignments`);
+        }
+      }
+
+      // Save the updated analyses
+      if (projectAnalyses.length > 0) {
+        await fs.writeFile(ANALYSES_PATH, JSON.stringify(analyses, null, 2));
+        console.log(`✅ Updated ${projectAnalyses.length} content analyses after transcript re-ordering`);
+      }
+    } catch (error) {
+      console.error('❌ Failed to update content analysis data:', error);
+      // Don't fail the transcript upload if CA update fails
+    }
+
     res.json(finalTranscript);
   } catch (error) {
     console.error('Error uploading transcript:', error);
@@ -641,13 +743,21 @@ router.delete('/:projectId/:transcriptId', authenticateToken, async (req, res) =
           for (const sheetName of Object.keys(analysis.data)) {
             if (Array.isArray(analysis.data[sheetName])) {
               const beforeLength = analysis.data[sheetName].length;
-              analysis.data[sheetName] = analysis.data[sheetName].filter(row => {
+              const filteredRows = analysis.data[sheetName].filter(row => {
                 const rowRespno = row['Respondent ID'] || row['respno'];
                 return rowRespno !== deletedRespno;
               });
+              
+              // CRITICAL: Preserve sheet structure even when no data rows remain
+              // Keep the sheet as an empty array to maintain the sheet structure
+              analysis.data[sheetName] = filteredRows;
+              
               const afterLength = analysis.data[sheetName].length;
               if (beforeLength !== afterLength) {
                 console.log(`  Removed from ${sheetName}: ${beforeLength} → ${afterLength} rows`);
+                if (afterLength === 0) {
+                  console.log(`  ⚠️ Sheet ${sheetName} is now empty but structure preserved`);
+                }
               }
             }
           }
@@ -688,29 +798,84 @@ router.delete('/:projectId/:transcriptId', authenticateToken, async (req, res) =
             return 0;
           });
 
-          // Reassign respnos sequentially to match the transcript order
-          demographics.forEach((row, index) => {
-            const newRespno = `R${String(index + 1).padStart(2, '0')}`;
-            if ('Respondent ID' in row) row['Respondent ID'] = newRespno;
-            if ('respno' in row) row['respno'] = newRespno;
-          });
+          // CRITICAL: Get current transcript order from transcripts.json to match transcriptIds
+          try {
+            console.log('🔍 Starting transcriptId update process...');
+            const transcriptsData = await fs.readFile(TRANSCRIPTS_PATH, 'utf8');
+            const allTranscripts = JSON.parse(transcriptsData);
+            const projectTranscripts = allTranscripts[projectId] || [];
+            
+            console.log('🔍 Project transcripts found:', projectTranscripts.length);
+            console.log('🔍 Project transcripts:', projectTranscripts.map(t => ({ id: t.id, respno: t.respno })));
+            
+            // Create mapping of respno to transcriptId from current transcript order
+            const respnoToTranscriptId = new Map();
+            projectTranscripts.forEach((transcript, index) => {
+              const respno = `R${String(index + 1).padStart(2, '0')}`;
+              respnoToTranscriptId.set(respno, transcript.id);
+            });
+            
+            console.log('🔍 Transcript deletion - respno to transcriptId mapping:', Array.from(respnoToTranscriptId.entries()));
 
-          // Update other sheets to match Demographics respnos
+            // Reassign respnos and transcriptIds sequentially to match the transcript order
+            demographics.forEach((row, index) => {
+              const newRespno = `R${String(index + 1).padStart(2, '0')}`;
+              const newTranscriptId = respnoToTranscriptId.get(newRespno);
+              
+              console.log(`🔍 Updating row ${index}: old transcriptId=${row.transcriptId}, new transcriptId=${newTranscriptId}`);
+              
+              if ('Respondent ID' in row) row['Respondent ID'] = newRespno;
+              if ('respno' in row) row['respno'] = newRespno;
+              if (newTranscriptId) row['transcriptId'] = newTranscriptId;
+            });
+            
+            console.log('🔍 Updated demographics after transcriptId assignment:', demographics.map(r => ({ 
+              transcriptId: r.transcriptId, 
+              respno: r['Respondent ID'] || r.respno 
+            })));
+          } catch (error) {
+            console.error('❌ Error updating transcriptIds during deletion:', error);
+          }
+
+          // Update other sheets to match Demographics respnos and transcriptIds
           const sheetNames = Object.keys(analysis.data).filter(name => name !== 'Demographics');
+          console.log('🔍 Sheet names to update:', sheetNames);
+          console.log('🔍 Demographics length:', demographics.length);
+          
           for (const sheetName of sheetNames) {
             const rows = analysis.data[sheetName];
-            if (Array.isArray(rows)) {
-              rows.forEach((row, index) => {
-                if (index < demographics.length) {
-                  const newRespno = demographics[index]['Respondent ID'] || demographics[index]['respno'];
-                  if ('Respondent ID' in row) row['Respondent ID'] = newRespno;
-                  if ('respno' in row) row['respno'] = newRespno;
-                }
-              });
+            console.log(`🔍 Processing sheet ${sheetName}:`, Array.isArray(rows) ? `Array with ${rows.length} rows` : 'Not an array');
+            
+            if (Array.isArray(rows) && rows.length > 0) {
+              // If demographics is empty, we need to clear all other sheets too
+              if (demographics.length === 0) {
+                console.log(`🔍 Clearing ${sheetName} sheet because demographics is empty`);
+                analysis.data[sheetName] = [];
+              } else {
+                // Update existing rows to match demographics
+                rows.forEach((row, index) => {
+                  console.log(`🔍 Sheet ${sheetName} row ${index}: current respno=${row['Respondent ID'] || row.respno}`);
+                  
+                  if (index < demographics.length) {
+                    const newRespno = demographics[index]['Respondent ID'] || demographics[index]['respno'];
+                    const newTranscriptId = demographics[index]['transcriptId'];
+                    
+                    console.log(`🔍 Updating ${sheetName} row ${index}: old respno=${row['Respondent ID'] || row.respno}, new respno=${newRespno}, newTranscriptId=${newTranscriptId}`);
+                    
+                    if ('Respondent ID' in row) row['Respondent ID'] = newRespno;
+                    if ('respno' in row) row['respno'] = newRespno;
+                    if (newTranscriptId) row['transcriptId'] = newTranscriptId;
+                    
+                    console.log(`🔍 Updated ${sheetName} row ${index}: new respno=${row['Respondent ID'] || row.respno}`);
+                  } else {
+                    console.log(`🔍 Skipping ${sheetName} row ${index}: index ${index} >= demographics.length ${demographics.length}`);
+                  }
+                });
+              }
             }
           }
 
-          console.log(`  Updated respnos in CA to match new transcript order`);
+          console.log(`  Updated respnos and transcriptIds in CA to match new transcript order`);
         }
       }
 

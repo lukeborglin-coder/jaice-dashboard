@@ -10,6 +10,21 @@ import { calculateTaskDueDate, type ProjectTimeline } from '../lib/dateCalculato
 import jaiceRoles from '../data/jaice_roles.json';
 import jaiceTasks from '../data/jaice_tasks.json';
 
+// Import Task type from App.tsx
+type Task = {
+  id: string;
+  description?: string;
+  assignedTo?: string[];
+  status: 'pending' | 'in-progress' | 'completed';
+  dueDate?: string;
+  phase?: string;
+  isOngoing?: boolean;
+  phaseStartDate?: string;
+  notes?: string;
+  dateNotes?: string;
+  role?: string;
+};
+
 const BRAND = { orange: "#D14A2D" };
 
 // Helper function for getting member color (consistent across all contexts)
@@ -718,6 +733,13 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
     localStorage.removeItem('cognitive_dash_project_draft');
   };
 
+  // Reset wizard when opening
+  useEffect(() => {
+    if (isOpen) {
+      resetWizard();
+    }
+  }, [isOpen]);
+
   // Auto-save function
   const autoSave = () => {
     if (saveTimeout) {
@@ -1322,8 +1344,8 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
           { label: "Fielding Start", date: formatDateForKeyDeadline(calculatedTimeline['Fielding']?.start) },
           { label: "Final Report", date: formatDateForKeyDeadline(projectEndDate) }
         ],
-        tasks: (() => {
-          const tasks = formData.usePreloadedTasks ? getDefaultTasks(formData.methodologyType, calculatedTimeline) : [];
+        tasks: await (async () => {
+          const tasks: Task[] = formData.usePreloadedTasks ? getDefaultTasks(formData.methodologyType, calculatedTimeline) : [];
           
           // Debug: Check for duplicate task IDs
           const taskIds = tasks.map(t => t.id);
@@ -1342,13 +1364,13 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
           if (formData.usePreloadedTasks && teamMembers.length > 0) {
             try {
               console.log('Starting auto-assignment with team members:', teamMembers);
-              const assignments = autoAssignByRoles(teamMembers);
+              const assignments = await autoAssignByRoles(tasks, teamMembers);
               console.log('Generated assignments:', assignments);
               
-              // Create a map of taskId to assigneeId for quick lookup
+              // Create a map of taskId to assignedTo for quick lookup
               const assignmentMap = new Map<string, string>();
               assignments.forEach(assignment => {
-                assignmentMap.set(assignment.taskId, assignment.assigneeId);
+                assignmentMap.set(assignment.taskId, assignment.assignedTo);
               });
 
               console.log('Assignment map:', assignmentMap);
@@ -1460,7 +1482,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
     }
   };
 
-  const getDefaultTasks = (methodologyType: string, timeline: any) => {
+  const getDefaultTasks = (methodologyType: string, timeline: any): Task[] => {
     console.log('getDefaultTasks called with methodologyType:', methodologyType);
     if (!methodologyType) {
       console.log('No methodology type, returning empty array');
@@ -1508,13 +1530,14 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
         return {
           id: task.id, // Use the JAICE task ID for role mapping
           description: task.task,
-          assignedTo: [], // Will be set by auto-assignment (array format)
-          status: 'pending',
+          assignedTo: [] as string[], // Will be set by auto-assignment (array format)
+          status: 'pending' as const,
           phase: task.phase,
-          dueDate: dueDate,
+          dueDate: dueDate || undefined,
           isOngoing: isOngoing,
           dateNotes: task.dateNotes,
-          notes: task.notes
+          notes: task.notes,
+          role: task.role // Preserve the role field for auto-assignment
         };
       });
 

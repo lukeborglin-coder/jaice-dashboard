@@ -3076,6 +3076,86 @@ const PHASES = [
 const getPhaseDisplayName = (phase: string) => {
   return phase === 'Post-Field Analysis' ? 'Analysis' : phase;
 };
+
+// Helper function to get project status with special statuses
+const getProjectStatus = (project: Project) => {
+  const today = new Date();
+  
+  // Check if project is before KO date
+  const kickoffDate = project.keyDeadlines?.find(kd => 
+    kd.label.toLowerCase().includes('kickoff') || 
+    kd.label.toLowerCase().includes('ko')
+  )?.date;
+  
+  if (kickoffDate && kickoffDate !== 'Invalid Date') {
+    const koDate = new Date(kickoffDate);
+    if (today < koDate) {
+      return { phase: 'Awaiting KO', color: '#9CA3AF' };
+    }
+  }
+  
+  // Check if project is after final report date
+  const finalReportDate = project.keyDeadlines?.find(kd => 
+    kd.label.toLowerCase().includes('final report') || 
+    kd.label.toLowerCase().includes('report')
+  )?.date;
+  
+  if (finalReportDate && finalReportDate !== 'Invalid Date') {
+    const reportDate = new Date(finalReportDate);
+    if (today > reportDate) {
+      return { phase: 'Complete', color: '#10B981' };
+    }
+  }
+  
+  // Get current phase from project segments or fallback to stored phase
+  const getCurrentPhase = (project: Project): string => {
+    if (!project.segments || project.segments.length === 0) {
+      return project.phase; // Fallback to stored phase
+    }
+
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+
+    // Find which phase today falls into
+    for (const segment of project.segments) {
+      if (todayStr >= segment.startDate && todayStr <= segment.endDate) {
+        return segment.phase;
+      }
+    }
+
+    // If today is before the first phase, return the first phase
+    if (todayStr < project.segments[0].startDate) {
+      return project.segments[0].phase;
+    }
+
+    // If today is after the last phase, return the last phase
+    if (todayStr > project.segments[project.segments.length - 1].endDate) {
+      return project.segments[project.segments.length - 1].phase;
+    }
+
+    return project.phase; // Fallback
+  };
+
+  const currentPhase = getCurrentPhase(project);
+  
+  // Map phases to colors - use the existing PHASE_COLORS constant
+  const phaseColors: { [key: string]: string } = {
+    'Kickoff': PHASE_COLORS.Kickoff,
+    'Pre-Field': PHASE_COLORS['Pre-Field'],
+    'Fielding': PHASE_COLORS.Fielding,
+    'Post-Field Analysis': PHASE_COLORS['Post-Field Analysis'],
+    'Analysis': PHASE_COLORS['Post-Field Analysis'], // Analysis is the same as Post-Field Analysis
+    'Reporting': PHASE_COLORS.Reporting,
+    'Awaiting KO': PHASE_COLORS['Awaiting KO'],
+    'Complete': PHASE_COLORS.Complete
+  };
+  
+  return {
+    phase: currentPhase,
+    color: phaseColors[currentPhase] || '#6B7280'
+  };
+};
+
 type Phase = typeof PHASES[number];
 type ProjectPhase = Phase | "Awaiting KO" | "Complete";
 
@@ -3316,6 +3396,12 @@ const getMemberColor = (memberId: string, teamMembers?: any[]) => {
 export default function App() {
   const { user, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  // Helper function for authentication headers
+  const getAuthHeaders = useCallback(() => {
+    const token = localStorage.getItem('cognitive_dash_token');
+    return token ? { Authorization: `Bearer ${token}` } : { Authorization: '' };
+  }, []);
   const [route, setRoute] = useState("Home");
   const [qualToolsDropdownOpen, setQualToolsDropdownOpen] = useState(true);
   const [quantToolsDropdownOpen, setQuantToolsDropdownOpen] = useState(true);
@@ -3329,6 +3415,15 @@ export default function App() {
   const [isLoadingProjectFile, setIsLoadingProjectFile] = useState(false);
   const [savedContentAnalyses, setSavedContentAnalyses] = useState<any[]>([]);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  const [currentSelectedProject, setCurrentSelectedProject] = useState<Project | null>(null);
+  const [isViewingProjectDetails, setIsViewingProjectDetails] = useState(false);
+
+  // Reset viewing project details state when Project Hub route is loaded
+  useEffect(() => {
+    if (route === "Project Hub") {
+      setIsViewingProjectDetails(false);
+    }
+  }, [route]);
 
   // Admin notification state
   const [adminNotificationCount, setAdminNotificationCount] = useState(0);
@@ -4090,7 +4185,18 @@ export default function App() {
             )}
             {route === "Project Hub" && (
               <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-bold" style={{ color: BRAND.gray }}>Project Hub</h1>
+                {currentSelectedProject && isViewingProjectDetails ? (
+                  <>
+                    <h1 className="text-2xl font-bold" style={{ color: BRAND.gray }}>
+                      {currentSelectedProject.name}
+                    </h1>
+                    <span className="px-3 py-1 rounded-full text-sm font-medium text-white shadow-sm opacity-60" style={{ background: getProjectStatus(currentSelectedProject).color }}>
+                      {getPhaseDisplayName(getProjectStatus(currentSelectedProject).phase)}
+                    </span>
+                  </>
+                ) : (
+                  <h1 className="text-2xl font-bold" style={{ color: BRAND.gray }}>Project Hub</h1>
+                )}
               </div>
             )}
             {route === "Vendor Library" && (
@@ -4355,6 +4461,7 @@ export default function App() {
             setCurrentProjectId(projectId);
             setRoute("Storytelling");
           }}
+          currentProjectId={currentProjectId}
         />
       ) : route === "Transcripts" || route === "transcripts" ? (
         <Transcripts onNavigate={setRoute} setAnalysisToLoad={setAnalysisToLoad} />
@@ -4394,7 +4501,7 @@ export default function App() {
               <>
                 {route === "Home" && <Dashboard projects={projects} loading={loadingProjects} onProjectCreated={handleProjectCreated} onNavigateToProject={handleProjectView} setRoute={setRoute} />}
                 {route === "Feedback" && <Feedback defaultType={(new URLSearchParams(window.location.search).get('type') as any) || 'bug'} />}
-                {route === "Project Hub" && <ProjectHub projects={projects} onProjectCreated={handleProjectCreated} onArchive={handleArchiveProject} setProjects={setProjects} savedContentAnalyses={savedContentAnalyses} setRoute={setRoute} setAnalysisToLoad={setAnalysisToLoad} setIsLoadingProjectFile={setIsLoadingProjectFile} initialProject={projectToNavigate} />}
+                {route === "Project Hub" && <ProjectHub projects={projects} onProjectCreated={handleProjectCreated} onArchive={handleArchiveProject} setProjects={setProjects} savedContentAnalyses={savedContentAnalyses} setRoute={setRoute} setAnalysisToLoad={setAnalysisToLoad} setIsLoadingProjectFile={setIsLoadingProjectFile} initialProject={projectToNavigate} setCurrentSelectedProject={setCurrentSelectedProject} setIsViewingProjectDetails={setIsViewingProjectDetails} />}
               </>
             )}
             {route === "Vendor Library" && <VendorLibrary projects={projects} />}
@@ -5080,7 +5187,7 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
                             }}
                           >
                             <div className="flex-1 min-w-0">
-                              <div className="text-sm font-medium text-gray-900 truncate">
+                              <div className="text-xs font-medium text-gray-900 truncate">
                                 {projectData.project.name}
                               </div>
                               <div className="text-xs text-gray-500 truncate">
@@ -5171,10 +5278,10 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
                                   }
                                 }}
                               >
-                                <div className="text-sm font-medium text-gray-900 truncate">
+                                <div className="text-xs font-medium text-gray-900 truncate">
                                   {task.description}
                                 </div>
-                                <div className="text-xs text-gray-500 truncate mt-1">
+                                <div className="text-[10px] text-gray-500 truncate mt-0.5">
                                   {task.project}
                                 </div>
                               </div>
@@ -5253,10 +5360,10 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
                                   }
                                 }}
                               >
-                                <div className="text-sm font-medium text-gray-900 truncate">
+                                <div className="text-xs font-medium text-gray-900 truncate">
                                   {task.description}
                                 </div>
-                                <div className="text-xs text-gray-500 truncate mt-1">
+                                <div className="text-[10px] text-gray-500 truncate mt-0.5">
                                   {task.project}
                                 </div>
                               </div>
@@ -8055,9 +8162,11 @@ interface ProjectHubProps {
   setAnalysisToLoad?: (analysisId: string | null) => void;
   setIsLoadingProjectFile?: (loading: boolean) => void;
   initialProject?: Project | null;
+  setCurrentSelectedProject?: (project: Project | null) => void;
+  setIsViewingProjectDetails?: (viewing: boolean) => void;
 }
 
-function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedContentAnalyses = [], setRoute, setAnalysisToLoad, setIsLoadingProjectFile, initialProject = null }: ProjectHubProps) {
+function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedContentAnalyses = [], setRoute, setAnalysisToLoad, setIsLoadingProjectFile, initialProject = null, setCurrentSelectedProject, setIsViewingProjectDetails }: ProjectHubProps) {
   const { user } = useAuth();
   
   // Function to get current phase based on today's date
@@ -8112,6 +8221,16 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
       setSelectedProject(cleanedInitialProject);
       setShowDashboard(true);
       setIsTransitioning(false);
+
+      // Update the main App component's current selected project
+      if (setCurrentSelectedProject) {
+        setCurrentSelectedProject(cleanedInitialProject);
+      }
+      
+      // Update the main App component that we're viewing project details
+      if (setIsViewingProjectDetails) {
+        setIsViewingProjectDetails(true);
+      }
 
       // Initialize team members with cleaned project team members (already filtered)
       setLocalTeamMembers(cleanedInitialProject.teamMembers || []);
@@ -8827,7 +8946,7 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
     }
   };
 
-  const handleProjectView = useCallback((project: Project) => {
+  const handleProjectView = useCallback(async (project: Project) => {
     console.log('🔍 handleProjectView called for project:', project.name);
     console.log('📋 Project team members:', project.teamMembers);
 
@@ -8839,6 +8958,11 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
 
     setSelectedProject(cleanedProject);
     setIsTransitioning(true);
+
+    // Update the main App component's current selected project
+    if (setCurrentSelectedProject) {
+      setCurrentSelectedProject(cleanedProject);
+    }
 
     // Initialize team members with project team members + creator
     console.log('🔄 Loading project team members:', project.teamMembers);
@@ -8873,22 +8997,96 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
     console.log('🎯 Final initial team members:', initialTeamMembers);
     setLocalTeamMembers(initialTeamMembers);
     
-    // Trigger task assignment for initial team members after project is fully loaded
-    setTimeout(async () => {
-      console.log('🔄 Triggering initial task assignment for team members');
-      if (selectedProject && selectedProject.tasks && selectedProject.tasks.length > 0) {
-        await reassignTasksByRoles(initialTeamMembers);
+    // Check if automatic task assignment is needed
+    if (cleanedProject.tasks && cleanedProject.tasks.length > 0 && initialTeamMembers.length > 0) {
+      // Check if any tasks are unassigned
+      const hasUnassignedTasks = cleanedProject.tasks.some(task => 
+        !task.assignedTo || task.assignedTo.length === 0
+      );
+      
+      if (hasUnassignedTasks) {
+        console.log('🔄 Project has unassigned tasks, triggering automatic assignment...');
+        try {
+          // Import and use the auto-assignment function
+          const { autoAssignByRoles } = await import('./lib/autoAssignByRoles');
+          
+          // Convert team members to the expected format
+          const teamWithRoles = initialTeamMembers.map(member => ({
+            id: member.id,
+            name: member.name,
+            roles: member.roles || []
+          }));
+
+          console.log('🔄 Automatic task assignment triggered with team:', teamWithRoles);
+
+          // Generate assignments
+          const assignments = await autoAssignByRoles(cleanedProject.tasks || [], teamWithRoles);
+          
+          if (assignments && assignments.length > 0) {
+            // Create a map for quick lookup of assignments by taskId
+            const assignmentMap = new Map<string, string[]>();
+            assignments.forEach(assignment => {
+              if (!assignmentMap.has(assignment.taskId)) {
+                assignmentMap.set(assignment.taskId, []);
+              }
+              assignmentMap.get(assignment.taskId)?.push(assignment.assignedTo);
+            });
+
+            // Update tasks with assignments
+            const updatedTasks = cleanedProject.tasks?.map(task => {
+              return {
+                ...task,
+                assignedTo: assignmentMap.get(task.id) || [] // Assign based on map
+              };
+            }) || [];
+
+            // Update the project with assigned tasks
+            const updatedProject = {
+              ...cleanedProject,
+              tasks: updatedTasks
+            };
+
+            // Save to backend
+            const token = localStorage.getItem('cognitive_dash_token');
+            const authHeaders = token ? { Authorization: `Bearer ${token}` } : { Authorization: '' };
+            const response = await fetch(`${API_BASE_URL}/api/projects/${cleanedProject.id}`, {
+              method: 'PUT',
+              headers: {
+                ...authHeaders,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                userId: user?.id,
+                project: updatedProject
+              })
+            });
+
+            if (response.ok) {
+              console.log('✅ Tasks automatically assigned based on roles');
+              setSelectedProject(updatedProject); // Update local state
+            } else {
+              console.error('Failed to save automatic task assignments');
+            }
+          }
+        } catch (error) {
+          console.error('Error in automatic task assignment:', error);
+        }
       } else {
-        console.log('⚠️ Cannot trigger initial task assignment - project or tasks not ready');
+        console.log('✅ All tasks already assigned, skipping automatic assignment');
       }
-    }, 500);
+    }
 
     // Start transition animation
     setTimeout(() => {
       setShowDashboard(true);
       setIsTransitioning(false);
+      
+      // Update the main App component that we're viewing project details
+      if (setIsViewingProjectDetails) {
+        setIsViewingProjectDetails(true);
+      }
     }, 1500);
-  }, [user]);
+  }, [user, setCurrentSelectedProject, setIsViewingProjectDetails]);
 
   const handleReturnToHub = () => {
     setIsTransitioning(true);
@@ -8898,6 +9096,16 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
       setShowDashboard(false);
       setSelectedProject(null);
       setIsTransitioning(false);
+
+      // Clear the main App component's current selected project
+      if (setCurrentSelectedProject) {
+        setCurrentSelectedProject(null);
+      }
+      
+      // Update the main App component that we're no longer viewing project details
+      if (setIsViewingProjectDetails) {
+        setIsViewingProjectDetails(false);
+      }
     }, 300);
   };
 
@@ -8965,6 +9173,11 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
         // Update the selected project
         setSelectedProject(prev => prev ? { ...prev, teamMembers: updatedTeamMembers } : null);
         
+        // Update the main App component's current selected project
+        if (setCurrentSelectedProject) {
+          setCurrentSelectedProject(prev => prev ? { ...prev, teamMembers: updatedTeamMembers } : null);
+        }
+        
         // Also update localTeamMembers to ensure consistency
         setLocalTeamMembers(updatedTeamMembers);
         console.log('✅ Local state updated successfully');
@@ -9014,6 +9227,11 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
       teamMembers: updatedTeamMembers
     };
     setSelectedProject(updatedProject);
+
+    // Update the main App component's current selected project
+    if (setCurrentSelectedProject) {
+      setCurrentSelectedProject(updatedProject);
+    }
 
     // Save to backend
     await saveTeamMembersToProject(updatedTeamMembers);
@@ -9067,6 +9285,11 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
     };
     setSelectedProject(updatedProject);
 
+    // Update the main App component's current selected project
+    if (setCurrentSelectedProject) {
+      setCurrentSelectedProject(updatedProject);
+    }
+
     // Save team members to backend
     await saveTeamMembersToProject(updatedTeamMembers);
 
@@ -9096,7 +9319,7 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
       console.log('Project tasks sample:', selectedProject.tasks.slice(0, 5).map(t => ({ id: t.id, description: t.description })));
 
       // Get assignments based on roles
-      const assignments = await autoAssignByRoles(teamWithRoles);
+      const assignments = await autoAssignByRoles(selectedProject.tasks || [], teamWithRoles);
       console.log('Generated assignments:', assignments);
       
       // Debug: Show which roles are being processed
@@ -9186,6 +9409,12 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
           // Use setTimeout to prevent rapid state updates
           setTimeout(() => {
             setSelectedProject(updatedProject);
+            
+            // Update the main App component's current selected project
+            if (setCurrentSelectedProject) {
+              setCurrentSelectedProject(updatedProject);
+            }
+            
             if (setProjects) {
               setProjects(prevProjects =>
                 prevProjects.map(p => p.id === selectedProject.id ? updatedProject : p)
@@ -9366,15 +9595,6 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                 </svg>
                 Return to Project Hub
               </button>
-              <div className="h-6 w-px bg-gray-300"></div>
-              <div className="flex items-center gap-3">
-                <h2 className="text-2xl font-bold" style={{ color: "#5D5F62" }}>
-                  {selectedProject.name}
-                </h2>
-                <span className="px-3 py-1 rounded-full text-sm font-medium text-white shadow-sm opacity-60" style={{ background: getProjectStatus(selectedProject).color }}>
-                  {getPhaseDisplayName(getProjectStatus(selectedProject).phase)}
-                </span>
-              </div>
             </div>
 
             {/* Team Members Section */}
@@ -9414,11 +9634,8 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
               {/* Add Team Member Popup Dropdown */}
               {showAddTeamMember && (
                 <>
-                  {/* Backdrop */}
-                  <div className="fixed inset-0 bg-black bg-opacity-50 z-[9998]" onClick={() => setShowAddTeamMember(false)}></div>
-                  
-                  {/* Modal */}
-                  <div className="team-member-dropdown fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg border shadow-xl z-[9999] w-80 max-h-[80vh] overflow-y-auto">
+                  {/* Modal - positioned right below the + button, right-aligned */}
+                  <div className="team-member-dropdown absolute top-full right-0 mt-2 bg-white rounded-lg border shadow-lg z-[9999] w-80 max-h-[80vh] overflow-y-auto">
                   <div className="p-4">
                     <div className="flex items-center justify-between mb-3">
                       <h4 className="text-sm font-semibold text-gray-900">Manage Team Members</h4>
@@ -9555,6 +9772,87 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                         ))}
                       </div>
                     </div>
+
+                    {/* Assign Tasks Button */}
+                    <div className="mt-4 pt-4 border-t border-gray-200">
+                      <button
+                        onClick={async () => {
+                          if (!selectedProject || !localTeamMembers || localTeamMembers.length === 0) {
+                            alert('No team members to assign tasks to');
+                            return;
+                          }
+
+                          try {
+                            // Import and use the auto-assignment function
+                            const { autoAssignByRoles } = await import('./lib/autoAssignByRoles');
+                            
+                            // Convert team members to the expected format
+                            const teamWithRoles = localTeamMembers.map(member => ({
+                              id: member.id,
+                              name: member.name,
+                              roles: member.roles || []
+                            }));
+
+                            console.log('Manual task assignment triggered with team:', teamWithRoles);
+
+                            // Generate assignments
+                            const assignments = await autoAssignByRoles(selectedProject.tasks || [], teamWithRoles);
+                            
+                            if (assignments && assignments.length > 0) {
+                              // Update tasks with assignments
+                              const updatedTasks = selectedProject.tasks?.map(task => {
+                                const taskAssignments = assignments.filter(a => a.taskId === task.id);
+                                return {
+                                  ...task,
+                                  assignedTo: taskAssignments.map(a => a.memberId)
+                                };
+                              }) || [];
+
+                              // Update the project with assigned tasks
+                              const updatedProject = {
+                                ...selectedProject,
+                                tasks: updatedTasks
+                              };
+
+                              // Save to backend
+                              const token = localStorage.getItem('cognitive_dash_token');
+                              const authHeaders = token ? { Authorization: `Bearer ${token}` } : { Authorization: '' };
+                              const response = await fetch(`${API_BASE_URL}/api/projects/${selectedProject.id}`, {
+                                method: 'PUT',
+                                headers: {
+                                  ...authHeaders,
+                                  'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                  userId: user?.id,
+                                  project: updatedProject
+                                })
+                              });
+
+                              if (response.ok) {
+                                console.log('✅ Tasks manually assigned based on roles');
+                                setSelectedProject(updatedProject);
+                                alert(`Successfully assigned ${assignments.length} tasks to team members based on their roles!`);
+                              } else {
+                                console.error('Failed to save task assignments');
+                                alert('Failed to save task assignments');
+                              }
+                            } else {
+                              alert('No tasks were assigned. Make sure team members have roles assigned.');
+                            }
+                          } catch (error) {
+                            console.error('Error assigning tasks:', error);
+                            alert('Error assigning tasks: ' + error.message);
+                          }
+                        }}
+                        className="w-full px-4 py-2 bg-orange-600 text-white text-sm font-medium rounded-lg hover:bg-orange-700 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                        </svg>
+                        Assign tasks based on roles
+                      </button>
+                    </div>
                   </div>
                 </div>
                 </>
@@ -9573,6 +9871,11 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
             setProjects={setProjects}
             onProjectUpdate={(updatedProject) => {
               setSelectedProject(updatedProject);
+              
+              // Update the main App component's current selected project
+              if (setCurrentSelectedProject) {
+                setCurrentSelectedProject(updatedProject);
+              }
             }}
             savedContentAnalyses={savedContentAnalyses}
             setRoute={setRoute}
@@ -11236,6 +11539,12 @@ function ProjectForm({
 function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUpdate, savedContentAnalyses = [], setRoute, setAnalysisToLoad, setIsLoadingProjectFile }: { project: Project; onEdit: () => void; onArchive: (projectId: string) => void; setProjects?: (projects: Project[] | ((prev: Project[]) => Project[])) => void; onProjectUpdate?: (project: Project) => void; savedContentAnalyses?: any[]; setRoute?: (route: string) => void; setAnalysisToLoad?: (analysisId: string | null) => void; setIsLoadingProjectFile?: (loading: boolean) => void }) {
   const { user } = useAuth();
 
+  // Helper function for authentication headers
+  const getAuthHeaders = useCallback(() => {
+    const token = localStorage.getItem('cognitive_dash_token');
+    return token ? { Authorization: `Bearer ${token}` } : { Authorization: '' };
+  }, []);
+
   // Function to get current phase based on today's date
   const getCurrentPhase = (project: Project): string => {
     if (!project.segments || project.segments.length === 0) {
@@ -11499,7 +11808,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
   const [assignmentDropdownPosition, setAssignmentDropdownPosition] = useState<{top: number, left: number} | null>(null);
   const [calendarDropdownPosition, setCalendarDropdownPosition] = useState<{top: number, left: number} | null>(null);
 
-  // Sync projectTasks with project.tasks when it changes (e.g., after role-based assignment)
+  // Sync projectTasks with project.tasks when it changes
   useEffect(() => {
     if (project.tasks) {
       setProjectTasks(project.tasks);
@@ -13512,36 +13821,100 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Main Content Area */}
         <div className="lg:col-span-3 space-y-6">
-          {/* Top Row: Today + Future Tasks (next 2 weeks) + Ongoing Tasks */}
+          {/* Overdue Tasks Box - Only show if there are overdue tasks */}
+          {(() => {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            // Get overdue tasks for this project
+            const overdueTasks = projectTasks.filter(task => {
+              if (!task.dueDate) return false;
+              if (task.status === 'completed') return false;
+              if (task.isOngoing) return false;
+              const taskDueDate = new Date(task.dueDate + 'T00:00:00');
+              taskDueDate.setHours(0, 0, 0, 0);
+              return taskDueDate.getTime() < today.getTime();
+            });
+
+            if (overdueTasks.length === 0) {
+              return null;
+            }
+
+            return (
+              <div className="mb-6">
+                <Card className="!p-0 overflow-hidden rounded-none h-64">
+                  <div className="px-3 py-2 flex items-center gap-2 bg-red-100">
+                    <div className="flex-shrink-0">
+                      <ExclamationTriangleIcon className="w-6 h-6 text-red-500" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-red-700">Overdue Tasks ({overdueTasks.length})</h3>
+                    </div>
+                  </div>
+                  <div className="border-b border-red-200"></div>
+                  
+                  <div className="px-3 pb-3 pt-2 h-52 overflow-hidden relative">
+                    <div className="h-full overflow-y-auto">
+                      <div className="space-y-1">
+                        {overdueTasks.map(task => {
+                          const isAssignedToMe = isAssignedToCurrentUser(task);
+                          const assignedMembers = task.assignedTo && task.assignedTo.length > 0 
+                            ? (() => {
+                                const validMembers = task.assignedTo
+                                  .map(id => project.teamMembers.find(member => member.id === id)?.name)
+                                  .filter(name => name);
+                                return validMembers.length > 0 ? validMembers.join(', ') : 'Not Assigned';
+                              })()
+                            : 'Not Assigned';
+
+                          return (
+                            <div
+                              key={task.id}
+                              className="p-1.5 bg-red-50 border border-red-100 rounded cursor-pointer hover:bg-red-100 transition-colors flex items-center justify-between"
+                            >
+                              <div className="flex-1 min-w-0">
+                                <div className="text-xs font-medium text-red-900 truncate">
+                                  {task.description || task.content || 'Untitled task'}
+                                </div>
+                                <div className="text-[10px] text-red-600 truncate mt-0.5">
+                                  {assignedMembers}
+                                </div>
+                              </div>
+                              <div className="flex-shrink-0 ml-2 text-right">
+                                <div className="text-[10px] text-red-600 font-medium">
+                                  {formatDateForDisplay(task.dueDate)}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white to-transparent pointer-events-none"></div>
+                  </div>
+                </Card>
+              </div>
+            );
+          })()}
+
+          {/* Top Row: Today + Ongoing Tasks + Future Tasks */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Today Box */}
             <Card className="!p-0 overflow-hidden rounded-none h-64">
-          <div className="px-4 py-3 flex items-center gap-2">
-            {/* Calendar tile icon for Today */}
-            <div className="flex-shrink-0 w-10 h-10 bg-white border border-gray-300 rounded-lg overflow-hidden flex flex-col">
-              <div className="h-3 text-white text-[9px] leading-3 flex items-center justify-center font-semibold" style={{ backgroundColor: BRAND.orange }}>
-                {new Date().toLocaleDateString('en-US', { month: 'short' }).toUpperCase()}
-              </div>
-              <div className="flex-1 flex items-center justify-center">
-                <span className="text-sm font-bold text-gray-900">{new Date().getDate()}</span>
-              </div>
-            </div>
-            <div>
-              <h3 className="text-base font-semibold text-gray-900">Today</h3>
-              <p className="text-[10px] text-gray-500">{getPhaseDisplayName(currentPhase)}</p>
-            </div>
+          <div className="px-3 py-2" style={{ backgroundColor: BRAND.orange }}>
+            <h3 className="text-base font-semibold text-red-200 uppercase">Today</h3>
           </div>
           <div className="border-b border-gray-200"></div>
 
           {/* Tasks Due Today - Single List */}
-          <div className="px-4 pb-4 pt-2 h-48 overflow-hidden relative">
+          <div className="px-3 pb-3 pt-2 h-52 overflow-hidden relative">
             <div className="h-full overflow-y-auto">
               {(() => {
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
                 const todayStr = today.toISOString().split('T')[0];
 
-                // Combine all tasks due today and overdue (exclude completed tasks and ongoing tasks)
+                // Get tasks due today only (exclude completed tasks, ongoing tasks, and overdue tasks)
                 const allTasksToday = projectTasks.filter(task => {
                   if (!task.dueDate) return false;
                   if (task.status === 'completed') return false; // Exclude completed tasks
@@ -13549,22 +13922,12 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                   const taskDueDate = new Date(task.dueDate + 'T00:00:00');
                   taskDueDate.setHours(0, 0, 0, 0);
                   const isDueToday = taskDueDate.getTime() === today.getTime();
-                  const isOverdue = taskDueDate.getTime() < today.getTime();
-                  return isDueToday || isOverdue;
+                  return isDueToday; // Only tasks due today, not overdue
                 });
 
-                // Sort with priority: overdue first, then assigned to me, then others
+                // Sort with priority: assigned to me first, then others
                 const sortedTasksToday = allTasksToday.sort((a, b) => {
-                  const aDueDate = new Date(a.dueDate + 'T00:00:00');
-                  const bDueDate = new Date(b.dueDate + 'T00:00:00');
-                  const aIsOverdue = aDueDate.getTime() < today.getTime();
-                  const bIsOverdue = bDueDate.getTime() < today.getTime();
-                  
-                  // Overdue tasks first
-                  if (aIsOverdue && !bIsOverdue) return -1;
-                  if (!aIsOverdue && bIsOverdue) return 1;
-                  
-                  // Then assigned to me
+                  // Assigned to me first
                   const aAssignedToMe = isAssignedToCurrentUser(a);
                   const bAssignedToMe = isAssignedToCurrentUser(b);
                   if (aAssignedToMe && !bAssignedToMe) return -1;
@@ -13600,18 +13963,15 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                         : 'Not Assigned';
 
                       return (
-                        <div key={task.id} className="flex items-start gap-2 text-xs text-gray-800">
-                          <div 
-                            className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0" 
-                            style={{ backgroundColor: BRAND.orange }}
-                          ></div>
-                          <div className="flex-1 min-w-0">
-                            <div className={`${isBold ? 'font-bold' : 'font-normal'} truncate`} style={{ color: isOverdue ? "#DC2626" : "#1F2937" }}>
-                              {task.description || task.content || 'Untitled task'}
-                            </div>
-                            <div className="text-[10px] text-gray-500 truncate">
-                              {assignedMembers}
-                            </div>
+                        <div
+                          key={task.id}
+                          className="p-1.5 bg-gray-50 border border-gray-100 rounded cursor-pointer hover:bg-gray-100 transition-colors"
+                        >
+                          <div className="text-xs font-medium text-gray-900 truncate">
+                            {task.description || task.content || 'Untitled task'}
+                          </div>
+                          <div className="text-[10px] text-gray-500 truncate mt-0.5">
+                            {assignedMembers}
                           </div>
                         </div>
                       );
@@ -13630,21 +13990,97 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
           </div>
         </Card>
 
-            {/* Later This Week Box */}
+            {/* Ongoing Tasks Box */}
             <Card className="!p-0 overflow-hidden rounded-none h-64">
-          <div className="px-4 py-3 flex items-center gap-2">
-            <div className="flex-shrink-0">
-              <IconCalendarShare className="w-10 h-10 text-blue-500" stroke={1.5} />
+          <div className="px-3 py-2" style={{ backgroundColor: '#1E40AF' }}>
+            <h3 className="text-base font-semibold text-blue-200 uppercase">Ongoing</h3>
+          </div>
+          <div className="border-b border-gray-200"></div>
+
+          {/* Ongoing Tasks - Single List */}
+          <div className="px-3 pb-3 pt-2 h-52 overflow-hidden relative">
+            <div className="h-full overflow-y-auto">
+              {(() => {
+                // Get ongoing tasks for the current phase
+                const ongoingTasks = projectTasks.filter(task => {
+                  return task.isOngoing === true && 
+                         task.phase === currentPhase && 
+                         task.status !== 'completed' &&
+                         task.assignedTo && task.assignedTo.length > 0;
+                });
+
+                // Sort with assigned to me first and bolded
+                const sortedOngoingTasks = ongoingTasks.sort((a, b) => {
+                  const aAssignedToMe = isAssignedToCurrentUser(a);
+                  const bAssignedToMe = isAssignedToCurrentUser(b);
+                  if (aAssignedToMe && !bAssignedToMe) return -1;
+                  if (!aAssignedToMe && bAssignedToMe) return 1;
+                  return 0;
+                });
+
+                if (sortedOngoingTasks.length === 0) {
+                  return (
+                    <div className="text-xs italic text-gray-500">
+                      No ongoing tasks assigned
+                    </div>
+                  );
+                }
+
+                // Limit to first 8 tasks to prevent overflow
+                const maxTasks = 8;
+                const tasksToShow = sortedOngoingTasks.slice(0, maxTasks);
+                const remainingCount = sortedOngoingTasks.length - maxTasks;
+
+                return (
+                  <div className="space-y-1">
+                    {tasksToShow.map(task => {
+                      const isAssignedToMe = isAssignedToCurrentUser(task);
+                      const assignedMembers = task.assignedTo && task.assignedTo.length > 0 
+                        ? (() => {
+                            const validMembers = task.assignedTo
+                              .map(id => project.teamMembers.find(member => member.id === id)?.name)
+                              .filter(name => name); // Remove undefined/null values
+                            return validMembers.length > 0 ? validMembers.join(', ') : 'Not Assigned';
+                          })()
+                        : 'Not Assigned';
+
+                      return (
+                        <div
+                          key={task.id}
+                          className="p-1.5 bg-gray-50 border border-gray-100 rounded cursor-pointer hover:bg-gray-100 transition-colors"
+                        >
+                          <div className="text-xs font-medium text-gray-900 truncate">
+                            {task.description || task.content || 'Untitled task'}
+                          </div>
+                          <div className="text-[10px] text-gray-500 truncate mt-0.5">
+                            {assignedMembers}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {remainingCount > 0 && (
+                      <div className="text-[10px] text-gray-500 text-center pt-1">
+                        +{remainingCount} more ongoing task{remainingCount !== 1 ? 's' : ''}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
-            <div>
-              <h3 className="text-base font-semibold text-gray-900">Future Tasks <span className="text-xs font-normal italic text-gray-600">(next 2 weeks)</span></h3>
-              <p className="text-[10px] text-gray-500">{getPhaseDisplayName(currentPhase)}</p>
-            </div>
+            {/* Gradient overlay to indicate more content */}
+            <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white to-transparent pointer-events-none"></div>
+          </div>
+            </Card>
+
+            {/* Future Tasks Box */}
+            <Card className="!p-0 overflow-hidden rounded-none h-64">
+          <div className="px-3 py-2">
+            <h3 className="text-base font-semibold text-gray-900 uppercase">Future Tasks <span className="text-xs font-normal italic text-gray-600">(next 2 weeks)</span></h3>
           </div>
           <div className="border-b border-gray-200"></div>
 
           {/* Future Tasks (next 2 weeks) - Single List */}
-          <div className="px-4 pb-4 pt-2 h-48 overflow-hidden relative">
+          <div className="px-3 pb-3 pt-2 h-52 overflow-hidden relative">
             <div className="h-full overflow-y-auto">
               {(() => {
                 const today = new Date();
@@ -13712,18 +14148,15 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                         : 'Not Assigned';
 
                       return (
-                        <div key={task.id} className="flex items-start gap-2 text-xs text-gray-800">
-                          <div 
-                            className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0" 
-                            style={{ backgroundColor: '#3B82F6' }}
-                          ></div>
-                          <div className="flex-1 min-w-0">
-                            <div className={`${isAssignedToMe ? 'font-bold' : 'font-normal'} truncate`}>
-                              {task.description || task.content || 'Untitled task'}
-                            </div>
-                            <div className="text-[10px] text-gray-500 truncate">
-                              {assignedMembers}
-                            </div>
+                        <div
+                          key={task.id}
+                          className="p-1.5 bg-gray-50 border border-gray-100 rounded cursor-pointer hover:bg-gray-100 transition-colors"
+                        >
+                          <div className="text-xs font-medium text-gray-900 truncate">
+                            {task.description || task.content || 'Untitled task'}
+                          </div>
+                          <div className="text-[10px] text-gray-500 truncate mt-0.5">
+                            {assignedMembers}
                           </div>
                         </div>
                       );
@@ -13741,99 +14174,6 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
             <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white to-transparent pointer-events-none"></div>
           </div>
         </Card>
-
-            {/* Ongoing Tasks Box */}
-            <Card className="!p-0 overflow-hidden rounded-none h-64">
-          <div className="px-4 py-3 flex items-center gap-2">
-            <div className="flex-shrink-0">
-              <svg className="w-10 h-10 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <div>
-              <h3 className="text-base font-semibold text-gray-900">Ongoing Tasks</h3>
-              <p className="text-[10px] text-gray-500">{getPhaseDisplayName(currentPhase)}</p>
-            </div>
-          </div>
-          <div className="border-b border-gray-200"></div>
-
-          {/* Ongoing Tasks - Single List */}
-          <div className="px-4 pb-4 pt-2 h-48 overflow-hidden relative">
-            <div className="h-full overflow-y-auto">
-              {(() => {
-                // Get ongoing tasks for the current phase
-                const ongoingTasks = projectTasks.filter(task => {
-                  return task.isOngoing === true && 
-                         task.phase === currentPhase && 
-                         task.status !== 'completed' &&
-                         task.assignedTo && task.assignedTo.length > 0;
-                });
-
-                // Sort with assigned to me first and bolded
-                const sortedOngoingTasks = ongoingTasks.sort((a, b) => {
-                  const aAssignedToMe = isAssignedToCurrentUser(a);
-                  const bAssignedToMe = isAssignedToCurrentUser(b);
-                  if (aAssignedToMe && !bAssignedToMe) return -1;
-                  if (!aAssignedToMe && bAssignedToMe) return 1;
-                  return 0;
-                });
-
-                if (sortedOngoingTasks.length === 0) {
-                  return (
-                    <div className="text-xs italic text-gray-500">
-                      No ongoing tasks assigned
-                    </div>
-                  );
-                }
-
-                // Limit to first 8 tasks to prevent overflow
-                const maxTasks = 8;
-                const tasksToShow = sortedOngoingTasks.slice(0, maxTasks);
-                const remainingCount = sortedOngoingTasks.length - maxTasks;
-
-                return (
-                  <div className="space-y-1">
-                    {tasksToShow.map(task => {
-                      const isAssignedToMe = isAssignedToCurrentUser(task);
-                      const assignedMembers = task.assignedTo && task.assignedTo.length > 0 
-                        ? (() => {
-                            const validMembers = task.assignedTo
-                              .map(id => project.teamMembers.find(member => member.id === id)?.name)
-                              .filter(name => name); // Remove undefined/null values
-                            return validMembers.length > 0 ? validMembers.join(', ') : 'Not Assigned';
-                          })()
-                        : 'Not Assigned';
-
-                      return (
-                        <div key={task.id} className="flex items-start gap-2 text-xs text-gray-800">
-                          <div 
-                            className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0" 
-                            style={{ backgroundColor: PHASE_COLORS[task.phase] || '#6B7280' }}
-                          ></div>
-                          <div className="flex-1 min-w-0">
-                            <div className={`${isAssignedToMe ? 'font-bold' : 'font-normal'} truncate`}>
-                              {task.description || task.content || 'Untitled task'}
-                            </div>
-                            <div className="text-[10px] text-gray-500 truncate">
-                              {assignedMembers}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                    {remainingCount > 0 && (
-                      <div className="text-[10px] text-gray-500 text-center pt-1">
-                        +{remainingCount} more ongoing task{remainingCount !== 1 ? 's' : ''}
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-            </div>
-            {/* Gradient overlay to indicate more content */}
-            <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white to-transparent pointer-events-none"></div>
-          </div>
-            </Card>
           </div>
 
           {/* Main Content Area */}
@@ -14548,6 +14888,9 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                         // Show loading state
                         setIsLoadingProjectFile?.(true);
                         
+                        // Set the current project ID for context
+                        setCurrentProjectId(project.id);
+                        
                         // Get the first content analysis for this project and navigate directly to it
                         const projectContentAnalyses = savedContentAnalyses.filter(ca => ca.projectId === project.id);
                         if (projectContentAnalyses.length > 0) {
@@ -14674,57 +15017,6 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
         </div>
       </div>
 
-      {/* Archived Notes Section */}
-      {archivedNotes.length > 0 && (
-        <div className="mt-8">
-          <Card>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold">Archived Notes</h3>
-              <button
-                onClick={() => setShowArchivedNotes(!showArchivedNotes)}
-                className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1"
-              >
-                {showArchivedNotes ? 'Hide' : 'Show'} ({archivedNotes.length})
-                <svg className={`h-4 w-4 transition-transform ${showArchivedNotes ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-            </div>
-            
-            {showArchivedNotes && (
-          <div className="space-y-2 max-h-64 overflow-y-auto">
-                {archivedNotes.map((note) => (
-                  <div key={note.id} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg group">
-                    <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium flex-shrink-0" style={{ fontSize: '10px', backgroundColor: getMemberColor(note.createdBy, project.teamMembers) }}>
-                      {getInitials(project.teamMembers.find(m => m.id === note.createdBy)?.name || note.createdBy)}
-                    </div>
-                <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h4 className="text-sm font-medium text-gray-900 truncate">{note.title}</h4>
-                        <span className="text-xs text-gray-500 italic">{formatShortDate(note.createdAt)}</span>
-                </div>
-                      <p className="text-xs text-gray-600 leading-relaxed" dangerouslySetInnerHTML={{ __html: note.body }}></p>
-                      {note.comments && note.comments.length > 0 && (
-                        <div className="mt-2 text-xs text-gray-500">
-                          {note.comments.length} comment{note.comments.length !== 1 ? 's' : ''}
-                        </div>
-                      )}
-                </div>
-                    <button
-                      onClick={() => handleDeleteArchivedNote(note.id)}
-                      className="text-gray-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
-                    >
-                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-              </div>
-            ))}
-              </div>
-            )}
-        </Card>
-      </div>
-      )}
 
 
       {/* Add Key Date Modal */}

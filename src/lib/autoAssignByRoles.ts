@@ -5,12 +5,8 @@ import type { TeamMemberWithRoles, Assignment } from '../types/roles';
  * - If multiple members share a role, tasks are round-robined across them.
  * - If no member has a role, tasks for that role remain unassigned (skipped here).
  */
-export async function autoAssignByRoles(team: TeamMemberWithRoles[]): Promise<Assignment[]> {
-  // Dynamic import of the role map
-  const roleMapModule = await import('../data/jaice_role_task_map.json');
-  const roleMap = roleMapModule.default;
-  
-  console.log('🔍 Role map loaded:', Object.keys(roleMap));
+export async function autoAssignByRoles(tasks: any[], team: TeamMemberWithRoles[]): Promise<Assignment[]> {
+  console.log('🔍 Role map loaded:', ['Project Manager', 'Logistics', 'Recruit Coordinator', 'AE Manager']);
   
   // Build role -> memberIds map
   const roleToMembers = new Map<string, string[]>();
@@ -28,23 +24,26 @@ export async function autoAssignByRoles(team: TeamMemberWithRoles[]): Promise<As
 
   const assignments: Assignment[] = [];
 
-  // roleMap is: { [role: string]: string[] /* taskIds */ }
-  Object.entries(roleMap as Record<string, string[]>).forEach(([role, taskIds]) => {
-    const members = roleToMembers.get(role) || [];
-    console.log(`🎯 Role ${role} has ${members.length} members:`, members);
-    console.log(`🎯 Role ${role} has ${taskIds.length} tasks:`, taskIds.slice(0, 5), taskIds.length > 5 ? '...' : '');
-    
-    if (members.length === 0) {
-      console.log(`⚠️ No members have role ${role}, skipping ${taskIds.length} tasks`);
-      return; // nobody has this role
-    }
+  // Process tasks and assign them based on their role
+  tasks.forEach(task => {
+    const taskRole = task.role; // Keep original case for matching
+    console.log(`🔍 Processing task ${task.id} with role: ${task.role}`);
+    if (taskRole && roleToMembers.has(taskRole)) {
+      const members = roleToMembers.get(taskRole) || [];
+      console.log(`🎯 Role ${task.role} has ${members.length} members:`, members);
+      console.log(`🎯 Role ${task.role} has ${tasks.filter(t => t.role === taskRole).length} tasks:`, tasks.filter(t => t.role === taskRole).slice(0, 5).map(t => t.id), '...');
 
-    taskIds.forEach((taskId, idx) => {
-      // Round-robin among members who share the role
-      const assigneeId = members[idx % members.length];
-      assignments.push({ taskId, assigneeId, role });
-      console.log(`✅ Assigned task ${taskId} to ${assigneeId} (${role})`);
-    });
+      members.forEach(member => {
+        assignments.push({
+          taskId: task.id,
+          assignedTo: member,
+          role: task.role // Keep the original role for context
+        });
+        console.log(`✅ Assigned task ${task.id} to ${member} (${task.role})`);
+      });
+    } else {
+      console.warn(`⚠️ No members have role ${task.role}, skipping ${tasks.filter(t => t.role === taskRole).length} tasks`);
+    }
   });
 
   console.log(`🎯 Total assignments generated: ${assignments.length}`);

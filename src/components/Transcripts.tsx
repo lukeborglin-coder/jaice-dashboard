@@ -140,8 +140,6 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [cleanTranscript, setCleanTranscript] = useState(false);
-  const [addToCA, setAddToCA] = useState(false);
-  const [selectedAnalysisId, setSelectedAnalysisId] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
   const [isLoadingArchived, setIsLoadingArchived] = useState(false);
@@ -356,6 +354,10 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
         const data = await response.json();
         const normalized = normalizeTranscriptMapByProject(data || {});
         setTranscripts(normalized);
+        
+        // Note: Content analysis ordering is now handled on-demand
+        // when transcripts are added to CA or when specifically needed
+        
         return normalized;
       } else {
         console.error('Failed to load transcripts', await response.text());
@@ -443,21 +445,45 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
     // ONLY check analyses that belong to the current project
     const projectAnalyses = savedAnalyses.filter(analysis => analysis.projectId === selectedProject?.id);
 
+    console.log('🔍 isTranscriptInAnalysis called for transcriptId:', transcriptId);
+    console.log('🔍 Project analyses found:', projectAnalyses.length);
+    console.log('🔍 Current project:', selectedProject?.id);
+
     const result = projectAnalyses.some(analysis => {
       // Check if the transcript ID exists in any CA row (not respno, which can change)
       if (analysis.data) {
         let foundInData = false;
-        Object.entries(analysis.data).forEach(([sheetName, sheetData]) => {
-          if (Array.isArray(sheetData)) {
-            // Check by transcript ID first (preferred method)
-            const hasTranscript = sheetData.some((row: any) =>
-              row.transcriptId === transcriptId
-            );
-            if (hasTranscript) {
-              foundInData = true;
-            }
+        
+        // First check Demographics sheet specifically (where transcriptId is stored)
+        if (analysis.data.Demographics && Array.isArray(analysis.data.Demographics)) {
+          console.log('🔍 Checking Demographics sheet for transcriptId:', transcriptId);
+          console.log('🔍 Demographics rows:', analysis.data.Demographics.map((r: any) => ({ transcriptId: r.transcriptId, respno: r['Respondent ID'] })));
+          
+          const hasTranscript = analysis.data.Demographics.some((row: any) =>
+            row.transcriptId === transcriptId
+          );
+          if (hasTranscript) {
+            console.log('✅ Found transcript in Demographics sheet');
+            foundInData = true;
           }
-        });
+        }
+        
+        // If not found in Demographics, check other sheets as fallback
+        if (!foundInData) {
+          Object.entries(analysis.data).forEach(([sheetName, sheetData]) => {
+            if (Array.isArray(sheetData)) {
+              // Check by transcript ID first (preferred method)
+              const hasTranscript = sheetData.some((row: any) =>
+                row.transcriptId === transcriptId
+              );
+              if (hasTranscript) {
+                console.log(`✅ Found transcript in ${sheetName} sheet`);
+                foundInData = true;
+              }
+            }
+          });
+        }
+        
         if (foundInData) {
           return true;
         }
@@ -467,6 +493,7 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
       return false;
     });
 
+    console.log('🔍 isTranscriptInAnalysis result:', result);
     return result;
   };
 
@@ -500,23 +527,30 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
     [savedAnalyses, selectedProject?.id]
   );
 
-  const canAddTranscriptToCA = analysesForSelectedProject.length > 0;
 
   const handleAddToCA = async (transcript: Transcript) => {
     if (!selectedProject) return;
 
     setIsAddingToCA(true);
     try {
+      console.log('🔍 handleAddToCA called');
+      console.log('🔍 selectedProject.id:', selectedProject.id);
+      console.log('🔍 transcript.id:', transcript.id);
+      console.log('🔍 savedAnalyses:', savedAnalyses.map(a => ({ id: a.id, projectId: a.projectId, name: a.name })));
+
       // Find the analysis for this project
       const analysis = savedAnalyses.find(a => a.projectId === selectedProject.id);
 
       if (!analysis) {
+        console.log('❌ No analysis found for project:', selectedProject.id);
         alert('No Content Analysis found for this project. Please create one first.');
         setIsAddingToCA(false);
         setShowAddToCAModal(false);
         setSelectedTranscriptForCA(null);
         return;
       }
+
+      console.log('✅ Found analysis:', { id: analysis.id, projectId: analysis.projectId, name: analysis.name });
 
       const response = await fetch(
         `${API_BASE_URL}/api/caX/process-transcript`,
@@ -540,7 +574,9 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
       );
 
       if (response.ok) {
+        // Refresh the saved analyses to get the updated data
         await loadSavedAnalyses();
+        
         setShowAddToCAModal(false);
         setSelectedTranscriptForCA(null);
       } else {
@@ -654,12 +690,6 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
     }
   }, [allVisibleProjects, selectedProject?.id]);
 
-  useEffect(() => {
-    if (!canAddTranscriptToCA && addToCA) {
-      setAddToCA(false);
-      setSelectedAnalysisId('');
-    }
-  }, [canAddTranscriptToCA, addToCA]);
 
   const handleFileSelect = async (file: File | null) => {
     console.log('handleFileSelect called with file:', file?.name);
@@ -731,10 +761,6 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
       return;
     }
 
-    if (addToCA && !selectedAnalysisId) {
-      alert('Please select a Content Analysis to add the transcript to');
-      return;
-    }
 
     setIsProcessing(true);
 
@@ -755,46 +781,10 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
         const normalized = await loadTranscripts();
         await loadSavedAnalyses(normalized || undefined);
 
-        // If "Add to CA" is checked, add the transcript to the selected analysis
-        if (addToCA && selectedAnalysisId) {
-          const analysis = savedAnalyses.find(a => a.id === selectedAnalysisId);
-          if (analysis) {
-            const caResponse = await fetch(
-              `${API_BASE_URL}/api/caX/process-transcript`,
-              {
-                method: 'POST',
-                headers: {
-                  ...getAuthHeaders(),
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                  projectId: selectedProject.id,
-                  transcriptId: uploadedTranscript.id,
-                  analysisId: analysis.id,
-                  activeSheet: analysis.activeSheet || 'Demographics',
-                  currentData: JSON.stringify(analysis.data || {}),
-                  discussionGuide: analysis.rawGuideText || '',
-                  guideMap: analysis.guideMap || {},
-                  preferCleanedTranscript: cleanTranscript
-                })
-              }
-            );
-
-            if (!caResponse.ok) {
-              const error = await caResponse.json();
-              alert(`Transcript uploaded but failed to add to CA: ${error.error || 'Unknown error'}`);
-            } else {
-              // Refresh saved analyses to update the checkbox state
-              await loadSavedAnalyses();
-            }
-          }
-        }
 
         setShowUploadModal(false);
         setUploadFile(null);
         setCleanTranscript(false);
-        setAddToCA(false);
-        setSelectedAnalysisId('');
       } else {
         const error = await response.json();
         alert(`Failed to upload transcript: ${error.error || 'Unknown error'}`);
@@ -986,14 +976,19 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
 
   const updateContentAnalysisOrdering = async (projectId: string, sortedTranscripts: Transcript[]) => {
     try {
-      console.log('🔄 updateContentAnalysisOrdering called');
+      console.log('🔄 updateContentAnalysisOrdering called for project:', projectId);
       console.log('Sorted transcripts:', sortedTranscripts.map(t => ({ id: t.id, respno: t.respno, date: t.interviewDate })));
 
-      // Update all saved analyses for this project
-      for (const analysis of savedAnalyses) {
-        if (analysis.projectId === projectId && analysis.data?.Demographics) {
+      // CRITICAL: Only update analyses that belong to the specified project
+      const projectAnalyses = savedAnalyses.filter(analysis => analysis.projectId === projectId);
+      console.log('🔍 Project analyses found:', projectAnalyses.length);
+      console.log('🔍 Project analyses:', projectAnalyses.map(a => ({ id: a.id, projectId: a.projectId, name: a.name })));
+
+      // Update only the analyses for this specific project
+      for (const analysis of projectAnalyses) {
+        if (analysis.data?.Demographics && analysis.data.Demographics.length > 0) {
           const demographics = analysis.data.Demographics;
-          console.log('Current demographics:', demographics.map((r: any) => ({ transcriptId: r.transcriptId, respno: r['Respondent ID'], date: r['Interview Date'] })));
+          console.log('Current demographics before update:', demographics.map((r: any) => ({ transcriptId: r.transcriptId, respno: r['Respondent ID'], date: r['Interview Date'] })));
 
           // Create a map of transcriptId to new respno
           const transcriptIdToRespno = new Map();
@@ -1038,8 +1033,8 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
             }
           };
 
-          // Save the updated analysis
-          await fetch(`${API_BASE_URL}/api/caX/saved/${analysis.id}`, {
+          // Save the updated analysis using the correct endpoint
+          const response = await fetch(`${API_BASE_URL}/api/caX/update`, {
             method: 'PUT',
             headers: {
               ...getAuthHeaders(),
@@ -1047,6 +1042,13 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
             },
             body: JSON.stringify(updatedAnalysis)
           });
+          
+          if (response.ok) {
+            console.log('✅ Successfully updated content analysis ordering for analysis:', analysis.id);
+            console.log('Updated demographics after reordering:', updatedDemographics.map((r: any) => ({ transcriptId: r.transcriptId, respno: r['Respondent ID'], date: r['Interview Date'] })));
+          } else {
+            console.error('❌ Failed to update content analysis ordering:', await response.text());
+          }
         }
       }
     } catch (error) {
@@ -1341,24 +1343,13 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                     ></div>
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900">
-                        {cleanTranscript && addToCA
-                          ? 'Cleaning Transcript and Updating Content Analysis'
-                          : cleanTranscript
+                        {cleanTranscript
                           ? 'Cleaning Transcript'
                           : 'Uploading Transcript'}
                       </h3>
                       <p className="mt-1 text-sm text-gray-500">
-                        {cleanTranscript && addToCA
-                          ? 'This may take a few minutes. Please keep this page open.'
-                          : 'This may take a moment...'}
+                        This may take a moment...
                       </p>
-                      {cleanTranscript && addToCA && (
-                        <div className="flex items-center justify-center space-x-2 mt-2">
-                          <div className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: '#D14A2D' }}></div>
-                          <div className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: '#D14A2D', animationDelay: '0.1s' }}></div>
-                          <div className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: '#D14A2D', animationDelay: '0.2s' }}></div>
-                        </div>
-                      )}
                     </div>
                   </div>
                 ) : (
@@ -1444,62 +1435,6 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                           )}
                         </div>
 
-                        {/* Add to CA Option */}
-                        <div>
-                          <label
-                            className={`flex items-center gap-2 text-sm ${
-                              canAddTranscriptToCA ? 'text-gray-700' : 'text-gray-400'
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={addToCA}
-                              onChange={e => {
-                                setAddToCA(e.target.checked);
-                                if (!e.target.checked) {
-                                  setSelectedAnalysisId('');
-                                }
-                              }}
-                              disabled={!canAddTranscriptToCA}
-                              className={`h-4 w-4 rounded border-gray-300 ${
-                                !canAddTranscriptToCA ? 'cursor-not-allowed opacity-40' : ''
-                              }`}
-                              style={{ accentColor: BRAND_ORANGE }}
-                            />
-                            Add to Content Analysis
-                          </label>
-                          {!canAddTranscriptToCA && selectedProject && (
-                            <p className="mt-2 text-xs text-gray-500">
-                              No Content Analysis Found For {selectedProject.name}. Please visit the Content Analysis page to generate one.
-                            </p>
-                          )}
-                          {addToCA && canAddTranscriptToCA && (
-                            <div className="mt-3 space-y-2">
-                              <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">
-                                  Select Content Analysis
-                                </label>
-                                <select
-                                  value={selectedAnalysisId}
-                                  onChange={e => setSelectedAnalysisId(e.target.value)}
-                                  className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
-                                >
-                                  <option value="">Select an analysis...</option>
-                                  {analysesForSelectedProject.map(analysis => (
-                                    <option key={analysis.id} value={analysis.id}>
-                                      {analysis.name}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-                              {uploadFile && (
-                                <p className="text-xs text-red-600 font-medium">
-                                  Estimated cost: {estimateCleaningCost(uploadFile.size)}
-                                </p>
-                              )}
-                            </div>
-                          )}
-                        </div>
                       </>
                     )}
                   </div>
@@ -1509,17 +1444,6 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
               {!isProcessing && (
                 <div className="flex items-center justify-between border-t border-gray-200 px-6 py-4">
                   <div>
-                    {cleanTranscript && addToCA && uploadFile && (
-                      <p className="text-sm font-semibold text-red-600">
-                        Total estimated cost: {(() => {
-                          const cleanCost = uploadFile.size * 0.4 * (2.50 + 10.00 * 0.9) / 1_000_000;
-                          const caCost = uploadFile.size * 0.4 * (2.50 + 10.00 * 0.9) / 1_000_000;
-                          const total = cleanCost + caCost;
-                          const roundedTotal = Math.floor(total * 100) / 100;
-                          return `$${roundedTotal.toFixed(2)}`;
-                        })()}
-                      </p>
-                    )}
                   </div>
                   <div className="flex gap-3">
                     <button

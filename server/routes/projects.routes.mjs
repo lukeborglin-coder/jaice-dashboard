@@ -80,6 +80,9 @@ router.post('/', (req, res) => {
       return res.status(400).json({ error: 'User ID and project data are required' });
     }
     
+    console.log('🔍 [POST] Creating new project:', project.id);
+    console.log('🔍 [POST] Project team members:', JSON.stringify(project.teamMembers, null, 2));
+    
     const projectsData = readProjectsData();
     
     // Initialize user's projects array if it doesn't exist
@@ -89,6 +92,9 @@ router.post('/', (req, res) => {
     
     // Add the new project
     projectsData[userId].push(project);
+    
+    // Note: Task assignment is handled by the frontend before sending the project to the backend
+    // The frontend already assigns tasks based on team member roles using autoAssignByRoles.ts
     
     // Save to file
     if (writeProjectsData(projectsData)) {
@@ -133,6 +139,14 @@ router.put('/:projectId', (req, res) => {
 
     projectsData[userId][projectIndex] = project;
     console.log('🔍 [PUT] Project updated in memory, team members:', JSON.stringify(projectsData[userId][projectIndex].teamMembers, null, 2));
+
+    // Debug: Check what we have
+    console.log('🔍 [PUT] Debug - project.teamMembers:', project.teamMembers);
+    console.log('🔍 [PUT] Debug - project.teamMembers length:', project.teamMembers?.length);
+    console.log('🔍 [PUT] Debug - project.tasks:', project.tasks?.length || 'no tasks');
+
+    // Note: Automatic task assignment is handled by the frontend during project creation
+    // The frontend already handles role-based task assignment correctly
 
     // Save to file
     if (writeProjectsData(projectsData)) {
@@ -579,6 +593,44 @@ function getPreviousBusinessDay(date) {
   return prevDay;
 }
 
+// Helper function to assign tasks to team members based on their roles
+function assignTasksToTeamMembers(tasks, teamMembers) {
+  console.log('🔍 Assigning tasks to team members:', {
+    taskCount: tasks.length,
+    teamMemberCount: teamMembers.length,
+    teamMembers: teamMembers.map(m => ({ name: m.name, role: m.role }))
+  });
+
+  return tasks.map(task => {
+    // Skip tasks with empty or undefined roles
+    if (!task.role || task.role.trim() === '') {
+      console.log(`🔍 Task "${task.description}" has no role, skipping assignment`);
+      return {
+        ...task,
+        assignedTo: []
+      };
+    }
+
+    // Find team members with matching roles
+    const matchingMembers = teamMembers.filter(member => 
+      member.role && member.role.toLowerCase() === task.role.toLowerCase()
+    );
+
+    console.log(`🔍 Task "${task.description}" (role: ${task.role}):`, {
+      matchingMembers: matchingMembers.length,
+      members: matchingMembers.map(m => m.name)
+    });
+
+    // Assign to matching team members
+    const assignedTo = matchingMembers.map(member => member.id || member.name);
+
+    return {
+      ...task,
+      assignedTo: assignedTo
+    };
+  });
+}
+
 // Reset project tasks endpoint
 router.post('/:projectId/reset-tasks', (req, res) => {
   console.log('🔄 Reset tasks endpoint hit!', req.params, req.body);
@@ -680,15 +732,19 @@ router.post('/:projectId/reset-tasks', (req, res) => {
       };
     });
 
-    // Update the project with new tasks
-    project.tasks = newTasks;
+    // Assign tasks to team members based on their roles
+    const assignedTasks = assignTasksToTeamMembers(newTasks, project.teamMembers || []);
+    console.log(`Assigned ${assignedTasks.length} tasks to team members based on roles`);
+
+    // Update the project with assigned tasks
+    project.tasks = assignedTasks;
     projectsData[userKey][projectIndex] = project;
 
     if (writeProjectsData(projectsData)) {
-      console.log(`Successfully reset ${newTasks.length} tasks for project: ${project.name}`);
+      console.log(`Successfully reset ${assignedTasks.length} tasks for project: ${project.name}`);
       return res.json({ 
         message: 'Project tasks reset successfully',
-        taskCount: newTasks.length,
+        taskCount: assignedTasks.length,
         projectType: isQualitativeProject ? 'qualitative' : 'quantitative'
       });
     } else {
