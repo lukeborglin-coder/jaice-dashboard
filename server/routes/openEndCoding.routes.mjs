@@ -3,7 +3,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import * as XLSX from 'xlsx';
+import XLSX from 'xlsx';
 import OpenAI from 'openai';
 import { authenticateToken, requireCognitiveOrAdmin } from '../middleware/auth.middleware.mjs';
 import { logCost, COST_CATEGORIES } from '../services/costTracking.service.mjs';
@@ -95,23 +95,35 @@ async function generateThemesForQuestion(question, responses, userId) {
 Here are the responses (${validResponses.length} total, showing ${sampledResponses.length}):
 ${sampledResponses.map((r, i) => `${i + 1}. ${r}`).join('\n')}
 
-Please analyze these responses and create a comprehensive set of themes/buckets that capture the main ideas expressed. Each response may fit into multiple themes.
+IMPORTANT: First, carefully read the question to understand what is being asked:
+
+1. If the question asks for SPECIFIC ITEMS (e.g., "Which medicines...", "What brands...", "Which products...", "What companies...", etc.):
+   - Create themes based on the ACTUAL SPECIFIC ITEMS mentioned in responses (e.g., "Evrysdi", "Zolgensma", "Spinraza")
+   - Use the most common/correct spelling for each item as the theme name
+   - Group misspellings and variations together (e.g., "Eversdi", "Evrysdy", "Evrysdi" should all be one theme: "Evrysdi")
+   - DO NOT use abstract categories like "Common treatments" or "Gene therapy" - use the specific item names
+
+2. If the question asks for OPINIONS, EXPERIENCES, or OPEN-ENDED THOUGHTS:
+   - Create thematic categories that capture the main ideas (e.g., "High Cost", "Quality Concerns", "Positive Experience")
+   - Group similar sentiments and concepts together
 
 Requirements:
-1. Create between 5-15 themes that cover the major patterns in the data
-2. Each theme should have a clear, descriptive name (e.g., "High Cost", "Quality Concerns", "Positive Experience")
-3. Themes should be mutually exclusive in concept but responses can be coded to multiple themes
-4. Return the themes as a JSON array of objects with format: [{"code": 1, "theme": "Theme Name", "description": "Brief description"}]
+- Create between 5-15 themes that cover the major patterns in the data
+- Each theme should have a clear, descriptive name
+- For categorical questions: use specific item names (with correct spelling)
+- For thematic questions: use conceptual categories
+- Responses can be coded to multiple themes if they mention multiple items/concepts
+- Return the themes as a JSON array of objects with format: [{"code": 1, "theme": "Theme Name", "description": "Brief description"}]
 
 Return ONLY valid JSON, no other text.`;
 
   const completion = await openai.chat.completions.create({
     model: 'gpt-4o',
     messages: [
-      { role: 'system', content: 'You are an expert qualitative researcher who creates coding schemes for open-ended survey data. Always respond with valid JSON only.' },
+      { role: 'system', content: 'You are an expert qualitative researcher who creates coding schemes for open-ended survey data. When the question asks for specific items (medicines, brands, products, etc.), identify and group those specific items, handling misspellings. When the question asks for opinions or experiences, create thematic categories. Always respond with valid JSON only.' },
       { role: 'user', content: prompt }
     ],
-    temperature: 0.3,
+    temperature: 0.2,
   });
 
   const content = completion.choices[0].message.content;

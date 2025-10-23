@@ -1064,7 +1064,7 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
         className="flex-1 overflow-y-auto"
         style={{ backgroundColor: BRAND_BG, height: 'calc(100vh - 80px)', marginTop: '80px' }}
       >
-        <div className="flex-1 p-6 space-y-6 max-w-full overflow-hidden h-full">
+        <div className="flex-1 p-6 space-y-6 max-w-full">
           <section className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <button
@@ -1627,7 +1627,7 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
       className="flex-1 overflow-y-auto"
       style={{ backgroundColor: BRAND_BG, height: 'calc(100vh - 80px)', marginTop: '80px' }}
     >
-      <div className="flex-1 p-6 space-y-6 max-w-full overflow-hidden h-full">
+      <div className="flex-1 p-6 space-y-6 max-w-full">
         {/* Tabs */}
         <div className="border-b border-gray-200">
           <div className="flex items-center justify-between">
