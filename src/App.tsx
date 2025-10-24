@@ -3444,6 +3444,9 @@ export default function App() {
       if (!target.closest('[data-profile-dropdown]')) {
         setShowProfileDropdown(false);
       }
+      if (!target.closest('.add-role-button') && !target.closest('.role-dropdown')) {
+        setShowAddRoleDropdown(null);
+      }
     }
 
     document.addEventListener('mousedown', handleClickOutside);
@@ -9460,28 +9463,18 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
 
         // Get current assignments for this task
         const currentAssignments = task.assignedTo || [];
+        let newAssignments = [...currentAssignments]; // Start with current assignments
         
         // If the changed member was removed from the role, remove them from assignments
-        let newAssignments = currentAssignments;
         if (!hasRole) {
           newAssignments = currentAssignments.filter(assignment => assignment !== memberId);
           console.log(`🗑️ Removed ${changedMember.name} from task ${task.id} assignments`);
-        }
-
-        // If the changed member was added to the role, add them to assignments
-        if (hasRole && !currentAssignments.includes(memberId)) {
-          newAssignments = [...currentAssignments, memberId];
-          console.log(`➕ Added ${changedMember.name} to task ${task.id} assignments`);
-        }
-
-        // Round-robin assignment if multiple members have the role
-        if (membersWithRole.length > 1) {
-          // For now, assign to all members with the role
-          // You could implement round-robin logic here if needed
-          newAssignments = membersWithRole.map(m => m.id);
-        } else if (membersWithRole.length === 1) {
-          // Single member has the role
-          newAssignments = [membersWithRole[0].id];
+        } else {
+          // If the changed member was added to the role, add them to assignments
+          if (!currentAssignments.includes(memberId)) {
+            newAssignments = [...currentAssignments, memberId];
+            console.log(`➕ Added ${changedMember.name} to task ${task.id} assignments`);
+          }
         }
 
         console.log(`✅ Task ${task.id} assigned to:`, newAssignments);
@@ -9976,18 +9969,7 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                                   
                                   {/* Role Dropdown */}
                                   {showAddRoleDropdown === member.id && (
-                                    <>
-                                      {/* Backdrop for role dropdown */}
-                                      <div className="fixed inset-0 bg-black bg-opacity-25 z-[9999]" onClick={() => setShowAddRoleDropdown(null)}></div>
-                                      
-                                      {/* Role dropdown modal */}
-                                      <div className="role-dropdown fixed bg-white border border-gray-300 rounded-lg shadow-xl z-[10000] min-w-[180px] max-h-[200px] overflow-y-auto" 
-                                           style={{
-                                             top: '50%',
-                                             left: '50%',
-                                             transform: 'translate(-50%, -50%)',
-                                             maxWidth: '300px'
-                                           }}>
+                                    <div className="role-dropdown absolute top-full left-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-xl z-[10001] min-w-[180px] max-h-[200px] overflow-y-auto">
                                       {['Project Manager', 'Logistics', 'Recruit Coordinator', 'AE Manager']
                                         .filter(role => !(member.roles || []).includes(role))
                                         .map(role => (
@@ -10007,7 +9989,6 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                                         <div className="px-3 py-2 text-xs text-gray-500">All roles assigned</div>
                                       )}
                                     </div>
-                                    </>
                                   )}
                                 </div>
                                 
@@ -10021,86 +10002,6 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                       </div>
                     </div>
 
-                    {/* Assign Tasks Button */}
-                    <div className="mt-4 pt-4 border-t border-gray-200">
-                      <button
-                        onClick={async () => {
-                          if (!selectedProject || !localTeamMembers || localTeamMembers.length === 0) {
-                            alert('No team members to assign tasks to');
-                            return;
-                          }
-
-                          try {
-                            // Import and use the auto-assignment function
-                            const { autoAssignByRoles } = await import('./lib/autoAssignByRoles');
-                            
-                            // Convert team members to the expected format
-                            const teamWithRoles = localTeamMembers.map(member => ({
-                              id: member.id,
-                              name: member.name,
-                              roles: member.roles || []
-                            }));
-
-                            console.log('Manual task assignment triggered with team:', teamWithRoles);
-
-                            // Generate assignments
-                            const assignments = await autoAssignByRoles(selectedProject.tasks || [], teamWithRoles);
-                            
-                            if (assignments && assignments.length > 0) {
-                              // Update tasks with assignments
-                              const updatedTasks = selectedProject.tasks?.map(task => {
-                                const taskAssignments = assignments.filter(a => a.taskId === task.id);
-                                return {
-                                  ...task,
-                                  assignedTo: taskAssignments.map(a => a.memberId)
-                                };
-                              }) || [];
-
-                              // Update the project with assigned tasks
-                              const updatedProject = {
-                                ...selectedProject,
-                                tasks: updatedTasks
-                              };
-
-                              // Save to backend
-                              const token = localStorage.getItem('cognitive_dash_token');
-                              const authHeaders = token ? { Authorization: `Bearer ${token}` } : { Authorization: '' };
-                              const response = await fetch(`${API_BASE_URL}/api/projects/${selectedProject.id}`, {
-                                method: 'PUT',
-                                headers: {
-                                  ...authHeaders,
-                                  'Content-Type': 'application/json'
-                                },
-                                body: JSON.stringify({
-                                  userId: user?.id,
-                                  project: updatedProject
-                                })
-                              });
-
-                              if (response.ok) {
-                                console.log('✅ Tasks manually assigned based on roles');
-                                setSelectedProject(updatedProject);
-                                alert(`Successfully assigned ${assignments.length} tasks to team members based on their roles!`);
-                              } else {
-                                console.error('Failed to save task assignments');
-                                alert('Failed to save task assignments');
-                              }
-                            } else {
-                              alert('No tasks were assigned. Make sure team members have roles assigned.');
-                            }
-                          } catch (error) {
-                            console.error('Error assigning tasks:', error);
-                            alert('Error assigning tasks: ' + error.message);
-                          }
-                        }}
-                        className="w-full px-4 py-2 bg-orange-600 text-white text-sm font-medium rounded-lg hover:bg-orange-700 transition-colors flex items-center justify-center gap-2"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                        </svg>
-                        Assign tasks based on roles
-                      </button>
-                    </div>
                   </div>
                 </div>
                 </>
@@ -14149,8 +14050,11 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Today Box */}
             <Card className="!p-0 overflow-hidden rounded-none h-64">
-          <div className="px-3 py-2" style={{ backgroundColor: BRAND.orange }}>
+          <div className="px-3 py-2 flex items-center justify-between" style={{ backgroundColor: BRAND.orange }}>
             <h3 className="text-base font-semibold text-red-200 uppercase">Today</h3>
+            <span className="text-xs font-normal italic text-red-200">
+              {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+            </span>
           </div>
           <div className="border-b border-gray-200"></div>
 
@@ -14322,8 +14226,9 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
 
             {/* Future Tasks Box */}
             <Card className="!p-0 overflow-hidden rounded-none h-64">
-          <div className="px-3 py-2">
-            <h3 className="text-base font-semibold text-gray-900 uppercase">Future Tasks <span className="text-xs font-normal italic text-gray-600">(next 2 weeks)</span></h3>
+          <div className="px-3 py-2 flex items-center justify-between" style={{ backgroundColor: '#5D5F62' }}>
+            <h3 className="text-base font-semibold text-gray-200 uppercase">Future Tasks</h3>
+            <span className="text-xs font-normal italic text-gray-200">(next 2 weeks)</span>
           </div>
           <div className="border-b border-gray-200"></div>
 

@@ -868,6 +868,9 @@ Guidelines:
 - Extract the respno from the quote text and include it as a separate field
 - If no relevant quotes are found, return an empty quotes array: {"quotes": []}
 - ONLY include quotes from RESPONDENTS, never from moderators
+- NEVER include any text that starts with "Moderator:", "Interviewer:", "Facilitator:", or similar moderator labels
+- NEVER include any text that appears to be questions being asked (e.g., "Can you tell me...", "What do you think...", "How do you...")
+- Focus on text that appears to be answers, opinions, experiences, or responses from respondents
 - Prioritize SHORT, POWERFUL quotes over long, detailed ones
 - Look for quotes that are immediately clear and impactful, not just context`;
 
@@ -1203,11 +1206,11 @@ export async function findReportQuotes(finding, transcriptsText, transcriptIds =
     
     const systemPrompt = `You are a research analyst tasked with finding REAL, VERBATIM quotes from interview transcripts that directly support a specific research finding.
 
-CRITICAL: You must find actual spoken words from respondents, not summaries or interpretations.
+CRITICAL: You must find actual spoken words from respondents ONLY, not summaries, interpretations, or moderator content.
 
 Your job is to:
 1. Search through ALL transcript sections for MULTIPLE DIFFERENT respondents
-2. Extract the EXACT words spoken by respondents (not moderator questions)
+2. Extract the EXACT words spoken by respondents (NEVER moderator questions or responses)
 3. Return 1-5 quotes from DIFFERENT respondents that provide evidence for the finding
 4. SPREAD quotes across multiple respondents - do not focus on just one person
 
@@ -1227,17 +1230,26 @@ Return the quotes in this exact JSON format:
 CRITICAL REQUIREMENTS:
 - Find quotes from MULTIPLE DIFFERENT respondents (not just one)
 - Search through ALL sections marked with === headers
-- Extract ONLY respondent speech (exclude moderator questions and responses)
-- Each quote must be 1-3 complete sentences from the respondent
+- Extract ONLY respondent speech (exclude ALL moderator questions, responses, and content)
+- NEVER include any text that starts with "Moderator:", "Interviewer:", "Facilitator:", or similar moderator labels
+- NEVER include any text that appears to be questions being asked (e.g., "Can you tell me...", "What do you think...", "How do you...")
+- Each quote must be 1-3 complete sentences from the respondent ONLY
 - Must include the exact respno as it appears in the === header (e.g., R01, R02, etc.)
 - Preserve exact wording, punctuation, and formatting from the transcript
 - NO paraphrasing, NO summarization, NO interpretation - ONLY verbatim quotes
-- Each quote should be a complete thought or exchange
+- Each quote should be a complete thought or exchange from the respondent
 - Focus on quotes that directly mention or relate to the finding topic
 - If no relevant quotes are found, return an empty quotes array: {"quotes": []}
 - Prioritize longer, more detailed quotes over short one-liners
 - Look for quotes that provide specific evidence and context
 - DIVERSITY: Try to get quotes from different respondents when possible
+
+RESPONDENT IDENTIFICATION RULES:
+- Look for text that appears to be answers, opinions, experiences, or responses
+- Avoid any text that appears to be questions, probes, or facilitation
+- Avoid any text that starts with common moderator phrases like "Can you", "What do you", "How do you", "Tell me about", "I'd like to know"
+- Focus on text that contains personal pronouns like "I", "my", "me" when describing experiences
+- Look for text that contains past tense verbs describing experiences ("I was", "I had", "I felt", "I experienced")
 
 The finding to find supporting quotes for: "${finding}"
 
@@ -1246,20 +1258,25 @@ SEARCH STRATEGY:
 2. Look for speech that mentions keywords from the finding
 3. Select quotes from DIFFERENT respondents to show broader evidence
 4. Extract complete thoughts, not fragments
-5. Ensure quotes are substantial and provide real evidence from multiple perspectives`;
+5. Ensure quotes are substantial and provide real evidence from multiple perspectives
+6. DOUBLE-CHECK: Every quote must be from a respondent, never from a moderator`;
 
     const userPrompt = `Please find 1-5 report-ready verbatim quotes from DIFFERENT RESPONDENTS in the following transcripts that support this finding: "${finding}"
 
 IMPORTANT: Search through ALL respondent sections (marked with === headers) and select quotes from MULTIPLE DIFFERENT respondents. Do not just focus on the first respondent you find.
+
+CRITICAL: ONLY return quotes from respondents - NEVER include any moderator questions, responses, or content.
 
 Transcript:
 ${filteredTranscripts}
 
 Remember:
 - Find quotes from MULTIPLE DIFFERENT respondents when possible
-- Only respondent speech, 1-3 sentences per quote
+- ONLY respondent speech, 1-3 sentences per quote
+- NEVER include moderator questions or responses
 - Include respno exactly as shown in === header
-- Verbatim text only, no paraphrasing`;
+- Verbatim text only, no paraphrasing
+- Double-check that every quote is from a respondent, not a moderator`;
 
     const response = await openai.chat.completions.create({
       model: 'gpt-4o',

@@ -1013,7 +1013,7 @@ Return the quotes in this exact JSON format:
 
 Guidelines:
 - Find quotes that directly relate to the research answer
-- Include the full conversation context (both moderator questions and respondent answers)
+- Include ONLY respondent answers and responses (exclude moderator questions and content)
 - Preserve the exact wording, punctuation, and formatting from the transcript
 - Each quote should be a complete thought or exchange (at least 2-3 sentences)
 - Focus on the most relevant and impactful quotes that provide detailed insights
@@ -1021,13 +1021,18 @@ Guidelines:
 - Use the exact respondent IDs as they appear in the transcript (R01, R02, etc.)
 - If no relevant quotes are found, return an empty quotes array: {"quotes": []}
 - Prioritize longer, more detailed quotes over short one-liners
-- Look for quotes that provide context and explanation, not just brief statements`;
+- Look for quotes that provide context and explanation, not just brief statements
+- NEVER include any text that starts with "Moderator:", "Interviewer:", "Facilitator:", or similar moderator labels
+- NEVER include any text that appears to be questions being asked (e.g., "Can you tell me...", "What do you think...", "How do you...")
+- Focus on text that appears to be answers, opinions, experiences, or responses from respondents`;
 
     const userPrompt = `Research Question: ${question}
 
 Research Answer: ${answer}
 
 Please analyze the following interview transcript and find 2-3 verbatim quotes that directly support the research answer above. Return only the exact text from the transcript with proper speaker labels (use "Moderator:" for interviewer/moderator and "Respondent:" for all participants).
+
+CRITICAL: ONLY return quotes from respondents - NEVER include any moderator questions, responses, or content.
 
 Transcript:
 ${transcriptsText.substring(0, 20000)}`; // Increased limit to 20000 chars for better quote quality

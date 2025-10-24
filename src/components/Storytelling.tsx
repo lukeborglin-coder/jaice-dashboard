@@ -2873,6 +2873,14 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
                       <textarea
                         value={quoteFinding}
                         onChange={e => setQuoteFinding(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            if (!searchingQuotes && quoteFinding.trim()) {
+                              handleFindQuotes();
+                            }
+                          }
+                        }}
                         placeholder="Enter your finding or topic (e.g., 'Patients prefer morning appointments')..."
                         className="flex-1 border border-gray-300 rounded-lg px-4 py-3 text-sm resize-none h-[84px]"
                         rows={3}
