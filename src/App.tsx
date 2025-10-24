@@ -64,7 +64,11 @@ import ProjectSetupWizard from "./components/ProjectSetupWizard";
 import UserSearch from "./components/UserSearch";
 import CalendarPicker from "./components/CalendarPicker";
 import SimpleCalendar from "./components/SimpleCalendar";
+import NotificationBell from "./components/NotificationBell";
+import NotificationCenter from "./components/NotificationCenter";
 import { useAuth } from "./contexts/AuthContext";
+import { notificationService } from "./services/notificationService";
+import { Notification } from "./types/notifications";
 
 const BRAND = { orange: "#D14A2D", gray: "#5D5F62", bg: "#F7F7F8" };
 
@@ -3429,6 +3433,10 @@ export default function App() {
   const [adminNotificationCount, setAdminNotificationCount] = useState(0);
   const [allUsers, setAllUsers] = useState<any[]>([]);
 
+  // Notification system state
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [showNotificationCenter, setShowNotificationCenter] = useState(false);
+
   // Close profile dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -3443,6 +3451,73 @@ export default function App() {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+
+  // Initialize notification system
+  useEffect(() => {
+    if (user?.id) {
+      // Load notifications
+      const loadedNotifications = notificationService.loadNotifications();
+      setNotifications(loadedNotifications);
+
+      // Subscribe to notification changes
+      const unsubscribe = notificationService.subscribe((newNotifications) => {
+        setNotifications(newNotifications);
+      });
+
+      // Check for overdue tasks periodically
+      const checkOverdueInterval = setInterval(() => {
+        if (projects.length > 0) {
+          notificationService.checkOverdueTasks(projects, user.id);
+        }
+      }, 60000); // Check every minute
+
+      // Cleanup old notifications
+      notificationService.cleanupOldNotifications();
+
+      return () => {
+        unsubscribe();
+        clearInterval(checkOverdueInterval);
+      };
+    }
+  }, [user?.id, projects]);
+
+  // Notification handlers
+  const handleNotificationClick = (notification: Notification) => {
+    // Navigate to the project
+    const project = projects.find(p => p.id === notification.projectId);
+    if (project) {
+      setCurrentProjectId(notification.projectId);
+      setRoute("Project Hub");
+      setCurrentSelectedProject(project);
+    }
+  };
+
+  const handleViewAllNotifications = () => {
+    setShowNotificationCenter(true);
+  };
+
+  const handleMarkAsRead = () => {
+    const unreadNotifications = notifications.filter(n => !n.read);
+    if (unreadNotifications.length > 0) {
+      const unreadIds = unreadNotifications.map(n => n.id);
+      notificationService.markAsRead(unreadIds);
+    }
+  };
+
+  const handleMarkAllAsRead = () => {
+    notificationService.markAsRead();
+  };
+
+  // Test function for development
+  const generateTestNotifications = async () => {
+    if (user?.id) {
+      const { generateTestNotifications } = await import('./utils/testNotifications');
+      generateTestNotifications(user.id);
+      // Reload notifications
+      const loadedNotifications = notificationService.loadNotifications();
+      setNotifications(loadedNotifications);
+    }
+  };
 
   // Load admin notification count
   useEffect(() => {
@@ -4231,9 +4306,21 @@ export default function App() {
             )}
             
             {/* Spacer for non-Home pages to push icon to the right */}
-            {route !== "Home" && route !== "Project Hub" && route !== "Vendor Library" && route !== "Transcripts" && route !== "Content Analysis" && route !== "Storytelling" && route !== "Stat Testing" && <div></div>}
+            {route !== "Home" && route !== "Project Hub" && route !== "Vendor Library" && route !== "Transcripts" && route !== "Content Analysis" && route !== "Storytelling" && route !== "Stat Testing" && <div className="flex-grow"></div>}
             
-            {/* User Profile Dropdown */}
+            {/* Right side elements grouped together */}
+            <div className="flex items-center gap-2">
+              
+              {/* Notification Bell */}
+              <NotificationBell
+                notifications={notifications}
+                unreadCount={notificationService.getUnreadCount()}
+                onNotificationClick={handleNotificationClick}
+                onViewAllNotifications={handleViewAllNotifications}
+                onMarkAsRead={handleMarkAsRead}
+              />
+              
+              {/* User Profile Dropdown */}
             <div className="relative" data-profile-dropdown>
               <button
                 onClick={() => setShowProfileDropdown(!showProfileDropdown)}
@@ -4264,6 +4351,7 @@ export default function App() {
                   </button>
                 </div>
               )}
+            </div>
             </div>
           </div>
         </div>
@@ -4510,6 +4598,16 @@ export default function App() {
             {route !== "Home" && route !== "Project Hub" && route !== "Content Analysis" && route !== "Vendor Library" && route !== "Admin Center" && route !== "Feedback" && route !== "QNR" && <Placeholder name={route} />}
           </div>
         </main>
+      )}
+
+      {/* Notification Center Modal */}
+      {showNotificationCenter && (
+        <NotificationCenter
+          notifications={notifications}
+          onNotificationClick={handleNotificationClick}
+          onMarkAllAsRead={handleMarkAllAsRead}
+          onClose={() => setShowNotificationCenter(false)}
+        />
       )}
     </div>
     </AuthWrapper>
@@ -9162,6 +9260,22 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
         const responseData = await response.json();
         console.log('✅ Team members saved successfully:', responseData);
         
+        // Generate notifications for newly added team members
+        const existingTeamMembers = selectedProject.teamMembers || [];
+        const newTeamMembers = updatedTeamMembers.filter(newMember => 
+          !existingTeamMembers.some(existing => existing.id === newMember.id)
+        );
+        
+        newTeamMembers.forEach(newMember => {
+          notificationService.generateTeamMemberNotification(
+            selectedProject.id,
+            selectedProject.name,
+            newMember.id,
+            newMember.name,
+            user?.name || 'Unknown'
+          );
+        });
+        
         // Update the project in the projects list
         setProjects(prevProjects =>
           prevProjects.map(p =>
@@ -9293,8 +9407,142 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
     // Save team members to backend
     await saveTeamMembersToProject(updatedTeamMembers);
 
-    // Automatically reassign tasks based on new role assignments
-    await reassignTasksByRoles(updatedTeamMembers);
+    // Only update tasks for the specific role that changed
+    await updateTasksForRole(updatedTeamMembers, memberId, role);
+  };
+
+  // Update tasks only for a specific role that changed
+  const updateTasksForRole = async (teamMembers: any[], memberId: string, changedRole: string) => {
+    if (!selectedProject || !selectedProject.tasks) {
+      console.log('Cannot update tasks: no project or tasks available');
+      return;
+    }
+
+    try {
+      console.log(`🎯 Updating tasks only for role: ${changedRole}`);
+      
+      // Find the member who had the role change
+      const changedMember = teamMembers.find(m => m.id === memberId);
+      if (!changedMember) {
+        console.log('Member not found');
+        return;
+      }
+
+      // Check if the member still has the role
+      const hasRole = changedMember.roles && changedMember.roles.includes(changedRole);
+      
+      // Find all team members who currently have this role
+      const membersWithRole = teamMembers.filter(member => 
+        member.roles && member.roles.includes(changedRole)
+      );
+
+      console.log(`Members with role ${changedRole}:`, membersWithRole.map(m => m.name));
+      
+      // Update only tasks that have the changed role
+      const updatedTasks = selectedProject.tasks.map(task => {
+        // Only update tasks that match the changed role
+        if (task.role !== changedRole) {
+          console.log(`⏭️ Skipping task ${task.id} (role: ${task.role}) - not the changed role`);
+          return task; // Keep existing task completely unchanged
+        }
+
+        console.log(`🔄 Updating task ${task.id} for role ${changedRole}`);
+        
+        // If no one has this role, remove all assignments
+        if (membersWithRole.length === 0) {
+          console.log(`❌ No members have role ${changedRole} - removing all assignments from task ${task.id}`);
+          return { 
+            ...task, 
+            assignedTo: []
+            // Keep all other properties including completion status
+          };
+        }
+
+        // Get current assignments for this task
+        const currentAssignments = task.assignedTo || [];
+        
+        // If the changed member was removed from the role, remove them from assignments
+        let newAssignments = currentAssignments;
+        if (!hasRole) {
+          newAssignments = currentAssignments.filter(assignment => assignment !== memberId);
+          console.log(`🗑️ Removed ${changedMember.name} from task ${task.id} assignments`);
+        }
+
+        // If the changed member was added to the role, add them to assignments
+        if (hasRole && !currentAssignments.includes(memberId)) {
+          newAssignments = [...currentAssignments, memberId];
+          console.log(`➕ Added ${changedMember.name} to task ${task.id} assignments`);
+        }
+
+        // Round-robin assignment if multiple members have the role
+        if (membersWithRole.length > 1) {
+          // For now, assign to all members with the role
+          // You could implement round-robin logic here if needed
+          newAssignments = membersWithRole.map(m => m.id);
+        } else if (membersWithRole.length === 1) {
+          // Single member has the role
+          newAssignments = [membersWithRole[0].id];
+        }
+
+        console.log(`✅ Task ${task.id} assigned to:`, newAssignments);
+        
+        return { 
+          ...task, 
+          assignedTo: newAssignments
+          // Keep all other properties including completion status
+        };
+      });
+
+      // Validate task updates before applying
+      if (!Array.isArray(updatedTasks)) {
+        console.error('Invalid task updates:', updatedTasks);
+        return;
+      }
+
+      // Update the project with new task assignments
+      const updatedProject = {
+        ...selectedProject,
+        tasks: updatedTasks,
+        teamMembers: teamMembers
+      };
+
+      console.log('💾 Saving updated project with role-specific task changes');
+
+      // Save to backend
+      const response = await fetch(`${API_BASE_URL}/api/projects/${selectedProject.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
+        },
+        body: JSON.stringify({
+          userId: user?.id,
+          project: updatedProject
+        })
+      });
+
+      if (response.ok) {
+        // Update local state
+        setTimeout(() => {
+          setSelectedProject(updatedProject);
+          
+          if (setCurrentSelectedProject) {
+            setCurrentSelectedProject(updatedProject);
+          }
+          
+          if (setProjects) {
+            setProjects(prevProjects =>
+              prevProjects.map(p => p.id === selectedProject.id ? updatedProject : p)
+            );
+          }
+          console.log(`Tasks updated for role: ${changedRole}`);
+        }, 100);
+      } else {
+        console.error('Failed to update task assignments');
+      }
+    } catch (error) {
+      console.error('Error updating tasks for role:', error);
+    }
   };
 
   // Reassign tasks based on current role assignments
@@ -14194,7 +14442,9 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                           ? 'text-gray-900 z-10'
                           : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                       }`}
-                      onClick={() => setActivePhase(phase as Phase)}
+                      onClick={() => {
+                        setActivePhase(phase as Phase);
+                      }}
                       style={{
                           backgroundColor: isActive ? ((PHASE_COLORS[activePhase] || '#d1d5db') + '1A') : 'transparent',
                           borderTopLeftRadius: '6px',

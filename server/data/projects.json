@@ -927,7 +927,7 @@
           "id": "task-062",
           "description": "Create Kick Off (KO) deck",
           "assignedTo": [
-            "3"
+            null
           ],
           "status": "pending",
           "phase": "Kickoff",
@@ -941,7 +941,7 @@
           "id": "task-063",
           "description": "Create detailed timeline",
           "assignedTo": [
-            "3"
+            null
           ],
           "status": "pending",
           "phase": "Kickoff",
@@ -955,7 +955,7 @@
           "id": "task-064",
           "description": "Hold Internal Pre-Kick Off: Talk through study overview, roles, deadlines, and any other key project info prior to KO with client.",
           "assignedTo": [
-            "3"
+            null
           ],
           "status": "pending",
           "phase": "Kickoff",
@@ -969,7 +969,7 @@
           "id": "task-065",
           "description": "Create or review Proposal based on RFP (Request For Proposal)",
           "assignedTo": [
-            "3"
+            null
           ],
           "status": "pending",
           "phase": "Kickoff",
@@ -982,9 +982,7 @@
         {
           "id": "task-066",
           "description": "Bid project out to vendors/moderators",
-          "assignedTo": [
-            "12"
-          ],
+          "assignedTo": [],
           "status": "pending",
           "phase": "Kickoff",
           "isOngoing": false,
@@ -995,9 +993,7 @@
         {
           "id": "task-067",
           "description": "Get moderator availability",
-          "assignedTo": [
-            "12"
-          ],
+          "assignedTo": [],
           "status": "pending",
           "phase": "Kickoff",
           "isOngoing": false,
@@ -1008,9 +1004,7 @@
         {
           "id": "task-068",
           "description": "Create a job folder for the study in the 'Proposals' folder (within appropriate client folder)",
-          "assignedTo": [
-            "3"
-          ],
+          "assignedTo": [],
           "status": "pending",
           "phase": "Kickoff",
           "isOngoing": false,
@@ -1021,9 +1015,7 @@
         {
           "id": "task-069",
           "description": "Save vendors' bids to job folder",
-          "assignedTo": [
-            "12"
-          ],
+          "assignedTo": [],
           "status": "pending",
           "phase": "Kickoff",
           "isOngoing": false,
@@ -1034,9 +1026,7 @@
         {
           "id": "task-070",
           "description": "Ensure any new vendors have signed the NDA",
-          "assignedTo": [
-            "12"
-          ],
+          "assignedTo": [],
           "status": "pending",
           "phase": "Kickoff",
           "isOngoing": false,
@@ -1047,9 +1037,7 @@
         {
           "id": "task-071",
           "description": "Create Internal Cost Worksheet, send to supervisor",
-          "assignedTo": [
-            "3"
-          ],
+          "assignedTo": [],
           "status": "pending",
           "phase": "Kickoff",
           "isOngoing": false,
@@ -1060,9 +1048,7 @@
         {
           "id": "task-072",
           "description": "Move study docs from 'Proposals' folder to main client folder",
-          "assignedTo": [
-            "3"
-          ],
+          "assignedTo": [],
           "status": "pending",
           "phase": "Kickoff",
           "isOngoing": false,
@@ -1073,9 +1059,7 @@
         {
           "id": "task-073",
           "description": "Update folder name with job #",
-          "assignedTo": [
-            "3"
-          ],
+          "assignedTo": [],
           "status": "pending",
           "phase": "Kickoff",
           "isOngoing": false,
@@ -1087,7 +1071,7 @@
           "id": "task-074",
           "description": "Add AE submission forms & contact info to job folder",
           "assignedTo": [
-            "12"
+            null
           ],
           "status": "pending",
           "phase": "Kickoff",
@@ -1099,9 +1083,7 @@
         {
           "id": "task-075",
           "description": "Set up Invoice Schedule & Worksheet",
-          "assignedTo": [
-            "3"
-          ],
+          "assignedTo": [],
           "status": "pending",
           "phase": "Kickoff",
           "isOngoing": false,
@@ -1112,9 +1094,7 @@
         {
           "id": "task-076",
           "description": "Alert recruiter and moderator that project is moving forward",
-          "assignedTo": [
-            "12"
-          ],
+          "assignedTo": [],
           "status": "pending",
           "phase": "Kickoff",
           "isOngoing": false,
@@ -1149,9 +1129,7 @@
         {
           "id": "task-079",
           "description": "Start Discuss.io project",
-          "assignedTo": [
-            "12"
-          ],
+          "assignedTo": [],
           "status": "pending",
           "phase": "Kickoff",
           "dueDate": "2025-10-03",
@@ -1164,7 +1142,7 @@
           "id": "task-080",
           "description": "Send screener to client",
           "assignedTo": [
-            "3"
+            null
           ],
           "status": "pending",
           "phase": "Kickoff",
@@ -1177,7 +1155,7 @@
           "id": "task-081",
           "description": "Send discussion guide draft to client",
           "assignedTo": [
-            "3"
+            null
           ],
           "status": "pending",
           "phase": "Kickoff",
@@ -1190,9 +1168,7 @@
         {
           "id": "task-082",
           "description": "Schedule KO with moderator",
-          "assignedTo": [
-            "12"
-          ],
+          "assignedTo": [],
           "status": "pending",
           "phase": "Kickoff",
           "dueDate": "2025-10-03",
@@ -1204,9 +1180,7 @@
         {
           "id": "task-083",
           "description": "Create respondent grid for recruiters",
-          "assignedTo": [
-            "12"
-          ],
+          "assignedTo": [],
           "status": "pending",
           "phase": "Pre-Field",
           "dueDate": "2025-10-03",
@@ -1218,9 +1192,7 @@
         {
           "id": "task-084",
           "description": "Create shared/client respondent grid",
-          "assignedTo": [
-            "12"
-          ],
+          "assignedTo": [],
           "status": "pending",
           "phase": "Pre-Field",
           "dueDate": "2025-10-03",
@@ -1233,7 +1205,7 @@
           "id": "task-085",
           "description": "Get screener approval from client",
           "assignedTo": [
-            "3"
+            null
           ],
           "status": "pending",
           "phase": "Pre-Field",
@@ -1245,9 +1217,7 @@
         {
           "id": "task-086",
           "description": "Alert moderator and confirm availability",
-          "assignedTo": [
-            "12"
-          ],
+          "assignedTo": [],
           "status": "pending",
           "phase": "Pre-Field",
           "isOngoing": false,
@@ -1259,7 +1229,7 @@
           "id": "task-087",
           "description": "Submit first invoice request",
           "assignedTo": [
-            "3"
+            null
           ],
           "status": "pending",
           "phase": "Pre-Field",
@@ -1271,9 +1241,7 @@
         {
           "id": "task-088",
           "description": "Ensure signed documents are saved to job folder",
-          "assignedTo": [
-            "3"
-          ],
+          "assignedTo": [],
           "status": "pending",
           "phase": "Pre-Field",
           "isOngoing": false,
@@ -1285,7 +1253,7 @@
           "id": "task-089",
           "description": "Schedule DG walk-through with client and moderator",
           "assignedTo": [
-            "3"
+            null
           ],
           "status": "pending",
           "phase": "Pre-Field",
@@ -1297,9 +1265,7 @@
         {
           "id": "task-090",
           "description": "Copy cost tracker shell to job folder",
-          "assignedTo": [
-            "3"
-          ],
+          "assignedTo": [],
           "status": "pending",
           "phase": "Pre-Field",
           "isOngoing": false,
@@ -1311,7 +1277,7 @@
           "id": "task-091",
           "description": "Confirm attendee list with client",
           "assignedTo": [
-            "3"
+            null
           ],
           "status": "pending",
           "phase": "Pre-Field",
@@ -1324,7 +1290,7 @@
           "id": "task-092",
           "description": "Get final stimuli from client",
           "assignedTo": [
-            "3"
+            null
           ],
           "status": "pending",
           "phase": "Pre-Field",
@@ -1337,9 +1303,7 @@
         {
           "id": "task-093",
           "description": "Monitor recruits and update quotas",
-          "assignedTo": [
-            "12"
-          ],
+          "assignedTo": [],
           "status": "pending",
           "phase": "Pre-Field",
           "isOngoing": true,
@@ -1350,9 +1314,7 @@
         {
           "id": "task-094",
           "description": "Create outlook invite template",
-          "assignedTo": [
-            "12"
-          ],
+          "assignedTo": [],
           "status": "pending",
           "phase": "Pre-Field",
           "isOngoing": false,
@@ -1363,9 +1325,7 @@
         {
           "id": "task-095",
           "description": "Create content analysis (CA)",
-          "assignedTo": [
-            "3"
-          ],
+          "assignedTo": [],
           "status": "pending",
           "phase": "Pre-Field",
           "dueDate": "2025-10-09",
@@ -1377,9 +1337,7 @@
         {
           "id": "task-096",
           "description": "Send Outlook invites with respondent details and observer login info",
-          "assignedTo": [
-            "12"
-          ],
+          "assignedTo": [],
           "status": "pending",
           "phase": "Pre-Field",
           "isOngoing": true,
@@ -1401,9 +1359,7 @@
         {
           "id": "task-098",
           "description": "Send final stimuli/workbooks/guide to moderator",
-          "assignedTo": [
-            "12"
-          ],
+          "assignedTo": [],
           "status": "pending",
           "phase": "Pre-Field",
           "dueDate": "2025-10-09",
@@ -1416,7 +1372,7 @@
           "id": "task-099",
           "description": "Schedule client debrief after first 1-2 interviews",
           "assignedTo": [
-            "3"
+            null
           ],
           "status": "pending",
           "phase": "Pre-Field",
@@ -1441,9 +1397,9 @@
           "id": "task-101",
           "description": "Schedule second client debrief (if needed)",
           "assignedTo": [
-            "3"
+            null
           ],
-          "status": "pending",
+          "status": "completed",
           "phase": "Fielding",
           "isOngoing": false,
           "dateNotes": "",
@@ -1454,7 +1410,7 @@
           "id": "task-102",
           "description": "Submit AEs within 24 hours of interviews",
           "assignedTo": [],
-          "status": "pending",
+          "status": "completed",
           "phase": "Fielding",
           "isOngoing": true,
           "dateNotes": "ongoing",
@@ -1464,10 +1420,8 @@
         {
           "id": "task-103",
           "description": "Clean project folder",
-          "assignedTo": [
-            "3"
-          ],
-          "status": "pending",
+          "assignedTo": [],
+          "status": "completed",
           "phase": "Post-Field Analysis",
           "dueDate": "2025-10-20",
           "isOngoing": false,
@@ -1478,10 +1432,8 @@
         {
           "id": "task-104",
           "description": "Internal download: all audio files, CA, transcripts, and notes",
-          "assignedTo": [
-            "3"
-          ],
-          "status": "pending",
+          "assignedTo": [],
+          "status": "completed",
           "phase": "Post-Field Analysis",
           "dueDate": "2025-10-20",
           "isOngoing": false,
@@ -1493,9 +1445,9 @@
           "id": "task-105",
           "description": "Submit AE reconciliation (if needed)",
           "assignedTo": [
-            "12"
+            null
           ],
-          "status": "pending",
+          "status": "completed",
           "phase": "Post-Field Analysis",
           "dueDate": "2025-10-20",
           "isOngoing": false,
@@ -1553,7 +1505,7 @@
           "id": "task-110",
           "description": "Send report to client",
           "assignedTo": [
-            "3"
+            null
           ],
           "status": "pending",
           "phase": "Reporting",
@@ -1567,7 +1519,7 @@
           "id": "task-111",
           "description": "Request invoice (if needed)",
           "assignedTo": [
-            "3"
+            null
           ],
           "status": "pending",
           "phase": "Reporting",
@@ -1579,9 +1531,7 @@
         {
           "id": "task-112",
           "description": "Save vendor invoices and submit to accounting",
-          "assignedTo": [
-            "12"
-          ],
+          "assignedTo": [],
           "status": "pending",
           "phase": "Reporting",
           "isOngoing": false,
@@ -1593,7 +1543,7 @@
           "id": "task-113",
           "description": "Reconcile with client-specific finance process",
           "assignedTo": [
-            "3"
+            null
           ],
           "status": "pending",
           "phase": "Reporting",
@@ -1605,9 +1555,7 @@
         {
           "id": "task-114",
           "description": "Fill out Cost Tracker",
-          "assignedTo": [
-            "3"
-          ],
+          "assignedTo": [],
           "status": "pending",
           "phase": "Reporting",
           "isOngoing": false,
@@ -1620,20 +1568,21 @@
         {
           "id": "3",
           "name": "Luke Borglin",
-          "role": "Project Manager",
-          "roles": [
-            "Project Manager",
-            "Logistics"
-          ]
+          "role": "Team Member",
+          "roles": []
         },
         {
           "id": "12",
           "name": " Ciara Mcevoy-Benisti",
-          "role": "Recruit Coordinator",
-          "roles": [
-            "Recruit Coordinator",
-            "AE Manager"
-          ]
+          "role": "Team Member",
+          "roles": []
+        },
+        {
+          "id": "13",
+          "name": "Nikki",
+          "role": "Team Member",
+          "roles": [],
+          "email": "nikki.panagiota@cognitiveconsulting.com"
         }
       ],
       "sampleDetails": "TBD",
@@ -1688,7 +1637,8 @@
       "reportDeadline": "10/31/25",
       "teamMembersText": "Luke Borglin,  Ciara Mcevoy-Benisti",
       "hasDiscussionGuide": true,
-      "discussionGuideUpdatedAt": "2025-10-23T20:34:08.529Z"
+      "discussionGuideUpdatedAt": "2025-10-23T20:34:08.529Z",
+      "calculatedProgress": 78
     }
   ],
   "3_archived": [

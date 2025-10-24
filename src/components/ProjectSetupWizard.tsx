@@ -1164,8 +1164,8 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
 
   // Add new sample provider
   const handleAddSampleProvider = async () => {
-    if (!newSampleProvider.name || !newSampleProvider.company) {
-      setError('Name and company are required for sample provider');
+    if (!newSampleProvider.company) {
+      setError('Company name is required for sample provider');
       return;
     }
 
@@ -1178,20 +1178,23 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
         analytics: []
       };
 
+      // Generate provider name from company name
+      const providerName = newSampleProvider.company;
+
       // Check if sample provider already exists
-      const existingProvider = currentVendors.sampleVendors.find((p: any) => p.name === newSampleProvider.name);
+      const existingProvider = currentVendors.sampleVendors.find((p: any) => p.name === providerName);
       if (existingProvider) {
-        setError('Sample provider with this name already exists');
+        setError('Sample provider with this company name already exists');
         return;
       }
 
       // Create new sample provider
       const newProviderData = {
         id: `sp-${Date.now()}`,
-        name: newSampleProvider.name,
+        name: providerName,
         company: newSampleProvider.company,
-        specialties: newSampleProvider.specialties,
-        notes: newSampleProvider.notes,
+        specialties: [],
+        notes: '',
         pastProjects: [],
         createdAt: new Date().toISOString()
       };
@@ -1377,13 +1380,24 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
               console.log('Tasks before assignment:', tasks);
 
               // Update tasks with assignments
-              tasks.forEach(task => {
+              for (const task of tasks) {
                 const assigneeId = assignmentMap.get(task.id);
                 if (assigneeId) {
                   task.assignedTo = [assigneeId]; // assignedTo should be an array
                   console.log(`Assigned task ${task.id} to ${assigneeId}`);
+                  
+                  // Generate notification for task assignment
+                  const { notificationService } = await import('../services/notificationService');
+                  notificationService.generateTaskAssignedNotification(
+                    project.id,
+                    project.name,
+                    assigneeId,
+                    task.id,
+                    task.description || task.content || 'Untitled Task',
+                    task.dueDate
+                  );
                 }
-              });
+              }
 
               console.log('Auto-assigned tasks:', assignments.length, 'assignments made');
               console.log('Final tasks with assignments:', tasks.filter(t => t.assignedTo).length, 'out of', tasks.length);
@@ -2231,7 +2245,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="block text-sm font-medium text-gray-700">
-                    Sample Provider
+                    Sample Provider <span className="text-gray-500 font-normal">(optional)</span>
                   </label>
                   <button
                     type="button"
@@ -2553,21 +2567,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Provider Name *
-                </label>
-                <input
-                  type="text"
-                  value={newSampleProvider.name}
-                  onChange={(e) => setNewSampleProvider(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2"
-                  style={{ '--tw-ring-color': BRAND.orange } as React.CSSProperties}
-                  placeholder="Provider name"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Company *
+                  Company Name *
                 </label>
                 <input
                   type="text"
@@ -2576,20 +2576,6 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2"
                   style={{ '--tw-ring-color': BRAND.orange } as React.CSSProperties}
                   placeholder="Company name"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Notes
-                </label>
-                <textarea
-                  value={newSampleProvider.notes}
-                  onChange={(e) => setNewSampleProvider(prev => ({ ...prev, notes: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2"
-                  style={{ '--tw-ring-color': BRAND.orange } as React.CSSProperties}
-                  rows={3}
-                  placeholder="Additional notes..."
                 />
               </div>
             </div>

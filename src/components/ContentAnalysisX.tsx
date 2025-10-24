@@ -2559,9 +2559,6 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                     <th className="pl-2 pr-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
                       Client
                     </th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
-                      Methodology
-                    </th>
                     <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
                       Analyses
                     </th>
@@ -2584,9 +2581,6 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                         </td>
                         <td className="pl-2 pr-6 py-4 whitespace-nowrap w-32">
                           <div className="text-sm text-gray-900 truncate">{project.client || '-'}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center w-24">
-                          <div className="text-sm text-gray-900">{project.methodologyType || '-'}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-center w-32">
                           <div className="flex items-center justify-center gap-1 text-sm text-gray-900">

@@ -1152,8 +1152,8 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
     if (!user?.id) return;
     setLoading(true);
     try {
-      // Load all projects first
-      const projectsResponse = await fetch(`${API_BASE_URL}/api/projects?userId=${user.id}`, {
+      // Load all projects first (same as Transcripts and Content Analysis tabs)
+      const projectsResponse = await fetch(`${API_BASE_URL}/api/projects/all`, {
         headers: getAuthHeaders()
       });
       
@@ -3338,9 +3338,6 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
                       <th className="pl-2 pr-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
                       Client
                     </th>
-                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
-                        Methodology
-                      </th>
                       <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
                         Content Analyses
                     </th>
@@ -3372,11 +3369,6 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
                         <td className="pl-2 pr-6 py-4 whitespace-nowrap w-32">
                           <div className={`text-sm truncate ${hasContentAnalysis ? 'text-gray-900' : 'text-gray-400'}`}>
                             {project.client || '-'}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center w-24">
-                          <div className={`text-sm ${hasContentAnalysis ? 'text-gray-900' : 'text-gray-400'}`}>
-                            {project.methodologyType || '-'}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-center w-32">
