@@ -1824,7 +1824,7 @@ function AdminCenter({ onProjectUpdate }: { onProjectUpdate?: () => void }) {
     name: '',
     email: '',
     password: '',
-    role: 'user' as 'user' | 'admin',
+    role: 'user' as 'user' | 'admin' | 'oversight',
     company: 'None' as 'None' | 'Cognitive'
   });
 
@@ -2089,7 +2089,7 @@ function AdminCenter({ onProjectUpdate }: { onProjectUpdate?: () => void }) {
   };
 
   // Update user role
-  const handleUpdateRole = async (userId: string, newRole: 'user' | 'admin') => {
+  const handleUpdateRole = async (userId: string, newRole: 'user' | 'admin' | 'oversight') => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/auth/users/${userId}`, {
         method: 'PUT',
@@ -2426,12 +2426,13 @@ function AdminCenter({ onProjectUpdate }: { onProjectUpdate?: () => void }) {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
                 <select
                   value={newUser.role}
-                  onChange={(e) => setNewUser({ ...newUser, role: e.target.value as 'user' | 'admin' })}
+                  onChange={(e) => setNewUser({ ...newUser, role: e.target.value as 'user' | 'admin' | 'oversight' })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:border-gray-300"
                   style={{ '--tw-ring-color': '#D14A2D' } as React.CSSProperties}
                 >
                   <option value="user">User</option>
                   <option value="admin">Admin</option>
+                  <option value="oversight">Oversight</option>
                 </select>
               </div>
               <div>
@@ -2551,12 +2552,13 @@ function AdminCenter({ onProjectUpdate }: { onProjectUpdate?: () => void }) {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <select
                         value={user.role}
-                        onChange={(e) => handleUpdateRole(user.id, e.target.value as 'user' | 'admin')}
+                        onChange={(e) => handleUpdateRole(user.id, e.target.value as 'user' | 'admin' | 'oversight')}
                         className="text-sm border border-gray-300 rounded px-0.5 sm:px-1 md:px-2 py-1 focus:ring-2 focus:border-gray-300"
                         style={{ '--tw-ring-color': '#D14A2D' } as React.CSSProperties}
                       >
                         <option value="user">User</option>
                         <option value="admin">Admin</option>
+                        <option value="oversight">Oversight</option>
                       </select>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -4590,7 +4592,8 @@ export default function App() {
               </div>
             ) : (
               <>
-                {route === "Home" && <Dashboard projects={projects} loading={loadingProjects} onProjectCreated={handleProjectCreated} onNavigateToProject={handleProjectView} setRoute={setRoute} />}
+                {route === "Home" && user?.role === 'oversight' && <OversightDashboard projects={projects} loading={loadingProjects} onProjectCreated={handleProjectCreated} onNavigateToProject={handleProjectView} setRoute={setRoute} />}
+                {route === "Home" && user?.role !== 'oversight' && <Dashboard projects={projects} loading={loadingProjects} onProjectCreated={handleProjectCreated} onNavigateToProject={handleProjectView} setRoute={setRoute} />}
                 {route === "Feedback" && <Feedback defaultType={(new URLSearchParams(window.location.search).get('type') as any) || 'bug'} />}
                 {route === "Project Hub" && <ProjectHub projects={projects} onProjectCreated={handleProjectCreated} onArchive={handleArchiveProject} setProjects={setProjects} savedContentAnalyses={savedContentAnalyses} setRoute={setRoute} setAnalysisToLoad={setAnalysisToLoad} setIsLoadingProjectFile={setIsLoadingProjectFile} initialProject={projectToNavigate} setCurrentSelectedProject={setCurrentSelectedProject} setIsViewingProjectDetails={setIsViewingProjectDetails} />}
               </>
@@ -6100,6 +6103,1105 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
 
         </div>
       </div>
+    </div>
+  );
+}
+
+// Oversight Dashboard Component
+function OversightDashboard({ projects, loading, onProjectCreated, onNavigateToProject, setRoute }: { projects: Project[]; loading?: boolean; onProjectCreated?: (project: Project) => void; onNavigateToProject?: (project: Project) => void; setRoute?: (route: string) => void }) {
+  const { user } = useAuth();
+  const [allProjects, setAllProjects] = useState<Project[]>([]);
+  const [loadingAllProjects, setLoadingAllProjects] = useState(false);
+  const [selectedTeamMember, setSelectedTeamMember] = useState<string>('');
+  const [selectedClient, setSelectedClient] = useState<string>('');
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [projectUpdateModal, setProjectUpdateModal] = useState<{ show: boolean; project: Project | null; update: string | null }>({ show: false, project: null, update: null });
+  const [hoveredProjectId, setHoveredProjectId] = useState<string | null>(null);
+  const [expandedPhases, setExpandedPhases] = useState<Set<string>>(new Set());
+
+  // Calendar state
+  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
+  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+  
+  // Calendar navigation functions
+  const navigateMonth = (direction: 'prev' | 'next') => {
+    if (direction === 'prev') {
+      if (currentMonth === 0) {
+        setCurrentMonth(11);
+        setCurrentYear(currentYear - 1);
+      } else {
+        setCurrentMonth(currentMonth - 1);
+      }
+    } else {
+      if (currentMonth === 11) {
+        setCurrentMonth(0);
+        setCurrentYear(currentYear + 1);
+      } else {
+        setCurrentMonth(currentMonth + 1);
+      }
+    }
+  };
+  
+  const handleDateClick = (day: number) => {
+    const clickedDate = new Date(currentYear, currentMonth, day);
+    setSelectedDate(clickedDate);
+  };
+
+  // Helper functions for phase colors
+  const getPhaseBucket = (phase: string): string => {
+    const phaseMap: { [key: string]: string } = {
+      'Kickoff': 'Kickoff',
+      'Pre-Field': 'Pre-Field',
+      'Fielding': 'Fielding',
+      'Post-Field Analysis': 'Post-Field Analysis',
+      'Reporting': 'Reporting',
+      'Complete': 'Complete',
+      'Awaiting KO': 'Awaiting KO'
+    };
+    return phaseMap[phase] || phase;
+  };
+
+  const getBucketColor = (bucket: string): string => {
+    const colors: { [key: string]: string } = {
+      'Kickoff': '#6B7280',
+      'Pre-Field': '#1D4ED8',
+      'Fielding': '#7C3AED',
+      'Post-Field Analysis': '#F97316',
+      'Reporting': '#DC2626',
+      'Complete': '#10B981',
+      'Awaiting KO': '#9CA3AF'
+    };
+    return colors[bucket] || '#6B7280';
+  };
+
+  const getDarkBucketColor = (bucket: string): string => {
+    const darkColors: { [key: string]: string } = {
+      'Kickoff': '#4B5563',
+      'Pre-Field': '#1E40AF',
+      'Fielding': '#6D28D9',
+      'Post-Field Analysis': '#EA580C',
+      'Reporting': '#B91C1C',
+      'Complete': '#059669',
+      'Awaiting KO': '#6B7280'
+    };
+    return darkColors[bucket] || '#4B5563';
+  };
+
+  const getLightBucketColor = (bucket: string): string => {
+    const lightColors: { [key: string]: string } = {
+      'Kickoff': '#D1D5DB',
+      'Pre-Field': '#BFDBFE',
+      'Fielding': '#DDD6FE',
+      'Post-Field Analysis': '#FED7AA',
+      'Reporting': '#FECACA',
+      'Complete': '#A7F3D0',
+      'Awaiting KO': '#E5E7EB'
+    };
+    return lightColors[bucket] || '#E5E7EB';
+  };
+
+  const getBucketDisplayName = (bucket: string): string => {
+    return bucket;
+  };
+
+  // Generate project update for Oversight role
+  const handleGetProjectUpdate = (project: Project) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Get current phase
+    const getCurrentPhase = () => {
+      if (!project.segments || project.segments.length === 0) {
+        return { phase: project.phase, segment: null };
+      }
+      const todayStr = today.toISOString().split('T')[0];
+      const currentSegment = project.segments.find(segment =>
+        todayStr >= segment.startDate && todayStr <= segment.endDate
+      );
+      return currentSegment ? { phase: currentSegment.phase, segment: currentSegment } : { phase: project.phase, segment: null };
+    };
+
+    const currentPhaseData = getCurrentPhase();
+
+    // Get next phase timeline
+    const getNextPhaseTimeline = () => {
+      if (!project.segments || project.segments.length === 0) return null;
+      const todayStr = today.toISOString().split('T')[0];
+      const futureSegments = project.segments.filter(segment => segment.startDate > todayStr);
+      return futureSegments.length > 0 ? futureSegments[0] : null;
+    };
+
+    const nextPhase = getNextPhaseTimeline();
+
+    // Get upcoming key dates (within next 2 weeks)
+    const twoWeeksFromNow = new Date(today);
+    twoWeeksFromNow.setDate(twoWeeksFromNow.getDate() + 14);
+    const upcomingKeyDates = (project.keyDeadlines || []).filter(deadline => {
+      const deadlineDate = new Date(deadline.date);
+      return deadlineDate >= today && deadlineDate <= twoWeeksFromNow;
+    }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    // Get tasks assigned over next 2 weeks (for Oversight, include all tasks, not just today's)
+    const tasksNext2Weeks = (project.tasks || []).filter(task => {
+      if (!task.dueDate || task.status === 'completed') return false;
+      const taskDate = new Date(task.dueDate);
+      return taskDate > today && taskDate <= twoWeeksFromNow;
+    }).sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime());
+
+    // Format date helper
+    const formatDate = (dateStr: string) => {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    };
+
+    // Build update text for Oversight role
+    const teamMemberNames = (project.teamMembers || []).map(m => m.name).join(', ') || 'No team members assigned';
+    let updateText = `**Team Members:** ${teamMemberNames}\n\n`;
+    updateText += `**Client:** ${project.client}\n\n`;
+    
+    // Add moderator name for quals if available
+    const moderatorForQuals = project.moderatorForQuals || 'Not assigned';
+    updateText += `**Moderator for Quals:** ${moderatorForQuals}\n\n`;
+    
+    // Add sample details if available
+    if (project.sampleDetails) {
+      updateText += `**Sample Details:** ${project.sampleDetails}\n`;
+    }
+
+    if (nextPhase) {
+      if (currentPhaseData.segment) {
+        updateText += `[PHASE] Current Phase:|${currentPhaseData.phase}|${formatDate(currentPhaseData.segment.startDate)} - ${formatDate(currentPhaseData.segment.endDate)}\n`;
+      } else {
+        updateText += `[PHASE] Current Phase:|${currentPhaseData.phase}|No date range available\n`;
+      }
+      updateText += `[PHASE] Upcoming Phase:|${nextPhase.phase}|${formatDate(nextPhase.startDate)} - ${formatDate(nextPhase.endDate)}\n`;
+    } else {
+      if (currentPhaseData.segment) {
+        updateText += `[PHASE] Current Phase:|${currentPhaseData.phase}|${formatDate(currentPhaseData.segment.startDate)} - ${formatDate(currentPhaseData.segment.endDate)}\n`;
+      } else {
+        updateText += `**Current Phase:** ${currentPhaseData.phase}\n`;
+      }
+    }
+
+    setProjectUpdateModal({ show: true, project, update: updateText });
+  };
+
+  // Fetch all projects across all users
+  const loadAllProjects = useCallback(async () => {
+    setLoadingAllProjects(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/projects/all`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setAllProjects(data.projects || []);
+      } else {
+        console.error('Failed to load all projects');
+        setAllProjects([]);
+      }
+    } catch (error) {
+      console.error('Error loading all projects:', error);
+      setAllProjects([]);
+    } finally {
+      setLoadingAllProjects(false);
+    }
+  }, []);
+
+  // Load all projects when component mounts
+  useEffect(() => {
+    loadAllProjects();
+  }, [loadAllProjects]);
+
+  // Get unique team members and clients for filter dropdowns
+  const teamMembers = useMemo(() => {
+    const members = new Set<string>();
+    allProjects.forEach(project => {
+      if (project.teamMembers) {
+        project.teamMembers.forEach(member => {
+          if (member.name) members.add(member.name);
+        });
+      }
+    });
+    return Array.from(members).sort();
+  }, [allProjects]);
+
+  const clients = useMemo(() => {
+    const clientSet = new Set<string>();
+    allProjects.forEach(project => {
+      if (project.client) clientSet.add(project.client);
+    });
+    return Array.from(clientSet).sort();
+  }, [allProjects]);
+
+  // Filter projects based on selected filters
+  const filteredProjects = useMemo(() => {
+    let filtered = allProjects.filter(project => project.phase !== 'Complete');
+    
+    if (selectedTeamMember) {
+      filtered = filtered.filter(project => 
+        project.teamMembers?.some(member => member.name === selectedTeamMember)
+      );
+    }
+    
+    if (selectedClient) {
+      filtered = filtered.filter(project => project.client === selectedClient);
+    }
+    
+    return filtered;
+  }, [allProjects, selectedTeamMember, selectedClient]);
+
+  // Calculate project counts by phase
+  const projectCounts = useMemo(() => {
+    const counts = {
+      active: 0,
+      preField: 0,
+      fielding: 0,
+      reporting: 0
+    };
+    
+    const referenceDate = selectedDate || new Date();
+    
+    filteredProjects.forEach(project => {
+      // Get current phase based on timeline
+      const getCurrentPhase = (project: Project): string => {
+        if (!project.segments || project.segments.length === 0) {
+          return project.phase;
+        }
+        
+        const refDateStr = referenceDate.toISOString().split('T')[0];
+        
+        for (const segment of project.segments) {
+          if (refDateStr >= segment.startDate && refDateStr <= segment.endDate) {
+            return segment.phase;
+          }
+        }
+        
+        if (refDateStr < project.segments[0].startDate) {
+          return project.segments[0].phase;
+        }
+        
+        if (refDateStr > project.segments[project.segments.length - 1].endDate) {
+          return project.segments[project.segments.length - 1].phase;
+        }
+        
+        return project.phase;
+      };
+      
+      const currentPhase = getCurrentPhase(project);
+      counts.active++;
+      
+      if (currentPhase === 'Pre-Field') {
+        counts.preField++;
+      } else if (currentPhase === 'Fielding') {
+        counts.fielding++;
+      } else if (currentPhase === 'Post-Field Analysis' || currentPhase === 'Reporting') {
+        counts.reporting++;
+      }
+    });
+    
+    return counts;
+  }, [filteredProjects, selectedDate]);
+
+  // Get key dates for all projects
+  const keyDates = useMemo(() => {
+    const dates: Array<{
+      date: string;
+      type: 'kickoff' | 'fieldStart' | 'fieldEnd' | 'reportDue';
+      projectName: string;
+    }> = [];
+    
+    filteredProjects.forEach(project => {
+      if (project.keyDeadlines) {
+        project.keyDeadlines.forEach(deadline => {
+          const label = deadline.label.toLowerCase();
+          let type: 'kickoff' | 'fieldStart' | 'fieldEnd' | 'reportDue' | null = null;
+          
+          if (label.includes('kickoff') || label.includes('ko')) {
+            type = 'kickoff';
+          } else if (label.includes('field start')) {
+            type = 'fieldStart';
+          } else if (label.includes('field end')) {
+            type = 'fieldEnd';
+          } else if (label.includes('report') || label.includes('final')) {
+            type = 'reportDue';
+          }
+          
+          if (type && deadline.date) {
+            dates.push({
+              date: deadline.date,
+              type,
+              projectName: project.name
+            });
+          }
+        });
+      }
+    });
+    
+    return dates.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }, [filteredProjects]);
+
+  // Get user's first name
+  const firstName = user?.name?.split(' ')[0] || 'User';
+
+  return (
+    <div className="space-y-6 w-full max-w-full overflow-x-hidden">
+      {/* Main Content Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column - Project List and Status Boxes */}
+        <div className="lg:col-span-2 flex flex-col gap-6">
+          {/* Status Boxes */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Active Projects Box */}
+            <div className="bg-white rounded-lg border border-gray-200 p-4 relative" style={{ backgroundColor: '#D14A2D' }}>
+              <div>
+                <p className="text-sm font-medium text-white">Active Projects</p>
+                <p className="text-2xl font-bold text-white">{projectCounts.active}</p>
+              </div>
+            </div>
+
+            {/* Pre-Field Projects Box */}
+            <div className="bg-white rounded-lg border border-gray-200 p-4 relative" style={{ backgroundColor: 'rgba(29, 78, 216, 0.6)' }}>
+              <div>
+                <p className="text-sm font-medium text-white">Pre-Field</p>
+                <p className="text-2xl font-bold text-white">{projectCounts.preField}</p>
+              </div>
+            </div>
+
+            {/* Fielding Projects Box */}
+            <div className="bg-white rounded-lg border border-gray-200 p-4 relative" style={{ backgroundColor: 'rgba(124, 58, 237, 0.6)' }}>
+              <div>
+                <p className="text-sm font-medium text-white">Fielding</p>
+                <p className="text-2xl font-bold text-white">{projectCounts.fielding}</p>
+              </div>
+            </div>
+
+            {/* Reporting Projects Box */}
+            <div className="bg-white rounded-lg border border-gray-200 p-4 relative" style={{ backgroundColor: 'rgba(220, 38, 38, 0.6)' }}>
+              <div>
+                <p className="text-sm font-medium text-white">Reporting</p>
+                <p className="text-2xl font-bold text-white">{projectCounts.reporting}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Projects List */}
+          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden flex flex-col h-full">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 flex-shrink-0" style={{ backgroundColor: BRAND.gray }}>
+              <h3 className="text-lg font-semibold text-white">All Projects</h3>
+            </div>
+
+            <div className="flex-1 overflow-y-auto light-scrollbar">
+              <table className="w-full">
+                <thead className="bg-gray-100">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider" style={{ width: '250px' }}>Project</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider" style={{ width: '110px' }}>Team</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider" colSpan={2}>Progress</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase tracking-wider" style={{ width: '60px' }}></th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase tracking-wider" style={{ width: '48px' }}></th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filteredProjects
+                    .map((project) => {
+                      // Calculate progress using KO date and Report date from keyDeadlines
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      
+                      let progress = 0;
+                      
+                      // Get KO date and Report date from keyDeadlines
+                      const koDeadline = project.keyDeadlines?.find(d => 
+                        d.label.toLowerCase().includes('kickoff') || 
+                        d.label.toLowerCase().includes('ko')
+                      );
+                      const reportDeadline = project.keyDeadlines?.find(d => 
+                        d.label.toLowerCase().includes('report') || 
+                        d.label.toLowerCase().includes('final')
+                      );
+                      
+                      if (koDeadline?.date && reportDeadline?.date) {
+                        const startDate = new Date(koDeadline.date);
+                        const endDate = new Date(reportDeadline.date);
+                        startDate.setHours(0, 0, 0, 0);
+                        endDate.setHours(0, 0, 0, 0);
+                        
+                        if (!isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
+                          if (today >= startDate && today < endDate) {
+                            const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+                            const daysElapsed = Math.ceil((today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+                            progress = Math.min(100, Math.max(0, Math.round((daysElapsed / totalDays) * 100)));
+                          } else if (today >= endDate) {
+                            progress = 100;
+                          }
+                        }
+                      } else {
+                        // Fallback to phase-based progress if keyDeadlines not found
+                        const phaseProgress: { [key: string]: number } = {
+                          'Kickoff': 10,
+                          'Pre-Field': 25,
+                          'Fielding': 50,
+                          'Post-Field Analysis': 75,
+                          'Reporting': 90,
+                          'Complete': 100,
+                          'Awaiting KO': 5
+                        };
+                        progress = phaseProgress[project.phase] || 20;
+                      }
+                      
+                      return { ...project, calculatedProgress: progress };
+                    })
+                    .sort((a, b) => {
+                      // Sort by progress completion status %
+                      return b.calculatedProgress - a.calculatedProgress;
+                    })
+                    .map((project) => {
+                      const progress = project.calculatedProgress;
+                      
+                      // Get current phase
+                      const getCurrentPhase = (project: Project): string => {
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        
+                        // Check if project is completed (day after report deadline)
+                        const reportDeadline = project.keyDeadlines?.find(d => 
+                          d.label.toLowerCase().includes('report') || 
+                          d.label.toLowerCase().includes('final')
+                        );
+                        
+                        if (reportDeadline?.date) {
+                          const reportDate = new Date(reportDeadline.date);
+                          reportDate.setHours(0, 0, 0, 0);
+                          
+                          if (today > reportDate) {
+                            return 'Complete';
+                          }
+                        }
+                        
+                        if (!project.segments || project.segments.length === 0) {
+                          return project.phase;
+                        }
+
+                        const todayStr = today.toISOString().split('T')[0];
+
+                        for (const segment of project.segments) {
+                          if (todayStr >= segment.startDate && todayStr <= segment.endDate) {
+                            return segment.phase;
+                          }
+                        }
+
+                        if (todayStr < project.segments[0].startDate) {
+                          return project.segments[0].phase;
+                        }
+
+                        if (todayStr > project.segments[project.segments.length - 1].endDate) {
+                          return project.segments[project.segments.length - 1].phase;
+                        }
+
+                        return project.phase;
+                      };
+
+                      const currentPhase = getCurrentPhase(project);
+                      
+                      // Get color based on current phase
+                      const getPhaseColor = (phase: string) => {
+                        const phaseColors: { [key: string]: string } = {
+                          'Kickoff': '#6B7280',
+                          'Pre-Field': '#1D4ED8',
+                          'Fielding': '#7C3AED',
+                          'Post-Field Analysis': '#F97316',
+                          'Reporting': '#DC2626',
+                          'Complete': '#10B981',
+                          'Awaiting KO': '#9CA3AF'
+                        };
+                        return phaseColors[phase] || '#6B7280';
+                      };
+                      
+                      const teamMembers = project.teamMembers || [];
+
+                      return (
+                        <tr
+                          key={`project-${project.id}`}
+                          className="shadow-sm hover:bg-gray-50 transition-colors duration-200"
+                          onMouseEnter={() => setHoveredProjectId(project.id)}
+                          onMouseLeave={() => setHoveredProjectId(null)}
+                        >
+                          {/* Project Column */}
+                          <td className="px-4 py-4">
+                            <div>
+                              <div className="text-sm font-medium text-gray-900">{project.name}</div>
+                              <div className="text-sm text-gray-500">{project.client}</div>
+                            </div>
+                          </td>
+                          
+                          {/* Team Column */}
+                          <td className="px-4 py-4">
+                            <div className="flex flex-nowrap gap-1">
+                              {teamMembers.slice(0, 2).map((member, index) => {
+                                const initials = member.name.split(' ').map(n => n[0]).join('').toUpperCase();
+                                return (
+                                  <span
+                                    key={index}
+                                    className="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium text-white flex-shrink-0"
+                                    style={{ backgroundColor: BRAND.orange }}
+                                    title={member.name}
+                                  >
+                                    {initials}
+                                  </span>
+                                );
+                              })}
+                              {teamMembers.length > 2 && (
+                                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium bg-gray-100 text-gray-800 flex-shrink-0">
+                                  +{teamMembers.length - 2}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Progress Column with Phase Label */}
+                          <td className="px-4 py-4" colSpan={2}>
+                            <div className="flex items-center gap-3">
+                              {/* Phase Label */}
+                              {(() => {
+                                // Map phases to the 3 main categories
+                                let displayPhase = currentPhase;
+                                let displayColor = getPhaseColor(currentPhase);
+
+                                if (currentPhase === 'Kickoff' || currentPhase === 'Awaiting KO') {
+                                  displayPhase = 'Pre-Field';
+                                  displayColor = getPhaseColor('Pre-Field');
+                                } else if (currentPhase === 'Post-Field Analysis') {
+                                  displayPhase = 'Reporting';
+                                  displayColor = getPhaseColor('Reporting');
+                                }
+
+                                // Only show if it's one of the 3 main phases
+                                if (['Pre-Field', 'Fielding', 'Reporting'].includes(displayPhase)) {
+                                  return (
+                                    <span
+                                      className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium text-white whitespace-nowrap"
+                                      style={{ backgroundColor: displayColor + 'B3' }}
+                                    >
+                                      {displayPhase}
+                                    </span>
+                                  );
+                                }
+                                return null;
+                              })()}
+
+                              {/* Vertical grey line (chart base) */}
+                              <div className="h-6 w-px bg-gray-300"></div>
+
+                              {/* Progress Bar */}
+                              <div className="flex-1 rounded-full h-5 flex">
+                                {(() => {
+                                  const today = new Date();
+                                  today.setHours(0, 0, 0, 0);
+                                  const todayStr = today.toISOString().split('T')[0];
+
+                                  // Get all segments for the 3 main phases and combine them
+                                  const preFieldSegments = project.segments?.filter(s =>
+                                    s.phase === 'Pre-Field' || s.phase === 'Kickoff' || s.phase === 'Awaiting KO'
+                                  ) || [];
+                                  const fieldingSegments = project.segments?.filter(s => s.phase === 'Fielding') || [];
+                                  const reportingSegments = project.segments?.filter(s =>
+                                    s.phase === 'Reporting' || s.phase === 'Post-Field Analysis'
+                                  ) || [];
+
+                                  // Combine segments by finding earliest start and latest end
+                                  const combineSegments = (segments: any[]) => {
+                                    if (segments.length === 0) return null;
+                                    const startDates = segments.map(s => s.startDate);
+                                    const endDates = segments.map(s => s.endDate);
+                                    return {
+                                      startDate: startDates.sort()[0],
+                                      endDate: endDates.sort().reverse()[0]
+                                    };
+                                  };
+
+                                  const preFieldSegment = combineSegments(preFieldSegments);
+                                  const fieldingSegment = combineSegments(fieldingSegments);
+                                  const reportingSegment = combineSegments(reportingSegments);
+
+                                  // Calculate weekdays between two dates
+                                  const countWeekdays = (startDate: string, endDate: string) => {
+                                    const start = new Date(startDate);
+                                    const end = new Date(endDate);
+                                    let count = 0;
+                                    const current = new Date(start);
+
+                                    while (current <= end) {
+                                      const day = current.getDay();
+                                      if (day !== 0 && day !== 6) { // Not Sunday (0) or Saturday (6)
+                                        count++;
+                                      }
+                                      current.setDate(current.getDate() + 1);
+                                    }
+                                    return count;
+                                  };
+
+                                  // Calculate progress for each phase
+                                  const calculatePhaseProgress = (segment: any) => {
+                                    if (!segment) return 0;
+                                    const start = new Date(segment.startDate);
+                                    const end = new Date(segment.endDate);
+                                    start.setHours(0, 0, 0, 0);
+                                    end.setHours(0, 0, 0, 0);
+
+                                    if (todayStr < segment.startDate) return 0;
+                                    if (todayStr > segment.endDate) return 100;
+
+                                    const total = end.getTime() - start.getTime();
+                                    const elapsed = today.getTime() - start.getTime();
+                                    return Math.min(100, Math.max(0, Math.round((elapsed / total) * 100)));
+                                  };
+
+                                  const preFieldProgress = calculatePhaseProgress(preFieldSegment);
+                                  const fieldingProgress = calculatePhaseProgress(fieldingSegment);
+                                  const reportingProgress = calculatePhaseProgress(reportingSegment);
+
+                                  // Calculate weekdays for each phase
+                                  const preFieldWeekdays = preFieldSegment ? countWeekdays(preFieldSegment.startDate, preFieldSegment.endDate) : 0;
+                                  const fieldingWeekdays = fieldingSegment ? countWeekdays(fieldingSegment.startDate, fieldingSegment.endDate) : 0;
+                                  const reportingWeekdays = reportingSegment ? countWeekdays(reportingSegment.startDate, reportingSegment.endDate) : 0;
+                                  const totalWeekdays = preFieldWeekdays + fieldingWeekdays + reportingWeekdays;
+
+                                  const phases = [
+                                    {
+                                      name: 'Pre-Field',
+                                      progress: preFieldProgress,
+                                      color: '#1D4ED8',
+                                      lightColor: '#BFDBFE',
+                                      width: totalWeekdays > 0 ? (preFieldWeekdays / totalWeekdays) * 100 : 33.33
+                                    },
+                                    {
+                                      name: 'Fielding',
+                                      progress: fieldingProgress,
+                                      color: '#7C3AED',
+                                      lightColor: '#DDD6FE',
+                                      width: totalWeekdays > 0 ? (fieldingWeekdays / totalWeekdays) * 100 : 33.33
+                                    },
+                                    {
+                                      name: 'Reporting',
+                                      progress: reportingProgress,
+                                      color: '#DC2626',
+                                      lightColor: '#FECACA',
+                                      width: totalWeekdays > 0 ? (reportingWeekdays / totalWeekdays) * 100 : 33.33
+                                    }
+                                  ];
+
+                                  return phases.map((phase, index) => (
+                                    <div
+                                      key={phase.name}
+                                      className="h-5 relative"
+                                      style={{
+                                        width: `${phase.width}%`,
+                                        backgroundColor: phase.lightColor + '66',
+                                        marginRight: index < phases.length - 1 ? '1px' : '0'
+                                      }}
+                                    >
+                                      {/* Completed portion overlay */}
+                                      {phase.progress > 0 && (
+                                        <div
+                                          className="absolute left-0 top-0 h-5 flex items-center justify-center"
+                                          style={{
+                                            width: `${phase.progress}%`,
+                                            backgroundColor: phase.color + 'B3'
+                                          }}
+                                        >
+                                          {phase.progress === 100 && (
+                                            <svg
+                                              className="w-3 h-3 text-white"
+                                              fill="none"
+                                              stroke="currentColor"
+                                              strokeWidth="2"
+                                              strokeLinecap="round"
+                                              strokeLinejoin="round"
+                                              viewBox="0 0 24 24"
+                                            >
+                                              <path d="M20 6L9 17l-5-5" />
+                                            </svg>
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ));
+                                })()}
+                              </div>
+                            </div>
+                          </td>
+                          
+                          {/* Project Update Column */}
+                          <td className="px-2 py-4 align-middle text-center">
+                              <button
+                                onClick={() => handleGetProjectUpdate(project)}
+                                className="text-gray-600 hover:text-gray-800"
+                                title="Get a project update"
+                              >
+                                <DocumentTextIcon className="w-6 h-6" />
+                              </button>
+                          </td>
+
+                          {/* View Project Column */}
+                          <td
+                            className="p-0 relative overflow-visible"
+                            style={{
+                              width: '0.75rem',
+                              minWidth: '0.75rem'
+                            }}
+                          >
+                            <div
+                              className="absolute top-0 right-0 h-full transition-all duration-300 ease-in-out flex items-center justify-center"
+                              style={{
+                                width: hoveredProjectId === project.id ? '3rem' : '0.75rem',
+                                background: (() => {
+                                  let mappedPhase = project.phase;
+                                  if (project.phase === 'Kickoff' || project.phase === 'Awaiting KO') {
+                                    mappedPhase = 'Pre-Field';
+                                  } else if (project.phase === 'Post-Field Analysis') {
+                                    mappedPhase = 'Reporting';
+                                  }
+                                  return `linear-gradient(to right, ${getDarkBucketColor(getPhaseBucket(mappedPhase))}B3 0%, ${getBucketColor(getPhaseBucket(mappedPhase))}B3 25%, ${getBucketColor(getPhaseBucket(mappedPhase))}B3 100%)`;
+                                })()
+                              }}
+                            >
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onNavigateToProject?.(project);
+                                }}
+                                className="text-white hover:opacity-80 transition-opacity duration-200"
+                                title="View project details"
+                                style={{
+                                  opacity: hoveredProjectId === project.id ? 1 : 0
+                                }}
+                              >
+                                <EyeIcon className="w-6 h-6" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column - Calendar and Key Dates */}
+        <div className="flex flex-col gap-6">
+          {/* Filter Dropdowns */}
+          <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Filters</h3>
+            
+            {/* Team Member Filter */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Team Member</label>
+              <select
+                value={selectedTeamMember}
+                onChange={(e) => setSelectedTeamMember(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">All Team Members</option>
+                {teamMembers.map(member => (
+                  <option key={member} value={member}>{member}</option>
+                ))}
+              </select>
+            </div>
+            
+            {/* Client Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Client</label>
+              <select
+                value={selectedClient}
+                onChange={(e) => setSelectedClient(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">All Clients</option>
+                {clients.map(client => (
+                  <option key={client} value={client}>{client}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Calendar */}
+          <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Calendar</h3>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => navigateMonth('prev')}
+                  className="p-1 hover:bg-gray-100 rounded"
+                >
+                  <ChevronLeftIcon className="w-4 h-4" />
+                </button>
+                <span className="text-sm font-medium">
+                  {new Date(currentYear, currentMonth).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                </span>
+                <button
+                  onClick={() => navigateMonth('next')}
+                  className="p-1 hover:bg-gray-100 rounded"
+                >
+                  <ChevronRightIcon className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+            
+            {/* Calendar Grid */}
+            <div className="grid grid-cols-7 gap-1">
+              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                <div key={day} className="text-center text-xs font-medium text-gray-500 py-2">
+                  {day}
+                </div>
+              ))}
+              
+              {Array.from({ length: new Date(currentYear, currentMonth, 0).getDate() }, (_, i) => {
+                const day = i + 1;
+                const date = new Date(currentYear, currentMonth, day);
+                const isToday = date.toDateString() === new Date().toDateString();
+                const isSelected = selectedDate && date.toDateString() === selectedDate.toDateString();
+                
+                return (
+                  <button
+                    key={day}
+                    onClick={() => handleDateClick(day)}
+                    className={`p-2 text-sm rounded hover:bg-gray-100 ${
+                      isToday ? 'bg-blue-100 text-blue-600' : ''
+                    } ${isSelected ? 'bg-blue-600 text-white' : ''}`}
+                  >
+                    {day}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Key Dates */}
+          <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Key Dates</h3>
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {keyDates.length === 0 ? (
+                <p className="text-gray-500 text-sm">No key dates found</p>
+              ) : (
+                keyDates.map((keyDate, index) => (
+                  <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                    <div>
+                      <div className="text-sm font-medium text-gray-900">
+                        {keyDate.type === 'kickoff' ? 'Kickoff' :
+                         keyDate.type === 'fieldStart' ? 'Field Start' :
+                         keyDate.type === 'fieldEnd' ? 'Field End' :
+                         'Report Due'}
+                      </div>
+                      <div className="text-xs text-gray-500">{keyDate.projectName}</div>
+                    </div>
+                    <div className="text-xs text-gray-600">
+                      {new Date(keyDate.date).toLocaleDateString()}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Project Update Modal */}
+      {projectUpdateModal.show && projectUpdateModal.project && projectUpdateModal.update && createPortal(
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10101]" style={{ top: 0, left: 0, right: 0, bottom: 0 }}>
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden flex flex-col">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between" style={{ backgroundColor: BRAND.orange }}>
+              <h3 className="text-lg font-semibold text-white">Project Update: {projectUpdateModal.project.name}</h3>
+              <button
+                onClick={() => {
+                  setProjectUpdateModal({ show: false, project: null, update: null });
+                  setExpandedPhases(new Set());
+                }}
+                className="text-white hover:text-gray-200 transition-colors"
+                aria-label="Close"
+              >
+                <XMarkIcon className="h-6 w-6" />
+              </button>
+            </div>
+            <div className="px-6 py-4 overflow-y-auto flex-1">
+              <div className="prose max-w-none">
+                {projectUpdateModal.update.split('\n').map((line, index) => {
+                  if (line.trim() === '') {
+                    return <div key={index} className="h-2"></div>;
+                  } else if (line.trim() === '[DIVIDER]') {
+                    return <hr key={index} className="my-3 border-gray-300" />;
+                  } else if (line.startsWith('[PHASE]')) {
+                    // Skip phase lines - don't render them
+                    return null;
+                  } else if (line.startsWith('[TASK]')) {
+                    const taskMatch = line.match(/\[TASK\]\s*(.+?)\|(.+?)\|(.+?)\|(.+)/);
+                    if (taskMatch) {
+                      const [, taskDescription, projectName, dueDate, assignedTo] = taskMatch;
+                      return (
+                        <div key={index} className="mb-2 p-2 bg-blue-50 border border-blue-200 rounded">
+                          <div className="text-sm font-medium text-gray-900">{taskDescription}</div>
+                          <div className="text-xs text-gray-600">Project: {projectName} • Due: {dueDate} • Assigned: {assignedTo}</div>
+                        </div>
+                      );
+                    }
+                  } else if (line.startsWith('[KEYDATE]')) {
+                    const keyDateMatch = line.match(/\[KEYDATE\]\s*(.+?)\|(.+)/);
+                    if (keyDateMatch) {
+                      const [, label, date] = keyDateMatch;
+                      return (
+                        <div key={index} className="mb-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
+                          <div className="text-sm font-medium text-gray-900">{label}</div>
+                          <div className="text-xs text-gray-600">Date: {date}</div>
+                        </div>
+                      );
+                    }
+                  } else if (line.startsWith('**') && line.endsWith('**')) {
+                    return <h4 key={index} className="text-lg font-semibold text-gray-900 mt-4 mb-2">{line.replace(/\*\*/g, '')}</h4>;
+                  } else {
+                    // Handle inline bold markdown (**text**)
+                    const parts = line.split(/(\*\*[^*]+\*\*)/g);
+                    return (
+                      <p key={index} className="text-sm text-gray-700 mb-2">
+                        {parts.map((part, partIndex) => {
+                          if (part.startsWith('**') && part.endsWith('**')) {
+                            return <strong key={partIndex}>{part.replace(/\*\*/g, '')}</strong>;
+                          }
+                          return <span key={partIndex}>{part}</span>;
+                        })}
+                      </p>
+                    );
+                  }
+                })}
+              </div>
+
+              {/* Phase Breakdown Section */}
+              <div className="mt-6 border-t border-gray-200 pt-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Phase Breakdown</h3>
+                {(() => {
+                  const project = projectUpdateModal.project;
+                  const phases = ['Pre-Field', 'Fielding', 'Reporting'];
+
+                  // Helper to get phase date range from segments
+                  const getPhaseSegment = (phaseName: string) => {
+                    return project.segments?.find(s => s.phase === phaseName);
+                  };
+
+                  // Helper to format date
+                  const formatDate = (dateStr: string) => {
+                    const date = new Date(dateStr);
+                    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                  };
+
+                  // Helper to determine which phase a date belongs to
+                  const getPhaseForDate = (dateStr: string) => {
+                    if (!project.segments) return null;
+                    for (const segment of project.segments) {
+                      if (dateStr >= segment.startDate && dateStr <= segment.endDate) {
+                        return segment.phase;
+                      }
+                    }
+                    return null;
+                  };
+
+                  return phases.map((phase) => {
+                    const segment = getPhaseSegment(phase);
+                    const isExpanded = expandedPhases.has(phase);
+                    const phaseColor = PHASE_COLORS[phase] || '#6B7280';
+
+                    // Get tasks for this phase (tasks with dates that fall in this phase)
+                    const phaseTasks = (project.tasks || []).filter(task => {
+                      if (!task.dueDate) return false;
+                      return getPhaseForDate(task.dueDate) === phase;
+                    });
+
+                    // Get key dates for this phase
+                    const phaseKeyDates = (project.keyDeadlines || []).filter(deadline => {
+                      if (!deadline.date) return false;
+                      return getPhaseForDate(deadline.date) === phase;
+                    });
+
+                    const hasContent = phaseTasks.length > 0 || phaseKeyDates.length > 0;
+
+                    return (
+                      <div key={phase} className="mb-2">
+                        <button
+                          onClick={() => {
+                            const newExpanded = new Set(expandedPhases);
+                            if (isExpanded) {
+                              newExpanded.delete(phase);
+                            } else {
+                              newExpanded.add(phase);
+                            }
+                            setExpandedPhases(newExpanded);
+                          }}
+                          className="w-full flex items-center justify-between py-2 px-3 bg-gray-100 hover:bg-gray-200 rounded transition-colors"
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: phaseColor }}></div>
+                            <span className="text-sm font-medium text-gray-900">{phase}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {segment && (
+                              <span className="text-xs italic text-gray-500">
+                                {formatDate(segment.startDate)} - {formatDate(segment.endDate)}
+                              </span>
+                            )}
+                            <ChevronDownIcon
+                              className={`w-4 h-4 text-gray-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                            />
+                          </div>
+                        </button>
+
+                        {isExpanded && (
+                          <div className="pl-6 pr-3 py-2 space-y-2">
+                            {!hasContent && (
+                              <p className="text-xs text-gray-500 italic">No tasks or key dates for this phase</p>
+                            )}
+
+                            {phaseTasks.length > 0 && (
+                              <div>
+                                <p className="text-xs font-medium text-gray-700 mb-1">Tasks:</p>
+                                {phaseTasks.map((task, idx) => {
+                                  const assignedNames = task.assignedTo?.map(id => {
+                                    const member = project.teamMembers?.find(m => m.id === id);
+                                    return member?.name || 'Unassigned';
+                                  }).join(', ') || 'Unassigned';
+
+                                  return (
+                                    <div key={idx} className="text-xs text-gray-600 mb-1 flex justify-between">
+                                      <span>• {task.description || task.content}</span>
+                                      <span className="text-gray-500 ml-2">{task.dueDate ? formatDate(task.dueDate) : ''}</span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            {phaseKeyDates.length > 0 && (
+                              <div>
+                                <p className="text-xs font-medium text-gray-700 mb-1">Key Dates:</p>
+                                {phaseKeyDates.map((deadline, idx) => (
+                                  <div key={idx} className="text-xs text-gray-600 mb-1 flex justify-between">
+                                    <span>• {deadline.label}</span>
+                                    <span className="text-gray-500 ml-2">{formatDate(deadline.date)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
@@ -8347,7 +9449,7 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
   const [showAddRoleDropdown, setShowAddRoleDropdown] = useState<string | null>(null);
   const [localTeamMembers, setLocalTeamMembers] = useState<Array<{ id: string; name: string; role: string; email?: string }>>([]);
   const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
-  const [showMyProjectsOnly, setShowMyProjectsOnly] = useState(true);
+  const [showMyProjectsOnly, setShowMyProjectsOnly] = useState(user?.role === 'oversight' ? false : true);
   const [vendorsData, setVendorsData] = useState<any>(null);
   const [viewMode, setViewMode] = useState<'list' | 'timeline'>('list');
   const [timelineWeekOffset, setTimelineWeekOffset] = useState(0);
@@ -10098,17 +11200,19 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                 >
                   {viewMode === 'list' ? 'List View' : 'Timeline View'}
                 </button>
-                <button
-                  onClick={() => setShowMyProjectsOnly(!showMyProjectsOnly)}
-                  className={`px-3 py-1 text-xs rounded-lg shadow-sm transition-colors ${
-                    showMyProjectsOnly
-                      ? 'bg-white border border-gray-300 hover:bg-gray-50'
-                      : 'text-white hover:opacity-90'
-                  }`}
-                  style={showMyProjectsOnly ? {} : { backgroundColor: BRAND.orange }}
-                >
-                  {showMyProjectsOnly ? 'Only My Projects' : 'All Cognitive Projects'}
-                </button>
+                {user?.role !== 'oversight' && (
+                  <button
+                    onClick={() => setShowMyProjectsOnly(!showMyProjectsOnly)}
+                    className={`px-3 py-1 text-xs rounded-lg shadow-sm transition-colors ${
+                      showMyProjectsOnly
+                        ? 'bg-white border border-gray-300 hover:bg-gray-50'
+                        : 'text-white hover:opacity-90'
+                    }`}
+                    style={showMyProjectsOnly ? {} : { backgroundColor: BRAND.orange }}
+                  >
+                    {showMyProjectsOnly ? 'Only My Projects' : 'All Cognitive Projects'}
+                  </button>
+                )}
               </div>
             </div>
           </div>
