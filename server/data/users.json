@@ -27,21 +27,12 @@
     "createdAt": "2025-10-01T17:43:43.476Z"
   },
   {
-    "id": "14",
-    "name": "test",
-    "email": "test@gmail.com",
-    "password": "$2b$10$.AveBTSTbFsXWCG2xVJ5RuIVeJlHwrMBt07yKDJukaYXKbx77N8na",
-    "role": "user",
+    "id": "17",
+    "name": "oversight",
+    "email": "oversight@cognitiveconsulting.com",
+    "password": "$2b$10$mcfOoxqX6K7ihUcdQ3yEROonzrm4jaNWHte548VwrWyucnUKCsv2e",
+    "role": "oversight",
     "company": "Cognitive",
-    "createdAt": "2025-10-05T20:03:27.271Z"
-  },
-  {
-    "id": "15",
-    "name": "test",
-    "email": "lukeborglin@cognitiveconsulting.com",
-    "password": "$2b$10$fs1fGUPZkXkLm5SpOcSnz.tHFoc4trulnN2AXYw8L7BJMtv06xBBm",
-    "role": "user",
-    "company": "Cognitive",
-    "createdAt": "2025-10-19T21:07:38.468Z"
+    "createdAt": "2025-10-25T14:16:56.128Z"
   }
 ]

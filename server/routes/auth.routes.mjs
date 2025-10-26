@@ -129,8 +129,8 @@ router.post('/register',
 
       const { name, email, password } = req.body;
 
-    // Check if user already exists
-    const existingUser = users.find(user => user.email === email);
+    // Check if user already exists (case-insensitive)
+    const existingUser = users.find(user => user.email.toLowerCase() === email.toLowerCase());
     if (existingUser) {
       return res.status(400).json({ message: 'User with this email already exists' });
     }
@@ -142,7 +142,7 @@ router.post('/register',
     const newUser = {
       id: nextUserId.toString(),
       name,
-      email,
+      email: email.toLowerCase(), // Normalize email to lowercase
       password: hashedPassword,
       role: users.length === 0 ? 'admin' : 'user', // First user is admin
       company: 'None',
@@ -196,8 +196,8 @@ router.post('/login',
 
       const { email, password } = req.body;
 
-    // Find user
-    const user = users.find(user => user.email === email);
+    // Find user (case-insensitive email comparison)
+    const user = users.find(user => user.email.toLowerCase() === email.toLowerCase());
     if (!user) {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
@@ -403,8 +403,8 @@ router.post('/users', authenticateToken, async (req, res) => {
       return res.status(400).json({ message: 'Name, email, and password are required' });
     }
 
-    // Check if user already exists
-    const existingUser = users.find(u => u.email === email);
+    // Check if user already exists (case-insensitive)
+    const existingUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
     if (existingUser) {
       return res.status(400).json({ message: 'User with this email already exists' });
     }
@@ -416,7 +416,7 @@ router.post('/users', authenticateToken, async (req, res) => {
     const newUser = {
       id: String(nextUserId++),
       name,
-      email,
+      email: email.toLowerCase(), // Normalize email to lowercase
       password: hashedPassword,
       role,
       company,
