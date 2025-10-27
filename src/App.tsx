@@ -6481,11 +6481,24 @@ function OversightDashboard({ projects, loading, onProjectCreated, onNavigateToP
     console.log('🗓️ THIS WEEK DEBUG - Week range:', weekStartStr, 'to', weekEndStr);
 
     const deliverables: Array<{ projectName: string; date: string }> = [];
-    const fielding: Array<{ projectName: string }> = [];
+    const fielding: Array<{ projectName: string; startDate: string; endDate: string }> = [];
     const kickoffs: Array<{ projectName: string; date: string }> = [];
 
-    // Use allProjects instead of filteredProjects to show all key dates regardless of filters
-    const projectsToCheck = allProjects.filter(p => p.phase !== 'Complete');
+    // Apply team member and client filters to "This Week" section
+    let projectsToCheck = allProjects.filter(p => p.phase !== 'Complete');
+
+    // Apply team member filter
+    if (selectedTeamMember) {
+      projectsToCheck = projectsToCheck.filter(project => {
+        const teamMembers = project.teamMembers || [];
+        return teamMembers.some((tm: any) => tm.name === selectedTeamMember);
+      });
+    }
+
+    // Apply client filter
+    if (selectedClient) {
+      projectsToCheck = projectsToCheck.filter(project => project.client === selectedClient);
+    }
 
     console.log('🔍 Checking', projectsToCheck.length, 'active projects');
 
@@ -6572,7 +6585,11 @@ function OversightDashboard({ projects, loading, onProjectCreated, onNavigateToP
           if (segment.phase === 'Fielding' &&
               refDateStr >= segment.startDate &&
               refDateStr <= segment.endDate) {
-            fielding.push({ projectName: project.name });
+            fielding.push({
+              projectName: project.name,
+              startDate: segment.startDate,
+              endDate: segment.endDate
+            });
             break;
           }
         }
@@ -6583,7 +6600,7 @@ function OversightDashboard({ projects, loading, onProjectCreated, onNavigateToP
     console.log('📋 Deliverables list:', deliverables);
 
     return { deliverables, fielding, kickoffs };
-  }, [allProjects, selectedDate]);
+  }, [allProjects, selectedDate, selectedTeamMember, selectedClient]);
 
   // Get user's first name
   const firstName = user?.name?.split(' ')[0] || 'User';
@@ -6673,7 +6690,7 @@ function OversightDashboard({ projects, loading, onProjectCreated, onNavigateToP
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider" style={{ width: '250px', minWidth: '250px', maxWidth: '250px' }}>Project</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider" style={{ width: '110px', minWidth: '110px', maxWidth: '110px' }}>Team</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider" colSpan={2} style={{ width: 'auto' }}>Progress</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider" colSpan={2} style={{ width: 'auto' }}>Phase</th>
                     <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase tracking-wider" style={{ width: '60px', minWidth: '60px', maxWidth: '60px' }}></th>
                     <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase tracking-wider" style={{ width: '48px', minWidth: '48px', maxWidth: '48px' }}></th>
                   </tr>
@@ -7240,17 +7257,16 @@ function OversightDashboard({ projects, loading, onProjectCreated, onNavigateToP
             <div className="space-y-4 max-h-64 overflow-y-auto">
               {/* Deliverables this week */}
               <div>
-                <h4 className="text-sm font-semibold text-gray-700 mb-2">Deliverables</h4>
+                <h4 className="text-sm font-semibold text-gray-700 mb-2">Deliverables ({weeklyKeyDates.deliverables.length})</h4>
                 {weeklyKeyDates.deliverables.length > 0 ? (
                   <div className="space-y-1">
                     {weeklyKeyDates.deliverables.map((item, index) => (
                       <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
                         <div className="text-sm text-gray-900">{item.projectName}</div>
-                        <div className="text-xs text-gray-600">
+                        <div className="text-xs text-gray-600 italic">
                           {(() => {
                             const [year, month, day] = item.date.split('-').map(Number);
-                            const date = new Date(year, month - 1, day);
-                            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                            return `${month}/${day}`;
                           })()}
                         </div>
                       </div>
@@ -7263,12 +7279,21 @@ function OversightDashboard({ projects, loading, onProjectCreated, onNavigateToP
 
               {/* Fielding this week */}
               <div>
-                <h4 className="text-sm font-semibold text-gray-700 mb-2">Fielding</h4>
+                <h4 className="text-sm font-semibold text-gray-700 mb-2">Fielding ({weeklyKeyDates.fielding.length})</h4>
                 {weeklyKeyDates.fielding.length > 0 ? (
                   <div className="space-y-1">
                     {weeklyKeyDates.fielding.map((item, index) => (
-                      <div key={index} className="p-2 bg-gray-50 rounded">
+                      <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
                         <div className="text-sm text-gray-900">{item.projectName}</div>
+                        <div className="text-xs text-gray-600 italic">
+                          {(() => {
+                            const formatShortDate = (dateStr: string) => {
+                              const [year, month, day] = dateStr.split('-').map(Number);
+                              return `${month}/${day}`;
+                            };
+                            return `${formatShortDate(item.startDate)} - ${formatShortDate(item.endDate)}`;
+                          })()}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -7279,17 +7304,16 @@ function OversightDashboard({ projects, loading, onProjectCreated, onNavigateToP
 
               {/* Kicking off this week */}
               <div>
-                <h4 className="text-sm font-semibold text-gray-700 mb-2">Kicking Off</h4>
+                <h4 className="text-sm font-semibold text-gray-700 mb-2">Kicking Off ({weeklyKeyDates.kickoffs.length})</h4>
                 {weeklyKeyDates.kickoffs.length > 0 ? (
                   <div className="space-y-1">
                     {weeklyKeyDates.kickoffs.map((item, index) => (
                       <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
                         <div className="text-sm text-gray-900">{item.projectName}</div>
-                        <div className="text-xs text-gray-600">
+                        <div className="text-xs text-gray-600 italic">
                           {(() => {
                             const [year, month, day] = item.date.split('-').map(Number);
-                            const date = new Date(year, month - 1, day);
-                            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                            return `${month}/${day}`;
                           })()}
                         </div>
                       </div>
