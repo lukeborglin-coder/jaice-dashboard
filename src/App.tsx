@@ -6118,6 +6118,7 @@ function OversightDashboard({ projects, loading, onProjectCreated, onNavigateToP
   const [projectUpdateModal, setProjectUpdateModal] = useState<{ show: boolean; project: Project | null; update: string | null }>({ show: false, project: null, update: null });
   const [hoveredProjectId, setHoveredProjectId] = useState<string | null>(null);
   const [expandedPhases, setExpandedPhases] = useState<Set<string>>(new Set());
+  const [selectedPhaseFilter, setSelectedPhaseFilter] = useState<'active' | 'preField' | 'fielding' | 'reporting'>('active');
 
   // Calendar state
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
@@ -6390,8 +6391,8 @@ function OversightDashboard({ projects, loading, onProjectCreated, onNavigateToP
       
       const currentPhase = getCurrentPhase(project);
       counts.active++;
-      
-      if (currentPhase === 'Pre-Field') {
+
+      if (currentPhase === 'Pre-Field' || currentPhase === 'Kickoff' || currentPhase === 'Awaiting KO') {
         counts.preField++;
       } else if (currentPhase === 'Fielding') {
         counts.fielding++;
@@ -6402,6 +6403,52 @@ function OversightDashboard({ projects, loading, onProjectCreated, onNavigateToP
     
     return counts;
   }, [filteredProjects, selectedDate]);
+
+  // Filter projects for display based on selected phase filter
+  const displayProjects = useMemo(() => {
+    const referenceDate = selectedDate || new Date();
+
+    return filteredProjects.filter(project => {
+      // Get current phase based on timeline
+      const getCurrentPhase = (project: Project): string => {
+        if (!project.segments || project.segments.length === 0) {
+          return project.phase;
+        }
+
+        const refDateStr = referenceDate.toISOString().split('T')[0];
+
+        for (const segment of project.segments) {
+          if (refDateStr >= segment.startDate && refDateStr <= segment.endDate) {
+            return segment.phase;
+          }
+        }
+
+        if (refDateStr < project.segments[0].startDate) {
+          return project.segments[0].phase;
+        }
+
+        if (refDateStr > project.segments[project.segments.length - 1].endDate) {
+          return project.segments[project.segments.length - 1].phase;
+        }
+
+        return project.phase;
+      };
+
+      const currentPhase = getCurrentPhase(project);
+
+      if (selectedPhaseFilter === 'active') {
+        return true; // Show all projects
+      } else if (selectedPhaseFilter === 'preField') {
+        return currentPhase === 'Pre-Field' || currentPhase === 'Kickoff' || currentPhase === 'Awaiting KO';
+      } else if (selectedPhaseFilter === 'fielding') {
+        return currentPhase === 'Fielding';
+      } else if (selectedPhaseFilter === 'reporting') {
+        return currentPhase === 'Post-Field Analysis' || currentPhase === 'Reporting';
+      }
+
+      return true;
+    });
+  }, [filteredProjects, selectedPhaseFilter, selectedDate]);
 
   // Get key dates for all projects
   const keyDates = useMemo(() => {
@@ -6453,36 +6500,68 @@ function OversightDashboard({ projects, loading, onProjectCreated, onNavigateToP
           {/* Status Boxes */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Active Projects Box */}
-            <div className="bg-white rounded-lg border border-gray-200 p-4 relative" style={{ backgroundColor: '#D14A2D' }}>
+            <button
+              onClick={() => setSelectedPhaseFilter('active')}
+              className="bg-white rounded-lg border-2 p-4 relative text-left w-full transition-all"
+              style={{
+                backgroundColor: '#D14A2D',
+                borderColor: selectedPhaseFilter === 'active' ? '#fff' : '#D14A2D',
+                opacity: selectedPhaseFilter === 'active' ? 1 : 0.7
+              }}
+            >
               <div>
                 <p className="text-sm font-medium text-white">Active Projects</p>
                 <p className="text-2xl font-bold text-white">{projectCounts.active}</p>
               </div>
-            </div>
-
-            {/* Pre-Field Projects Box */}
-            <div className="bg-white rounded-lg border border-gray-200 p-4 relative" style={{ backgroundColor: 'rgba(29, 78, 216, 0.6)' }}>
-              <div>
-                <p className="text-sm font-medium text-white">Pre-Field</p>
-                <p className="text-2xl font-bold text-white">{projectCounts.preField}</p>
-              </div>
-            </div>
-
-            {/* Fielding Projects Box */}
-            <div className="bg-white rounded-lg border border-gray-200 p-4 relative" style={{ backgroundColor: 'rgba(124, 58, 237, 0.6)' }}>
-              <div>
-                <p className="text-sm font-medium text-white">Fielding</p>
-                <p className="text-2xl font-bold text-white">{projectCounts.fielding}</p>
-              </div>
-            </div>
+            </button>
 
             {/* Reporting Projects Box */}
-            <div className="bg-white rounded-lg border border-gray-200 p-4 relative" style={{ backgroundColor: 'rgba(220, 38, 38, 0.6)' }}>
+            <button
+              onClick={() => setSelectedPhaseFilter('reporting')}
+              className="bg-white rounded-lg border-2 p-4 relative text-left w-full transition-all"
+              style={{
+                backgroundColor: 'rgba(220, 38, 38, 0.6)',
+                borderColor: selectedPhaseFilter === 'reporting' ? '#fff' : 'rgba(220, 38, 38, 0.6)',
+                opacity: selectedPhaseFilter === 'reporting' ? 1 : 0.7
+              }}
+            >
               <div>
                 <p className="text-sm font-medium text-white">Reporting</p>
                 <p className="text-2xl font-bold text-white">{projectCounts.reporting}</p>
               </div>
-            </div>
+            </button>
+
+            {/* Fielding Projects Box */}
+            <button
+              onClick={() => setSelectedPhaseFilter('fielding')}
+              className="bg-white rounded-lg border-2 p-4 relative text-left w-full transition-all"
+              style={{
+                backgroundColor: 'rgba(124, 58, 237, 0.6)',
+                borderColor: selectedPhaseFilter === 'fielding' ? '#fff' : 'rgba(124, 58, 237, 0.6)',
+                opacity: selectedPhaseFilter === 'fielding' ? 1 : 0.7
+              }}
+            >
+              <div>
+                <p className="text-sm font-medium text-white">Fielding</p>
+                <p className="text-2xl font-bold text-white">{projectCounts.fielding}</p>
+              </div>
+            </button>
+
+            {/* Pre-Field Projects Box */}
+            <button
+              onClick={() => setSelectedPhaseFilter('preField')}
+              className="bg-white rounded-lg border-2 p-4 relative text-left w-full transition-all"
+              style={{
+                backgroundColor: 'rgba(29, 78, 216, 0.6)',
+                borderColor: selectedPhaseFilter === 'preField' ? '#fff' : 'rgba(29, 78, 216, 0.6)',
+                opacity: selectedPhaseFilter === 'preField' ? 1 : 0.7
+              }}
+            >
+              <div>
+                <p className="text-sm font-medium text-white">Pre-Field</p>
+                <p className="text-2xl font-bold text-white">{projectCounts.preField}</p>
+              </div>
+            </button>
           </div>
 
           {/* Projects List */}
@@ -6491,7 +6570,7 @@ function OversightDashboard({ projects, loading, onProjectCreated, onNavigateToP
               <h3 className="text-lg font-semibold text-white">All Projects</h3>
             </div>
 
-            <div className="flex-1 overflow-y-auto light-scrollbar">
+            <div className="flex-1 overflow-y-auto overflow-x-hidden light-scrollbar">
               <table className="w-full">
                 <thead className="bg-gray-100">
                   <tr>
@@ -6499,11 +6578,11 @@ function OversightDashboard({ projects, loading, onProjectCreated, onNavigateToP
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider" style={{ width: '110px' }}>Team</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider" colSpan={2}>Progress</th>
                     <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase tracking-wider" style={{ width: '60px' }}></th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase tracking-wider" style={{ width: '48px' }}></th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase tracking-wider" style={{ width: '3rem' }}></th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredProjects
+                  {displayProjects
                     .map((project) => {
                       // Calculate progress using KO date and Report date from keyDeadlines
                       const today = new Date();
@@ -6553,12 +6632,62 @@ function OversightDashboard({ projects, loading, onProjectCreated, onNavigateToP
                       return { ...project, calculatedProgress: progress };
                     })
                     .sort((a, b) => {
-                      // Sort by progress completion status %
+                      // First, get current phase for both projects
+                      const getPhaseForSort = (project: Project): string => {
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+
+                        if (!project.segments || project.segments.length === 0) {
+                          return project.phase;
+                        }
+
+                        const todayStr = today.toISOString().split('T')[0];
+
+                        for (const segment of project.segments) {
+                          if (todayStr >= segment.startDate && todayStr <= segment.endDate) {
+                            return segment.phase;
+                          }
+                        }
+
+                        if (todayStr < project.segments[0].startDate) {
+                          return project.segments[0].phase;
+                        }
+
+                        if (todayStr > project.segments[project.segments.length - 1].endDate) {
+                          return project.segments[project.segments.length - 1].phase;
+                        }
+
+                        return project.phase;
+                      };
+
+                      const phaseA = getPhaseForSort(a);
+                      const phaseB = getPhaseForSort(b);
+
+                      // Phase order: Reporting (including Post-Field Analysis), Fielding, Pre-Field (including Kickoff/Awaiting KO), Complete
+                      const phaseOrder: { [key: string]: number } = {
+                        'Post-Field Analysis': 0,
+                        'Reporting': 0,
+                        'Fielding': 1,
+                        'Awaiting KO': 2,
+                        'Kickoff': 2,
+                        'Pre-Field': 2,
+                        'Complete': 3
+                      };
+
+                      const orderA = phaseOrder[phaseA] ?? 999;
+                      const orderB = phaseOrder[phaseB] ?? 999;
+
+                      // Sort by phase first
+                      if (orderA !== orderB) {
+                        return orderA - orderB;
+                      }
+
+                      // If same phase, sort by progress completion (higher % first)
                       return b.calculatedProgress - a.calculatedProgress;
                     })
                     .map((project) => {
                       const progress = project.calculatedProgress;
-                      
+
                       // Get current phase
                       const getCurrentPhase = (project: Project): string => {
                         const today = new Date();
@@ -6630,8 +6759,8 @@ function OversightDashboard({ projects, loading, onProjectCreated, onNavigateToP
                           {/* Project Column */}
                           <td className="px-4 py-4">
                             <div>
-                              <div className="text-sm font-medium text-gray-900">{project.name}</div>
-                              <div className="text-sm text-gray-500">{project.client}</div>
+                              <div className="text-sm font-medium text-gray-900 truncate" title={project.name}>{project.name}</div>
+                              <div className="text-sm text-gray-500 truncate" title={project.client}>{project.client}</div>
                             </div>
                           </td>
                           
@@ -6680,8 +6809,11 @@ function OversightDashboard({ projects, loading, onProjectCreated, onNavigateToP
                                 if (['Pre-Field', 'Fielding', 'Reporting'].includes(displayPhase)) {
                                   return (
                                     <span
-                                      className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium text-white whitespace-nowrap"
-                                      style={{ backgroundColor: displayColor + 'B3' }}
+                                      className="inline-flex items-center justify-center px-2 py-1 rounded-full text-xs font-medium text-white whitespace-nowrap"
+                                      style={{
+                                        backgroundColor: displayColor + 'B3',
+                                        width: '80px'
+                                      }}
                                     >
                                       {displayPhase}
                                     </span>
@@ -6845,10 +6977,10 @@ function OversightDashboard({ projects, loading, onProjectCreated, onNavigateToP
 
                           {/* View Project Column */}
                           <td
-                            className="p-0 relative overflow-visible"
+                            className="p-0 relative overflow-hidden"
                             style={{
-                              width: '0.75rem',
-                              minWidth: '0.75rem'
+                              width: '3rem',
+                              minWidth: '3rem'
                             }}
                           >
                             <div
@@ -6856,10 +6988,10 @@ function OversightDashboard({ projects, loading, onProjectCreated, onNavigateToP
                               style={{
                                 width: hoveredProjectId === project.id ? '3rem' : '0.75rem',
                                 background: (() => {
-                                  let mappedPhase = project.phase;
-                                  if (project.phase === 'Kickoff' || project.phase === 'Awaiting KO') {
+                                  let mappedPhase = currentPhase;
+                                  if (currentPhase === 'Kickoff' || currentPhase === 'Awaiting KO') {
                                     mappedPhase = 'Pre-Field';
-                                  } else if (project.phase === 'Post-Field Analysis') {
+                                  } else if (currentPhase === 'Post-Field Analysis') {
                                     mappedPhase = 'Reporting';
                                   }
                                   return `linear-gradient(to right, ${getDarkBucketColor(getPhaseBucket(mappedPhase))}B3 0%, ${getBucketColor(getPhaseBucket(mappedPhase))}B3 25%, ${getBucketColor(getPhaseBucket(mappedPhase))}B3 100%)`;
@@ -7262,7 +7394,7 @@ function OversightDashboard({ projects, loading, onProjectCreated, onNavigateToP
                             <div className="flex-1 pb-4">
                               <h4 className={`text-base font-semibold ${isComplete ? 'text-gray-400' : 'text-gray-900'}`}>{phase}</h4>
                               {segment && (
-                                <p className="text-sm text-gray-500 mt-1">
+                                <p className={`text-sm mt-1 ${isComplete ? 'text-gray-400' : isCurrentPhase ? 'text-gray-900 font-semibold' : 'text-gray-500'}`}>
                                   {formatDate(segment.startDate)} - {formatDate(segment.endDate)}
                                 </p>
                               )}
