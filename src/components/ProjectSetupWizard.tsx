@@ -2614,7 +2614,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
                   <option value="">Select sample provider</option>
                   {sampleProviders.map((provider) => (
                     <option key={provider.id} value={provider.id}>
-                      {provider.name} ({provider.company})
+                      {provider.company}
                     </option>
                   ))}
                   <option value="_add_new_sample_provider_">+ Add New Sample Provider...</option>

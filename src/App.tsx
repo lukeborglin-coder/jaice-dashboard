@@ -4381,9 +4381,10 @@ export default function App() {
             <button
               key={item.name}
               onClick={() => setRoute(item.name)}
-              className={`w-full flex items-center gap-3 rounded-xl px-3 py-2 hover:bg-gray-100 transition ${
-                route === item.name ? "bg-gray-100" : ""
+              className={`w-full flex items-center gap-3 rounded-xl px-3 py-2 transition ${
+                route === item.name ? "" : "hover:bg-gray-100"
               } ${!sidebarOpen ? 'justify-center' : ''}`}
+              style={route === item.name ? { backgroundColor: '#D14A2D', color: 'white' } : {}}
             >
               <item.icon className="h-5 w-5" />
               {sidebarOpen && <span className="text-sm font-medium">{item.name}</span>}
@@ -4418,9 +4419,10 @@ export default function App() {
                   <button
                     key={item.name}
                     onClick={() => setRoute(item.name)}
-                    className={`w-full flex items-center gap-3 rounded-xl px-3 py-2 hover:bg-gray-100 transition ${
-                      route === item.name ? "bg-gray-100" : ""
+                    className={`w-full flex items-center gap-3 rounded-xl px-3 py-2 transition ${
+                      route === item.name ? "" : "hover:bg-gray-100"
                     }`}
+                    style={route === item.name ? { backgroundColor: '#D14A2D', color: 'white' } : {}}
                   >
                     <item.icon className="h-4 w-4" />
                     <span className="text-sm font-medium">{item.name}</span>
@@ -4462,8 +4464,9 @@ export default function App() {
                     className={`w-full flex items-center gap-3 rounded-xl px-3 py-2 transition ${
                       item.disabled 
                         ? "opacity-50 cursor-not-allowed text-gray-400" 
-                        : `hover:bg-gray-100 ${route === item.name ? "bg-gray-100" : ""}`
+                        : route === item.name ? "" : "hover:bg-gray-100"
                     }`}
+                    style={!item.disabled && route === item.name ? { backgroundColor: '#D14A2D', color: 'white' } : {}}
                   >
                     <item.icon className="h-4 w-4" />
                     <span className="text-sm font-medium">{item.name}</span>
@@ -4481,9 +4484,10 @@ export default function App() {
               <button
                 key={item.name}
                 onClick={() => setRoute(item.name)}
-                className={`w-full flex items-center gap-3 rounded-xl px-3 py-2 hover:bg-gray-100 transition relative ${
-                  route === item.name ? "bg-gray-100" : ""
+                className={`w-full flex items-center gap-3 rounded-xl px-3 py-2 transition relative ${
+                  route === item.name ? "" : "hover:bg-gray-100"
                 } ${!sidebarOpen ? 'justify-center' : ''}`}
+                style={route === item.name ? { backgroundColor: '#D14A2D', color: 'white' } : {}}
               >
                 <item.icon className="h-5 w-5" />
                 {sidebarOpen && <span className="text-sm font-medium">{item.name}</span>}
@@ -4507,28 +4511,26 @@ export default function App() {
         )}
         
         {/* Report bug and feature request links */}
-        <div className={`mt-auto p-3 border-t ${!sidebarOpen ? 'flex justify-center' : ''}`}>
-          <div className={`flex items-center gap-3 ${!sidebarOpen ? 'mb-0' : ''}`}>
-            {sidebarOpen && (
-              <div className="flex-1 min-w-0">
-                <div className="text-xs text-gray-600 space-x-3">
-                  <button
-                    className="underline hover:text-gray-800"
-                    onClick={() => { try { window.history.replaceState(null, '', '?route=Feedback&type=bug'); } catch {} setRoute('Feedback'); }}
-                  >
-                    Report bug
-                  </button>
-                  <button
-                    className="underline hover:text-gray-800"
-                    onClick={() => { try { window.history.replaceState(null, '', '?route=Feedback&type=feature'); } catch {} setRoute('Feedback'); }}
-                  >
-                    Feature request
-                  </button>
-                </div>
+        <div className="mt-auto p-3 border-t">
+          {sidebarOpen ? (
+            <div className="flex items-center justify-center gap-3">
+              <div className="text-xs text-gray-600 space-x-3">
+                <button
+                  className="underline hover:text-gray-800"
+                  onClick={() => { try { window.history.replaceState(null, '', '?route=Feedback&type=bug'); } catch {} setRoute('Feedback'); }}
+                >
+                  Report bug
+                </button>
+                <button
+                  className="underline hover:text-gray-800"
+                  onClick={() => { try { window.history.replaceState(null, '', '?route=Feedback&type=feature'); } catch {} setRoute('Feedback'); }}
+                >
+                  Feature request
+                </button>
               </div>
-            )}
-            {/* When collapsed, show only a small icon or indicator */}
-            {!sidebarOpen && (
+            </div>
+          ) : (
+            <div className="flex justify-center gap-2">
               <button
                 className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors"
                 onClick={() => { try { window.history.replaceState(null, '', '?route=Feedback&type=bug'); } catch {} setRoute('Feedback'); }}
@@ -4538,8 +4540,8 @@ export default function App() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
                 </svg>
               </button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </aside>
 

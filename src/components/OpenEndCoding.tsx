@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { ArrowUpTrayIcon } from '@heroicons/react/24/outline';
+import { ArrowUpTrayIcon, ArrowDownTrayIcon, PencilIcon } from '@heroicons/react/24/outline';
 import { API_BASE_URL } from '../config';
+import ExcelJS from 'exceljs';
 
 interface Theme {
   code: number;
@@ -46,6 +47,8 @@ const OpenEndCoding: React.FC = () => {
   const [selectedCodes, setSelectedCodes] = useState<number[]>([]);
   const [newCodeName, setNewCodeName] = useState<string>('');
   const [originalThemes, setOriginalThemes] = useState<Map<number, Theme[]>>(new Map());
+  const [editingCode, setEditingCode] = useState<number | null>(null);
+  const [editCodeName, setEditCodeName] = useState<string>('');
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -83,6 +86,12 @@ const OpenEndCoding: React.FC = () => {
       }
 
       const data = await response.json();
+      
+      // Sort frequency tables by percentage for all questions
+      data.questions.forEach((question: QuestionResult) => {
+        question.frequencyTable.sort((a, b) => parseFloat(b.percentage) - parseFloat(a.percentage));
+      });
+      
       setResults(data);
       setSelectedQuestion(0);
       setActiveTab('summary');
@@ -179,6 +188,9 @@ const OpenEndCoding: React.FC = () => {
         : '0.0'
     }));
 
+    // Sort by percentage descending
+    question.frequencyTable.sort((a, b) => parseFloat(b.percentage) - parseFloat(a.percentage));
+
     setResults(updatedResults);
     setSelectedCodes([]);
     setNewCodeName('');
@@ -250,6 +262,9 @@ const OpenEndCoding: React.FC = () => {
         : '0.0'
     }));
 
+    // Sort by percentage descending
+    question.frequencyTable.sort((a, b) => parseFloat(b.percentage) - parseFloat(a.percentage));
+
     // Remove from originalThemes map
     setOriginalThemes(prev => {
       const newMap = new Map(prev);
@@ -262,8 +277,11 @@ const OpenEndCoding: React.FC = () => {
   };
 
   const toggleCodeSelection = (code: number) => {
+    if (!results) return;
+    
     setSelectedCodes(prev => {
       const newSelection = prev.includes(code) ? prev.filter(c => c !== code) : [...prev, code];
+      const currentQuestion = results.questions[selectedQuestion];
 
       // Auto-generate combined name when we have 2+ codes selected
       if (newSelection.length >= 2 && currentQuestion) {
@@ -280,72 +298,226 @@ const OpenEndCoding: React.FC = () => {
     });
   };
 
+  const handleStartEdit = (code: number, currentName: string) => {
+    setEditingCode(code);
+    setEditCodeName(currentName);
+  };
+
+  const handleSaveEdit = () => {
+    if (!results || !editingCode || !editCodeName.trim()) return;
+
+    const updatedResults = { ...results };
+    const question = updatedResults.questions[selectedQuestion];
+    const theme = question.themes.find(t => t.code === editingCode);
+    
+    if (theme) {
+      theme.theme = editCodeName.trim();
+      
+      // Update frequency table
+      const freqItem = question.frequencyTable.find(f => f.code === editingCode);
+      if (freqItem) {
+        freqItem.theme = editCodeName.trim();
+      }
+      
+      setResults(updatedResults);
+    }
+    
+    setEditingCode(null);
+    setEditCodeName('');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingCode(null);
+    setEditCodeName('');
+  };
+
+  const handleDownloadExcel = async () => {
+    if (!currentQuestion || !results) return;
+
+    try {
+      const workbook = new ExcelJS.Workbook();
+      
+      // Extract question identifier (e.g., "QB4" from "QB4 What do you like most?")
+      const questionMatch = currentQuestion.question.match(/^([^\s]+)/);
+      const questionId = questionMatch ? questionMatch[1] : '';
+      const sheetPrefix = questionId ? `${questionId} ` : '';
+      
+      // Create Summary sheet (Frequency Table)
+      const summarySheet = workbook.addWorksheet(`${sheetPrefix}Summary`);
+      summarySheet.columns = [
+        { header: 'Code', key: 'code', width: 10 },
+        { header: 'Theme', key: 'theme', width: 50 },
+        { header: 'Frequency', key: 'frequency', width: 15 },
+        { header: 'Percentage', key: 'percentage', width: 15 }
+      ];
+      
+      currentQuestion.frequencyTable.forEach(item => {
+        summarySheet.addRow({
+          code: item.code,
+          theme: item.theme,
+          frequency: item.frequency,
+          percentage: item.percentage + '%'
+        });
+      });
+
+      // Create Codebook sheet
+      const codebookSheet = workbook.addWorksheet(`${sheetPrefix}Codebook`);
+      codebookSheet.columns = [
+        { header: 'Code', key: 'code', width: 10 },
+        { header: 'Theme', key: 'theme', width: 50 },
+        { header: 'Description', key: 'description', width: 80 }
+      ];
+      
+      currentQuestion.themes.forEach(theme => {
+        codebookSheet.addRow({
+          code: theme.code,
+          theme: theme.theme,
+          description: theme.description || ''
+        });
+      });
+
+      // Create Raw Codes sheet with each code as its own column
+      const rawSheet = workbook.addWorksheet(`${sheetPrefix}Raw Codes`);
+      
+      // Get all unique codes and sort them
+      const allCodes = [...currentQuestion.themes].sort((a, b) => a.code - b.code);
+      
+      // Create column definitions
+      const columnDefinitions = [
+        { header: results.idColumn, key: 'respondentId', width: 15 },
+        { header: 'Response', key: 'response', width: 80 }
+      ];
+      
+      // Add a column for each code (just the code number)
+      allCodes.forEach(theme => {
+        columnDefinitions.push({
+          header: theme.code.toString(),
+          key: `code_${theme.code}`,
+          width: 4
+        });
+      });
+      
+      rawSheet.columns = columnDefinitions;
+      
+      // Add data rows
+      currentQuestion.rawData.forEach(item => {
+        const rowData: any = {
+          respondentId: item.respondentId,
+          response: item.response || ''
+        };
+        
+        // Mark each code column with 1 if the respondent has that code, or leave empty
+        allCodes.forEach(theme => {
+          rowData[`code_${theme.code}`] = item.codes.includes(theme.code) ? 1 : '';
+        });
+        
+        rawSheet.addRow(rowData);
+      });
+      
+      // Center align code columns (columns 3 onwards - after respondentId and response)
+      rawSheet.eachRow((row, rowNumber) => {
+        // Skip first 2 columns (respondentId and response), align columns 3 onwards
+        allCodes.forEach((_, index) => {
+          const colIndex = index + 3; // 1-based column index (3, 4, 5, ...)
+          const cell = row.getCell(colIndex);
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        });
+      });
+
+      // Generate filename
+      const sanitizedQuestion = currentQuestion.question.substring(0, 50).replace(/[^\w\s]/g, '_');
+      const filename = `OpenEndCoding_${sanitizedQuestion}_${new Date().toISOString().split('T')[0]}.xlsx`;
+
+      // Download file
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.click();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error generating Excel file:', error);
+      setError('Failed to generate Excel file');
+    }
+  };
+
   const currentQuestion = results?.questions[selectedQuestion];
 
   return (
     <main className="flex-1 flex flex-col bg-[#F7F7F8] overflow-y-auto" style={{ height: 'calc(100vh - 80px)', marginTop: '80px' }}>
       {/* Upload Section */}
       {!processing && !results && (
-        <div className="flex-1 flex items-center justify-center p-6">
-          <div className="w-full max-w-3xl">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
-              <h2 className="text-xl font-semibold text-gray-900 mb-6 text-center">Upload Your File</h2>
+        <div className="flex items-center justify-center p-6">
+          <div className="flex gap-6 w-full">
+            {/* Left Side - File Upload */}
+            <div className="flex-1">
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+                <h2 className="text-xl font-semibold text-gray-900 mb-6">Upload Your File</h2>
 
-              <label className="block mb-4">
-                <div className="flex flex-col items-center justify-center w-full px-6 py-12 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-[#D14A2D] transition-colors">
-                  <ArrowUpTrayIcon className="h-12 w-12 text-gray-400 mb-3" />
-                  <span className="text-sm font-medium text-gray-700 mb-1">
-                    {file ? file.name : 'Choose a file to upload'}
-                  </span>
-                  <span className="text-xs text-gray-500">
-                    Excel (.xlsx, .xls) or CSV
-                  </span>
-                  <input
-                    type="file"
-                    className="hidden"
-                    accept=".xlsx,.xls,.csv"
-                    onChange={handleFileChange}
-                  />
+                <label className="block mb-4">
+                  <div className="flex flex-col items-center justify-center w-full px-6 py-12 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-[#D14A2D] transition-colors">
+                    <ArrowUpTrayIcon className="h-12 w-12 text-gray-400 mb-3" />
+                    <span className="text-sm font-medium text-gray-700 mb-1">
+                      {file ? file.name : 'Choose a file to upload'}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      Excel (.xlsx, .xls) or CSV
+                    </span>
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept=".xlsx,.xls,.csv"
+                      onChange={handleFileChange}
+                    />
+                  </div>
+                </label>
+
+                <button
+                  onClick={handleUpload}
+                  disabled={!file}
+                  className="w-full px-6 py-3 bg-[#D14A2D] text-white rounded-lg hover:bg-[#B83E25] disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors font-medium"
+                >
+                  Process File
+                </button>
+
+                {error && (
+                  <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                    {error}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Right Side - File Format Requirements */}
+            <div className="flex-1">
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+                <h2 className="text-xl font-semibold text-gray-900 mb-6">File Format Requirements</h2>
+                
+                <div className="mb-4">
+                  <ul className="space-y-2 text-sm text-gray-600">
+                    <li className="flex items-start">
+                      <span className="text-[#D14A2D] mr-2">•</span>
+                      <span>First column: Respondent IDs (labeled "record")</span>
+                    </li>
+                    <li className="flex items-start">
+                      <span className="text-[#D14A2D] mr-2">•</span>
+                      <span>Each column: A survey question</span>
+                    </li>
+                    <li className="flex items-start">
+                      <span className="text-[#D14A2D] mr-2">•</span>
+                      <span>Column headers: Question text</span>
+                    </li>
+                    <li className="flex items-start">
+                      <span className="text-[#D14A2D] mr-2">•</span>
+                      <span>Cells: Open-ended text responses</span>
+                    </li>
+                  </ul>
                 </div>
-              </label>
 
-              <button
-                onClick={handleUpload}
-                disabled={!file}
-                className="w-full px-6 py-3 bg-[#D14A2D] text-white rounded-lg hover:bg-[#B83E25] disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors font-medium"
-              >
-                Process File
-              </button>
-
-              {error && (
-                <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-                  {error}
-                </div>
-              )}
-
-              <div className="mt-6 pt-6 border-t border-gray-200">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">File Format Requirements:</h3>
-                <ul className="space-y-2 text-xs text-gray-600 mb-4">
-                  <li className="flex items-start">
-                    <span className="text-[#D14A2D] mr-2">•</span>
-                    <span>First column: Respondent IDs (labeled "record")</span>
-                  </li>
-                  <li className="flex items-start">
-                    <span className="text-[#D14A2D] mr-2">•</span>
-                    <span>Each column: A survey question</span>
-                  </li>
-                  <li className="flex items-start">
-                    <span className="text-[#D14A2D] mr-2">•</span>
-                    <span>Column headers: Question text</span>
-                  </li>
-                  <li className="flex items-start">
-                    <span className="text-[#D14A2D] mr-2">•</span>
-                    <span>Cells: Open-ended text responses</span>
-                  </li>
-                </ul>
-
-                <div className="mt-4 p-4 bg-gray-50 rounded border border-gray-200">
-                  <p className="text-xs font-medium text-gray-700 mb-2">Example Structure:</p>
+                <div className="p-4 bg-gray-50 rounded border border-gray-200">
+                  <p className="text-sm font-medium text-gray-700 mb-2">Example Structure:</p>
                   <div className="overflow-x-auto">
                     <table className="text-xs border-collapse w-full">
                       <thead>
@@ -422,59 +594,71 @@ const OpenEndCoding: React.FC = () => {
 
           {/* Tabs */}
           <div className="border-b border-gray-200 px-6 bg-[#F7F7F8]">
-            <div className="flex gap-6">
-              <button
-                onClick={() => setActiveTab('summary')}
-                className={`py-3 text-sm font-medium transition-colors relative ${
-                  activeTab === 'summary'
-                    ? 'text-[#D14A2D]'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
+            <div className="flex gap-6 items-center justify-between">
+              <div className="flex gap-6">
+                <button
+                  onClick={() => setActiveTab('summary')}
+                  className={`py-3 text-sm font-medium transition-colors relative ${
+                    activeTab === 'summary'
+                      ? 'text-[#D14A2D]'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Summary
+                  {activeTab === 'summary' && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#D14A2D]" />
+                  )}
+                </button>
+                <button
+                  onClick={() => setActiveTab('codebook')}
+                  className={`py-3 text-sm font-medium transition-colors relative ${
+                    activeTab === 'codebook'
+                      ? 'text-[#D14A2D]'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Codebook
+                  {activeTab === 'codebook' && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#D14A2D]" />
+                  )}
+                </button>
+                <button
+                  onClick={() => setActiveTab('raw')}
+                  className={`py-3 text-sm font-medium transition-colors relative ${
+                    activeTab === 'raw'
+                      ? 'text-[#D14A2D]'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Raw Codes
+                  {activeTab === 'raw' && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#D14A2D]" />
+                  )}
+                </button>
+                <button
+                  onClick={() => setActiveTab('combine')}
+                  className={`py-3 text-sm font-medium transition-colors relative ${
+                    activeTab === 'combine'
+                      ? 'text-[#D14A2D]'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
               >
-                Summary
-                {activeTab === 'summary' && (
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#D14A2D]" />
-                )}
-              </button>
-              <button
-                onClick={() => setActiveTab('codebook')}
-                className={`py-3 text-sm font-medium transition-colors relative ${
-                  activeTab === 'codebook'
-                    ? 'text-[#D14A2D]'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Codebook
-                {activeTab === 'codebook' && (
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#D14A2D]" />
-                )}
-              </button>
-              <button
-                onClick={() => setActiveTab('raw')}
-                className={`py-3 text-sm font-medium transition-colors relative ${
-                  activeTab === 'raw'
-                    ? 'text-[#D14A2D]'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Raw Codes
-                {activeTab === 'raw' && (
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#D14A2D]" />
-                )}
-              </button>
-              <button
-                onClick={() => setActiveTab('combine')}
-                className={`py-3 text-sm font-medium transition-colors relative ${
-                  activeTab === 'combine'
-                    ? 'text-[#D14A2D]'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Combine Codes
+                Combine/Edit Codes
                 {activeTab === 'combine' && (
                   <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#D14A2D]" />
                 )}
               </button>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleDownloadExcel}
+                  className="flex items-center gap-2 px-4 py-2 bg-[#D14A2D] text-white rounded-lg hover:bg-[#B83E25] transition-colors text-sm font-medium"
+                  title="Download Excel"
+                >
+                  <ArrowDownTrayIcon className="h-5 w-5" />
+                  Download Excel
+                </button>
+              </div>
             </div>
           </div>
 
@@ -648,10 +832,10 @@ const OpenEndCoding: React.FC = () => {
                   <div className="bg-white rounded-lg shadow-sm border border-gray-200">
                     <div className="px-6 py-4 border-b border-gray-200">
                       <h3 className="text-lg font-semibold text-gray-900">
-                        Combine Similar Codes
+                        Combine/Edit Codes
                       </h3>
                       <p className="text-sm text-gray-600 mt-1">
-                        Select codes to merge. Respondents will only be counted once if they mentioned any of the merged codes.
+                        Select codes to merge, or click the edit icon to rename individual codes. Respondents will only be counted once if they mentioned any of the merged codes.
                       </p>
                     </div>
 
@@ -677,21 +861,72 @@ const OpenEndCoding: React.FC = () => {
                                 {theme.code}
                               </span>
                               <div className="ml-2 flex-1">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-sm font-medium text-gray-900">
-                                    {theme.theme}
-                                  </span>
-                                  {theme.combinedFrom && theme.combinedFrom.length > 1 && (
-                                    <button
-                                      onClick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        handleUndoCombine(theme.code);
-                                      }}
-                                      className="ml-2 px-2 py-1 text-xs font-medium text-[#D14A2D] bg-red-50 border border-[#D14A2D] rounded hover:bg-red-100"
-                                    >
-                                      Undo Combine
-                                    </button>
+                                <div className="flex items-center justify-between gap-2">
+                                  {editingCode === theme.code ? (
+                                    <div className="flex-1 flex items-center gap-2">
+                                      <input
+                                        type="text"
+                                        value={editCodeName}
+                                        onChange={(e) => setEditCodeName(e.target.value)}
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter') handleSaveEdit();
+                                          if (e.key === 'Escape') handleCancelEdit();
+                                        }}
+                                        autoFocus
+                                        className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[#D14A2D]"
+                                      />
+                                      <button
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          handleSaveEdit();
+                                        }}
+                                        className="px-2 py-1 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700"
+                                      >
+                                        Save
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          handleCancelEdit();
+                                        }}
+                                        className="px-2 py-1 text-xs font-medium text-gray-700 bg-gray-200 rounded hover:bg-gray-300"
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <span className="text-sm font-medium text-gray-900 flex-1">
+                                        {theme.theme}
+                                      </span>
+                                      <div className="flex gap-2">
+                                        <button
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            handleStartEdit(theme.code, theme.theme);
+                                          }}
+                                          className="p-1 text-gray-400 hover:text-[#D14A2D] transition-colors"
+                                          title="Edit code name"
+                                        >
+                                          <PencilIcon className="h-4 w-4" />
+                                        </button>
+                                        {theme.combinedFrom && theme.combinedFrom.length > 1 && (
+                                          <button
+                                            onClick={(e) => {
+                                              e.preventDefault();
+                                              e.stopPropagation();
+                                              handleUndoCombine(theme.code);
+                                            }}
+                                            className="ml-2 px-2 py-1 text-xs font-medium text-[#D14A2D] bg-red-50 border border-[#D14A2D] rounded hover:bg-red-100"
+                                          >
+                                            Undo Combine
+                                          </button>
+                                        )}
+                                      </div>
+                                    </>
                                   )}
                                 </div>
                                 {theme.description && (
