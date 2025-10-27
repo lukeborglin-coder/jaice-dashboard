@@ -4315,16 +4315,18 @@ export default function App() {
             
             {/* Right side elements grouped together */}
             <div className="flex items-center gap-2">
-              
-              {/* Notification Bell */}
-              <NotificationBell
-                notifications={notifications}
-                unreadCount={notificationService.getUnreadCount()}
-                onNotificationClick={handleNotificationClick}
-                onViewAllNotifications={handleViewAllNotifications}
-                onMarkAsRead={handleMarkAsRead}
-              />
-              
+
+              {/* Notification Bell - Hidden for oversight users */}
+              {user?.role !== 'oversight' && (
+                <NotificationBell
+                  notifications={notifications}
+                  unreadCount={notificationService.getUnreadCount()}
+                  onNotificationClick={handleNotificationClick}
+                  onViewAllNotifications={handleViewAllNotifications}
+                  onMarkAsRead={handleMarkAsRead}
+                />
+              )}
+
               {/* User Profile Dropdown */}
             <div className="relative" data-profile-dropdown>
               <button
@@ -6450,43 +6452,138 @@ function OversightDashboard({ projects, loading, onProjectCreated, onNavigateToP
     });
   }, [filteredProjects, selectedPhaseFilter, selectedDate]);
 
-  // Get key dates for all projects
-  const keyDates = useMemo(() => {
-    const dates: Array<{
-      date: string;
-      type: 'kickoff' | 'fieldStart' | 'fieldEnd' | 'reportDue';
-      projectName: string;
-    }> = [];
-    
-    filteredProjects.forEach(project => {
+  // Get key dates for the selected week
+  const weeklyKeyDates = useMemo(() => {
+    const referenceDate = selectedDate || new Date();
+
+    // Helper to format date as YYYY-MM-DD in local time
+    const formatLocalDate = (date: Date): string => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
+    // Get Monday and Friday of the week containing referenceDate
+    const dayOfWeek = referenceDate.getDay();
+    const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    const weekStart = new Date(referenceDate);
+    weekStart.setDate(referenceDate.getDate() + mondayOffset);
+    weekStart.setHours(0, 0, 0, 0);
+
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 4); // Friday
+    weekEnd.setHours(23, 59, 59, 999);
+
+    const weekStartStr = formatLocalDate(weekStart);
+    const weekEndStr = formatLocalDate(weekEnd);
+
+    console.log('🗓️ THIS WEEK DEBUG - Week range:', weekStartStr, 'to', weekEndStr);
+
+    const deliverables: Array<{ projectName: string; date: string }> = [];
+    const fielding: Array<{ projectName: string }> = [];
+    const kickoffs: Array<{ projectName: string; date: string }> = [];
+
+    // Use allProjects instead of filteredProjects to show all key dates regardless of filters
+    const projectsToCheck = allProjects.filter(p => p.phase !== 'Complete');
+
+    console.log('🔍 Checking', projectsToCheck.length, 'active projects');
+
+    // Helper to parse M/D/YY or M/D/YYYY format to YYYY-MM-DD
+    const parseDeadlineDate = (dateStr: string): string | null => {
+      if (!dateStr) return null;
+      try {
+        // Check if already in YYYY-MM-DD format
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+          return dateStr;
+        }
+        // Parse M/D/YY or M/D/YYYY format
+        const parts = dateStr.split('/');
+        if (parts.length === 3) {
+          let month = parts[0].padStart(2, '0');
+          let day = parts[1].padStart(2, '0');
+          let year = parts[2];
+          // Convert YY to YYYY
+          if (year.length === 2) {
+            const currentYear = new Date().getFullYear();
+            const century = Math.floor(currentYear / 100);
+            year = `${century}${year}`;
+          }
+          return `${year}-${month}-${day}`;
+        }
+      } catch (e) {
+        console.error('Error parsing date:', dateStr, e);
+      }
+      return null;
+    };
+
+    projectsToCheck.forEach(project => {
+      // Check for deliverables (report due dates this week)
       if (project.keyDeadlines) {
         project.keyDeadlines.forEach(deadline => {
           const label = deadline.label.toLowerCase();
-          let type: 'kickoff' | 'fieldStart' | 'fieldEnd' | 'reportDue' | null = null;
-          
-          if (label.includes('kickoff') || label.includes('ko')) {
-            type = 'kickoff';
-          } else if (label.includes('field start')) {
-            type = 'fieldStart';
-          } else if (label.includes('field end')) {
-            type = 'fieldEnd';
-          } else if (label.includes('report') || label.includes('final')) {
-            type = 'reportDue';
-          }
-          
-          if (type && deadline.date) {
-            dates.push({
-              date: deadline.date,
-              type,
-              projectName: project.name
+
+          // More comprehensive check for report deliverables
+          const isReportDeliverable =
+            label.includes('report') ||
+            label.includes('final') ||
+            label.includes('deliverable') ||
+            label.includes('client') ||
+            label.includes('deck') ||
+            label.includes('presentation');
+
+          if (isReportDeliverable && deadline.date) {
+            const parsedDate = parseDeadlineDate(deadline.date);
+            console.log('📋 Checking deliverable:', {
+              project: project.name,
+              label: deadline.label,
+              originalDate: deadline.date,
+              parsedDate: parsedDate,
+              weekStart: weekStartStr,
+              weekEnd: weekEndStr,
+              inRange: parsedDate && parsedDate >= weekStartStr && parsedDate <= weekEndStr
             });
+            if (parsedDate && parsedDate >= weekStartStr && parsedDate <= weekEndStr) {
+              console.log('✅ ADDING deliverable:', project.name, parsedDate);
+              deliverables.push({
+                projectName: project.name,
+                date: parsedDate
+              });
+            }
+          }
+
+          // Check for kickoffs this week
+          if ((label.includes('kickoff') || label.includes('ko')) && deadline.date) {
+            const parsedDate = parseDeadlineDate(deadline.date);
+            if (parsedDate && parsedDate >= weekStartStr && parsedDate <= weekEndStr) {
+              kickoffs.push({
+                projectName: project.name,
+                date: parsedDate
+              });
+            }
           }
         });
       }
+
+      // Check if project is currently in fielding phase
+      if (project.segments) {
+        const refDateStr = formatLocalDate(referenceDate);
+        for (const segment of project.segments) {
+          if (segment.phase === 'Fielding' &&
+              refDateStr >= segment.startDate &&
+              refDateStr <= segment.endDate) {
+            fielding.push({ projectName: project.name });
+            break;
+          }
+        }
+      }
     });
-    
-    return dates.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [filteredProjects]);
+
+    console.log('📊 FINAL RESULTS - Deliverables:', deliverables.length, 'Fielding:', fielding.length, 'Kickoffs:', kickoffs.length);
+    console.log('📋 Deliverables list:', deliverables);
+
+    return { deliverables, fielding, kickoffs };
+  }, [allProjects, selectedDate]);
 
   // Get user's first name
   const firstName = user?.name?.split(' ')[0] || 'User';
@@ -6571,14 +6668,14 @@ function OversightDashboard({ projects, loading, onProjectCreated, onNavigateToP
             </div>
 
             <div className="flex-1 overflow-y-auto overflow-x-hidden light-scrollbar">
-              <table className="w-full">
+              <table className="w-full" style={{ tableLayout: 'fixed' }}>
                 <thead className="bg-gray-100">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider" style={{ width: '250px' }}>Project</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider" style={{ width: '110px' }}>Team</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider" colSpan={2}>Progress</th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase tracking-wider" style={{ width: '60px' }}></th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase tracking-wider" style={{ width: '3rem' }}></th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider" style={{ width: '250px', minWidth: '250px', maxWidth: '250px' }}>Project</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider" style={{ width: '110px', minWidth: '110px', maxWidth: '110px' }}>Team</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider" colSpan={2} style={{ width: 'auto' }}>Progress</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase tracking-wider" style={{ width: '60px', minWidth: '60px', maxWidth: '60px' }}></th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase tracking-wider" style={{ width: '48px', minWidth: '48px', maxWidth: '48px' }}></th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -6757,15 +6854,15 @@ function OversightDashboard({ projects, loading, onProjectCreated, onNavigateToP
                           onMouseLeave={() => setHoveredProjectId(null)}
                         >
                           {/* Project Column */}
-                          <td className="px-4 py-4">
-                            <div>
+                          <td className="px-4 py-4" style={{ width: '250px', minWidth: '250px', maxWidth: '250px' }}>
+                            <div style={{ maxWidth: '218px' }}>
                               <div className="text-sm font-medium text-gray-900 truncate" title={project.name}>{project.name}</div>
                               <div className="text-sm text-gray-500 truncate" title={project.client}>{project.client}</div>
                             </div>
                           </td>
-                          
+
                           {/* Team Column */}
-                          <td className="px-4 py-4">
+                          <td className="px-4 py-4" style={{ width: '110px', minWidth: '110px', maxWidth: '110px' }}>
                             <div className="flex flex-nowrap gap-1">
                               {teamMembers.slice(0, 2).map((member, index) => {
                                 const initials = member.name.split(' ').map(n => n[0]).join('').toUpperCase();
@@ -6789,7 +6886,7 @@ function OversightDashboard({ projects, loading, onProjectCreated, onNavigateToP
                           </td>
 
                           {/* Progress Column with Phase Label */}
-                          <td className="px-4 py-4" colSpan={2}>
+                          <td className="px-4 py-4" colSpan={2} style={{ width: 'auto' }}>
                             <div className="flex items-center gap-3">
                               {/* Phase Label */}
                               {(() => {
@@ -6965,7 +7062,7 @@ function OversightDashboard({ projects, loading, onProjectCreated, onNavigateToP
                           </td>
                           
                           {/* Project Update Column */}
-                          <td className="px-2 py-4 align-middle text-center">
+                          <td className="px-2 py-4 align-middle text-center" style={{ width: '60px', minWidth: '60px', maxWidth: '60px' }}>
                               <button
                                 onClick={() => handleGetProjectUpdate(project)}
                                 className="text-gray-600 hover:text-gray-800"
@@ -6979,8 +7076,9 @@ function OversightDashboard({ projects, loading, onProjectCreated, onNavigateToP
                           <td
                             className="p-0 relative overflow-hidden"
                             style={{
-                              width: '3rem',
-                              minWidth: '3rem'
+                              width: '48px',
+                              minWidth: '48px',
+                              maxWidth: '48px'
                             }}
                           >
                             <div
@@ -7023,40 +7121,32 @@ function OversightDashboard({ projects, loading, onProjectCreated, onNavigateToP
         </div>
 
         {/* Right Column - Calendar and Key Dates */}
-        <div className="flex flex-col gap-6">
-          {/* Filter Dropdowns */}
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Filters</h3>
-            
+        <div className="flex flex-col">
+          {/* Filter Dropdowns - Same height as status boxes */}
+          <div className="space-y-2 mb-6">
             {/* Team Member Filter */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Team Member</label>
-              <select
-                value={selectedTeamMember}
-                onChange={(e) => setSelectedTeamMember(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">All Team Members</option>
-                {teamMembers.map(member => (
-                  <option key={member} value={member}>{member}</option>
-                ))}
-              </select>
-            </div>
-            
+            <select
+              value={selectedTeamMember}
+              onChange={(e) => setSelectedTeamMember(e.target.value)}
+              className="w-full px-2 py-1.5 text-sm bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">All Team Members</option>
+              {teamMembers.map(member => (
+                <option key={member} value={member}>{member}</option>
+              ))}
+            </select>
+
             {/* Client Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Client</label>
-              <select
-                value={selectedClient}
-                onChange={(e) => setSelectedClient(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">All Clients</option>
-                {clients.map(client => (
-                  <option key={client} value={client}>{client}</option>
-                ))}
-              </select>
-            </div>
+            <select
+              value={selectedClient}
+              onChange={(e) => setSelectedClient(e.target.value)}
+              className="w-full px-2 py-1.5 text-sm bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">All Clients</option>
+              {clients.map(client => (
+                <option key={client} value={client}>{client}</option>
+              ))}
+            </select>
           </div>
 
           {/* Calendar */}
@@ -7082,59 +7172,133 @@ function OversightDashboard({ projects, loading, onProjectCreated, onNavigateToP
               </div>
             </div>
             
-            {/* Calendar Grid */}
-            <div className="grid grid-cols-7 gap-1">
-              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+            {/* Calendar Grid - Weekdays Only */}
+            <div className="grid grid-cols-5 gap-1">
+              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map(day => (
                 <div key={day} className="text-center text-xs font-medium text-gray-500 py-2">
                   {day}
                 </div>
               ))}
-              
-              {Array.from({ length: new Date(currentYear, currentMonth, 0).getDate() }, (_, i) => {
-                const day = i + 1;
-                const date = new Date(currentYear, currentMonth, day);
-                const isToday = date.toDateString() === new Date().toDateString();
-                const isSelected = selectedDate && date.toDateString() === selectedDate.toDateString();
-                
-                return (
-                  <button
-                    key={day}
-                    onClick={() => handleDateClick(day)}
-                    className={`p-2 text-sm rounded hover:bg-gray-100 ${
-                      isToday ? 'bg-blue-100 text-blue-600' : ''
-                    } ${isSelected ? 'bg-blue-600 text-white' : ''}`}
-                  >
-                    {day}
-                  </button>
-                );
-              })}
+
+              {(() => {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+
+                // Get first and last day of the month
+                const firstDay = new Date(currentYear, currentMonth, 1);
+                const lastDay = new Date(currentYear, currentMonth + 1, 0);
+                const daysInMonth = lastDay.getDate();
+                const startingDayOfWeek = firstDay.getDay(); // 0 = Sunday, 1 = Monday, etc.
+
+                const days: JSX.Element[] = [];
+
+                // Add empty cells for days before the first of the month (only for weekdays)
+                // Convert Sunday (0) to 7, then calculate Monday-based offset
+                const mondayOffset = startingDayOfWeek === 0 ? 6 : startingDayOfWeek - 1;
+                for (let i = 0; i < mondayOffset; i++) {
+                  days.push(<div key={`empty-${i}`} className="p-2"></div>);
+                }
+
+                // Add all days of the month (only weekdays)
+                for (let day = 1; day <= daysInMonth; day++) {
+                  const date = new Date(currentYear, currentMonth, day);
+                  const dayOfWeek = date.getDay();
+
+                  // Skip weekends (0 = Sunday, 6 = Saturday)
+                  if (dayOfWeek === 0 || dayOfWeek === 6) {
+                    continue;
+                  }
+
+                  const isToday = date.toDateString() === today.toDateString();
+                  const isSelected = selectedDate && date.toDateString() === selectedDate.toDateString();
+
+                  days.push(
+                    <button
+                      key={day}
+                      onClick={() => handleDateClick(day)}
+                      className={`p-2 text-sm rounded hover:bg-gray-100 transition-colors ${
+                        isToday ? 'font-semibold' : ''
+                      } ${isSelected ? 'text-white' : ''}`}
+                      style={{
+                        backgroundColor: isSelected ? '#D14A2D' : isToday ? 'rgba(209, 74, 45, 0.1)' : '',
+                        color: isSelected ? 'white' : isToday ? '#D14A2D' : ''
+                      }}
+                    >
+                      {day}
+                    </button>
+                  );
+                }
+
+                return days;
+              })()}
             </div>
           </div>
 
-          {/* Key Dates */}
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Key Dates</h3>
-            <div className="space-y-2 max-h-64 overflow-y-auto">
-              {keyDates.length === 0 ? (
-                <p className="text-gray-500 text-sm">No key dates found</p>
-              ) : (
-                keyDates.map((keyDate, index) => (
-                  <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">
-                        {keyDate.type === 'kickoff' ? 'Kickoff' :
-                         keyDate.type === 'fieldStart' ? 'Field Start' :
-                         keyDate.type === 'fieldEnd' ? 'Field End' :
-                         'Report Due'}
+          {/* Key Dates - This Week */}
+          <div className="bg-white rounded-lg border border-gray-200 p-4 mt-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">This Week</h3>
+            <div className="space-y-4 max-h-64 overflow-y-auto">
+              {/* Deliverables this week */}
+              <div>
+                <h4 className="text-sm font-semibold text-gray-700 mb-2">Deliverables</h4>
+                {weeklyKeyDates.deliverables.length > 0 ? (
+                  <div className="space-y-1">
+                    {weeklyKeyDates.deliverables.map((item, index) => (
+                      <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                        <div className="text-sm text-gray-900">{item.projectName}</div>
+                        <div className="text-xs text-gray-600">
+                          {(() => {
+                            const [year, month, day] = item.date.split('-').map(Number);
+                            const date = new Date(year, month - 1, day);
+                            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                          })()}
+                        </div>
                       </div>
-                      <div className="text-xs text-gray-500">{keyDate.projectName}</div>
-                    </div>
-                    <div className="text-xs text-gray-600">
-                      {new Date(keyDate.date).toLocaleDateString()}
-                    </div>
+                    ))}
                   </div>
-                ))
-              )}
+                ) : (
+                  <p className="text-sm text-gray-500 italic">No reports due this week</p>
+                )}
+              </div>
+
+              {/* Fielding this week */}
+              <div>
+                <h4 className="text-sm font-semibold text-gray-700 mb-2">Fielding</h4>
+                {weeklyKeyDates.fielding.length > 0 ? (
+                  <div className="space-y-1">
+                    {weeklyKeyDates.fielding.map((item, index) => (
+                      <div key={index} className="p-2 bg-gray-50 rounded">
+                        <div className="text-sm text-gray-900">{item.projectName}</div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500 italic">No projects fielding this week</p>
+                )}
+              </div>
+
+              {/* Kicking off this week */}
+              <div>
+                <h4 className="text-sm font-semibold text-gray-700 mb-2">Kicking Off</h4>
+                {weeklyKeyDates.kickoffs.length > 0 ? (
+                  <div className="space-y-1">
+                    {weeklyKeyDates.kickoffs.map((item, index) => (
+                      <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                        <div className="text-sm text-gray-900">{item.projectName}</div>
+                        <div className="text-xs text-gray-600">
+                          {(() => {
+                            const [year, month, day] = item.date.split('-').map(Number);
+                            const date = new Date(year, month - 1, day);
+                            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                          })()}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500 italic">No kickoffs this week</p>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -7332,12 +7496,24 @@ function OversightDashboard({ projects, loading, onProjectCreated, onNavigateToP
 
                         // Get incomplete tasks for this phase (only if it's the current phase)
                         const phaseTasks = isCurrentPhase ? (project.tasks || []).filter(task => {
-                          if (!task.dueDate || task.status === 'completed') return false;
-                          return getPhaseForDate(task.dueDate) === phase;
+                          // Exclude tasks without due dates
+                          if (!task.dueDate) return false;
+                          // Exclude completed tasks (case-insensitive check)
+                          if (task.status && task.status.toLowerCase() === 'completed') return false;
+
+                          // Map task.phase to the main 3 phases for comparison
+                          let mappedTaskPhase = task.phase;
+                          if (task.phase === 'Kickoff' || task.phase === 'Awaiting KO' || task.phase === 'Pre-Field') {
+                            mappedTaskPhase = 'Pre-Field';
+                          } else if (task.phase === 'Post-Field Analysis' || task.phase === 'Reporting') {
+                            mappedTaskPhase = 'Reporting';
+                          }
+
+                          // Only show tasks that belong to the current phase
+                          return mappedTaskPhase === phase;
                         }).sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime()) : [];
 
-                        const tasksToShow = isExpanded ? phaseTasks : phaseTasks.slice(0, 3);
-                        const hasMoreTasks = phaseTasks.length > 3;
+                        const tasksToShow = phaseTasks.slice(0, 5);
 
                         return (
                           <div key={phase} className="flex">
@@ -7356,7 +7532,7 @@ function OversightDashboard({ projects, loading, onProjectCreated, onNavigateToP
                                     ? phaseColor + '66'  // 40% opacity for completed (lighter border)
                                     : isCurrentPhase
                                       ? phaseColor + 'CC'  // 80% opacity for current
-                                      : phaseColor}`  // full opacity for future phases
+                                      : phaseColor + '80'}`  // 50% opacity for future phases
                                 }}
                               >
                                 {isComplete && (
@@ -7383,7 +7559,7 @@ function OversightDashboard({ projects, loading, onProjectCreated, onNavigateToP
                                       ? phaseColor + '80'  // 50% opacity for completed
                                       : isCurrentPhase
                                         ? phaseColor + 'CC'  // 80% opacity for current
-                                        : phaseColor,  // full opacity for future phases
+                                        : phaseColor + '80',  // 50% opacity for future phases
                                     minHeight: '40px'
                                   }}
                                 />
@@ -7392,9 +7568,9 @@ function OversightDashboard({ projects, loading, onProjectCreated, onNavigateToP
 
                             {/* Phase Info Column */}
                             <div className="flex-1 pb-4">
-                              <h4 className={`text-base font-semibold ${isComplete ? 'text-gray-400' : 'text-gray-900'}`}>{phase}</h4>
+                              <h4 className={`text-base font-semibold ${isCurrentPhase ? 'text-gray-900' : 'text-gray-400'}`}>{phase}</h4>
                               {segment && (
-                                <p className={`text-sm mt-1 ${isComplete ? 'text-gray-400' : isCurrentPhase ? 'text-gray-900 font-semibold' : 'text-gray-500'}`}>
+                                <p className={`text-sm mt-1 ${isCurrentPhase ? 'text-gray-900 font-semibold' : 'text-gray-400'}`}>
                                   {formatDate(segment.startDate)} - {formatDate(segment.endDate)}
                                 </p>
                               )}
@@ -7417,34 +7593,6 @@ function OversightDashboard({ projects, loading, onProjectCreated, onNavigateToP
                                     </div>
                                   ))}
                                 </div>
-                              )}
-
-                              {/* Show More Button */}
-                              {hasMoreTasks && !isExpanded && (
-                                <button
-                                  onClick={() => {
-                                    const newExpanded = new Set(expandedPhases);
-                                    newExpanded.add(phase);
-                                    setExpandedPhases(newExpanded);
-                                  }}
-                                  className="mt-2 text-sm text-blue-600 hover:text-blue-800 font-medium"
-                                >
-                                  Show more ({phaseTasks.length - 3} remaining)
-                                </button>
-                              )}
-
-                              {/* Show Less Button */}
-                              {isExpanded && hasMoreTasks && (
-                                <button
-                                  onClick={() => {
-                                    const newExpanded = new Set(expandedPhases);
-                                    newExpanded.delete(phase);
-                                    setExpandedPhases(newExpanded);
-                                  }}
-                                  className="mt-2 text-sm text-blue-600 hover:text-blue-800 font-medium"
-                                >
-                                  Show less
-                                </button>
                               )}
 
                               {/* Only show "No remaining tasks" for current phase */}

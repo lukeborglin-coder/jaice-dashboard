@@ -122,23 +122,33 @@ router.put('/:projectId', (req, res) => {
     }
 
     console.log('🔍 [PUT] Received project update for:', projectId);
+    console.log('🔍 [PUT] Requesting user:', userId);
     console.log('🔍 [PUT] Team members received:', JSON.stringify(project.teamMembers, null, 2));
 
     const projectsData = readProjectsData();
 
-    if (!projectsData[userId]) {
-      return res.status(404).json({ error: 'User projects not found' });
+    // First, find which user owns this project
+    let projectOwnerId = null;
+    let projectIndex = -1;
+
+    for (const [ownerId, projects] of Object.entries(projectsData)) {
+      const index = projects.findIndex(p => p.id === projectId);
+      if (index !== -1) {
+        projectOwnerId = ownerId;
+        projectIndex = index;
+        break;
+      }
     }
 
-    // Find and update the project
-    const projectIndex = projectsData[userId].findIndex(p => p.id === projectId);
-
-    if (projectIndex === -1) {
+    if (!projectOwnerId || projectIndex === -1) {
       return res.status(404).json({ error: 'Project not found' });
     }
 
-    projectsData[userId][projectIndex] = project;
-    console.log('🔍 [PUT] Project updated in memory, team members:', JSON.stringify(projectsData[userId][projectIndex].teamMembers, null, 2));
+    console.log('🔍 [PUT] Found project owned by user:', projectOwnerId);
+
+    // Update the project under the owner's userId
+    projectsData[projectOwnerId][projectIndex] = project;
+    console.log('🔍 [PUT] Project updated in memory, team members:', JSON.stringify(projectsData[projectOwnerId][projectIndex].teamMembers, null, 2));
 
     // Debug: Check what we have
     console.log('🔍 [PUT] Debug - project.teamMembers:', project.teamMembers);

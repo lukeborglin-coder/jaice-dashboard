@@ -147,7 +147,7 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
   const [showAddToCAModal, setShowAddToCAModal] = useState(false);
   const [selectedTranscriptForCA, setSelectedTranscriptForCA] = useState<Transcript | null>(null);
   const [isAddingToCA, setIsAddingToCA] = useState(false);
-  const [showMyProjectsOnly, setShowMyProjectsOnly] = useState(true);
+  const [showMyProjectsOnly, setShowMyProjectsOnly] = useState(false);
   const [pendingProjectNavigation, setPendingProjectNavigation] = useState<string | null>(null);
   const [parsedDateTime, setParsedDateTime] = useState<{ date: string; time: string } | null>(null);
   const [duplicateWarning, setDuplicateWarning] = useState<boolean>(false);
@@ -1579,24 +1579,6 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                 Archived Projects ({filteredArchivedProjects.length})
               </button>
             </nav>
-            
-            {/* Right-aligned controls */}
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-600">Current View:</span>
-                <button
-                  onClick={() => setShowMyProjectsOnly(!showMyProjectsOnly)}
-                  className={`px-3 py-1 text-xs rounded-lg shadow-sm transition-colors ${
-                    showMyProjectsOnly
-                      ? 'bg-white border border-gray-300 hover:bg-gray-50'
-                      : 'text-white hover:opacity-90'
-                  }`}
-                  style={showMyProjectsOnly ? {} : { backgroundColor: BRAND_ORANGE }}
-                >
-                  {showMyProjectsOnly ? 'Only My Projects' : 'All Cognitive Projects'}
-                </button>
-              </div>
-            </div>
           </div>
         </div>
 
