@@ -1720,99 +1720,6 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
                 )}
               </div>
 
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Team Members
-                  </label>
-                  {!showAddTeamMember && (
-                    <button
-                      type="button"
-                      onClick={() => setShowAddTeamMember(true)}
-                      className="inline-flex items-center gap-1 text-sm"
-                      style={{ color: BRAND.orange }}
-                      onMouseEnter={(e) => (e.target as HTMLButtonElement).style.color = '#B83D1A'}
-                      onMouseLeave={(e) => (e.target as HTMLButtonElement).style.color = BRAND.orange}
-                    >
-                      <PlusIcon className="w-4 h-4" />
-                      Add Team Member
-                    </button>
-                  )}
-                </div>
-                
-                {/* Add Team Member Search */}
-                {showAddTeamMember && (
-                  <div className="mb-3">
-                    <UserSearch
-                      onUserSelect={handleAddTeamMember}
-                      placeholder="Search for team members..."
-                      className="text-sm"
-                    />
-                    <button
-                      onClick={() => setShowAddTeamMember(false)}
-                      className="mt-2 text-xs text-gray-500 hover:text-gray-700"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                )}
-                
-                {/* Team Members List - Simple Display */}
-                <div className="min-h-[60px]">
-                  {teamMembers.length > 0 && (
-                    <div className="flex flex-col">
-                      <div className="flex flex-wrap gap-2">
-                        {(showAllTeamMembers ? teamMembers : teamMembers.slice(0, 6)).map((member) => {
-                          const isCurrentUser = member.id === user?.id;
-                          return (
-                            <div key={member.id} className={`flex items-center gap-2 px-3 py-2 border rounded-lg group ${isCurrentUser ? 'border-blue-300 bg-blue-50' : ''}`} 
-                              style={!isCurrentUser ? { backgroundColor: `${BRAND.orange}10`, borderColor: `${BRAND.orange}30` } : {}}
-                              onMouseEnter={(e) => {
-                                if (!isCurrentUser) {
-                                  (e.target as HTMLDivElement).style.backgroundColor = `${BRAND.orange}20`;
-                                }
-                              }}
-                              onMouseLeave={(e) => {
-                                if (!isCurrentUser) {
-                                  (e.target as HTMLDivElement).style.backgroundColor = `${BRAND.orange}10`;
-                                }
-                              }}
-                            >
-                              <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium" style={{ backgroundColor: getMemberColor(member.id) }}>
-                                {member.name.split(' ').map(n => n[0]).join('').toUpperCase()}
-                              </div>
-                              <span className="text-sm font-medium text-gray-700">
-                                {member.name}
-                                {isCurrentUser && <span className="text-xs text-blue-600 ml-1">(You)</span>}
-                              </span>
-                              {!isCurrentUser && (
-                                <button
-                                  onClick={() => handleRemoveTeamMember(member.id)}
-                                  className="opacity-0 group-hover:opacity-100 text-sm text-red-600 hover:text-red-800 transition-opacity ml-1"
-                                >
-                                  ×
-                                </button>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                      {teamMembers.length > 6 && (
-                        <button
-                          onClick={() => setShowAllTeamMembers(!showAllTeamMembers)}
-                          className="text-sm mt-2 self-start"
-                          style={{ color: BRAND.orange }}
-                          onMouseEnter={(e) => (e.target as HTMLButtonElement).style.color = '#B83D1A'}
-                          onMouseLeave={(e) => (e.target as HTMLButtonElement).style.color = BRAND.orange}
-                        >
-                          {showAllTeamMembers ? 'Show less' : `+${teamMembers.length - 6} more`}
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-
             </div>
           )}
 
@@ -1820,7 +1727,103 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
           {currentStep === 2 && (
             <div className="space-y-4">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Project Timeline</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Team Members</h3>
+                <div className="mb-6">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Team Members
+                    </label>
+                    {!showAddTeamMember && (
+                      <button
+                        type="button"
+                        onClick={() => setShowAddTeamMember(true)}
+                        className="inline-flex items-center gap-1 text-sm"
+                        style={{ color: BRAND.orange }}
+                        onMouseEnter={(e) => (e.target as HTMLButtonElement).style.color = '#B83D1A'}
+                        onMouseLeave={(e) => (e.target as HTMLButtonElement).style.color = BRAND.orange}
+                      >
+                        <PlusIcon className="w-4 h-4" />
+                        Add Team Member
+                      </button>
+                    )}
+                  </div>
+                  
+                  {/* Add Team Member Search */}
+                  {showAddTeamMember && (
+                    <div className="mb-3">
+                      <UserSearch
+                        onUserSelect={handleAddTeamMember}
+                        placeholder="Search for team members..."
+                        className="text-sm"
+                      />
+                      <button
+                        onClick={() => setShowAddTeamMember(false)}
+                        className="mt-2 text-xs text-gray-500 hover:text-gray-700"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+                  
+                  {/* Team Members List - Simple Display */}
+                  <div className="min-h-[60px]">
+                    {teamMembers.length > 0 && (
+                      <div className="flex flex-col">
+                        <div className="flex flex-wrap gap-2">
+                          {(showAllTeamMembers ? teamMembers : teamMembers.slice(0, 6)).map((member) => {
+                            const isCurrentUser = member.id === user?.id;
+                            return (
+                              <div key={member.id} className={`flex items-center gap-2 px-3 py-2 border rounded-lg group ${isCurrentUser ? 'border-blue-300 bg-blue-50' : ''}`} 
+                                style={!isCurrentUser ? { backgroundColor: `${BRAND.orange}10`, borderColor: `${BRAND.orange}30` } : {}}
+                                onMouseEnter={(e) => {
+                                  if (!isCurrentUser) {
+                                    (e.target as HTMLDivElement).style.backgroundColor = `${BRAND.orange}20`;
+                                  }
+                                }}
+                                onMouseLeave={(e) => {
+                                  if (!isCurrentUser) {
+                                    (e.target as HTMLDivElement).style.backgroundColor = `${BRAND.orange}10`;
+                                  }
+                                }}
+                              >
+                                <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium" style={{ backgroundColor: getMemberColor(member.id) }}>
+                                  {member.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                                </div>
+                                <span className="text-sm font-medium text-gray-700">
+                                  {member.name}
+                                  {isCurrentUser && <span className="text-xs text-blue-600 ml-1">(You)</span>}
+                                </span>
+                                {!isCurrentUser && (
+                                  <button
+                                    onClick={() => handleRemoveTeamMember(member.id)}
+                                    className="opacity-0 group-hover:opacity-100 text-sm text-red-600 hover:text-red-800 transition-opacity ml-1"
+                                  >
+                                    ×
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                        {teamMembers.length > 6 && (
+                          <button
+                            onClick={() => setShowAllTeamMembers(!showAllTeamMembers)}
+                            className="text-sm mt-2 self-start"
+                            style={{ color: BRAND.orange }}
+                            onMouseEnter={(e) => (e.target as HTMLButtonElement).style.color = '#B83D1A'}
+                            onMouseLeave={(e) => (e.target as HTMLButtonElement).style.color = BRAND.orange}
+                          >
+                            {showAllTeamMembers ? 'Show less' : `+${teamMembers.length - 6} more`}
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="border-t pt-4 mt-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Project Timeline</h3>
+                </div>
               </div>
 
               {/* Simplified Date Inputs */}
