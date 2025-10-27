@@ -4172,6 +4172,7 @@ export default function App() {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
           },
           body: JSON.stringify({ userId: user.id }),
           credentials: 'include'
@@ -4181,7 +4182,8 @@ export default function App() {
           setProjects(projects.filter(p => p.id !== projectId));
           alert('Project archived successfully!');
         } else {
-          console.error('Failed to archive project');
+          const errorText = await response.text();
+          console.error('Failed to archive project:', response.status, errorText);
           alert('Failed to archive project. Please try again.');
         }
       } catch (error) {
