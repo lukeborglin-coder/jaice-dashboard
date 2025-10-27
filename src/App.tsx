@@ -3446,9 +3446,6 @@ export default function App() {
       if (!target.closest('[data-profile-dropdown]')) {
         setShowProfileDropdown(false);
       }
-      if (!target.closest('.add-role-button') && !target.closest('.role-dropdown')) {
-        setShowAddRoleDropdown(null);
-      }
     }
 
     document.addEventListener('mousedown', handleClickOutside);
@@ -6322,7 +6319,10 @@ function OversightDashboard({ projects, loading, onProjectCreated, onNavigateToP
     allProjects.forEach(project => {
       if (project.teamMembers) {
         project.teamMembers.forEach(member => {
-          if (member.name) members.add(member.name);
+          if (member.name) {
+            // Trim whitespace from team member names before adding
+            members.add(member.name.trim());
+          }
         });
       }
     });
@@ -6343,7 +6343,12 @@ function OversightDashboard({ projects, loading, onProjectCreated, onNavigateToP
     
     if (selectedTeamMember) {
       filtered = filtered.filter(project => 
-        project.teamMembers?.some(member => member.name === selectedTeamMember)
+        project.teamMembers?.some(member => {
+          // Normalize both sides for comparison (trim whitespace and lowercase)
+          const memberName = String(member.name || '').trim().toLowerCase();
+          const selectedName = String(selectedTeamMember || '').trim().toLowerCase();
+          return memberName === selectedName;
+        })
       );
     }
     
@@ -6491,7 +6496,12 @@ function OversightDashboard({ projects, loading, onProjectCreated, onNavigateToP
     if (selectedTeamMember) {
       projectsToCheck = projectsToCheck.filter(project => {
         const teamMembers = project.teamMembers || [];
-        return teamMembers.some((tm: any) => tm.name === selectedTeamMember);
+        return teamMembers.some((tm: any) => {
+          // Normalize both sides for comparison (trim whitespace and lowercase)
+          const memberName = String(tm.name || '').trim().toLowerCase();
+          const selectedName = String(selectedTeamMember || '').trim().toLowerCase();
+          return memberName === selectedName;
+        });
       });
     }
 
@@ -6612,13 +6622,30 @@ function OversightDashboard({ projects, loading, onProjectCreated, onNavigateToP
     return { deliverables, fielding, kickoffs };
   }, [allProjects, selectedDate, selectedTeamMember, selectedClient]);
 
+  // Calculate week range label for display
+  const weekRangeLabel = useMemo(() => {
+    const referenceDate = selectedDate || new Date();
+    const dayOfWeek = referenceDate.getDay();
+    const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    const weekStart = new Date(referenceDate);
+    weekStart.setDate(referenceDate.getDate() + mondayOffset);
+    weekStart.setHours(0, 0, 0, 0);
+    
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 4); // Friday
+    
+    const startText = weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const endText = weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    return `${startText} - ${endText}`;
+  }, [selectedDate]);
+
   // Get user's first name
   const firstName = user?.name?.split(' ')[0] || 'User';
 
   return (
-    <div className="space-y-6 w-full max-w-full overflow-x-hidden">
+    <div className="space-y-6 w-full max-w-full overflow-x-hidden" style={{ overflowY: 'visible' }}>
       {/* Main Content Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:items-start overflow-visible">
         {/* Left Column - Project List and Status Boxes */}
         <div className="lg:col-span-2 flex flex-col gap-6">
           {/* Status Boxes */}
@@ -7148,14 +7175,14 @@ function OversightDashboard({ projects, loading, onProjectCreated, onNavigateToP
         </div>
 
         {/* Right Column - Calendar and Key Dates */}
-        <div className="flex flex-col">
+        <div className="flex flex-col justify-center overflow-visible">
           {/* Filter Dropdowns - Same height as status boxes */}
-          <div className="space-y-2 mb-6">
+          <div className="space-y-2 mb-6 overflow-visible">
             {/* Team Member Filter */}
             <select
               value={selectedTeamMember}
               onChange={(e) => setSelectedTeamMember(e.target.value)}
-              className="w-full px-2 py-1.5 text-sm bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-2 py-1.5 text-sm bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 relative z-10"
             >
               <option value="">All Team Members</option>
               {teamMembers.map(member => (
@@ -7167,7 +7194,7 @@ function OversightDashboard({ projects, loading, onProjectCreated, onNavigateToP
             <select
               value={selectedClient}
               onChange={(e) => setSelectedClient(e.target.value)}
-              className="w-full px-2 py-1.5 text-sm bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-2 py-1.5 text-sm bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 relative z-10"
             >
               <option value="">All Clients</option>
               {clients.map(client => (
@@ -7263,7 +7290,11 @@ function OversightDashboard({ projects, loading, onProjectCreated, onNavigateToP
 
           {/* Key Dates - This Week */}
           <div className="bg-white rounded-lg border border-gray-200 p-4 mt-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">This Week</h3>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-lg font-semibold text-gray-900">This Week</h3>
+              <span className="text-sm font-medium text-gray-600">{weekRangeLabel}</span>
+            </div>
+            <div className="h-0.5 w-full mb-4" style={{ backgroundColor: BRAND.orange }}></div>
             <div className="space-y-4">
               {/* Deliverables this week */}
               <div>
@@ -7271,7 +7302,7 @@ function OversightDashboard({ projects, loading, onProjectCreated, onNavigateToP
                 {weeklyKeyDates.deliverables.length > 0 ? (
                   <div className="space-y-1">
                     {weeklyKeyDates.deliverables.map((item, index) => (
-                      <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                      <div key={index} className="flex items-center justify-between p-2 rounded" style={{ backgroundColor: 'rgba(220, 38, 38, 0.1)' }}>
                         <div className="text-sm text-gray-900">{item.projectName}</div>
                         <div className="text-xs text-gray-600 italic">
                           {(() => {
@@ -7293,7 +7324,7 @@ function OversightDashboard({ projects, loading, onProjectCreated, onNavigateToP
                 {weeklyKeyDates.fielding.length > 0 ? (
                   <div className="space-y-1">
                     {weeklyKeyDates.fielding.map((item, index) => (
-                      <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                      <div key={index} className="flex items-center justify-between p-2 rounded" style={{ backgroundColor: 'rgba(124, 58, 237, 0.1)' }}>
                         <div className="text-sm text-gray-900">{item.projectName}</div>
                         <div className="text-xs text-gray-600 italic">
                           {(() => {
@@ -7318,7 +7349,7 @@ function OversightDashboard({ projects, loading, onProjectCreated, onNavigateToP
                 {weeklyKeyDates.kickoffs.length > 0 ? (
                   <div className="space-y-1">
                     {weeklyKeyDates.kickoffs.map((item, index) => (
-                      <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                      <div key={index} className="flex items-center justify-between p-2 rounded" style={{ backgroundColor: 'rgba(29, 78, 216, 0.1)' }}>
                         <div className="text-sm text-gray-900">{item.projectName}</div>
                         <div className="text-xs text-gray-600 italic">
                           {(() => {

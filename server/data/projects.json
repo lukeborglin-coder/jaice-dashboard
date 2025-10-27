@@ -594,7 +594,7 @@
           "id": "task-044",
           "description": "Save final raw data files to folder: raw excel file, SPSS file, verbatim file, etc.",
           "assignedTo": [],
-          "status": "pending",
+          "status": "completed",
           "phase": "Post-Field Analysis",
           "dueDate": "2025-10-20",
           "isOngoing": false,
@@ -861,7 +861,8 @@
       "phaseColor": "#F97316",
       "fieldworkRange": "10/6/25",
       "reportDeadline": "11/7/25",
-      "teamMembersText": "Luke Borglin,  Ciara Mcevoy-Benisti"
+      "teamMembersText": "Luke Borglin,  Ciara Mcevoy-Benisti",
+      "calculatedProgress": 70
     },
     {
       "name": "qual test",
@@ -1678,6 +1679,814 @@
       "hasDiscussionGuide": true,
       "discussionGuideUpdatedAt": "2025-10-23T20:34:08.529Z",
       "calculatedProgress": 78
+    }
+  ],
+  "17": [
+    {
+      "name": "tesitng aginadgad gfda gfd g",
+      "client": "Genentech",
+      "methodologyType": "Quantitative",
+      "methodology": "Market Segmentation",
+      "startDate": "",
+      "endDate": "",
+      "background": "",
+      "objectives": "",
+      "kickoffDeck": null,
+      "sampleSize": 10,
+      "subgroups": [
+        {
+          "id": "1761521960216",
+          "name": "HCP",
+          "size": 5
+        },
+        {
+          "id": "1761521966179",
+          "name": "Patient",
+          "size": 5
+        }
+      ],
+      "moderator": "",
+      "sampleProvider": "",
+      "requireAdvancedAnalytics": false,
+      "analyticsPartner": "",
+      "usePreloadedTasks": true,
+      "customTasks": [],
+      "id": "P-1761522000342",
+      "phase": "Kickoff",
+      "methodologyDisplay": "Quantitative - Market Segmentation",
+      "phaseTimeline": {
+        "Kickoff": {
+          "start": "2025-10-20",
+          "end": "2025-10-20"
+        },
+        "Pre-Field": {
+          "start": "2025-10-21",
+          "end": "2025-10-24"
+        },
+        "Fielding": {
+          "start": "2025-10-27",
+          "end": "2025-10-31"
+        },
+        "Post-Field Analysis": {
+          "start": "2025-11-03",
+          "end": "2025-10-31"
+        },
+        "Reporting": {
+          "start": "2025-11-03",
+          "end": "2025-11-07"
+        }
+      },
+      "deadline": 12,
+      "nextDeadline": "Project kickoff: 10/20/2025",
+      "keyDeadlines": [
+        {
+          "label": "Project Kickoff",
+          "date": "10/20/25"
+        },
+        {
+          "label": "Fielding Start",
+          "date": "10/27/25"
+        },
+        {
+          "label": "Final Report",
+          "date": "11/7/25"
+        }
+      ],
+      "tasks": [
+        {
+          "id": "task-001",
+          "description": "Create Kick Off (KO) deck",
+          "assignedTo": [
+            "3"
+          ],
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": "2025-10-17",
+          "isOngoing": false,
+          "dateNotes": "1 day before KO date",
+          "notes": "",
+          "role": "Project Manager"
+        },
+        {
+          "id": "task-002",
+          "description": "Create detailed timeline",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": "2025-10-17",
+          "isOngoing": false,
+          "dateNotes": "1 day before KO date",
+          "notes": "",
+          "role": "Project Manager"
+        },
+        {
+          "id": "task-003",
+          "description": "Hold Internal Pre-Kick Off: Talk through study overview, roles, deadlines, and any other key project info prior to KO with client.",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Kickoff",
+          "dueDate": "2025-10-17",
+          "isOngoing": false,
+          "dateNotes": "1 day before KO date",
+          "notes": "",
+          "role": "Project Manager"
+        },
+        {
+          "id": "task-004",
+          "description": "Create or review Proposal based on RFP (Request For Proposal)",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Kickoff",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "Project Manager"
+        },
+        {
+          "id": "task-005",
+          "description": "Create a job folder for the study in the 'Proposals' folder (within appropriate client folder)",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Kickoff",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "Logistics"
+        },
+        {
+          "id": "task-006",
+          "description": "Ensure any new vendors you are bringing on board have signed the NDA",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Kickoff",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "Recruit Coordinator"
+        },
+        {
+          "id": "task-007",
+          "description": "Create Internal Cost Worksheet, send to supervisor",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Kickoff",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "Logistics"
+        },
+        {
+          "id": "task-008",
+          "description": "Move study docs from 'Proposals' folder to main client folder",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Kickoff",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "Project Manager"
+        },
+        {
+          "id": "task-009",
+          "description": "Set up Invoice Schedule & Worksheet (Reference PO/SOW for client specific invoice timeline)",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Kickoff",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": ""
+        },
+        {
+          "id": "task-010",
+          "description": "Bid project out to vendors",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Kickoff",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "Recruit Coordinator"
+        },
+        {
+          "id": "task-011",
+          "description": "Save vendors' bids to job folder",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Kickoff",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "Recruit Coordinator"
+        },
+        {
+          "id": "task-012",
+          "description": "Alert sample/programming vendor that the project is moving forward",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Kickoff",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "Recruit Coordinator"
+        },
+        {
+          "id": "task-013",
+          "description": "After client KO call, confirm final sample quotas with vendor",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Kickoff",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "Recruit Coordinator"
+        },
+        {
+          "id": "task-014",
+          "description": "Draft QNR",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Pre-Field",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": ""
+        },
+        {
+          "id": "task-015",
+          "description": "Proof QNR",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Pre-Field",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": ""
+        },
+        {
+          "id": "task-016",
+          "description": "Send QNR draft to client",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Pre-Field",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "Project Manager"
+        },
+        {
+          "id": "task-017",
+          "description": "Confirm final quota targets with client",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Pre-Field",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "Project Manager"
+        },
+        {
+          "id": "task-018",
+          "description": "Add AE submission forms & contact info to job folder",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Pre-Field",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "AE Manager"
+        },
+        {
+          "id": "task-019",
+          "description": "Update folder name with job #",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Pre-Field",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "Logistics"
+        },
+        {
+          "id": "task-020",
+          "description": "Submit first client invoice request to accounting",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Pre-Field",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "Project Manager"
+        },
+        {
+          "id": "task-021",
+          "description": "Send final QNR to vendor (after client sign off)",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Pre-Field",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "Recruit Coordinator"
+        },
+        {
+          "id": "task-022",
+          "description": "Create specs & engage statistician",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Pre-Field",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "IF ADVANCED ANALYTICS",
+          "role": ""
+        },
+        {
+          "id": "task-023",
+          "description": "Ensure signed/final documents are saved to job folder",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Pre-Field",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": ""
+        },
+        {
+          "id": "task-024",
+          "description": "Test survey program",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Pre-Field",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": ""
+        },
+        {
+          "id": "task-025",
+          "description": "Review translations in survey program",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Pre-Field",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "IF TRANSLATIONS",
+          "role": ""
+        },
+        {
+          "id": "task-026",
+          "description": "Send translations to client-approved translators",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Pre-Field",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "IF TRANSLATIONS",
+          "role": ""
+        },
+        {
+          "id": "task-027",
+          "description": "If requested: send tested survey link to client",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Pre-Field",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "Project Manager"
+        },
+        {
+          "id": "task-028",
+          "description": "Create data quality check plan",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": "2025-10-24",
+          "isOngoing": false,
+          "dateNotes": "1 day before fieldwork start",
+          "notes": "",
+          "role": "Recruit Coordinator"
+        },
+        {
+          "id": "task-029",
+          "description": "Create AE check plan",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": "2025-10-24",
+          "isOngoing": false,
+          "dateNotes": "1 day before fieldwork start",
+          "notes": "",
+          "role": "AE Manager"
+        },
+        {
+          "id": "task-030",
+          "description": "Approve survey for soft launch",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Pre-Field",
+          "dueDate": "2025-10-27",
+          "isOngoing": false,
+          "dateNotes": "first day of fieldwork",
+          "notes": "",
+          "role": "Recruit Coordinator"
+        },
+        {
+          "id": "task-031",
+          "description": "Create report shell",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Fielding",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": ""
+        },
+        {
+          "id": "task-032",
+          "description": "Share fielding updates with client",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Fielding",
+          "isOngoing": true,
+          "dateNotes": "Ongoing",
+          "notes": "",
+          "role": "Project Manager"
+        },
+        {
+          "id": "task-033",
+          "description": "Copy cost tracker shell to job folder and update",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Fielding",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": ""
+        },
+        {
+          "id": "task-034",
+          "description": "Create tab banner plan draft",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Fielding",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": ""
+        },
+        {
+          "id": "task-035",
+          "description": "Review and finalize tab banner plan",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Fielding",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "Project Manager"
+        },
+        {
+          "id": "task-036",
+          "description": "Send tab banner plan to vendor",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Fielding",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "Recruit Coordinator"
+        },
+        {
+          "id": "task-037",
+          "description": "If coding: share questions and required codes with vendor",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Fielding",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "Recruit Coordinator"
+        },
+        {
+          "id": "task-038",
+          "description": "Request invoice if required by client schedule",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Fielding",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "Project Manager"
+        },
+        {
+          "id": "task-039",
+          "description": "Request prelim tables (if needed)",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Fielding",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "Recruit Coordinator"
+        },
+        {
+          "id": "task-040",
+          "description": "Check prelim tables (if needed)",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Fielding",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": ""
+        },
+        {
+          "id": "task-041",
+          "description": "Frequent data quality checks",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Fielding",
+          "isOngoing": true,
+          "dateNotes": "ongoing",
+          "notes": "",
+          "role": "Recruit Coordinator"
+        },
+        {
+          "id": "task-042",
+          "description": "Frequent AE checks",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Fielding",
+          "isOngoing": true,
+          "dateNotes": "ongoing",
+          "notes": "",
+          "role": "AE Manager"
+        },
+        {
+          "id": "task-043",
+          "description": "Final data quality check",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Post-Field Analysis",
+          "dueDate": "2025-10-31",
+          "isOngoing": false,
+          "dateNotes": "last day of field",
+          "notes": "",
+          "role": "Recruit Coordinator"
+        },
+        {
+          "id": "task-044",
+          "description": "Save final raw data files to folder: raw excel file, SPSS file, verbatim file, etc.",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Post-Field Analysis",
+          "dueDate": "2025-11-03",
+          "isOngoing": false,
+          "dateNotes": "1 day after fieldwork ends",
+          "notes": "",
+          "role": "Logistics"
+        },
+        {
+          "id": "task-045",
+          "description": "Send final verbatim file to vendor for coding (if needed)",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Post-Field Analysis",
+          "dueDate": "2025-11-03",
+          "isOngoing": false,
+          "dateNotes": "1 day after fieldwork ends",
+          "notes": "",
+          "role": "Recruit Coordinator"
+        },
+        {
+          "id": "task-046",
+          "description": "Request final tables",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Post-Field Analysis",
+          "dueDate": "2025-11-03",
+          "isOngoing": false,
+          "dateNotes": "1 day after fieldwork ends",
+          "notes": "",
+          "role": "Recruit Coordinator"
+        },
+        {
+          "id": "task-047",
+          "description": "Send SPSS file to statistician (if applicable)",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Post-Field Analysis",
+          "dueDate": "2025-11-03",
+          "isOngoing": false,
+          "dateNotes": "1 day after fieldwork ends",
+          "notes": "",
+          "role": ""
+        },
+        {
+          "id": "task-048",
+          "description": "Check final tables",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Post-Field Analysis",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": ""
+        },
+        {
+          "id": "task-049",
+          "description": "Submit AE Reconciliation",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Post-Field Analysis",
+          "dueDate": "2025-11-03",
+          "isOngoing": false,
+          "dateNotes": "1 day after fieldwork ends",
+          "notes": "",
+          "role": "AE Manager"
+        },
+        {
+          "id": "task-050",
+          "description": "Populate data in report shell",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Reporting",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": ""
+        },
+        {
+          "id": "task-051",
+          "description": "Write findings & exec summary",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Reporting",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": ""
+        },
+        {
+          "id": "task-052",
+          "description": "Have data proofed",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Reporting",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": ""
+        },
+        {
+          "id": "task-053",
+          "description": "Have exec summary and headlines proofed",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Reporting",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": ""
+        },
+        {
+          "id": "task-054",
+          "description": "Have full final report proofed",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Reporting",
+          "dueDate": "2025-11-06",
+          "isOngoing": false,
+          "dateNotes": "1 day before report due date",
+          "notes": "",
+          "role": ""
+        },
+        {
+          "id": "task-055",
+          "description": "Have full final report have a final review (for final sign off)",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Reporting",
+          "dueDate": "2025-11-07",
+          "isOngoing": false,
+          "dateNotes": "final report due date",
+          "notes": "",
+          "role": ""
+        },
+        {
+          "id": "task-056",
+          "description": "Send report to client",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Reporting",
+          "dueDate": "2025-11-07",
+          "isOngoing": false,
+          "dateNotes": "final report due date",
+          "notes": "",
+          "role": "Project Manager"
+        },
+        {
+          "id": "task-057",
+          "description": "Save vendor invoices, compare to bids, confirm costs",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Reporting",
+          "dueDate": "2025-11-07",
+          "isOngoing": false,
+          "dateNotes": "final report due date",
+          "notes": "",
+          "role": "Recruit Coordinator"
+        },
+        {
+          "id": "task-058",
+          "description": "Approve final vendor invoices",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Reporting",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "Recruit Coordinator"
+        },
+        {
+          "id": "task-059",
+          "description": "Send final vendor invoices to Sharon",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Reporting",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "Recruit Coordinator"
+        },
+        {
+          "id": "task-060",
+          "description": "Fill out Cost Tracker with final invoices from vendors",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Reporting",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "Recruit Coordinator"
+        }
+      ],
+      "teamMembers": [
+        {
+          "id": "17",
+          "name": "oversight",
+          "role": "AE Manager",
+          "roles": [
+            "AE Manager"
+          ]
+        },
+        {
+          "id": "3",
+          "name": "Luke Borglin",
+          "role": "Project Manager",
+          "roles": [
+            "Project Manager"
+          ]
+        },
+        {
+          "id": "12",
+          "name": " Ciara Mcevoy-Benisti",
+          "role": "Recruit Coordinator",
+          "roles": [
+            "Recruit Coordinator"
+          ]
+        }
+      ],
+      "sampleDetails": "Total: n=10 (HCP: n=5, Patient: n=5)",
+      "files": [],
+      "segments": [
+        {
+          "phase": "Kickoff",
+          "startDate": "2025-10-20",
+          "endDate": "2025-10-20"
+        },
+        {
+          "phase": "Pre-Field",
+          "startDate": "2025-10-21",
+          "endDate": "2025-10-24"
+        },
+        {
+          "phase": "Fielding",
+          "startDate": "2025-10-27",
+          "endDate": "2025-10-31"
+        },
+        {
+          "phase": "Post-Field Analysis",
+          "startDate": "2025-11-03",
+          "endDate": "2025-10-31"
+        },
+        {
+          "phase": "Reporting",
+          "startDate": "2025-11-03",
+          "endDate": "2025-11-07"
+        }
+      ]
     }
   ],
   "3_archived": [
