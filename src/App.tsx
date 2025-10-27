@@ -6599,6 +6599,16 @@ function OversightDashboard({ projects, loading, onProjectCreated, onNavigateToP
     console.log('📊 FINAL RESULTS - Deliverables:', deliverables.length, 'Fielding:', fielding.length, 'Kickoffs:', kickoffs.length);
     console.log('📋 Deliverables list:', deliverables);
 
+    // Sort each category
+    // Deliverables: earliest date first
+    deliverables.sort((a, b) => a.date.localeCompare(b.date));
+
+    // Fielding: ending soonest first
+    fielding.sort((a, b) => a.endDate.localeCompare(b.endDate));
+
+    // Kickoffs: earliest date first
+    kickoffs.sort((a, b) => a.date.localeCompare(b.date));
+
     return { deliverables, fielding, kickoffs };
   }, [allProjects, selectedDate, selectedTeamMember, selectedClient]);
 
@@ -7254,7 +7264,7 @@ function OversightDashboard({ projects, loading, onProjectCreated, onNavigateToP
           {/* Key Dates - This Week */}
           <div className="bg-white rounded-lg border border-gray-200 p-4 mt-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">This Week</h3>
-            <div className="space-y-4 max-h-64 overflow-y-auto">
+            <div className="space-y-4">
               {/* Deliverables this week */}
               <div>
                 <h4 className="text-sm font-semibold text-gray-700 mb-2">Deliverables ({weeklyKeyDates.deliverables.length})</h4>
