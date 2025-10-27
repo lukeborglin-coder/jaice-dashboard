@@ -243,31 +243,44 @@ router.post('/:projectId/archive', (req, res) => {
 
     const projectsData = readProjectsData();
 
-    if (!projectsData[userId]) {
-      return res.status(404).json({ error: 'User projects not found' });
+    // Search for the project across all users
+    let foundUser = null;
+    let projectIndex = -1;
+    let project = null;
+
+    for (const [userKey, projects] of Object.entries(projectsData)) {
+      // Skip archived keys
+      if (userKey.includes('_archived')) continue;
+      
+      const index = projects.findIndex(p => p.id === projectId);
+      if (index !== -1) {
+        foundUser = userKey;
+        projectIndex = index;
+        project = projects[index];
+        break;
+      }
     }
 
-    // Find the project to archive
-    const projectIndex = projectsData[userId].findIndex(p => p.id === projectId);
-
-    if (projectIndex === -1) {
+    if (!project || projectIndex === -1) {
       return res.status(404).json({ error: 'Project not found' });
     }
 
-    // Get the project and mark it as archived
-    const project = projectsData[userId][projectIndex];
+    // Get the project's owner (the user who owns this project)
+    const projectOwner = foundUser;
+
+    // Mark as archived
     project.archived = true;
     project.archivedDate = new Date().toISOString();
 
     // Initialize archived projects array if it doesn't exist
-    const archivedKey = `${userId}_archived`;
+    const archivedKey = `${projectOwner}_archived`;
     if (!projectsData[archivedKey]) {
       projectsData[archivedKey] = [];
     }
 
     // Move project to archived
     projectsData[archivedKey].push(project);
-    projectsData[userId].splice(projectIndex, 1);
+    projectsData[projectOwner].splice(projectIndex, 1);
 
     // Save to file
     if (writeProjectsData(projectsData)) {
@@ -768,3 +781,4 @@ router.post('/:projectId/reset-tasks', (req, res) => {
 });
 
 export default router;
+
