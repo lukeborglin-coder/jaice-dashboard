@@ -1,6 +1,6 @@
 import { API_BASE_URL } from '../config';
 import React, { useState, useEffect } from 'react';
-import { XMarkIcon, ChevronLeftIcon, ChevronRightIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, ChevronLeftIcon, ChevronRightIcon, PlusIcon, TrashIcon, InformationCircleIcon, CalendarDaysIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../contexts/AuthContext';
 import UserSearch from './UserSearch';
 import { createPortal } from 'react-dom';
@@ -25,7 +25,7 @@ type Task = {
   role?: string;
 };
 
-const BRAND = { orange: "#D14A2D" };
+const BRAND = { orange: "#D14A2D", red: "#B83D1A" };
 
 // Helper function for getting member color (consistent across all contexts)
 const getMemberColor = (memberId: string) => {
@@ -620,6 +620,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
   const [showAddTeamMember, setShowAddTeamMember] = useState(false);
   const [showAllTeamMembers, setShowAllTeamMembers] = useState(false);
   const [saveTimeout, setSaveTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [showRoleInfoModal, setShowRoleInfoModal] = useState(false);
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -828,8 +829,8 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
   };
 
   const handleNext = () => {
-    // Validate timeline step (step 3)
-    if (currentStep === 3) {
+    // Validate dates when leaving step 2
+    if (currentStep === 2) {
       // Check if all 4 key dates are provided
       const { kickoffDate, fieldworkStartDate, fieldworkEndDate, reportDeadlineDate } = timelineDates;
       
@@ -864,12 +865,8 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
         return;
       }
 
-      // Validate minimum 5 days between KO and fieldwork start
-      const daysBetween = Math.ceil((fieldStartDate.getTime() - koDate.getTime()) / (1000 * 60 * 60 * 24));
-      if (daysBetween < 5) {
-        setError('There must be at least 5 days between kickoff and fieldwork start date');
-        return;
-      }
+      // If validation passes, clear any errors
+      setError('');
     }
     
     // Validate sample details step (step 4)
@@ -881,6 +878,8 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
           return;
         }
       }
+      // If validation passes, clear any errors
+      setError('');
     }
     
     if (currentStep < 4) {
@@ -897,6 +896,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
 
   const handlePrevious = () => {
     if (currentStep > 1) {
+      setError(''); // Clear any errors when going back
       setCurrentStep(currentStep - 1);
       // Scroll to top of content area
       setTimeout(() => {
@@ -1308,6 +1308,14 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
     autoSave(); // Trigger auto-save
   };
 
+  // Get sample tasks for a specific role
+  const getSampleTasksForRole = (roleName: string): string[] => {
+    return jaiceTasks
+      .filter(task => task.role === roleName && task.task && task.task.trim())
+      .slice(0, 3) // Get up to 3 sample tasks
+      .map(task => task.task);
+  };
+
   const handleSubmit = async () => {
     setLoading(true);
     setError('');
@@ -1348,7 +1356,54 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
           { label: "Final Report", date: formatDateForKeyDeadline(projectEndDate) }
         ],
         tasks: await (async () => {
-          const tasks: Task[] = formData.usePreloadedTasks ? getDefaultTasks(formData.methodologyType, calculatedTimeline) : [];
+          const tasks: Task[] = formData.usePreloadedTasks ? getDefaultTasks(formData.methodologyType, calculatedTimeline, formData.requireAdvancedAnalytics) : [];
+          
+          // Determine current phase and mark tasks from previous phases as complete
+          const now = new Date();
+          now.setHours(0, 0, 0, 0); // Normalize to start of day for comparison
+          
+          const currentPhase = (() => {
+            const koEnd = calculatedTimeline['Kickoff']?.end ? new Date(calculatedTimeline['Kickoff'].end + 'T00:00:00') : null;
+            const preFieldEnd = calculatedTimeline['Pre-Field']?.end ? new Date(calculatedTimeline['Pre-Field'].end + 'T00:00:00') : null;
+            const fieldingEnd = calculatedTimeline['Fielding']?.end ? new Date(calculatedTimeline['Fielding'].end + 'T00:00:00') : null;
+            const postFieldEnd = calculatedTimeline['Post-Field Analysis']?.end ? new Date(calculatedTimeline['Post-Field Analysis'].end + 'T00:00:00') : null;
+            
+            if (!koEnd) return 'Kickoff';
+            koEnd.setHours(0, 0, 0, 0);
+            if (now <= koEnd) return 'Kickoff';
+            
+            if (!preFieldEnd) return 'Pre-Field';
+            preFieldEnd.setHours(0, 0, 0, 0);
+            if (now <= preFieldEnd) return 'Pre-Field';
+            
+            if (!fieldingEnd) return 'Fielding';
+            fieldingEnd.setHours(0, 0, 0, 0);
+            if (now <= fieldingEnd) return 'Fielding';
+            
+            if (!postFieldEnd) return 'Post-Field Analysis';
+            postFieldEnd.setHours(0, 0, 0, 0);
+            if (now <= postFieldEnd) return 'Post-Field Analysis';
+            
+            return 'Reporting';
+          })();
+          
+          console.log('Current phase:', currentPhase, 'Current date:', now.toISOString());
+          
+          // Mark tasks from completed phases as complete
+          const phaseOrder = ['Kickoff', 'Pre-Field', 'Fielding', 'Post-Field Analysis', 'Reporting'];
+          const currentPhaseIndex = phaseOrder.indexOf(currentPhase);
+          
+          console.log('Current phase index:', currentPhaseIndex);
+          
+          for (const task of tasks) {
+            const taskPhase = task.phase || '';
+            const taskPhaseIndex = phaseOrder.indexOf(taskPhase);
+            const shouldComplete = taskPhaseIndex >= 0 && taskPhaseIndex < currentPhaseIndex;
+            if (shouldComplete) {
+              task.status = 'completed';
+              console.log(`Marking task '${task.description}' as complete (phase: ${taskPhase}, index: ${taskPhaseIndex} < ${currentPhaseIndex})`);
+            }
+          }
           
           // Debug: Check for duplicate task IDs
           const taskIds = tasks.map(t => t.id);
@@ -1496,7 +1551,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
     }
   };
 
-  const getDefaultTasks = (methodologyType: string, timeline: any): Task[] => {
+  const getDefaultTasks = (methodologyType: string, timeline: any, requireAdvancedAnalytics: boolean = false): Task[] => {
     console.log('getDefaultTasks called with methodologyType:', methodologyType);
     if (!methodologyType) {
       console.log('No methodology type, returning empty array');
@@ -1523,6 +1578,24 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
 
     console.log('Filtered tasks for methodology:', filteredTasks.length, 'tasks');
 
+    // Filter out advanced analytics tasks if not required
+    const analyticsTaskKeywords = [
+      'statistician',
+      'SPSS'
+    ];
+    
+    const filteredByAnalytics = filteredTasks.filter(task => {
+      if (!requireAdvancedAnalytics) {
+        // If advanced analytics is NOT required, exclude tasks containing these keywords
+        const taskLower = task.task?.toLowerCase() || '';
+        return !analyticsTaskKeywords.some(keyword => taskLower.includes(keyword));
+      }
+      // If advanced analytics IS required, include all tasks
+      return true;
+    });
+
+    console.log('Filtered by analytics requirement:', filteredByAnalytics.length, 'tasks');
+
     // Create project timeline for date calculation
     const projectTimeline: ProjectTimeline = {
       koDate: timeline['Kickoff']?.start || '',
@@ -1532,7 +1605,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
     };
 
     // Convert JAICE tasks to the expected format with calculated due dates
-    const convertedTasks = filteredTasks
+    const convertedTasks = filteredByAnalytics
       .filter(task => task.task && task.task.trim() !== '') // Filter out tasks with empty descriptions
       .map((task, index) => {
         // Calculate due date based on dateNotes and project timeline
@@ -1635,7 +1708,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Project Name *
+                  Project Name
                 </label>
                 <input
                   type="text"
@@ -1648,26 +1721,22 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
               </div>
 
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Client *
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Client
                   </label>
-                  <button
-                    type="button"
-                    onClick={() => setShowAddClient(true)}
-                    className="inline-flex items-center gap-1 text-sm"
-                    style={{ color: BRAND.orange }}
-                    onMouseEnter={(e) => (e.target as HTMLButtonElement).style.color = '#B83D1A'}
-                    onMouseLeave={(e) => (e.target as HTMLButtonElement).style.color = BRAND.orange}
-                  >
-                    <PlusIcon className="w-4 h-4" />
-                    Add New
-                  </button>
-                </div>
                 
                 <select
                   value={formData.client}
-                  onChange={(e) => handleInputChange('client', e.target.value)}
+                  onChange={(e) => {
+                    const selectedValue = e.target.value;
+                    if (selectedValue === '_add_new_') {
+                      setShowAddClient(true);
+                      // Reset to empty so the dropdown doesn't show "Add New Client" as selected
+                      handleInputChange('client', '');
+                    } else {
+                      handleInputChange('client', selectedValue);
+                    }
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2"
                   style={{ '--tw-ring-color': BRAND.orange } as React.CSSProperties}
                 >
@@ -1677,13 +1746,14 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
                       {client}
                     </option>
                   ))}
+                  <option value="_add_new_">+ Add New Client...</option>
                 </select>
               </div>
 
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Methodology Type *
+                    Methodology Type
                   </label>
                   <select
                     value={formData.methodologyType}
@@ -1703,7 +1773,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
                 {formData.methodologyType && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Specific Methodology *
+                      Specific Methodology
                     </label>
                     <select
                       value={formData.methodology}
@@ -1720,109 +1790,141 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
                 )}
               </div>
 
-            </div>
+                </div>
           )}
 
 
           {currentStep === 2 && (
             <div className="space-y-4">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Team Members</h3>
                 <div className="mb-6">
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Team Members
-                    </label>
-                    {!showAddTeamMember && (
-                      <button
-                        type="button"
-                        onClick={() => setShowAddTeamMember(true)}
-                        className="inline-flex items-center gap-1 text-sm"
-                        style={{ color: BRAND.orange }}
-                        onMouseEnter={(e) => (e.target as HTMLButtonElement).style.color = '#B83D1A'}
-                        onMouseLeave={(e) => (e.target as HTMLButtonElement).style.color = BRAND.orange}
-                      >
-                        <PlusIcon className="w-4 h-4" />
-                        Add Team Member
-                      </button>
-                    )}
-                  </div>
                   
-                  {/* Add Team Member Search */}
-                  {showAddTeamMember && (
-                    <div className="mb-3">
-                      <UserSearch
-                        onUserSelect={handleAddTeamMember}
-                        placeholder="Search for team members..."
-                        className="text-sm"
-                      />
-                      <button
-                        onClick={() => setShowAddTeamMember(false)}
-                        className="mt-2 text-xs text-gray-500 hover:text-gray-700"
-                      >
-                        Cancel
-                      </button>
+                  {/* Team Members List - Table Format */}
+                  <div className="min-h-[60px]">
+                {/* Add Team Member Search */}
+                {showAddTeamMember && (
+                      <div className="mb-3 p-3 border border-gray-200 rounded-lg bg-gray-50">
+                    <UserSearch
+                      onUserSelect={handleAddTeamMember}
+                      placeholder="Search for team members..."
+                      className="text-sm"
+                          excludedUserIds={teamMembers.map(m => m.id)}
+                    />
+                    <button
+                      onClick={() => setShowAddTeamMember(false)}
+                      className="mt-2 text-xs text-gray-500 hover:text-gray-700"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+                  {teamMembers.length > 0 && (
+                      <div className="border border-gray-200 rounded-lg overflow-hidden">
+                        <table className="w-full">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-700">
+                                <div className="flex items-center gap-2">
+                                  <span>Team Member</span>
+                                  {!showAddTeamMember && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setShowAddTeamMember(true)}
+                                      className="inline-flex items-center gap-1 text-xs font-medium"
+                                      style={{ color: BRAND.orange }}
+                                      onMouseEnter={(e) => (e.target as HTMLButtonElement).style.color = '#B83D1A'}
+                                      onMouseLeave={(e) => (e.target as HTMLButtonElement).style.color = BRAND.orange}
+                                    >
+                                      <PlusIcon className="w-3 h-3" />
+                                      add
+                                    </button>
+                                  )}
+                                </div>
+                              </th>
+                              <th className="px-3 py-2 text-right text-xs font-medium text-gray-700">
+                                <div className="flex items-center justify-end gap-1">
+                                  <span>Roles</span>
+                                  <button
+                                    onClick={() => setShowRoleInfoModal(true)}
+                                    className="text-gray-400 hover:text-blue-600 transition-colors"
+                                    title="View role descriptions"
+                                  >
+                                    <InformationCircleIcon className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-200">
+                            {teamMembers.map((member) => {
+                          const isCurrentUser = member.id === user?.id;
+                              const currentRoles = member.roles || [];
+                              
+                          return (
+                                <tr key={member.id}>
+                                  <td className="px-3 py-2">
+                                    <div className="flex items-center gap-2">
+                              <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium" style={{ backgroundColor: getMemberColor(member.id) }}>
+                                {member.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                              </div>
+                                      <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-gray-700">
+                                {member.name}
+                                {isCurrentUser && <span className="text-xs text-blue-600 ml-1">(You)</span>}
+                              </span>
+                              {!isCurrentUser && (
+                                <button
+                                  onClick={() => handleRemoveTeamMember(member.id)}
+                                            className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-50"
+                                            title="Remove team member"
+                                >
+                                            <TrashIcon className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
+                      </div>
+                                  </td>
+                                  <td className="px-3 py-2">
+                                    <div className="flex items-center justify-end gap-2">
+                                      {jaiceRoles.map((roleItem) => {
+                                        const hasRole = currentRoles.includes(roleItem.role);
+                                        return (
+                        <button
+                                            key={roleItem.role}
+                                            type="button"
+                                            onClick={() => {
+                                              if (hasRole) {
+                                                const updatedRoles = currentRoles.filter(r => r !== roleItem.role);
+                                                handleUpdateMemberRoles(member.id, updatedRoles);
+                                              } else {
+                                                const updatedRoles = [...currentRoles, roleItem.role];
+                                                handleUpdateMemberRoles(member.id, updatedRoles);
+                                              }
+                                            }}
+                                            className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                                              hasRole
+                                                ? 'bg-orange-100 text-orange-800 border-orange-300 font-medium'
+                                                : 'bg-gray-50 text-gray-600 border-gray-300 hover:bg-gray-100'
+                                            }`}
+                                          >
+                                            {roleItem.role}
+                        </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
                     </div>
                   )}
-                  
-                  {/* Team Members List - Simple Display */}
-                  <div className="min-h-[60px]">
-                    {teamMembers.length > 0 && (
-                      <div className="flex flex-col">
-                        <div className="flex flex-wrap gap-2">
-                          {(showAllTeamMembers ? teamMembers : teamMembers.slice(0, 6)).map((member) => {
-                            const isCurrentUser = member.id === user?.id;
-                            return (
-                              <div key={member.id} className={`flex items-center gap-2 px-3 py-2 border rounded-lg group ${isCurrentUser ? 'border-blue-300 bg-blue-50' : ''}`} 
-                                style={!isCurrentUser ? { backgroundColor: `${BRAND.orange}10`, borderColor: `${BRAND.orange}30` } : {}}
-                                onMouseEnter={(e) => {
-                                  if (!isCurrentUser) {
-                                    (e.target as HTMLDivElement).style.backgroundColor = `${BRAND.orange}20`;
-                                  }
-                                }}
-                                onMouseLeave={(e) => {
-                                  if (!isCurrentUser) {
-                                    (e.target as HTMLDivElement).style.backgroundColor = `${BRAND.orange}10`;
-                                  }
-                                }}
-                              >
-                                <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium" style={{ backgroundColor: getMemberColor(member.id) }}>
-                                  {member.name.split(' ').map(n => n[0]).join('').toUpperCase()}
-                                </div>
-                                <span className="text-sm font-medium text-gray-700">
-                                  {member.name}
-                                  {isCurrentUser && <span className="text-xs text-blue-600 ml-1">(You)</span>}
-                                </span>
-                                {!isCurrentUser && (
-                                  <button
-                                    onClick={() => handleRemoveTeamMember(member.id)}
-                                    className="opacity-0 group-hover:opacity-100 text-sm text-red-600 hover:text-red-800 transition-opacity ml-1"
-                                  >
-                                    ×
-                                  </button>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                        {teamMembers.length > 6 && (
-                          <button
-                            onClick={() => setShowAllTeamMembers(!showAllTeamMembers)}
-                            className="text-sm mt-2 self-start"
-                            style={{ color: BRAND.orange }}
-                            onMouseEnter={(e) => (e.target as HTMLButtonElement).style.color = '#B83D1A'}
-                            onMouseLeave={(e) => (e.target as HTMLButtonElement).style.color = BRAND.orange}
-                          >
-                            {showAllTeamMembers ? 'Show less' : `+${teamMembers.length - 6} more`}
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
                 </div>
+              </div>
 
                 <div className="border-t pt-4 mt-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Project Timeline</h3>
+                <h3 className="text-lg font-semibold text-gray-900">Project Timeline</h3>
                 </div>
               </div>
 
@@ -1830,12 +1932,24 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
               <div className="space-y-4">
                 {/* Kickoff Date */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <div className="flex items-center gap-2 mb-2">
+                    <label className="block text-sm font-medium text-gray-700">
                     When is your project KO date?
                   </label>
+                    <div className="flex items-center gap-2 relative">
                   <input
                     type="date"
                     value={timelineDates.kickoffDate}
+                        ref={(el) => {
+                          if (el) {
+                            // Position the input absolutely so it doesn't take space but is still rendered
+                            el.style.position = 'absolute';
+                            el.style.opacity = '0';
+                            el.style.width = '1px';
+                            el.style.height = '1px';
+                            el.style.pointerEvents = 'none';
+                          }
+                        }}
                     onChange={(e) => {
                       const dateString = e.target.value;
                       if (!dateString) return;
@@ -1852,22 +1966,75 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
                       
                       handleTimelineDateChange('kickoffDate', dateString);
                     }}
-                    onFocus={(e) => {
-                      // Add a custom attribute to help with styling
-                      e.target.setAttribute('data-weekend-disabled', 'true');
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  />
+                      />
+                      {timelineDates.kickoffDate ? (
+                        <div className="inline-flex items-center gap-1 px-3 py-1 bg-orange-100 text-orange-800 border border-orange-300 rounded-full text-sm font-medium">
+                          <span
+                            onClick={(e) => {
+                              const input = e.currentTarget.parentElement?.parentElement?.querySelector('input[type="date"]') as HTMLInputElement;
+                              if (input?.showPicker) {
+                                input.showPicker();
+                              } else {
+                                input?.focus();
+                                input?.click();
+                              }
+                            }}
+                            className="cursor-pointer"
+                          >
+                            {(() => {
+                              const [year, month, day] = timelineDates.kickoffDate.split('-').map(Number);
+                              const date = new Date(year, month - 1, day);
+                              return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                            })()}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleTimelineDateChange('kickoffDate', '')}
+                            className="hover:bg-orange-200 rounded-full p-0.5 transition-colors"
+                          >
+                            <XMarkIcon className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            const input = e.currentTarget.parentElement?.querySelector('input[type="date"]') as HTMLInputElement;
+                            if (input?.showPicker) {
+                              input.showPicker();
+                            } else {
+                              input?.focus();
+                              input?.click();
+                            }
+                          }}
+                          className="cursor-pointer hover:text-gray-600 transition-colors"
+                        >
+                          <CalendarDaysIcon className="w-5 h-5 text-gray-400" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Fieldwork Start Date */}
                 <div>
-                  <label className={`block text-sm font-medium mb-2 ${!timelineDates.kickoffDate ? 'text-gray-400' : 'text-gray-700'}`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <label className={`block text-sm font-medium ${!timelineDates.kickoffDate ? 'text-gray-400' : 'text-gray-700'}`}>
                     When is your targeted fieldwork START date?
                   </label>
+                    <div className="flex items-center gap-2 relative">
                   <input
                     type="date"
                     value={timelineDates.fieldworkStartDate}
+                        ref={(el) => {
+                          if (el) {
+                            el.style.position = 'absolute';
+                            el.style.opacity = '0';
+                            el.style.width = '1px';
+                            el.style.height = '1px';
+                            el.style.pointerEvents = 'none';
+                          }
+                        }}
                     onChange={(e) => {
                       const dateString = e.target.value;
                       if (!dateString) return;
@@ -1891,25 +2058,87 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
                         koDate.setDate(koDate.getDate() + 1);
                         const minDateString = `${koDate.getFullYear()}-${String(koDate.getMonth() + 1).padStart(2, '0')}-${String(koDate.getDate()).padStart(2, '0')}`;
                         e.target.min = minDateString;
+                            e.target.setAttribute('min', minDateString);
                       }
                     }}
+                        min={timelineDates.kickoffDate ? (() => {
+                          const koDate = new Date(timelineDates.kickoffDate);
+                          koDate.setDate(koDate.getDate() + 1);
+                          return `${koDate.getFullYear()}-${String(koDate.getMonth() + 1).padStart(2, '0')}-${String(koDate.getDate()).padStart(2, '0')}`;
+                        })() : undefined}
                     disabled={!timelineDates.kickoffDate}
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 ${
-                      !timelineDates.kickoffDate 
-                        ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed' 
-                        : 'border-gray-300 bg-white text-gray-900'
-                    }`}
-                  />
+                      />
+                      {timelineDates.fieldworkStartDate ? (
+                        <div className="inline-flex items-center gap-1 px-3 py-1 bg-orange-100 text-orange-800 border border-orange-300 rounded-full text-sm font-medium">
+                          <span
+                            onClick={(e) => {
+                              if (!timelineDates.kickoffDate) return;
+                              const input = e.currentTarget.parentElement?.parentElement?.querySelector('input[type="date"]') as HTMLInputElement;
+                              if (input?.showPicker) {
+                                input.showPicker();
+                              } else {
+                                input?.focus();
+                                input?.click();
+                              }
+                            }}
+                            className="cursor-pointer"
+                          >
+                            {(() => {
+                              const [year, month, day] = timelineDates.fieldworkStartDate.split('-').map(Number);
+                              const date = new Date(year, month - 1, day);
+                              return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                            })()}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleTimelineDateChange('fieldworkStartDate', '')}
+                            className="hover:bg-orange-200 rounded-full p-0.5 transition-colors"
+                          >
+                            <XMarkIcon className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            if (!timelineDates.kickoffDate) return;
+                            const input = e.currentTarget.parentElement?.querySelector('input[type="date"]') as HTMLInputElement;
+                            if (input?.showPicker) {
+                              input.showPicker();
+                            } else {
+                              input?.focus();
+                              input?.click();
+                            }
+                          }}
+                          className={`cursor-pointer hover:text-gray-600 transition-colors ${!timelineDates.kickoffDate ? 'cursor-not-allowed opacity-50' : ''}`}
+                          disabled={!timelineDates.kickoffDate}
+                        >
+                          <CalendarDaysIcon className={`w-5 h-5 ${!timelineDates.kickoffDate ? 'text-gray-300' : 'text-gray-400'}`} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Fieldwork End Date */}
                 <div>
-                  <label className={`block text-sm font-medium mb-2 ${!timelineDates.fieldworkStartDate ? 'text-gray-400' : 'text-gray-700'}`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <label className={`block text-sm font-medium ${!timelineDates.fieldworkStartDate ? 'text-gray-400' : 'text-gray-700'}`}>
                     When is your targeted fieldwork END date?
                   </label>
+                    <div className="flex items-center gap-2 relative">
                   <input
                     type="date"
                     value={timelineDates.fieldworkEndDate}
+                        ref={(el) => {
+                          if (el) {
+                            el.style.position = 'absolute';
+                            el.style.opacity = '0';
+                            el.style.width = '1px';
+                            el.style.height = '1px';
+                            el.style.pointerEvents = 'none';
+                          }
+                        }}
                     onChange={(e) => {
                       const dateString = e.target.value;
                       if (!dateString) return;
@@ -1927,28 +2156,93 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
                       handleTimelineDateChange('fieldworkEndDate', dateString);
                     }}
                     onFocus={(e) => {
-                      // Set min date to fieldwork start date
+                          // Set min date to day after fieldwork start date
                       if (timelineDates.fieldworkStartDate) {
-                        e.target.min = timelineDates.fieldworkStartDate;
-                      }
-                    }}
+                            const startDate = new Date(timelineDates.fieldworkStartDate);
+                            startDate.setDate(startDate.getDate() + 1);
+                            const minDateString = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`;
+                            e.target.min = minDateString;
+                            e.target.setAttribute('min', minDateString);
+                          }
+                        }}
+                        min={timelineDates.fieldworkStartDate ? (() => {
+                          const startDate = new Date(timelineDates.fieldworkStartDate);
+                          startDate.setDate(startDate.getDate() + 1);
+                          return `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`;
+                        })() : undefined}
                     disabled={!timelineDates.fieldworkStartDate}
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 ${
-                      !timelineDates.fieldworkStartDate 
-                        ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed' 
-                        : 'border-gray-300 bg-white text-gray-900'
-                    }`}
-                  />
+                      />
+                      {timelineDates.fieldworkEndDate ? (
+                        <div className="inline-flex items-center gap-1 px-3 py-1 bg-orange-100 text-orange-800 border border-orange-300 rounded-full text-sm font-medium">
+                          <span
+                            onClick={(e) => {
+                              if (!timelineDates.fieldworkStartDate) return;
+                              const input = e.currentTarget.parentElement?.parentElement?.querySelector('input[type="date"]') as HTMLInputElement;
+                              if (input?.showPicker) {
+                                input.showPicker();
+                              } else {
+                                input?.focus();
+                                input?.click();
+                              }
+                            }}
+                            className="cursor-pointer"
+                          >
+                            {(() => {
+                              const [year, month, day] = timelineDates.fieldworkEndDate.split('-').map(Number);
+                              const date = new Date(year, month - 1, day);
+                              return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                            })()}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleTimelineDateChange('fieldworkEndDate', '')}
+                            className="hover:bg-orange-200 rounded-full p-0.5 transition-colors"
+                          >
+                            <XMarkIcon className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            if (!timelineDates.fieldworkStartDate) return;
+                            const input = e.currentTarget.parentElement?.querySelector('input[type="date"]') as HTMLInputElement;
+                            if (input?.showPicker) {
+                              input.showPicker();
+                            } else {
+                              input?.focus();
+                              input?.click();
+                            }
+                          }}
+                          className={`cursor-pointer hover:text-gray-600 transition-colors ${!timelineDates.fieldworkStartDate ? 'cursor-not-allowed opacity-50' : ''}`}
+                          disabled={!timelineDates.fieldworkStartDate}
+                        >
+                          <CalendarDaysIcon className={`w-5 h-5 ${!timelineDates.fieldworkStartDate ? 'text-gray-300' : 'text-gray-400'}`} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Report Deadline Date */}
                 <div>
-                  <label className={`block text-sm font-medium mb-2 ${!timelineDates.fieldworkEndDate ? 'text-gray-400' : 'text-gray-700'}`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <label className={`block text-sm font-medium ${!timelineDates.fieldworkEndDate ? 'text-gray-400' : 'text-gray-700'}`}>
                     When is your final report deadline?
                   </label>
+                    <div className="flex items-center gap-2 relative">
                   <input
                     type="date"
                     value={timelineDates.reportDeadlineDate}
+                        ref={(el) => {
+                          if (el) {
+                            el.style.position = 'absolute';
+                            el.style.opacity = '0';
+                            el.style.width = '1px';
+                            el.style.height = '1px';
+                            el.style.pointerEvents = 'none';
+                          }
+                        }}
                     onChange={(e) => {
                       const dateString = e.target.value;
                       if (!dateString) return;
@@ -1966,18 +2260,72 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
                       handleTimelineDateChange('reportDeadlineDate', dateString);
                     }}
                     onFocus={(e) => {
-                      // Set min date to fieldwork end date
+                          // Set min date to day after fieldwork end date
                       if (timelineDates.fieldworkEndDate) {
-                        e.target.min = timelineDates.fieldworkEndDate;
-                      }
-                    }}
+                            const endDate = new Date(timelineDates.fieldworkEndDate);
+                            endDate.setDate(endDate.getDate() + 1);
+                            const minDateString = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
+                            e.target.min = minDateString;
+                            e.target.setAttribute('min', minDateString);
+                          }
+                        }}
+                        min={timelineDates.fieldworkEndDate ? (() => {
+                          const endDate = new Date(timelineDates.fieldworkEndDate);
+                          endDate.setDate(endDate.getDate() + 1);
+                          return `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
+                        })() : undefined}
                     disabled={!timelineDates.fieldworkEndDate}
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 ${
-                      !timelineDates.fieldworkEndDate 
-                        ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed' 
-                        : 'border-gray-300 bg-white text-gray-900'
-                    }`}
-                  />
+                      />
+                      {timelineDates.reportDeadlineDate ? (
+                        <div className="inline-flex items-center gap-1 px-3 py-1 bg-orange-100 text-orange-800 border border-orange-300 rounded-full text-sm font-medium">
+                          <span
+                            onClick={(e) => {
+                              if (!timelineDates.fieldworkEndDate) return;
+                              const input = e.currentTarget.parentElement?.parentElement?.querySelector('input[type="date"]') as HTMLInputElement;
+                              if (input?.showPicker) {
+                                input.showPicker();
+                              } else {
+                                input?.focus();
+                                input?.click();
+                              }
+                            }}
+                            className="cursor-pointer"
+                          >
+                            {(() => {
+                              const [year, month, day] = timelineDates.reportDeadlineDate.split('-').map(Number);
+                              const date = new Date(year, month - 1, day);
+                              return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                            })()}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleTimelineDateChange('reportDeadlineDate', '')}
+                            className="hover:bg-orange-200 rounded-full p-0.5 transition-colors"
+                          >
+                            <XMarkIcon className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            if (!timelineDates.fieldworkEndDate) return;
+                            const input = e.currentTarget.parentElement?.querySelector('input[type="date"]') as HTMLInputElement;
+                            if (input?.showPicker) {
+                              input.showPicker();
+                            } else {
+                              input?.focus();
+                              input?.click();
+                            }
+                          }}
+                          className={`cursor-pointer hover:text-gray-600 transition-colors ${!timelineDates.fieldworkEndDate ? 'cursor-not-allowed opacity-50' : ''}`}
+                          disabled={!timelineDates.fieldworkEndDate}
+                        >
+                          <CalendarDaysIcon className={`w-5 h-5 ${!timelineDates.fieldworkEndDate ? 'text-gray-300' : 'text-gray-400'}`} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
               </div>
@@ -1989,66 +2337,46 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
           {currentStep === 3 && (
             <div className="space-y-6">
               {/* Sample Details Section */}
-              <div className="flex items-center gap-3">
-                <label className="text-sm font-medium text-gray-700">
-                  Total Sample Size
-                </label>
-                <input
-                  type="number"
-                  value={formData.sampleSize > 0 ? formData.sampleSize : ''}
-                  onChange={(e) => handleInputChange('sampleSize', e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
-                  className="w-16 px-2 py-0.5 border border-gray-300 rounded focus:outline-none focus:ring-2 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                  style={{ '--tw-ring-color': BRAND.orange } as React.CSSProperties}
-                />
-              </div>
-
-              {/* Subgroups/Quotas Section */}
               <div>
-                {/* Add Subgroup Button - always visible but only clickable with sample size */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (formData.sampleSize && formData.sampleSize > 0) {
-                      const newSubgroup = { id: Date.now().toString(), name: '', size: 0 };
-                      handleInputChange('subgroups', [...(formData.subgroups || []), newSubgroup]);
-                    }
-                  }}
-                  disabled={!formData.sampleSize || formData.sampleSize <= 0}
-                  className={`inline-flex items-center gap-1 text-sm ${
-                    formData.sampleSize && formData.sampleSize > 0
-                      ? 'text-gray-600 hover:text-gray-800 cursor-pointer'
-                      : 'text-gray-400 cursor-not-allowed'
-                  }`}
-                >
-                  <PlusIcon className="w-4 h-4" />
-                  Add Subgroup
-                </button>
-
-                {/* Subgroups Table - only show if subgroups exist */}
-                {formData.subgroups && formData.subgroups.length > 0 && (
-                  <div className="mt-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="block text-sm font-medium text-gray-700">
-                        Subgroups/Quotas
-                      </label>
-                    </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Sample Details</h3>
                     
                     <div className="border border-gray-200 rounded-lg overflow-hidden">
-                      <table className="min-w-full divide-y divide-gray-200">
+                  <table className="w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                           <tr>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Subgroup
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider w-64">
+                          Quota Name
                             </th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider w-32">
                               Sample Size
                             </th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Actions
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider w-16">
+                          &nbsp;
                             </th>
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
+                      {/* Total Row - Always present */}
+                      <tr>
+                        <td className="px-4 py-3 text-sm font-medium text-gray-700">
+                          Total
+                        </td>
+                        <td className="px-4 py-3">
+                          <input
+                            type="number"
+                            value={formData.sampleSize > 0 ? formData.sampleSize : ''}
+                            onChange={(e) => handleInputChange('sampleSize', e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
+                            className="w-20 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            style={{ '--tw-ring-color': BRAND.orange } as React.CSSProperties}
+                            placeholder="0"
+                          />
+                        </td>
+                        <td className="px-4 py-3">
+                          {/* Empty cell for Total row */}
+                        </td>
+                      </tr>
+
+                      {/* Subgroups */}
                           {(formData.subgroups || []).map((subgroup, index) => (
                             <tr key={subgroup.id}>
                               <td className="px-4 py-3">
@@ -2074,9 +2402,9 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
                                     updatedSubgroups[index] = { ...subgroup, size: parseInt(e.target.value) || 0 };
                                     handleInputChange('subgroups', updatedSubgroups);
                                   }}
-                                  className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              className="w-20 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                   style={{ '--tw-ring-color': BRAND.orange } as React.CSSProperties}
-                                  placeholder="e.g., 50"
+                              placeholder="0"
                                 />
                               </td>
                               <td className="px-4 py-3">
@@ -2086,42 +2414,59 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
                                     const updatedSubgroups = (formData.subgroups || []).filter((_, i) => i !== index);
                                     handleInputChange('subgroups', updatedSubgroups);
                                   }}
-                                  className="text-red-600 hover:text-red-800 text-sm"
+                              className="text-red-600 hover:text-red-800"
+                              title="Remove"
                                 >
-                                  Remove
+                              <TrashIcon className="w-4 h-4" />
                                 </button>
                               </td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
-                    </div>
-                  </div>
-                )}
               </div>
+
+                {/* Add Subgroup Button */}
+                <div className="mt-3">
+                    <button
+                      type="button"
+                    onClick={() => {
+                      if (formData.sampleSize && formData.sampleSize > 0) {
+                        const newSubgroup = { id: Date.now().toString(), name: '', size: 0 };
+                        handleInputChange('subgroups', [...(formData.subgroups || []), newSubgroup]);
+                      }
+                    }}
+                    disabled={!formData.sampleSize || formData.sampleSize <= 0}
+                    className={`inline-flex items-center gap-1 text-sm px-3 py-2 rounded-md border ${
+                      formData.sampleSize && formData.sampleSize > 0
+                        ? 'text-orange-600 border-orange-300 hover:bg-orange-50 cursor-pointer'
+                        : 'text-gray-400 border-gray-300 cursor-not-allowed'
+                    }`}
+                    >
+                      <PlusIcon className="w-4 h-4" />
+                    Add Subgroup
+                    </button>
+                </div>
+                  </div>
 
               {formData.methodologyType === 'Qualitative' && (
                 <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Moderator *
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setShowAddModerator(true)}
-                      className="inline-flex items-center gap-1 text-sm"
-                      style={{ color: BRAND.orange }}
-                      onMouseEnter={(e) => (e.target as HTMLButtonElement).style.color = '#B83D1A'}
-                      onMouseLeave={(e) => (e.target as HTMLButtonElement).style.color = BRAND.orange}
-                    >
-                      <PlusIcon className="w-4 h-4" />
-                      Add New
-                    </button>
-                  </div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Moderator
+                  </label>
 
                   <select
                     value={formData.moderator}
-                    onChange={(e) => handleInputChange('moderator', e.target.value)}
+                    onChange={(e) => {
+                      const selectedValue = e.target.value;
+                      if (selectedValue === '_add_new_moderator_') {
+                        setShowAddModerator(true);
+                        // Reset to empty so the dropdown doesn't show "Add New" as selected
+                        handleInputChange('moderator', '');
+                      } else {
+                        handleInputChange('moderator', selectedValue);
+                      }
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2"
                   style={{ '--tw-ring-color': BRAND.orange } as React.CSSProperties}
                   >
@@ -2131,6 +2476,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
                         {moderator.name} ({moderator.company || moderator.email})
                       </option>
                     ))}
+                    <option value="_add_new_moderator_">+ Add New Moderator...</option>
                   </select>
 
                   {/* Add New Moderator Modal */}
@@ -2150,7 +2496,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
                         <div className="space-y-4">
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Name *
+                              Name
                             </label>
                             <input
                               type="text"
@@ -2164,7 +2510,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
 
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Email *
+                              Email
                             </label>
                             <input
                               type="email"
@@ -2246,26 +2592,22 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
 
 
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                     Sample Provider <span className="text-gray-500 font-normal">(optional)</span>
                   </label>
-                  <button
-                    type="button"
-                    onClick={() => setShowAddSampleProvider(true)}
-                    className="inline-flex items-center gap-1 text-sm"
-                    style={{ color: BRAND.orange }}
-                    onMouseEnter={(e) => (e.target as HTMLButtonElement).style.color = '#B83D1A'}
-                    onMouseLeave={(e) => (e.target as HTMLButtonElement).style.color = BRAND.orange}
-                  >
-                    <PlusIcon className="w-4 h-4" />
-                    Add New
-                  </button>
-                </div>
                 
                 <select
                   value={formData.sampleProvider}
-                  onChange={(e) => handleInputChange('sampleProvider', e.target.value)}
+                  onChange={(e) => {
+                    const selectedValue = e.target.value;
+                    if (selectedValue === '_add_new_sample_provider_') {
+                      setShowAddSampleProvider(true);
+                      // Reset to empty so the dropdown doesn't show "Add New" as selected
+                      handleInputChange('sampleProvider', '');
+                    } else {
+                      handleInputChange('sampleProvider', selectedValue);
+                    }
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2"
                   style={{ '--tw-ring-color': BRAND.orange } as React.CSSProperties}
                 >
@@ -2275,6 +2617,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
                       {provider.name} ({provider.company})
                     </option>
                   ))}
+                  <option value="_add_new_sample_provider_">+ Add New Sample Provider...</option>
                 </select>
               </div>
 
@@ -2295,26 +2638,22 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
 
                 {formData.requireAdvancedAnalytics && (
                   <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="block text-sm font-medium text-gray-700">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
                         Analytics Partner
                       </label>
-                      <button
-                        type="button"
-                        onClick={() => setShowAddAnalyticsPartner(true)}
-                        className="inline-flex items-center gap-1 text-sm"
-                        style={{ color: BRAND.orange }}
-                        onMouseEnter={(e) => (e.target as HTMLButtonElement).style.color = '#B83D1A'}
-                        onMouseLeave={(e) => (e.target as HTMLButtonElement).style.color = BRAND.orange}
-                      >
-                        <PlusIcon className="w-4 h-4" />
-                        Add New
-                      </button>
-                    </div>
                     
                     <select
                       value={formData.analyticsPartner}
-                      onChange={(e) => handleInputChange('analyticsPartner', e.target.value)}
+                      onChange={(e) => {
+                        const selectedValue = e.target.value;
+                        if (selectedValue === '_add_new_analytics_partner_') {
+                          setShowAddAnalyticsPartner(true);
+                          // Reset to empty so the dropdown doesn't show "Add New" as selected
+                          handleInputChange('analyticsPartner', '');
+                        } else {
+                          handleInputChange('analyticsPartner', selectedValue);
+                        }
+                      }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2"
                       style={{ '--tw-ring-color': BRAND.orange } as React.CSSProperties}
                     >
@@ -2324,6 +2663,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
                           {partner.name} ({partner.company})
                         </option>
                       ))}
+                      <option value="_add_new_analytics_partner_">+ Add New Analytics Partner...</option>
                     </select>
                   </div>
                 )}
@@ -2333,113 +2673,196 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
           )}
 
 
-          {currentStep === 4 && (
-            <div className="space-y-6">
-              <h3 className="text-lg font-semibold text-gray-900">Task Configuration & Role Assignment</h3>
+          {currentStep === 4 && (() => {
+            const calculatedTimeline = calculatePhaseTimeline(timelineDates);
+            
+            // Helper to format dates for display
+            const formatDisplayDate = (dateString: string) => {
+              if (!dateString) return '';
+              const [year, month, day] = dateString.split('-').map(Number);
+              const date = new Date(year, month - 1, day);
+              return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            };
 
+            // Helper to format week dates
+            const formatWeekDisplay = (weekString: string) => {
+              if (!weekString) return '';
+              const parts = weekString.split('/');
+              return `${parts[0]}/${parts[1]}`;
+            };
+
+            // Helper to format short date (MM/DD)
+            const formatShortDate = (dateString: string) => {
+              if (!dateString) return '';
+              const [year, month, day] = dateString.split('-').map(Number);
+              return `${month}/${day}`;
+            };
+
+            // Generate week headers for the Gantt chart
+            const generateWeekHeaders = () => {
+              if (!calculatedTimeline['Kickoff']?.start || !calculatedTimeline['Reporting']?.end) {
+                return [];
+              }
+
+              // Parse dates as local dates
+              const [koYear, koMonth, koDay] = calculatedTimeline['Kickoff'].start.split('-').map(Number);
+              const [reportYear, reportMonth, reportDay] = calculatedTimeline['Reporting'].end.split('-').map(Number);
+              
+              const koDate = new Date(koYear, koMonth - 1, koDay);
+              const reportDate = new Date(reportYear, reportMonth - 1, reportDay);
+              const weeks: string[] = [];
+              const current = new Date(koDate);
+              
+              // Find the Monday of the week containing the kickoff date
+              const dayOfWeek = current.getDay();
+              const daysToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+              current.setDate(current.getDate() + daysToMonday);
+              
+              while (current <= reportDate) {
+                const year = current.getFullYear();
+                const month = current.getMonth() + 1;
+                const day = current.getDate();
+                weeks.push(`${month}/${day}/${year}`);
+                current.setDate(current.getDate() + 7);
+              }
+              
+              return weeks;
+            };
+
+            const weekHeaders = generateWeekHeaders();
+
+            // Helper to get the week number a date falls into
+            const getWeekIndex = (dateString: string) => {
+              if (!dateString) return 0;
+              
+              // Parse dates as local dates (YYYY-MM-DD format)
+              const parseLocalDate = (dateStr: string) => {
+                const [year, month, day] = dateStr.split('-').map(Number);
+                return new Date(year, month - 1, day);
+              };
+              
+              const koDate = parseLocalDate(calculatedTimeline['Kickoff']?.start || '');
+              const targetDate = parseLocalDate(dateString);
+              
+              // Find Monday of the week for KO date
+              const koDay = koDate.getDay();
+              const koDaysToMonday = koDay === 0 ? -6 : 1 - koDay;
+              koDate.setDate(koDate.getDate() + koDaysToMonday);
+              
+              // Find Monday of the week for the target date
+              const targetDay = targetDate.getDay();
+              const targetDaysToMonday = targetDay === 0 ? -6 : 1 - targetDay;
+              targetDate.setDate(targetDate.getDate() + targetDaysToMonday);
+              
+              const diffTime = targetDate.getTime() - koDate.getTime();
+              const diffWeeks = Math.floor(diffTime / (7 * 24 * 60 * 60 * 1000));
+              
+              return diffWeeks;
+            };
+
+            // Helper to calculate span for a phase
+            const getPhaseSpan = (phaseName: string) => {
+              const phase = calculatedTimeline[phaseName];
+              if (!phase?.start || !phase?.end) return { start: 0, span: 0 };
+              
+              const start = getWeekIndex(phase.start);
+              const end = getWeekIndex(phase.end);
+              const span = Math.max(1, end - start + 1);
+              
+              return { start, span };
+            };
+
+            return (
+            <div className="space-y-6">
+                <h3 className="text-lg font-semibold text-gray-900">Project Summary</h3>
+
+                {/* Project Details */}
+                <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                  <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={formData.usePreloadedTasks}
-                    onChange={(e) => handleInputChange('usePreloadedTasks', e.target.checked)}
-                    className="mr-3"
-                  />
-                  <span className="text-sm font-medium text-gray-700">
-                    Use preloaded tasks based on methodology
-                  </span>
-                </label>
-                <p className="text-xs text-gray-500 mt-1">
-                  This will automatically create relevant tasks based on your selected methodology. If unchecked, no tasks will be created.
+                      <p className="text-xs font-medium text-gray-500 uppercase">Project Name</p>
+                      <p className="text-sm font-semibold text-gray-900">{formData.name}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 uppercase">Client</p>
+                      <p className="text-sm font-semibold text-gray-900">{formData.client}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 uppercase">Methodology</p>
+                      <p className="text-sm font-semibold text-gray-900">
+                        {formData.methodologyType} - {formData.methodology}
                 </p>
               </div>
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 uppercase">Date Range</p>
+                      <p className="text-sm font-semibold text-gray-900">
+                        {formatDisplayDate(calculatedTimeline['Kickoff']?.start || '')} - {formatDisplayDate(calculatedTimeline['Reporting']?.end || '')}
+                      </p>
+                    </div>
+                  </div>
+                </div>
 
-              {/* Role Assignment Section - Only show if preloaded tasks is selected */}
-              {formData.usePreloadedTasks && (
-                <div className="border-t pt-6">
-                  <h4 className="text-md font-semibold text-gray-900 mb-4">Assign Team Members to Roles</h4>
-                  <p className="text-sm text-gray-600 mb-4">
-                    Assign team members to roles to automatically distribute tasks based on their responsibilities.
-                  </p>
-                  
-                  <div className="space-y-4">
-                    {jaiceRoles.map((role) => {
-                      // Find team members assigned to this role
-                      const assignedMembers = teamMembers.filter(member => 
-                        member.roles && member.roles.includes(role.role)
-                      );
-                      
-                      return (
-                        <div key={role.role} className="border border-gray-200 rounded-lg p-4 bg-white">
-                          <div className="mb-3">
-                            <h5 className="text-sm font-semibold text-gray-900 mb-1">{role.role}</h5>
-                            <p className="text-xs text-gray-600">{role.description}</p>
-                          </div>
-                          
-                          {/* Show assigned members or dropdown */}
-                          {assignedMembers.length > 0 ? (
-                            <div className="flex flex-wrap gap-2">
-                              {assignedMembers.map((member) => (
-                                <div key={member.id} className="flex items-center gap-2 px-2 py-1 bg-gray-100 rounded-md">
-                                  <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-medium" style={{ backgroundColor: getMemberColor(member.id) }}>
-                                    {member.name.split(' ').map(n => n[0]).join('').toUpperCase()}
-                                  </div>
-                                  <span className="text-xs text-gray-700">{member.name}</span>
-                                  <button
-                                    onClick={() => {
-                                      const currentRoles = member.roles || [];
-                                      const updatedRoles = currentRoles.filter(r => r !== role.role);
-                                      handleUpdateMemberRoles(member.id, updatedRoles);
-                                    }}
-                                    className="text-gray-400 hover:text-red-600 text-xs"
-                                  >
-                                    ×
-                                  </button>
+                {/* Gantt Chart Timeline */}
+                <div className="overflow-x-auto">
+                  <p className="text-sm font-medium text-gray-700 mb-3">TIMELINE</p>
+                  <div className="border border-gray-200 rounded-lg overflow-hidden" style={{ minWidth: `${(weekHeaders.length * 60) + 160}px` }}>
+                    {/* Week Header */}
+                    <div className="text-white text-sm font-semibold flex border-b" style={{ backgroundColor: BRAND.red, borderColor: '#9a2e1a', minWidth: `${(weekHeaders.length * 60) + 160}px` }}>
+                      <div className="w-40 border-r px-3 py-2 flex-shrink-0" style={{ borderColor: '#9a2e1a' }}>Week of</div>
+                      <div className="flex-1 flex">
+                        {weekHeaders.map((week, idx) => (
+                          <div key={idx} className="px-2 py-2 text-xs text-center border-r flex-grow" style={{ flexBasis: 0, minWidth: '60px', borderColor: '#9a2e1a' }}>
+                            {formatWeekDisplay(week)}
                                 </div>
                               ))}
                             </div>
-                          ) : (
-                            <div className="relative">
-                              <select
-                                onChange={(e) => {
-                                  if (e.target.value) {
-                                    const selectedMember = teamMembers.find(m => m.id === e.target.value);
-                                    if (selectedMember) {
-                                      const currentRoles = selectedMember.roles || [];
-                                      if (!currentRoles.includes(role.role)) {
-                                        handleUpdateMemberRoles(selectedMember.id, [...currentRoles, role.role]);
-                                      }
-                                    }
-                                    e.target.value = ''; // Reset selection
-                                  }
+                    </div>
+
+                    {/* Phase Rows */}
+                    {PHASES.map((phaseName) => {
+                      const { start, span } = getPhaseSpan(phaseName);
+                      const phaseDates = calculatedTimeline[phaseName];
+                      
+                      return (
+                        <div key={phaseName} className="flex border-b border-gray-200 last:border-b-0 bg-white" style={{ minWidth: `${(weekHeaders.length * 60) + 160}px` }}>
+                          {/* Phase Label */}
+                          <div className="w-40 border-r border-gray-200 bg-gray-50 px-3 py-3 text-sm font-medium text-gray-700 flex-shrink-0">
+                            {phaseName}
+                          </div>
+                          
+                          {/* Timeline Grid */}
+                          <div className="flex-1 flex relative bg-white" style={{ height: '42px' }}>
+                            {weekHeaders.map((_, idx) => (
+                              <div key={idx} className="flex-grow border-r border-gray-100" style={{ flexBasis: 0, minWidth: '60px' }} />
+                            ))}
+                            
+                            {/* Phase Bar */}
+                            {phaseDates && start >= 0 && span > 0 && start + span <= weekHeaders.length && (
+                              <div 
+                                className="absolute h-6 rounded shadow-sm flex items-center justify-center text-white text-xs font-medium"
+                                style={{ 
+                                  left: `${(start / weekHeaders.length) * 100}%`,
+                                  width: `${(span / weekHeaders.length) * 100}%`,
+                                  top: '9px',
+                                  backgroundColor: BRAND.orange,
+                                  opacity: 0.5
                                 }}
-                                className="px-3 py-1 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
-                                defaultValue=""
                               >
-                                <option value="">Assign to...</option>
-                                {teamMembers.map((member) => {
-                                  const alreadyAssigned = member.roles && member.roles.includes(role.role);
-                                  return (
-                                    <option 
-                                      key={member.id} 
-                                      value={member.id}
-                                      disabled={alreadyAssigned}
-                                    >
-                                      {member.name} {alreadyAssigned ? '(Already assigned)' : ''}
-                                    </option>
-                                  );
-                                })}
-                              </select>
+                                {(phaseName === 'Kickoff' || phaseName === 'Reporting') && (
+                                  <span style={{ color: 'white', fontWeight: 'normal', fontStyle: 'italic' }}>{formatShortDate(phaseName === 'Kickoff' ? phaseDates.start : phaseDates.end)}</span>
+                                )}
                             </div>
                           )}
+                          </div>
                         </div>
                       );
                     })}
                   </div>
                 </div>
-              )}
+
             </div>
-          )}
+            );
+          })()}
 
           {error && (
             <div className="text-red-600 text-sm bg-red-50 p-3 rounded-md">
@@ -2495,6 +2918,48 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
         </div>
       </div>
       
+      {/* Role Information Modal */}
+      {showRoleInfoModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[99999]">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b">
+              <h3 className="text-base font-semibold text-gray-900">Role Descriptions</h3>
+              <button
+                onClick={() => setShowRoleInfoModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <XMarkIcon className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="px-4 py-3">
+              <div className="grid grid-cols-2 gap-4">
+                {jaiceRoles.map((roleItem) => {
+                  const sampleTasks = getSampleTasksForRole(roleItem.role);
+                  return (
+                    <div key={roleItem.role} className="border border-gray-200 rounded p-3 bg-gray-50">
+                      <h4 className="text-sm font-semibold text-gray-900 mb-1">{roleItem.role}</h4>
+                      <p className="text-xs text-gray-600 mb-2">{roleItem.description}</p>
+                      {sampleTasks.length > 0 && (
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 mb-1">Example tasks:</p>
+                          <ul className="space-y-0.5">
+                            {sampleTasks.map((task, idx) => (
+                              <li key={idx} className="text-xs text-gray-600">
+                                • {task}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Add New Client Modal */}
       {showAddClient && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[99999]">
@@ -2512,7 +2977,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Client Name *
+                  Client Name
                 </label>
                 <input
                   type="text"
@@ -2570,7 +3035,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Company Name *
+                  Company Name
                 </label>
                 <input
                   type="text"
@@ -2623,7 +3088,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Partner Name *
+                  Partner Name
                 </label>
                 <input
                   type="text"
@@ -2637,7 +3102,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Company *
+                  Company
                 </label>
                 <input
                   type="text"

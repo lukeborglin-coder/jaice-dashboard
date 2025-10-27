@@ -7027,7 +7027,7 @@ function OversightDashboard({ projects, loading, onProjectCreated, onNavigateToP
                                   };
 
                                   // Calculate progress for each phase
-                                  const calculatePhaseProgress = (segment: any) => {
+                                  const calculatePhaseProgress = (segment: any, isCurrentlyActivePhase: boolean) => {
                                     if (!segment) return 0;
                                     const start = new Date(segment.startDate);
                                     const end = new Date(segment.endDate);
@@ -7035,16 +7035,63 @@ function OversightDashboard({ projects, loading, onProjectCreated, onNavigateToP
                                     end.setHours(0, 0, 0, 0);
 
                                     if (todayStr < segment.startDate) return 0;
+                                    
+                                    // For active phase: cap at 99% on last day, only show 100% after
+                                    // For non-active phases: don't show progress until previous phase is complete
                                     if (todayStr > segment.endDate) return 100;
+
+                                    // If this is the currently active phase and we're on the last day, cap at 99%
+                                    if (isCurrentlyActivePhase && todayStr === segment.endDate) {
+                                      // Calculate what the progress would be
+                                      if (segment.startDate === segment.endDate) {
+                                        return 50; // Single day phases show 50%
+                                      }
+                                      
+                                      const total = end.getTime() - start.getTime();
+                                      const elapsed = today.getTime() - start.getTime();
+                                      const calculatedProgress = Math.round((elapsed / total) * 100);
+                                      
+                                      // Always cap active phase at 99% on the last day
+                                      return Math.min(99, calculatedProgress);
+                                    }
+
+                                    // Handle single-day phases
+                                    if (segment.startDate === segment.endDate) {
+                                      // If today is the single day, show 50% (in progress, not complete)
+                                      if (todayStr === segment.endDate) return 50;
+                                      return 0;
+                                    }
 
                                     const total = end.getTime() - start.getTime();
                                     const elapsed = today.getTime() - start.getTime();
-                                    return Math.min(100, Math.max(0, Math.round((elapsed / total) * 100)));
+                                    const progress = Math.round((elapsed / total) * 100);
+                                    
+                                    return Math.min(100, Math.max(0, progress));
                                   };
 
-                                  const preFieldProgress = calculatePhaseProgress(preFieldSegment);
-                                  const fieldingProgress = calculatePhaseProgress(fieldingSegment);
-                                  const reportingProgress = calculatePhaseProgress(reportingSegment);
+                                  // Determine which phase is currently active
+                                  let activePhase: string | null = null;
+                                  if (fieldingSegment && todayStr >= fieldingSegment.startDate && todayStr <= fieldingSegment.endDate) {
+                                    activePhase = 'Fielding';
+                                  } else if (preFieldSegment && todayStr >= preFieldSegment.startDate && todayStr <= preFieldSegment.endDate) {
+                                    activePhase = 'Pre-Field';
+                                  } else if (reportingSegment && todayStr >= reportingSegment.startDate && todayStr <= reportingSegment.endDate) {
+                                    activePhase = 'Reporting';
+                                  }
+
+                                  // Only show pre-field progress if we're in it or past it, but cap at 99% if still in the pre-field phase
+                                  const preFieldProgress = calculatePhaseProgress(preFieldSegment, activePhase === 'Pre-Field');
+                                  
+                                  // Only show fielding progress if we're in it or past it, but cap at 99% if still in the fielding phase (including last day)
+                                  const fieldingProgress = calculatePhaseProgress(fieldingSegment, activePhase === 'Fielding');
+                                  
+                                  // Only show reporting progress if we're completely past the Fielding phase (after the end date, not on the last day)
+                                  let reportingProgress = 0;
+                                  if (fieldingSegment && todayStr > fieldingSegment.endDate) {
+                                    reportingProgress = calculatePhaseProgress(reportingSegment, activePhase === 'Reporting');
+                                  } else if (activePhase === 'Reporting') {
+                                    reportingProgress = calculatePhaseProgress(reportingSegment, true);
+                                  }
 
                                   // Calculate weekdays for each phase
                                   const preFieldWeekdays = preFieldSegment ? countWeekdays(preFieldSegment.startDate, preFieldSegment.endDate) : 0;
@@ -10397,119 +10444,59 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
         return 0;
       });
     } else {
-      // Default sort: user projects first (by status), then other projects (by final report date)
+      // Default sort: sort by phase and then by report date
       projects.sort((a, b) => {
-        const aIsUserProject = isUserProject(a);
-        const bIsUserProject = isUserProject(b);
-        
-        // If one is user project and other isn't, user project comes first
-        if (aIsUserProject && !bIsUserProject) return -1;
-        if (!aIsUserProject && bIsUserProject) return 1;
-        
-        // If both are user projects, sort by phase (latest first) then by progress
-        if (aIsUserProject && bIsUserProject) {
-          // Get current phase using the same logic as Dashboard
-          const getCurrentPhase = (project: Project): string => {
-            if (!project.segments || project.segments.length === 0) {
-              return project.phase; // Fallback to stored phase
-            }
-
-            const today = new Date();
-            const todayStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format
-
-            // Find which phase today falls into
-            for (const segment of project.segments) {
-              if (todayStr >= segment.startDate && todayStr <= segment.endDate) {
-                return segment.phase;
-              }
-            }
-
-            // If today is before the first phase, return the first phase
-            if (todayStr < project.segments[0].startDate) {
-              return project.segments[0].phase;
-            }
-
-            // If today is after the last phase, return the last phase
-            if (todayStr > project.segments[project.segments.length - 1].endDate) {
-              return project.segments[project.segments.length - 1].phase;
-            }
-
-            return project.phase; // Fallback
-          };
-
-          const aPhase = getCurrentPhase(a);
-          const bPhase = getCurrentPhase(b);
-          
-          const phaseOrder = {
-            'Awaiting KO': 0,
-            'Kickoff': 1,
-            'Pre-Field': 2,
-            'Fielding': 3,
-            'Post-Field Analysis': 4,
-            'Reporting': 5,
-            'Complete': 6
-          };
-          
-          const aPhaseOrder = phaseOrder[aPhase as keyof typeof phaseOrder] ?? 999;
-          const bPhaseOrder = phaseOrder[bPhase as keyof typeof phaseOrder] ?? 999;
-          
-          // Sort by phase (latest first)
-          if (aPhaseOrder !== bPhaseOrder) {
-            return bPhaseOrder - aPhaseOrder; // Reverse order for latest first
+        // Get current phase using the same logic as Dashboard
+        const getCurrentPhase = (project: Project): string => {
+          if (!project.segments || project.segments.length === 0) {
+            return project.phase; // Fallback to stored phase
           }
-          
-          // If same phase, sort by progress percentage (highest first)
-          const getProgressFromTimeline = (project: Project) => {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            
-            // Get KO date and Report date from keyDeadlines
-            const koDeadline = project.keyDeadlines?.find(d => 
-              d.label.toLowerCase().includes('kickoff') || 
-              d.label.toLowerCase().includes('ko')
-            );
-            const reportDeadline = project.keyDeadlines?.find(d => 
-              d.label.toLowerCase().includes('report') || 
-              d.label.toLowerCase().includes('final')
-            );
-            
-            if (koDeadline?.date && reportDeadline?.date) {
-              const startDate = new Date(koDeadline.date);
-              const endDate = new Date(reportDeadline.date);
-              startDate.setHours(0, 0, 0, 0);
-              endDate.setHours(0, 0, 0, 0);
-              
-              if (!isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
-                if (today >= startDate && today < endDate) {
-                  const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-                  const daysElapsed = Math.ceil((today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-                  return Math.min(100, Math.max(0, Math.round((daysElapsed / totalDays) * 100)));
-                } else if (today >= endDate) {
-                  return 100;
-                }
-              }
+
+          const today = new Date();
+          const todayStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+
+          // Find which phase today falls into
+          for (const segment of project.segments) {
+            if (todayStr >= segment.startDate && todayStr <= segment.endDate) {
+              return segment.phase;
             }
-            
-            // Fallback to phase-based progress
-            const phaseProgress: { [key: string]: number } = {
-              'Kickoff': 10,
-              'Pre-Field': 25,
-              'Fielding': 50,
-              'Post-Field Analysis': 75,
-              'Reporting': 90,
-              'Complete': 100,
-              'Awaiting KO': 5
-            };
-            return phaseProgress[aPhase] || 20;
-          };
-          
-          const aProgress = getProgressFromTimeline(a);
-          const bProgress = getProgressFromTimeline(b);
-          
-          return bProgress - aProgress; // Highest progress first
+          }
+
+          // If today is before the first phase, return the first phase
+          if (todayStr < project.segments[0].startDate) {
+            return project.segments[0].phase;
+          }
+
+          // If today is after the last phase, return the last phase
+          if (todayStr > project.segments[project.segments.length - 1].endDate) {
+            return project.segments[project.segments.length - 1].phase;
+          }
+
+          return project.phase; // Fallback
+        };
+
+        const aPhase = getCurrentPhase(a);
+        const bPhase = getCurrentPhase(b);
+        
+        const phaseOrder = {
+          'Awaiting KO': 0,
+          'Kickoff': 1,
+          'Pre-Field': 2,
+          'Fielding': 3,
+          'Post-Field Analysis': 4,
+          'Reporting': 5,
+          'Complete': 6
+        };
+        
+        const aPhaseOrder = phaseOrder[aPhase as keyof typeof phaseOrder] ?? 999;
+        const bPhaseOrder = phaseOrder[bPhase as keyof typeof phaseOrder] ?? 999;
+        
+        // Sort by phase (latest first)
+        if (aPhaseOrder !== bPhaseOrder) {
+          return bPhaseOrder - aPhaseOrder; // Reverse order for latest first
         }
         
-        // If neither are user projects, sort by final report date
+        // If same phase, sort by final report date (closest first)
         const dateA = getFinalReportDate(a);
         const dateB = getFinalReportDate(b);
 
@@ -11852,8 +11839,8 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
 
                   const isArchived = project.archived === true;
                   const isUserProjectRow = isUserProject(project);
-                  // Only highlight user projects when NOT filtering by user's name
-                  const shouldHighlightUserProject = isUserProjectRow && (!user || !showMyProjectsOnly);
+                  // Only highlight user projects when NOT filtering by user's name and NOT in oversight role
+                  const shouldHighlightUserProject = isUserProjectRow && (!user || !showMyProjectsOnly) && user?.role !== 'oversight';
                   
                   return (
                   <tr
@@ -12184,7 +12171,7 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                       const phaseColor = project.phaseColor;
                       const isArchived = project.archived === true;
                       const isUserProjectRow = isUserProject(project);
-                      const shouldHighlightUserProject = isUserProjectRow && (!user || !showMyProjectsOnly);
+                      const shouldHighlightUserProject = isUserProjectRow && (!user || !showMyProjectsOnly) && user?.role !== 'oversight';
 
                       // Generate the same date columns for each project row
                       const getWeekStart = (weekOffset: number) => {
@@ -17639,24 +17626,160 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                           {getPhaseDisplayName(segment.phase)}
                         </span>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 relative">
                           <label className="text-sm text-gray-600">Start:</label>
                           <input
                             type="date"
                             value={segment.startDate}
-                            onChange={(e) => handlePhaseDateChange(index, 'startDate', e.target.value)}
-                            className="border rounded px-0.5 sm:px-1 md:px-2 py-1 text-sm"
+                            ref={(el) => {
+                              if (el) {
+                                el.style.position = 'absolute';
+                                el.style.opacity = '0';
+                                el.style.width = '1px';
+                                el.style.height = '1px';
+                                el.style.pointerEvents = 'none';
+                              }
+                            }}
+                            onChange={(e) => {
+                              const dateString = e.target.value;
+                              if (!dateString) return;
+                              
+                              // Parse date string directly to avoid timezone issues
+                              const [year, month, day] = dateString.split('-').map(Number);
+                              const selectedDate = new Date(year, month - 1, day);
+                              const dayOfWeek = selectedDate.getDay();
+                              
+                              // Prevent weekend selection
+                              if (dayOfWeek === 0 || dayOfWeek === 6) {
+                                return;
+                              }
+                              
+                              handlePhaseDateChange(index, 'startDate', dateString);
+                            }}
                           />
+                          {segment.startDate ? (
+                            <div className="inline-flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-800 border border-orange-300 rounded-full text-sm font-medium">
+                              <span
+                                onClick={(e) => {
+                                  const input = e.currentTarget.parentElement?.parentElement?.querySelector('input[type="date"]') as HTMLInputElement;
+                                  if (input?.showPicker) {
+                                    input.showPicker();
+                                  } else {
+                                    input?.focus();
+                                    input?.click();
+                                  }
+                                }}
+                                className="cursor-pointer"
+                              >
+                                {(() => {
+                                  const [year, month, day] = segment.startDate.split('-').map(Number);
+                                  const date = new Date(year, month - 1, day);
+                                  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                                })()}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handlePhaseDateChange(index, 'startDate', '')}
+                                className="hover:bg-orange-200 rounded-full p-0.5 transition-colors"
+                              >
+                                <XMarkIcon className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                const input = e.currentTarget.parentElement?.querySelector('input[type="date"]') as HTMLInputElement;
+                                if (input?.showPicker) {
+                                  input.showPicker();
+                                } else {
+                                  input?.focus();
+                                  input?.click();
+                                }
+                              }}
+                              className="cursor-pointer hover:text-gray-600 transition-colors"
+                            >
+                              <CalendarIcon className="w-4 h-4 text-gray-400" />
+                            </button>
+                          )}
                         </div>
                         {segment.phase !== 'Kickoff' && (
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 relative">
                             <label className="text-sm text-gray-600">End:</label>
                             <input
                               type="date"
                               value={segment.endDate}
-                              onChange={(e) => handlePhaseDateChange(index, 'endDate', e.target.value)}
-                              className="border rounded px-0.5 sm:px-1 md:px-2 py-1 text-sm"
+                              ref={(el) => {
+                                if (el) {
+                                  el.style.position = 'absolute';
+                                  el.style.opacity = '0';
+                                  el.style.width = '1px';
+                                  el.style.height = '1px';
+                                  el.style.pointerEvents = 'none';
+                                }
+                              }}
+                              onChange={(e) => {
+                                const dateString = e.target.value;
+                                if (!dateString) return;
+                                
+                                // Parse date string directly to avoid timezone issues
+                                const [year, month, day] = dateString.split('-').map(Number);
+                                const selectedDate = new Date(year, month - 1, day);
+                                const dayOfWeek = selectedDate.getDay();
+                                
+                                // Prevent weekend selection
+                                if (dayOfWeek === 0 || dayOfWeek === 6) {
+                                  return;
+                                }
+                                
+                                handlePhaseDateChange(index, 'endDate', dateString);
+                              }}
                             />
+                            {segment.endDate ? (
+                              <div className="inline-flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-800 border border-orange-300 rounded-full text-sm font-medium">
+                                <span
+                                  onClick={(e) => {
+                                    const input = e.currentTarget.parentElement?.parentElement?.querySelector('input[type="date"]') as HTMLInputElement;
+                                    if (input?.showPicker) {
+                                      input.showPicker();
+                                    } else {
+                                      input?.focus();
+                                      input?.click();
+                                    }
+                                  }}
+                                  className="cursor-pointer"
+                                >
+                                  {(() => {
+                                    const [year, month, day] = segment.endDate.split('-').map(Number);
+                                    const date = new Date(year, month - 1, day);
+                                    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                                  })()}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handlePhaseDateChange(index, 'endDate', '')}
+                                  className="hover:bg-orange-200 rounded-full p-0.5 transition-colors"
+                                >
+                                  <XMarkIcon className="w-3 h-3" />
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  const input = e.currentTarget.parentElement?.querySelector('input[type="date"]') as HTMLInputElement;
+                                  if (input?.showPicker) {
+                                    input.showPicker();
+                                  } else {
+                                    input?.focus();
+                                    input?.click();
+                                  }
+                                }}
+                                className="cursor-pointer hover:text-gray-600 transition-colors"
+                              >
+                                <CalendarIcon className="w-4 h-4 text-gray-400" />
+                              </button>
+                            )}
                           </div>
                         )}
                       </div>
@@ -18987,46 +19110,190 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
                           />
                           <span className="font-medium text-sm">{getPhaseDisplayName(segment.phase)}</span>
                         </div>
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-3">
                           <div>
-                            <label className="text-xs text-gray-500">Start Date</label>
-                            <input
-                              type="date"
-                              value={segment.startDate}
-                              onChange={(e) => {
-                                const newSegments = [...editingSegments];
-                                newSegments[index].startDate = e.target.value;
-                                
-                                // Auto-set next phase start date if this is an end date change
-                                if (index < newSegments.length - 1) {
-                                  const nextWorkday = getNextWorkday(e.target.value);
-                                  newSegments[index + 1].startDate = nextWorkday;
-                                }
-                                
-                                setEditingSegments(newSegments);
-                              }}
-                              className="w-full text-xs border rounded px-0.5 sm:px-1 md:px-2 py-1"
-                            />
+                            <label className="text-xs text-gray-500 mb-1 block">Start Date</label>
+                            <div className="flex items-center gap-2 relative">
+                              <input
+                                type="date"
+                                value={segment.startDate}
+                                ref={(el) => {
+                                  if (el) {
+                                    el.style.position = 'absolute';
+                                    el.style.opacity = '0';
+                                    el.style.width = '1px';
+                                    el.style.height = '1px';
+                                    el.style.pointerEvents = 'none';
+                                  }
+                                }}
+                                onChange={(e) => {
+                                  const dateString = e.target.value;
+                                  if (!dateString) return;
+                                  
+                                  // Parse date string directly to avoid timezone issues
+                                  const [year, month, day] = dateString.split('-').map(Number);
+                                  const selectedDate = new Date(year, month - 1, day);
+                                  const dayOfWeek = selectedDate.getDay();
+                                  
+                                  // Prevent weekend selection
+                                  if (dayOfWeek === 0 || dayOfWeek === 6) {
+                                    return; // Don't update the date
+                                  }
+                                  
+                                  const newSegments = [...editingSegments];
+                                  newSegments[index].startDate = dateString;
+                                  
+                                  // Auto-set next phase start date if this is a start date change
+                                  if (index < newSegments.length - 1) {
+                                    const nextWorkday = getNextWorkday(dateString);
+                                    newSegments[index + 1].startDate = nextWorkday;
+                                  }
+                                  
+                                  setEditingSegments(newSegments);
+                                }}
+                              />
+                              {segment.startDate ? (
+                                <div className="inline-flex items-center gap-1 px-3 py-1 bg-orange-100 text-orange-800 border border-orange-300 rounded-full text-sm font-medium">
+                                  <span
+                                    onClick={(e) => {
+                                      const input = e.currentTarget.parentElement?.parentElement?.querySelector('input[type="date"]') as HTMLInputElement;
+                                      if (input?.showPicker) {
+                                        input.showPicker();
+                                      } else {
+                                        input?.focus();
+                                        input?.click();
+                                      }
+                                    }}
+                                    className="cursor-pointer"
+                                  >
+                                    {(() => {
+                                      const [year, month, day] = segment.startDate.split('-').map(Number);
+                                      const date = new Date(year, month - 1, day);
+                                      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                                    })()}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const newSegments = [...editingSegments];
+                                      newSegments[index].startDate = '';
+                                      setEditingSegments(newSegments);
+                                    }}
+                                    className="hover:bg-orange-200 rounded-full p-0.5 transition-colors"
+                                  >
+                                    <XMarkIcon className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    const input = e.currentTarget.parentElement?.querySelector('input[type="date"]') as HTMLInputElement;
+                                    if (input?.showPicker) {
+                                      input.showPicker();
+                                    } else {
+                                      input?.focus();
+                                      input?.click();
+                                    }
+                                  }}
+                                  className="cursor-pointer hover:text-gray-600 transition-colors"
+                                >
+                                  <CalendarIcon className="w-5 h-5 text-gray-400" />
+                                </button>
+                              )}
+                            </div>
                           </div>
                           <div>
-                            <label className="text-xs text-gray-500">End Date</label>
-                            <input
-                              type="date"
-                              value={segment.endDate}
-                              onChange={(e) => {
-                                const newSegments = [...editingSegments];
-                                newSegments[index].endDate = e.target.value;
-                                
-                                // Auto-set next phase start date
-                                if (index < newSegments.length - 1) {
-                                  const nextWorkday = getNextWorkday(e.target.value);
-                                  newSegments[index + 1].startDate = nextWorkday;
-                                }
-                                
-                                setEditingSegments(newSegments);
-                              }}
-                              className="w-full text-xs border rounded px-0.5 sm:px-1 md:px-2 py-1"
-                            />
+                            <label className="text-xs text-gray-500 mb-1 block">End Date</label>
+                            <div className="flex items-center gap-2 relative">
+                              <input
+                                type="date"
+                                value={segment.endDate}
+                                ref={(el) => {
+                                  if (el) {
+                                    el.style.position = 'absolute';
+                                    el.style.opacity = '0';
+                                    el.style.width = '1px';
+                                    el.style.height = '1px';
+                                    el.style.pointerEvents = 'none';
+                                  }
+                                }}
+                                onChange={(e) => {
+                                  const dateString = e.target.value;
+                                  if (!dateString) return;
+                                  
+                                  // Parse date string directly to avoid timezone issues
+                                  const [year, month, day] = dateString.split('-').map(Number);
+                                  const selectedDate = new Date(year, month - 1, day);
+                                  const dayOfWeek = selectedDate.getDay();
+                                  
+                                  // Prevent weekend selection
+                                  if (dayOfWeek === 0 || dayOfWeek === 6) {
+                                    return; // Don't update the date
+                                  }
+                                  
+                                  const newSegments = [...editingSegments];
+                                  newSegments[index].endDate = dateString;
+                                  
+                                  // Auto-set next phase start date
+                                  if (index < newSegments.length - 1) {
+                                    const nextWorkday = getNextWorkday(dateString);
+                                    newSegments[index + 1].startDate = nextWorkday;
+                                  }
+                                  
+                                  setEditingSegments(newSegments);
+                                }}
+                              />
+                              {segment.endDate ? (
+                                <div className="inline-flex items-center gap-1 px-3 py-1 bg-orange-100 text-orange-800 border border-orange-300 rounded-full text-sm font-medium">
+                                  <span
+                                    onClick={(e) => {
+                                      const input = e.currentTarget.parentElement?.parentElement?.querySelector('input[type="date"]') as HTMLInputElement;
+                                      if (input?.showPicker) {
+                                        input.showPicker();
+                                      } else {
+                                        input?.focus();
+                                        input?.click();
+                                      }
+                                    }}
+                                    className="cursor-pointer"
+                                  >
+                                    {(() => {
+                                      const [year, month, day] = segment.endDate.split('-').map(Number);
+                                      const date = new Date(year, month - 1, day);
+                                      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                                    })()}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const newSegments = [...editingSegments];
+                                      newSegments[index].endDate = '';
+                                      setEditingSegments(newSegments);
+                                    }}
+                                    className="hover:bg-orange-200 rounded-full p-0.5 transition-colors"
+                                  >
+                                    <XMarkIcon className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    const input = e.currentTarget.parentElement?.querySelector('input[type="date"]') as HTMLInputElement;
+                                    if (input?.showPicker) {
+                                      input.showPicker();
+                                    } else {
+                                      input?.focus();
+                                      input?.click();
+                                    }
+                                  }}
+                                  className="cursor-pointer hover:text-gray-600 transition-colors"
+                                >
+                                  <CalendarIcon className="w-5 h-5 text-gray-400" />
+                                </button>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>

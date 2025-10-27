@@ -44,13 +44,15 @@ interface UserSearchProps {
   placeholder?: string;
   className?: string;
   disabled?: boolean;
+  excludedUserIds?: string[];
 }
 
 const UserSearch: React.FC<UserSearchProps> = ({ 
   onUserSelect, 
   placeholder = "Search users...", 
   className = "",
-  disabled = false 
+  disabled = false,
+  excludedUserIds = []
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<User[]>([]);
@@ -169,7 +171,7 @@ const UserSearch: React.FC<UserSearchProps> = ({
       {/* Dropdown */}
       {showDropdown && searchResults.length > 0 && (
         <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-          {searchResults.map((user) => (
+          {searchResults.filter(user => !excludedUserIds.includes(user.id)).map((user) => (
             <button
               key={user.id}
               onClick={() => handleUserSelect(user)}
