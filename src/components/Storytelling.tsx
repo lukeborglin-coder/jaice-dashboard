@@ -47,7 +47,7 @@ import {
   FaceFrownIcon,
   CloudArrowUpIcon,
   MagnifyingGlassIcon,
-  FunnelIcon
+  AdjustmentsHorizontalIcon
 } from '@heroicons/react/24/outline';
 import { API_BASE_URL } from '../config';
 import { useAuth } from '../contexts/AuthContext';
@@ -587,9 +587,11 @@ const ReportSlide: React.FC<ReportSlideProps> = ({ slide, slideNumber, totalSlid
 interface StorytellingProps {
   analysisId?: string;
   projectId?: string;
+  onNavigate?: (route: string) => void;
+  setAnalysisToLoad?: (analysisId: string | null) => void;
 }
 
-export default function Storytelling({ analysisId, projectId }: StorytellingProps) {
+export default function Storytelling({ analysisId, projectId, onNavigate, setAnalysisToLoad }: StorytellingProps) {
   const { user } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [archivedProjects, setArchivedProjects] = useState<Project[]>([]);
@@ -680,6 +682,7 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
   const [searchingQuotes, setSearchingQuotes] = useState(false);
   const [quoteSearchError, setQuoteSearchError] = useState<string | null>(null);
   const [availableTranscripts, setAvailableTranscripts] = useState<any[]>([]);
+  const [loadingTranscripts, setLoadingTranscripts] = useState(false);
   const [showTranscriptFilter, setShowTranscriptFilter] = useState(false);
   
   // Quotes modal state
@@ -864,6 +867,8 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
   const generateDetailsForBullet = async (bullet: string): Promise<string | undefined> => {
     if (!selectedProject) return undefined;
     try {
+      // Determine which analysisId to use - prioritize selectedContentAnalysis
+      const currentAnalysisId = selectedContentAnalysis?.id || selectedProject?.analysisId || analysisId;
       const ctrl = new AbortController();
       const to = setTimeout(() => ctrl.abort(), 10000);
       const response = await fetch(`${API_BASE_URL}/api/storytelling/${selectedProject.id}/expand-bullet`, {
@@ -872,7 +877,7 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
         body: JSON.stringify({
           bullet,
           detailLevel,
-          analysisId: selectedProject?.analysisId || analysisId
+          analysisId: currentAnalysisId
         }),
         signal: ctrl.signal
       });
@@ -888,7 +893,8 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
   const fetchQuotesForBullet = async (bullet: string): Promise<VerbatimQuote[] | undefined> => {
     if (!selectedProject) return undefined;
     try {
-      const quotesAnalysisId = selectedProject?.analysisId || analysisId;
+      // Determine which analysisId to use - prioritize selectedContentAnalysis
+      const quotesAnalysisId = selectedContentAnalysis?.id || selectedProject?.analysisId || analysisId;
       const ctrl = new AbortController();
       const to = setTimeout(() => ctrl.abort(), 10000);
       const response = await fetch(`${API_BASE_URL}/api/storytelling/${selectedProject.id}/quotes`, {
@@ -1674,9 +1680,17 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
       const project = projects.find(p => p.id === projectId);
       if (project) {
         setSelectedProject(project);
-    }
+      }
     }
   }, [selectedProject, projectId, projects]);
+
+  // Reload data when selectedContentAnalysis changes
+  useEffect(() => {
+    if (selectedProject && selectedContentAnalysis) {
+      loadStorytellingData(selectedProject.id);
+      loadProjectData(selectedProject.id);
+    }
+  }, [selectedContentAnalysis?.id]);
 
   // Clear no changes messages when switching projects or tabs
   useEffect(() => {
@@ -1684,12 +1698,15 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
     setShowNoChangesMessageStoryboard(false);
   }, [selectedProject, activeTab]);
 
-  // Load available transcripts when Quote Finder tab is accessed
+  // Load available transcripts when Quote Finder tab is accessed or when CA<｜place▁holder▁no▁788｜> selection changes
   useEffect(() => {
-    if (activeTab === 'quotes' && selectedProject && availableTranscripts.length === 0) {
+    if ((activeTab === 'quotes' || activeTab === 'ask') && selectedProject) {
       const loadTranscripts = async () => {
+        setLoadingTranscripts(true);
         try {
-          console.log('🔍 Loading transcripts for project:', selectedProject.id);
+          // Determine which analysisId to use - prioritize selectedContentAnalysis
+          const currentAnalysisId = selectedContentAnalysis?.id || selectedProject?.analysisId || analysisId;
+          console.log('🔍 Loading transcripts for project:', selectedProject.id, 'with analysisId:', currentAnalysisId);
           const response = await fetch(`${API_BASE_URL}/api/transcripts/${selectedProject.id}`, {
             headers: getAuthHeaders()
           });
@@ -1698,75 +1715,121 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
             const data = await response.json();
             console.log('🔍 Raw transcript data:', data);
             // Filter transcripts to only show those from the current content analysis
-            // If transcripts don't have analysisId, show all transcripts for this project
-            const filteredTranscripts = data.filter((transcript: any) => {
-              // If transcript has analysisId, match it to current analysis
-              if (transcript.analysisId) {
-                return transcript.analysisId === selectedProject?.analysisId || 
-                       transcript.analysisId === analysisId;
-              }
-              // If no analysisId, include all transcripts (legacy behavior)
-              return true;
-            });
+            // We can match transcripts by:
+            // 1. analysisId matching currentAnalysisId, OR
+            // 2. Transcript ID being in the CA's transcripts array
+            let filteredTranscripts: any[] = [];
+            
+            if (selectedContentAnalysis && selectedContentAnalysis.transcripts && Array.isArray(selectedContentAnalysis.transcripts)) {
+              // Get transcript IDs from the CA's transcripts array
+              const caTranscriptIds = selectedContentAnalysis.transcripts.map((t: any) => t.id || t.sourceTranscriptId || t.transcriptId).filter(Boolean);
+              console.log('🔍 CA transcript IDs:', caTranscriptIds);
+              
+              // Match transcripts by analysisId OR by being in the CA's transcripts array
+              filteredTranscripts = data.filter((transcript: any) => {
+                // Match by analysisId if it exists
+                if (transcript.analysisId && transcript.analysisId === currentAnalysisId) {
+                  return true;
+                }
+                // Match by transcript ID being in CA's transcripts array
+                if (caTranscriptIds.length > 0 && caTranscriptIds.includes(transcript.id)) {
+                  return true;
+                }
+                return false;
+              });
+            } else {
+              // Fallback: Filter by analysisId if available, or show all if no CA selected
+              filteredTranscripts = data.filter((transcript: any) => {
+                // If transcript has analysisId, match it to current analysis
+                if (transcript.analysisId) {
+                  return transcript.analysisId === currentAnalysisId;
+                }
+                // If no analysisId and no selectedContentAnalysis, include all transcripts (legacy behavior)
+                if (!selectedContentAnalysis) {
+                  return true;
+                }
+                // If we have a selected CA but no transcripts array, exclude transcripts without analysisId
+                return false;
+              });
+            }
             console.log('🔍 Filtered transcripts:', filteredTranscripts);
             setAvailableTranscripts(filteredTranscripts || []);
+            // Clear selected transcript IDs when CA changes
+            setSelectedTranscriptIds([]);
           } else {
             console.error('Failed to load transcripts, status:', response.status);
             const errorText = await response.text();
             console.error('Error response:', errorText);
+            setAvailableTranscripts([]);
           }
         } catch (error) {
           console.error('Failed to load transcripts:', error);
+          setAvailableTranscripts([]);
+        } finally {
+          setLoadingTranscripts(false);
         }
       };
       loadTranscripts();
+    } else {
+      // Reset loading state when not on quotes tab
+      setLoadingTranscripts(false);
     }
-  }, [activeTab, selectedProject, analysisId]);
+  }, [activeTab, selectedProject, selectedContentAnalysis, analysisId]);
 
   const handleSaveQuestions = async () => {
     if (!selectedProject) return;
 
     try {
+      // Determine which analysisId to use - prioritize selectedContentAnalysis
+      const currentAnalysisId = selectedContentAnalysis?.id || selectedProject?.analysisId || analysisId;
       const response = await fetch(`${API_BASE_URL}/api/storytelling/${selectedProject.id}/strategic-questions`, {
         method: 'POST',
         headers: {
           ...getAuthHeaders(),
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ questions: tempQuestions, analysisId: selectedProject?.analysisId || analysisId })
+        body: JSON.stringify({ questions: tempQuestions, analysisId: currentAnalysisId })
       });
 
       if (response.ok) {
         setStrategicQuestions(tempQuestions);
         setEditingQuestions(false);
+        // Reload project data to ensure persistence is saved
+        await loadProjectData(selectedProject.id);
       } else {
-        alert('Failed to save questions');
+        const errorData = await response.json();
+        alert(`Failed to save questions: ${errorData.error || 'Unknown error'}`);
       }
     } catch (error) {
+      console.error('Failed to save questions:', error);
       alert('Failed to save questions');
     }
   };
 
-  const estimateCost = async () => {
+  const estimateCost = async (action?: 'findings' | 'storyboard' | 'question') => {
     if (!selectedProject) return;
 
     try {
+      // Determine which analysisId to use - prioritize selectedContentAnalysis
+      const currentAnalysisId = selectedContentAnalysis?.id || selectedProject?.analysisId || analysisId;
       const response = await fetch(`${API_BASE_URL}/api/storytelling/${selectedProject.id}/estimate`, {
         method: 'POST',
         headers: {
           ...getAuthHeaders(),
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ detailLevel, analysisId: selectedProject?.analysisId || analysisId })
+        body: JSON.stringify({ detailLevel, analysisId: currentAnalysisId })
       });
 
       if (response.ok) {
         const estimate = await response.json();
         setCostEstimate(estimate);
         // Proceed directly with the action instead of showing modal
-        if (pendingAction === 'findings') confirmGenerateFindings();
-        else if (pendingAction === 'storyboard') confirmGenerateStoryboard();
-        else if (pendingAction === 'question') confirmAskQuestion();
+        // Use the action parameter if provided, otherwise fall back to pendingAction state
+        const actionToUse = action || pendingAction;
+        if (actionToUse === 'findings') confirmGenerateFindings();
+        else if (actionToUse === 'storyboard') confirmGenerateStoryboard();
+        else if (actionToUse === 'question') confirmAskQuestion();
       } else {
         const errorText = await response.text();
       }
@@ -1797,7 +1860,7 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
     
     setPendingAction('findings');
     setDetailLevel('moderate'); // Use moderate detail for more concise content
-    await estimateCost();
+    await estimateCost('findings');
   };
 
   const confirmGenerateFindings = async () => {
@@ -1867,7 +1930,7 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
     }
     
     setPendingAction('storyboard');
-    await estimateCost();
+    await estimateCost('storyboard');
   };
 
   const confirmGenerateStoryboard = async () => {
@@ -1924,6 +1987,8 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
     setGeneratingReport(true);
 
     try {
+      // Determine which analysisId to use - prioritize selectedContentAnalysis
+      const currentAnalysisId = selectedContentAnalysis?.id || selectedProject?.analysisId || analysisId;
       const response = await fetch(`${API_BASE_URL}/api/storytelling/${selectedProject.id}/dynamic-report/generate`, {
         method: 'POST',
         headers: {
@@ -1931,7 +1996,7 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          analysisId: selectedProject?.analysisId || analysisId
+          analysisId: currentAnalysisId
         })
       });
 
@@ -2054,7 +2119,7 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
 
   const handleAskQuestion = async () => {
     setPendingAction('question');
-    await estimateCost();
+    await estimateCost('question');
   };
 
   const confirmAskQuestion = async () => {
@@ -2063,13 +2128,15 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
     setAskingQuestion(true);
 
     try {
+      // Determine which analysisId to use - prioritize selectedContentAnalysis
+      const currentAnalysisId = selectedContentAnalysis?.id || selectedProject?.analysisId || analysisId;
       const response = await fetch(`${API_BASE_URL}/api/storytelling/${selectedProject.id}/ask`, {
         method: 'POST',
         headers: {
           ...getAuthHeaders(),
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ question: currentQuestion, detailLevel, analysisId: selectedProject?.analysisId || analysisId })
+        body: JSON.stringify({ question: currentQuestion, detailLevel, analysisId: currentAnalysisId })
       });
 
       if (response.ok) {
@@ -2164,7 +2231,8 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
     setQuotesCached(false);
 
     try {
-      const quotesAnalysisId = selectedProject?.analysisId || analysisId;
+      // Determine which analysisId to use - prioritize selectedContentAnalysis
+      const quotesAnalysisId = selectedContentAnalysis?.id || selectedProject?.analysisId || analysisId;
       const response = await fetch(`${API_BASE_URL}/api/storytelling/${selectedProject?.id}/quotes`, {
         method: 'POST',
         headers: {
@@ -2214,6 +2282,8 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
     setQuoteResults([]);
 
     try {
+      // Determine which analysisId to use - prioritize selectedContentAnalysis
+      const currentAnalysisId = selectedContentAnalysis?.id || selectedProject?.analysisId || analysisId;
       const response = await fetch(`${API_BASE_URL}/api/storytelling/${selectedProject.id}/find-quotes`, {
         method: 'POST',
         headers: {
@@ -2223,8 +2293,14 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
         body: JSON.stringify({
           finding: quoteFinding,
           transcriptIds: selectedTranscriptIds.length > 0 ? selectedTranscriptIds : undefined,
-          analysisId: selectedProject?.analysisId || analysisId
+          analysisId: currentAnalysisId
         })
+      });
+
+      console.log('🔍 Sending quote search request:', {
+        finding: quoteFinding.substring(0, 50),
+        selectedTranscriptIds,
+        analysisId: currentAnalysisId
       });
 
       if (response.ok) {
@@ -2400,18 +2476,31 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
             <div className="flex items-center gap-3">
               <button
                 onClick={() => {
-                  // Deep link the specific analysis via custom event used by ContentAnalysisX
-                  const analysis = selectedProject.analysisId;
-                  if (!analysis) return;
-                  // Set route
-                  const url = `${window.location.pathname}?route=Content%20Analysis`;
-                  window.history.pushState({}, '', url);
-                  // Dispatch event to load analysis when CA mounts
-                  setTimeout(() => {
-                    window.dispatchEvent(new CustomEvent('loadContentAnalysis', { detail: { analysisId: analysis } }));
-                  }, 50);
-                  // Force route change by reloading
-                  window.location.reload();
+                  // Check all possible sources for analysisId
+                  const analysisIdToLoad = selectedProject?.analysisId || selectedContentAnalysis?.id || analysisId;
+                  
+                  if (!analysisIdToLoad) {
+                    console.warn('No analysis ID found to navigate to');
+                    return;
+                  }
+                  
+                  console.log('Navigating to Content Analysis with ID:', analysisIdToLoad);
+                  
+                  // Use navigation props if available, otherwise fall back to event-based navigation
+                  if (onNavigate && setAnalysisToLoad) {
+                    setAnalysisToLoad(analysisIdToLoad);
+                    onNavigate('Content Analysis');
+                  } else {
+                    // Fallback to event-based navigation
+                    const url = `${window.location.pathname}?route=Content%20Analysis`;
+                    window.history.pushState({}, '', url);
+                    // Dispatch event to load analysis when CA mounts
+                    setTimeout(() => {
+                      window.dispatchEvent(new CustomEvent('loadContentAnalysis', { detail: { analysisId: analysisIdToLoad } }));
+                    }, 50);
+                    // Force route change by reloading
+                    window.location.reload();
+                  }
                 }}
                 className="flex items-center justify-center h-8 w-8 rounded-full transition-colors"
                 style={{ backgroundColor: 'rgba(37, 99, 235, 0.65)' }}
@@ -2536,48 +2625,71 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
                   </div>
                 )}
 
-                {strategicQuestions.length > 0 && (
-                  <div className="mt-6 pt-4 border-t border-gray-200">
-                    <button
-                      onClick={handleGenerateFindings}
-                      disabled={generatingFindings}
-                      className="px-4 py-2 rounded-lg text-white text-sm font-medium flex items-center gap-2 disabled:opacity-50"
-                      style={{ backgroundColor: BRAND_ORANGE }}
-                    >
-                      {generatingFindings ? 'Generating...' : 'Generate Key Findings'}
-                      <SparklesIcon className="h-4 w-4" />
-                    </button>
-                    {showNoChangesMessage && (
-                      <p className="text-sm mt-2" style={{ color: BRAND_ORANGE }}>
-                        No new respondents added or removed since last generation. Key findings are up to date.
-                      </p>
-                    )}
-                  </div>
-                )}
+                {strategicQuestions.length > 0 && (() => {
+                  const currentRespondentCount = selectedContentAnalysis ? 
+                    (() => {
+                      const allData = Object.values(selectedContentAnalysis.data || {}).flat();
+                      const uniqueRespondents = new Set(allData.map((item: any) => item.respno).filter(Boolean));
+                      return uniqueRespondents.size;
+                    })() : 
+                    (projectMap[selectedProject?.id || '']?.respondentCount ?? selectedProject?.respondentCount ?? 0);
+                  const lastRespondentCount = keyFindings?.respondentCount;
+                  const currentQuestions = strategicQuestions;
+                  const lastQuestions = keyFindings?.strategicQuestions || [];
+                  const questionsChanged = JSON.stringify(currentQuestions) !== JSON.stringify(lastQuestions);
+                  const hasChanges = lastRespondentCount === undefined || currentRespondentCount !== lastRespondentCount || questionsChanged;
+                  
+                  return (
+                    <div className="mt-6 pt-4 border-t border-gray-200">
+                      <button
+                        onClick={handleGenerateFindings}
+                        disabled={generatingFindings || !hasChanges}
+                        className="px-4 py-2 rounded-lg text-white text-sm font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        style={{ backgroundColor: BRAND_ORANGE }}
+                      >
+                        {generatingFindings ? 'Generating...' : 'Generate Key Findings'}
+                        <SparklesIcon className="h-4 w-4" />
+                      </button>
+                      {keyFindings && keyFindings.generatedAt && (
+                        <p className="text-xs text-gray-500 mt-2">
+                          Last updated: {formatDateTimeNoSeconds(keyFindings.generatedAt)} (n={keyFindings.respondentCount ?? (selectedContentAnalysis ? 
+                            (() => {
+                              const allData = Object.values(selectedContentAnalysis.data || {}).flat();
+                              const uniqueRespondents = new Set(allData.map((item: any) => item.respno).filter(Boolean));
+                              return uniqueRespondents.size;
+                            })() : 
+                            (projectMap[selectedProject?.id || '']?.respondentCount ?? selectedProject?.respondentCount ?? 0))})
+                        </p>
+                      )}
+                      {!hasChanges && !generatingFindings && (
+                        <p className="text-xs mt-2 text-gray-500">
+                          No new respondents or strategic questions added since last generation. Key findings are up to date. Add new questions or add new respondents to the content analysis to generate new key findings.
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
 
 
               {keyFindings && keyFindings.findings && (
                 <div className="space-y-4">
-                  {keyFindings.generatedAt && (
-                    <p className="text-xs text-gray-500">
-                      Last updated: {formatDateTimeNoSeconds(keyFindings.generatedAt)} (n={keyFindings.respondentCount || 0})
-                    </p>
-                  )}
                   {keyFindings.findings.map((finding, idx) => (
-                    <div key={idx} className="bg-white shadow-sm border border-gray-200 rounded-lg p-6">
-                      <h4 className="font-semibold text-gray-900 mb-2">{idx + 1}. {finding.question}</h4>
+                    <div key={idx} className="mb-4">
+                      <h4 className="font-semibold text-white mb-3 px-4 py-2 rounded" style={{ backgroundColor: BRAND_ORANGE }}>{idx + 1}. {finding.question}</h4>
                       <div 
-                        className="text-sm text-gray-700 mb-3 cursor-pointer hover:bg-gray-50 p-2 rounded border-l-4 border-transparent hover:border-orange-300 transition-colors"
+                        className="text-sm text-gray-700 mb-3 cursor-pointer p-4 rounded bg-white shadow-sm border border-gray-200 border-l-4 hover:bg-gray-50 transition-colors"
+                        style={{ borderLeftColor: BRAND_ORANGE }}
                         onClick={() => handleKeyFindingClick(finding)}
                         title="Click to view supporting quotes"
                       >
                         {finding.answer}
                       </div>
                       {finding.insight && (
-                        <div className="mt-3 p-3 bg-orange-50 rounded">
-                          <p className="text-sm font-medium" style={{ color: BRAND_ORANGE }}>
-                            💡 Insight: {finding.insight}
+                        <div className="mt-3 p-3 bg-orange-50 rounded shadow-sm border border-orange-200">
+                          <p className="text-sm font-medium flex items-start gap-2" style={{ color: BRAND_ORANGE }}>
+                            <LightBulbIcon className="h-5 w-5 flex-shrink-0 mt-0.5" />
+                            <span>Insight: {finding.insight}</span>
                           </p>
                         </div>
                       )}
@@ -2823,7 +2935,72 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
           {activeTab === 'ask' && (
             <div className="space-y-4">
               <div className="bg-white shadow-sm border border-gray-200 rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Ask a Question</h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Ask a Question</h3>
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowTranscriptFilter(!showTranscriptFilter)}
+                      className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-full transition-colors relative"
+                      disabled={askingQuestion}
+                    >
+                      <AdjustmentsHorizontalIcon className="h-5 w-5" />
+                      {selectedTranscriptIds.length > 0 && (
+                        <span className="absolute -top-1 -right-1 bg-orange-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                          {selectedTranscriptIds.length}
+                        </span>
+                      )}
+                    </button>
+
+                    {/* Transcript Filter Popup */}
+                    {showTranscriptFilter && (
+                      <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                        <div className="p-3">
+                          <h4 className="text-sm font-semibold text-gray-900 mb-2">Filter Transcripts</h4>
+                          <div className="max-h-64 overflow-y-auto">
+                            {loadingTranscripts ? (
+                              <p className="text-xs text-gray-500 italic">Loading transcripts...</p>
+                            ) : availableTranscripts.length === 0 ? (
+                              <p className="text-xs text-gray-500 italic">No transcripts available for this content analysis.</p>
+                            ) : (
+                              <div className="space-y-1">
+                                {availableTranscripts.map(transcript => (
+                                  <label key={transcript.id} className="flex items-center space-x-2 text-xs cursor-pointer hover:bg-gray-50 px-2 py-1 rounded">
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedTranscriptIds.includes(transcript.id)}
+                                      onChange={e => {
+                                        if (e.target.checked) {
+                                          setSelectedTranscriptIds([...selectedTranscriptIds, transcript.id]);
+                                        } else {
+                                          setSelectedTranscriptIds(selectedTranscriptIds.filter(id => id !== transcript.id));
+                                        }
+                                      }}
+                                      className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 flex-shrink-0"
+                                      disabled={askingQuestion}
+                                    />
+                                    <span className="text-gray-700 flex-1 truncate">
+                                      {transcript.respno}
+                                      {transcript.interviewDate && ` - ${transcript.interviewDate}`}
+                                      {transcript.interviewTime && ` - ${transcript.interviewTime}`}
+                                    </span>
+                                  </label>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          <div className="mt-2 pt-2 border-t border-gray-200">
+                            <button
+                              onClick={() => setShowTranscriptFilter(false)}
+                              className="w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                            >
+                              Close
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
 
                 <div className="flex gap-2">
                   <input
@@ -2879,7 +3056,7 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
                       className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-full transition-colors relative"
                       disabled={searchingQuotes}
                     >
-                      <FunnelIcon className="h-5 w-5" />
+                      <AdjustmentsHorizontalIcon className="h-5 w-5" />
                       {selectedTranscriptIds.length > 0 && (
                         <span className="absolute -top-1 -right-1 bg-orange-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
                           {selectedTranscriptIds.length}
@@ -2893,8 +3070,10 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
                         <div className="p-3">
                           <h4 className="text-sm font-semibold text-gray-900 mb-2">Filter Transcripts</h4>
                           <div className="max-h-64 overflow-y-auto">
-                            {availableTranscripts.length === 0 ? (
+                            {loadingTranscripts ? (
                               <p className="text-xs text-gray-500 italic">Loading transcripts...</p>
+                            ) : availableTranscripts.length === 0 ? (
+                              <p className="text-xs text-gray-500 italic">No transcripts available for this content analysis.</p>
                             ) : (
                               <div className="space-y-1">
                                 {availableTranscripts.map(transcript => (
@@ -2913,7 +3092,9 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
                                       disabled={searchingQuotes}
                                     />
                                     <span className="text-gray-700 flex-1 truncate">
-                                      {transcript.respno} - {transcript.originalFilename}
+                                      {transcript.respno}
+                                      {transcript.interviewDate && ` - ${transcript.interviewDate}`}
+                                      {transcript.interviewTime && ` - ${transcript.interviewTime}`}
                                     </span>
                                   </label>
                                 ))}
@@ -2983,6 +3164,15 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                   <h4 className="text-sm font-semibold text-red-900 mb-2">Error</h4>
                   <p className="text-sm text-red-700">{quoteSearchError}</p>
+                </div>
+              )}
+
+              {!searchingQuotes && !quoteSearchError && quoteFinding.trim() && quoteResults.length === 0 && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                  <h4 className="text-sm font-semibold text-yellow-900 mb-2">No Quotes Found</h4>
+                  <p className="text-sm text-gray-600">
+                    No relevant quotes were found matching your search. Try adjusting your search terms or selecting different transcripts to search.
+                  </p>
                 </div>
               )}
 

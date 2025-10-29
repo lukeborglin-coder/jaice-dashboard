@@ -124,20 +124,16 @@ export function estimateStorytellingCost(transcriptsText, caDataObj, detailLevel
 export async function generateKeyFindings(projectId, strategicQuestions, transcriptsText, caDataObj, detailLevel = 'moderate') {
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-  // Use same detail level system as Ask a Question
-  let detailInstruction = 'Provide a moderate level of detail.';
-  if (detailLevel === 'straightforward') {
-    detailInstruction = 'Be concise and to the point.';
-  } else if (detailLevel === 'max') {
-    detailInstruction = 'Provide comprehensive detail and context.';
-  }
-
+  // Always provide detailed, comprehensive responses (no length restrictions)
   const systemPrompt = `You are a senior qualitative research analyst specializing in healthcare and pharmaceutical market research.
 
 Your task is to analyze transcripts and content analysis data to answer strategic research questions.
 
 Guidelines:
-- ${detailInstruction}
+- Provide comprehensive, detailed answers that fully address each question
+- Use as much detail as necessary to provide complete context, examples, and explanations
+- Think of this as answering a client's question in a detailed briefing - be thorough and complete
+- There are NO length restrictions - provide complete, detailed responses
 - Be clear, accurate, and evidence-based
 - Focus on the "why" and "so what" - surface insights, not just observations
 - Identify patterns, themes, and contradictions
@@ -145,6 +141,7 @@ Guidelines:
 - Present findings as clear analysis without including direct quotes
 - Base your analysis on the provided data and present it as clean analysis text
 - Synthesize findings into clear, actionable insights
+- Use multiple paragraphs if needed to fully answer each question
 
 IMPORTANT - ANONYMIZATION REQUIREMENTS:
 - NEVER use actual respondent names (like "Tara", "John", "Sarah", etc.) in your analysis
@@ -163,19 +160,27 @@ ${transcriptsText.substring(0, 50000)} ${transcriptsText.length > 50000 ? '...[t
 CONTENT ANALYSIS DATA:
 ${JSON.stringify(caDataObj.data, null, 2).substring(0, 20000)} ${JSON.stringify(caDataObj.data).length > 20000 ? '...[truncated]' : ''}
 
-For each question, provide:
-1. A clear, concise answer (2-3 sentences maximum) with key findings
-2. A brief strategic insight or recommendation (1-2 sentences maximum)
+For each question, provide a comprehensive and detailed analysis:
 
-IMPORTANT: Keep answers and insights concise and focused. Avoid lengthy paragraphs.
+1. Answer: Provide a thorough, detailed answer that fully addresses the question. Use as many sentences or paragraphs as needed to provide complete context, explain patterns, provide examples, and give a comprehensive response. Think of this as if you were answering a client's question in a detailed briefing - be thorough and complete.
+
+2. Insight: Provide strategic insights, implications, and recommendations. Again, be as detailed as necessary to fully explain the strategic implications and actionable recommendations.
+
+IMPORTANT: 
+- There are NO length restrictions on your answers or insights
+- Provide complete, detailed responses that fully answer each question
+- Include sufficient context, examples, and explanations
+- Think of this as a detailed ChatGPT-style response - comprehensive and thorough
+- Use multiple paragraphs if needed to fully address the question
+- Be as detailed as necessary to provide a complete answer
 
 Return your response as a JSON object with this structure:
 {
   "findings": [
     {
       "question": "the question text",
-      "answer": "your concise analysis and findings here (2-3 sentences max)",
-      "insight": "brief key takeaway or recommendation (1-2 sentences max)"
+      "answer": "your detailed, comprehensive analysis and findings here (no length limit - be thorough)",
+      "insight": "detailed strategic insights, implications, and recommendations (no length limit - be thorough)"
     }
   ]
 }`;

@@ -4577,7 +4577,7 @@ export default function App() {
       ) : route === "Transcripts" || route === "transcripts" ? (
         <Transcripts onNavigate={setRoute} setAnalysisToLoad={setAnalysisToLoad} />
       ) : route === "Storytelling" || route === "storytelling" ? (
-        <Storytelling analysisId={currentAnalysisId} projectId={currentProjectId} />
+        <Storytelling analysisId={currentAnalysisId} projectId={currentProjectId} onNavigate={setRoute} setAnalysisToLoad={setAnalysisToLoad} />
       ) : route === "Stat Testing" ? (
         <StatTesting />
       ) : route === "Open-End Coding" ? (

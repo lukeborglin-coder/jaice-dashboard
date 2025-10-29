@@ -6334,7 +6334,15 @@
         }
       ],
       "sampleDetails": "TBD",
-      "files": [],
+      "files": [
+        {
+          "id": "file-1761748119990-dg",
+          "name": "test Discussion Guide.docx",
+          "type": "discussion-guide",
+          "url": "/uploads/Discussion_Guide_P-1761587638538_1761748119990.docx",
+          "uploadedAt": "2025-10-29T14:28:39.990Z"
+        }
+      ],
       "segments": [
         {
           "phase": "Kickoff",
@@ -6365,7 +6373,17 @@
       "phaseColor": "#7C3AED",
       "fieldworkRange": "10/20/25",
       "reportDeadline": "11/14/25",
-      "teamMembersText": "oversight"
+      "teamMembersText": "oversight",
+      "hasDiscussionGuide": true,
+      "discussionGuideUpdatedAt": "2025-10-29T14:28:40.060Z",
+      "savedContentAnalyses": [
+        {
+          "id": "1761748119990",
+          "name": "test",
+          "savedDate": "2025-10-29T14:28:39.990Z",
+          "savedBy": "You"
+        }
+      ]
     }
   ],
   "3_archived": [

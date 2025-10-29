@@ -2462,6 +2462,30 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                   <span>View Discussion Guide</span>
                 </button>
               )}
+              {/* View Transcripts button - only show if project exists */}
+              {currentAnalysis?.projectId && (
+                <button
+                  onClick={() => {
+                    if (!onNavigate) return;
+                    try {
+                      // Signal the Transcripts page to focus this project
+                      sessionStorage.setItem(
+                        'cognitive_dash_transcripts_focus_project',
+                        currentAnalysis.projectId
+                      );
+                    } catch (e) {
+                      // Non-fatal if storage unavailable
+                      console.warn('Unable to store transcripts focus project', e);
+                    }
+                    onNavigate('Transcripts');
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-gray-700 text-xs font-medium rounded-md hover:bg-gray-50 transition-colors cursor-pointer shadow-sm border border-gray-300"
+                  style={{ backgroundColor: 'white' }}
+                >
+                  <DocumentTextIcon className="h-4 w-4" />
+                  <span>View Transcripts</span>
+                </button>
+              )}
               {/* Export to Excel button - always visible */}
               <button
                 onClick={handleExportToExcel}

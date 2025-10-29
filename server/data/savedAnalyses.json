@@ -1,5 +1,112 @@
 [
   {
+    "id": "1761748119990",
+    "projectId": "P-1761587638538",
+    "name": "test",
+    "data": {
+      "Demographics": [
+        {
+          "Respondent ID": "",
+          "Interview Date": "",
+          "Interview Time": ""
+        }
+      ],
+      "BACKGROUND": [
+        {
+          "Respondent ID": "",
+          "Living Situation": "",
+          "Current Health Description": "",
+          "Health Management Involvement": "",
+          "Receiving Treatment": "",
+          "Treatment Duration": "",
+          "Treatment Decision Factors": "",
+          "Treatment Pursuit Timing": "",
+          "Treatment Pursuit Reasons": "",
+          "Treatment Experience": "",
+          "Discontinuation Consideration": "",
+          "Switching Consideration": "",
+          "Switching Concerns": "",
+          "Unsatisfactory Treatment Response": "",
+          "Access Issues Experience": "",
+          "Access Challenges": "",
+          "Challenges Resolution": "",
+          "Resolution Success": "",
+          "Resolution Improvement": "",
+          "Past Treatment Experience": "",
+          "Past Treatment Access Challenges": "",
+          "Past Challenges Resolution": "",
+          "Past Resolution Success": "",
+          "Past Resolution Improvement": "",
+          "Impressions of Untaken Treatment": "",
+          "Untaken Treatment Consideration": "",
+          "Untaken Treatment Access Challenges": "",
+          "Untaken Challenges Resolution": "",
+          "Untaken Resolution Success": "",
+          "Untaken Resolution Improvement": "",
+          "Awareness of Developmental Treatments": "",
+          "Knowledge of Treatments": "",
+          "Interest in Treatments": "",
+          "Treatment Consideration Factors": "",
+          "Community Involvement Level": "",
+          "Support Group Membership": "",
+          "Information Sources": ""
+        }
+      ],
+      "DETAILED REVIEW OF MESSAGING": [
+        {
+          "Respondent ID": "",
+          "Overall Reaction": "",
+          "Surprising Information": "",
+          "Ranking": "",
+          "Ranking Reasons": "",
+          "Preferred Statement": "",
+          "Least Preferred Statement": "",
+          "Impact on Manufacturer Perception": "",
+          "Alignment with Understanding": "",
+          "New Learnings": "",
+          "Individual Statement Feedback": "",
+          "Attention-Catching Phrases": "",
+          "Language Impact": "",
+          "Clarity Concerns": "",
+          "Motivation Level": "",
+          "Differentiation Level": "",
+          "Believability": "",
+          "Improvement Suggestions": "",
+          "Main Takeaway": ""
+        }
+      ],
+      "COMPREHENSIVE RANKING EXERCISE": [
+        {
+          "Respondent ID": "",
+          "Compelling Statements": "",
+          "Statement Selection Process": "",
+          "Statement Ordering": "",
+          "Most Important Statements": "",
+          "Perception Changes": "",
+          "Evrysdi Comparison": "",
+          "Access Process Perception": "",
+          "Likelihood of Switching": "",
+          "Likelihood Scale Comparison": "",
+          "Differentiation Enhancements": "",
+          "New Learnings": ""
+        }
+      ],
+      "Misc.": [
+        {
+          "Respondent ID": "",
+          "Final Comments": "",
+          "Additional Notes": ""
+        }
+      ]
+    },
+    "guideMap": {
+      "bySheet": {}
+    },
+    "quotes": {},
+    "savedAt": "2025-10-29T14:28:39.990Z",
+    "savedBy": "You"
+  },
+  {
     "id": "1761251648433",
     "projectId": "P-1761243049041",
     "name": "test CA 2",
@@ -636,6 +743,29 @@
             "transcriptType": "cleaned",
             "savedAt": "2025-10-23T20:55:49.249Z",
             "keyFinding": "The respondent lives with her husband and three children, aged 19, 17, and 15, along with two dogs. She balances her time between family responsibilities and her part-time job at a local school. Additionally, she is pursuing a bachelor's degree in human resource management, indicating a busy and structured living environment."
+          }
+        }
+      },
+      "COMMUNITY ENGAGEMENT & INFO SOURCES": {
+        "R04": {
+          "Community Connection": {
+            "quotes": [
+              {
+                "text": "Moderator: Coming to the present, to what extent do you feel connected to any kind of SMA community now?\n\nRespondent: There's not really one here where I am. There was an MDA call center here for several years. I would visit them during the summer and hang out. I sort of became their mascot. Whenever they had an event in the area, I would get invited.",
+                "context": "This quote shows that the respondent had some past involvement with the SMA community through the MDA call center but indicates that there is no active SMA community where he currently resides."
+              },
+              {
+                "text": "Moderator: Do you have any connections to the SMA community, like online or in person?\n\nRespondent: Not particularly. I'm still friends with my counselor from camp on Facebook. We don't talk, but I see his life events.",
+                "context": "This quote illustrates the respondent's limited connection to the SMA community, highlighting that his only ongoing connection is a passive one through Facebook with a former camp counselor."
+              },
+              {
+                "text": "Moderator: Have you ever looked into or involved yourself in any of the online SMA stuff?\n\nRespondent: No. Not really. I find it more depressing than anything.\n\nModerator: Tell me about that. I'm really interested in that.\n\nRespondent: I've never particularly seen myself as disabled. It's just something that I live with. I find that mindset unique among the disabled community. Most of the time, they're like, \"I'm so crippled. I can't do this and I can't do that.\" Talking and whining about it isn't going to change anything. I've never found anything worth my time to be a part of as far as Facebook groups or anything.",
+                "context": "This quote provides insight into the respondent's perception of online SMA communities, which he views as adopting a victim mentality, leading to his lack of engagement with them."
+              }
+            ],
+            "transcriptType": "cleaned",
+            "savedAt": "2025-10-29T15:54:49.402Z",
+            "keyFinding": "The respondent has limited connection to the SMA community, both online and in person. He maintains some social connections from past experiences, such as MDA camp, but does not actively engage with SMA groups. His limited involvement is due to a preference for independence and a perception that online communities often adopt a victim mentality."
           }
         }
       }

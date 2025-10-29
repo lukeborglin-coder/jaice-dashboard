@@ -218,7 +218,7 @@ async function saveProjectStorytelling(projectId, projectData, analysisId = null
 }
 
 // Helper: Get transcripts text for a project
-async function getTranscriptsText(projectId, analysisId = null) {
+async function getTranscriptsText(projectId, analysisId = null, transcriptIds = null) {
   try {
     const data = await fs.readFile(TRANSCRIPTS_PATH, 'utf8');
     const transcripts = JSON.parse(data);
@@ -227,6 +227,7 @@ async function getTranscriptsText(projectId, analysisId = null) {
     console.log('🔍 getTranscriptsText debug:', {
       projectId,
       analysisId,
+      transcriptIds,
       totalProjectTranscripts: projectTranscripts.length,
       transcriptAnalysisIds: projectTranscripts.map(t => t.analysisId)
     });
@@ -258,6 +259,29 @@ async function getTranscriptsText(projectId, analysisId = null) {
         afterFilter: projectTranscripts.length,
         filteredTranscripts: projectTranscripts.map(t => ({ id: t.id, analysisId: t.analysisId, respno: t.respno }))
       });
+    }
+
+    // Filter by transcriptIds if provided
+    if (transcriptIds && Array.isArray(transcriptIds) && transcriptIds.length > 0) {
+      const beforeIdFilter = projectTranscripts.length;
+      // Normalize IDs to strings for comparison
+      const normalizedTranscriptIds = transcriptIds.map(id => String(id));
+      projectTranscripts = projectTranscripts.filter(t => {
+        const transcriptId = String(t.id);
+        return normalizedTranscriptIds.includes(transcriptId);
+      });
+      console.log('🔍 Filtered by transcriptIds:', {
+        requestedTranscriptIds: transcriptIds,
+        normalizedTranscriptIds,
+        beforeFilter: beforeIdFilter,
+        afterFilter: projectTranscripts.length,
+        filteredTranscripts: projectTranscripts.map(t => ({ id: t.id, respno: t.respno })),
+        allTranscriptIds: projectTranscripts.map(t => String(t.id))
+      });
+      
+      if (projectTranscripts.length === 0) {
+        console.warn('⚠️ Warning: No transcripts matched the provided transcriptIds. Requested:', normalizedTranscriptIds);
+      }
     }
 
     let combinedText = '';
@@ -594,13 +618,34 @@ router.post('/:projectId/key-findings/generate', authenticateToken, async (req, 
       return res.status(400).json({ error: 'No transcript data available for this project' });
     }
 
+    // Calculate respondent count from CA data
+    let respondentCount = 0;
+    if (caDataObj && caDataObj.data) {
+      const allRespondents = new Set();
+      Object.values(caDataObj.data).forEach((sheetData) => {
+        if (Array.isArray(sheetData)) {
+          sheetData.forEach((row) => {
+            if (row && typeof row === 'object') {
+              const respondentId = row['Respondent ID'] || row['respno'] || row['ID'] || row['id'];
+              if (respondentId && typeof respondentId === 'string' && respondentId.trim() !== '') {
+                allRespondents.add(respondentId.trim());
+              }
+            }
+          });
+        }
+      });
+      respondentCount = allRespondents.size;
+    }
+
     const findings = await generateKeyFindings(projectId, strategicQuestions, transcriptsText, caDataObj, detailLevel);
 
     projectData.keyFindings = {
       ...findings,
       generatedAt: new Date().toISOString(),
       detailLevel: detailLevel,
-      version: (projectData.keyFindings?.version || 0) + 1
+      version: (projectData.keyFindings?.version || 0) + 1,
+      respondentCount: respondentCount,
+      strategicQuestions: strategicQuestions
     };
 
     if (await saveProjectStorytelling(projectId, projectData, analysisId)) {
@@ -1213,8 +1258,8 @@ router.post('/:projectId/find-quotes', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Finding is required' });
     }
 
-    // Get transcripts for this project
-    const transcriptsText = await getTranscriptsText(projectId, analysisId);
+    // Get transcripts for this project, filtered by transcriptIds if provided
+    const transcriptsText = await getTranscriptsText(projectId, analysisId, transcriptIds);
     if (!transcriptsText) {
       return res.status(404).json({ error: 'No transcripts available for this project' });
     }
@@ -1223,8 +1268,8 @@ router.post('/:projectId/find-quotes', authenticateToken, async (req, res) => {
     const storytellingService = await import('../services/storytelling.service.mjs');
     const { findReportQuotes } = storytellingService.default;
 
-    // Find quotes using hybrid search approach
-    const quotes = await findReportQuotes(finding, transcriptsText, transcriptIds);
+    // Find quotes using hybrid search approach (transcriptIds already filtered in getTranscriptsText)
+    const quotes = await findReportQuotes(finding, transcriptsText, null);
 
     res.json({
       success: true,
