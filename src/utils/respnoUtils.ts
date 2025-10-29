@@ -339,21 +339,40 @@ export const normalizeAnalysisRespnos = (
     });
   });
 
-  // Combine processed rows with template rows (template rows stay as-is, no respno assigned)
-  // Filter out any rows that couldn't be matched to a transcript
+  // Combine processed rows - preserve ALL rows with transcriptId, even if transcript not found
+  // This prevents data loss when transcripts are temporarily unavailable or deleted
   const processedRows = rowOrderMeta
-    .filter(meta => {
-      // Only include rows that were successfully matched to a transcript
+    .map(meta => {
+      // Check if transcript matches
       const matchedTranscript = projectTranscripts?.find(
         t => meta.row.transcriptId && t.id === meta.row.transcriptId
       );
-      return !!matchedTranscript;
+      
+      // If transcript found, use the updated row (with new respno)
+      // If transcript not found, preserve the row but don't update respno (keep original)
+      if (!matchedTranscript && meta.row.transcriptId) {
+        console.warn('🔧 Preserving row with unmatched transcriptId:', {
+          transcriptId: meta.row.transcriptId,
+          respno: meta.row['Respondent ID'] || meta.row['respno']
+        });
+        // Keep the row as-is, don't update respno
+        return meta.row;
+      }
+      
+      return meta.row;
     })
-    .map(meta => meta.row)
-    .sort((a, b) => respnoToNumber(a['Respondent ID']) - respnoToNumber(b['Respondent ID']));
+    .sort((a, b) => {
+      // Sort by respno number, but handle cases where respno might not be set
+      const respA = respnoToNumber(a['Respondent ID'] || a['respno']);
+      const respB = respnoToNumber(b['Respondent ID'] || b['respno']);
+      if (respA === respB) {
+        // If respnos are equal, maintain original order (by transcriptId or index)
+        return 0;
+      }
+      return respA - respB;
+    });
   
-  // Don't include template rows in the final result - they're just placeholders
-  // Only include rows with actual transcripts
+  // Include all rows with transcriptId, even if transcript not found
   const updatedDemographics = processedRows;
 
   const normalizedData: AnalysisData = {};

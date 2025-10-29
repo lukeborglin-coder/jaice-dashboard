@@ -424,9 +424,18 @@ router.post('/upload', authenticateToken, upload.single('transcript'), async (re
 
     // Clean the transcript if requested
     if (cleanTranscript === 'true') {
-      const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      try {
+        console.log('🧹 Starting transcript cleaning process...');
+        console.log('📄 Original transcript length:', transcriptText.length);
+        
+        if (!process.env.OPENAI_API_KEY) {
+          console.error('❌ OpenAI API key not configured');
+          throw new Error('OpenAI API key not configured');
+        }
 
-      const systemPrompt = `You are a professional transcript editor specializing in qualitative research interviews. Clean this transcript by following these rules:
+        const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+        const systemPrompt = `You are a professional transcript editor specializing in qualitative research interviews. Clean this transcript by following these rules:
 
 CRITICAL INSTRUCTIONS:
 1. REMOVE DUPLICATE HEADER INFORMATION:
@@ -467,38 +476,68 @@ CRITICAL INSTRUCTIONS:
 
 Output ONLY the cleaned transcript. No explanations or notes.`;
 
-      const response = await client.chat.completions.create({
-        model: 'gpt-4o',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Clean this transcript:\n\n${transcriptText}` }
-        ],
-        temperature: 0.1,
-      });
+        console.log('🤖 Calling OpenAI API for transcript cleaning...');
+        const response = await client.chat.completions.create({
+          model: 'gpt-4o',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: `Clean this transcript:\n\n${transcriptText}` }
+          ],
+          temperature: 0.1,
+        });
 
-      cleanedText = response.choices[0].message.content;
-
-      // Log AI cost for transcript cleaning (exact tokens when available)
-      try {
-        const inputTokens = response.usage?.prompt_tokens || 0;
-        const outputTokens = response.usage?.completion_tokens || 0;
-        if (inputTokens > 0 && outputTokens > 0) {
-          await logCost(
-            projectId,
-            COST_CATEGORIES.TRANSCRIPT_CLEANING,
-            'gpt-4o',
-            inputTokens,
-            outputTokens,
-            'Transcript cleaning during upload'
-          );
+        if (!response.choices || !response.choices[0] || !response.choices[0].message || !response.choices[0].message.content) {
+          throw new Error('OpenAI API returned invalid response');
         }
-      } catch (e) {
-        console.warn('Failed to log cleaning cost:', e.message);
-      }
 
-      // Save cleaned filename and path (will regenerate with correct respno later)
-      cleanedFilename = `cleaned_${Date.now()}_${req.file.originalname.replace(/\.(txt|docx)$/i, '.docx')}`;
-      cleanedPath = path.join(DATA_DIR, 'uploads', cleanedFilename);
+        cleanedText = response.choices[0].message.content.trim();
+        
+        console.log('✅ Received cleaned transcript from OpenAI');
+        console.log('📄 Cleaned transcript length:', cleanedText.length);
+        console.log('📊 Original vs Cleaned length difference:', transcriptText.length - cleanedText.length);
+        
+        // Verify the cleaned text is actually different
+        if (cleanedText === transcriptText.trim()) {
+          console.warn('⚠️ WARNING: Cleaned transcript is identical to original! OpenAI may not have cleaned it properly.');
+        }
+        
+        if (cleanedText.length === 0) {
+          throw new Error('Cleaned transcript is empty');
+        }
+
+        // Log AI cost for transcript cleaning (exact tokens when available)
+        try {
+          const inputTokens = response.usage?.prompt_tokens || 0;
+          const outputTokens = response.usage?.completion_tokens || 0;
+          if (inputTokens > 0 && outputTokens > 0) {
+            await logCost(
+              projectId,
+              COST_CATEGORIES.TRANSCRIPT_CLEANING,
+              'gpt-4o',
+              inputTokens,
+              outputTokens,
+              'Transcript cleaning during upload'
+            );
+          }
+        } catch (e) {
+          console.warn('Failed to log cleaning cost:', e.message);
+        }
+
+        // Save cleaned filename and path (will regenerate with correct respno later)
+        cleanedFilename = `cleaned_${Date.now()}_${req.file.originalname.replace(/\.(txt|docx)$/i, '.docx')}`;
+        cleanedPath = path.join(DATA_DIR, 'uploads', cleanedFilename);
+        
+        console.log('✅ Transcript cleaning completed successfully');
+      } catch (cleaningError) {
+        console.error('❌ Error during transcript cleaning:', cleaningError);
+        console.error('Error details:', cleaningError.message);
+        console.error('Stack trace:', cleaningError.stack);
+        // Don't fail the upload if cleaning fails - just mark it as not cleaned
+        cleanedText = null;
+        cleanedFilename = null;
+        cleanedPath = null;
+        console.warn('⚠️ Continuing with upload without cleaning due to error');
+      }
     }
 
     // Save original transcript with permanent name
@@ -526,7 +565,7 @@ Output ONLY the cleaned transcript. No explanations or notes.`;
       originalPath,
       cleanedPath,
       uploadedAt: Date.now(),
-      isCleaned: cleanTranscript === 'true',
+      isCleaned: cleanTranscript === 'true' && cleanedText !== null && cleanedText.length > 0,
       originalSize: originalSize,
       cleanedSize: null, // Will be set after Word doc is generated
       interviewDate,
@@ -548,16 +587,34 @@ Output ONLY the cleaned transcript. No explanations or notes.`;
 
     // If cleaned, generate Word document with the FINAL respno
     if (cleanTranscript === 'true' && cleanedText) {
-      const wordBuffer = await createFormattedWordDoc(
-        cleanedText,
-        projectName,
-        finalTranscript.respno,
-        interviewDate,
-        interviewTime
-      );
+      console.log('💾 Saving cleaned transcript to file...');
+      console.log('📁 Cleaned path:', cleanedPath);
+      console.log('📄 Cleaned text length:', cleanedText.length);
+      
+      try {
+        const wordBuffer = await createFormattedWordDoc(
+          cleanedText,
+          projectName,
+          finalTranscript.respno,
+          interviewDate,
+          interviewTime
+        );
 
-      await fs.writeFile(cleanedPath, wordBuffer);
-      finalTranscript.cleanedSize = wordBuffer.length;
+        await fs.writeFile(cleanedPath, wordBuffer);
+        finalTranscript.cleanedSize = wordBuffer.length;
+        console.log('✅ Cleaned transcript saved successfully');
+        console.log('📊 File size:', wordBuffer.length, 'bytes');
+      } catch (saveError) {
+        console.error('❌ Error saving cleaned transcript file:', saveError);
+        console.error('Error details:', saveError.message);
+        // Don't fail the upload if file save fails, but mark as not cleaned
+        finalTranscript.isCleaned = false;
+        finalTranscript.cleanedPath = null;
+        finalTranscript.cleanedFilename = null;
+      }
+    } else if (cleanTranscript === 'true' && !cleanedText) {
+      console.warn('⚠️ Cleaning was requested but no cleaned text was generated');
+      finalTranscript.isCleaned = false;
     }
 
     // Save the final transcripts array with correct respnos

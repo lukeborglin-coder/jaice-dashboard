@@ -423,10 +423,33 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
     (savedAnalyses || [])
       .filter(a => a?.projectId === projectId)
       .forEach(analysis => {
+        // Check transcripts array
         (analysis?.transcripts || []).forEach((t: any) => {
           if (t?.sourceTranscriptId) ids.add(String(t.sourceTranscriptId));
           if (t?.id) ids.add(String(t.id));
         });
+        
+        // Also check data.Demographics sheet for transcriptIds (where they're actually stored)
+        if (analysis?.data?.Demographics && Array.isArray(analysis.data.Demographics)) {
+          analysis.data.Demographics.forEach((row: any) => {
+            if (row.transcriptId) {
+              ids.add(String(row.transcriptId));
+            }
+          });
+        }
+        
+        // Check other sheets as fallback
+        if (analysis?.data) {
+          Object.values(analysis.data).forEach((sheetData: any) => {
+            if (Array.isArray(sheetData)) {
+              sheetData.forEach((row: any) => {
+                if (row.transcriptId) {
+                  ids.add(String(row.transcriptId));
+                }
+              });
+            }
+          });
+        }
       });
     return ids;
   }, [savedAnalyses, currentAnalysis?.projectId]);
@@ -532,7 +555,13 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
   }, [currentAnalysis?.projectName, currentAnalysis?.projectId, projects]);
 
   const transcriptDropdownOptions = useMemo(() => {
-    return projectTranscriptsForUpload.map(record => {
+    // Only show transcripts that are assigned to at least one content analysis
+    // Filter out orphaned transcripts (not in any CA)
+    const transcriptsInCA = projectTranscriptsForUpload.filter(record => 
+      allProjectLinkedTranscriptIds.has(record.id)
+    );
+    
+    return transcriptsInCA.map(record => {
       const disabled = allProjectLinkedTranscriptIds.has(record.id);
       const labelParts = [
         buildTranscriptDisplayName({
@@ -555,7 +584,57 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
         disabled
       };
     });
+  }, [projectTranscriptsForUpload, allProjectLinkedTranscriptIds, currentProjectName]);
+
+  // Calculate orphaned transcripts (not in any CA) - only for admin view
+  const orphanedTranscripts = useMemo(() => {
+    return projectTranscriptsForUpload.filter(record => 
+      !allProjectLinkedTranscriptIds.has(record.id)
+    );
   }, [projectTranscriptsForUpload, allProjectLinkedTranscriptIds]);
+
+  // Delete transcript state
+  const [deletingTranscriptIds, setDeletingTranscriptIds] = useState<Set<string>>(new Set());
+
+  // Delete orphaned transcript function
+  const handleDeleteOrphanedTranscript = async (transcriptId: string) => {
+    if (!currentAnalysis?.projectId) return;
+    
+    if (!window.confirm('Are you sure you want to delete this orphaned transcript? This action cannot be undone.')) {
+      return;
+    }
+
+    setDeletingTranscriptIds(prev => new Set(prev).add(transcriptId));
+    
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/transcripts/${currentAnalysis.projectId}/${transcriptId}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
+          }
+        }
+      );
+
+      if (response.ok) {
+        // Refresh the transcript list
+        await fetchProjectTranscripts(currentAnalysis.projectId);
+      } else {
+        const error = await response.json();
+        alert(`Failed to delete transcript: ${error.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Failed to delete transcript:', error);
+      alert('Failed to delete transcript');
+    } finally {
+      setDeletingTranscriptIds(prev => {
+        const next = new Set(prev);
+        next.delete(transcriptId);
+        return next;
+      });
+    }
+  };
 
   useEffect(() => {
     if (!showTranscriptUploadModal || !currentAnalysis?.projectId) {
@@ -1273,15 +1352,18 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
     }
 
     // Update the analysis with transcripts (no reordering - maintain upload order)
+    // NOTE: We keep all transcripts - don't filter them out. Removing from CA data doesn't delete the transcript.
     const updatedAnalysis = {
       ...currentAnalysis,
       data: updatedData,
       quotes: filteredQuotes,
       context: filteredContext,
-      transcripts: filteredTranscripts,
+      transcripts: currentAnalysis.transcripts || [], // Keep transcripts - don't filter them out
       columnSchema: columnSchema
     };
 
+    // Pass all project transcripts for normalization, not just the ones in CA
+    // This ensures normalization works correctly even after deletion
     const normalizedAnalysis = normalizeAnalysisRespnos(updatedAnalysis, projectTranscriptsForUpload);
 
     setCurrentAnalysis(normalizedAnalysis);
@@ -3739,6 +3821,62 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                         </p>
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* Admin-only: Orphaned transcripts deletion section */}
+                {user?.role === 'admin' && currentAnalysis?.projectId && !loadingProjectTranscripts && orphanedTranscripts.length > 0 && (
+                  <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-left">
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <h4 className="text-sm font-semibold text-yellow-900">Orphaned Transcripts (Admin Only)</h4>
+                        <p className="mt-1 text-xs text-yellow-700">
+                          {orphanedTranscripts.length} transcript{orphanedTranscripts.length === 1 ? '' : 's'} not assigned to any content analysis
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-3 space-y-2 max-h-48 overflow-y-auto">
+                      {orphanedTranscripts.map(transcript => {
+                        const displayName = buildTranscriptDisplayName({
+                          projectName: currentProjectName,
+                          respno: transcript.respno,
+                          interviewDate: transcript.interviewDate,
+                          interviewTime: transcript.interviewTime,
+                          fallbackFilename: transcript.originalFilename
+                        }) || transcript.originalFilename || 'Transcript';
+                        
+                        const isDeleting = deletingTranscriptIds.has(transcript.id);
+                        
+                        return (
+                          <div
+                            key={transcript.id}
+                            className="flex items-center justify-between p-2 bg-white rounded border border-yellow-200"
+                          >
+                            <span className="text-sm text-gray-700 flex-1 truncate mr-2">{displayName}</span>
+                            <button
+                              onClick={() => handleDeleteOrphanedTranscript(transcript.id)}
+                              disabled={isDeleting}
+                              className="px-3 py-1 text-xs font-medium text-white bg-red-600 rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                            >
+                              {isDeleting ? (
+                                <>
+                                  <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0c5.373 0 10 4.627 10 12h-4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                  </svg>
+                                  Deleting...
+                                </>
+                              ) : (
+                                <>
+                                  <TrashIcon className="h-3 w-3" />
+                                  Delete
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
 

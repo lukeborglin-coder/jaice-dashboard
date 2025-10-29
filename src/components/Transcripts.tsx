@@ -147,9 +147,7 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
   const [isLoadingArchived, setIsLoadingArchived] = useState(false);
   const [savedAnalyses, setSavedAnalyses] = useState<any[]>([]);
-  const [showAddToCAModal, setShowAddToCAModal] = useState(false);
-  const [selectedTranscriptForCA, setSelectedTranscriptForCA] = useState<Transcript | null>(null);
-  const [isAddingToCA, setIsAddingToCA] = useState(false);
+  const [addingTranscriptIds, setAddingTranscriptIds] = useState<Set<string>>(new Set());
   const [showMyProjectsOnly, setShowMyProjectsOnly] = useState(true);
   const [pendingProjectNavigation, setPendingProjectNavigation] = useState<string | null>(null);
   const [parsedDateTime, setParsedDateTime] = useState<{ date: string; time: string } | null>(null);
@@ -436,6 +434,16 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
           : [];
         console.log('📊 Normalized saved analyses:', normalizedAnalyses);
         setSavedAnalyses(normalizedAnalyses);
+        
+        // Update selectedContentAnalysis if it exists - refresh it with the latest data
+        if (selectedContentAnalysis && normalizedAnalyses.length > 0) {
+          const updatedAnalysis = normalizedAnalyses.find((a: any) => a.id === selectedContentAnalysis.id);
+          if (updatedAnalysis) {
+            console.log('🔄 Updating selectedContentAnalysis with latest data');
+            setSelectedContentAnalysis(updatedAnalysis);
+          }
+        }
+        
         return normalizedAnalyses;
       } else {
         console.error('Failed to load saved analyses', await response.text());
@@ -540,8 +548,34 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
   const handleNavigateToCA = (transcriptId: string) => {
     if (!selectedProject || !onNavigate || !setAnalysisToLoad) return;
     
-    // Find the analysis that contains this transcript
-    const analysis = savedAnalyses.find(a => a.projectId === selectedProject.id);
+    // Find the specific analysis that contains this transcript
+    const analysis = savedAnalyses.find(a => {
+      if (a.projectId !== selectedProject.id) return false;
+      
+      // Check if transcript is in this analysis
+      if (a.data) {
+        // Check all sheets including Demographics
+        for (const [sheetName, sheetData] of Object.entries(a.data)) {
+          if (Array.isArray(sheetData)) {
+            const hasTranscript = sheetData.some((row: any) =>
+              row.transcriptId === transcriptId
+            );
+            if (hasTranscript) return true;
+          }
+        }
+      }
+      
+      // Also check transcripts array as fallback
+      if (a.transcripts && Array.isArray(a.transcripts)) {
+        const hasTranscript = a.transcripts.some((t: any) =>
+          t.id === transcriptId || t.sourceTranscriptId === transcriptId
+        );
+        if (hasTranscript) return true;
+      }
+      
+      return false;
+    });
+    
     if (analysis) {
       console.log('🔄 Navigating to Content Analysis for transcript:', transcriptId, 'analysis:', analysis.id);
       // Set the specific analysis to load
@@ -549,8 +583,8 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
       // Navigate to Content Analysis
       onNavigate('Content Analysis');
     } else {
-      console.log('❌ No analysis found for project:', selectedProject.id);
-      alert('No content analysis found for this project. Please create a content analysis first.');
+      console.log('❌ No analysis found containing transcript:', transcriptId, 'for project:', selectedProject.id);
+      alert('No content analysis found containing this transcript.');
     }
   };
 
@@ -596,26 +630,30 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
   const handleAddToCA = async (transcript: Transcript) => {
     if (!selectedProject) return;
 
-    setIsAddingToCA(true);
+    // Prevent adding if already in progress
+    if (addingTranscriptIds.has(transcript.id)) {
+      return;
+    }
+
+    // Use the selected content analysis - if we're viewing transcripts for a specific CA, use that one
+    // Otherwise, find the first analysis for the project (fallback for when viewing from home)
+    const analysis = selectedContentAnalysis || savedAnalyses.find(a => a.projectId === selectedProject.id);
+
+    if (!analysis) {
+      alert('No Content Analysis found for this project. Please create one first.');
+      return;
+    }
+
+    // Add transcript ID to loading set
+    setAddingTranscriptIds(prev => new Set(prev).add(transcript.id));
+
     try {
       console.log('🔍 handleAddToCA called');
       console.log('🔍 selectedProject.id:', selectedProject.id);
       console.log('🔍 transcript.id:', transcript.id);
-      console.log('🔍 savedAnalyses:', savedAnalyses.map(a => ({ id: a.id, projectId: a.projectId, name: a.name })));
-
-      // Find the analysis for this project
-      const analysis = savedAnalyses.find(a => a.projectId === selectedProject.id);
-
-      if (!analysis) {
-        console.log('❌ No analysis found for project:', selectedProject.id);
-        alert('No Content Analysis found for this project. Please create one first.');
-        setIsAddingToCA(false);
-        setShowAddToCAModal(false);
-        setSelectedTranscriptForCA(null);
-        return;
-      }
-
-      console.log('✅ Found analysis:', { id: analysis.id, projectId: analysis.projectId, name: analysis.name });
+      console.log('🔍 Using analysis:', { id: analysis.id, projectId: analysis.projectId, name: analysis.name });
+      console.log('🔍 selectedContentAnalysis:', selectedContentAnalysis?.id);
+      console.log('🔍 Will add to analysis:', analysis.id);
 
       const response = await fetch(
         `${API_BASE_URL}/api/caX/process-transcript`,
@@ -627,8 +665,8 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
           },
           body: JSON.stringify({
             projectId: selectedProject.id,
-            transcriptId: transcript.id,
-            analysisId: analysis.id,
+            transcriptId: transcript.id, // Only send the clicked transcript ID
+            analysisId: analysis.id, // Use the selected analysis ID
             activeSheet: analysis.activeSheet || 'Demographics',
             currentData: JSON.stringify(analysis.data || {}),
             discussionGuide: analysis.rawGuideText || '',
@@ -640,10 +678,15 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
 
       if (response.ok) {
         // Refresh the saved analyses to get the updated data
-        await loadSavedAnalyses();
+        const updatedAnalyses = await loadSavedAnalyses();
         
-        setShowAddToCAModal(false);
-        setSelectedTranscriptForCA(null);
+        // Update selectedContentAnalysis if it was updated
+        if (selectedContentAnalysis && updatedAnalyses) {
+          const updatedAnalysis = updatedAnalyses.find((a: any) => a.id === selectedContentAnalysis.id);
+          if (updatedAnalysis) {
+            setSelectedContentAnalysis(updatedAnalysis);
+          }
+        }
       } else {
         const error = await response.json();
         alert(`Failed to add transcript to CA: ${error.error || 'Unknown error'}`);
@@ -652,7 +695,12 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
       console.error('Failed to add transcript to CA:', error);
       alert('Failed to add transcript to CA');
     } finally {
-      setIsAddingToCA(false);
+      // Remove transcript ID from loading set
+      setAddingTranscriptIds(prev => {
+        const next = new Set(prev);
+        next.delete(transcript.id);
+        return next;
+      });
     }
   };
 
@@ -976,12 +1024,11 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
     }
   };
 
-  const handleDownload = async (transcript: Transcript) => {
+  const handleDownload = async (transcript: Transcript, preferCleaned: boolean = false) => {
     if (!selectedProject) return;
 
     try {
-      const fallbackFileName =
-        transcript.isCleaned && transcript.cleanedFilename
+      const fallbackFileName = preferCleaned && transcript.isCleaned && transcript.cleanedFilename
           ? transcript.cleanedFilename
           : transcript.originalFilename;
 
@@ -993,20 +1040,18 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
         fallbackFilename: fallbackFileName
       });
 
-      const response = await fetch(
-        `${API_BASE_URL}/api/transcripts/download/${selectedProject.id}/${transcript.id}`,
-        { headers: getAuthHeaders() }
-      );
+      const url = `${API_BASE_URL}/api/transcripts/download/${selectedProject.id}/${transcript.id}?preferCleaned=${preferCleaned ? 'true' : 'false'}`;
+      const response = await fetch(url, { headers: getAuthHeaders() });
 
       if (response.ok) {
         const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
+        const objectUrl = window.URL.createObjectURL(blob);
         const anchor = document.createElement('a');
-        anchor.href = url;
+        anchor.href = objectUrl;
         anchor.download = downloadName || fallbackFileName || 'transcript.txt';
         document.body.appendChild(anchor);
         anchor.click();
-        window.URL.revokeObjectURL(url);
+        window.URL.revokeObjectURL(objectUrl);
         document.body.removeChild(anchor);
       } else {
         alert('Failed to download transcript');
@@ -1414,14 +1459,16 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
             <div className="flex items-center gap-2 self-end">
               <button
                 onClick={() => setShowSearchModal(true)}
-                className="inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium shadow-sm transition bg-white border border-gray-300 hover:bg-gray-50 text-gray-700"
+                disabled={addingTranscriptIds.size > 0}
+                className="inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium shadow-sm transition bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <MagnifyingGlassIcon className="h-4 w-4" />
                 Search
               </button>
               <button
                 onClick={() => setShowUploadModal(true)}
-                className="inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:opacity-90"
+                disabled={addingTranscriptIds.size > 0}
+                className="inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ backgroundColor: BRAND_ORANGE }}
               >
                 <CloudArrowUpIcon className="h-4 w-4" />
@@ -1429,6 +1476,238 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
               </button>
             </div>
           </section>
+
+          {/* Show orphaned transcripts (not in ANY CA) */}
+          {(() => {
+            // Always check if transcript is in ANY CA, not just the selected one
+            // Orphaned transcripts are those not assigned to any content analysis
+            const orphanedTranscripts = projectTranscripts.filter(t => {
+              return !isTranscriptInAnyCA(t.id, selectedProject.id);
+            });
+            
+            if (orphanedTranscripts.length > 0) {
+              return (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <h3 className="text-sm font-semibold text-yellow-900">
+                        Orphaned Transcripts
+                      </h3>
+                      <p className="mt-1 text-xs text-yellow-700">
+                        {orphanedTranscripts.length} transcript{orphanedTranscripts.length === 1 ? '' : 's'} uploaded to this project but not assigned to any content analysis
+                      </p>
+                    </div>
+                  </div>
+                  <div className="bg-white shadow-sm border border-gray-200 rounded-lg overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="pl-6 pr-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Respno
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Filename
+                            </th>
+                            <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
+                              Interview Date
+                            </th>
+                            <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-28 whitespace-nowrap">
+                              Interview Time
+                            </th>
+                            <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
+                              Original
+                            </th>
+                            <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
+                              Cleaned
+                            </th>
+                            <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-28">
+                              Add to CA
+                            </th>
+                            <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
+                              Actions
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {orphanedTranscripts.map(transcript => {
+                            const displayName = buildTranscriptDisplayName({
+                              projectName: selectedProject?.name,
+                              respno: transcript.respno,
+                              interviewDate: transcript.interviewDate,
+                              interviewTime: transcript.interviewTime,
+                              fallbackFilename: transcript.originalFilename
+                            });
+
+                            return (
+                              <tr
+                                key={transcript.id}
+                                className="hover:bg-gray-50 transition-colors"
+                              >
+                                <td className="pl-6 pr-2 py-4 whitespace-nowrap">
+                                  {transcript.respno && (
+                                    <span className="inline-flex items-center rounded-md bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">
+                                      {transcript.respno}
+                                    </span>
+                                  )}
+                                  {!transcript.respno && <span className="text-sm text-gray-400">-</span>}
+                                </td>
+                                <td className="px-4 py-4 whitespace-nowrap">
+                                  <div className="text-sm text-gray-900">{displayName}</div>
+                                </td>
+                                <td className="px-3 py-4 whitespace-nowrap text-center">
+                                  <div className={`text-sm flex items-center justify-center gap-1 ${
+                                    duplicateIds.has(transcript.id) ? 'text-red-600' : 'text-gray-900'
+                                  }`}>
+                                    {editingTranscriptId === transcript.id && editingField === 'date' ? (
+                                      <div className="flex items-center gap-1">
+                                        <input
+                                          type="text"
+                                          value={editingValue}
+                                          onChange={(e) => setEditingValue(e.target.value)}
+                                          onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                              handleSaveDateTime(transcript.id, 'date', editingValue);
+                                            } else if (e.key === 'Escape') {
+                                              handleCancelEditing();
+                                            }
+                                          }}
+                                          onBlur={() => handleSaveDateTime(transcript.id, 'date', editingValue)}
+                                          className="text-sm border border-gray-300 rounded px-2 py-1 w-24 text-center"
+                                          placeholder="MM/DD/YY"
+                                          autoFocus
+                                          disabled={isSavingDateTime || addingTranscriptIds.size > 0}
+                                        />
+                                      </div>
+                                    ) : (
+                                      <div className="flex items-center gap-1">
+                                        <span>{formatDateToShort(transcript.interviewDate)}</span>
+                                        <button
+                                          onClick={() => handleStartEditing(transcript.id, 'date', formatDateToShort(transcript.interviewDate))}
+                                          className="text-gray-400 hover:text-gray-600 p-0.5 rounded"
+                                          title="Edit date (MM/DD/YY format)"
+                                          disabled={isSavingDateTime || addingTranscriptIds.size > 0}
+                                        >
+                                          <PencilIcon className="h-3 w-3" />
+                                        </button>
+                                        {duplicateIds.has(transcript.id) && (
+                                          <ExclamationTriangleIcon className="h-4 w-4 text-red-600" />
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="px-3 py-4 whitespace-nowrap text-center">
+                                  <div className={`text-sm flex items-center justify-center gap-1 ${
+                                    duplicateIds.has(transcript.id) ? 'text-red-600' : 'text-gray-900'
+                                  }`}>
+                                    {editingTranscriptId === transcript.id && editingField === 'time' ? (
+                                      <div className="flex items-center gap-1">
+                                        <input
+                                          type="text"
+                                          value={editingValue}
+                                          onChange={(e) => setEditingValue(e.target.value)}
+                                          onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                              handleSaveDateTime(transcript.id, 'time', editingValue);
+                                            } else if (e.key === 'Escape') {
+                                              handleCancelEditing();
+                                            }
+                                          }}
+                                          onBlur={() => handleSaveDateTime(transcript.id, 'time', editingValue)}
+                                          className="text-sm border border-gray-300 rounded px-2 py-1 w-24 text-center"
+                                          placeholder="HH:MM AM/PM"
+                                          autoFocus
+                                          disabled={isSavingDateTime || addingTranscriptIds.size > 0}
+                                        />
+                                      </div>
+                                    ) : (
+                                      <div className="flex items-center gap-1">
+                                        <span>{formatTimeToStandard(transcript.interviewTime)}</span>
+                                        <button
+                                          onClick={() => handleStartEditing(transcript.id, 'time', formatTimeToStandard(transcript.interviewTime))}
+                                          className="text-gray-400 hover:text-gray-600 p-0.5 rounded"
+                                          title="Edit time (HH:MM AM/PM format)"
+                                          disabled={isSavingDateTime || addingTranscriptIds.size > 0}
+                                        >
+                                          <PencilIcon className="h-3 w-3" />
+                                        </button>
+                                        {duplicateIds.has(transcript.id) && (
+                                          <ExclamationTriangleIcon className="h-4 w-4 text-red-600" />
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="px-3 py-4 whitespace-nowrap text-center">
+                                  <button
+                                    onClick={() => handleDownload(transcript, false)}
+                                    disabled={addingTranscriptIds.size > 0}
+                                    className="text-blue-600 hover:text-blue-800 p-1 rounded-lg hover:bg-blue-50 mx-auto disabled:opacity-50 disabled:cursor-not-allowed"
+                                    title="Download Original"
+                                  >
+                                    <DocumentTextIcon className="h-5 w-5" />
+                                  </button>
+                                </td>
+                                <td className="px-3 py-4 whitespace-nowrap text-center">
+                                  {transcript.isCleaned ? (
+                                    <button
+                                      onClick={() => handleDownload(transcript, true)}
+                                      disabled={addingTranscriptIds.size > 0}
+                                      className="text-blue-600 hover:text-blue-800 p-1 rounded-lg hover:bg-blue-50 mx-auto disabled:opacity-50 disabled:cursor-not-allowed"
+                                      title="Download Cleaned"
+                                    >
+                                      <DocumentTextIcon className="h-5 w-5" />
+                                    </button>
+                                  ) : (
+                                    <span className="text-sm text-gray-400">-</span>
+                                  )}
+                                </td>
+                                <td className="px-3 py-4 whitespace-nowrap text-center">
+                                  {addingTranscriptIds.has(transcript.id) ? (
+                                    <div className="flex items-center justify-center gap-1 text-xs text-gray-500">
+                                      <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0c5.373 0 10 4.627 10 12h-4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                      </svg>
+                                      <span>Adding...</span>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        e.preventDefault();
+                                        handleAddToCA(transcript);
+                                      }}
+                                      disabled={addingTranscriptIds.size > 0}
+                                      className="text-[#D14A2D] hover:text-[#A03824] text-xs font-medium whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                      Add to CA
+                                    </button>
+                                  )}
+                                </td>
+                                <td className="px-3 py-4 whitespace-nowrap text-center">
+                                  <button
+                                    onClick={() => handleDeleteTranscript(transcript.id)}
+                                    disabled={addingTranscriptIds.size > 0}
+                                    className="text-red-600 hover:text-red-800 p-1 rounded-lg hover:bg-red-50 mx-auto disabled:opacity-50 disabled:cursor-not-allowed"
+                                    title="Delete"
+                                  >
+                                    <TrashIcon className="h-4 w-4" />
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+            return null;
+          })()}
 
           <div className="bg-white shadow-sm border border-gray-200 rounded-lg overflow-hidden">
             {displayedTranscripts.length === 0 ? (
@@ -1537,7 +1816,7 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                                     className="text-sm border border-gray-300 rounded px-2 py-1 w-24 text-center"
                                     placeholder="MM/DD/YY"
                                     autoFocus
-                                    disabled={isSavingDateTime}
+                                    disabled={isSavingDateTime || addingTranscriptIds.size > 0}
                                   />
                                 </div>
                               ) : (
@@ -1547,7 +1826,7 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                                     onClick={() => handleStartEditing(transcript.id, 'date', formatDateToShort(transcript.interviewDate))}
                                     className="text-gray-400 hover:text-gray-600 p-0.5 rounded"
                                     title="Edit date (MM/DD/YY format)"
-                                    disabled={isSavingDateTime}
+                                    disabled={isSavingDateTime || addingTranscriptIds.size > 0}
                                   >
                                     <PencilIcon className="h-3 w-3" />
                                   </button>
@@ -1579,7 +1858,7 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                                     className="text-sm border border-gray-300 rounded px-2 py-1 w-24 text-center"
                                     placeholder="HH:MM AM/PM"
                                     autoFocus
-                                    disabled={isSavingDateTime}
+                                    disabled={isSavingDateTime || addingTranscriptIds.size > 0}
                                   />
                                 </div>
                               ) : (
@@ -1589,7 +1868,7 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                                     onClick={() => handleStartEditing(transcript.id, 'time', formatTimeToStandard(transcript.interviewTime))}
                                     className="text-gray-400 hover:text-gray-600 p-0.5 rounded"
                                     title="Edit time (HH:MM AM/PM format)"
-                                    disabled={isSavingDateTime}
+                                    disabled={isSavingDateTime || addingTranscriptIds.size > 0}
                                   >
                                     <PencilIcon className="h-3 w-3" />
                                   </button>
@@ -1602,8 +1881,9 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                           </td>
                           <td className="px-3 py-4 whitespace-nowrap text-center">
                             <button
-                              onClick={() => handleDownload(transcript)}
-                              className="text-blue-600 hover:text-blue-800 p-1 rounded-lg hover:bg-blue-50 mx-auto"
+                              onClick={() => handleDownload(transcript, false)}
+                              disabled={addingTranscriptIds.size > 0}
+                              className="text-blue-600 hover:text-blue-800 p-1 rounded-lg hover:bg-blue-50 mx-auto disabled:opacity-50 disabled:cursor-not-allowed"
                               title="Download Original"
                             >
                               <DocumentTextIcon className="h-5 w-5" />
@@ -1612,8 +1892,9 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                           <td className="px-3 py-4 whitespace-nowrap text-center">
                             {transcript.isCleaned ? (
                               <button
-                                onClick={() => handleDownload(transcript)}
-                                className="text-blue-600 hover:text-blue-800 p-1 rounded-lg hover:bg-blue-50 mx-auto"
+                                onClick={() => handleDownload(transcript, true)}
+                                disabled={addingTranscriptIds.size > 0}
+                                className="text-blue-600 hover:text-blue-800 p-1 rounded-lg hover:bg-blue-50 mx-auto disabled:opacity-50 disabled:cursor-not-allowed"
                                 title="Download Cleaned"
                               >
                                 <DocumentTextIcon className="h-5 w-5" />
@@ -1626,18 +1907,29 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                             {isTranscriptInAnalysis(transcript.id) ? (
                               <button
                                 onClick={() => handleNavigateToCA(transcript.id)}
-                                className="text-green-600 hover:text-green-800 p-1 rounded-lg hover:bg-green-50 mx-auto transition-colors"
+                                disabled={addingTranscriptIds.size > 0}
+                                className="text-green-600 hover:text-green-800 p-1 rounded-lg hover:bg-green-50 mx-auto transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 title="Click to view in Content Analysis"
                               >
                                 <CheckCircleIcon className="h-5 w-5" />
                               </button>
+                            ) : addingTranscriptIds.has(transcript.id) ? (
+                              <div className="flex items-center justify-center gap-1 text-xs text-gray-500">
+                                <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0c5.373 0 10 4.627 10 12h-4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                </svg>
+                                <span>Adding...</span>
+                              </div>
                             ) : (
                               <button
-                                onClick={() => {
-                                  setSelectedTranscriptForCA(transcript);
-                                  setShowAddToCAModal(true);
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  handleAddToCA(transcript);
                                 }}
-                                className="text-[#D14A2D] hover:text-[#A03824] text-xs font-medium whitespace-nowrap"
+                                disabled={addingTranscriptIds.size > 0}
+                                className="text-[#D14A2D] hover:text-[#A03824] text-xs font-medium whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
                               >
                                 Add to CA
                               </button>
@@ -1646,7 +1938,8 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                           <td className="px-3 py-4 whitespace-nowrap text-center">
                             <button
                               onClick={() => handleDeleteTranscript(transcript.id)}
-                              className="text-red-600 hover:text-red-800 p-1 rounded-lg hover:bg-red-50 mx-auto"
+                              disabled={addingTranscriptIds.size > 0}
+                              className="text-red-600 hover:text-red-800 p-1 rounded-lg hover:bg-red-50 mx-auto disabled:opacity-50 disabled:cursor-not-allowed"
                               title="Delete"
                             >
                               <TrashIcon className="h-4 w-4" />
@@ -1804,72 +2097,6 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                       Upload
                     </button>
                   </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {showAddToCAModal && selectedTranscriptForCA && selectedProject && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-            <div className="w-full max-w-lg rounded-xl bg-white shadow-xl">
-              <div className="border-b border-gray-200 px-6 py-4">
-                <h2 className="text-xl font-bold text-gray-900">
-                  Add Transcript to Content Analysis
-                </h2>
-              </div>
-
-              <div className="px-6 py-5">
-                {isAddingToCA ? (
-                  <div className="flex flex-col items-center justify-center gap-4 py-8 text-center">
-                    <div
-                      className="h-12 w-12 animate-spin rounded-full border-4 border-gray-200"
-                      style={{ borderTopColor: BRAND_ORANGE }}
-                    ></div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900">
-                        Adding transcript to CA
-                      </h3>
-                      <p className="mt-1 text-sm text-gray-500">
-                        This may take a moment...
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <p className="text-sm text-gray-700">
-                      Are you sure you want to add this transcript to the Content Analysis?
-                    </p>
-                    <div className="rounded-lg bg-gray-50 p-4">
-                      <p className="text-sm font-medium text-gray-900">
-                        Content Analysis: {getCANameForProject(selectedProject.id) || 'Default CA'}
-                      </p>
-                      <p className="mt-1 text-sm text-gray-600">
-                        Transcript: {selectedProject.name} - {selectedTranscriptForCA.respno || 'Transcript'} Transcript
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {!isAddingToCA && (
-                <div className="flex justify-end gap-3 border-t border-gray-200 px-6 py-4">
-                  <button
-                    onClick={() => {
-                      setShowAddToCAModal(false);
-                      setSelectedTranscriptForCA(null);
-                    }}
-                    className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={() => handleAddToCA(selectedTranscriptForCA)}
-                    className="rounded-lg px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
-                    style={{ backgroundColor: BRAND_ORANGE }}
-                  >
-                    Confirm
-                  </button>
                 </div>
               )}
             </div>
