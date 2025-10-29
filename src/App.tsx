@@ -10010,6 +10010,7 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
   const [viewMode, setViewMode] = useState<'list' | 'timeline'>('list');
   const [timelineWeekOffset, setTimelineWeekOffset] = useState(0);
   const [projectUpdateModal, setProjectUpdateModal] = useState<{ show: boolean; project: Project | null; update: string | null }>({ show: false, project: null, update: null });
+  const [expandedPhases, setExpandedPhases] = useState<Set<string>>(new Set());
 
   // Sorting and filtering state
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
@@ -11321,19 +11322,9 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
       updateText += `**Sample Details:** ${project.sampleDetails}\n`;
     }
 
+    // Add upcoming phase if available
     if (nextPhase) {
-      if (currentPhaseData.segment) {
-        updateText += `[PHASE] Current Phase:|${currentPhaseData.phase}|${formatDate(currentPhaseData.segment.startDate)} - ${formatDate(currentPhaseData.segment.endDate)}\n`;
-      } else {
-        updateText += `[PHASE] Current Phase:|${currentPhaseData.phase}|No date range available\n`;
-      }
       updateText += `[PHASE] Upcoming Phase:|${nextPhase.phase}|${formatDate(nextPhase.startDate)} - ${formatDate(nextPhase.endDate)}\n`;
-    } else {
-      if (currentPhaseData.segment) {
-        updateText += `[PHASE] Current Phase:|${currentPhaseData.phase}|${formatDate(currentPhaseData.segment.startDate)} - ${formatDate(currentPhaseData.segment.endDate)}\n`;
-      } else {
-        updateText += `**Current Phase:** ${currentPhaseData.phase}\n`;
-      }
     }
 
     setProjectUpdateModal({ show: true, project, update: updateText });
@@ -12322,7 +12313,10 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
               <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between" style={{ backgroundColor: BRAND.orange }}>
                 <h3 className="text-lg font-semibold text-white">Project Update: {projectUpdateModal.project.name}</h3>
                 <button
-                  onClick={() => setProjectUpdateModal({ show: false, project: null, update: null })}
+                  onClick={() => {
+                    setProjectUpdateModal({ show: false, project: null, update: null });
+                    setExpandedPhases(new Set());
+                  }}
                   className="text-white hover:text-gray-200 transition-colors"
                   aria-label="Close"
                 >
@@ -12592,6 +12586,225 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                       return <p key={index} className="text-sm text-gray-700 mb-1">{line}</p>;
                     }
                   })}
+                </div>
+                {/* Phase Breakdown Section */}
+                <div className="border-t border-gray-200 pt-4">
+                  {(() => {
+                    const project = projectUpdateModal.project;
+                    const phases = ['Pre-Field', 'Fielding', 'Reporting'];
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const todayStr = today.toISOString().split('T')[0];
+
+                    // Helper to get combined phase date range from segments
+                    const getPhaseSegment = (phaseName: string) => {
+                      let segments = [];
+                      if (phaseName === 'Pre-Field') {
+                        segments = project.segments?.filter(s =>
+                          s.phase === 'Pre-Field' || s.phase === 'Kickoff' || s.phase === 'Awaiting KO'
+                        ) || [];
+                      } else if (phaseName === 'Reporting') {
+                        segments = project.segments?.filter(s =>
+                          s.phase === 'Reporting' || s.phase === 'Post-Field Analysis'
+                        ) || [];
+                      } else {
+                        segments = project.segments?.filter(s => s.phase === phaseName) || [];
+                      }
+
+                      if (segments.length === 0) return null;
+
+                      const startDates = segments.map(s => s.startDate);
+                      const endDates = segments.map(s => s.endDate);
+                      return {
+                        startDate: startDates.sort()[0],
+                        endDate: endDates.sort().reverse()[0]
+                      };
+                    };
+
+                    // Helper to format date
+                    const formatDate = (dateStr: string) => {
+                      // Parse date string and create in local timezone to avoid UTC conversion issues
+                      const [year, month, day] = dateStr.split('-').map(Number);
+                      const date = new Date(year, month - 1, day);
+                      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                    };
+
+                    // Helper to check if phase is completed
+                    const isPhaseComplete = (phaseName: string) => {
+                      const segment = getPhaseSegment(phaseName);
+                      if (!segment) return false;
+                      return todayStr > segment.endDate;
+                    };
+
+                    // Determine current phase
+                    const getCurrentPhase = () => {
+                      if (!project.segments || project.segments.length === 0) {
+                        // Map project phase to main phases
+                        if (project.phase === 'Kickoff' || project.phase === 'Awaiting KO' || project.phase === 'Pre-Field') {
+                          return 'Pre-Field';
+                        } else if (project.phase === 'Post-Field Analysis' || project.phase === 'Reporting') {
+                          return 'Reporting';
+                        }
+                        return project.phase;
+                      }
+
+                      for (const segment of project.segments) {
+                        if (todayStr >= segment.startDate && todayStr <= segment.endDate) {
+                          // Map to the 3 main phases
+                          if (segment.phase === 'Kickoff' || segment.phase === 'Awaiting KO' || segment.phase === 'Pre-Field') {
+                            return 'Pre-Field';
+                          } else if (segment.phase === 'Post-Field Analysis' || segment.phase === 'Reporting') {
+                            return 'Reporting';
+                          }
+                          return segment.phase;
+                        }
+                      }
+
+                      // If today is before all segments, return first phase
+                      if (todayStr < project.segments[0].startDate) {
+                        const firstPhase = project.segments[0].phase;
+                        if (firstPhase === 'Kickoff' || firstPhase === 'Awaiting KO' || firstPhase === 'Pre-Field') {
+                          return 'Pre-Field';
+                        } else if (firstPhase === 'Post-Field Analysis' || firstPhase === 'Reporting') {
+                          return 'Reporting';
+                        }
+                        return firstPhase;
+                      }
+
+                      // If today is after all segments, return last phase
+                      const lastPhase = project.segments[project.segments.length - 1].phase;
+                      if (lastPhase === 'Kickoff' || lastPhase === 'Awaiting KO' || lastPhase === 'Pre-Field') {
+                        return 'Pre-Field';
+                      } else if (lastPhase === 'Post-Field Analysis' || lastPhase === 'Reporting') {
+                        return 'Reporting';
+                      }
+                      return lastPhase;
+                    };
+
+                    const currentPhase = getCurrentPhase();
+
+                    return (
+                      <div className="space-y-0">
+                        {phases.map((phase, index) => {
+                          const segment = getPhaseSegment(phase);
+                          const phaseColor = PHASE_COLORS[phase] || '#6B7280';
+                          const isComplete = isPhaseComplete(phase);
+                          const isLast = index === phases.length - 1;
+                          const isExpanded = expandedPhases.has(phase);
+                          const isCurrentPhase = phase === currentPhase;
+
+                          // Get incomplete tasks for this phase (only if it's the current phase)
+                          const phaseTasks = isCurrentPhase ? (project.tasks || []).filter(task => {
+                            // Exclude tasks without due dates
+                            if (!task.dueDate) return false;
+                            // Exclude completed tasks (case-insensitive check)
+                            if (task.status && task.status.toLowerCase() === 'completed') return false;
+
+                            // Map task.phase to the main 3 phases for comparison
+                            let mappedTaskPhase = task.phase;
+                            if (task.phase === 'Kickoff' || task.phase === 'Awaiting KO' || task.phase === 'Pre-Field') {
+                              mappedTaskPhase = 'Pre-Field';
+                            } else if (task.phase === 'Post-Field Analysis' || task.phase === 'Reporting') {
+                              mappedTaskPhase = 'Reporting';
+                            }
+
+                            // Only show tasks that belong to the current phase
+                            return mappedTaskPhase === phase;
+                          }).sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime()) : [];
+
+                          const tasksToShow = phaseTasks.slice(0, 5);
+
+                          return (
+                            <div key={phase} className="flex">
+                              {/* Circle and Line Column */}
+                              <div className="flex flex-col items-center mr-3">
+                                {/* Circle */}
+                                <div
+                                  className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+                                  style={{
+                                    backgroundColor: isComplete
+                                      ? phaseColor + '80'  // 50% opacity for completed
+                                      : isCurrentPhase
+                                        ? phaseColor + 'CC'  // 80% opacity for current
+                                        : 'white',  // white for future phases
+                                    border: `2px solid ${isComplete
+                                      ? phaseColor + '66'  // 40% opacity for completed (lighter border)
+                                      : isCurrentPhase
+                                        ? phaseColor + 'CC'  // 80% opacity for current
+                                        : phaseColor + '80'}`  // 50% opacity for future phases
+                                  }}
+                                >
+                                  {isComplete && (
+                                    <svg
+                                      className="w-4 h-4 text-white"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      strokeWidth="3"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path d="M20 6L9 17l-5-5" />
+                                    </svg>
+                                  )}
+                                </div>
+
+                                {/* Connecting Line */}
+                                {!isLast && (
+                                  <div
+                                    className="w-0.5 flex-1"
+                                    style={{
+                                      backgroundColor: isComplete
+                                        ? phaseColor + '80'  // 50% opacity for completed
+                                        : isCurrentPhase
+                                          ? phaseColor + 'CC'  // 80% opacity for current
+                                          : phaseColor + '80',  // 50% opacity for future phases
+                                      minHeight: '40px'
+                                    }}
+                                  />
+                                )}
+                              </div>
+
+                              {/* Phase Info Column */}
+                              <div className="flex-1 pb-4">
+                                <h4 className={`text-base font-semibold ${isCurrentPhase ? 'text-gray-900' : 'text-gray-400'}`}>{phase}</h4>
+                                {segment && (
+                                  <p className={`text-sm mt-1 ${isCurrentPhase ? 'text-gray-900 font-semibold' : 'text-gray-400'}`}>
+                                    {formatDate(segment.startDate)} - {formatDate(segment.endDate)}
+                                  </p>
+                                )}
+
+                                {/* Tasks List */}
+                                {tasksToShow.length > 0 && (
+                                  <div className="mt-3 space-y-2">
+                                    {tasksToShow.map((task, idx) => (
+                                      <div
+                                        key={idx}
+                                        className="bg-gray-50 rounded px-3 py-2 flex justify-between items-start"
+                                        style={{
+                                          borderLeft: `3px solid ${phaseColor}`
+                                        }}
+                                      >
+                                        <span className="flex-1 text-sm text-gray-700">{task.description || task.content}</span>
+                                        <span className="text-xs text-gray-500 ml-3 whitespace-nowrap">
+                                          {task.dueDate ? formatDate(task.dueDate) : ''}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+
+                                {/* Only show "No remaining tasks" for current phase */}
+                                {isCurrentPhase && phaseTasks.length === 0 && (
+                                  <p className="text-sm text-gray-500 italic mt-2">No remaining tasks</p>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
