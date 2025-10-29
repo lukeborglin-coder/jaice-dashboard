@@ -1,0 +1,13 @@
+@echo off
+cd /d "%~dp0conjoint-backend"
+if not exist .venv (
+  echo Creating virtual environment...
+  python -m venv .venv
+)
+echo Activating virtual environment...
+call .venv\Scripts\activate
+echo Installing dependencies...
+python -m pip install --quiet -r requirements.txt
+echo Starting Conjoint API server on port 8000...
+python -m uvicorn app:app --reload --port 8000
+pause

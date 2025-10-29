@@ -270,7 +270,7 @@ function VerbatimQuotesSection({ analysisId, respondentId, columnName, sheetName
 
 export default function ContentAnalysisX({ projects = [], onNavigate, onNavigateToProject, onProjectsChange, analysisToLoad, onAnalysisLoaded, onNavigateToStorytelling, currentProjectId }: ContentAnalysisXProps) {
   const { user } = useAuth();
-  const [showMyProjectsOnly, setShowMyProjectsOnly] = useState(false);
+  const [showMyProjectsOnly, setShowMyProjectsOnly] = useState(true);
   const [archivedProjects, setArchivedProjects] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
   const [savedAnalyses, setSavedAnalyses] = useState<any[]>([]);
@@ -2404,8 +2404,9 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
   };
 
   return (
-    <div className="flex-1 p-6 space-y-4 max-w-full overflow-hidden" style={{ height: 'calc(100vh - 80px)', marginTop: '80px' }}>
-      <div className="space-y-3">
+    <main className="flex-1 overflow-y-auto" style={{ backgroundColor: '#F7F7F8', height: 'calc(100vh - 80px)', marginTop: '80px' }}>
+      <div className="flex-1 p-6 space-y-6 max-w-full">
+        <div className="space-y-3">
 
         {/* Viewer mode action bar */}
         {viewMode === 'viewer' && (
@@ -2503,6 +2504,21 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                   Archived Projects ({filteredArchivedProjects.length})
                 </button>
               </nav>
+              <div className="flex items-center gap-3">
+                {user?.role !== 'oversight' && (
+                  <button
+                    onClick={() => setShowMyProjectsOnly(!showMyProjectsOnly)}
+                    className={`px-3 py-1 text-xs rounded-lg shadow-sm transition-colors ${
+                      showMyProjectsOnly
+                        ? 'bg-white border border-gray-300 hover:bg-gray-50'
+                        : 'text-white hover:opacity-90'
+                    }`}
+                    style={showMyProjectsOnly ? {} : { backgroundColor: BRAND_ORANGE }}
+                  >
+                    {showMyProjectsOnly ? 'Only My Projects' : 'All Cognitive Projects'}
+                  </button>
+                )}
+              </div>
             </div>
             <div className="border-b border-gray-200"></div>
           </div>
@@ -3914,5 +3930,6 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
       />
 
     </div>
+  </main>
   );
 }

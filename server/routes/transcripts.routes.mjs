@@ -662,6 +662,7 @@ Output ONLY the cleaned transcript. No explanations or notes.`;
 router.get('/download/:projectId/:transcriptId', authenticateToken, async (req, res) => {
   try {
     const { projectId, transcriptId } = req.params;
+    const { preferCleaned, asText } = req.query;
 
     const data = await fs.readFile(TRANSCRIPTS_PATH, 'utf8');
     const transcripts = JSON.parse(data);
@@ -676,10 +677,32 @@ router.get('/download/:projectId/:transcriptId', authenticateToken, async (req, 
       return res.status(404).json({ error: 'Transcript not found' });
     }
 
-    // Download cleaned if available, otherwise original
-    const filePath = (transcript.isCleaned && transcript.cleanedPath) ? transcript.cleanedPath : transcript.originalPath;
-    const filename = (transcript.isCleaned && transcript.cleanedFilename) ? transcript.cleanedFilename : transcript.originalFilename;
+    // Determine which file to use
+    let filePath;
+    let filename;
 
+    if (preferCleaned === 'true' && transcript.isCleaned && transcript.cleanedPath) {
+      filePath = transcript.cleanedPath;
+      filename = transcript.cleanedFilename;
+    } else {
+      filePath = transcript.originalPath;
+      filename = transcript.originalFilename;
+    }
+
+    // If asText is requested, extract plain text from .docx
+    if (asText === 'true') {
+      try {
+        const result = await mammoth.extractRawText({ path: filePath });
+        const text = result.value;
+        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        return res.send(text);
+      } catch (extractError) {
+        console.error('Error extracting text from docx:', extractError);
+        return res.status(500).json({ error: 'Failed to extract text from document' });
+      }
+    }
+
+    // Otherwise, download the file as-is
     res.download(filePath, filename);
   } catch (error) {
     console.error('Error downloading transcript:', error);

@@ -1,606 +1,408 @@
-========================================
-   JAICE Dashboard Startup Script
-========================================
-
-Γ£à Node.js found
-
-Γ£à Project structure verified
-
-Γ£à Dependencies verified
-
-≡ƒÜÇ Starting JAICE Dashboard...
-
-Frontend will be available at: http://localhost:5173
-Backend API will be available at: http://localhost:3005
-
-Press Ctrl+C to stop both servers
-========================================
-
-
-> jaice-dashboard@0.0.1 start
-> concurrently "npm run dev" "cd server && npm start"
-
-(node:13752) [DEP0060] DeprecationWarning: The `util._extend` API is deprecated. Please use Object.assign() instead.
-(Use `node --trace-deprecation ...` to show where the warning was created)
-[0]
-[0] > jaice-dashboard@0.0.1 dev
-[0] > vite
-[0]
-[1]
-[1] > jaice-dashboard-server@1.0.0 start
-[1] > node server.mjs
-[1]
-[0]
-[0]   VITE v5.4.20  ready in 412 ms
-[0]
-[0]   ➜  Local:   http://localhost:5173/
-[0]   ➜  Network: use --host to expose
-[1] 🚀 JAICE Dashboard Server running on http://localhost:3005
-[1] 📊 Content Analysis API available at http://localhost:3005/api/ca
-[1] ✅ OpenAI API key configured - AI generation enabled
-[1] 🔗 Frontend should connect to: http://localhost:3005
-[0] [BABEL] Note: The code generator has deoptimised the styling of C:\Users\LukeBorglin\Desktop\Apps\JaiceDashboard_master\src\App.tsx as it exceeds the max of 500KB.
-[1] 🔍 ContentAnalysisX route hit: GET /saved
-[1] 🔍 ContentAnalysisX route hit: GET /saved
-[1] 🔍 ContentAnalysisX route hit: GET /saved
-[0] 10:14:18 AM [vite] hmr update /src/App.tsx, /src/index.css
-[0] [BABEL] Note: The code generator has deoptimised the styling of C:\Users\LukeBorglin\Desktop\Apps\JaiceDashboard_master\src\App.tsx as it exceeds the max of 500KB.
-[1] 🔍 ContentAnalysisX route hit: GET /saved
-[1] 🔍 ContentAnalysisX route hit: GET /saved
-[1] 🔍 ContentAnalysisX route hit: GET /saved
-[1] 🔍 ContentAnalysisX route hit: GET /saved
-[1] 🔍 ContentAnalysisX route hit: GET /saved
-[1] 🔍 CA File Debug: {
-[1]   caPath: 'C:\\Users\\LukeBorglin\\Desktop\\Apps\\JaiceDashboard_master\\server\\data\\savedAnalyses.json',
-[1]   fileExists: true
-[1] }
-[1] 🔍 CA File Content Length: 160440
-[1] 🔍 CA Data Structure Debug: {
-[1]   totalAnalyses: 1,
-[1]   isArray: true,
-[1]   analyses: [
-[1]     {
-[1]       id: '1760120323941',
-[1]       projectId: 'P-1759172819869',
-[1]       name: 'test2',
-[1]       hasData: true,
-[1]       hasQuotes: true,
-[1]       hasVerbatimQuotes: true,
-[1]       dataKeys: [Array]
-[1]     }
-[1]   ]
-[1] }
-[1] 🔍 Projects file path: C:\Users\LukeBorglin\Desktop\Apps\JaiceDashboard_master\server\data\projects.json
-[1] 🔍 Projects data loaded: 2 users
-[1] 🔍 CA Item 1760120323941 (test2): {
-[1]   projectId: 'P-1759172819869',
-[1]   hasData: true,
-[1]   respondentCount: 4,
-[1]   hasRespondents: true,
-[1]   willInclude: true
-[1] }
-[1] 🔍 Final processing for CA 1760120323941: {
-[1]   projectId: 'P-1759172819869',
-[1]   name: 'test2',
-[1]   respondentCount: 4,
-[1]   dataKeys: [
-[1]     'Demographics',
-[1]     'BACKGROUND',
-[1]     'CURRENT PERCEPTIONS & ATTITUDES',
-[1]     'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]     'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]     'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]     'Misc.'
-[1]   ],
-[1]   foundFullProject: true
-[1] }
-[1] 🔍 Final Result: {
-[1]   projectsWithCA: 1,
-[1]   projects: [
-[1]     {
-[1]       id: 'P-1759172819869',
-[1]       name: '2025 SMA Adult Activation Qual test',
-[1]       respondentCount: 4,
-[1]       analysisId: '1760120323941'
-[1]     }
-[1]   ]
-[1] }
-[1] 🔍 CA File Debug: {
-[1]   caPath: 'C:\\Users\\LukeBorglin\\Desktop\\Apps\\JaiceDashboard_master\\server\\data\\savedAnalyses.json',
-[1]   fileExists: true
-[1] }
-[1] 🔍 CA File Content Length: 160440
-[1] 🔍 CA Data Structure Debug: {
-[1]   totalAnalyses: 1,
-[1]   isArray: true,
-[1]   analyses: [
-[1]     {
-[1]       id: '1760120323941',
-[1]       projectId: 'P-1759172819869',
-[1]       name: 'test2',
-[1]       hasData: true,
-[1]       hasQuotes: true,
-[1]       hasVerbatimQuotes: true,
-[1]       dataKeys: [Array]
-[1]     }
-[1]   ]
-[1] }
-[1] 🔍 Projects file path: C:\Users\LukeBorglin\Desktop\Apps\JaiceDashboard_master\server\data\projects.json
-[1] 🔍 Projects data loaded: 2 users
-[1] 🔍 CA Item 1760120323941 (test2): {
-[1]   projectId: 'P-1759172819869',
-[1]   hasData: true,
-[1]   respondentCount: 4,
-[1]   hasRespondents: true,
-[1]   willInclude: true
-[1] }
-[1] 🔍 Final processing for CA 1760120323941: {
-[1]   projectId: 'P-1759172819869',
-[1]   name: 'test2',
-[1]   respondentCount: 4,
-[1]   dataKeys: [
-[1]     'Demographics',
-[1]     'BACKGROUND',
-[1]     'CURRENT PERCEPTIONS & ATTITUDES',
-[1]     'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]     'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]     'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]     'Misc.'
-[1]   ],
-[1]   foundFullProject: true
-[1] }
-[1] 🔍 Final Result: {
-[1]   projectsWithCA: 1,
-[1]   projects: [
-[1]     {
-[1]       id: 'P-1759172819869',
-[1]       name: '2025 SMA Adult Activation Qual test',
-[1]       respondentCount: 4,
-[1]       analysisId: '1760120323941'
-[1]     }
-[1]   ]
-[1] }
-[1] 🔍 ContentAnalysisX route hit: GET /saved
-[1] 🔍 Loading storytelling data for project: { projectId: 'P-1759172819869', analysisId: '1760120323941' }
-[1] 🔍 Loading storytelling data: {
-[1]   projectId: 'P-1759172819869',
-[1]   analysisId: '1760120323941',
-[1]   key: 'P-1759172819869-1760120323941',
-[1]   availableKeys: [ 'P-1759172819869-1760120323941', 'P-1759172819869' ]
-[1] }
-[1] 🔍 Loaded project data keys: [
-[1]   'strategicQuestions',
-[1]   'keyFindings',
-[1]   'storyboards',
-[1]   'chatHistory',
-[1]   'quotesCache',
-[1]   'dynamicReport',
-[1]   'reportData'
-[1] ]
-[1] 🔍 Report data in loaded data: true
-[1] 🔍 Report data slides count in loaded data: 9
-[1] 🔍 Loaded storytelling data keys: [
-[1]   'strategicQuestions',
-[1]   'keyFindings',
-[1]   'storyboards',
-[1]   'chatHistory',
-[1]   'quotesCache',
-[1]   'dynamicReport',
-[1]   'reportData'
-[1] ]
-[1] 🔍 Report data exists: true
-[1] 🔍 Report data slides count: 9
-[1] 🔍 ContentAnalysisX route hit: GET /saved/1760120323941
-[1] 📖 Loading analysis 1760120323941, context keys: [
-[1]   'Demographics',
-[1]   'BACKGROUND',
-[1]   'CURRENT PERCEPTIONS & ATTITUDES',
-[1]   'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]   'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]   'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]   'Misc.'
-[1] ]
-[1] 📖 Sheet "Demographics" has context for respondents: [ 'R02' ]
-[1] 📖 Sheet "BACKGROUND" has context for respondents: [ 'R02' ]
-[1] 📖 Sheet "CURRENT PERCEPTIONS & ATTITUDES" has context for respondents: [ 'R02' ]
-[1] 📖 Sheet "BARRIERS TO TREATMENT & UNMET NEEDS" has context for respondents: [ 'R02' ]
-[1] 📖 Sheet "MOTIVATIONS & FUTURE CONSIDERATION" has context for respondents: [ 'R02' ]
-[1] 📖 Sheet "COMMUNITY ENGAGEMENT & INFO SOURCES" has context for respondents: [ 'R02' ]
-[1] 📖 Sheet "Misc." has context for respondents: [ 'R02' ]
-[1] 🔍 Loading storytelling data for project: { projectId: 'P-1759172819869', analysisId: '1760120323941' }
-[1] 🔍 Loading storytelling data: {
-[1]   projectId: 'P-1759172819869',
-[1]   analysisId: '1760120323941',
-[1]   key: 'P-1759172819869-1760120323941',
-[1]   availableKeys: [ 'P-1759172819869-1760120323941', 'P-1759172819869' ]
-[1] }
-[1] 🔍 Loaded project data keys: [
-[1]   'strategicQuestions',
-[1]   'keyFindings',
-[1]   'storyboards',
-[1]   'chatHistory',
-[1]   'quotesCache',
-[1]   'dynamicReport',
-[1]   'reportData'
-[1] ]
-[1] 🔍 Report data in loaded data: true
-[1] 🔍 Report data slides count in loaded data: 9
-[1] 🔍 Loaded storytelling data keys: [
-[1]   'strategicQuestions',
-[1]   'keyFindings',
-[1]   'storyboards',
-[1]   'chatHistory',
-[1]   'quotesCache',
-[1]   'dynamicReport',
-[1]   'reportData'
-[1] ]
-[1] 🔍 Report data exists: true
-[1] 🔍 Report data slides count: 9
-[1] 📝 Strategic questions update: {
-[1]   projectId: 'P-1759172819869',
-[1]   analysisId: '1760120323941',
-[1]   questionsCount: 7
-[1] }
-[1] 🔍 Loading storytelling data: {
-[1]   projectId: 'P-1759172819869',
-[1]   analysisId: '1760120323941',
-[1]   key: 'P-1759172819869-1760120323941',
-[1]   availableKeys: [ 'P-1759172819869-1760120323941', 'P-1759172819869' ]
-[1] }
-[1] 🔍 Loaded project data keys: [
-[1]   'strategicQuestions',
-[1]   'keyFindings',
-[1]   'storyboards',
-[1]   'chatHistory',
-[1]   'quotesCache',
-[1]   'dynamicReport',
-[1]   'reportData'
-[1] ]
-[1] 🔍 Report data in loaded data: true
-[1] 🔍 Report data slides count in loaded data: 9
-[1] 💾 Saving storytelling data: {
-[1]   projectId: 'P-1759172819869',
-[1]   analysisId: '1760120323941',
-[1]   key: 'P-1759172819869-1760120323941',
-[1]   strategicQuestionsCount: 7,
-[1]   hasReportData: true,
-[1]   reportDataSlidesCount: 9
-[1] }
-[1] ✅ Storytelling data saved to file successfully
-[1] 🔍 getTranscriptsText debug: {
-[1]   projectId: 'P-1759172819869',
-[1]   analysisId: '1760120323941',
-[1]   totalProjectTranscripts: 5,
-[1]   transcriptAnalysisIds: [ undefined, undefined, undefined, undefined, undefined ]
-[1] }
-[1] 🔍 No transcripts found with analysisId, using all transcripts as fallback
-[1] 🔍 Transcript filtering: {
-[1]   analysisId: '1760120323941',
-[1]   beforeFilter: 5,
-[1]   afterFilter: 5,
-[1]   filteredTranscripts: [
-[1]     { id: 'T-1760127394039', analysisId: undefined, respno: 'R01' },
-[1]     { id: 'T-1760127610454', analysisId: undefined, respno: 'R02' },
-[1]     { id: 'T-1760535791607', analysisId: undefined, respno: 'R03' },
-[1]     { id: 'T-1760536656799', analysisId: undefined, respno: 'R04' },
-[1]     { id: 'T-1760539977158', analysisId: undefined, respno: 'R05' }
-[1]   ]
-[1] }
-[1] 🔍 getTranscriptsText result: {
-[1]   projectId: 'P-1759172819869',
-[1]   analysisId: '1760120323941',
-[1]   finalTranscriptCount: 5,
-[1]   combinedTextLength: 187983,
-[1]   hasContent: true
-[1] }
-[1] 🔍 CA Data Debug: {
-[1]   projectId: 'P-1759172819869',
-[1]   totalAnalyses: 1,
-[1]   foundProject: true,
-[1]   hasData: true,
-[1]   hasQuotes: true,
-[1]   hasVerbatimQuotes: true,
-[1]   dataKeys: [
-[1]     'Demographics',
-[1]     'BACKGROUND',
-[1]     'CURRENT PERCEPTIONS & ATTITUDES',
-[1]     'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]     'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]     'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]     'Misc.'
-[1]   ],
-[1]   quotesKeys: []
-[1] }
-[1] 💰 Cost Estimation Debug: {
-[1]   operationType: 'qa',
-[1]   originalTranscriptLength: 187983,
-[1]   originalCADataLength: 68063,
-[1]   inputTextLength: 30014,
-[1]   inputTokens: 7504,
-[1]   outputTokens: 2702,
-[1]   totalCost: '0.0458'
-[1] }
-[1] 🔍 getTranscriptsText debug: {
-[1]   projectId: 'P-1759172819869',
-[1]   analysisId: '1760120323941',
-[1]   totalProjectTranscripts: 5,
-[1]   transcriptAnalysisIds: [ undefined, undefined, undefined, undefined, undefined ]
-[1] }
-[1] 🔍 No transcripts found with analysisId, using all transcripts as fallback
-[1] 🔍 Transcript filtering: {
-[1]   analysisId: '1760120323941',
-[1]   beforeFilter: 5,
-[1]   afterFilter: 5,
-[1]   filteredTranscripts: [
-[1]     { id: 'T-1760127394039', analysisId: undefined, respno: 'R01' },
-[1]     { id: 'T-1760127610454', analysisId: undefined, respno: 'R02' },
-[1]     { id: 'T-1760535791607', analysisId: undefined, respno: 'R03' },
-[1]     { id: 'T-1760536656799', analysisId: undefined, respno: 'R04' },
-[1]     { id: 'T-1760539977158', analysisId: undefined, respno: 'R05' }
-[1]   ]
-[1] }
-[1] 🔍 getTranscriptsText result: {
-[1]   projectId: 'P-1759172819869',
-[1]   analysisId: '1760120323941',
-[1]   finalTranscriptCount: 5,
-[1]   combinedTextLength: 187983,
-[1]   hasContent: true
-[1] }
-[1] 🔍 CA Data Debug: {
-[1]   projectId: 'P-1759172819869',
-[1]   totalAnalyses: 1,
-[1]   foundProject: true,
-[1]   hasData: true,
-[1]   hasQuotes: true,
-[1]   hasVerbatimQuotes: true,
-[1]   dataKeys: [
-[1]     'Demographics',
-[1]     'BACKGROUND',
-[1]     'CURRENT PERCEPTIONS & ATTITUDES',
-[1]     'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]     'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]     'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]     'Misc.'
-[1]   ],
-[1]   quotesKeys: []
-[1] }
-[1] 💰 Cost Estimation Debug: {
-[1]   operationType: 'qa',
-[1]   originalTranscriptLength: 187983,
-[1]   originalCADataLength: 68063,
-[1]   inputTextLength: 30014,
-[1]   inputTokens: 7504,
-[1]   outputTokens: 2702,
-[1]   totalCost: '0.0458'
-[1] }
-[1] 🔍 Loading storytelling data: {
-[1]   projectId: 'P-1759172819869',
-[1]   analysisId: '1760120323941',
-[1]   key: 'P-1759172819869-1760120323941',
-[1]   availableKeys: [ 'P-1759172819869-1760120323941', 'P-1759172819869' ]
-[1] }
-[1] 🔍 Loaded project data keys: [
-[1]   'strategicQuestions',
-[1]   'keyFindings',
-[1]   'storyboards',
-[1]   'chatHistory',
-[1]   'quotesCache',
-[1]   'dynamicReport',
-[1]   'reportData'
-[1] ]
-[1] 🔍 Report data in loaded data: true
-[1] 🔍 Report data slides count in loaded data: 9
-[1] 🔍 getTranscriptsText debug: {
-[1]   projectId: 'P-1759172819869',
-[1]   analysisId: '1760120323941',
-[1]   totalProjectTranscripts: 5,
-[1]   transcriptAnalysisIds: [ undefined, undefined, undefined, undefined, undefined ]
-[1] }
-[1] 🔍 No transcripts found with analysisId, using all transcripts as fallback
-[1] 🔍 Transcript filtering: {
-[1]   analysisId: '1760120323941',
-[1]   beforeFilter: 5,
-[1]   afterFilter: 5,
-[1]   filteredTranscripts: [
-[1]     { id: 'T-1760127394039', analysisId: undefined, respno: 'R01' },
-[1]     { id: 'T-1760127610454', analysisId: undefined, respno: 'R02' },
-[1]     { id: 'T-1760535791607', analysisId: undefined, respno: 'R03' },
-[1]     { id: 'T-1760536656799', analysisId: undefined, respno: 'R04' },
-[1]     { id: 'T-1760539977158', analysisId: undefined, respno: 'R05' }
-[1]   ]
-[1] }
-[1] 🔍 getTranscriptsText result: {
-[1]   projectId: 'P-1759172819869',
-[1]   analysisId: '1760120323941',
-[1]   finalTranscriptCount: 5,
-[1]   combinedTextLength: 187983,
-[1]   hasContent: true
-[1] }
-[1] 🔍 CA Data Debug: {
-[1]   projectId: 'P-1759172819869',
-[1]   totalAnalyses: 1,
-[1]   foundProject: true,
-[1]   hasData: true,
-[1]   hasQuotes: true,
-[1]   hasVerbatimQuotes: true,
-[1]   dataKeys: [
-[1]     'Demographics',
-[1]     'BACKGROUND',
-[1]     'CURRENT PERCEPTIONS & ATTITUDES',
-[1]     'BARRIERS TO TREATMENT & UNMET NEEDS',
-[1]     'MOTIVATIONS & FUTURE CONSIDERATION',
-[1]     'COMMUNITY ENGAGEMENT & INFO SOURCES',
-[1]     'Misc.'
-[1]   ],
-[1]   quotesKeys: []
-[1] }
-[1] [Cost Tracking] Logged $0.2680 for project P-1759172819869 - Storytelling
-[1] 🔄 Generating real verbatim quotes for storyboard slides...
-[1] 📝 Generating quotes for slide 3: Patient Independence and Quality of Life
-[1] AI response for slide quotes: ```json
-[1] {
-[1]   "quotes": [
-[1]     {
-[1]       "text": "R01: I really value being able to do things on my own. It's important for me to maintain my independence, especially when it comes to managing my daily activities.",
-[1]       "respno": "R01"
-[1]     },
-[1]     {
-[1]       "text": "R02: For me, being independent means I can manage my health and my career without relying too much on others. It's a big part of how I define my success.",
-[1]       "respno": "R02"
-[1]     }
-[1]   ]
-[1] }
-[1] ```
-[1] [Cost Tracking] Logged $0.0341 for project P-1759172819869 - Storytelling
-[1] ✅ Generated 2 real quotes for slide 3
-[1] 📝 Generating quotes for slide 4: Barriers to Healthcare Access
-[1] AI response for slide quotes: ```json
-[1] {
-[1]   "quotes": [
-[1]     {
-[1]       "text": "R01: The cost of the treatment is just too high for many families. Even with insurance, the out-of-pocket expenses can be overwhelming. It's a huge deterrent for those considering treatment options.",
-[1]       "respno": "R01"
-[1]     },
-[1]     {
-[1]       "text": "R01: Navigating the insurance process is a nightmare. There are so many administrative hurdles to jump through, and it often feels like the system is set up to deny access rather than facilitate it.",
-[1]
-[1] [Cost Tracking] Logged $0.0350 for project P-1759172819869 - Storytelling
-[1] ✅ Generated 3 real quotes for slide 4
-[1] 📝 Generating quotes for slide 5: Healthcare Provider Interactions
-[1] AI response for slide quotes: ```json
-[1] {
-[1]   "quotes": [
-[1]     {
-[1]       "text": "R02: I feel like my neurologist is always in a rush. I barely get to ask my questions before they'reout the door. It's frustrating because I don't feel like I'm getting the attention I need.",
-[1]       "respno": "R02"
-[1]     },
-[1]     {
-[1]       "text": "R03: My primary care physician doesn't seem very involved in my care. I often leave appointments feeling like nothing was really addressed.",
-[1]       "respno": "R03"
-[1]     },
-[1]     {
-[1]       "text": "R04: Elsie mentione
-[1] [Cost Tracking] Logged $0.0349 for project P-1759172819869 - Storytelling
-[1] ✅ Generated 3 real quotes for slide 5
-[1] 📝 Generating quotes for slide 6: Opportunities for Treatment Improvement
-[1] AI response for slide quotes: ```json
-[1] {
-[1]   "quotes": [
-[1]     {
-[1]       "text": "R01: One of the biggest challenges I face is the cost of treatment. It's really hard to keep up withthe expenses, and sometimes I have to choose between paying for my medication or other essentials. If there were financial assistance programs, it would make a huge difference for people like me.",
-[1]       "respno": "R01"
-[1]     },
-[1]     {
-[1]       "text": "R02: The administrative side of managing my treatment is overwhelming. There are so many forms and approva
-[1] [Cost Tracking] Logged $0.0356 for project P-1759172819869 - Storytelling
-[1] ✅ Generated 3 real quotes for slide 6
-[1] 📝 Generating quotes for slide 7: Patient Experiences with Evrysdi
-[1] AI response for slide quotes: ```json
-[1] {
-[1]   "quotes": [
-[1]     {
-[1]       "text": "R01: I used to find the liquid form of Evrysdi quite inconvenient. It required precise measurements and sometimes I worried about spilling it or not getting the dosage right.",
-[1]       "respno": "R01"
-[1]     },
-[1]     {
-[1]       "text": "R02: The new tablet form of Evrysdi seems like it could be a real improvement. It's easier to take and I don't have to worry about measuring it out.",
-[1]       "respno": "R02"
-[1]     },
-[1]     {
-[1]       "text": "R03: Communication about ho
-[1] [Cost Tracking] Logged $0.0348 for project P-1759172819869 - Storytelling
-[1] ✅ Generated 3 real quotes for slide 7
-[1] 📝 Generating quotes for slide 8: Patient Support Systems
-[1] AI response for slide quotes: ```json
-[1] {
-[1]   "quotes": [
-[1]     {
-[1]       "text": "R01: My husband is really involved in all the health discussions and decisions. We always talk things through together, and he helps me understand the medical jargon.",
-[1]       "respno": "R01"
-[1]     },
-[1]     {
-[1]       "text": "R02: I manage my health independently, but I know my family is always there if I need them. They arevery supportive and always check in on me.",
-[1]       "respno": "R02"
-[1]     }
-[1]   ]
-[1] }
-[1] ```
-[1] [Cost Tracking] Logged $0.0340 for project P-1759172819869 - Storytelling
-[1] ✅ Generated 2 real quotes for slide 8
-[1] 📝 Generating quotes for slide 9: Long-term Health Goals
-[1] AI response for slide quotes: ```json
-[1] {
-[1]   "quotes": [
-[1]     {
-[1]       "text": "R01: I really want to keep doing things on my own as much as possible. It's important for me to maintain my independence, even with the challenges of SMA.",
-[1]       "respno": "R01"
-[1]     },
-[1]     {
-[1]       "text": "R02: Managing my symptoms effectively is key. I focus on what I can do to stay healthy and maintain my current health status. It's all about sustaining what I have.",
-[1]       "respno": "R02"
-[1]     },
-[1]     {
-[1]       "text": "R03: For me, the long-term goal
-[1] [Cost Tracking] Logged $0.0348 for project P-1759172819869 - Storytelling
-[1] ✅ Generated 3 real quotes for slide 9
-[1] ✅ Finished generating real quotes for all slides
-[1] 💾 Saving storytelling data: {
-[1]   projectId: 'P-1759172819869',
-[1]   analysisId: '1760120323941',
-[1]   key: 'P-1759172819869-1760120323941',
-[1]   strategicQuestionsCount: 7,
-[1]   hasReportData: true,
-[1]   reportDataSlidesCount: 9
-[1] }
-[1] ✅ Storytelling data saved to file successfully
-[1] 💾 Saving report data: {
-[1]   projectId: 'P-1759172819869',
-[1]   analysisId: '1760120323941',
-[1]   hasSlides: true,
-[1]   slidesCount: 9
-[1] }
-[1] 🔍 Loading storytelling data: {
-[1]   projectId: 'P-1759172819869',
-[1]   analysisId: '1760120323941',
-[1]   key: 'P-1759172819869-1760120323941',
-[1]   availableKeys: [ 'P-1759172819869-1760120323941', 'P-1759172819869' ]
-[1] }
-[1] 🔍 Loaded project data keys: [
-[1]   'strategicQuestions',
-[1]   'keyFindings',
-[1]   'storyboards',
-[1]   'chatHistory',
-[1]   'quotesCache',
-[1]   'dynamicReport',
-[1]   'reportData'
-[1] ]
-[1] 🔍 Report data in loaded data: true
-[1] 🔍 Report data slides count in loaded data: 9
-[1] 🔍 Current data before saving report data: [
-[1]   'strategicQuestions',
-[1]   'keyFindings',
-[1]   'storyboards',
-[1]   'chatHistory',
-[1]   'quotesCache',
-[1]   'dynamicReport',
-[1]   'reportData'
-[1] ]
-[1] 🔍 Data after adding report data: [
-[1]   'strategicQuestions',
-[1]   'keyFindings',
-[1]   'storyboards',
-[1]   'chatHistory',
-[1]   'quotesCache',
-[1]   'dynamicReport',
-[1]   'reportData'
-[1] ]
-[1] 💾 Saving storytelling data: {
-[1]   projectId: 'P-1759172819869',
-[1]   analysisId: '1760120323941',
-[1]   key: 'P-1759172819869-1760120323941',
-[1]   strategicQuestionsCount: 7,
-[1]   hasReportData: true,
-[1]   reportDataSlidesCount: 9
-[1] }
-[1] ✅ Storytelling data saved to file successfully
-[1] ✅ Report data saved successfully to file
+🚀 JAICE Dashboard Server running on http://localhost:3005
+📊 Content Analysis API available at http://localhost:3005 /api/ca
+✅ OpenAI API key configured - AI generation enabled
+🔗 Frontend should connect to: http://localhost:3005
+🔍 ContentAnalysisX route hit: GET /saved
+🔍 ContentAnalysisX route hit: GET /saved
+🔍 ContentAnalysisX route hit: GET /saved
+🔍 [PUT] Received project update for: P-1761242973652
+🔍 [PUT] Requesting user: 3
+🔍 [PUT] Team members received: [
+  {
+    "id": "3",
+    "name": "Luke Borglin",
+    "role": "Project Manager",
+    "roles": [
+      "Project Manager"
+    ]
+  },
+  {
+    "id": "12",
+    "name": " Ciara Mcevoy-Benisti",
+    "role": "Recruit Coordinator",
+    "roles": [
+      "Recruit Coordinator"
+    ]
+  }
+]
+🔍 [PUT] Found project owned by user: 3
+🔍 [PUT] Project updated in memory, team members: [
+  {
+    "id": "3",
+    "name": "Luke Borglin",
+    "role": "Project Manager",
+    "roles": [
+      "Project Manager"
+    ]
+  },
+  {
+    "id": "12",
+    "name": " Ciara Mcevoy-Benisti",
+    "role": "Recruit Coordinator",
+    "roles": [
+      "Recruit Coordinator"
+    ]
+  }
+]
+🔍 [PUT] Debug - project.teamMembers: [
+  {
+    id: '3',
+    name: 'Luke Borglin',
+    role: 'Project Manager',
+    roles: [ 'Project Manager' ]
+  },
+  {
+    id: '12',
+    name: ' Ciara Mcevoy-Benisti',
+    role: 'Recruit Coordinator',
+    roles: [ 'Recruit Coordinator' ]
+  }
+]
+🔍 [PUT] Debug - project.teamMembers length: 2
+🔍 [PUT] Debug - project.tasks: 60
+🔍 [PUT] Received project update for: P-1761243049041
+🔍 [PUT] Requesting user: 3
+🔍 [PUT] Team members received: [
+  {
+    "id": "3",
+    "name": "Luke Borglin",
+    "role": "Project Manager",
+    "roles": [
+      "Project Manager",
+      "Logistics"
+    ]
+  },
+  {
+    "id": "12",
+    "name": " Ciara Mcevoy-Benisti",
+    "role": "Project Manager",
+    "roles": [
+      "Project Manager"
+    ]
+  },
+  {
+    "id": "13",
+    "name": "Nikki",
+    "role": "Team Member",
+    "roles": [],
+    "email": "nikki.panagiota@cognitiveconsulting.com"
+  }
+]
+🔍 [PUT] Found project owned by user: 3
+🔍 [PUT] Project updated in memory, team members: [
+  {
+    "id": "3",
+    "name": "Luke Borglin",
+    "role": "Project Manager",
+    "roles": [
+      "Project Manager",
+      "Logistics"
+    ]
+  },
+  {
+    "id": "12",
+    "name": " Ciara Mcevoy-Benisti",
+    "role": "Project Manager",
+    "roles": [
+      "Project Manager"
+    ]
+  },
+  {
+    "id": "13",
+    "name": "Nikki",
+    "role": "Team Member",
+    "roles": [],
+    "email": "nikki.panagiota@cognitiveconsulting.com"
+  }
+]
+🔍 [PUT] Debug - project.teamMembers: [
+  {
+    id: '3',
+    name: 'Luke Borglin',
+    role: 'Project Manager',
+    roles: [ 'Project Manager', 'Logistics' ]
+  },
+  {
+    id: '12',
+    name: ' Ciara Mcevoy-Benisti',
+    role: 'Project Manager',
+    roles: [ 'Project Manager' ]
+  },
+  {
+    id: '13',
+    name: 'Nikki',
+    role: 'Team Member',
+    roles: [],
+    email: 'nikki.panagiota@cognitiveconsulting.com'
+  }
+]
+🔍 [PUT] Debug - project.teamMembers length: 3
+🔍 [PUT] Debug - project.tasks: 53
+🔍 [PUT] Received project update for: P-1761522000342
+🔍 [PUT] Requesting user: 3
+🔍 [PUT] Team members received: [
+  {
+    "id": "17",
+    "name": "oversight",
+    "role": "AE Manager",
+    "roles": [
+      "AE Manager"
+    ]
+  },
+  {
+    "id": "3",
+    "name": "Luke Borglin",
+    "role": "Project Manager",
+    "roles": [
+      "Project Manager"
+    ]
+  },
+  {
+    "id": "12",
+    "name": " Ciara Mcevoy-Benisti",
+    "role": "Recruit Coordinator",
+    "roles": [
+      "Recruit Coordinator"
+    ]
+  }
+]
+🔍 [PUT] Found project owned by user: 17
+🔍 [PUT] Project updated in memory, team members: [
+  {
+    "id": "17",
+    "name": "oversight",
+    "role": "AE Manager",
+    "roles": [
+      "AE Manager"
+    ]
+  },
+  {
+    "id": "3",
+    "name": "Luke Borglin",
+    "role": "Project Manager",
+    "roles": [
+      "Project Manager"
+    ]
+  },
+  {
+    "id": "12",
+    "name": " Ciara Mcevoy-Benisti",
+    "role": "Recruit Coordinator",
+    "roles": [
+      "Recruit Coordinator"
+    ]
+  }
+]
+🔍 [PUT] Debug - project.teamMembers: [
+  {
+    id: '17',
+    name: 'oversight',
+    role: 'AE Manager',
+    roles: [ 'AE Manager' ]
+  },
+  {
+    id: '3',
+    name: 'Luke Borglin',
+    role: 'Project Manager',
+    roles: [ 'Project Manager' ]
+  },
+  {
+    id: '12',
+    name: ' Ciara Mcevoy-Benisti',
+    role: 'Recruit Coordinator',
+    roles: [ 'Recruit Coordinator' ]
+  }
+]
+🔍 [PUT] Debug - project.teamMembers length: 3
+🔍 [PUT] Debug - project.tasks: 60
+🔍 [PUT] Received project update for: P-1761586804791
+🔍 [PUT] Requesting user: 3
+🔍 [PUT] Team members received: [
+  {
+    "id": "17",
+    "name": "oversight",
+    "role": "Recruit Coordinator",
+    "roles": [
+      "Recruit Coordinator",
+      "Project Manager"
+    ]
+  }
+]
+🔍 [PUT] Found project owned by user: 17
+🔍 [PUT] Project updated in memory, team members: [
+  {
+    "id": "17",
+    "name": "oversight",
+    "role": "Recruit Coordinator",
+    "roles": [
+      "Recruit Coordinator",
+      "Project Manager"
+    ]
+  }
+]
+🔍 [PUT] Debug - project.teamMembers: [
+  {
+    id: '17',
+    name: 'oversight',
+    role: 'Recruit Coordinator',
+    roles: [ 'Recruit Coordinator', 'Project Manager' ]
+  }
+]
+🔍 [PUT] Debug - project.teamMembers length: 1
+🔍 [PUT] Debug - project.tasks: 60
+🔍 [PUT] Received project update for: P-1761587164310
+🔍 [PUT] Requesting user: 3
+🔍 [PUT] Team members received: [
+  {
+    "id": "17",
+    "name": "oversight",
+    "role": "Project Manager",
+    "roles": [
+      "Project Manager",
+      "Recruit Coordinator"
+    ]
+  }
+]
+🔍 [PUT] Found project owned by user: 17
+🔍 [PUT] Project updated in memory, team members: [
+  {
+    "id": "17",
+    "name": "oversight",
+    "role": "Project Manager",
+    "roles": [
+      "Project Manager",
+      "Recruit Coordinator"
+    ]
+  }
+]
+🔍 [PUT] Debug - project.teamMembers: [
+  {
+    id: '17',
+    name: 'oversight',
+    role: 'Project Manager',
+    roles: [ 'Project Manager', 'Recruit Coordinator' ]
+  }
+]
+🔍 [PUT] Debug - project.teamMembers length: 1
+🔍 [PUT] Debug - project.tasks: 58
+🔍 [PUT] Received project update for: P-1761587291769
+🔍 [PUT] Requesting user: 3
+🔍 [PUT] Team members received: [
+  {
+    "id": "17",
+    "name": "oversight",
+    "role": "",
+    "roles": []
+  }
+]
+🔍 [PUT] Found project owned by user: 17
+🔍 [PUT] Project updated in memory, team members: [
+  {
+    "id": "17",
+    "name": "oversight",
+    "role": "",
+    "roles": []
+  }
+]
+🔍 [PUT] Debug - project.teamMembers: [ { id: '17', name: 'oversight', role: '', roles: [] } ]
+🔍 [PUT] Debug - project.teamMembers length: 1
+🔍 [PUT] Debug - project.tasks: 58
+🔍 [PUT] Received project update for: P-1761587443521
+🔍 [PUT] Requesting user: 3
+🔍 [PUT] Team members received: [
+  {
+    "id": "17",
+    "name": "oversight",
+    "role": "",
+    "roles": []
+  }
+]
+🔍 [PUT] Found project owned by user: 17
+🔍 [PUT] Project updated in memory, team members: [
+  {
+    "id": "17",
+    "name": "oversight",
+    "role": "",
+    "roles": []
+  }
+]
+🔍 [PUT] Debug - project.teamMembers: [ { id: '17', name: 'oversight', role: '', roles: [] } ]
+🔍 [PUT] Debug - project.teamMembers length: 1
+🔍 [PUT] Debug - project.tasks: 58
+🔍 [PUT] Received project update for: P-1761587638538
+🔍 [PUT] Requesting user: 3
+🔍 [PUT] Team members received: [
+  {
+    "id": "17",
+    "name": "oversight",
+    "role": "Project Manager",
+    "roles": [
+      "Project Manager",
+      "Recruit Coordinator"
+    ]
+  }
+]
+🔍 [PUT] Found project owned by user: 17
+🔍 [PUT] Project updated in memory, team members: [
+  {
+    "id": "17",
+    "name": "oversight",
+    "role": "Project Manager",
+    "roles": [
+      "Project Manager",
+      "Recruit Coordinator"
+    ]
+  }
+]
+🔍 [PUT] Debug - project.teamMembers: [
+  {
+    id: '17',
+    name: 'oversight',
+    role: 'Project Manager',
+    roles: [ 'Project Manager', 'Recruit Coordinator' ]
+  }
+]
+🔍 [PUT] Debug - project.teamMembers length: 1
+🔍 [PUT] Debug - project.tasks: 53
+🔍 ContentAnalysisX route hit: GET /saved
+🔍 ContentAnalysisX route hit: GET /saved
+🔍 ContentAnalysisX route hit: GET /saved
+🔍 ContentAnalysisX route hit: GET /saved
+[Data Processing] Starting deterministic data analysis for workflow: workflow_1761694964966
+[Preprocessor] Starting conjoint data preprocessing...
+[Preprocessor] Found 4616 total columns
+[Preprocessor] Categorized columns: { choice: 51, marketShare: 11, attributes: 280, version: 0 }
+[Preprocessor] Skipping product extraction from Datamap - using predefined products
+[Preprocessor] Preprocessing complete: {
+  totalRows: 100,
+  cleanedRows: 100,
+  totalColumns: 4616,
+  relevantColumns: { choice: 51, marketShare: 11, attributes: 280, version: 0 },
+  marketShareScenarios: { original: 0, withNewOptions: 0 },
+  products: []
+}
+[Data Processing] Preprocessing complete: {
+  totalRows: 100,
+  cleanedRows: 100,
+  totalColumns: 4616,
+  relevantColumns: { choice: 51, marketShare: 11, attributes: 280, version: 0 },
+  marketShareScenarios: { original: 0, withNewOptions: 0 },
+  products: []
+}
+[Data Processing] DEBUG - workflow.survey exists? false
+[Data Processing] DEBUG - workflow.survey.summary exists? false
+[Data Processing] DEBUG - workflow.survey.summary.marketShareProducts: undefined
+[Data Processing] Mapping AI products to row numbers: [
+  'Evrysdi (risdiplam)',
+  'Spinraza (nusinersen)',
+  'Zolgensma (onasemnogene aberparvovec)',
+  'Clinical Trial',
+  'Observation Only',
+  'Other (specify)'
+]
+[Data Processing] Mapped row 1 to "Evrysdi (risdiplam)"
+[Data Processing] Mapped row 2 to "Spinraza (nusinersen)"
+[Data Processing] Mapped row 3 to "Clinical Trial"
+[Data Processing] Mapped row 4 to "Observation Only"
+[Data Processing] AI identified 6 products, mapped to 4 rows. Ignoring -4 unmapped rows.
+[AI Data Processing] Data processing complete for workflow: workflow_1761694964966

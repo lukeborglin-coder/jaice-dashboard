@@ -7,7 +7,8 @@ import {
   ArrowLeftIcon,
   CheckCircleIcon,
   ExclamationTriangleIcon,
-  PencilIcon
+  PencilIcon,
+  MagnifyingGlassIcon
 } from '@heroicons/react/24/outline';
 import { IconScript } from '@tabler/icons-react';
 import { API_BASE_URL } from '../config';
@@ -147,11 +148,15 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
   const [showAddToCAModal, setShowAddToCAModal] = useState(false);
   const [selectedTranscriptForCA, setSelectedTranscriptForCA] = useState<Transcript | null>(null);
   const [isAddingToCA, setIsAddingToCA] = useState(false);
-  const [showMyProjectsOnly, setShowMyProjectsOnly] = useState(false);
+  const [showMyProjectsOnly, setShowMyProjectsOnly] = useState(true);
   const [pendingProjectNavigation, setPendingProjectNavigation] = useState<string | null>(null);
   const [parsedDateTime, setParsedDateTime] = useState<{ date: string; time: string } | null>(null);
   const [duplicateWarning, setDuplicateWarning] = useState<boolean>(false);
   const [uploadStep, setUploadStep] = useState<'select' | 'options'>('select');
+  const [showSearchModal, setShowSearchModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
   const [isParsingFile, setIsParsingFile] = useState(false);
   
   // Date/time editing state
@@ -589,6 +594,115 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
     } finally {
       setIsAddingToCA(false);
     }
+  };
+
+  const handleSearch = async () => {
+    if (!selectedProject || !searchQuery.trim()) return;
+
+    setIsSearching(true);
+    setSearchResults([]);
+
+    try {
+      const results: any[] = [];
+      const query = searchQuery.toLowerCase();
+      const projectTranscripts = transcripts[selectedProject.id] || [];
+
+      console.log(`🔎 Starting search for: "${searchQuery}"`);
+      console.log(`📊 Searching through ${projectTranscripts.length} transcripts`);
+
+      // Search through all transcripts for this project
+      for (const transcript of projectTranscripts) {
+        try {
+          // Download the transcript content as plain text - prefer cleaned version if available
+          const preferCleaned = transcript.isCleaned ? 'preferCleaned=true&' : '';
+          console.log(`🔍 Searching transcript ${transcript.respno || transcript.id}, isCleaned: ${transcript.isCleaned}`);
+          const response = await fetch(
+            `${API_BASE_URL}/api/transcripts/download/${selectedProject.id}/${transcript.id}?${preferCleaned}asText=true`,
+            { headers: getAuthHeaders() }
+          );
+
+          if (!response.ok) {
+            console.log(`❌ Failed to download transcript ${transcript.respno || transcript.id}`);
+            continue;
+          }
+
+          const text = await response.text();
+          console.log(`📄 Downloaded ${text.length} characters from ${transcript.respno || transcript.id}`);
+
+          // Log a sample of the transcript to see what we're searching
+          const sampleLines = text.split('\n').slice(0, 10);
+          console.log(`📝 First 10 lines of ${transcript.respno || transcript.id}:`, sampleLines);
+
+          // Check if the search query exists anywhere in the full text (ignoring line breaks)
+          const fullTextLower = text.toLowerCase();
+          const queryInFullText = fullTextLower.includes(query);
+          console.log(`🔍 Does "${searchQuery}" exist in full text (ignoring line breaks)? ${queryInFullText}`);
+
+          const lines = text.split('\n');
+
+          // Search through each line
+          let matchCount = 0;
+          for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            const lowerLine = line.toLowerCase();
+
+            if (lowerLine.includes(query)) {
+              matchCount++;
+              // Found a match
+              const contextBefore = i > 0 ? lines[i - 1].trim() : null;
+              const contextAfter = i < lines.length - 1 ? lines[i + 1].trim() : null;
+
+              // Create highlighted version of the matched line
+              const regex = new RegExp(`(${searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+              const highlightedText = line.replace(regex, '<mark style="background-color: #FEF3C7; font-weight: 600;">$1</mark>');
+
+              results.push({
+                respno: transcript.respno,
+                interviewDate: transcript.interviewDate,
+                interviewTime: transcript.interviewTime,
+                matchedLine: line.trim(),
+                highlightedText,
+                contextBefore,
+                contextAfter,
+                transcriptId: transcript.id
+              });
+            }
+          }
+          console.log(`✅ Found ${matchCount} matches in ${transcript.respno || transcript.id}`);
+        } catch (error) {
+          console.error(`Error searching transcript ${transcript.id}:`, error);
+        }
+      }
+
+      console.log(`🎯 Search complete: ${results.length} total matches found`);
+      setSearchResults(results);
+    } catch (error) {
+      console.error('Search error:', error);
+      alert('Failed to search transcripts');
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Helper function to format search result text - keeps "Respondent:" bold but removes bolding from actual text
+  const formatSearchResultText = (htmlText: string) => {
+    // Check if text starts with "Respondent:" (case insensitive)
+    // We need to handle this carefully since htmlText may contain HTML tags like <mark>
+    // First, check if "Respondent:" is already wrapped in <strong>
+    if (htmlText.match(/^<strong>Respondent:/i)) {
+      // Already formatted, return as is
+      return htmlText;
+    }
+    
+    // Try to match "Respondent:" at the start (may be followed by space or directly by HTML)
+    const respondentMatch = htmlText.match(/^(Respondent:\s*)(.*)$/i);
+    if (respondentMatch) {
+      // Wrap "Respondent: " in <strong>, rest stays normal (may contain <mark> tags)
+      return `<strong>${respondentMatch[1]}</strong>${respondentMatch[2]}`;
+    }
+    
+    // If no "Respondent:" prefix, return as is
+    return htmlText;
   };
 
   useEffect(() => {
@@ -1090,14 +1204,23 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                 {selectedProject.archived && ' • Archived'}
               </p>
             </div>
-            <button
-              onClick={() => setShowUploadModal(true)}
-              className="inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:opacity-90"
-              style={{ backgroundColor: BRAND_ORANGE }}
-            >
-              <CloudArrowUpIcon className="h-5 w-5" />
-              Upload Transcript
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowSearchModal(true)}
+                className="inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium shadow-sm transition bg-white border border-gray-300 hover:bg-gray-50 text-gray-700"
+              >
+                <MagnifyingGlassIcon className="h-5 w-5" />
+                Search Transcripts
+              </button>
+              <button
+                onClick={() => setShowUploadModal(true)}
+                className="inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:opacity-90"
+                style={{ backgroundColor: BRAND_ORANGE }}
+              >
+                <CloudArrowUpIcon className="h-5 w-5" />
+                Upload Transcript
+              </button>
+            </div>
           </section>
 
           <div className="bg-white shadow-sm border border-gray-200 rounded-lg overflow-hidden">
@@ -1542,6 +1665,111 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
             </div>
           </div>
         )}
+
+        {/* Search Modal */}
+        {showSearchModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[99999] p-4">
+            <div className="bg-white rounded-lg w-full max-w-4xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900">Search Transcripts</h3>
+                <button
+                  onClick={() => {
+                    setShowSearchModal(false);
+                    setSearchQuery('');
+                    setSearchResults([]);
+                  }}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && searchQuery.trim()) {
+                        handleSearch();
+                      }
+                    }}
+                    placeholder="Enter a quote or phrase to search..."
+                    className="w-full border border-gray-300 rounded-lg px-4 py-3 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                  <button
+                    onClick={handleSearch}
+                    disabled={!searchQuery.trim() || isSearching}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-md transition disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
+                    style={{ color: BRAND_ORANGE }}
+                  >
+                    <MagnifyingGlassIcon className="h-5 w-5" />
+                  </button>
+                </div>
+
+                {isSearching && (
+                  <div className="text-center py-8">
+                    <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-gray-200" style={{ borderTopColor: BRAND_ORANGE }}></div>
+                    <p className="text-sm text-gray-500">Searching transcripts...</p>
+                  </div>
+                )}
+
+                {!isSearching && searchResults.length === 0 && searchQuery && (
+                  <div className="text-center py-8">
+                    <DocumentTextIcon className="mx-auto mb-4 h-16 w-16 text-gray-300" />
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No matches found</h3>
+                    <p className="text-sm text-gray-500">Try searching with different keywords</p>
+                  </div>
+                )}
+
+                {!isSearching && searchResults.length > 0 && (
+                  <div className="space-y-4 overflow-y-auto max-h-[50vh]">
+                    <p className="text-sm text-gray-600">Found {searchResults.length} {searchResults.length === 1 ? 'match' : 'matches'}</p>
+                    {searchResults.map((result, index) => (
+                      <div key={index} className="border border-gray-200 rounded-lg p-4 space-y-2 hover:bg-gray-50 transition-colors">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <span className="inline-flex items-center rounded-md bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">
+                              {result.respno || 'No Respno'}
+                            </span>
+                            {result.interviewDate && (
+                              <span className="text-xs text-gray-500">{result.interviewDate}</span>
+                            )}
+                            {result.interviewTime && (
+                              <span className="text-xs text-gray-500">{result.interviewTime}</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Context: Line before */}
+                        {result.contextBefore && (
+                          <div className="text-sm text-gray-500 italic pl-4 border-l-2 border-gray-200">
+                            {result.contextBefore}
+                          </div>
+                        )}
+
+                        {/* Matched line with highlighting */}
+                        <div className="text-sm text-gray-900 pl-4 border-l-2" style={{ borderColor: BRAND_ORANGE }}>
+                          <span dangerouslySetInnerHTML={{ __html: formatSearchResultText(result.highlightedText) }} />
+                        </div>
+
+                        {/* Context: Line after */}
+                        {result.contextAfter && (
+                          <div className="text-sm text-gray-500 italic pl-4 border-l-2 border-gray-200">
+                            {result.contextAfter}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     );
   }
@@ -1579,6 +1807,21 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                 Archived Projects ({filteredArchivedProjects.length})
               </button>
             </nav>
+            <div className="flex items-center gap-3">
+              {user?.role !== 'oversight' && (
+                <button
+                  onClick={() => setShowMyProjectsOnly(!showMyProjectsOnly)}
+                  className={`px-3 py-1 text-xs rounded-lg shadow-sm transition-colors ${
+                    showMyProjectsOnly
+                      ? 'bg-white border border-gray-300 hover:bg-gray-50'
+                      : 'text-white hover:opacity-90'
+                  }`}
+                  style={showMyProjectsOnly ? {} : { backgroundColor: BRAND_ORANGE }}
+                >
+                  {showMyProjectsOnly ? 'Only My Projects' : 'All Cognitive Projects'}
+                </button>
+              )}
+            </div>
           </div>
         </div>
 

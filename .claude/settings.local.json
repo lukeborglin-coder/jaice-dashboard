@@ -43,7 +43,19 @@
       "Bash(npm run:*)",
       "Bash(PORT=3005 node:*)",
       "Bash(rd /s /q \"node_modules\\.vite\")",
-      "Bash(do echo \"=== $file ===\")"
+      "Bash(do echo \"=== $file ===\")",
+      "Bash(call .venvScriptsactivate)",
+      "Bash(python -m uvicorn:*)",
+      "Bash(python -m pip install:*)",
+      "Bash(python:*)",
+      "Bash(.venv/Scripts/python.exe -m uvicorn:*)",
+      "Bash(.venv/Scripts/python.exe -m pip install:*)",
+      "Bash(do taskkill \"//PID\" \"$pid\" \"//F\")",
+      "Bash(.venv/Scripts/python.exe:*)",
+      "Bash(Start_Conjoint_API.bat)",
+      "Bash(.venvScriptspython.exe -m pip install --quiet -r requirements.txt)",
+      "Bash(.venvScriptspython.exe -m uvicorn app:app --reload --port 8000)",
+      "Bash(conjoint-backend/.venv/Scripts/python.exe -m uvicorn:*)"
     ],
     "deny": [],
     "ask": []

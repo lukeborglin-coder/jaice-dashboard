@@ -50,13 +50,14 @@ import {
   RocketLaunchIcon as RocketLaunchIconSolid,
   PlayIcon as PlayIconSolid
 } from "@heroicons/react/24/solid";
-import { IconCalendarShare, IconCalendarWeek, IconBallAmericanFootball, IconRocket, IconFileAnalyticsFilled, IconLayoutSidebarFilled, IconTable, IconCheckbox, IconDatabaseExclamation, IconBook2, IconScript, IconChartBar, IconCode } from "@tabler/icons-react";
+import { IconCalendarShare, IconCalendarWeek, IconBallAmericanFootball, IconRocket, IconFileAnalyticsFilled, IconLayoutSidebarFilled, IconTable, IconCheckbox, IconDatabaseExclamation, IconBook2, IconScript, IconChartBar, IconCode, IconChartDots } from "@tabler/icons-react";
 import ContentAnalysisX from "./components/ContentAnalysisX";
 import Transcripts from "./components/Transcripts";
 import Storytelling from "./components/Storytelling";
 import QuestionnaireParser from "./components/QuestionnaireParser";
 import StatTesting from "./components/StatTesting";
 import OpenEndCoding from "./components/OpenEndCoding";
+import ConjointProjects from "./components/ConjointProjects";
 import AuthWrapper from "./components/AuthWrapper";
 import TopBar from "./components/TopBar";
 import Feedback from "./components/Feedback";
@@ -4204,21 +4205,30 @@ export default function App() {
 
   const qualitativeTools = useMemo(
     () => [
-      { name: "Transcripts", icon: IconScript },
       { name: "Content Analysis", icon: IconTable },
+      { name: "Transcripts", icon: IconScript },
       { name: "Storytelling", icon: IconBook2 },
     ],
     []
   );
 
   const quantitativeTools = useMemo(
-    () => [
-      { name: "Stat Testing", icon: IconChartBar },
-      { name: "Open-End Coding", icon: IconCode },
-      { name: "QNR (Coming Soon)", icon: IconCheckbox, disabled: true },
-      { name: "Data QA (Coming Soon)", icon: IconDatabaseExclamation, disabled: true },
-    ],
-    []
+    () => {
+      const tools = [
+        { name: "Stat Testing", icon: IconChartBar },
+        { name: "Open-End Coding", icon: IconCode },
+        { name: "QNR (Coming Soon)", icon: IconCheckbox, disabled: true },
+        { name: "Data QA (Coming Soon)", icon: IconDatabaseExclamation, disabled: true },
+      ];
+
+      // Only show Conjoint Simulator to admins
+      if (user?.role === 'admin') {
+        tools.splice(2, 0, { name: "Conjoint Simulator", icon: IconChartDots });
+      }
+
+      return tools;
+    },
+    [user?.role]
   );
 
   const adminNav = useMemo(
@@ -4306,6 +4316,11 @@ export default function App() {
             {route === "Open-End Coding" && (
               <div className="flex items-center gap-3">
                 <h1 className="text-2xl font-bold" style={{ color: BRAND.gray }}>Open-End Coding</h1>
+              </div>
+            )}
+            {route === "Conjoint Simulator" && (
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-bold" style={{ color: BRAND.gray }}>Conjoint Simulator</h1>
               </div>
             )}
             
@@ -4567,6 +4582,21 @@ export default function App() {
         <StatTesting />
       ) : route === "Open-End Coding" ? (
         <OpenEndCoding />
+      ) : route === "Conjoint Simulator" ? (
+        user?.role === 'admin' ? (
+          <ConjointProjects
+            projects={projects}
+            onNavigateToProject={handleProjectView}
+            onCreateProject={() => setShowProjectWizard(true)}
+          />
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center p-8">
+              <h2 className="text-2xl font-semibold text-gray-900 mb-2">Access Restricted</h2>
+              <p className="text-gray-600">The Conjoint Simulator is only available to administrators.</p>
+            </div>
+          </div>
+        )
       ) : route === "QNR" || route === "qnr" ? (
         <QuestionnaireParser />
       ) : (
@@ -11270,35 +11300,6 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
     };
 
     const nextPhase = getNextPhaseTimeline();
-    
-    // Debug logging for phase detection
-    console.log('Phase generation debug:', {
-      hasNextPhase: !!nextPhase,
-      nextPhaseName: nextPhase?.phase,
-      currentPhase: currentPhaseData.phase,
-      segments: project.segments?.map(s => ({ phase: s.phase, startDate: s.startDate, endDate: s.endDate }))
-    });
-
-    // Get upcoming key dates (within next 2 weeks)
-    const twoWeeksFromNow = new Date(today);
-    twoWeeksFromNow.setDate(twoWeeksFromNow.getDate() + 14);
-    const upcomingKeyDates = (project.keyDeadlines || []).filter(deadline => {
-      const deadlineDate = new Date(deadline.date);
-      return deadlineDate >= today && deadlineDate <= twoWeeksFromNow;
-    }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-    // Get tasks assigned today
-    const todayStr = today.toISOString().split('T')[0];
-    const tasksToday = (project.tasks || []).filter(task =>
-      task.dueDate === todayStr && task.status !== 'completed'
-    );
-
-    // Get tasks assigned over next 2 weeks
-    const tasksNext2Weeks = (project.tasks || []).filter(task => {
-      if (!task.dueDate || task.status === 'completed') return false;
-      const taskDate = new Date(task.dueDate);
-      return taskDate > today && taskDate <= twoWeeksFromNow;
-    }).sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime());
 
     // Format date helper
     const formatDate = (dateStr: string) => {
@@ -11306,12 +11307,21 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
       return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     };
 
-    // Build update text
+    // Build update text - match oversight format exactly
     const teamMemberNames = (project.teamMembers || []).map(m => m.name).join(', ') || 'No team members assigned';
     let updateText = `**Team Members:** ${teamMemberNames}\n\n`;
     updateText += `**Client:** ${project.client}\n\n`;
+
+    // Add moderator name for quals if available
+    const moderatorForQuals = project.moderatorForQuals || 'Not assigned';
+    updateText += `**Moderator:** ${moderatorForQuals}\n\n`;
+
+    // Add sample details if available
+    if (project.sampleDetails) {
+      updateText += `**Sample Details:** ${project.sampleDetails}\n`;
+    }
+
     if (nextPhase) {
-      // If there's an upcoming phase, always render current phase as [PHASE] for side-by-side display
       if (currentPhaseData.segment) {
         updateText += `[PHASE] Current Phase:|${currentPhaseData.phase}|${formatDate(currentPhaseData.segment.startDate)} - ${formatDate(currentPhaseData.segment.endDate)}\n`;
       } else {
@@ -11319,54 +11329,11 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
       }
       updateText += `[PHASE] Upcoming Phase:|${nextPhase.phase}|${formatDate(nextPhase.startDate)} - ${formatDate(nextPhase.endDate)}\n`;
     } else {
-      // No upcoming phase, render current phase normally
       if (currentPhaseData.segment) {
         updateText += `[PHASE] Current Phase:|${currentPhaseData.phase}|${formatDate(currentPhaseData.segment.startDate)} - ${formatDate(currentPhaseData.segment.endDate)}\n`;
       } else {
         updateText += `**Current Phase:** ${currentPhaseData.phase}\n`;
       }
-    }
-
-    if (tasksToday.length > 0) {
-      updateText += `**Tasks Due Today:**\n`;
-      tasksToday.forEach(task => {
-        const assignedNames = task.assignedTo?.map(id => {
-          const member = project.teamMembers?.find(m => m.id === id);
-          return member?.name || 'Not assigned';
-        }).join(', ') || 'Not assigned';
-        updateText += `[TASK] ${task.description || task.content}|${project.name}|${assignedNames}\n`;
-      });
-      updateText += `\n`;
-    }
-
-    if (tasksNext2Weeks.length > 0) {
-      updateText += `[DIVIDER]\n`;
-      updateText += `**Tasks Due in Next 2 Weeks:**\n`;
-      tasksNext2Weeks.forEach(task => {
-        const assignedNames = task.assignedTo?.map(id => {
-          const member = project.teamMembers?.find(m => m.id === id);
-          return member?.name || 'Not assigned';
-        }).join(', ') || 'Not assigned';
-        updateText += `[TASK] ${task.description || task.content}|${project.name}|${formatDate(task.dueDate!)}|${assignedNames}\n`;
-      });
-      updateText += `\n`;
-    }
-
-    if (upcomingKeyDates.length > 0) {
-      updateText += `[DIVIDER]\n`;
-      updateText += `**Key Dates Coming Up:**\n`;
-      upcomingKeyDates.forEach(deadline => {
-        updateText += `[KEYDATE] ${deadline.label}|${formatDate(deadline.date)}\n`;
-      });
-      updateText += `\n`;
-    }
-
-    // Add project files
-    if (project.files && project.files.length > 0) {
-      updateText += `**Project Files:**\n`;
-      project.files.forEach(file => {
-        updateText += `[FILE:${file.type}] ${file.name}|${file.url}\n`;
-      });
     }
 
     setProjectUpdateModal({ show: true, project, update: updateText });
@@ -12054,9 +12021,6 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
         />
       )}
 
-      </div>
-      )}
-
         {/* Timeline View */}
         {viewMode === 'timeline' && (
           <div className="bg-white shadow-sm border border-gray-200 rounded-lg mt-5" style={{ overflow: 'visible' }}>
@@ -12346,6 +12310,9 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
               </table>
             </div>
           </div>
+      )}
+
+      </div>
       )}
 
         {/* Project Update Modal */}
@@ -19597,8 +19564,6 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
     </div>
   );
 }
-
-
 
 
 
