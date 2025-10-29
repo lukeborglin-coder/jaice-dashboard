@@ -1633,6 +1633,13 @@
           "type": "discussion-guide",
           "url": "/uploads/Discussion_Guide_P-1761243049041_1761251648433.docx",
           "uploadedAt": "2025-10-23T20:34:08.433Z"
+        },
+        {
+          "id": "file-1761757964783-dg",
+          "name": "test 1 Discussion Guide.docx",
+          "type": "discussion-guide",
+          "url": "/uploads/Discussion_Guide_P-1761243049041_1761757964783.docx",
+          "uploadedAt": "2025-10-29T17:12:44.784Z"
         }
       ],
       "segments": [
@@ -1677,7 +1684,7 @@
       "reportDeadline": "10/31/25",
       "teamMembersText": "Luke Borglin,  Ciara Mcevoy-Benisti, Nikki",
       "hasDiscussionGuide": true,
-      "discussionGuideUpdatedAt": "2025-10-23T20:34:08.529Z",
+      "discussionGuideUpdatedAt": "2025-10-29T17:12:44.884Z",
       "calculatedProgress": 78
     }
   ],

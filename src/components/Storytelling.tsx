@@ -1001,7 +1001,15 @@ export default function Storytelling({ analysisId, projectId, onNavigate, setAna
       });
       if (response.ok) {
         const data = await response.json();
-        setStrategicQuestions(data.strategicQuestions || []);
+        console.log('🔍 Loaded project data:', {
+          hasStrategicQuestions: !!data.strategicQuestions,
+          strategicQuestionsCount: data.strategicQuestions?.length || 0,
+          hasKeyFindings: !!data.keyFindings,
+          keyFindingsStrategicQuestions: data.keyFindings?.strategicQuestions?.length || 0,
+          keyFindingsHasFindings: !!data.keyFindings?.findings,
+          keyFindingsFindingsCount: data.keyFindings?.findings?.length || 0,
+          keyFindingsKeys: data.keyFindings ? Object.keys(data.keyFindings) : []
+        });
         
         // Use selected content analysis data if available, otherwise fall back to project data
         const respondentCount = selectedContentAnalysis ? 
@@ -1014,13 +1022,82 @@ export default function Storytelling({ analysisId, projectId, onNavigate, setAna
         
         // Preserve respondentCount and strategicQuestions when loading existing keyFindings
         if (data.keyFindings) {
+          console.log('🔍 Loading keyFindings:', {
+            hasFindings: !!data.keyFindings.findings,
+            findingsCount: data.keyFindings.findings?.length || 0,
+            strategicQuestions: data.keyFindings.strategicQuestions?.length || 0,
+            allKeys: Object.keys(data.keyFindings)
+          });
           setKeyFindings({
             ...data.keyFindings,
             respondentCount: data.keyFindings.respondentCount || respondentCount,
             strategicQuestions: data.keyFindings.strategicQuestions || data.strategicQuestions || []
           });
+          console.log('🔍 Set keyFindings state with findings:', {
+            hasFindings: !!data.keyFindings.findings,
+            findingsCount: data.keyFindings.findings?.length || 0,
+            findings: data.keyFindings.findings
+          });
+          // Prioritize data.strategicQuestions (saved questions) over keyFindings.strategicQuestions (questions from last generation)
+          // Only use keyFindings.strategicQuestions if data.strategicQuestions is empty
+          const questionsToSet = (data.strategicQuestions && data.strategicQuestions.length > 0) 
+            ? data.strategicQuestions 
+            : (data.keyFindings.strategicQuestions || []);
+          console.log('🔍 Setting strategicQuestions - prioritizing saved questions over keyFindings questions:', questionsToSet.length, 'questions:', questionsToSet);
+          setStrategicQuestions(questionsToSet);
         } else {
-          setKeyFindings(data.keyFindings);
+          // Only clear keyFindings if we're loading the currently selected analysis and it has no findings
+          // This prevents clearing findings when loading data for other analyses
+          const currentSelectedAnalysisId = selectedContentAnalysis?.id || selectedProject?.analysisId || analysisId;
+          const isCurrentAnalysis = analysisIdParam === currentSelectedAnalysisId || 
+                                    (!analysisIdParam && !currentSelectedAnalysisId) ||
+                                    (analysisIdParam === selectedContentAnalysis?.id) ||
+                                    (analysisIdParam === selectedProject?.analysisId);
+          
+          if (isCurrentAnalysis) {
+            // Only clear if we're loading the current analysis and it has no keyFindings
+            if (data.strategicQuestions !== undefined) {
+              // If strategicQuestions is in the response, we're loading a specific analysis
+              // Clear keyFindings only if this is the current analysis
+              console.log('🔍 Clearing keyFindings - loading current analysis with no keyFindings');
+              setKeyFindings(null);
+            }
+          } else {
+            console.log('🔍 Preserving keyFindings - loading different analysis:', {
+              loadingAnalysisId: analysisIdParam,
+              currentSelectedAnalysisId: currentSelectedAnalysisId,
+              hasExistingKeyFindings: !!keyFindings
+            });
+            // Preserve existing keyFindings when loading a different analysis
+          }
+          
+          // Only update strategicQuestions if this load matches the currently selected analysis
+          // This prevents clearing questions when loading data for other analyses
+          console.log('🔍 Checking if should update questions:', {
+            loadingAnalysisId: analysisIdParam,
+            currentSelectedAnalysisId: currentSelectedAnalysisId,
+            isCurrentAnalysis: isCurrentAnalysis,
+            hasQuestions: data.strategicQuestions?.length || 0
+          });
+          
+          if (isCurrentAnalysis) {
+            // Only set strategicQuestions if we have data, otherwise preserve existing state
+            if (data.strategicQuestions && data.strategicQuestions.length > 0) {
+              console.log('🔍 Setting strategicQuestions from data:', data.strategicQuestions.length, 'questions:', data.strategicQuestions);
+              setStrategicQuestions(data.strategicQuestions);
+            } else if (data.strategicQuestions !== undefined && data.strategicQuestions.length === 0) {
+              // Only clear if this is the currently selected analysis and it explicitly has no questions
+              console.log('🔍 Clearing strategicQuestions (empty array for current analysis)');
+              setStrategicQuestions([]);
+            } else {
+              console.log('🔍 No strategicQuestions in data, preserving existing state');
+            }
+          } else {
+            console.log('🔍 Not updating strategicQuestions - loading different analysis:', {
+              loadingAnalysisId: analysisIdParam,
+              currentSelectedAnalysisId: currentSelectedAnalysisId
+            });
+          }
         }
         
         // Preserve respondentCount and strategicQuestions when loading existing storyboards
@@ -1442,7 +1519,12 @@ export default function Storytelling({ analysisId, projectId, onNavigate, setAna
       });
       if (response.ok) {
         const data = await response.json();
-        setStrategicQuestions(data.strategicQuestions || []);
+        console.log('🔍 Loaded storytelling data:', {
+          hasStrategicQuestions: !!data.strategicQuestions,
+          strategicQuestionsCount: data.strategicQuestions?.length || 0,
+          hasKeyFindings: !!data.keyFindings,
+          keyFindingsStrategicQuestions: data.keyFindings?.strategicQuestions?.length || 0
+        });
         
         // Preserve respondentCount and strategicQuestions when loading existing keyFindings
         if (data.keyFindings) {
@@ -1452,8 +1534,54 @@ export default function Storytelling({ analysisId, projectId, onNavigate, setAna
             respondentCount: data.keyFindings.respondentCount || currentRespondentCount,
             strategicQuestions: data.keyFindings.strategicQuestions || data.strategicQuestions || []
           });
+          // Prioritize data.strategicQuestions (saved questions) over keyFindings.strategicQuestions (questions from last generation)
+          // Only use keyFindings.strategicQuestions if data.strategicQuestions is empty
+          const questionsToSet = (data.strategicQuestions && data.strategicQuestions.length > 0) 
+            ? data.strategicQuestions 
+            : (data.keyFindings.strategicQuestions || []);
+          console.log('🔍 Setting strategicQuestions (loadStorytellingData) - prioritizing saved questions:', questionsToSet.length, 'questions:', questionsToSet);
+          setStrategicQuestions(questionsToSet);
         } else {
-          setKeyFindings(data.keyFindings);
+          // Only clear keyFindings if we're loading the currently selected analysis and it has no findings
+          const currentSelectedAnalysisId = selectedContentAnalysis?.id || selectedProject?.analysisId || analysisId;
+          const isCurrentAnalysis = currentAnalysisId === currentSelectedAnalysisId || 
+                                    (!currentAnalysisId && !currentSelectedAnalysisId) ||
+                                    (currentAnalysisId === selectedContentAnalysis?.id) ||
+                                    (currentAnalysisId === selectedProject?.analysisId);
+          
+          if (isCurrentAnalysis) {
+            // Only clear if we're loading the current analysis and it has no keyFindings
+            console.log('🔍 Clearing keyFindings (loadStorytellingData) - loading current analysis with no keyFindings');
+            setKeyFindings(data.keyFindings);
+          } else {
+            console.log('🔍 Preserving keyFindings (loadStorytellingData) - loading different analysis:', {
+              loadingAnalysisId: currentAnalysisId,
+              currentSelectedAnalysisId: currentSelectedAnalysisId,
+              hasExistingKeyFindings: !!keyFindings
+            });
+            // Preserve existing keyFindings when loading a different analysis
+          }
+          
+          // Only update strategicQuestions if this load matches the currently selected analysis
+          // This prevents clearing questions when loading data for other analyses
+          if (isCurrentAnalysis) {
+            // Only set strategicQuestions if we have data, otherwise preserve existing state
+            if (data.strategicQuestions && data.strategicQuestions.length > 0) {
+              console.log('🔍 Setting strategicQuestions from data (loadStorytellingData):', data.strategicQuestions.length, 'questions:', data.strategicQuestions);
+              setStrategicQuestions(data.strategicQuestions);
+            } else if (data.strategicQuestions !== undefined && data.strategicQuestions.length === 0) {
+              // Only clear if this is the currently selected analysis and it explicitly has no questions
+              console.log('🔍 Clearing strategicQuestions (empty array for current analysis in loadStorytellingData)');
+              setStrategicQuestions([]);
+            } else {
+              console.log('🔍 No strategicQuestions in data (loadStorytellingData), preserving existing state');
+            }
+          } else {
+            console.log('🔍 Not updating strategicQuestions (loadStorytellingData) - loading different analysis:', {
+              loadingAnalysisId: currentAnalysisId,
+              currentSelectedAnalysisId: currentSelectedAnalysisId
+            });
+          }
         }
         
         // Preserve respondentCount and strategicQuestions when loading existing storyboards
@@ -1674,7 +1802,8 @@ export default function Storytelling({ analysisId, projectId, onNavigate, setAna
 
   useEffect(() => {
     if (selectedProject) {
-      loadStorytellingData(selectedProject.id);
+      // Use loadProjectData as it handles all data loading properly including strategic questions
+      loadProjectData(selectedProject.id);
     } else if (projectId && !forceListView) {
       // If we have a specific projectId, load that project directly
       const project = projects.find(p => p.id === projectId);
@@ -1687,7 +1816,7 @@ export default function Storytelling({ analysisId, projectId, onNavigate, setAna
   // Reload data when selectedContentAnalysis changes
   useEffect(() => {
     if (selectedProject && selectedContentAnalysis) {
-      loadStorytellingData(selectedProject.id);
+      // Use loadProjectData to ensure all data loads properly
       loadProjectData(selectedProject.id);
     }
   }, [selectedContentAnalysis?.id]);
@@ -1782,17 +1911,35 @@ export default function Storytelling({ analysisId, projectId, onNavigate, setAna
     try {
       // Determine which analysisId to use - prioritize selectedContentAnalysis
       const currentAnalysisId = selectedContentAnalysis?.id || selectedProject?.analysisId || analysisId;
+      
+      // Filter out empty strings from tempQuestions
+      const filteredQuestions = tempQuestions.filter(q => q.trim().length > 0);
+      
+      // If no questions after filtering and no existing questions, don't save
+      if (filteredQuestions.length === 0 && strategicQuestions.length === 0) {
+        alert('Please add at least one strategic question before saving.');
+        return;
+      }
+      
+      // If all questions were removed, confirm before clearing
+      if (filteredQuestions.length === 0 && strategicQuestions.length > 0) {
+        const confirmed = window.confirm('Are you sure you want to remove all strategic questions?');
+        if (!confirmed) {
+          return;
+        }
+      }
+      
       const response = await fetch(`${API_BASE_URL}/api/storytelling/${selectedProject.id}/strategic-questions`, {
         method: 'POST',
         headers: {
           ...getAuthHeaders(),
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ questions: tempQuestions, analysisId: currentAnalysisId })
+        body: JSON.stringify({ questions: filteredQuestions, analysisId: currentAnalysisId })
       });
 
       if (response.ok) {
-        setStrategicQuestions(tempQuestions);
+        setStrategicQuestions(filteredQuestions);
         setEditingQuestions(false);
         // Reload project data to ensure persistence is saved
         await loadProjectData(selectedProject.id);
@@ -1869,6 +2016,10 @@ export default function Storytelling({ analysisId, projectId, onNavigate, setAna
     setGeneratingFindings(true);
 
     try {
+      // Ensure we're using the current strategicQuestions state
+      const questionsToSend = strategicQuestions.filter(q => q.trim().length > 0);
+      console.log('🔍 Generating key findings with questions:', questionsToSend.length, 'questions:', questionsToSend);
+      
       const response = await fetch(`${API_BASE_URL}/api/storytelling/${selectedProject.id}/key-findings/generate`, {
         method: 'POST',
         headers: {
@@ -1878,12 +2029,17 @@ export default function Storytelling({ analysisId, projectId, onNavigate, setAna
         body: JSON.stringify({ 
           detailLevel, 
           analysisId: selectedContentAnalysis?.id || selectedProject?.analysisId || analysisId,
-          strategicQuestions: strategicQuestions
+          strategicQuestions: questionsToSend
         })
       });
 
       if (response.ok) {
         const findings = await response.json();
+        console.log('🔍 Generated findings response:', {
+          hasFindings: !!findings.findings,
+          findingsCount: findings.findings?.length || 0,
+          allKeys: Object.keys(findings)
+        });
         const currentRespondentCount = selectedContentAnalysis ? 
           (() => {
             const allData = Object.values(selectedContentAnalysis.data || {}).flat();
@@ -1895,8 +2051,9 @@ export default function Storytelling({ analysisId, projectId, onNavigate, setAna
           ...findings,
           generatedAt: new Date().toISOString(),
           respondentCount: currentRespondentCount,
-          strategicQuestions: strategicQuestions
+          strategicQuestions: questionsToSend
         });
+        console.log('🔍 Set keyFindings state with findings count:', findings.findings?.length || 0);
       } else {
         const error = await response.json();
         alert(`Failed to generate findings: ${error.error}`);
@@ -2672,7 +2829,7 @@ export default function Storytelling({ analysisId, projectId, onNavigate, setAna
               </div>
 
 
-              {keyFindings && keyFindings.findings && (
+              {keyFindings && keyFindings.findings && Array.isArray(keyFindings.findings) && keyFindings.findings.length > 0 && (
                 <div className="space-y-4">
                   {keyFindings.findings.map((finding, idx) => (
                     <div key={idx} className="mb-4">
@@ -2695,6 +2852,13 @@ export default function Storytelling({ analysisId, projectId, onNavigate, setAna
                       )}
                     </div>
                   ))}
+                </div>
+              )}
+              {keyFindings && (!keyFindings.findings || !Array.isArray(keyFindings.findings) || keyFindings.findings.length === 0) && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-4">
+                  <p className="text-sm text-yellow-800">
+                    Key findings were generated but no findings data is available. Please regenerate key findings.
+                  </p>
                 </div>
               )}
             </div>

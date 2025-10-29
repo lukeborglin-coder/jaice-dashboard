@@ -137,6 +137,8 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
   const [archivedProjects, setArchivedProjects] = useState<Project[]>([]);
   const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [viewMode, setViewMode] = useState<'home' | 'project' | 'transcripts-by-ca'>('home');
+  const [selectedContentAnalysis, setSelectedContentAnalysis] = useState<any | null>(null);
   const [transcripts, setTranscripts] = useState<ProjectTranscripts>({});
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -532,6 +534,36 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
     [savedAnalyses, selectedProject?.id]
   );
 
+  // Get transcripts that belong to a specific content analysis
+  const getTranscriptsForAnalysis = useCallback((analysis: any, projectTranscripts: Transcript[]): Transcript[] => {
+    if (!analysis || !analysis.data) return [];
+    
+    const transcriptIds = new Set<string>();
+    
+    // Collect all transcript IDs from the analysis data
+    Object.values(analysis.data).forEach((sheetData: any) => {
+      if (Array.isArray(sheetData)) {
+        sheetData.forEach((row: any) => {
+          if (row.transcriptId) {
+            transcriptIds.add(row.transcriptId);
+          }
+        });
+      }
+    });
+    
+    // Also check the transcripts array in the analysis object
+    if (analysis.transcripts && Array.isArray(analysis.transcripts)) {
+      analysis.transcripts.forEach((t: any) => {
+        if (t.id || t.sourceTranscriptId) {
+          transcriptIds.add(t.id || t.sourceTranscriptId);
+        }
+      });
+    }
+    
+    // Filter project transcripts to only include those in this analysis
+    return projectTranscripts.filter(t => transcriptIds.has(t.id));
+  }, []);
+
 
   const handleAddToCA = async (transcript: Transcript) => {
     if (!selectedProject) return;
@@ -851,11 +883,6 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
 
         // Move to options step
         setUploadStep('options');
-
-        // Auto-select CA if only one exists
-        if (analysesForSelectedProject.length === 1) {
-          setSelectedAnalysisId(analysesForSelectedProject[0].id);
-        }
       } else {
         // If parsing fails, still allow upload
         setUploadStep('options');
@@ -1170,10 +1197,9 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
     }
   };
 
-  if (selectedProject) {
-    const projectTranscripts = transcripts[selectedProject.id] || [];
-    // Backend now handles the sorting, so we use the transcripts as they come
-    const duplicateIds = findDuplicateInterviewTimes(projectTranscripts);
+  // Project view - show list of content analyses
+  if (selectedProject && viewMode === 'project') {
+    const projectAnalyses = analysesForSelectedProject;
 
     return (
       <main
@@ -1182,14 +1208,20 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
       >
         <div className="flex-1 p-6 space-y-6 max-w-full">
           <section className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <button
-                onClick={() => setSelectedProject(null)}
-                className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition mb-2"
-              >
-                <ArrowLeftIcon className="h-4 w-4" />
-                Back to Projects
-              </button>
+            <div className="flex-1">
+              <div className="flex items-center justify-between mb-2">
+                <button
+                  onClick={() => {
+                    setSelectedProject(null);
+                    setViewMode('home');
+                    setSelectedContentAnalysis(null);
+                  }}
+                  className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition"
+                >
+                  <ArrowLeftIcon className="h-4 w-4" />
+                  Back to Projects
+                </button>
+              </div>
               <h2
                 className="text-2xl font-bold"
                 style={{ color: BRAND_GRAY }}
@@ -1197,42 +1229,186 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                 {selectedProject.name}
               </h2>
               <p className="mt-1 text-sm text-gray-500">
-                {selectedProject.client && <span>{selectedProject.client}</span>}
-                {selectedProject.client && ' • '}
-                {projectTranscripts.length}{' '}
-                {projectTranscripts.length === 1 ? 'transcript' : 'transcripts'}
+                {projectAnalyses.length}{' '}
+                {projectAnalyses.length === 1 ? 'content analysis' : 'content analyses'}
                 {selectedProject.archived && ' • Archived'}
               </p>
             </div>
-            <div className="flex items-center gap-2">
+          </section>
+
+          <div className="bg-white shadow-sm border border-gray-200 rounded-lg overflow-hidden">
+            {/* Content Analyses Table */}
+            <div className="overflow-x-auto">
+              {projectAnalyses.length === 0 ? (
+                <div className="p-8 text-center">
+                  <DocumentTextIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Content Analyses</h3>
+                  <p className="text-gray-600 mb-4">This project doesn't have any content analyses yet.</p>
+                  <p className="text-sm text-gray-500">
+                    Create a content analysis in the Content Analysis tab to organize transcripts by analysis.
+                  </p>
+                </div>
+              ) : (
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Analysis Name
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Created
+                      </th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Transcripts
+                      </th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {projectAnalyses.map((analysis) => {
+                      const projectTranscripts = transcripts[selectedProject.id] || [];
+                      const analysisTranscripts = getTranscriptsForAnalysis(analysis, projectTranscripts);
+                      return (
+                        <tr 
+                          key={analysis.id} 
+                          className="hover:bg-gray-50 cursor-pointer transition-colors"
+                          onClick={() => {
+                            setViewMode('transcripts-by-ca');
+                            setSelectedContentAnalysis(analysis);
+                          }}
+                        >
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900">{analysis.name || 'Untitled Analysis'}</div>
+                            {analysis.description && (
+                              <div className="text-sm text-gray-500 truncate max-w-xs">{analysis.description}</div>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {analysis.savedAt ? new Date(analysis.savedAt).toLocaleDateString() : (analysis.createdAt ? new Date(analysis.createdAt).toLocaleDateString() : '-')}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center">
+                            <div className="flex items-center justify-center gap-1 text-sm text-gray-900">
+                              <IconScript className="h-4 w-4 text-gray-400" />
+                              {analysisTranscripts.length}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setViewMode('transcripts-by-ca');
+                                setSelectedContentAnalysis(analysis);
+                              }}
+                              className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                            >
+                              View Transcripts
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  // Transcripts view - show transcripts organized by content analysis
+  if (selectedProject && viewMode === 'transcripts-by-ca') {
+    const projectTranscripts = transcripts[selectedProject.id] || [];
+    // Backend now handles the sorting, so we use the transcripts as they come
+    const duplicateIds = findDuplicateInterviewTimes(projectTranscripts);
+
+    // Filter transcripts based on selected content analysis
+    const displayedTranscripts = selectedContentAnalysis 
+      ? getTranscriptsForAnalysis(selectedContentAnalysis, projectTranscripts)
+      : projectTranscripts;
+
+    return (
+      <main
+        className="flex-1 overflow-y-auto"
+        style={{ backgroundColor: BRAND_BG, height: 'calc(100vh - 80px)', marginTop: '80px' }}
+      >
+        <div className="flex-1 p-6 space-y-6 max-w-full">
+          <section className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex-1">
+              <div className="flex items-center justify-between mb-2">
+              <button
+                  onClick={() => {
+                    setViewMode('project');
+                    setSelectedContentAnalysis(null);
+                  }}
+                  className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition"
+              >
+                <ArrowLeftIcon className="h-4 w-4" />
+                  {selectedContentAnalysis ? `Back to ${selectedContentAnalysis.name || 'Content Analyses'}` : 'Back to Content Analyses'}
+              </button>
+              </div>
+              <h2
+                className="text-2xl font-bold"
+                style={{ color: BRAND_GRAY }}
+              >
+                {selectedProject.name}
+              </h2>
+              <p className="mt-1 text-sm text-gray-500">
+                {selectedContentAnalysis ? (
+                  <>
+                    {displayedTranscripts.length} of {projectTranscripts.length}{' '}
+                    {displayedTranscripts.length === 1 ? 'transcript' : 'transcripts'} in {selectedContentAnalysis.name || 'this analysis'}
+                  </>
+                ) : (
+                  <>
+                    {displayedTranscripts.length}{' '}
+                    {displayedTranscripts.length === 1 ? 'transcript' : 'transcripts'}
+                  </>
+                )}
+                {selectedProject.archived && ' • Archived'}
+              </p>
+            </div>
+            <div className="flex items-center gap-2 self-end">
               <button
                 onClick={() => setShowSearchModal(true)}
-                className="inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium shadow-sm transition bg-white border border-gray-300 hover:bg-gray-50 text-gray-700"
+                className="inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium shadow-sm transition bg-white border border-gray-300 hover:bg-gray-50 text-gray-700"
               >
-                <MagnifyingGlassIcon className="h-5 w-5" />
-                Search Transcripts
+                <MagnifyingGlassIcon className="h-4 w-4" />
+                Search
               </button>
               <button
                 onClick={() => setShowUploadModal(true)}
-                className="inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:opacity-90"
+                className="inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:opacity-90"
                 style={{ backgroundColor: BRAND_ORANGE }}
               >
-                <CloudArrowUpIcon className="h-5 w-5" />
-                Upload Transcript
+                <CloudArrowUpIcon className="h-4 w-4" />
+                Upload
               </button>
             </div>
           </section>
 
           <div className="bg-white shadow-sm border border-gray-200 rounded-lg overflow-hidden">
-            {projectTranscripts.length === 0 ? (
+            {displayedTranscripts.length === 0 ? (
               <div className="p-12 text-center">
                 <DocumentTextIcon className="mx-auto mb-4 h-16 w-16 text-gray-300" />
                 <h3 className="text-lg font-semibold text-gray-900">
-                  No transcripts yet
+                  {projectTranscripts.length === 0 
+                    ? 'No transcripts yet'
+                    : selectedContentAnalysis
+                      ? `No transcripts in ${selectedContentAnalysis.name || 'this content analysis'}`
+                      : 'No transcripts found'}
                 </h3>
                 <p className="mt-2 text-gray-500">
-                  Upload a transcript to get started.
+                  {projectTranscripts.length === 0 
+                    ? 'Upload a transcript to get started.'
+                    : selectedContentAnalysis
+                      ? 'This content analysis doesn\'t have any transcripts yet. Add transcripts to this analysis from the Content Analysis tab.'
+                      : 'No transcripts match the current filter.'}
                 </p>
+                {projectTranscripts.length === 0 && (
                 <button
                   onClick={() => setShowUploadModal(true)}
                   className="mt-6 inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:opacity-90"
@@ -1241,6 +1417,7 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                   <CloudArrowUpIcon className="h-5 w-5" />
                   Upload Transcript
                 </button>
+                )}
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -1274,7 +1451,7 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {projectTranscripts.map(transcript => {
+                    {displayedTranscripts.map(transcript => {
                       const displayName = buildTranscriptDisplayName({
                         projectName: selectedProject?.name,
                         respno: transcript.respno,
@@ -1569,8 +1746,6 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                         setShowUploadModal(false);
                         setUploadFile(null);
                         setCleanTranscript(false);
-                        setAddToCA(false);
-                        setSelectedAnalysisId('');
                         setParsedDateTime(null);
                         setDuplicateWarning(false);
                         setUploadStep('select');
@@ -1866,6 +2041,8 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                         className="hover:bg-gray-50 cursor-pointer transition-colors"
                         onClick={() => {
                           setSelectedProject(project);
+                          setViewMode('project');
+                          setSelectedContentAnalysis(null);
                           console.log('🔄 Project clicked, refreshing saved analyses for:', project.id);
                           loadSavedAnalyses();
                         }}
