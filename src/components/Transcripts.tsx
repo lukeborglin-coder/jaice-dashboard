@@ -751,20 +751,22 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
     loadSavedAnalyses();
   }, []);
 
-  // Refresh saved analyses every time the component mounts or project changes
+  // Refresh saved analyses and transcripts every time the component mounts or project changes
   useEffect(() => {
     if (selectedProject) {
-      console.log('🔄 Refreshing saved analyses for project:', selectedProject.id);
+      console.log('🔄 Refreshing saved analyses and transcripts for project:', selectedProject.id);
       loadSavedAnalyses();
+      loadTranscripts();
     }
   }, [selectedProject?.id]);
 
   // Also refresh when component becomes visible (additional safety)
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (!document.hidden && selectedProject) {
-        console.log('🔄 Refreshing saved analyses on visibility change');
+      if (!document.hidden) {
+        console.log('🔄 Refreshing saved analyses and transcripts on visibility change');
         loadSavedAnalyses();
+        loadTranscripts();
       }
     };
 
@@ -772,7 +774,15 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [selectedProject]);
+  }, []);
+
+  // Refresh transcripts when returning to home view to ensure accurate counts
+  useEffect(() => {
+    if (viewMode === 'home') {
+      console.log('🔄 Refreshing transcripts for accurate counts on home view');
+      loadTranscripts();
+    }
+  }, [viewMode]);
 
   useEffect(() => {
     if (pendingProjectNavigation === null) {
@@ -1320,15 +1330,41 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
   }
 
   // Transcripts view - show transcripts organized by content analysis
+  // Only show transcripts if a content analysis is selected
   if (selectedProject && viewMode === 'transcripts-by-ca') {
+    // If no content analysis is selected, redirect back to project view
+    if (!selectedContentAnalysis) {
+      return (
+        <main
+          className="flex-1 overflow-y-auto"
+          style={{ backgroundColor: BRAND_BG, height: 'calc(100vh - 80px)', marginTop: '80px' }}
+        >
+          <div className="flex-1 p-6 space-y-6 max-w-full">
+            <div className="text-center py-12">
+              <p className="text-gray-600 mb-4">Please select a content analysis to view transcripts.</p>
+              <button
+                onClick={() => {
+                  setViewMode('project');
+                  setSelectedContentAnalysis(null);
+                }}
+                className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:opacity-90"
+                style={{ backgroundColor: BRAND_ORANGE }}
+              >
+                <ArrowLeftIcon className="h-4 w-4" />
+                Back to Content Analyses
+              </button>
+            </div>
+          </div>
+        </main>
+      );
+    }
+
     const projectTranscripts = transcripts[selectedProject.id] || [];
     // Backend now handles the sorting, so we use the transcripts as they come
     const duplicateIds = findDuplicateInterviewTimes(projectTranscripts);
 
     // Filter transcripts based on selected content analysis
-    const displayedTranscripts = selectedContentAnalysis 
-      ? getTranscriptsForAnalysis(selectedContentAnalysis, projectTranscripts)
-      : projectTranscripts;
+    const displayedTranscripts = getTranscriptsForAnalysis(selectedContentAnalysis, projectTranscripts);
 
     return (
       <main
@@ -1347,7 +1383,7 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                   className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition"
               >
                 <ArrowLeftIcon className="h-4 w-4" />
-                  {selectedContentAnalysis ? `Back to ${selectedContentAnalysis.name || 'Content Analyses'}` : 'Back to Content Analyses'}
+                Back to {selectedContentAnalysis.name || 'Content Analyses'}
               </button>
               </div>
               <h2
@@ -1357,17 +1393,8 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                 {selectedProject.name}
               </h2>
               <p className="mt-1 text-sm text-gray-500">
-                {selectedContentAnalysis ? (
-                  <>
-                    {displayedTranscripts.length} of {projectTranscripts.length}{' '}
-                    {displayedTranscripts.length === 1 ? 'transcript' : 'transcripts'} in {selectedContentAnalysis.name || 'this analysis'}
-                  </>
-                ) : (
-                  <>
-                    {displayedTranscripts.length}{' '}
-                    {displayedTranscripts.length === 1 ? 'transcript' : 'transcripts'}
-                  </>
-                )}
+                {displayedTranscripts.length} of {projectTranscripts.length}{' '}
+                {displayedTranscripts.length === 1 ? 'transcript' : 'transcripts'} in {selectedContentAnalysis.name || 'this analysis'}
                 {selectedProject.archived && ' • Archived'}
               </p>
             </div>
