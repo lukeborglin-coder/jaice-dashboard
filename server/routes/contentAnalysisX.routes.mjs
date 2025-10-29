@@ -300,6 +300,52 @@ router.post('/preview', upload.single('dg'), async (req, res) => {
     console.log('Generated content analysis structure:');
     console.log('Number of sheets:', Object.keys(jsonData).length);
     console.log('Sheet names:', Object.keys(jsonData));
+    
+    // CRITICAL: Clean out template rows from Demographics sheet
+    // Template rows created by AI have R01, R02, etc. but no transcriptId
+    // These should be removed - rows should only exist when transcripts are actually added
+    if (jsonData.Demographics && Array.isArray(jsonData.Demographics)) {
+      const originalCount = jsonData.Demographics.length;
+      // Remove all template rows - keep only empty array structure
+      // Template rows will be created when transcripts are added, not upfront
+      jsonData.Demographics = [];
+      console.log(`🧹 Removed ${originalCount} template rows from Demographics (template rows shouldn't exist until transcripts are added)`);
+    }
+    
+    // Also clean template rows from other sheets - remove rows that only have Respondent ID set
+    for (const [sheetName, rows] of Object.entries(jsonData)) {
+      if (sheetName === 'Demographics') continue; // Already handled above
+      if (Array.isArray(rows) && rows.length > 0) {
+        const originalCount = rows.length;
+        // Filter out template rows (rows that only have Respondent ID/respno and all other fields are empty)
+        const cleanedRows = rows.filter((row) => {
+          // Check if this row has any actual data beyond just Respondent ID/respno
+          const hasRealData = Object.entries(row).some(([key, value]) => {
+            if (key === 'Respondent ID' || key === 'respno') return false; // Ignore ID fields
+            return value !== null && value !== undefined && String(value).trim() !== '';
+          });
+          return hasRealData; // Keep rows with actual data, remove empty template rows
+        });
+        
+        // If all rows were template rows, keep at least one empty row structure for the fronts
+        if (cleanedRows.length === 0 && originalCount > 0) {
+          // Create one empty row with just the columns from the first template row
+          const templateRow = rows[0];
+          const emptyRow = {};
+          Object.keys(templateRow).forEach(key => {
+            emptyRow[key] = '';
+          });
+          jsonData[sheetName] = [emptyRow];
+        } else {
+          jsonData[sheetName] = cleanedRows;
+        }
+        
+        if (originalCount !== jsonData[sheetName].length) {
+          console.log(`  "${sheetName}": Removed ${originalCount - jsonData[sheetName].length} template rows (${originalCount} -> ${jsonData[sheetName].length})`);
+        }
+      }
+    }
+    
     for (const [sheetName, rows] of Object.entries(jsonData)) {
       if (Array.isArray(rows) && rows.length > 0) {
         console.log(`  "${sheetName}": ${Object.keys(rows[0]).length} columns -`, Object.keys(rows[0]));
@@ -1409,38 +1455,78 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
     // Check for duplicate transcript processing
     // CRITICAL: Only check for duplicate transcriptId, NOT respno
     // Respnos can change due to re-ordering, but transcriptId is unique
-    if (usedTranscriptId && currentData && currentData.Demographics) {
+    if (usedTranscriptId) {
       console.log('🔍 Checking for duplicate transcript:', usedTranscriptId);
-      console.log('🔍 Current Demographics rows:', currentData.Demographics.map(r => ({ 
-        transcriptId: r.transcriptId, 
-        respno: r['Respondent ID'] || r.respno 
-      })));
       
-      // Check if this transcriptId actually exists in the data
-      const existingTranscript = currentData.Demographics.find(row => 
-        row.transcriptId === usedTranscriptId
-      );
-      
-      if (existingTranscript) {
-        console.log(`⚠️ Duplicate transcript detected: ${usedTranscriptId} already exists in analysis`);
-        console.log(`Existing transcript respno: ${existingTranscript.respno || existingTranscript['Respondent ID']}`);
-        console.log(`Current transcript respno: ${existingTranscriptRespno}`);
-        console.log(`🔍 Full existing transcript row:`, existingTranscript);
+      // First check if transcript is already in the current analysis
+      if (currentData && currentData.Demographics) {
+        console.log('🔍 Current Demographics rows:', currentData.Demographics.map(r => ({ 
+          transcriptId: r.transcriptId, 
+          respno: r['Respondent ID'] || r.respno 
+        })));
         
-        // Return existing data without reprocessing
-        return res.json({
-          success: true,
-          data: currentData,
-          quotes: savedAnalysis?.quotes || {},
-          context: savedAnalysis?.context || {},
-          respno: existingTranscript.respno || existingTranscript['Respondent ID'],
-          analysisId: analysisId || null,
-          message: 'Transcript already exists in analysis - no changes made',
-          duplicate: true
-        });
-      } else {
-        console.log('✅ No duplicate found - proceeding with transcript processing');
-        console.log('🔍 All transcriptIds in Demographics:', currentData.Demographics.map(r => r.transcriptId));
+        // Check if this transcriptId actually exists in the current analysis
+        const existingTranscript = currentData.Demographics.find(row => 
+          row.transcriptId === usedTranscriptId
+        );
+        
+        if (existingTranscript) {
+          console.log(`⚠️ Duplicate transcript detected: ${usedTranscriptId} already exists in this analysis`);
+          console.log(`Existing transcript respno: ${existingTranscript.respno || existingTranscript['Respondent ID']}`);
+          console.log(`Current transcript respno: ${existingTranscriptRespno}`);
+          console.log(`🔍 Full existing transcript row:`, existingTranscript);
+          
+          // Return existing data without reprocessing
+          return res.json({
+            success: true,
+            data: currentData,
+            quotes: savedAnalysis?.quotes || {},
+            context: savedAnalysis?.context || {},
+            respno: existingTranscript.respno || existingTranscript['Respondent ID'],
+            analysisId: analysisId || null,
+            message: 'Transcript already exists in this analysis - no changes made',
+            duplicate: true
+          });
+        }
+      }
+      
+      // CRITICAL: Check if transcript is already in a DIFFERENT analysis
+      // Load all saved analyses to check if this transcriptId exists in another CA
+      try {
+        const allAnalyses = await loadSavedAnalyses();
+        const otherAnalyses = allAnalyses.filter(a => a.id !== analysisId);
+        
+        for (const otherAnalysis of otherAnalyses) {
+          if (otherAnalysis.data && otherAnalysis.data.Demographics && Array.isArray(otherAnalysis.data.Demographics)) {
+            const transcriptInOtherAnalysis = otherAnalysis.data.Demographics.find((row) => 
+              row.transcriptId === usedTranscriptId
+            );
+            
+            if (transcriptInOtherAnalysis) {
+              console.error(`❌ Transcript ${usedTranscriptId} is already in another content analysis:`, {
+                analysisId: otherAnalysis.id,
+                analysisName: otherAnalysis.name,
+                projectId: otherAnalysis.projectId
+              });
+              
+              return res.status(400).json({ 
+                error: `This transcript is already added to another Content Analysis: "${otherAnalysis.name}". Each transcript can only be added to one Content Analysis.`,
+                duplicateInOtherAnalysis: true,
+                otherAnalysisId: otherAnalysis.id,
+                otherAnalysisName: otherAnalysis.name
+              });
+            }
+          }
+        }
+        
+        console.log('✅ No duplicate found in any analysis - proceeding with transcript processing');
+      } catch (error) {
+        console.error('⚠️ Error checking for duplicate in other analyses:', error);
+        // Continue processing if we can't check - better to allow it than block incorrectly
+      }
+      
+      if (currentData && currentData.Demographics) {
+        console.log('🔍 All transcriptIds in current Demographics:', currentData.Demographics.map(r => r.transcriptId));
       }
     }
 

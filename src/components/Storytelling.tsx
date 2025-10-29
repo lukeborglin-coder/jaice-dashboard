@@ -970,12 +970,26 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
 
   const loadProjectData = async (projectId: string) => {
     try {
-      // Load storytelling data for the project
-      const analysisIdParam = selectedProject?.analysisId || selectedContentAnalysis?.id || analysisId;
+      // Get analysisId from various sources - need to check contentAnalyses if project doesn't have it
+      let analysisIdParam = selectedProject?.analysisId || selectedContentAnalysis?.id || analysisId;
+      
+      // If no analysisId found yet, try to get it from contentAnalyses
+      if (!analysisIdParam && contentAnalyses && contentAnalyses.length > 0) {
+        const projectAnalysis = contentAnalyses.find((ca: any) => ca.projectId === projectId);
+        if (projectAnalysis) {
+          analysisIdParam = projectAnalysis.id;
+          console.log('🔍 Found analysisId from contentAnalyses in loadProjectData:', analysisIdParam);
+        }
+      }
+      
       const url = analysisIdParam
         ? `${API_BASE_URL}/api/storytelling/${projectId}?analysisId=${analysisIdParam}`
         : `${API_BASE_URL}/api/storytelling/${projectId}`;
-      console.log('🔍 Loading project data with analysisId:', analysisIdParam, 'for project:', projectId);
+      console.log('🔍 Loading project data with analysisId:', {
+        analysisId: analysisIdParam,
+        projectId,
+        foundFromContentAnalyses: !selectedProject?.analysisId && !selectedContentAnalysis?.id && analysisIdParam
+      });
       const response = await fetch(url, {
         headers: getAuthHeaders()
       });
@@ -1027,11 +1041,18 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
 
         // Load report data if available
         if (data.reportData) {
-          console.log('🔍 Loading report data:', data.reportData);
+          console.log('🔍 Loading report data in loadProjectData:', {
+            hasSlides: !!data.reportData.slides,
+            slidesCount: data.reportData.slides?.length || 0,
+            generatedAt: data.reportData.generatedAt
+          });
           setReportData(data.reportData);
           setReportOutline(data.reportData);  // Also set reportOutline for display
         } else {
-          console.log('🔍 No report data found in loaded data:', Object.keys(data));
+          console.log('🔍 No report data found in loaded data. Available keys:', Object.keys(data));
+          // Clear report outline when switching to a project without report data
+          setReportOutline(null);
+          setReportData(null);
         }
         
         // Load chat history if available
@@ -1386,11 +1407,29 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
 
   const loadStorytellingData = async (projectId: string) => {
     try {
-      // Use analysisId from selectedProject if available, otherwise use the prop
-      const currentAnalysisId = selectedProject?.analysisId || analysisId;
+      // Get analysisId from various sources - need to check contentAnalyses if project doesn't have it
+      let currentAnalysisId = selectedProject?.analysisId || selectedContentAnalysis?.id || analysisId;
+      
+      // If no analysisId found yet, try to get it from contentAnalyses
+      if (!currentAnalysisId && contentAnalyses && contentAnalyses.length > 0) {
+        const projectAnalysis = contentAnalyses.find((ca: any) => ca.projectId === projectId);
+        if (projectAnalysis) {
+          currentAnalysisId = projectAnalysis.id;
+          console.log('🔍 Found analysisId from contentAnalyses:', currentAnalysisId);
+        }
+      }
+      
       const url = currentAnalysisId 
         ? `${API_BASE_URL}/api/storytelling/${projectId}?analysisId=${currentAnalysisId}`
         : `${API_BASE_URL}/api/storytelling/${projectId}`;
+      console.log('🔍 Loading storytelling data with analysisId:', {
+        analysisId: currentAnalysisId,
+        projectId,
+        usingProjectAnalysisId: !!selectedProject?.analysisId,
+        usingSelectedAnalysis: !!selectedContentAnalysis?.id,
+        foundFromContentAnalyses: !selectedProject?.analysisId && !selectedContentAnalysis?.id && currentAnalysisId,
+        fallbackAnalysisId: analysisId || 'none'
+      });
       
       const response = await fetch(url, {
         headers: getAuthHeaders()
@@ -1433,12 +1472,31 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
         if (data.dynamicReport) {
           setDynamicReport(data.dynamicReport);
         }
+
+        // Load report data if available
+        if (data.reportData) {
+          console.log('🔍 Loading report data:', {
+            hasSlides: !!data.reportData.slides,
+            slidesCount: data.reportData.slides?.length || 0,
+            generatedAt: data.reportData.generatedAt
+          });
+          setReportData(data.reportData);
+          setReportOutline(data.reportData);  // Also set reportOutline for display
+        } else {
+          console.log('🔍 No report data found in loaded data. Available keys:', Object.keys(data));
+          // Clear report outline when switching to a project without report data
+          setReportOutline(null);
+          setReportData(null);
+        }
         
         // Ensure we only show the last 10 Q&A entries
         const chatHistory = data.chatHistory || [];
         setChatHistory(chatHistory.slice(-10));
+      } else {
+        console.error('❌ Failed to load storytelling data, status:', response.status);
       }
     } catch (error) {
+      console.error('❌ Error loading storytelling data:', error);
     }
   };
 
@@ -1909,10 +1967,23 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
 
         // Save report data to backend for persistence
         try {
+          // Get analysisId - need to check contentAnalyses if project doesn't have it
+          let saveAnalysisId = selectedProject?.analysisId || selectedContentAnalysis?.id || analysisId;
+          
+          // If no analysisId found yet, try to get it from contentAnalyses
+          if (!saveAnalysisId && contentAnalyses && contentAnalyses.length > 0) {
+            const projectAnalysis = contentAnalyses.find((ca: any) => ca.projectId === selectedProject.id);
+            if (projectAnalysis) {
+              saveAnalysisId = projectAnalysis.id;
+              console.log('🔍 Found analysisId from contentAnalyses when saving:', saveAnalysisId);
+            }
+          }
           console.log('🔍 Saving report data to backend:', {
             projectId: selectedProject.id,
-            analysisId: selectedContentAnalysis?.id || selectedProject?.analysisId || analysisId,
-            slidesCount: processedSlides.length
+            analysisId: saveAnalysisId,
+            slidesCount: processedSlides.length,
+            usingProjectAnalysisId: !!selectedProject?.analysisId,
+            usingSelectedAnalysis: !!selectedContentAnalysis?.id
           });
 
           const reportSaveResponse = await fetch(`${API_BASE_URL}/api/storytelling/${selectedProject.id}/report-data`, {
@@ -1923,7 +1994,7 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
             },
             body: JSON.stringify({
               reportData: reportDataToSave,
-              analysisId: selectedContentAnalysis?.id || selectedProject?.analysisId || analysisId
+              analysisId: saveAnalysisId
             })
           });
 
@@ -3137,7 +3208,7 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
                       <h3 className="text-lg font-semibold text-black">
                         {activeTab === 'report' ? 'Generate Report' : 'Generate Storyboard'}
                       </h3>
-                      <p className="text-sm text-gray-600 mt-1">Confirm generation and review estimated cost</p>
+                      <p className="text-sm text-gray-600 mt-1">Confirm generation</p>
                     </div>
                     <button
                       onClick={() => setShowGenerateOptionsModal(false)}
@@ -3162,20 +3233,6 @@ export default function Storytelling({ analysisId, projectId }: StorytellingProp
                             ? 'Create a comprehensive market research report presentation with slides, key findings, and supporting quotes from your research data.'
                             : 'Create a new text-based storyboard with sections and content based on your research data.'}
                         </p>
-                        {estimatingCost ? (
-                          <p className="text-xs text-gray-500 italic">Estimating cost...</p>
-                        ) : storyboardCostEstimate ? (
-                          <div className="space-y-1">
-                            <p className="text-sm font-bold" style={{ color: BRAND_ORANGE }}>
-                              Estimated Cost: ${storyboardCostEstimate.cost?.toFixed(2) || '0.00'}
-                            </p>
-                            {storyboardCostEstimate.inputTokens && (
-                              <p className="text-xs text-gray-600">
-                                Total Tokens: {(storyboardCostEstimate.inputTokens + storyboardCostEstimate.outputTokens).toLocaleString()}
-                              </p>
-                            )}
-                          </div>
-                        ) : null}
                       </div>
                     </div>
                   </div>

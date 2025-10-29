@@ -1551,11 +1551,6 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                             />
                             Clean this transcript (remove timestamps, tidy formatting)
                           </label>
-                          {cleanTranscript && uploadFile && (
-                            <p className="mt-2 text-xs text-red-600 font-medium">
-                              Estimated cost: {estimateCleaningCost(uploadFile.size)}
-                            </p>
-                          )}
                         </div>
 
                       </>

@@ -139,11 +139,13 @@ export default function StoryboardModal({
   };
 
   const handleGenerate = () => {
-    if (costEstimate) {
+    if (selectedFiles.length > 0) {
       console.log('📋 StoryboardModal - Selected files:', selectedFiles);
       console.log('📋 StoryboardModal - Discussion guide path:', discussionGuidePath);
       console.log('📋 StoryboardModal - File options:', fileOptions);
-      onGenerate(selectedFiles, costEstimate);
+      // Pass a default cost estimate structure if not available (for backward compatibility)
+      const estimate = costEstimate || { inputTokens: 0, outputTokens: 0, cost: 0, formattedCost: '$0.00' };
+      onGenerate(selectedFiles, estimate);
     }
   };
 
@@ -243,34 +245,6 @@ export default function StoryboardModal({
               ))}
             </div>
           </div>
-
-          {/* Cost Estimate */}
-          <div className="bg-gray-50 rounded-lg p-4">
-            <h3 className="text-sm font-medium text-gray-900 mb-2">Cost Estimate</h3>
-            {calculatingCost ? (
-              <div className="flex items-center space-x-2 text-sm text-gray-600">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                <span>Calculating...</span>
-              </div>
-            ) : costEstimate ? (
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Input tokens:</span>
-                  <span className="font-medium">{costEstimate.inputTokens.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Estimated output tokens:</span>
-                  <span className="font-medium">{costEstimate.outputTokens.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between text-sm font-medium border-t border-gray-200 pt-2">
-                  <span className="text-gray-900">Total cost:</span>
-                  <span className="text-green-600">{costEstimate.formattedCost}</span>
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm text-gray-500">Select files to see cost estimate</p>
-            )}
-          </div>
         </div>
 
         {/* Footer */}
@@ -284,7 +258,7 @@ export default function StoryboardModal({
           </button>
           <button
             onClick={handleGenerate}
-            disabled={!costEstimate || generating || selectedFiles.length === 0}
+            disabled={generating || selectedFiles.length === 0}
             className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {generating ? (

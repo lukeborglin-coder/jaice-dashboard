@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { API_BASE_URL } from '../config';
 import { useAuth } from '../contexts/AuthContext';
-import { DocumentTextIcon, CalendarIcon, UserGroupIcon, UserIcon, ArrowLeftIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
+import { DocumentTextIcon, CalendarIcon, UserGroupIcon, UserIcon, ArrowLeftIcon, ChevronDownIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { IconBook2, IconPlus } from '@tabler/icons-react';
 import * as XLSX from 'xlsx';
 import ConjointSimulator from './ConjointSimulator';
@@ -277,12 +277,16 @@ export default function ConjointProjects({
   const [saveWorkflowSuccess, setSaveWorkflowSuccess] = useState<{ workflowId: string; savedAt: string } | null>(null);
   const [projectWorkflows, setProjectWorkflows] = useState<Array<{
     id: string;
+    name?: string | null;
     createdAt: string;
     updatedAt?: string | null;
     warnings: string[];
     sourceFileName?: string | null;
     surveyUploadedAt?: string | null;
     surveySummary?: SurveySummary | null;
+    aiGenerated?: boolean;
+    aiAnalysis?: any;
+    temporary?: boolean;
     estimationResult?: EstimationResult | null;
   }>>([]);
   const [loadingProjectWorkflows, setLoadingProjectWorkflows] = useState(false);
@@ -712,6 +716,7 @@ export default function ConjointProjects({
       setProjectWorkflows(
         workflows.map((draft: any) => ({
           id: draft?.id,
+          name: draft?.name || null,
           createdAt: draft?.createdAt || draft?.updatedAt || '',
           updatedAt: draft?.updatedAt || null,
           warnings: Array.isArray(draft?.warnings) ? draft.warnings : [],
@@ -720,6 +725,7 @@ export default function ConjointProjects({
           surveySummary: draft?.survey?.summary || null,
           aiGenerated: draft?.aiGenerated || false,
           aiAnalysis: draft?.aiAnalysis || null,
+          temporary: draft?.temporary || false,
           estimationResult: draft?.estimation
             ? {
                 utilities: draft.estimation.utilities || null,
@@ -1298,15 +1304,6 @@ export default function ConjointProjects({
       <div className="space-y-3">
         {viewMode === 'home' && (
           <>
-            <header>
-              <div>
-                <h1 className="text-xl font-semibold" style={{ color: BRAND_GRAY }}>Conjoint Projects</h1>
-                <p className="mt-1 text-sm text-gray-500">
-                  Browse every project that is configured for conjoint and quickly jump into the workflow.
-                </p>
-              </div>
-            </header>
-
             <div>
               <div className="flex items-center justify-between">
                 <nav className="-mb-px flex space-x-8 items-center">
@@ -1333,6 +1330,21 @@ export default function ConjointProjects({
                     Archived Projects ({filteredArchivedProjects.length})
                   </button>
                 </nav>
+                <div className="flex items-center gap-3">
+                  {user?.role !== 'oversight' && (
+                    <button
+                      onClick={() => setShowMyProjectsOnly(!showMyProjectsOnly)}
+                      className={`px-3 py-1 text-xs rounded-lg shadow-sm transition-colors ${
+                        showMyProjectsOnly
+                          ? 'bg-white border border-gray-300 hover:bg-gray-50'
+                          : 'text-white hover:opacity-90'
+                      }`}
+                      style={showMyProjectsOnly ? {} : { backgroundColor: BRAND_ORANGE }}
+                    >
+                      {showMyProjectsOnly ? 'Only My Projects' : 'All Projects'}
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="border-b border-gray-200"></div>
             </div>
@@ -1524,16 +1536,16 @@ export default function ConjointProjects({
                                 key={workflow.id}
                                 className="flex items-center justify-between p-3 bg-white rounded-lg border border-blue-200 hover:bg-blue-25 transition-colors cursor-pointer"
                                 onClick={() => {
-                                  if (workflow.estimationResult) {
-                                    setSelectedWorkflow(workflow);
-                                    setWorkflowViewMode('simulator');
-                                  }
+                                  // Always allow launching simulator for AI workflows
+                                  // The simulator can handle missing data gracefully
+                                  setSelectedWorkflow(workflow);
+                                  setWorkflowViewMode('simulator');
                                 }}
                               >
                                 <div className="flex-1">
                                   <div className="flex items-center gap-2">
                                     <span className="text-sm font-medium text-gray-900">
-                                      AI Workflow {workflow.id}
+                                      {workflow.name || workflow.id}
                                     </span>
                                     {workflow.estimationResult && (
                                       <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
@@ -1541,45 +1553,18 @@ export default function ConjointProjects({
                                         Ready
                                       </span>
                                     )}
-                                    {workflow.aiGenerated && !workflow.estimationResult && (
-                                      <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
-                                        <span className="h-2 w-2 rounded-full bg-blue-500" />
-                                        AI Workflow
-                                      </span>
-                                    )}
                                   </div>
                                   <div className="text-xs text-gray-500 mt-1">
-                                    Created {new Date(workflow.createdAt).toLocaleString()}
+                                    Created {new Date(workflow.createdAt).toLocaleString(undefined, { 
+                                      year: 'numeric', 
+                                      month: 'numeric', 
+                                      day: 'numeric', 
+                                      hour: 'numeric', 
+                                      minute: '2-digit' 
+                                    })}
                                   </div>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                  {/* Show Launch Simulator button for AI workflows - ALWAYS available */}
-                                  {workflow.aiGenerated && (
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        console.log('Workflow debug:', {
-                                          id: workflow.id,
-                                          aiGenerated: workflow.aiGenerated,
-                                          temporary: workflow.temporary,
-                                          hasAiAnalysis: !!workflow.aiAnalysis,
-                                          hasAttributes: !!workflow.aiAnalysis?.attributes,
-                                          hasEstimation: !!workflow.estimationResult,
-                                          surveyUploaded: !!workflow.surveyUploadedAt
-                                        });
-                                        
-                                        // Always allow launching simulator for AI workflows
-                                        // The simulator can handle missing data gracefully
-                                        setSelectedWorkflow(workflow);
-                                        setWorkflowViewMode('simulator');
-                                      }}
-                                      className="px-3 py-1 bg-blue-600 text-white text-xs font-semibold rounded hover:bg-blue-700 transition"
-                                      title="Launch Simulator"
-                                    >
-                                      Launch Simulator
-                                    </button>
-                                  )}
-                                  
                                   {/* Upload Data button for AI workflows that need survey data */}
                                   {workflow.aiGenerated && workflow.temporary && !workflow.surveyUploadedAt && (
                                     <button
@@ -1631,7 +1616,7 @@ export default function ConjointProjects({
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      if (window.confirm(`Delete AI workflow ${workflow.id}?`)) {
+                                      if (window.confirm(`Delete workflow "${workflow.name || workflow.id}"?`)) {
                                         fetch(`${API_BASE_URL}/api/conjoint/workflows/${workflow.id}`, {
                                           method: 'DELETE',
                                           headers: { Authorization: `Bearer ${localStorage.getItem('cognitive_dash_token') || localStorage.getItem('token') || ''}` }
@@ -1643,9 +1628,10 @@ export default function ConjointProjects({
                                         });
                                       }
                                     }}
-                                    className="text-red-600 hover:text-red-800 hover:underline text-xs"
+                                    className="text-red-600 hover:text-red-800 p-1 rounded transition-colors"
+                                    title="Delete workflow"
                                   >
-                                    Delete
+                                    <TrashIcon className="h-4 w-4" />
                                   </button>
                                 </div>
                               </div>
@@ -1820,58 +1806,6 @@ export default function ConjointProjects({
                     )}
                   </section>
 
-                  <section>
-                    <h2 className="text-lg font-semibold" style={{ color: BRAND_GRAY }}>{selectedProject.name}</h2>
-                    <p className="mt-1 text-sm text-gray-500">
-                      {selectedProject.description || 'This project is ready to move through the conjoint workflow.'}
-                    </p>
-                  </section>
-
-                  <section>
-                    <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">Project Overview</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm text-gray-600">
-                  <div className="flex items-start gap-2">
-                    <CalendarIcon className="h-5 w-5 text-gray-400" />
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-gray-500">Start Date</p>
-                      <p className="font-medium text-gray-900">{formatDate(selectedProject.startDate || selectedProject.kickoffDate)}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <IconBook2 className="h-5 w-5 text-gray-400" />
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-gray-500">Conjoint Workflows</p>
-                      <p className="font-medium text-gray-900">{projectWorkflows.length}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <UserIcon className="h-5 w-5 text-gray-400" />
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-gray-500">Client</p>
-                      <p className="font-medium text-gray-900">{getClientName(selectedProject)}</p>
-                    </div>
-                  </div>
-                </div>
-              </section>
-
-              <section>
-                <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">Team</h3>
-                <div className="flex items-center gap-3 text-sm text-gray-700">
-                  <UserGroupIcon className="h-5 w-5 text-gray-400" />
-                  <span>{getTeamSummary(selectedProject)}</span>
-                </div>
-              </section>
-
-              <section className="border border-dashed border-gray-300 rounded-lg p-5 bg-gray-50">
-                <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-2">Conjoint Workspace</h3>
-                <p className="text-sm text-gray-600">
-                  The multi-step conjoint workflow (setup -&gt; data upload -&gt; estimation -&gt; simulation -&gt; reporting) will live here.
-                  Start by reviewing project inputs and outlining the steps you want to capture.
-                </p>
-                <p className="text-xs text-gray-400 mt-3">
-                  Future steps: attach survey design files, map attributes, ingest choice data, and generate share simulations directly from this workspace.
-                </p>
-              </section>
                   </>
                 );
               })()}

@@ -3722,38 +3722,6 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
             )}
             {!processingTranscript && (
               <div className="flex items-center justify-between p-4 border-t border-gray-200">
-                {(() => {
-                  if (transcriptFile) {
-                    const estimate = calculateCostEstimate(transcriptFile);
-                    return estimate ? (
-                      <div className="text-xs text-red-600 italic">
-                        Estimated Cost ({MODEL_TOKEN_PRICING.modelName}): {estimate.formattedCost}
-                      </div>
-                    ) : (
-                      <div className="text-xs text-gray-400 italic">
-                        Unable to estimate cost for this file.
-                      </div>
-                    );
-                  }
-
-                  if (selectedExistingTranscriptId) {
-                    return existingTranscriptCostEstimate ? (
-                      <div className="text-xs text-red-600 italic">
-                        Estimated Cost ({MODEL_TOKEN_PRICING.modelName}): {existingTranscriptCostEstimate.formattedCost}
-                      </div>
-                    ) : (
-                      <div className="text-xs text-gray-500 italic">
-                        Using stored transcript. {MODEL_TOKEN_PRICING.modelName} pricing applies (~$2.50 per 1M input tokens).
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <div className="text-xs text-gray-400 italic">
-                      Select a file or existing transcript to see cost estimate
-                    </div>
-                  );
-                })()}
                 <div className="flex items-center space-x-3">
                   <button
                     onClick={() => {

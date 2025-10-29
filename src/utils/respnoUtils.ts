@@ -195,12 +195,25 @@ export const normalizeAnalysisRespnos = (
   
   // Filter out template rows that don't have a transcriptId - these are empty template rows
   // Only process rows that were actually added from transcripts (have transcriptId)
+  // CRITICAL: Also filter out rows that have a respno but no transcriptId - these are legacy template rows
   const rowsWithTranscripts = demographicsRows.filter((row: any) => {
     const hasTranscriptId = row.transcriptId && String(row.transcriptId).trim() !== '';
+    const hasRespno = (row['Respondent ID'] || row['respno']) && String(row['Respondent ID'] || row['respno']).trim() !== '';
+    
+    // Only include rows that have BOTH transcriptId (actual transcript) AND respno
+    // If a row has respno but no transcriptId, it's a legacy template row and should be excluded
+    if (hasRespno && !hasTranscriptId) {
+      console.log('🔧 Filtering out legacy template row (has respno but no transcriptId):', {
+        respno: row['Respondent ID'] || row['respno'],
+        transcriptId: row.transcriptId
+      });
+      return false;
+    }
+    
     return hasTranscriptId;
   });
   
-  // McCarthy rows without transcriptId are template rows and should not be processed
+  // Template rows without transcriptId should not be processed
   const templateRows = demographicsRows.filter((row: any) => {
     const hasTranscriptId = row.transcriptId && String(row.transcriptId).trim() !== '';
     return !hasTranscriptId;
@@ -209,7 +222,8 @@ export const normalizeAnalysisRespnos = (
   console.log('🔧 Filtering demographics rows:', {
     total: demographicsRows.length,
     withTranscripts: rowsWithTranscripts.length,
-    templateRows: templateRows.length
+    templateRows: templateRows.length,
+    filteredOut: demographicsRows.length - rowsWithTranscripts.length
   });
   
   const rowOrderMeta = rowsWithTranscripts.map((row: any, idx: number) => {
