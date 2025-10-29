@@ -3151,8 +3151,13 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                   {currentAnalysis.data[activeSheet]
                     .filter((row: any) => {
                       if (activeSheet === 'Demographics') {
+                        // Only show rows that have a transcriptId (actual added transcripts)
+                        // Filter out template rows that don't have transcripts
+                        const hasTranscriptId = row.transcriptId && String(row.transcriptId).trim() !== '';
                         const respondentId = row['Respondent ID'] ?? row['respno'];
-                        return respondentId !== undefined && String(respondentId).trim() !== '';
+                        const hasRespondentId = respondentId !== undefined && String(respondentId).trim() !== '';
+                        // Must have BOTH transcriptId (actual transcript) AND respondentId
+                        return hasTranscriptId && hasRespondentId;
                       }
                       return Object.values(row).some(v => String(v ?? '').trim() !== '');
                     })

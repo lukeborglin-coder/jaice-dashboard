@@ -192,14 +192,33 @@ export const normalizeAnalysisRespnos = (
 
   const demographicsRows = analysis.data.Demographics.map((row: any) => ({ ...row }));
   const previousToNew = new Map<string, string>();
-  const rowOrderMeta = demographicsRows.map((row: any, idx: number) => {
+  
+  // Filter out template rows that don't have a transcriptId - these are empty template rows
+  // Only process rows that were actually added from transcripts (have transcriptId)
+  const rowsWithTranscripts = demographicsRows.filter((row: any) => {
+    const hasTranscriptId = row.transcriptId && String(row.transcriptId).trim() !== '';
+    return hasTranscriptId;
+  });
+  
+  // McCarthy rows without transcriptId are template rows and should not be processed
+  const templateRows = demographicsRows.filter((row: any) => {
+    const hasTranscriptId = row.transcriptId && String(row.transcriptId).trim() !== '';
+    return !hasTranscriptId;
+  });
+  
+  console.log('🔧 Filtering demographics rows:', {
+    total: demographicsRows.length,
+    withTranscripts: rowsWithTranscripts.length,
+    templateRows: templateRows.length
+  });
+  
+  const rowOrderMeta = rowsWithTranscripts.map((row: any, idx: number) => {
     const normalizedRespno = normalizeRespnoValue(row['Respondent ID'] || row['respno']);
     const metadata = extractInterviewMetadataFromRow(row);
-    // Match by transcriptId first (most reliable), fall back to respno
+    // CRITICAL: Only match by transcriptId - never match by respno as respnos can overlap across different CAs
+    // A transcript should only be matched if it belongs to THIS analysis (has matching transcriptId)
     const projectTranscript = projectTranscripts?.find(
       t => row.transcriptId && t.id === row.transcriptId
-    ) || projectTranscripts?.find(
-      t => normalizeRespnoValue(t.respno) === normalizedRespno
     );
 
     console.log('🔧 Processing row:', {
@@ -247,11 +266,22 @@ export const normalizeAnalysisRespnos = (
   });
 
   rowOrderMeta.forEach((meta, idx) => {
-    // If we found the transcript by transcriptId, use its respno directly
+    // CRITICAL: Only match by transcriptId - this ensures we only use transcripts that belong to THIS analysis
     const matchedTranscript = projectTranscripts?.find(
       t => meta.row.transcriptId && t.id === meta.row.transcriptId
     );
-    const newRespno = matchedTranscript?.respno || formatRespno(idx + 1);
+    
+    // Only assign a respno if we found the transcript - if no transcript matches, something is wrong
+    if (!matchedTranscript) {
+      console.warn('🔧 Warning: Row has transcriptId but no matching transcript found:', {
+        transcriptId: meta.row.transcriptId,
+        rowRespno: meta.row['Respondent ID'] || meta.row['respno']
+      });
+      // Don't assign a respno if we can't find the transcript - this prevents assigning wrong respnos
+      return;
+    }
+    
+    const newRespno = matchedTranscript.respno || formatRespno(idx + 1);
 
     if (meta.normalizedRespno) {
       previousToNew.set(meta.normalizedRespno, newRespno);
@@ -259,13 +289,9 @@ export const normalizeAnalysisRespnos = (
     meta.row['Respondent ID'] = newRespno;
     meta.row['respno'] = newRespno;
     
-    // Update date/time fields from transcript data if available
-    // Match by transcriptId first (most reliable), fall back to the new respno
-    const projectTranscript = projectTranscripts?.find(
-      t => meta.row.transcriptId && t.id === meta.row.transcriptId
-    ) || projectTranscripts?.find(
-      t => normalizeRespnoValue(t.respno) === newRespno
-    );
+    // Update date/time fields from transcript data
+    // Use the matched transcript (already found above) - don't fall back to respno matching
+    const projectTranscript = matchedTranscript;
     
     if (projectTranscript) {
       // Only update existing fields, don't add new ones
@@ -299,9 +325,22 @@ export const normalizeAnalysisRespnos = (
     });
   });
 
-  const updatedDemographics = rowOrderMeta
+  // Combine processed rows with template rows (template rows stay as-is, no respno assigned)
+  // Filter out any rows that couldn't be matched to a transcript
+  const processedRows = rowOrderMeta
+    .filter(meta => {
+      // Only include rows that were successfully matched to a transcript
+      const matchedTranscript = projectTranscripts?.find(
+        t => meta.row.transcriptId && t.id === meta.row.transcriptId
+      );
+      return !!matchedTranscript;
+    })
     .map(meta => meta.row)
     .sort((a, b) => respnoToNumber(a['Respondent ID']) - respnoToNumber(b['Respondent ID']));
+  
+  // Don't include template rows in the final result - they're just placeholders
+  // Only include rows with actual transcripts
+  const updatedDemographics = processedRows;
 
   const normalizedData: AnalysisData = {};
   const respnoOrderIndex = buildRespnoOrderIndex(
