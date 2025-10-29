@@ -509,6 +509,34 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
     return analysis ? analysis.name : null;
   };
 
+  // Check if a transcript is assigned to any content analysis for a project
+  const isTranscriptInAnyCA = useCallback((transcriptId: string, projectId: string): boolean => {
+    const projectAnalyses = savedAnalyses.filter(analysis => analysis.projectId === projectId);
+    
+    return projectAnalyses.some(analysis => {
+      if (analysis.data) {
+        // Check Demographics sheet
+        if (analysis.data.Demographics && Array.isArray(analysis.data.Demographics)) {
+          const hasTranscript = analysis.data.Demographics.some((row: any) =>
+            row.transcriptId === transcriptId
+          );
+          if (hasTranscript) return true;
+        }
+        
+        // Check other sheets
+        for (const [sheetName, sheetData] of Object.entries(analysis.data)) {
+          if (Array.isArray(sheetData)) {
+            const hasTranscript = sheetData.some((row: any) =>
+              row.transcriptId === transcriptId
+            );
+            if (hasTranscript) return true;
+          }
+        }
+      }
+      return false;
+    });
+  }, [savedAnalyses]);
+
   const handleNavigateToCA = (transcriptId: string) => {
     if (!selectedProject || !onNavigate || !setAnalysisToLoad) return;
     
@@ -1271,9 +1299,6 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                       <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Transcripts
                       </th>
-                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
-                      </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -1303,18 +1328,6 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                               <IconScript className="h-4 w-4 text-gray-400" />
                               {analysisTranscripts.length}
                             </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-center">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setViewMode('transcripts-by-ca');
-                                setSelectedContentAnalysis(analysis);
-                              }}
-                              className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                            >
-                              View Transcripts
-                            </button>
                           </td>
                         </tr>
                       );
@@ -2062,6 +2075,10 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                 <tbody className="bg-white divide-y divide-gray-200">
                   {displayProjects.map(project => {
                     const projectTranscripts = transcripts[project.id] || [];
+                    // Only count transcripts that are assigned to a content analysis
+                    const transcriptsInCA = projectTranscripts.filter(t => 
+                      isTranscriptInAnyCA(t.id, project.id)
+                    );
                     return (
                       <tr
                         key={project.id}
@@ -2083,7 +2100,7 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                         <td className="px-6 py-4 whitespace-nowrap text-center w-20">
                           <div className="flex items-center justify-center gap-1 text-sm text-gray-900">
                             <IconScript className="h-4 w-4 text-gray-400" />
-                            {projectTranscripts.length}
+                            {transcriptsInCA.length}
                           </div>
                         </td>
                       </tr>
