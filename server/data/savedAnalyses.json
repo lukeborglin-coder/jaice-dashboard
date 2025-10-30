@@ -5,84 +5,105 @@
     "name": "test 1",
     "data": {
       "Demographics": [],
-      "BACKGROUND": [
-        {
-          "Respondent ID": "",
-          "Introduction": "",
-          "Specialty": "",
-          "Years in Practice": "",
-          "Practice Setting": "",
-          "SMA Patients Under Care": "",
-          "Primary Role in Managing SMA Patients": "",
-          "Factors for Treatment Decision": "",
-          "Typical Approach to Treating SMA": "",
-          "Discussion on Treatment Switching": "",
-          "Biggest Challenges for Patients": "",
-          "Access Challenges for Specific Treatments": "",
-          "Addressing Challenges": "",
-          "Reliance on Support Programs": "",
-          "Unmet Needs in Insurance Support": ""
-        }
-      ],
-      "DETAILED REVIEW OF MESSAGING": [
-        {
-          "Respondent ID": "",
-          "Overall Reaction to Statements": "",
-          "Surprising Information": "",
-          "Ranking of Statements": "",
-          "Reason for Ranking": "",
-          "Impact on Manufacturer Perception": "",
-          "Alignment with Current Understanding": "",
-          "New Learnings": "",
-          "Individual Statement Review": "",
-          "Main Takeaway": ""
-        }
-      ],
-      "COMPREHENSIVE RANKING EXERCISE": [
-        {
-          "Respondent ID": "",
-          "Compelling Story Statements": "",
-          "Message Order Explanation": "",
-          "Most Important Messages": "",
-          "Perception Changes": "",
-          "Access Process Impact": "",
-          "Likelihood to Consider Evrysdi": "",
-          "Missing Elements": "",
-          "New Learnings": ""
-        }
-      ],
-      "GPF MESSAGE EVAL": [
-        {
-          "Respondent ID": "",
-          "Overall Reaction to Statements": "",
-          "Surprising Information": "",
-          "Ranking of Statements": "",
-          "Reason for Ranking": "",
-          "Impact on Manufacturer Perception": "",
-          "Alignment with Current Understanding": "",
-          "New Learnings": "",
-          "Individual Statement Review": "",
-          "Main Takeaway": "",
-          "Familiarity with GPF": "",
-          "Pursuit of GPF": "",
-          "Flexibility of GPF": "",
-          "Awareness of Limited Resource": ""
-        }
-      ],
-      "Misc.": [
-        {
-          "Respondent ID": "",
-          "Final Comments": "",
-          "Additional Notes": ""
-        }
-      ]
+      "BACKGROUND": [],
+      "DETAILED REVIEW OF MESSAGING": [],
+      "COMPREHENSIVE RANKING EXERCISE": [],
+      "GPF MESSAGE EVAL": [],
+      "Misc.": []
     },
     "guideMap": {
       "bySheet": {}
     },
     "quotes": {},
-    "savedAt": "2025-10-29T17:12:44.784Z",
-    "savedBy": "You"
+    "savedAt": "2025-10-29T18:48:30.157Z",
+    "savedBy": "You",
+    "context": {},
+    "transcripts": [
+      {
+        "id": "T-1761251220504",
+        "sourceTranscriptId": "T-1761251220504",
+        "respno": "R01",
+        "addedAt": "2025-10-29T18:33:20.102Z",
+        "filename": "cleaned_1761251233286_transcript example 3.docx",
+        "originalPath": "C:\\Users\\LukeBorglin\\Desktop\\Apps\\JaiceDashboard_master\\server\\data\\uploads\\original_1761251233287_transcript example 3.docx",
+        "cleanedPath": "C:\\Users\\LukeBorglin\\Desktop\\Apps\\JaiceDashboard_master\\server\\data\\uploads\\cleaned_1761251233286_transcript example 3.docx",
+        "originalFilename": "transcript example 3.docx",
+        "cleanedFilename": "cleaned_1761251233286_transcript example 3.docx",
+        "isCleaned": true,
+        "demographics": {
+          "Respondent ID": "R01",
+          "respno": "R01"
+        }
+      }
+    ],
+    "columnSchema": {
+      "Demographics": [
+        "Respondent ID",
+        "Interview Date",
+        "Interview Time"
+      ],
+      "BACKGROUND": [
+        "Respondent ID",
+        "Introduction",
+        "Specialty",
+        "Years in Practice",
+        "Practice Setting",
+        "SMA Patients Under Care",
+        "Primary Role in Managing SMA Patients",
+        "Factors for Treatment Decision",
+        "Typical Approach to Treating SMA",
+        "Discussion on Treatment Switching",
+        "Biggest Challenges for Patients",
+        "Access Challenges for Specific Treatments",
+        "Addressing Challenges",
+        "Reliance on Support Programs",
+        "Unmet Needs in Insurance Support"
+      ],
+      "DETAILED REVIEW OF MESSAGING": [
+        "Respondent ID",
+        "Overall Reaction to Statements",
+        "Surprising Information",
+        "Ranking of Statements",
+        "Reason for Ranking",
+        "Impact on Manufacturer Perception",
+        "Alignment with Current Understanding",
+        "New Learnings",
+        "Individual Statement Review",
+        "Main Takeaway"
+      ],
+      "COMPREHENSIVE RANKING EXERCISE": [
+        "Respondent ID",
+        "Compelling Story Statements",
+        "Message Order Explanation",
+        "Most Important Messages",
+        "Perception Changes",
+        "Access Process Impact",
+        "Likelihood to Consider Evrysdi",
+        "Missing Elements",
+        "New Learnings"
+      ],
+      "GPF MESSAGE EVAL": [
+        "Respondent ID",
+        "Overall Reaction to Statements",
+        "Surprising Information",
+        "Ranking of Statements",
+        "Reason for Ranking",
+        "Impact on Manufacturer Perception",
+        "Alignment with Current Understanding",
+        "New Learnings",
+        "Individual Statement Review",
+        "Main Takeaway",
+        "Familiarity with GPF",
+        "Pursuit of GPF",
+        "Flexibility of GPF",
+        "Awareness of Limited Resource"
+      ],
+      "Misc.": [
+        "Respondent ID",
+        "Final Comments",
+        "Additional Notes"
+      ]
+    }
   },
   {
     "id": "1761748119990",
@@ -199,43 +220,22 @@
       "Demographics": [
         {
           "Respondent ID": "R01",
-          "Interview Date": "Sep 9, 2025",
-          "Interview Time": "11:00 AM",
+          "Interview Date": "Oct 28, 2025",
+          "Interview Time": "5:00 PM",
           "respno": "R01",
-          "transcriptId": "T-1761251220504"
-        },
-        {
-          "Respondent ID": "R02",
-          "Interview Date": "Sep 10, 2025",
-          "Interview Time": "12:00 PM",
-          "respno": "R02",
-          "transcriptId": "T-1761250872583"
-        },
-        {
-          "Respondent ID": "R04",
-          "Interview Date": "Oct 7, 2025",
-          "Interview Time": "3:00 PM",
-          "respno": "R04",
-          "transcriptId": "T-1761244346544"
-        },
-        {
-          "Respondent ID": "R03",
-          "Interview Date": "Oct 1, 2025",
-          "Interview Time": "12:00 PM",
-          "respno": "R03",
-          "transcriptId": "T-1761252705435"
+          "transcriptId": "T-1761763093840"
         }
       ],
       "BACKGROUND": [
         {
           "Respondent ID": "R01",
-          "Living Situation": "The respondent lives with her husband and three children, aged 19, 17, and 15, along with two dogs. She balances her time between family responsibilities and her part-time job at a local school. Additionally, she is pursuing a bachelor's degree in human resource management, indicating a busy and structured living environment.",
-          "Free Time Activities": "In her free time, the respondent is focused on her education, as she is enrolled in school to earn her bachelor's degree in human resource management. She also works part-time at a local school, which involves managing the front desk and handling data entry tasks. Her activities suggest a commitment to personal and professional development.",
-          "Journey with SMA": "The respondent was diagnosed with SMA Type 3 in October 2012 at the age of 30. Her diagnosis journey began when a physical therapist noticed her gait and suggested seeing a neurologist. Despite initial tests for other conditions coming back negative, she requested to be tested for SMA, which led to her diagnosis. This journey highlights her proactive approach to understanding her health condition.",
-          "Current Health Description": "The respondent describes her health as stable but has experienced changes such as losing the ability to run and attributing some symptoms to weight gain. She initially thought her symptoms were related to childbirth or weight changes, but later realized they were due to SMA. This reflects a period of adjustment and learning about her condition.",
-          "HCPs for SMA Care": "The respondent's initial neurologist was not well-versed in SMA, prompting her to seek further information from a muscular dystrophy clinic. This indicates a reliance on specialized care for managing her condition. Her experience underscores the importance of knowledgeable healthcare providers in SMA care.",
+          "Living Situation": "",
+          "Free Time Activities": "",
+          "Journey with SMA": "",
+          "Current Health Description": "",
+          "HCPs for SMA Care": "The respondent is a professor in pediatric neurology at an academic medical center, where they have been working for over twenty years. They manage a dedicated MDA clinic and have seen approximately 30 patients with SMA throughout their career. Currently, they regularly see 13 patients, with 80% being under 18 and the oldest patient being 22 years old. The respondent's approach to treating SMA involves gene therapy for younger patients and intrathecal injections or pills for others, with no patients on double therapy yet.",
           "Reasons for Not Seeing HCPs": "",
-          "Current SMA Management": "",
+          "Current SMA Management": "The respondent manages SMA by using gene therapy for patients younger than two years old, before they can receive SPINRAZA. For other patients, they use intrathecal injections like SPINRAZA or a pill form of medication. They have five patients on SPINRAZA and the rest on the pill. They have not yet started any patients on double therapy, although they are considering it for one patient who showed muscle weakness after gene therapy.",
           "Number of HCPs": "",
           "HCP Involvement in Treatment Decisions": "",
           "Primary SMA Doctor": "",
@@ -246,66 +246,6 @@
           "Health Goals - Long-term": "",
           "Personal Aspirations": "",
           "respno": "R01"
-        },
-        {
-          "Respondent ID": "R02",
-          "Living Situation": "The respondent lives with her husband and three children, aged 19, 17, and 15, along with two dogs. She works part-time at a local school and is pursuing a bachelor's degree in human resource management. Her daily life involves balancing work, studies, and family responsibilities.",
-          "Free Time Activities": "In her free time, the respondent is focused on her education, as she is enrolled in school to earn her bachelor's degree in human resource management. She also manages her household and spends time with her family, which includes her husband and three children.",
-          "Journey with SMA": "The respondent was diagnosed with SMA Type 3 in October 2012 at the age of 30. Her diagnosis came after a physical therapist noticed her gait and suggested seeing a neurologist. Initially, she was tested for other conditions like MS, but she requested to be tested for SMA due to a friend's daughter having the condition.",
-          "Current Health Description": "Currently, the respondent sees a neurologist twice a year to track her strength and manage her SMA. She has experienced a loss of ability to climb stairs without a railing but can still do so with support. She is in the process of switching neurologists to better manage her condition.",
-          "HCPs for SMA Care": "The respondent's healthcare for SMA involves seeing a neurologist every six months and her primary care doctor. She has been proactive in seeking specialists, having traveled to Utah to see a well-regarded SMA doctor for more comprehensive care.",
-          "Reasons for Not Seeing HCPs": "",
-          "Current SMA Management": "The respondent manages her SMA by regularly visiting a neurologist and tracking her strength. She has sought dietary advice and other management strategies from specialists to maintain her health.",
-          "Number of HCPs": "The respondent currently sees two healthcare providers for her SMA care: a neurologist and her primary care doctor.",
-          "HCP Involvement in Treatment Decisions": "The respondent has been actively involved in her treatment decisions, pushing for specialist care and regular monitoring of her condition. She has sought out knowledgeable doctors and requested more frequent visits to track her health.",
-          "Primary SMA Doctor": "The respondent's primary SMA doctor is a neurologist whom she sees twice a year. She is in the process of switching to a new neurologist to better meet her needs.",
-          "Others Involved in Health Decisions": "",
-          "Support System Involvement": "",
-          "Comfort in Making Treatment Decisions": "",
-          "Health Goals - Short-term": "",
-          "Health Goals - Long-term": "",
-          "Personal Aspirations": "The respondent aspires to complete her bachelor's degree in human resource management. She is balancing her education with her responsibilities at home and work, aiming to advance her career while managing her health.",
-          "respno": "R02"
-        },
-        {
-          "Respondent ID": "R04",
-          "Living Situation": "The respondent currently lives with a roommate who assists with nighttime needs, but this arrangement will change in February when his mother moves back in. This change is due to the progression of his disease, which has increased his care needs. The respondent's living situation is closely tied to his health condition, as he requires assistance with daily activities.",
-          "Free Time Activities": "In his free time, the respondent enjoys activities that align with his interests, such as following content creators with ADHD who engage in Dungeons and Dragons or comedy skits. He also reminisces about past experiences, like attending MDA camp, which he found enjoyable and socially fulfilling. These activities reflect his preference for engaging with content and communities that resonate with his personal interests.",
-          "Journey with SMA": "The respondent was diagnosed with SMA at a very young age, around one and a half years old, through a spinal tap and genetic testing. His journey with SMA has been marked by a gradual progression of symptoms, including muscle atrophy and decreased mobility. He recalls early medical care experiences at Saint Louis Children's Hospital and attending MDA camps, which provided social and recreational opportunities.",
-          "Current Health Description": "The respondent describes his current health as experiencing a natural progression of SMA, with recent declines in arm mobility and muscle loss. A cold he caught over a month ago exacerbated his condition, affecting his swallowing capability. Despite these challenges, he maintains a pragmatic outlook, accepting the progression as part of living with SMA.",
-          "HCPs for SMA Care": "The respondent does not have regular discussions with healthcare providers specifically about SMA. He mentions having a yearly checkup with his primary care physician but does not engage in in-depth conversations about his condition. His approach to healthcare is more reactive, seeking medical attention as needed rather than maintaining ongoing specialist care.",
-          "Reasons for Not Seeing HCPs": "The respondent's limited engagement with healthcare providers for SMA is influenced by his perception that doctors are often influenced by pharmaceutical companies. He prefers to use doctors as needed and relies on his own judgment and peer experiences for treatment decisions. This reflects a level of skepticism towards the healthcare system.",
-          "Current SMA Management": "The respondent manages his SMA primarily through personal routines and lifestyle adjustments rather than active medical treatment. He values stability and routine, expressing concerns about potential side effects of treatments that could disrupt his daily life. His management approach is cautious and focused on maintaining quality of life.",
-          "Number of HCPs": "",
-          "HCP Involvement in Treatment Decisions": "Healthcare providers have minimal involvement in the respondent's treatment decisions. He does not engage in detailed discussions with his primary care physician about SMA, and his decision-making is more influenced by personal research and peer experiences. This indicates a preference for autonomy in managing his condition.",
-          "Primary SMA Doctor": "",
-          "Others Involved in Health Decisions": "The respondent does not mention others being actively involved in his health decisions. He relies on his own judgment and occasionally seeks peer input when considering treatment options. This suggests a self-reliant approach to managing his health.",
-          "Support System Involvement": "The respondent's support system includes his mother, who will be moving in to assist with his care needs. This change reflects the increasing demands of his condition and the need for familial support. His support system is primarily family-based, with limited external involvement.",
-          "Comfort in Making Treatment Decisions": "The respondent expresses a level of comfort in making treatment decisions independently, though he values peer input for additional perspectives. He is cautious about potential side effects and prioritizes maintaining his quality of life. His decision-making process is informed by personal research and experiences.",
-          "Health Goals - Short-term": "",
-          "Health Goals - Long-term": "",
-          "Personal Aspirations": "The respondent's personal aspirations are not explicitly detailed, but his focus on maintaining quality of life and routine suggests a desire for stability and independence. He values activities that align with his interests and seeks to manage his condition in a way that allows him to continue engaging in these pursuits.",
-          "respno": "R04"
-        },
-        {
-          "Respondent ID": "R03",
-          "Living Situation": "The respondent lives with her husband and three children, aged 19, 17, and 15, along with two dogs. She works part-time at a local school and is also pursuing a bachelor's degree in human resource management. Her family life is busy, balancing work, education, and family responsibilities.",
-          "Free Time Activities": "In her free time, the respondent is focused on her education, as she is enrolled in school to earn her bachelor's degree. She also manages daily activities and responsibilities at home, indicating a structured and busy lifestyle.",
-          "Journey with SMA": "The respondent was diagnosed with SMA Type 3 in October 2012 at around 30 years old. Her diagnosis came after a physical therapist noticed her gait and suggested seeing a neurologist. Initially, she was tested for other conditions like MS, but she requested to be tested for SMA due to a friend's daughter having the condition.",
-          "Current Health Description": "Currently, the respondent sees a neurologist twice a year to track her strength and manage her SMA. She has experienced a loss of ability to climb stairs without a railing but can still manage it during testing. She is in the process of switching neurologists to better track her condition.",
-          "HCPs for SMA Care": "The respondent's primary healthcare providers for SMA include a neurologist whom she sees every six months and her primary care doctor. She is in the process of changing her neurologist to ensure better monitoring of her condition.",
-          "Reasons for Not Seeing HCPs": "The respondent initially faced challenges with healthcare providers who were not well-versed in SMA, leading her to seek specialists outside her local area. She felt a lack of guidance from local neurologists, prompting her to push for specialized care.",
-          "Current SMA Management": "Her current management involves regular check-ups with a neurologist and primary care doctor. She actively tracks her strength and seeks to maintain her health through informed decisions and specialist consultations.",
-          "Number of HCPs": "The respondent currently sees two healthcare providers for her SMA care: a neurologist and a primary care doctor.",
-          "HCP Involvement in Treatment Decisions": "The respondent's treatment decisions are influenced by her neurologist and primary care doctor, with whom she consults regularly to track her condition and make informed decisions.",
-          "Primary SMA Doctor": "Her primary SMA doctor is a neurologist whom she sees twice a year. She is in the process of switching to a new neurologist to better manage her condition.",
-          "Others Involved in Health Decisions": "The respondent's health decisions are primarily influenced by her healthcare providers, with no mention of other individuals being involved in her treatment decisions.",
-          "Support System Involvement": "The respondent's support system includes her family, but there is no specific mention of their involvement in her health decisions. Her focus is on healthcare providers for SMA management.",
-          "Comfort in Making Treatment Decisions": "The respondent appears comfortable making treatment decisions, as she actively seeks specialist care and tracks her condition. She is proactive in managing her health and ensuring she receives appropriate care.",
-          "Health Goals - Short-term": "Her short-term health goals include tracking her strength and maintaining her current level of mobility. She is focused on regular check-ups and monitoring her condition closely.",
-          "Health Goals - Long-term": "Long-term, the respondent aims to maintain her independence and manage her SMA effectively. She seeks to stay informed and make decisions that support her health and well-being.",
-          "Personal Aspirations": "The respondent aspires to complete her bachelor's degree in human resource management while balancing her family and work responsibilities. She is focused on personal growth and maintaining her health.",
-          "respno": "R03"
         }
       ],
       "CURRENT PERCEPTIONS & ATTITUDES": [
@@ -320,7 +260,7 @@
           "Discontinued Treatment Drawbacks": "",
           "Discontinuation Reason": "",
           "Life Changes Impact": "",
-          "Insurance Coverage Impact": "",
+          "Insurance Coverage Impact": "The respondent notes that insurance access to SMA therapies has improved significantly, with approvals now happening much quicker than before. However, combinations of therapies still present challenges and require justification. They are currently appealing for one patient, documenting motor function and symptoms to support the case. The manufacturer assists with paperwork and the appeal process, which the respondent finds helpful.",
           "Restarting Consideration": "",
           "Treatment Impressions": "",
           "Information Source": "",
@@ -334,84 +274,6 @@
           "Anti-myostatins Awareness": "",
           "Anti-myostatins Brands": "",
           "respno": "R01"
-        },
-        {
-          "Respondent ID": "R02",
-          "Treatments Awareness": "",
-          "Evrysdi Experience": "",
-          "Spinraza Experience": "",
-          "Zolgensma Experience": "",
-          "Discontinued Treatment Experience": "",
-          "Discontinued Treatment Benefits": "",
-          "Discontinued Treatment Drawbacks": "",
-          "Discontinuation Reason": "",
-          "Life Changes Impact": "",
-          "Insurance Coverage Impact": "",
-          "Restarting Consideration": "",
-          "Treatment Impressions": "",
-          "Information Source": "The respondent has used Facebook pages and support groups to gather information about SMA and potential treatments. She has been proactive in seeking out knowledgeable doctors and resources to better understand her condition.",
-          "Consideration Factors": "",
-          "Developmental Treatments Awareness": "",
-          "Developmental Treatments Impressions": "",
-          "Candidate Consideration": "",
-          "Future Treatment Consideration": "",
-          "Consideration Drivers": "",
-          "Consideration Hesitations": "",
-          "Anti-myostatins Awareness": "",
-          "Anti-myostatins Brands": "",
-          "respno": "R02"
-        },
-        {
-          "Respondent ID": "R04",
-          "Treatments Awareness": "The respondent is aware of several SMA treatments, including Spinraza, Evrysdi, and Zolgensma. He learned about Evrysdi through a rare patient survey and appreciates that it offers a different form of administration compared to Spinraza. His awareness of treatments is informed by surveys and personal research.",
-          "Evrysdi Experience": "The respondent has not used Evrysdi but is aware of its availability in tablet and liquid forms. He considers the liquid form preferable due to swallowing difficulties but is concerned about potential side effects and the impact on his routine. His interest in Evrysdi is hypothetical, contingent on the absence of side effects.",
-          "Spinraza Experience": "",
-          "Zolgensma Experience": "",
-          "Discontinued Treatment Experience": "",
-          "Discontinued Treatment Benefits": "",
-          "Discontinued Treatment Drawbacks": "",
-          "Discontinuation Reason": "",
-          "Life Changes Impact": "",
-          "Insurance Coverage Impact": "",
-          "Restarting Consideration": "",
-          "Treatment Impressions": "The respondent views current SMA treatments as 'plug in the hole' solutions rather than cures. He is cautious about side effects and the impact on his quality of life, preferring to maintain stability. His impressions are shaped by a desire for treatments that offer tangible benefits without disrupting his routine.",
-          "Information Source": "The respondent gathers information from surveys, personal research, and peer experiences. He is skeptical of manufacturer information, preferring raw data and peer insights. His information sources reflect a preference for independent research and firsthand accounts.",
-          "Consideration Factors": "When considering treatments, the respondent prioritizes the absence of side effects, ease of administration, and insurance coverage. He values peer input and seeks treatments that align with his lifestyle and routine. These factors guide his cautious approach to treatment consideration.",
-          "Developmental Treatments Awareness": "The respondent is aware of developmental treatments, including a higher dose of Spinraza and anti-myostatin medications. His awareness comes from surveys and general knowledge of ongoing research. He is open to learning about new treatments if they offer significant benefits.",
-          "Developmental Treatments Impressions": "The respondent views developmental treatments as a positive step forward, particularly if they show improvement in motor function without side effects. He is interested in treatments that target muscle function and would consider them if they align with his criteria for treatment consideration.",
-          "Candidate Consideration": "",
-          "Future Treatment Consideration": "The respondent is open to considering future treatments if they meet his criteria for safety, efficacy, and lifestyle compatibility. He is particularly interested in treatments that offer improvements in motor function without significant side effects. His consideration is influenced by personal research and peer experiences.",
-          "Consideration Drivers": "Key drivers for treatment consideration include the potential for improved motor function, absence of side effects, and insurance coverage. The respondent values treatments that enhance quality of life without disrupting his routine. These drivers reflect his cautious and pragmatic approach to treatment decisions.",
-          "Consideration Hesitations": "The respondent hesitates to consider treatments due to concerns about side effects, disruption to his routine, and the potential impact on his quality of life. He is wary of treatments that do not offer clear benefits or that require significant lifestyle adjustments. His hesitations are rooted in a desire for stability and predictability.",
-          "Anti-myostatins Awareness": "The respondent is aware of anti-myostatin treatments being tested in combination with existing SMA therapies. He views them as a promising development if they can demonstrate improvements in motor function without side effects. His awareness is informed by surveys and general knowledge of treatment research.",
-          "Anti-myostatins Brands": "",
-          "respno": "R04"
-        },
-        {
-          "Respondent ID": "R03",
-          "Treatments Awareness": "",
-          "Evrysdi Experience": "",
-          "Spinraza Experience": "",
-          "Zolgensma Experience": "",
-          "Discontinued Treatment Experience": "",
-          "Discontinued Treatment Benefits": "",
-          "Discontinued Treatment Drawbacks": "",
-          "Discontinuation Reason": "",
-          "Life Changes Impact": "",
-          "Insurance Coverage Impact": "",
-          "Restarting Consideration": "",
-          "Treatment Impressions": "",
-          "Information Source": "",
-          "Consideration Factors": "",
-          "Developmental Treatments Awareness": "",
-          "Developmental Treatments Impressions": "",
-          "Candidate Consideration": "",
-          "Future Treatment Consideration": "",
-          "Consideration Drivers": "",
-          "Consideration Hesitations": "",
-          "Anti-myostatins Awareness": "",
-          "Anti-myostatins Brands": "",
-          "respno": "R03"
         }
       ],
       "BARRIERS TO TREATMENT & UNMET NEEDS": [
@@ -437,75 +299,6 @@
           "Support System Gaps": "",
           "Unmet Needs": "",
           "respno": "R01"
-        },
-        {
-          "Respondent ID": "R02",
-          "Reasons for Not on Treatment": "",
-          "Manageable Severity Impact": "",
-          "Consideration Drivers": "",
-          "Muscle Loss Impact": "",
-          "Symptom Tracking Frequency": "",
-          "Symptom Tracking Method": "",
-          "Symptom Tracking Discussion": "",
-          "Emotional Factors Impact": "",
-          "Practical Factors Impact": "",
-          "Clinical Factors Impact": "",
-          "Treatment Benefit Requirement": "",
-          "Treatment Benefit Discussion": "",
-          "Financial Barriers Impact": "",
-          "Financial Challenges": "",
-          "Access Challenges": "",
-          "Specialized Care Availability": "",
-          "HCP Trust": "",
-          "Support System Gaps": "",
-          "Unmet Needs": "",
-          "respno": "R02"
-        },
-        {
-          "Respondent ID": "R04",
-          "Reasons for Not on Treatment": "The respondent is not currently on treatment due to concerns about side effects, the impact on his routine, and the lack of perceived benefits. He values stability and is cautious about introducing new variables that could affect his quality of life. His decision is influenced by a desire to maintain his current lifestyle.",
-          "Manageable Severity Impact": "",
-          "Consideration Drivers": "",
-          "Muscle Loss Impact": "The respondent acknowledges muscle loss as a significant impact of SMA, contributing to decreased mobility and increased care needs. This progression influences his living situation and care arrangements. Muscle loss is a key factor in his health management and decision-making process.",
-          "Symptom Tracking Frequency": "",
-          "Symptom Tracking Method": "",
-          "Symptom Tracking Discussion": "",
-          "Emotional Factors Impact": "",
-          "Practical Factors Impact": "",
-          "Clinical Factors Impact": "",
-          "Treatment Benefit Requirement": "",
-          "Treatment Benefit Discussion": "",
-          "Financial Barriers Impact": "Financial barriers, particularly insurance coverage, are a significant consideration for the respondent when evaluating treatment options. He acknowledges that without insurance, the cost of treatment would be prohibitive. Financial considerations are a critical factor in his treatment decision-making process.",
-          "Financial Challenges": "",
-          "Access Challenges": "",
-          "Specialized Care Availability": "",
-          "HCP Trust": "The respondent expresses skepticism towards healthcare providers, perceiving them as influenced by pharmaceutical companies. He prefers to rely on personal research and peer experiences for treatment decisions. This lack of trust affects his engagement with healthcare providers and his approach to treatment.",
-          "Support System Gaps": "",
-          "Unmet Needs": "",
-          "respno": "R04"
-        },
-        {
-          "Respondent ID": "R03",
-          "Reasons for Not on Treatment": "",
-          "Manageable Severity Impact": "",
-          "Consideration Drivers": "",
-          "Muscle Loss Impact": "",
-          "Symptom Tracking Frequency": "",
-          "Symptom Tracking Method": "",
-          "Symptom Tracking Discussion": "",
-          "Emotional Factors Impact": "",
-          "Practical Factors Impact": "",
-          "Clinical Factors Impact": "",
-          "Treatment Benefit Requirement": "",
-          "Treatment Benefit Discussion": "",
-          "Financial Barriers Impact": "",
-          "Financial Challenges": "",
-          "Access Challenges": "",
-          "Specialized Care Availability": "",
-          "HCP Trust": "",
-          "Support System Gaps": "",
-          "Unmet Needs": "",
-          "respno": "R03"
         }
       ],
       "MOTIVATIONS & FUTURE CONSIDERATION": [
@@ -521,45 +314,6 @@
           "Decision Maker Involvement": "",
           "Decision Confidence Factors": "",
           "respno": "R01"
-        },
-        {
-          "Respondent ID": "R02",
-          "Future Treatment Likelihood": "",
-          "Consideration Influences": "",
-          "Consideration Situations": "",
-          "Consideration Drivers": "",
-          "Consideration Hesitations": "",
-          "Improvement Expectations": "",
-          "Influential Decision Makers": "",
-          "Decision Maker Involvement": "",
-          "Decision Confidence Factors": "",
-          "respno": "R02"
-        },
-        {
-          "Respondent ID": "R04",
-          "Future Treatment Likelihood": "The respondent is open to future treatments if they meet his criteria for safety, efficacy, and lifestyle compatibility. He is particularly interested in treatments that offer improvements in motor function without significant side effects. His openness is contingent on the treatment aligning with his personal priorities and circumstances.",
-          "Consideration Influences": "Influences on the respondent's treatment consideration include peer experiences, insurance coverage, and the potential for improved motor function. He values firsthand accounts and financial feasibility as key factors in his decision-making process. These influences guide his cautious approach to evaluating treatment options.",
-          "Consideration Situations": "",
-          "Consideration Drivers": "",
-          "Consideration Hesitations": "",
-          "Improvement Expectations": "",
-          "Influential Decision Makers": "",
-          "Decision Maker Involvement": "",
-          "Decision Confidence Factors": "",
-          "respno": "R04"
-        },
-        {
-          "Respondent ID": "R03",
-          "Future Treatment Likelihood": "",
-          "Consideration Influences": "",
-          "Consideration Situations": "",
-          "Consideration Drivers": "",
-          "Consideration Hesitations": "",
-          "Improvement Expectations": "",
-          "Influential Decision Makers": "",
-          "Decision Maker Involvement": "",
-          "Decision Confidence Factors": "",
-          "respno": "R03"
         }
       ],
       "COMMUNITY ENGAGEMENT & INFO SOURCES": [
@@ -576,48 +330,6 @@
           "Preferred Information Format": "",
           "Facilitation Suggestions": "",
           "respno": "R01"
-        },
-        {
-          "Respondent ID": "R02",
-          "Community Connection": "",
-          "Community Participation": "",
-          "Community Involvement Reasons": "",
-          "Information Sources": "The respondent has utilized Facebook pages and support groups as her primary sources of information about SMA. She has actively sought out these communities to gain insights and connect with others who have similar experiences.",
-          "Trusted Sources": "",
-          "Distrusted Sources": "",
-          "New Information Awareness": "",
-          "Information Preferences": "",
-          "Preferred Information Format": "",
-          "Facilitation Suggestions": "",
-          "respno": "R02"
-        },
-        {
-          "Respondent ID": "R04",
-          "Community Connection": "The respondent has limited connection to the SMA community, both online and in person. He maintains some social connections from past experiences, such as MDA camp, but does not actively engage with SMA groups. His limited involvement is due to a preference for independence and a perception that online communities often adopt a victim mentality.",
-          "Community Participation": "",
-          "Community Involvement Reasons": "",
-          "Information Sources": "The respondent's information sources include personal research, surveys, and peer experiences. He is skeptical of manufacturer information and prefers raw data and firsthand accounts. His information-gathering approach reflects a desire for independent and reliable sources.",
-          "Trusted Sources": "The respondent trusts peer experiences and raw data as sources of information about SMA treatments. He values firsthand accounts for their authenticity and practical insights. These trusted sources guide his treatment considerations and decision-making process.",
-          "Distrusted Sources": "The respondent is skeptical of information from manufacturers and healthcare providers, perceiving them as potentially biased. He is cautious about accepting information that may be influenced by commercial interests. This skepticism affects his engagement with these sources.",
-          "New Information Awareness": "",
-          "Information Preferences": "",
-          "Preferred Information Format": "",
-          "Facilitation Suggestions": "",
-          "respno": "R04"
-        },
-        {
-          "Respondent ID": "R03",
-          "Community Connection": "",
-          "Community Participation": "",
-          "Community Involvement Reasons": "",
-          "Information Sources": "",
-          "Trusted Sources": "",
-          "Distrusted Sources": "",
-          "New Information Awareness": "",
-          "Information Preferences": "",
-          "Preferred Information Format": "",
-          "Facilitation Suggestions": "",
-          "respno": "R03"
         }
       ],
       "Misc.": [
@@ -626,24 +338,6 @@
           "Final Comments": "",
           "Additional Notes": "",
           "respno": "R01"
-        },
-        {
-          "Respondent ID": "R02",
-          "Final Comments": "",
-          "Additional Notes": "",
-          "respno": "R02"
-        },
-        {
-          "Respondent ID": "R04",
-          "Final Comments": "",
-          "Additional Notes": "",
-          "respno": "R04"
-        },
-        {
-          "Respondent ID": "R03",
-          "Final Comments": "",
-          "Additional Notes": "",
-          "respno": "R03"
         }
       ]
     },
@@ -651,7 +345,7 @@
       "bySheet": {}
     },
     "quotes": {},
-    "savedAt": "2025-10-23T20:53:59.196Z",
+    "savedAt": "2025-10-29T18:39:39.914Z",
     "savedBy": "You",
     "context": {},
     "transcripts": [
@@ -701,6 +395,18 @@
         "cleanedPath": "C:\\Users\\LukeBorglin\\Desktop\\Apps\\JaiceDashboard_master\\server\\data\\uploads\\cleaned_1761252772006_transcript example.docx",
         "originalFilename": "transcript example.docx",
         "cleanedFilename": "cleaned_1761252772006_transcript example.docx",
+        "isCleaned": true
+      },
+      {
+        "id": "T-1761763093840",
+        "sourceTranscriptId": "T-1761763093840",
+        "respno": "R01",
+        "addedAt": "2025-10-29T18:39:39.913Z",
+        "filename": "cleaned_1761763146694_HCP 491135_ENGLISH (UNITED STATES)_MT.docx",
+        "originalPath": "C:\\Users\\LukeBorglin\\Desktop\\Apps\\JaiceDashboard_master\\server\\data\\uploads\\original_1761763146696_HCP 491135_ENGLISH (UNITED STATES)_MT.docx",
+        "cleanedPath": "C:\\Users\\LukeBorglin\\Desktop\\Apps\\JaiceDashboard_master\\server\\data\\uploads\\cleaned_1761763146694_HCP 491135_ENGLISH (UNITED STATES)_MT.docx",
+        "originalFilename": "HCP 491135_ENGLISH (UNITED STATES)_MT.docx",
+        "cleanedFilename": "cleaned_1761763146694_HCP 491135_ENGLISH (UNITED STATES)_MT.docx",
         "isCleaned": true
       }
     ],

@@ -4,6 +4,7 @@ import { XMarkIcon, ChevronLeftIcon, ChevronRightIcon, PlusIcon, TrashIcon, Info
 import { useAuth } from '../contexts/AuthContext';
 import UserSearch from './UserSearch';
 import { createPortal } from 'react-dom';
+import { checkModeratorAvailability, formatConflicts } from '../services/moderatorAvailability';
 import type { TeamMemberWithRoles } from '../types/roles';
 import { autoAssignByRoles } from '../lib/autoAssignByRoles';
 import { calculateTaskDueDate, type ProjectTimeline } from '../lib/dateCalculator';
@@ -1480,6 +1481,29 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
         segments: generateProjectSegments(projectStartDate, projectEndDate)
       };
 
+      // Enforce moderator availability if a moderator is selected and methodology is Qual
+      const isQual = (project.methodologyType || '').toLowerCase().startsWith('qual');
+      if (isQual && project.moderator) {
+        const selectedMod = moderators.find((m: any) => m.id === project.moderator || m.name === project.moderator);
+        if (selectedMod) {
+          const fieldSeg = (project.segments || []).find((s: any) => s.phase === 'Fielding');
+          const allProjects = JSON.parse(localStorage.getItem('cognitive_dash_projects') || '[]');
+          const availability = checkModeratorAvailability(
+            selectedMod,
+            fieldSeg?.startDate,
+            fieldSeg?.endDate,
+            allProjects,
+            { treatPendingAsBlocking: true }
+          );
+          if (!availability.ok) {
+            setError(`Selected moderator is unavailable for the fieldwork dates.\n\n${formatConflicts(availability.conflicts)}`);
+            throw new Error('Moderator unavailable');
+          }
+          // Ensure we save moderator by ID
+          project.moderator = selectedMod.id;
+        }
+      }
+
       // Debug: Log team members with roles before save
       console.log('📋 Team members before save:', teamMembers);
       console.log('📋 Team members with roles:', teamMembers.map(m => ({
@@ -2452,7 +2476,7 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
               {formData.methodologyType === 'Qualitative' && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Moderator
+                    Moderator <span className="text-gray-500 font-normal">(optional)</span>
                   </label>
 
                   <select
@@ -2621,53 +2645,55 @@ const ProjectSetupWizard: React.FC<ProjectSetupWizardProps> = ({ isOpen, onClose
                 </select>
               </div>
 
-              {/* Advanced Analytics Section */}
-              <div className="space-y-4">
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id="requireAdvancedAnalytics"
-                    checked={formData.requireAdvancedAnalytics}
-                    onChange={(e) => handleInputChange('requireAdvancedAnalytics', e.target.checked)}
-                    className="mr-3"
-                  />
-                  <label htmlFor="requireAdvancedAnalytics" className="text-sm font-medium text-gray-700">
-                    Require advanced analytics
-                  </label>
-                </div>
-
-                {formData.requireAdvancedAnalytics && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Analytics Partner
-                      </label>
-                    
-                    <select
-                      value={formData.analyticsPartner}
-                      onChange={(e) => {
-                        const selectedValue = e.target.value;
-                        if (selectedValue === '_add_new_analytics_partner_') {
-                          setShowAddAnalyticsPartner(true);
-                          // Reset to empty so the dropdown doesn't show "Add New" as selected
-                          handleInputChange('analyticsPartner', '');
-                        } else {
-                          handleInputChange('analyticsPartner', selectedValue);
-                        }
-                      }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2"
-                      style={{ '--tw-ring-color': BRAND.orange } as React.CSSProperties}
-                    >
-                      <option value="">Select analytics partner</option>
-                      {analyticsPartners.map((partner) => (
-                        <option key={partner.id} value={partner.id}>
-                          {partner.name} ({partner.company})
-                        </option>
-                      ))}
-                      <option value="_add_new_analytics_partner_">+ Add New Analytics Partner...</option>
-                    </select>
+              {/* Advanced Analytics Section - show only for Quantitative */}
+              {formData.methodologyType === 'Quantitative' && (
+                <div className="space-y-4">
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="requireAdvancedAnalytics"
+                      checked={formData.requireAdvancedAnalytics}
+                      onChange={(e) => handleInputChange('requireAdvancedAnalytics', e.target.checked)}
+                      className="mr-3"
+                    />
+                    <label htmlFor="requireAdvancedAnalytics" className="text-sm font-medium text-gray-700">
+                      Require advanced analytics
+                    </label>
                   </div>
-                )}
-              </div>
+
+                  {formData.requireAdvancedAnalytics && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Analytics Partner
+                        </label>
+                      
+                      <select
+                        value={formData.analyticsPartner}
+                        onChange={(e) => {
+                          const selectedValue = e.target.value;
+                          if (selectedValue === '_add_new_analytics_partner_') {
+                            setShowAddAnalyticsPartner(true);
+                            // Reset to empty so the dropdown doesn't show "Add New" as selected
+                            handleInputChange('analyticsPartner', '');
+                          } else {
+                            handleInputChange('analyticsPartner', selectedValue);
+                          }
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2"
+                        style={{ '--tw-ring-color': BRAND.orange } as React.CSSProperties}
+                      >
+                        <option value="">Select analytics partner</option>
+                        {analyticsPartners.map((partner) => (
+                          <option key={partner.id} value={partner.id}>
+                            {partner.name} ({partner.company})
+                          </option>
+                        ))}
+                        <option value="_add_new_analytics_partner_">+ Add New Analytics Partner...</option>
+                      </select>
+                    </div>
+                  )}
+                </div>
+              )}
 
             </div>
           )}

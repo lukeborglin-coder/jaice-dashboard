@@ -61,6 +61,7 @@ import ConjointProjects from "./components/ConjointProjects";
 import AuthWrapper from "./components/AuthWrapper";
 import TopBar from "./components/TopBar";
 import Feedback from "./components/Feedback";
+import { checkModeratorAvailability, formatConflicts } from "./services/moderatorAvailability";
 import ProjectSetupWizard from "./components/ProjectSetupWizard";
 import UserSearch from "./components/UserSearch";
 import CalendarPicker from "./components/CalendarPicker";
@@ -75,6 +76,7 @@ const BRAND = { orange: "#D14A2D", gray: "#5D5F62", bg: "#F7F7F8" };
 
 // Vendor Library Component
 function VendorLibrary({ projects }: { projects: any[] }) {
+  const { user } = useAuth();
   // Helper function to format dates consistently with the rest of the app
   const formatDateForDisplay = (dateString: string | undefined): string => {
     if (!dateString) return 'Invalid Date';
@@ -132,12 +134,86 @@ function VendorLibrary({ projects }: { projects: any[] }) {
   const [conflictMessage, setConflictMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [showInactiveProjects, setShowInactiveProjects] = useState(false);
+  const [showPreviousProjects, setShowPreviousProjects] = useState(false);
+  const [calendarDate, setCalendarDate] = useState(new Date());
+  const goPrevMonth = () => setCalendarDate(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+  const goNextMonth = () => setCalendarDate(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
+  // Match Active Projects box height to Contact Information box
+  const contactInfoRef = React.useRef<HTMLDivElement | null>(null);
+  const [contactBoxHeight, setContactBoxHeight] = useState<number>(0);
+  const [isEditingContactInfo, setIsEditingContactInfo] = useState(false);
+  const [addingSpecialty, setAddingSpecialty] = useState(false);
+  const [newSpecialty, setNewSpecialty] = useState('');
+  const [projectOverrides, setProjectOverrides] = useState<Record<string, any>>({});
+  const [showAddProjectBooking, setShowAddProjectBooking] = useState(false);
+  const [showAddHold, setShowAddHold] = useState(false);
+  const [showAddUnavailable, setShowAddUnavailable] = useState(false);
+  const [addProjectAvailability, setAddProjectAvailability] = useState<'idle' | 'available' | 'conflict'>('idle');
+  const [addProjectDates, setAddProjectDates] = useState<{ start?: string; end?: string }>({});
+  const projectsVL = useMemo(() => {
+    if (!projects || projects.length === 0) return [] as any[];
+    if (!projectOverrides || Object.keys(projectOverrides).length === 0) return projects;
+    const map: Record<string, any> = {};
+    projects.forEach((p: any) => { map[p.id] = p; });
+    Object.keys(projectOverrides).forEach(id => { map[id] = { ...map[id], ...projectOverrides[id] }; });
+    return Object.values(map);
+  }, [projects, projectOverrides]);
+  const [removedProjectIds, setRemovedProjectIds] = useState<string[]>([]);
+  useEffect(() => {
+    const measure = () => {
+      if (contactInfoRef.current) {
+        setContactBoxHeight(contactInfoRef.current.offsetHeight);
+      }
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [showDetailsModal, isEditing, selectedVendor]);
   const [scheduleForm, setScheduleForm] = useState({
     startDate: '',
     endDate: '',
     type: 'booked', // 'booked' or 'pending'
     projectName: ''
   });
+
+  // Debug: log context when opening Edit Schedule
+  useEffect(() => {
+    if (showScheduleModal && selectedVendor) {
+      try {
+        const modPreview = (projects || []).slice(0, 5).map((p: any) => ({ id: p.id, name: p.name, moderator: p.moderator, assignedModerator: (p as any).assignedModerator, moderatorId: (p as any).moderatorId, phase: p.phase }));
+        console.log('[VendorLibrary] Edit Schedule opened for', { vendorId: selectedVendor.id, vendorName: selectedVendor.name, projects: projects?.length || 0, activeSection });
+        console.log('[VendorLibrary] Sample projects moderator field preview:', JSON.stringify(modPreview));
+      } catch {}
+    }
+  }, [showScheduleModal, selectedVendor, projects, activeSection]);
+
+  const removeModeratorFromProject = async (projectId: string) => {
+    try {
+      const proj = projectsVL.find((p: any) => p.id === projectId);
+      if (!proj) return;
+      const updatedProject = { ...proj, moderator: '' };
+      const resp = await fetch(`${API_BASE_URL}/api/projects/${projectId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
+        },
+        body: JSON.stringify({ userId: user?.id, project: updatedProject })
+      });
+      if (resp.ok) {
+        setRemovedProjectIds(prev => [...prev, projectId]);
+        setSuccessMessage('Moderator removed from project.');
+        // Optimistically update local view
+        setProjectOverrides(prev => ({ ...prev, [projectId]: updatedProject }));
+        try { window.dispatchEvent(new Event('projectUpdated')); } catch {}
+      } else {
+        alert('Failed to remove moderator from project');
+      }
+    } catch (e) {
+      console.error('Error removing moderator:', e);
+      alert('Error removing moderator from project');
+    }
+  };
 
   const currentVendorSchedule = useMemo(() => {
     if (!selectedVendor) return [];
@@ -310,7 +386,7 @@ function VendorLibrary({ projects }: { projects: any[] }) {
   };
 
   // Handle edit vendor
-  const handleEditVendor = async () => {
+  const handleEditVendor = async (override?: Partial<typeof editingVendor>) => {
     // Validation depends on vendor type
     if (activeSection === 'sampleVendors') {
       if (!editingVendor.company) {
@@ -330,9 +406,10 @@ function VendorLibrary({ projects }: { projects: any[] }) {
       const token = localStorage.getItem('cognitive_dash_token');
 
       // Prepare payload based on vendor type
+      const dataToSave = override ? { ...editingVendor, ...override } : editingVendor;
       const payload = activeSection === 'sampleVendors'
-        ? { company: editingVendor.company, contacts: editingVendor.contacts, specialties: editingVendor.specialties, notes: editingVendor.notes }
-        : editingVendor;
+        ? { company: dataToSave.company, contacts: dataToSave.contacts, specialties: dataToSave.specialties, notes: dataToSave.notes }
+        : dataToSave;
 
       const resp = await fetch(`${API_BASE_URL}/api/vendors/${path}/${selectedVendor.id}`, {
         method: 'PUT',
@@ -347,9 +424,15 @@ function VendorLibrary({ projects }: { projects: any[] }) {
         throw new Error(err.error || 'Failed to update vendor');
       }
       await loadVendors();
+      // Keep modal open; update selected vendor inline using the saved data
       setIsEditing(false);
-      setShowDetailsModal(false);
-      setSelectedVendor(null);
+      setSelectedVendor(prev => {
+        if (!prev) return prev;
+        const updated = (activeSection === 'sampleVendors')
+          ? { company: payload.company, contacts: payload.contacts, specialties: payload.specialties, notes: payload.notes }
+          : payload;
+        return { ...prev, ...updated } as any;
+      });
     } catch (error) {
       console.error('Error updating vendor:', error);
       alert('Failed to update vendor');
@@ -474,14 +557,32 @@ function VendorLibrary({ projects }: { projects: any[] }) {
 
   // Add schedule entry for vendor
   const handleAddSchedule = async () => {
-    if (!selectedVendor || !scheduleForm.startDate || !scheduleForm.endDate) {
+    if (!selectedVendor) {
       return;
     }
 
     // Check if date range is available
     const schedule = getModeratorSchedule(selectedVendor.id, selectedVendor.name);
-    const newStart = new Date(scheduleForm.startDate);
-    const newEnd = new Date(scheduleForm.endDate);
+    let newStart: Date | null = null;
+    let newEnd: Date | null = null;
+    if (scheduleForm.type === 'booked' && scheduleForm.projectName && (!scheduleForm.startDate || !scheduleForm.endDate)) {
+      const target = (projectsVL as any[]).find(p => p.name === scheduleForm.projectName);
+      const fieldSeg = target?.segments?.find((s: any) => s.phase === 'Fielding' || s.phase === 'Pre-Field');
+      const s = fieldSeg?.startDate || target?.startDate;
+      const e = fieldSeg?.endDate || target?.endDate;
+      if (s && e) {
+        newStart = new Date(s);
+        newEnd = new Date(e);
+      }
+    } else if (scheduleForm.startDate && scheduleForm.endDate) {
+      newStart = new Date(scheduleForm.startDate);
+      newEnd = new Date(scheduleForm.endDate);
+    }
+
+    // If not adding project and no dates provided, bail
+    if (!newStart || !newEnd) {
+      return;
+    }
 
     // Check for conflicts with existing bookings
     const hasConflict = schedule.some(booking => {
@@ -501,6 +602,51 @@ function VendorLibrary({ projects }: { projects: any[] }) {
       const path = getVendorsApiPath(sectionKey);
       const token = localStorage.getItem('cognitive_dash_token');
 
+      // If adding a project booking, assign the moderator to the selected project (same as Project Hub)
+      if (scheduleForm.type === 'booked' && scheduleForm.projectName) {
+        const target = (projectsVL as any[]).find(p => p.name === scheduleForm.projectName);
+        if (target) {
+          // Check availability against target project's Fielding dates
+          const fieldSeg = (target.segments || []).find((s: any) => s.phase === 'Fielding');
+          const allProjects = JSON.parse(localStorage.getItem('cognitive_dash_projects') || '[]');
+          const availability = checkModeratorAvailability(
+            selectedVendor,
+            fieldSeg?.startDate,
+            fieldSeg?.endDate,
+            allProjects,
+            { treatPendingAsBlocking: true }
+          );
+          if (!availability.ok) {
+            setConflictMessage(`Moderator is unavailable for Fielding dates.\n\n${formatConflicts(availability.conflicts)}`);
+            setSuccessMessage('');
+            return;
+          }
+
+          const updatedProject = { ...target, moderator: selectedVendor.id };
+          const respAssign = await fetch(`${API_BASE_URL}/api/projects/${target.id}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
+            },
+            body: JSON.stringify({ userId: (user?.id), project: updatedProject })
+          });
+          if (!respAssign.ok) {
+            const errText = await respAssign.text();
+            throw new Error(`Failed to assign moderator to project: ${errText}`);
+          }
+          // Optimistically reflect in local UI
+          setProjectOverrides(prev => ({ ...prev, [target.id]: updatedProject }));
+          setSuccessMessage('Moderator assigned to project.');
+          setScheduleForm({ startDate: '', endDate: '', type: 'booked', projectName: '' });
+          setConflictMessage('');
+          setPendingDeleteId(null);
+          try { window.dispatchEvent(new Event('projectUpdated')); } catch {}
+          return;
+        }
+      }
+
+      // Otherwise, add a custom Hold/Unavailable entry
       const scheduleEntry = {
         id: Date.now().toString(),
         startDate: scheduleForm.startDate,
@@ -539,8 +685,10 @@ function VendorLibrary({ projects }: { projects: any[] }) {
     try {
       let projectsToCheck: any[] = [];
 
-      // First, try to use the projects prop from the main app
-      if (projects && projects.length > 0) {
+      // First, try to use the locally overridden projects for immediate UI consistency
+      if (projectsVL && projectsVL.length > 0) {
+        projectsToCheck = projectsVL as any[];
+      } else if (projects && projects.length > 0) {
         projectsToCheck = projects;
       } else {
         // Try different localStorage keys where projects might be stored
@@ -642,7 +790,7 @@ function VendorLibrary({ projects }: { projects: any[] }) {
     const activeProjects: any[] = [];
     const archivedProjects: any[] = [];
 
-    projects.forEach((project: any) => {
+    (projectsVL as any[]).forEach((project: any) => {
       let isVendorInProject = false;
 
       // Check different vendor fields based on the active section
@@ -657,11 +805,40 @@ function VendorLibrary({ projects }: { projects: any[] }) {
           isVendorInProject = true;
         }
       } else if (activeSection === 'moderators') {
-        // For moderators, check moderator field
-        if (project.moderator === vendorId ||
-            (typeof project.moderator === 'string' &&
-              project.moderator.toLowerCase() === (selectedVendor?.name || '').toLowerCase())) {
-          isVendorInProject = true;
+        // For moderators, check moderator field broadly (id, name, email, object, or array, plus common alternate fields)
+        const possibleModeratorFields: any[] = [];
+        const pushIfExists = (v: any) => { if (v !== undefined && v !== null) possibleModeratorFields.push(v); };
+        pushIfExists((project as any).moderator);
+        pushIfExists((project as any).assignedModerator);
+        pushIfExists((project as any).moderatorId);
+        // Some projects might store in team/roles
+        if (Array.isArray((project as any).moderators)) pushIfExists((project as any).moderators);
+        const mod = possibleModeratorFields.length === 1 ? possibleModeratorFields[0] : possibleModeratorFields;
+        const selName = (selectedVendor?.name || '').toLowerCase();
+        const selEmail = (selectedVendor?.email || '').toLowerCase();
+        const idLower = (vendorId || '').toLowerCase();
+
+        const matchObj = (m: any) => (
+          m === vendorId ||
+          (typeof m === 'string' && (
+            m.toLowerCase() === selName ||
+            m.toLowerCase() === selEmail ||
+            m.toLowerCase() === idLower
+          )) ||
+          (m && typeof m === 'object' && (
+            m.id === vendorId ||
+            (typeof m.id === 'string' && m.id.toLowerCase() === idLower) ||
+            (typeof m.name === 'string' && m.name.toLowerCase() === selName) ||
+            (typeof m.email === 'string' && m.email.toLowerCase() === selEmail)
+          ))
+        );
+
+        const modsArray = Array.isArray(mod) ? mod : [mod];
+        isVendorInProject = modsArray.some((m: any) => matchObj(m));
+        if (showScheduleModal) {
+          try {
+            console.log('[VendorLibrary] moderator match check', JSON.stringify({ projectId: project.id, projectName: project.name, modPreview: modsArray, vendorId, selName, selEmail, matched: isVendorInProject }));
+          } catch {}
         }
       } else if (activeSection === 'analytics') {
         // For analytics, check analyticsPartner field
@@ -681,6 +858,16 @@ function VendorLibrary({ projects }: { projects: any[] }) {
       }
     });
 
+    if (showScheduleModal) {
+      try {
+        console.log('[VendorLibrary] getVendorProjects result', JSON.stringify({
+          vendorId,
+          vendorCompany,
+          counts: { active: activeProjects.length, archived: archivedProjects.length },
+          activeSample: activeProjects.slice(0, 5).map((p: any) => ({ id: p.id, name: p.name, phase: p.phase }))
+        }));
+      } catch {}
+    }
     return { activeProjects, archivedProjects };
   };
 
@@ -1227,21 +1414,12 @@ function VendorLibrary({ projects }: { projects: any[] }) {
       {/* Vendor Details Modal */}
       {showDetailsModal && selectedVendor && createPortal(
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10100]" style={{ margin: 0, padding: 0, top: 0, left: 0, right: 0, bottom: 0 }}>
-          <div className="bg-white rounded-lg p-6 w-full h-full max-w-7xl max-h-[95vh] overflow-y-auto" style={{ margin: '2rem' }}>
+          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[85vh] overflow-y-auto" style={{ margin: '2rem' }}>
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-semibold text-gray-900">
                 {activeSection === 'sampleVendors' ? selectedVendor.company : selectedVendor.name}
               </h3>
               <div className="flex items-center gap-2">
-                {!isEditing && (
-                  <button
-                    onClick={() => setIsEditing(true)}
-                    className="px-4 py-2 text-white rounded-md hover:opacity-90 transition-colors"
-                    style={{ backgroundColor: BRAND.orange }}
-                  >
-                    Edit
-                  </button>
-                )}
                 <button
                   onClick={() => {
                     setShowDetailsModal(false);
@@ -1467,7 +1645,86 @@ function VendorLibrary({ projects }: { projects: any[] }) {
                       {/* Contact Information for Moderators/Analytics */}
                       {activeSection !== 'sampleVendors' && (
                         <div>
-                          <h4 className="text-sm font-medium text-gray-600 uppercase tracking-wide mb-3">Contact Information</h4>
+                          <div ref={contactInfoRef} className="p-4 bg-gray-50 rounded-lg transition-colors shadow-sm hover:bg-gray-100 hover:shadow">
+                            <div className="flex items-center justify-between">
+                              <h4 className="text-sm font-medium text-gray-600 uppercase tracking-wide mb-2">Contact Information</h4>
+                              <button
+                                onClick={() => {
+                                  setIsEditingContactInfo((v) => !v);
+                                  setEditingVendor(prev => ({
+                                    ...prev,
+                                    email: selectedVendor.email || '',
+                                    phone: selectedVendor.phone || '',
+                                    company: selectedVendor.company || ''
+                                  }));
+                                }}
+                                className="text-gray-500 hover:text-gray-700"
+                                title={isEditingContactInfo ? 'Close editing' : 'Edit contact info'}
+                              >
+                                <PencilIcon className="w-4 h-4" />
+                              </button>
+                            </div>
+                            <div className="h-px bg-gray-200 mb-3" />
+                            {isEditingContactInfo ? (
+                              <div className="space-y-3">
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                                  <input
+                                    type="email"
+                                    value={editingVendor.email}
+                                    onChange={(e) => setEditingVendor(prev => ({ ...prev, email: e.target.value }))}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2"
+                                    style={{ '--tw-ring-color': BRAND.orange } as any}
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                                  <input
+                                    type="tel"
+                                    value={editingVendor.phone}
+                                    onChange={(e) => setEditingVendor(prev => ({ ...prev, phone: e.target.value }))}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2"
+                                    style={{ '--tw-ring-color': BRAND.orange } as any}
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">Company</label>
+                                  <input
+                                    type="text"
+                                    value={editingVendor.company}
+                                    onChange={(e) => setEditingVendor(prev => ({ ...prev, company: e.target.value }))}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2"
+                                    style={{ '--tw-ring-color': BRAND.orange } as any}
+                                  />
+                                </div>
+                                <div className="flex justify-end gap-2 pt-1">
+                                  <button
+                                    onClick={() => {
+                                      setIsEditingContactInfo(false);
+                                      setEditingVendor({
+                                        name: selectedVendor.name || '',
+                                        email: selectedVendor.email || '',
+                                        phone: selectedVendor.phone || '',
+                                        company: selectedVendor.company || '',
+                                        specialties: selectedVendor.specialties || [],
+                                        notes: selectedVendor.notes || '',
+                                        contacts: selectedVendor.contacts || []
+                                      });
+                                    }}
+                                    className="px-3 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    onClick={async () => { await handleEditVendor(); setIsEditingContactInfo(false); }}
+                                    className="px-3 py-2 text-white rounded-md hover:opacity-90 transition-colors"
+                                    style={{ backgroundColor: BRAND.orange }}
+                                  >
+                                    Save
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
                           <div className="space-y-2">
                             <div>
                               <span className="text-sm font-medium text-gray-700">Email:</span>
@@ -1485,6 +1742,8 @@ function VendorLibrary({ projects }: { projects: any[] }) {
                                 {selectedVendor.company || 'N/A'}
                               </span>
                             </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       )}
@@ -1492,11 +1751,13 @@ function VendorLibrary({ projects }: { projects: any[] }) {
                       {/* Contacts for Sample Vendors */}
                       {activeSection === 'sampleVendors' && (
                         <div>
-                          <h4 className="text-sm font-medium text-gray-600 uppercase tracking-wide mb-3">Contacts</h4>
+                          <div className="p-4 bg-gray-50 rounded-lg transition-colors shadow-sm hover:bg-gray-100 hover:shadow">
+                            <h4 className="text-sm font-medium text-gray-600 uppercase tracking-wide mb-2">Contacts</h4>
+                            <div className="h-px bg-gray-200 mb-3" />
                           {selectedVendor.contacts && selectedVendor.contacts.length > 0 ? (
                             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                               {selectedVendor.contacts.map((contact: any, index: number) => (
-                                <div key={index} className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
+                                  <div key={index} className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm transition-shadow hover:shadow-md">
                                   <div className="text-sm font-medium text-gray-900">{contact.name}</div>
                                   <a
                                     href={`mailto:${contact.email}`}
@@ -1510,36 +1771,13 @@ function VendorLibrary({ projects }: { projects: any[] }) {
                           ) : (
                             <p className="text-sm text-gray-500 italic">No contacts added</p>
                           )}
-                        </div>
-                      )}
-
-                      {/* Specialties */}
-                      {selectedVendor.specialties && selectedVendor.specialties.length > 0 && (
-                        <div>
-                          <h4 className="text-sm font-medium text-gray-600 uppercase tracking-wide mb-3">Specialties</h4>
-                          <div className="flex flex-wrap gap-2">
-                            {selectedVendor.specialties.map((specialty: string, index: number) => (
-                              <span
-                                key={index}
-                                className="px-3 py-1 text-sm rounded-full text-white"
-                                style={{ backgroundColor: '#3B82F6', opacity: 0.8 }}
-                              >
-                                {specialty}
-                              </span>
-                            ))}
                           </div>
                         </div>
                       )}
 
-                      {/* Notes */}
-                      <div>
-                        <h4 className="text-sm font-medium text-gray-600 uppercase tracking-wide mb-3">Notes</h4>
-                        <div className="p-4 bg-gray-50 rounded-lg">
-                          <p className={`text-sm whitespace-pre-wrap ${selectedVendor.notes ? 'text-gray-900' : 'text-gray-500 italic'}`}>
-                            {selectedVendor.notes || 'No notes'}
-                          </p>
-                        </div>
-                      </div>
+                      {/* Specialties moved to full-width section below */}
+
+                      {/* Notes section removed */}
                     </div>
 
                     {/* Right Column - Projects */}
@@ -1549,69 +1787,48 @@ function VendorLibrary({ projects }: { projects: any[] }) {
                           selectedVendor.id,
                           selectedVendor.company
                         );
+                        const allProjects = [...activeProjects, ...archivedProjects];
+                        const today = new Date();
+                        const postPhases = new Set(['Post-Field Analysis', 'Reporting', 'Complete']);
+                        const isPast = (p: any) => {
+                          const phase = p.phase;
+                          if (postPhases.has(phase)) return true;
+                          const end = p.endDate ? new Date(p.endDate) : null;
+                          return !!(end && end < today);
+                        };
+                        const activeByDate = allProjects.filter((p: any) => !isPast(p));
+                        const previousByDate = allProjects.filter((p: any) => isPast(p));
 
                         return (
                           <>
                             {/* Active Projects */}
-                            <div>
-                              <h4 className="text-sm font-medium text-gray-600 uppercase tracking-wide mb-3">
-                                Active Projects ({activeProjects.length})
+                            <div className="p-4 bg-gray-50 rounded-lg transition-colors shadow-sm hover:bg-gray-100 hover:shadow" style={{ minHeight: contactBoxHeight }}>
+                              <h4 className="text-sm font-medium text-gray-600 uppercase tracking-wide mb-2">
+                                Active Projects ({activeByDate.length})
                               </h4>
-                              {activeProjects.length > 0 ? (
-                                <div className="space-y-2">
-                                  {activeProjects.map((project: any) => (
-                                    <div key={project.id} className="p-3 bg-green-50 border border-green-100 rounded-lg">
-                                      <div className="text-sm font-medium text-gray-900">{project.name}</div>
-                                      <div className="text-xs text-gray-600 mt-1">
-                                        {project.client} • {project.methodologyType}
+                              <div className="h-px bg-gray-200 mb-3" />
+                              {activeByDate.length > 0 ? (
+                                <div className="space-y-1">
+                                  {activeByDate.map((project: any) => {
+                                    const status = typeof getProjectStatus === 'function' ? getProjectStatus(project) : { phase: project.phase } as any;
+                                    const currentPhase = status?.phase || project.phase;
+                                    const inField = currentPhase === 'Fielding';
+                                    const awaitingField = currentPhase === 'Pre-Field' || currentPhase === 'Awaiting KO' || currentPhase === 'Kickoff';
+                                    const dotColor = inField ? '#10B981' : awaitingField ? '#F59E0B' : 'transparent';
+                                    return (
+                                      <div key={project.id} className="p-2 bg-white border border-gray-200 rounded-lg relative">
+                                        <div className="text-sm leading-tight font-medium text-gray-900 pr-5 truncate">{project.name}</div>
+                                        <span
+                                          className="absolute right-2 top-1/2 -translate-y-1/2 transform w-2.5 h-2.5 rounded-full"
+                                          style={{ backgroundColor: dotColor }}
+                                          aria-hidden
+                                        />
                                       </div>
-                                      <div className="text-xs text-gray-500 mt-1">
-                                        Phase: {getPhaseDisplayName(project.phase)}
-                                      </div>
-                                    </div>
-                                  ))}
+                                    );
+                                  })}
                                 </div>
                               ) : (
                                 <p className="text-sm text-gray-500 italic">No active projects</p>
-                              )}
-                            </div>
-
-                            {/* Inactive/Archived Projects */}
-                            <div>
-                              <button
-                                onClick={() => setShowInactiveProjects(!showInactiveProjects)}
-                                className="flex items-center justify-between w-full text-left mb-3"
-                              >
-                                <h4 className="text-sm font-medium text-gray-600 uppercase tracking-wide">
-                                  Inactive Projects ({archivedProjects.length})
-                                </h4>
-                                <svg
-                                  className={`w-5 h-5 text-gray-500 transition-transform ${showInactiveProjects ? 'rotate-180' : ''}`}
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                </svg>
-                              </button>
-                              {showInactiveProjects && (
-                                archivedProjects.length > 0 ? (
-                                  <div className="space-y-2">
-                                    {archivedProjects.map((project: any) => (
-                                      <div key={project.id} className="p-3 bg-gray-100 border border-gray-200 rounded-lg">
-                                        <div className="text-sm font-medium text-gray-700">{project.name}</div>
-                                        <div className="text-xs text-gray-600 mt-1">
-                                          {project.client} • {project.methodologyType}
-                                        </div>
-                                        <div className="text-xs text-gray-500 mt-1">
-                                          Archived
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <p className="text-sm text-gray-500 italic">No archived projects</p>
-                                )
                               )}
                             </div>
                           </>
@@ -1623,57 +1840,295 @@ function VendorLibrary({ projects }: { projects: any[] }) {
                   {/* Moderator Schedule (only for moderators) */}
                   {activeSection === 'moderators' && (
                     <div>
-                      <div className="flex items-center justify-between mb-2">
+                     <div className="flex items-center justify-between mb-2">
                         <h4 className="text-sm font-medium text-gray-600 uppercase tracking-wide">Current Schedule</h4>
-                        <button
-                          onClick={() => { setConflictMessage(''); setSuccessMessage(''); setShowScheduleModal(true); }}
-                          className="text-sm text-blue-600 hover:text-blue-800 underline"
-                        >
-                          Add to schedule
-                        </button>
+                       <button
+                         onClick={() => { setConflictMessage(''); setSuccessMessage(''); setShowScheduleModal(true); }}
+                         className="text-xs text-blue-600 hover:text-blue-800"
+                       >
+                         Edit Schedule
+                       </button>
                       </div>
                       {(() => {
                         const schedule = getModeratorSchedule(selectedVendor.id, selectedVendor.name);
-                        return schedule.length > 0 ? (
-                          <div className="space-y-3">
-                            {schedule.map((booking, index) => (
-                              <div key={index} className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
-                                <div>
-                                  <div className="text-sm font-medium text-gray-900">{booking.projectName}</div>
-                                  <div className="text-sm text-gray-600">{booking.client}</div>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                  <div className="text-right">
-                                    <div className="text-sm font-medium text-gray-900">
-                                      {formatDateForDisplay(booking.startDate)} - {formatDateForDisplay(booking.endDate)}
+                        // Build fast lookup sets for dates in ranges
+                        const toKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`; // local time key
+                        const parseLocalDate = (str?: string) => {
+                          if (!str) return null;
+                          const m = /^([0-9]{4})-([0-9]{2})-([0-9]{2})$/.exec(str);
+                          if (m) {
+                            const y = parseInt(m[1], 10);
+                            const mo = parseInt(m[2], 10) - 1;
+                            const d = parseInt(m[3], 10);
+                            return new Date(y, mo, d, 12, 0, 0, 0); // strictly local
+                          }
+                          const dt = new Date(str);
+                          return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate(), 12, 0, 0, 0);
+                        };
+                        const otherProjectDates = new Map<string, any[]>();
+                        const holdDates = new Map<string, any[]>();
+                        const unavailableDates = new Map<string, any[]>();
+                        const addRange = (startStr?: string, endStr?: string, collector?: Map<string, any[]>, meta?: any) => {
+                          if (!startStr || !endStr || !collector) return;
+                          const start = parseLocalDate(startStr);
+                          const end = parseLocalDate(endStr);
+                          if (!start || !end) return;
+                          for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                            const k = toKey(d);
+                            const arr = collector.get(k) || [];
+                            arr.push(meta);
+                            collector.set(k, arr);
+                          }
+                        };
+                        schedule.forEach((entry: any) => {
+                          const meta = {
+                            type: entry?.type || 'project',
+                            projectName: entry?.projectName,
+                            client: entry?.client
+                          };
+                          if (entry?.type === 'pending') {
+                            addRange(entry.startDate, entry.endDate, unavailableDates, meta);
+                          } else if (entry?.type === 'booked') {
+                            addRange(entry.startDate, entry.endDate, holdDates, meta);
+                          } else {
+                            // Derived from actual projects
+                            addRange(entry.startDate, entry.endDate, otherProjectDates, meta);
+                          }
+                        });
+
+                        // Build current month grid
+                        const base = new Date(calendarDate.getFullYear(), calendarDate.getMonth(), 1);
+                        const year = base.getFullYear();
+                        const month = base.getMonth();
+                        const firstOfMonth = new Date(year, month, 1);
+                        const lastOfMonth = new Date(year, month + 1, 0);
+                        // Compute starting point: first business day (Mon-Fri) within the month
+                        const firstWeekday = firstOfMonth.getDay(); // 0 Sun ... 6 Sat
+                        let startDayDate = new Date(firstOfMonth);
+                        if (firstWeekday === 0) {
+                          // Sunday -> move to Monday (2nd or later)
+                          startDayDate.setDate(firstOfMonth.getDate() + 1);
+                        } else if (firstWeekday === 6) {
+                          // Saturday -> move to Monday (3rd or later)
+                          startDayDate.setDate(firstOfMonth.getDate() + 2);
+                        }
+                        // Determine padding (nulls) for the first row so columns align Mon-Fri
+                        const weekdayIndexMon0 = ((startDayDate.getDay() + 6) % 7); // Mon=0 ... Fri=4
+                        const padding = Math.min(Math.max(weekdayIndexMon0, 0), 4);
+                        const cells: Array<Date | null> = [];
+                        for (let i = 0; i < padding; i++) cells.push(null);
+                        // Fill business days within the month
+                        for (let d = new Date(startDayDate); d <= lastOfMonth; d.setDate(d.getDate() + 1)) {
+                          const wd = d.getDay();
+                          if (wd >= 1 && wd <= 5) {
+                            cells.push(new Date(d.getFullYear(), d.getMonth(), d.getDate()));
+                          }
+                        }
+                        // Trailing padding to complete the last week row to 5 columns
+                        while (cells.length % 5 !== 0) cells.push(null);
+
+                        const getCellClass = (date: Date) => {
+                          const key = toKey(new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12));
+                          if (otherProjectDates.has(key)) return 'bg-purple-200';
+                          if (unavailableDates.has(key)) return 'bg-gray-200';
+                          if (holdDates.has(key)) return 'bg-yellow-200';
+                          return '';
+                        };
+
+                        const monthTitle = new Date(year, month, 1).toLocaleString(undefined, { month: 'long', year: 'numeric' });
+
+                        return (
+                          <div className="border border-gray-200 rounded-lg overflow-hidden">
+                            <div className="flex items-center justify-between px-3 py-2 bg-gray-50 border-b border-gray-200">
+                              <button onClick={goPrevMonth} className="px-2 py-1 text-sm text-gray-700 border border-gray-300 rounded hover:bg-gray-100">Prev</button>
+                              <div className="text-sm font-medium text-gray-700">{monthTitle}</div>
+                              <button onClick={goNextMonth} className="px-2 py-1 text-sm text-gray-700 border border-gray-300 rounded hover:bg-gray-100">Next</button>
+                            </div>
+                            <div className="grid grid-cols-5 text-xs bg-gray-50 border-b border-gray-200">
+                              {['Mon','Tue','Wed','Thu','Fri'].map(d => (
+                                <div key={d} className="px-2 py-1 text-gray-600 text-center">{d}</div>
+                              ))}
+                            </div>
+                            <div className="grid grid-cols-5 text-sm">
+                              {cells.map((date, idx) => (
+                                <div key={idx} className={`h-12 border-b border-r border-gray-200 last:border-r-0 ${date ? 'bg-white' : 'bg-gray-50'}`} title={(() => {
+                                  if (!date) return '';
+                                  const key = toKey(new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12));
+                                  if (otherProjectDates.has(key)) {
+                                    const list = otherProjectDates.get(key) || [];
+                                    return list.map((m: any) => m.projectName ? `${m.projectName}${m.client ? ' • ' + m.client : ''}` : 'Other project').join('\n');
+                                  }
+                                  if (holdDates.has(key)) {
+                                    const list = holdDates.get(key) || [];
+                                    return list.map((m: any) => m.projectName ? `Hold: ${m.projectName}` : 'Hold').join('\n');
+                                  }
+                                  if (unavailableDates.has(key)) return 'Unavailable';
+                                  return '';
+                                })()}>
+                                  {date && (
+                                    <div className={`w-full h-full flex items-center justify-center ${getCellClass(date)}`}>
+                                      <span className="text-gray-800 text-xs">{date.getDate()}</span>
                                     </div>
-                                  </div>
-                                  {booking.type && (
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setPendingDeleteId(booking.id || `${booking.startDate}-${booking.endDate}`);
-                                        setSuccessMessage('');
-                                        setConflictMessage('');
-                                      }}
-                                      className="p-1 text-red-600 hover:text-red-800 hover:bg-red-100 rounded"
-                                      title="Remove from schedule"
-                                    >
-                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                      </svg>
-                                    </button>
                                   )}
                                 </div>
-                              </div>
-                            ))}
+                              ))}
+                            </div>
+                            <div className="flex items-center justify-center gap-6 p-2 text-xs text-gray-600">
+                              <div className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded bg-purple-400" /> Held by another project</div>
+                              <div className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded bg-yellow-400" /> Hold</div>
+                              <div className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded bg-gray-400" /> Unavailable</div>
+                            </div>
                           </div>
-                        ) : (
-                          <p className="text-sm text-gray-500 italic">No current bookings</p>
                         );
                       })()}
                     </div>
                   )}
+
+                  {/* Specialties - Full width boxed section */}
+                  <div className="mt-6 p-4 bg-gray-50 rounded-lg transition-colors shadow-sm hover:bg-gray-100 hover:shadow">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="text-sm font-medium text-gray-600 uppercase tracking-wide">Specialties</h4>
+                      <button
+                        onClick={() => { setAddingSpecialty((v) => !v); setNewSpecialty(''); }}
+                        className="text-xs text-blue-600 hover:text-blue-800"
+                      >
+                        + Add
+                      </button>
+                    </div>
+                    <div className="h-px bg-gray-200 mb-3" />
+                    {addingSpecialty && (
+                      <div className="flex items-center gap-2 mb-2">
+                        <input
+                          type="text"
+                          value={newSpecialty}
+                          onChange={(e) => setNewSpecialty(e.target.value)}
+                          onKeyDown={async (e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              if (newSpecialty.trim()) {
+                                const specialty = newSpecialty.trim();
+                                if (!selectedVendor.specialties?.includes(specialty)) {
+                                  const updated = [ ...(selectedVendor.specialties || []), specialty ];
+                                  setEditingVendor(prev => ({ ...prev, specialties: updated }));
+                                  await handleEditVendor({ specialties: updated });
+                                }
+                                setNewSpecialty('');
+                                setAddingSpecialty(false);
+                              }
+                            }
+                          }}
+                          className="flex-1 text-sm px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2"
+                          style={{ '--tw-ring-color': BRAND.orange } as any}
+                          placeholder="Type specialty and press Enter"
+                        />
+                        <button
+                          onClick={async () => {
+                            if (newSpecialty.trim()) {
+                              const specialty = newSpecialty.trim();
+                              if (!selectedVendor.specialties?.includes(specialty)) {
+                                const updated = [ ...(selectedVendor.specialties || []), specialty ];
+                                setEditingVendor(prev => ({ ...prev, specialties: updated }));
+                                await handleEditVendor({ specialties: updated });
+                              }
+                            }
+                            setNewSpecialty('');
+                            setAddingSpecialty(false);
+                          }}
+                          className="px-2 py-1 text-sm text-white rounded-md"
+                          style={{ backgroundColor: BRAND.orange }}
+                        >
+                          Add
+                        </button>
+                        <button
+                          onClick={() => { setNewSpecialty(''); setAddingSpecialty(false); }}
+                          className="px-2 py-1 text-sm text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    )}
+                    {selectedVendor.specialties && selectedVendor.specialties.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {selectedVendor.specialties.map((specialty: string, index: number) => (
+                          <span
+                            key={index}
+                            className="inline-flex items-center gap-2 px-3 py-1 text-sm rounded-full text-white"
+                            style={{ backgroundColor: '#3B82F6', opacity: 0.8 }}
+                          >
+                            {specialty}
+                            <button
+                              onClick={async () => {
+                                const updated = (selectedVendor.specialties || []).filter((_, i) => i !== index);
+                                setEditingVendor(prev => ({ ...prev, specialties: updated }));
+                                await handleEditVendor({ specialties: updated });
+                              }}
+                              className="text-white/90 hover:text-white"
+                              title="Remove"
+                            >
+                              x
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500 italic">No specialties added</p>
+                    )}
+                  </div>
+
+                  {/* Previous Projects (compact) - Full width boxed section */}
+                  {(() => {
+                    const { activeProjects, archivedProjects } = getVendorProjects(
+                      selectedVendor.id,
+                      selectedVendor.company
+                    );
+                    const allProjects = [...activeProjects, ...archivedProjects];
+                    const today = new Date();
+                    const postPhases = new Set(['Post-Field Analysis', 'Reporting', 'Complete']);
+                    const previousByDate = allProjects.filter((p: any) => {
+                      if (postPhases.has(p.phase)) return true;
+                      const end = p.endDate ? new Date(p.endDate) : null;
+                      return !!(end && end < today);
+                    });
+
+                    return (
+                      <div className="mt-6 p-4 bg-gray-50 rounded-lg transition-colors shadow-sm hover:bg-gray-100 hover:shadow">
+                        <button
+                          onClick={() => setShowPreviousProjects(!showPreviousProjects)}
+                          className="flex items-center justify-between w-full text-left"
+                        >
+                          <h4 className="text-sm font-medium text-gray-600 uppercase tracking-wide">Previous Projects ({previousByDate.length})</h4>
+                          <svg
+                            className={`w-5 h-5 text-gray-500 transition-transform ${showPreviousProjects ? 'rotate-180' : ''}`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                        <div className="h-px bg-gray-200 mt-2" />
+                        {showPreviousProjects && (
+                          previousByDate.length > 0 ? (
+                            <div className="mt-3 space-y-1">
+                              {previousByDate.map((project: any) => (
+                                <div key={project.id} className="p-2 bg-white border border-gray-200 rounded-lg relative">
+                                  <div className="text-sm leading-tight font-medium text-gray-900 pr-5 truncate">{project.name}</div>
+                                  <span
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 transform w-2.5 h-2.5 rounded-full"
+                                    style={{ backgroundColor: '#EF4444' }}
+                                    aria-hidden
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="mt-3 text-sm text-gray-500 italic">No previous projects</p>
+                          )
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </div>
@@ -1684,127 +2139,448 @@ function VendorLibrary({ projects }: { projects: any[] }) {
 
       {/* Schedule Modal */}
       {showScheduleModal && selectedVendor && createPortal(
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center overflow-y-auto py-8 z-[10100]">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 my-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Add to Schedule</h3>
-              <button
-                onClick={() => { setShowScheduleModal(false); setConflictMessage(''); setSuccessMessage(''); setPendingDeleteId(null); }}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div className="text-sm text-gray-600 mb-4">
-                Adding schedule entry for: <span className="font-medium">{selectedVendor.name}</span>
-              </div>
-
-              {conflictMessage && (
-                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
-                  {conflictMessage}
-                </div>
-              )}
-
-              {successMessage && (
-                <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
-                  {successMessage}
-                </div>
-              )}
-
-              {pendingDeletionEntry && (
-                <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-700 space-y-3">
-                  <p>Remove the hold for <span className="font-semibold">{pendingDeletionEntry.projectName || 'this project'}</span> scheduled {formatDateForDisplay(pendingDeletionEntry.startDate)} - {formatDateForDisplay(pendingDeletionEntry.endDate)}?</p>
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => { setPendingDeleteId(null); setSuccessMessage(''); }}
-                      className="flex-1 rounded-md border border-amber-300 px-4 py-2 text-amber-700 hover:bg-amber-100 transition"
-                    >
-                      Keep Booking
-                    </button>
-                    <button
-                      onClick={async () => { if (pendingDeleteId) { await handleDeleteScheduleEntry(pendingDeleteId); } }}
-                      className="flex-1 rounded-md bg-red-600 px-4 py-2 text-white hover:bg-red-700 transition"
-                    >
-                      Remove Booking
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-                <input
-                  type="date"
-                  value={scheduleForm.startDate}
-                  onChange={(e) => { setScheduleForm({ ...scheduleForm, startDate: e.target.value }); setConflictMessage(''); setSuccessMessage(''); }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
-                <input
-                  type="date"
-                  value={scheduleForm.endDate}
-                  onChange={(e) => { setScheduleForm({ ...scheduleForm, endDate: e.target.value }); setConflictMessage(''); setSuccessMessage(''); }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
-                <select
-                  value={scheduleForm.type}
-                  onChange={(e) => { setScheduleForm({ ...scheduleForm, type: e.target.value }); setConflictMessage(''); setSuccessMessage(''); }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="booked">Place HOLD</option>
-                  <option value="pending">Mark as unavailable</option>
-                </select>
-              </div>
-
-              {scheduleForm.type === 'booked' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Project</label>
-                  <select
-                    value={scheduleForm.projectName}
-                    onChange={(e) => { setScheduleForm({ ...scheduleForm, projectName: e.target.value }); setConflictMessage(''); setSuccessMessage(''); }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Select a project</option>
-                    {projects
-                      .filter(project => project.methodologyType === 'Qualitative')
-                      .map(project => (
-                        <option key={project.id} value={project.name}>
-                          {project.name}
-                        </option>
-                      ))
-                    }
-                  </select>
-                </div>
-              )}
-
-              <div className="flex gap-3 pt-4">
+        (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center overflow-y-auto py-8 z-[10100]">
+            <div className="bg-white rounded-lg p-6 max-w-xl w-full mx-4 my-auto">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">Edit Schedule</h3>
                 <button
                   onClick={() => { setShowScheduleModal(false); setConflictMessage(''); setSuccessMessage(''); setPendingDeleteId(null); }}
-                  className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition"
+                  className="text-gray-400 hover:text-gray-600"
                 >
-                  Cancel
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
                 </button>
-                <button
-                  onClick={handleAddSchedule}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
-                >
-                  Add to Schedule
-                </button>
+              </div>
+
+              <div className="space-y-4">
+                {successMessage && (
+                  <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+                    {successMessage}
+                  </div>
+                )}
+
+                {pendingDeletionEntry && (
+                  <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-700 space-y-3">
+                    <p>Remove the hold for <span className="font-semibold">{pendingDeletionEntry.projectName || 'this project'}</span> scheduled {formatDateForDisplay(pendingDeletionEntry.startDate)} - {formatDateForDisplay(pendingDeletionEntry.endDate)}?</p>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => { setPendingDeleteId(null); setSuccessMessage(''); }}
+                        className="flex-1 rounded-md border border-amber-300 px-4 py-2 text-amber-700 hover:bg-amber-100 transition"
+                      >
+                        Keep Booking
+                      </button>
+                      <button
+                        onClick={async () => { if (pendingDeleteId) { await handleDeleteScheduleEntry(pendingDeleteId); } }}
+                        className="flex-1 rounded-md bg-red-600 px-4 py-2 text-white hover:bg-red-700 transition"
+                      >
+                        Remove Booking
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {(() => {
+                  const today = new Date();
+                  const onlyFutureOrCurrentPhase = (start?: string, end?: string, phase?: string) => {
+                    const norm = (v?: string) => (v || '').toString().trim().toLowerCase();
+                    const phaseNow = norm(phase);
+                    // Treat these phases as currently active regardless of date drift
+                    const activePhases = new Set(['pre-field','pre field','pre-fielding','awaiting ko','kickoff','fielding']);
+                    if (activePhases.has(phaseNow)) return true;
+                    if (!end) return true;
+                    const e = new Date(end);
+                    e.setHours(23,59,59,999);
+                    return e >= today;
+                  };
+
+                  // Active projects where this moderator is assigned (current/future)
+                  const { activeProjects } = getVendorProjects(selectedVendor.id, selectedVendor.company);
+                  const postPhasesSet = new Set(['post-field analysis','reporting','complete']);
+                  const normalize = (v?: string) => (v || '').toString().trim().toLowerCase();
+                  let activeModeratorProjects = activeProjects
+                    .map((p: any) => {
+                      const fieldSeg = p.segments?.find((s: any) => {
+                        const ph = normalize(s.phase);
+                        return ph === 'fielding' || ph === 'pre-field' || ph === 'pre field' || ph === 'pre-fielding';
+                      });
+                      const startDate = fieldSeg?.startDate || p.startDate;
+                      const endDate = fieldSeg?.endDate || p.endDate;
+                      return { id: p.id, name: p.name, client: p.client, startDate, endDate, phase: p.phase, archived: p.archived };
+                    })
+                    .filter((p: any) => {
+                      if (p.archived) return false;
+                      const phaseNorm = normalize(p.phase);
+                      if (postPhasesSet.has(phaseNorm)) return false;
+                      return onlyFutureOrCurrentPhase(p.startDate, p.endDate, p.phase);
+                    })
+                    .sort((a: any, b: any) => new Date(a.startDate || '9999-12-31').getTime() - new Date(b.startDate || '9999-12-31').getTime());
+
+                  // Debug the computed list
+                  try {
+                    if (showScheduleModal) {
+                      console.log('[VendorLibrary] Computed activeModeratorProjects', JSON.stringify(activeModeratorProjects));
+                    }
+                  } catch {}
+
+                  // Fallback: derive from vendor projectHistory if none found
+                  if (activeModeratorProjects.length === 0) {
+                    try {
+                      const historySource = (selectedVendor.projectHistory && Array.isArray(selectedVendor.projectHistory))
+                        ? selectedVendor.projectHistory
+                        : (vendors.moderators?.find((v: any) => v.id === selectedVendor.id)?.projectHistory || []);
+                      const postPhases = new Set(['Post-Field Analysis', 'Reporting', 'Complete']);
+                      const fallback = (historySource as any[])
+                        .filter((h: any) => (h.role === 'Moderator'))
+                        .filter((h: any) => {
+                          if (postPhases.has(h.phase)) return false;
+                          const end = h.endDate ? new Date(h.endDate) : null;
+                          if (!end) return true;
+                          end.setHours(23,59,59,999);
+                          return end >= new Date();
+                        })
+                        .sort((a: any, b: any) => new Date(a.startDate || '9999-12-31').getTime() - new Date(b.startDate || '9999-12-31').getTime())
+                        .map((h: any) => ({ id: h.id, name: h.name, client: h.client, startDate: h.startDate, endDate: h.endDate }));
+                      activeModeratorProjects = fallback;
+                      try { console.log('[VendorLibrary] Fallback from projectHistory produced', JSON.stringify(fallback)); } catch {}
+                    } catch (e) {
+                      // ignore fallback errors
+                    }
+                  }
+
+                  // Holds and Unavailable from custom schedule
+                  const custom = (selectedVendor.customSchedule || []) as any[];
+                  const isFutureDateRange = (start?: string, end?: string) => {
+                    const today2 = new Date();
+                    if (!end) return true;
+                    const e = new Date(end);
+                    e.setHours(23,59,59,999);
+                    return e >= today2;
+                  };
+                  const holds = custom
+                    .filter(e => e.type === 'booked' && isFutureDateRange(e.startDate, e.endDate))
+                    .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+                  const unavailable = custom
+                    .filter(e => e.type === 'pending' && isFutureDateRange(e.startDate, e.endDate))
+                    .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+
+                  return (
+                    <div className="space-y-6">
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="text-sm font-medium text-gray-700">Active Projects</div>
+                          <button
+                            onClick={() => { setShowAddProjectBooking(v => !v); setShowAddHold(false); setShowAddUnavailable(false); setConflictMessage(''); setSuccessMessage(''); setScheduleForm(f => ({ ...f, type: 'booked', projectName: '' })); }}
+                            className="text-xs text-blue-600 hover:text-blue-800"
+                          >
+                            + Add
+                          </button>
+                        </div>
+                        {showAddProjectBooking && (
+                          <div className="rounded-md border border-gray-200 p-3 bg-gray-50 mb-3">
+                            {conflictMessage && (
+                              <div className="mb-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+                                {conflictMessage}
+                              </div>
+                            )}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <div className="md:col-span-1">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Project</label>
+                                <select
+                                  value={scheduleForm.projectName}
+                                  onChange={(e) => {
+                                    const name = e.target.value;
+                                    setScheduleForm({ ...scheduleForm, projectName: name, type: 'booked', startDate: '', endDate: '' });
+                                    setConflictMessage('');
+                                    setSuccessMessage('');
+                                    setAddProjectAvailability('idle');
+                                    setAddProjectDates({});
+                                    if (name) {
+                                      const target = (projectsVL as any[]).find(p => p.name === name);
+                                      const norm = (v?: string) => (v || '').toString().trim().toLowerCase();
+                                      const fieldSeg = target?.segments?.find((s: any) => {
+                                        const ph = norm(s.phase);
+                                        return ph === 'fielding' || ph === 'pre-field' || ph === 'pre field' || ph === 'pre-fielding';
+                                      });
+                                      const s = fieldSeg?.startDate || target?.startDate;
+                                      const e2 = fieldSeg?.endDate || target?.endDate;
+                                      if (s && e2) {
+                                        setAddProjectDates({ start: s, end: e2 });
+                                        // check availability
+                                        const sched = getModeratorSchedule(selectedVendor.id, selectedVendor.name);
+                                        const ns = new Date(s);
+                                        const ne = new Date(e2);
+                                        const conflict = sched.some(b => {
+                                          const bs = new Date(b.startDate);
+                                          const be = new Date(b.endDate);
+                                          return (ns <= be && ne >= bs);
+                                        });
+                                        if (conflict) {
+                                          setConflictMessage('This moderator has a conflict during these field dates.');
+                                          setAddProjectAvailability('conflict');
+                                        } else {
+                                          setConflictMessage('');
+                                          setAddProjectAvailability('available');
+                                        }
+                                      }
+                                    }
+                                  }}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                  <option value="">Select a project</option>
+                                  {projectsVL
+                                    .filter((project: any) => {
+                                      const norm = (v?: string) => (v || '').toString().trim().toLowerCase();
+                                      const mt = norm(project.methodologyType || project.methodology);
+                                      if (!mt.includes('qual')) return false;
+                                      if (project.archived) return false;
+                                      // Exclude if already has a moderator assigned
+                                      const mod = (project as any).moderator;
+                                      const isAssigned = Array.isArray(mod) ? mod.length > 0 : !!(mod && norm(mod) !== '' && !['-','tbd','none'].includes(norm(mod)));
+                                      if (isAssigned) return false;
+                                      // Only projects with fieldwork that ends today or in the future
+                                      const fieldSeg = project.segments?.find((s: any) => norm(s.phase) === 'fielding');
+                                      const endStr = fieldSeg?.endDate;
+                                      if (!endStr) return false;
+                                      const end = new Date(endStr);
+                                      end.setHours(23,59,59,999);
+                                      return end >= new Date();
+                                    })
+                                    .map((project: any) => (
+                                      <option key={project.id} value={project.name}>
+                                        {project.name}
+                                      </option>
+                                    ))
+                                  }
+                                </select>
+                              </div>
+                              {addProjectDates.start && addProjectDates.end && (
+                                <div className="md:col-span-1">
+                                  <div className="text-sm text-gray-600 mt-6">Field dates: <span className="font-medium">{formatDateForDisplay(addProjectDates.start)} - {formatDateForDisplay(addProjectDates.end)}</span></div>
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex justify-end pt-3">
+                              {addProjectAvailability === 'available' && (
+                                <button
+                                  onClick={handleAddSchedule}
+                                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+                                >
+                                  Add Project
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        {activeModeratorProjects.filter((p: any) => !removedProjectIds.includes(p.id)).length === 0 ? (
+                          <div className="text-sm text-gray-500">No active projects</div>
+                        ) : (
+                          <ul className="divide-y divide-gray-200 rounded-md border border-gray-200 bg-white">
+                            {activeModeratorProjects.filter((p: any) => !removedProjectIds.includes(p.id)).map((p: any) => (
+                              <li key={p.id} className="flex items-center justify-between px-3 py-2">
+                                <div>
+                                  <div className="text-sm font-medium text-gray-900">{p.name}</div>
+                                  <div className="text-xs text-gray-500">{formatDateForDisplay(p.startDate)} - {formatDateForDisplay(p.endDate)}</div>
+                                </div>
+                                <button
+                                  onClick={() => removeModeratorFromProject(p.id)}
+                                  className="text-red-600 hover:text-red-800 text-sm"
+                                  title="Remove moderator from project"
+                                >
+                                  ×
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="text-sm font-medium text-gray-700">Active Holds</div>
+                          <button
+                            onClick={() => { setShowAddHold(v => !v); setShowAddProjectBooking(false); setShowAddUnavailable(false); setScheduleForm(f => ({ ...f, type: 'booked' })); setConflictMessage(''); setSuccessMessage(''); }}
+                            className="text-xs text-blue-600 hover:text-blue-800"
+                          >
+                            + Add
+                          </button>
+                        </div>
+                        {showAddHold && (
+                          <div className="rounded-md border border-gray-200 p-3 bg-gray-50 mb-3">
+                            {conflictMessage && (
+                              <div className="mb-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+                                {conflictMessage}
+                              </div>
+                            )}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                              <div className="md:col-span-1">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Project (optional)</label>
+                                <select
+                                  value={scheduleForm.projectName}
+                                  onChange={(e) => { setScheduleForm({ ...scheduleForm, projectName: e.target.value, type: 'booked' }); setConflictMessage(''); setSuccessMessage(''); }}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                  <option value="">None</option>
+                                  {projectsVL
+                                    .filter((project: any) => {
+                                      const norm = (v?: string) => (v || '').toString().trim().toLowerCase();
+                                      const mt = norm(project.methodologyType || project.methodology);
+                                      if (!mt.includes('qual')) return false;
+                                      if (project.archived) return false;
+                                      // Only projects with fieldwork that ends today or in the future
+                                      const fieldSeg = project.segments?.find((s: any) => norm(s.phase) === 'fielding');
+                                      const endStr = fieldSeg?.endDate;
+                                      if (!endStr) return false;
+                                      const end = new Date(endStr);
+                                      end.setHours(23,59,59,999);
+                                      return end >= new Date();
+                                    })
+                                    .map((project: any) => (
+                                      <option key={project.id} value={project.name}>
+                                        {project.name}
+                                      </option>
+                                    ))
+                                  }
+                                </select>
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                                <input
+                                  type="date"
+                                  value={scheduleForm.startDate}
+                                  onChange={(e) => { setScheduleForm({ ...scheduleForm, startDate: e.target.value, type: 'booked' }); setConflictMessage(''); setSuccessMessage(''); }}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                                <input
+                                  type="date"
+                                  value={scheduleForm.endDate}
+                                  onChange={(e) => { setScheduleForm({ ...scheduleForm, endDate: e.target.value, type: 'booked' }); setConflictMessage(''); setSuccessMessage(''); }}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                              </div>
+                            </div>
+                            <div className="flex justify-end pt-3">
+                              <button
+                                onClick={handleAddSchedule}
+                                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+                              >
+                                Add Hold
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                        {holds.length === 0 ? (
+                          <div className="text-sm text-gray-500">No active holds</div>
+                        ) : (
+                          <ul className="divide-y divide-gray-200 rounded-md border border-gray-200 bg-white">
+                            {holds.map((e: any) => (
+                              <li key={e.id || `${e.startDate}-${e.endDate}`} className="flex items-center justify-between px-3 py-2">
+                                <div>
+                                  <div className="text-sm font-medium text-gray-900">{e.projectName || 'Hold'}</div>
+                                  <div className="text-xs text-gray-500">{formatDateForDisplay(e.startDate)} - {formatDateForDisplay(e.endDate)}</div>
+                                </div>
+                                <button
+                                  onClick={() => setPendingDeleteId(e.id || `${e.startDate}-${e.endDate}`)}
+                                  className="text-red-600 hover:text-red-800 text-sm"
+                                  title="Remove hold"
+                                >
+                                  ×
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="text-sm font-medium text-gray-700">Unavailable Dates</div>
+                          <button
+                            onClick={() => { setShowAddUnavailable(v => !v); setShowAddProjectBooking(false); setShowAddHold(false); setScheduleForm(f => ({ ...f, type: 'pending', projectName: '' })); setConflictMessage(''); setSuccessMessage(''); }}
+                            className="text-xs text-blue-600 hover:text-blue-800"
+                          >
+                            + Add
+                          </button>
+                        </div>
+                        {showAddUnavailable && (
+                          <div className="rounded-md border border-gray-200 p-3 bg-gray-50 mb-3">
+                            {conflictMessage && (
+                              <div className="mb-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+                                {conflictMessage}
+                              </div>
+                            )}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                                <input
+                                  type="date"
+                                  value={scheduleForm.startDate}
+                                  onChange={(e) => { setScheduleForm({ ...scheduleForm, startDate: e.target.value, type: 'pending', projectName: '' }); setConflictMessage(''); setSuccessMessage(''); }}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                                <input
+                                  type="date"
+                                  value={scheduleForm.endDate}
+                                  onChange={(e) => { setScheduleForm({ ...scheduleForm, endDate: e.target.value, type: 'pending', projectName: '' }); setConflictMessage(''); setSuccessMessage(''); }}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                              </div>
+                            </div>
+                            <div className="flex justify-end pt-3">
+                              <button
+                                onClick={handleAddSchedule}
+                                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+                              >
+                                Add Unavailable
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                        {unavailable.length === 0 ? (
+                          <div className="text-sm text-gray-500">No upcoming unavailable dates</div>
+                        ) : (
+                          <ul className="divide-y divide-gray-200 rounded-md border border-gray-200 bg-white">
+                            {unavailable.map((e: any) => (
+                              <li key={e.id || `${e.startDate}-${e.endDate}`} className="flex items-center justify-between px-3 py-2">
+                                <div>
+                                  <div className="text-sm font-medium text-gray-900">Unavailable</div>
+                                  <div className="text-xs text-gray-500">{formatDateForDisplay(e.startDate)} - {formatDateForDisplay(e.endDate)}</div>
+                                </div>
+                                <button
+                                  onClick={() => setPendingDeleteId(e.id || `${e.startDate}-${e.endDate}`)}
+                                  className="text-red-600 hover:text-red-800 text-sm"
+                                  title="Remove unavailable"
+                                >
+                                  ×
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+
+                      <div className="flex justify-end pt-2">
+                        <button
+                          onClick={() => { setShowScheduleModal(false); setConflictMessage(''); setSuccessMessage(''); setPendingDeleteId(null); }}
+                          className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition"
+                        >
+                          Close
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           </div>
-        </div>,
+        ),
         document.body
       )}
 
@@ -2657,6 +3433,95 @@ function AdminCenter({ onProjectUpdate }: { onProjectUpdate?: () => void }) {
               </div>
             </div>
           )}
+
+                {/* Previous Projects - Full width below schedule/details */}
+                {(() => {
+                  const { activeProjects, archivedProjects } = getVendorProjects(
+                    selectedVendor.id,
+                    selectedVendor.company
+                  );
+                  const allProjects = [...activeProjects, ...archivedProjects];
+                  const today = new Date();
+                  const postPhases = new Set(['Post-Field Analysis', 'Reporting', 'Complete']);
+                  const previousByDate = allProjects.filter((p: any) => {
+                    if (postPhases.has(p.phase)) return true;
+                    const end = p.endDate ? new Date(p.endDate) : null;
+                    return !!(end && end < today);
+                  });
+                  return (
+                    <div className="mt-6 p-4 bg-gray-50 rounded-lg transition-colors shadow-sm hover:bg-gray-100 hover:shadow">
+                      <h4 className="text-sm font-medium text-gray-600 uppercase tracking-wide mb-2">
+                        Previous Projects ({previousByDate.length})
+                      </h4>
+                      <div className="h-px bg-gray-200 mb-3" />
+                      {previousByDate.length > 0 ? (
+                        <div className="space-y-2">
+                          {previousByDate.map((project: any) => (
+                            <div key={project.id} className="p-3 bg-gray-100 border border-gray-200 rounded-lg">
+                              <div className="text-sm font-medium text-gray-700">{project.name}</div>
+                              <div className="text-xs text-gray-600 mt-1">
+                                {project.client} • {project.methodologyType}
+        </div>
+                              {project.endDate && (
+                                <div className="text-xs text-gray-500 mt-1">Field ended: {new Date(project.endDate).toLocaleDateString()}</div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-500 italic">No previous projects</p>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Inactive/Archived Projects - Full width below schedule/details */}
+                {(() => {
+                  const { archivedProjects } = getVendorProjects(
+                    selectedVendor.id,
+                    selectedVendor.company
+                  );
+                  return (
+                    <div className="mt-6 p-4 bg-gray-50 rounded-lg transition-colors shadow-sm hover:bg-gray-100 hover:shadow">
+                      <button
+                        onClick={() => setShowInactiveProjects(!showInactiveProjects)}
+                        className="flex items-center justify-between w-full text-left"
+                      >
+                        <h4 className="text-sm font-medium text-gray-600 uppercase tracking-wide">
+                          Inactive Projects ({archivedProjects.length})
+                        </h4>
+                        <svg
+                          className={`w-5 h-5 text-gray-500 transition-transform ${showInactiveProjects ? 'rotate-180' : ''}`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                      <div className="h-px bg-gray-200 mt-2" />
+                      {showInactiveProjects && (
+                        archivedProjects.length > 0 ? (
+                          <div className="mt-3 space-y-2">
+                            {archivedProjects.map((project: any) => (
+                              <div key={project.id} className="p-3 bg-gray-100 border border-gray-200 rounded-lg">
+                                <div className="text-sm font-medium text-gray-700">{project.name}</div>
+                                <div className="text-xs text-gray-600 mt-1">
+                                  {project.client} • {project.methodologyType}
+                                </div>
+                                <div className="text-xs text-gray-500 mt-1">
+                                  Archived
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="mt-3 text-sm text-gray-500 italic">No archived projects</p>
+                        )
+                      )}
+                    </div>
+                  );
+                })()}
         </div>
       )}
 
@@ -3425,6 +4290,34 @@ export default function App() {
   const [currentSelectedProject, setCurrentSelectedProject] = useState<Project | null>(null);
   const [isViewingProjectDetails, setIsViewingProjectDetails] = useState(false);
 
+  // One-time migration: normalize project.moderator to store moderator ID
+  useEffect(() => {
+    try {
+      const storedProjectsRaw = localStorage.getItem('cognitive_dash_projects');
+      const storedVendorsRaw = localStorage.getItem('cognitive_dash_vendors');
+      if (!storedProjectsRaw || !storedVendorsRaw) return;
+      const storedProjects = JSON.parse(storedProjectsRaw) || [];
+      const vendors = JSON.parse(storedVendorsRaw) || {};
+      const mods = vendors.moderators || [];
+      let changed = false;
+      const updated = storedProjects.map((p: any) => {
+        if (!p?.moderator) return p;
+        const match = mods.find((m: any) => m.id === p.moderator || m.name === p.moderator);
+        if (match && p.moderator !== match.id) {
+          changed = true;
+          return { ...p, moderator: match.id };
+        }
+        return p;
+      });
+      if (changed) {
+        localStorage.setItem('cognitive_dash_projects', JSON.stringify(updated));
+        try { window.dispatchEvent(new Event('projectUpdated')); } catch {}
+      }
+    } catch (e) {
+      console.warn('Moderator ID normalization skipped:', e);
+    }
+  }, []);
+
   // Reset viewing project details state when Project Hub route is loaded
   useEffect(() => {
     if (route === "Project Hub") {
@@ -4125,11 +5018,12 @@ export default function App() {
   useEffect(() => {
     const handleProjectUpdate = () => {
       loadSavedContentAnalyses();
+      loadProjects();
     };
 
     window.addEventListener('projectUpdated', handleProjectUpdate);
     return () => window.removeEventListener('projectUpdated', handleProjectUpdate);
-  }, [loadSavedContentAnalyses]);
+  }, [loadSavedContentAnalyses, loadProjects]);
 
   // Force refresh function for debugging
   const forceRefreshProjects = useCallback(async () => {
@@ -14077,9 +14971,24 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
       const selectedModerator = moderators.find(m => m.id === moderatorId);
 
       if (selectedModerator) {
+        // Determine fielding dates for this project
+        const fieldSeg = project.segments?.find(s => s.phase === 'Fielding');
+        const allProjects = JSON.parse(localStorage.getItem('cognitive_dash_projects') || '[]');
+        const availability = checkModeratorAvailability(
+          selectedModerator,
+          fieldSeg?.startDate,
+          fieldSeg?.endDate,
+          allProjects,
+          { treatPendingAsBlocking: true }
+        );
+        if (!availability.ok) {
+          alert(`Moderator is unavailable for Fielding dates.\n\n${formatConflicts(availability.conflicts)}`);
+          setShowModeratorModal(false);
+          return;
+        }
 
-        // Update the project immediately for UI responsiveness
-        const updatedProject = { ...project, moderator: selectedModerator.name };
+        // Update the project immediately for UI responsiveness (store moderator ID)
+        const updatedProject = { ...project, moderator: selectedModerator.id };
         setLocalProject(updatedProject);
 
         // Update the main projects state
@@ -14090,9 +14999,9 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
           });
         }
 
-        // Save to server
-        saveProjectField('moderator', selectedModerator.name);
-        setEditValues(prev => ({ ...prev, moderator: selectedModerator.name }));
+        // Save to server (persist moderator ID)
+        saveProjectField('moderator', selectedModerator.id);
+        setEditValues(prev => ({ ...prev, moderator: selectedModerator.id }));
       } else {
       }
     }

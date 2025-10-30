@@ -63,6 +63,59 @@ function assignRespnos(transcripts) {
   return sorted;
 }
 
+// Helper function to regenerate cleaned transcript files when respnos change
+async function regenerateCleanedTranscripts(projectId, transcripts, projectName) {
+  try {
+    const projectsData = await fs.readFile(PROJECTS_PATH, 'utf8');
+    const projectsObj = JSON.parse(projectsData);
+    
+    // Find project across all users
+    let project = null;
+    for (const userProjects of Object.values(projectsObj)) {
+      if (Array.isArray(userProjects)) {
+        project = userProjects.find(p => p.id === projectId);
+        if (project) break;
+      }
+    }
+    const finalProjectName = project ? project.name : projectName || 'Transcript';
+
+    // Regenerate cleaned transcripts for all transcripts that have cleaned files
+    for (const transcript of transcripts) {
+      if (transcript.isCleaned && transcript.cleanedPath) {
+        try {
+          // Check if cleaned file exists
+          const cleanedPathExists = await fs.access(transcript.cleanedPath).then(() => true).catch(() => false);
+          
+          if (cleanedPathExists) {
+            // Extract text from existing cleaned Word document
+            const result = await mammoth.extractRawText({ path: transcript.cleanedPath });
+            const cleanedText = result.value;
+            
+            if (cleanedText && cleanedText.trim()) {
+              // Regenerate Word document with updated respno
+              const wordBuffer = await createFormattedWordDoc(
+                cleanedText,
+                finalProjectName,
+                transcript.respno, // Use current respno
+                transcript.interviewDate,
+                transcript.interviewTime
+              );
+
+              await fs.writeFile(transcript.cleanedPath, wordBuffer);
+              transcript.cleanedSize = wordBuffer.length;
+              console.log(`✅ Regenerated cleaned transcript for ${transcript.respno} (${transcript.id})`);
+            }
+          }
+        } catch (error) {
+          console.warn(`⚠️ Failed to regenerate cleaned transcript for ${transcript.respno} (${transcript.id}):`, error.message);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('❌ Error regenerating cleaned transcripts:', error);
+  }
+}
+
 // Helper functions to normalize date/time strings from transcripts
 function normalizeDateString(dateStr) {
   if (!dateStr) return null;
@@ -230,11 +283,15 @@ async function createFormattedWordDoc(cleanedText, projectName, respno, intervie
     })
   );
 
-  // Subtitle: [date] | [time] EST | [respno] Transcript
+  // Subtitle: [date] | [time] | [respno] Transcript (respno optional)
   const subtitleParts = [];
   if (interviewDate) subtitleParts.push(interviewDate);
   if (interviewTime) subtitleParts.push(interviewTime);
-  subtitleParts.push(`${respno} Transcript`);
+  if (respno) {
+    subtitleParts.push(`${respno} Transcript`);
+  } else {
+    subtitleParts.push('Transcript');
+  }
   const subtitle = subtitleParts.join(' | ');
 
   paragraphs.push(
@@ -266,8 +323,8 @@ async function createFormattedWordDoc(cleanedText, projectName, respno, intervie
 
       const normalizedLine = trimmedLine.replace(/\s+/g, ' ').toLowerCase();
       const normalizedProjectName = projectName.replace(/\s+/g, ' ').toLowerCase();
-      const normalizedSubtitle = subtitle.replace(/\s+/g, ' ').toLowerCase();
-      const respnoLine = `${respno} transcript`.toLowerCase();
+      const normalizedSubtitle = subtitle ? subtitle.replace(/\s+/g, ' ').toLowerCase() : '';
+      const respnoLine = respno ? `${respno} transcript`.toLowerCase() : '';
 
       if (normalizedLine === normalizedProjectName) {
         continue;
@@ -277,7 +334,7 @@ async function createFormattedWordDoc(cleanedText, projectName, respno, intervie
         continue;
       }
 
-      if (normalizedLine === respnoLine) {
+      if (respno && normalizedLine === respnoLine) {
         continue;
       }
 
@@ -414,7 +471,7 @@ router.post('/upload', authenticateToken, upload.single('transcript'), async (re
       transcripts[projectId] = [];
     }
 
-    // Respno will be assigned AFTER we add the transcript and sort by date
+    // Respno will be assigned when added to a Content Analysis (not on upload)
     const transcriptId = `T-${Date.now()}`;
 
     let cleanedPath = null;
@@ -557,7 +614,7 @@ Output ONLY the cleaned transcript. No explanations or notes.`;
     await fs.copyFile(req.file.path, originalPath);
     await fs.unlink(req.file.path);
 
-    // Add transcript with temp respno
+    // Add transcript without assigning respno yet
     const transcriptRecord = {
       id: transcriptId,
       originalFilename: req.file.originalname,
@@ -570,20 +627,13 @@ Output ONLY the cleaned transcript. No explanations or notes.`;
       cleanedSize: null, // Will be set after Word doc is generated
       interviewDate,
       interviewTime,
-      respno: `TEMP_${transcriptId}` // Temporary respno
+      respno: null
     };
 
     transcripts[projectId].push(transcriptRecord);
 
-    // Sort by date and assign sequential respnos
-    transcripts[projectId] = assignRespnos(transcripts[projectId]);
-
-    // Find the transcript we just added to get its final respno
-    const finalTranscript = transcripts[projectId].find(t => t.id === transcriptId);
-
-    if (!finalTranscript) {
-      throw new Error('Failed to find transcript after respno assignment');
-    }
+    // Use the just-added record as the final transcript (no respno yet)
+    const finalTranscript = transcriptRecord;
 
     // If cleaned, generate Word document with the FINAL respno
     if (cleanTranscript === 'true' && cleanedText) {
@@ -617,10 +667,14 @@ Output ONLY the cleaned transcript. No explanations or notes.`;
       finalTranscript.isCleaned = false;
     }
 
-    // Save the final transcripts array with correct respnos
+    // Save the final transcripts array
     await fs.writeFile(TRANSCRIPTS_PATH, JSON.stringify(transcripts, null, 2));
 
-    // CRITICAL: Update content analysis data to reflect new respno assignments
+    // Regenerate cleaned transcripts for all transcripts that may have changed respnos
+    // (this handles the case where adding a new transcript causes respnos to shift)
+    await regenerateCleanedTranscripts(projectId, transcripts[projectId], projectName);
+
+    // Update content analysis data only if needed (no respno changes on upload now)
     try {
       console.log('🔄 Updating content analysis data after transcript re-ordering...');
       const ANALYSES_PATH = path.join(DATA_DIR, 'savedAnalyses.json');
@@ -803,6 +857,9 @@ router.delete('/:projectId/:transcriptId', authenticateToken, async (req, res) =
 
     // Reassign respnos based on chronological order after deletion
     transcripts[projectId] = assignRespnos(transcripts[projectId]);
+
+    // Regenerate cleaned transcripts with updated respnos
+    await regenerateCleanedTranscripts(projectId, transcripts[projectId], null);
 
     await fs.writeFile(TRANSCRIPTS_PATH, JSON.stringify(transcripts, null, 2));
 
@@ -1097,6 +1154,9 @@ router.put('/:projectId/:transcriptId/datetime', authenticateToken, async (req, 
     // This function returns the sorted array, so we need to use it
     const sortedTranscripts = assignRespnos(transcripts[projectId]);
     transcripts[projectId] = sortedTranscripts;
+
+    // Regenerate cleaned transcripts with updated respnos
+    await regenerateCleanedTranscripts(projectId, sortedTranscripts, null);
 
     await fs.writeFile(TRANSCRIPTS_PATH, JSON.stringify(transcripts, null, 2));
 

@@ -1452,7 +1452,18 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
               </h2>
               <p className="mt-1 text-sm text-gray-500">
                 {displayedTranscripts.length} of {projectTranscripts.length}{' '}
-                {displayedTranscripts.length === 1 ? 'transcript' : 'transcripts'} in {selectedContentAnalysis.name || 'this analysis'}
+                {displayedTranscripts.length === 1 ? 'transcript' : 'transcripts'} in{' '}
+                <button
+                  onClick={() => {
+                    if (selectedContentAnalysis && onNavigate && setAnalysisToLoad) {
+                      setAnalysisToLoad(selectedContentAnalysis.id);
+                      onNavigate('Content Analysis');
+                    }
+                  }}
+                  className="text-[#D14A2D] hover:text-[#A03824] hover:underline font-medium transition-colors"
+                >
+                  {selectedContentAnalysis.name || 'this analysis'}
+                </button>
                 {selectedProject.archived && ' • Archived'}
               </p>
             </div>
@@ -1666,10 +1677,7 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                                 <td className="px-3 py-4 whitespace-nowrap text-center">
                                   {addingTranscriptIds.has(transcript.id) ? (
                                     <div className="flex items-center justify-center gap-1 text-xs text-gray-500">
-                                      <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0c5.373 0 10 4.627 10 12h-4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                      </svg>
+                                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-[#D14A2D]"></div>
                                       <span>Adding...</span>
                                     </div>
                                   ) : (
@@ -1905,14 +1913,9 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                           </td>
                           <td className="px-3 py-4 whitespace-nowrap text-center">
                             {isTranscriptInAnalysis(transcript.id) ? (
-                              <button
-                                onClick={() => handleNavigateToCA(transcript.id)}
-                                disabled={addingTranscriptIds.size > 0}
-                                className="text-green-600 hover:text-green-800 p-1 rounded-lg hover:bg-green-50 mx-auto transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                title="Click to view in Content Analysis"
-                              >
-                                <CheckCircleIcon className="h-5 w-5" />
-                              </button>
+                              <div className="flex items-center justify-center">
+                                <CheckCircleIcon className="h-5 w-5 text-green-600" />
+                              </div>
                             ) : addingTranscriptIds.has(transcript.id) ? (
                               <div className="flex items-center justify-center gap-1 text-xs text-gray-500">
                                 <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">

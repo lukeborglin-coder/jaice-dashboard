@@ -876,7 +876,7 @@
       "kickoffDeck": null,
       "sampleSize": 0,
       "subgroups": [],
-      "moderator": "TBD",
+      "moderator": "test",
       "sampleProvider": "",
       "requireAdvancedAnalytics": false,
       "analyticsPartner": "",
@@ -1686,6 +1686,806 @@
       "hasDiscussionGuide": true,
       "discussionGuideUpdatedAt": "2025-10-29T17:12:44.884Z",
       "calculatedProgress": 78
+    },
+    {
+      "name": "qualitative testing",
+      "client": "Genentech",
+      "methodologyType": "Qual",
+      "methodology": "In-Depth Interviews",
+      "startDate": "",
+      "endDate": "",
+      "background": "",
+      "objectives": "",
+      "kickoffDeck": null,
+      "sampleSize": 0,
+      "subgroups": [],
+      "moderator": "",
+      "sampleProvider": "",
+      "requireAdvancedAnalytics": false,
+      "analyticsPartner": "",
+      "usePreloadedTasks": true,
+      "customTasks": [],
+      "id": "P-1761768313209",
+      "phase": "Fielding",
+      "methodologyDisplay": "Qualitative - In-Depth Interviews",
+      "phaseTimeline": {
+        "Kickoff": {
+          "start": "2025-09-29",
+          "end": "2025-09-29"
+        },
+        "Pre-Field": {
+          "start": "2025-09-30",
+          "end": "2025-10-14"
+        },
+        "Fielding": {
+          "start": "2025-10-15",
+          "end": "2025-10-31"
+        },
+        "Post-Field Analysis": {
+          "start": "2025-11-03",
+          "end": "2025-10-31"
+        },
+        "Reporting": {
+          "start": "2025-11-03",
+          "end": "2025-11-07"
+        }
+      },
+      "deadline": 9,
+      "nextDeadline": "Project kickoff: 9/29/2025",
+      "keyDeadlines": [
+        {
+          "label": "Project Kickoff",
+          "date": "9/29/25"
+        },
+        {
+          "label": "Fielding Start",
+          "date": "10/15/25"
+        },
+        {
+          "label": "Final Report",
+          "date": "11/7/25"
+        }
+      ],
+      "tasks": [
+        {
+          "id": "task-062",
+          "description": "Create Kick Off (KO) deck",
+          "assignedTo": [
+            "3"
+          ],
+          "status": "completed",
+          "phase": "Kickoff",
+          "dueDate": "2025-09-26",
+          "isOngoing": false,
+          "dateNotes": "1 day before KO date",
+          "notes": "",
+          "role": "Project Manager"
+        },
+        {
+          "id": "task-063",
+          "description": "Create detailed timeline",
+          "assignedTo": [
+            "3"
+          ],
+          "status": "completed",
+          "phase": "Kickoff",
+          "dueDate": "2025-09-26",
+          "isOngoing": false,
+          "dateNotes": "1 day before KO date",
+          "notes": "",
+          "role": "Project Manager"
+        },
+        {
+          "id": "task-064",
+          "description": "Hold Internal Pre-Kick Off: Talk through study overview, roles, deadlines, and any other key project info prior to KO with client.",
+          "assignedTo": [
+            "3"
+          ],
+          "status": "completed",
+          "phase": "Kickoff",
+          "dueDate": "2025-09-26",
+          "isOngoing": false,
+          "dateNotes": "1 day before KO date",
+          "notes": "",
+          "role": "Project Manager"
+        },
+        {
+          "id": "task-065",
+          "description": "Create or review Proposal based on RFP (Request For Proposal)",
+          "assignedTo": [
+            "3"
+          ],
+          "status": "completed",
+          "phase": "Kickoff",
+          "dueDate": "2025-09-26",
+          "isOngoing": false,
+          "dateNotes": "1 day before KO date",
+          "notes": "",
+          "role": "Project Manager"
+        },
+        {
+          "id": "task-066",
+          "description": "Bid project out to vendors/moderators",
+          "assignedTo": [
+            "3"
+          ],
+          "status": "completed",
+          "phase": "Kickoff",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "Recruit Coordinator"
+        },
+        {
+          "id": "task-067",
+          "description": "Get moderator availability",
+          "assignedTo": [
+            "3"
+          ],
+          "status": "completed",
+          "phase": "Kickoff",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "Recruit Coordinator"
+        },
+        {
+          "id": "task-068",
+          "description": "Create a job folder for the study in the 'Proposals' folder (within appropriate client folder)",
+          "assignedTo": [
+            "3"
+          ],
+          "status": "completed",
+          "phase": "Kickoff",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "Logistics"
+        },
+        {
+          "id": "task-069",
+          "description": "Save vendors' bids to job folder",
+          "assignedTo": [
+            "3"
+          ],
+          "status": "completed",
+          "phase": "Kickoff",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "Recruit Coordinator"
+        },
+        {
+          "id": "task-070",
+          "description": "Ensure any new vendors have signed the NDA",
+          "assignedTo": [
+            "3"
+          ],
+          "status": "completed",
+          "phase": "Kickoff",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "Recruit Coordinator"
+        },
+        {
+          "id": "task-071",
+          "description": "Create Internal Cost Worksheet, send to supervisor",
+          "assignedTo": [
+            "3"
+          ],
+          "status": "completed",
+          "phase": "Kickoff",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "Logistics"
+        },
+        {
+          "id": "task-072",
+          "description": "Move study docs from 'Proposals' folder to main client folder",
+          "assignedTo": [
+            "3"
+          ],
+          "status": "completed",
+          "phase": "Kickoff",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "Logistics"
+        },
+        {
+          "id": "task-073",
+          "description": "Update folder name with job #",
+          "assignedTo": [
+            "3"
+          ],
+          "status": "completed",
+          "phase": "Kickoff",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "Logistics"
+        },
+        {
+          "id": "task-074",
+          "description": "Add AE submission forms & contact info to job folder",
+          "assignedTo": [
+            "3"
+          ],
+          "status": "completed",
+          "phase": "Kickoff",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "AE Manager"
+        },
+        {
+          "id": "task-075",
+          "description": "Set up Invoice Schedule & Worksheet",
+          "assignedTo": [
+            "3"
+          ],
+          "status": "completed",
+          "phase": "Kickoff",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "Logistics"
+        },
+        {
+          "id": "task-076",
+          "description": "Alert recruiter and moderator that project is moving forward",
+          "assignedTo": [
+            "3"
+          ],
+          "status": "completed",
+          "phase": "Kickoff",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "Recruit Coordinator"
+        },
+        {
+          "id": "task-077",
+          "description": "Draft screener",
+          "assignedTo": [],
+          "status": "completed",
+          "phase": "Kickoff",
+          "dueDate": "2025-09-26",
+          "isOngoing": false,
+          "dateNotes": "1 day before KO date",
+          "notes": "",
+          "role": ""
+        },
+        {
+          "id": "task-078",
+          "description": "Draft discussion guide",
+          "assignedTo": [],
+          "status": "completed",
+          "phase": "Kickoff",
+          "dueDate": "2025-10-08",
+          "isOngoing": false,
+          "dateNotes": "first day of pre-field",
+          "notes": "",
+          "role": ""
+        },
+        {
+          "id": "task-079",
+          "description": "Start Discuss.io project",
+          "assignedTo": [
+            "3"
+          ],
+          "status": "completed",
+          "phase": "Kickoff",
+          "dueDate": "2025-10-08",
+          "isOngoing": false,
+          "dateNotes": "first day of pre-field",
+          "notes": "",
+          "role": "Recruit Coordinator"
+        },
+        {
+          "id": "task-080",
+          "description": "Send screener to client",
+          "assignedTo": [
+            "3"
+          ],
+          "status": "completed",
+          "phase": "Kickoff",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "Project Manager"
+        },
+        {
+          "id": "task-081",
+          "description": "Send discussion guide draft to client",
+          "assignedTo": [
+            "3"
+          ],
+          "status": "completed",
+          "phase": "Kickoff",
+          "dueDate": "2025-10-08",
+          "isOngoing": false,
+          "dateNotes": "1 week prior to fieldwork start",
+          "notes": "",
+          "role": "Project Manager"
+        },
+        {
+          "id": "task-082",
+          "description": "Schedule KO with moderator",
+          "assignedTo": [
+            "3"
+          ],
+          "status": "completed",
+          "phase": "Kickoff",
+          "dueDate": "2025-10-08",
+          "isOngoing": false,
+          "dateNotes": "1 week prior to fieldwork start",
+          "notes": "",
+          "role": "Recruit Coordinator"
+        },
+        {
+          "id": "task-083",
+          "description": "Create respondent grid for recruiters",
+          "assignedTo": [
+            "3"
+          ],
+          "status": "completed",
+          "phase": "Pre-Field",
+          "dueDate": "2025-10-08",
+          "isOngoing": false,
+          "dateNotes": "first day of pre-field",
+          "notes": "",
+          "role": "Recruit Coordinator"
+        },
+        {
+          "id": "task-084",
+          "description": "Create shared/client respondent grid",
+          "assignedTo": [
+            "3"
+          ],
+          "status": "completed",
+          "phase": "Pre-Field",
+          "dueDate": "2025-10-08",
+          "isOngoing": false,
+          "dateNotes": "first day of pre-field",
+          "notes": "",
+          "role": "Recruit Coordinator"
+        },
+        {
+          "id": "task-085",
+          "description": "Get screener approval from client",
+          "assignedTo": [
+            "3"
+          ],
+          "status": "completed",
+          "phase": "Pre-Field",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "Project Manager"
+        },
+        {
+          "id": "task-086",
+          "description": "Alert moderator and confirm availability",
+          "assignedTo": [
+            "3"
+          ],
+          "status": "completed",
+          "phase": "Pre-Field",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "Recruit Coordinator"
+        },
+        {
+          "id": "task-087",
+          "description": "Submit first invoice request",
+          "assignedTo": [
+            "3"
+          ],
+          "status": "completed",
+          "phase": "Pre-Field",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "Project Manager"
+        },
+        {
+          "id": "task-088",
+          "description": "Ensure signed documents are saved to job folder",
+          "assignedTo": [
+            "3"
+          ],
+          "status": "completed",
+          "phase": "Pre-Field",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "Logistics"
+        },
+        {
+          "id": "task-089",
+          "description": "Schedule DG walk-through with client and moderator",
+          "assignedTo": [
+            "3"
+          ],
+          "status": "completed",
+          "phase": "Pre-Field",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "Project Manager"
+        },
+        {
+          "id": "task-090",
+          "description": "Copy cost tracker shell to job folder",
+          "assignedTo": [
+            "3"
+          ],
+          "status": "completed",
+          "phase": "Pre-Field",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "Logistics"
+        },
+        {
+          "id": "task-091",
+          "description": "Confirm attendee list with client",
+          "assignedTo": [
+            "3"
+          ],
+          "status": "completed",
+          "phase": "Pre-Field",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "Project Manager"
+        },
+        {
+          "id": "task-092",
+          "description": "Get final stimuli from client",
+          "assignedTo": [
+            "3"
+          ],
+          "status": "completed",
+          "phase": "Pre-Field",
+          "dueDate": "2025-10-14",
+          "isOngoing": false,
+          "dateNotes": "1 day before first day of field",
+          "notes": "",
+          "role": "Project Manager"
+        },
+        {
+          "id": "task-093",
+          "description": "Monitor recruits and update quotas",
+          "assignedTo": [
+            "3"
+          ],
+          "status": "completed",
+          "phase": "Pre-Field",
+          "isOngoing": true,
+          "dateNotes": "ongoing",
+          "notes": "",
+          "role": "Recruit Coordinator"
+        },
+        {
+          "id": "task-094",
+          "description": "Create outlook invite template",
+          "assignedTo": [
+            "3"
+          ],
+          "status": "completed",
+          "phase": "Pre-Field",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "Recruit Coordinator"
+        },
+        {
+          "id": "task-095",
+          "description": "Create content analysis (CA)",
+          "assignedTo": [
+            "3"
+          ],
+          "status": "completed",
+          "phase": "Pre-Field",
+          "dueDate": "2025-10-14",
+          "isOngoing": false,
+          "dateNotes": "1 day before first day of field",
+          "notes": "",
+          "role": "Logistics"
+        },
+        {
+          "id": "task-096",
+          "description": "Send Outlook invites with respondent details and observer login info",
+          "assignedTo": [
+            "3"
+          ],
+          "status": "completed",
+          "phase": "Pre-Field",
+          "isOngoing": true,
+          "dateNotes": "ongoing",
+          "notes": "",
+          "role": "Recruit Coordinator"
+        },
+        {
+          "id": "task-097",
+          "description": "Create notetaking schedule and align team",
+          "assignedTo": [],
+          "status": "completed",
+          "phase": "Pre-Field",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": ""
+        },
+        {
+          "id": "task-098",
+          "description": "Send final stimuli/workbooks/guide to moderator",
+          "assignedTo": [
+            "3"
+          ],
+          "status": "completed",
+          "phase": "Pre-Field",
+          "dueDate": "2025-10-14",
+          "isOngoing": false,
+          "dateNotes": "1 day before first day of field",
+          "notes": "",
+          "role": "Recruit Coordinator"
+        },
+        {
+          "id": "task-099",
+          "description": "Schedule client debrief after first 1-2 interviews",
+          "assignedTo": [
+            "3"
+          ],
+          "status": "completed",
+          "phase": "Pre-Field",
+          "dueDate": "2025-10-14",
+          "isOngoing": false,
+          "dateNotes": "1 day before first day of field",
+          "notes": "",
+          "role": "Project Manager"
+        },
+        {
+          "id": "task-100",
+          "description": "Create report shell based on discussion guide and objectives",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Fielding",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": ""
+        },
+        {
+          "id": "task-101",
+          "description": "Schedule second client debrief (if needed)",
+          "assignedTo": [
+            "3"
+          ],
+          "status": "pending",
+          "phase": "Fielding",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "Project Manager"
+        },
+        {
+          "id": "task-102",
+          "description": "Submit AEs within 24 hours of interviews",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Fielding",
+          "isOngoing": true,
+          "dateNotes": "ongoing",
+          "notes": "",
+          "role": ""
+        },
+        {
+          "id": "task-103",
+          "description": "Clean project folder",
+          "assignedTo": [
+            "3"
+          ],
+          "status": "pending",
+          "phase": "Post-Field Analysis",
+          "dueDate": "2025-11-03",
+          "isOngoing": false,
+          "dateNotes": "first day of post-field",
+          "notes": "",
+          "role": "Logistics"
+        },
+        {
+          "id": "task-104",
+          "description": "Internal download: all audio files, CA, transcripts, and notes",
+          "assignedTo": [
+            "3"
+          ],
+          "status": "pending",
+          "phase": "Post-Field Analysis",
+          "dueDate": "2025-11-03",
+          "isOngoing": false,
+          "dateNotes": "first day of post-field",
+          "notes": "",
+          "role": "Logistics"
+        },
+        {
+          "id": "task-105",
+          "description": "Submit AE reconciliation (if needed)",
+          "assignedTo": [
+            "3"
+          ],
+          "status": "pending",
+          "phase": "Post-Field Analysis",
+          "dueDate": "2025-11-03",
+          "isOngoing": false,
+          "dateNotes": "first day of post-field",
+          "notes": "",
+          "role": "AE Manager"
+        },
+        {
+          "id": "task-106",
+          "description": "Populate report shell with key fidings",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Reporting",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": ""
+        },
+        {
+          "id": "task-107",
+          "description": "Clean and finalize report",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Reporting",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": ""
+        },
+        {
+          "id": "task-108",
+          "description": "Have report proofed",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Reporting",
+          "dueDate": "2025-11-06",
+          "isOngoing": false,
+          "dateNotes": "1 day before report due date",
+          "notes": "",
+          "role": ""
+        },
+        {
+          "id": "task-109",
+          "description": "Final review of report",
+          "assignedTo": [],
+          "status": "pending",
+          "phase": "Reporting",
+          "dueDate": "2025-11-07",
+          "isOngoing": false,
+          "dateNotes": "final report due date",
+          "notes": "",
+          "role": ""
+        },
+        {
+          "id": "task-110",
+          "description": "Send report to client",
+          "assignedTo": [
+            "3"
+          ],
+          "status": "pending",
+          "phase": "Reporting",
+          "dueDate": "2025-11-07",
+          "isOngoing": false,
+          "dateNotes": "final report due date",
+          "notes": "",
+          "role": "Project Manager"
+        },
+        {
+          "id": "task-111",
+          "description": "Request invoice (if needed)",
+          "assignedTo": [
+            "3"
+          ],
+          "status": "pending",
+          "phase": "Reporting",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "Project Manager"
+        },
+        {
+          "id": "task-112",
+          "description": "Save vendor invoices and submit to accounting",
+          "assignedTo": [
+            "3"
+          ],
+          "status": "pending",
+          "phase": "Reporting",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "Recruit Coordinator"
+        },
+        {
+          "id": "task-113",
+          "description": "Reconcile with client-specific finance process",
+          "assignedTo": [
+            "3"
+          ],
+          "status": "pending",
+          "phase": "Reporting",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "Project Manager"
+        },
+        {
+          "id": "task-114",
+          "description": "Fill out Cost Tracker",
+          "assignedTo": [
+            "3"
+          ],
+          "status": "pending",
+          "phase": "Reporting",
+          "isOngoing": false,
+          "dateNotes": "",
+          "notes": "",
+          "role": "Logistics"
+        }
+      ],
+      "teamMembers": [
+        {
+          "id": "3",
+          "name": "Luke Borglin",
+          "role": "Project Manager",
+          "roles": [
+            "Project Manager",
+            "AE Manager",
+            "Logistics",
+            "Recruit Coordinator"
+          ]
+        }
+      ],
+      "sampleDetails": "TBD",
+      "files": [],
+      "segments": [
+        {
+          "phase": "Kickoff",
+          "startDate": "2025-09-29",
+          "endDate": "2025-09-29"
+        },
+        {
+          "phase": "Pre-Field",
+          "startDate": "2025-09-30",
+          "endDate": "2025-10-14"
+        },
+        {
+          "phase": "Fielding",
+          "startDate": "2025-10-15",
+          "endDate": "2025-10-31"
+        },
+        {
+          "phase": "Post-Field Analysis",
+          "startDate": "2025-11-03",
+          "endDate": "2025-10-31"
+        },
+        {
+          "phase": "Reporting",
+          "startDate": "2025-11-03",
+          "endDate": "2025-11-07"
+        }
+      ],
+      "phaseColor": "#7C3AED",
+      "fieldworkRange": "10/15/25",
+      "reportDeadline": "11/7/25",
+      "teamMembersText": "Luke Borglin"
     }
   ],
   "17": [
