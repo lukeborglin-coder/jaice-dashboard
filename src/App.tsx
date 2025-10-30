@@ -103,6 +103,31 @@ function VendorLibrary({ projects }: { projects: any[] }) {
     }
   };
 
+  // Robust helpers for fieldwork dates
+  const normalize = (v?: string) => (v || '').toString().trim().toLowerCase();
+  const getFieldworkRange = (project: any): { start?: string; end?: string } => {
+    // 1) Prefer segments labeled exactly Fielding
+    const seg = project?.segments?.find((s: any) => normalize(s?.phase) === 'fielding');
+    if (seg?.startDate || seg?.endDate) {
+      return { start: seg?.startDate, end: seg?.endDate };
+    }
+    // 2) Fallback to keyDeadlines
+    const kd = Array.isArray(project?.keyDeadlines) ? project.keyDeadlines : [];
+    const kdStart = kd.find((k: any) => {
+      const l = normalize(k?.label);
+      return (l.includes('fielding') && l.includes('start')) || (l.includes('field') && l.includes('start'));
+    })?.date;
+    const kdEnd = kd.find((k: any) => {
+      const l = normalize(k?.label);
+      return (l.includes('fielding') && l.includes('end')) || (l.includes('field') && l.includes('end'));
+    })?.date;
+    if (kdStart || kdEnd) {
+      return { start: kdStart, end: kdEnd };
+    }
+    // 3) Last resort: project-level dates
+    return { start: project?.startDate, end: project?.endDate };
+  };
+
   const [activeSection, setActiveSection] = useState<'moderators' | 'sampleVendors' | 'analytics'>('moderators');
   const [vendors, setVendors] = useState<any>({ moderators: [], sampleVendors: [], analytics: [] });
   const [loading, setLoading] = useState(true);
@@ -2201,12 +2226,7 @@ function VendorLibrary({ projects }: { projects: any[] }) {
                   const normalize = (v?: string) => (v || '').toString().trim().toLowerCase();
                   let activeModeratorProjects = activeProjects
                     .map((p: any) => {
-                      const fieldSeg = p.segments?.find((s: any) => {
-                        const ph = normalize(s.phase);
-                        return ph === 'fielding' || ph === 'pre-field' || ph === 'pre field' || ph === 'pre-fielding';
-                      });
-                      const startDate = fieldSeg?.startDate || p.startDate;
-                      const endDate = fieldSeg?.endDate || p.endDate;
+                      const { start: startDate, end: endDate } = getFieldworkRange(p);
                       return { id: p.id, name: p.name, client: p.client, startDate, endDate, phase: p.phase, archived: p.archived };
                     })
                     .filter((p: any) => {
@@ -2298,13 +2318,9 @@ function VendorLibrary({ projects }: { projects: any[] }) {
                                     setAddProjectDates({});
                                     if (name) {
                                       const target = (projectsVL as any[]).find(p => p.name === name);
-                                      const norm = (v?: string) => (v || '').toString().trim().toLowerCase();
-                                      const fieldSeg = target?.segments?.find((s: any) => {
-                                        const ph = norm(s.phase);
-                                        return ph === 'fielding' || ph === 'pre-field' || ph === 'pre field' || ph === 'pre-fielding';
-                                      });
-                                      const s = fieldSeg?.startDate || target?.startDate;
-                                      const e2 = fieldSeg?.endDate || target?.endDate;
+                                      const rng = target ? getFieldworkRange(target) : {};
+                                      const s = rng.start;
+                                      const e2 = rng.end;
                                       if (s && e2) {
                                         setAddProjectDates({ start: s, end: e2 });
                                         // check availability
@@ -2339,11 +2355,22 @@ function VendorLibrary({ projects }: { projects: any[] }) {
                                       const mod = (project as any).moderator;
                                       const isAssigned = Array.isArray(mod) ? mod.length > 0 : !!(mod && norm(mod) !== '' && !['-','tbd','none'].includes(norm(mod)));
                                       if (isAssigned) return false;
-                                      // Only projects with fieldwork that ends today or in the future
-                                      const fieldSeg = project.segments?.find((s: any) => norm(s.phase) === 'fielding');
-                                      const endStr = fieldSeg?.endDate;
+                                      // Compute fieldwork end from segments, keyDeadlines, or project end
+                                      const seg = project.segments?.find((s: any) => {
+                                        const ph = norm(s?.phase);
+                                        return ph === 'fielding' || ph.includes('fieldwork') || (ph.includes('field') && !ph.includes('pre'));
+                                      });
+                                      let endStr = seg?.endDate as string | undefined;
+                                      if (!endStr && Array.isArray(project?.keyDeadlines)) {
+                                        const kd = project.keyDeadlines;
+                                        endStr = kd.find((k: any) => norm(k?.label).includes('field') && norm(k?.label).includes('end'))?.date
+                                              || kd.find((k: any) => norm(k?.label).includes('fieldwork end'))?.date
+                                              || kd.find((k: any) => norm(k?.label).includes('field end'))?.date;
+                                      }
+                                      if (!endStr) endStr = project.endDate;
                                       if (!endStr) return false;
                                       const end = new Date(endStr);
+                                      if (isNaN(end.getTime())) return false;
                                       end.setHours(23,59,59,999);
                                       return end >= new Date();
                                     })
@@ -2428,11 +2455,22 @@ function VendorLibrary({ projects }: { projects: any[] }) {
                                       const mt = norm(project.methodologyType || project.methodology);
                                       if (!mt.includes('qual')) return false;
                                       if (project.archived) return false;
-                                      // Only projects with fieldwork that ends today or in the future
-                                      const fieldSeg = project.segments?.find((s: any) => norm(s.phase) === 'fielding');
-                                      const endStr = fieldSeg?.endDate;
+                                      // Compute fieldwork end from segments, keyDeadlines, or project end
+                                      const seg = project.segments?.find((s: any) => {
+                                        const ph = norm(s?.phase);
+                                        return ph === 'fielding' || ph.includes('fieldwork') || (ph.includes('field') && !ph.includes('pre'));
+                                      });
+                                      let endStr = seg?.endDate as string | undefined;
+                                      if (!endStr && Array.isArray(project?.keyDeadlines)) {
+                                        const kd = project.keyDeadlines;
+                                        endStr = kd.find((k: any) => norm(k?.label).includes('field') && norm(k?.label).includes('end'))?.date
+                                              || kd.find((k: any) => norm(k?.label).includes('fieldwork end'))?.date
+                                              || kd.find((k: any) => norm(k?.label).includes('field end'))?.date;
+                                      }
+                                      if (!endStr) endStr = project.endDate;
                                       if (!endStr) return false;
                                       const end = new Date(endStr);
+                                      if (isNaN(end.getTime())) return false;
                                       end.setHours(23,59,59,999);
                                       return end >= new Date();
                                     })
