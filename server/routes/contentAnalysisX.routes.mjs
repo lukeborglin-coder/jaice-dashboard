@@ -312,6 +312,76 @@ async function cleanupOrphanedRows(analysis, projectTranscripts = null) {
   return cleaned;
 }
 
+// Cleanup function: Clear respnos from transcripts that are no longer in any CA
+async function clearOrphanedRespnos(analyses, transcriptsObj) {
+  if (!transcriptsObj || typeof transcriptsObj !== 'object') return false;
+  
+  let anyCleaned = false;
+  
+  // Group analyses by projectId
+  const analysesByProject = new Map();
+  for (const analysis of analyses) {
+    if (!analysis.projectId) continue;
+    if (!analysesByProject.has(analysis.projectId)) {
+      analysesByProject.set(analysis.projectId, []);
+    }
+    analysesByProject.get(analysis.projectId).push(analysis);
+  }
+  
+  // For each project, find which transcriptIds are actually in any CA
+  for (const [projectId, projectAnalyses] of analysesByProject.entries()) {
+    const projectTranscripts = Array.isArray(transcriptsObj[projectId]) 
+      ? transcriptsObj[projectId] 
+      : [];
+    
+    if (projectTranscripts.length === 0) continue;
+    
+    // Collect all transcriptIds that are actually in any CA for this project
+    const transcriptIdsInCAs = new Set();
+    for (const analysis of projectAnalyses) {
+      if (!analysis.data) continue;
+      for (const sheetData of Object.values(analysis.data)) {
+        if (Array.isArray(sheetData)) {
+          sheetData.forEach((row) => {
+            if (row?.transcriptId) {
+              transcriptIdsInCAs.add(String(row.transcriptId).trim());
+            }
+          });
+        }
+      }
+    }
+    
+    // Clear respno from transcripts that have a respno but aren't in any CA
+    let projectCleaned = false;
+    for (const transcript of projectTranscripts) {
+      const tid = String(transcript.id).trim();
+      const hasRespno = transcript.respno && String(transcript.respno).trim() !== '';
+      
+      if (hasRespno && !transcriptIdsInCAs.has(tid)) {
+        console.log(`  🗑️ Clearing respno ${transcript.respno} from transcript ${tid} - not in any CA`);
+        transcript.respno = null;
+        projectCleaned = true;
+        anyCleaned = true;
+      }
+    }
+    
+    if (projectCleaned) {
+      transcriptsObj[projectId] = projectTranscripts;
+      // Save the updated transcripts
+      try {
+        const dataRoot = process.env.DATA_DIR || path.join(__dirname, '../data');
+        const transcriptsPath = path.join(dataRoot, 'transcripts.json');
+        await fs.writeFile(transcriptsPath, JSON.stringify(transcriptsObj, null, 2));
+        console.log(`  ✅ Saved updated transcripts for project ${projectId}`);
+      } catch (error) {
+        console.error(`  ❌ Failed to save transcripts for project ${projectId}:`, error);
+      }
+    }
+  }
+  
+  return anyCleaned;
+}
+
 // Cleanup function: Remove transcripts from an analysis if they're in another CA
 // This prevents transcripts from appearing in multiple CAs
 async function cleanupDuplicateTranscriptsAcrossCAs(analyses) {
@@ -817,6 +887,13 @@ router.get('/saved', async (req, res) => {
     if (duplicatesCleaned) {
       anyCleaned = true;
       console.log(`🧹 Cleaned duplicate transcripts across CAs`);
+    }
+    
+    // After cleanup, clear respnos from transcripts that are no longer in any CA
+    const transcriptsCleaned = await clearOrphanedRespnos(analyses, transcriptsObj);
+    if (transcriptsCleaned) {
+      anyCleaned = true;
+      console.log(`🧹 Cleared respnos from transcripts not in any CA`);
     }
     
     // Save cleaned analyses back to file if any were cleaned
