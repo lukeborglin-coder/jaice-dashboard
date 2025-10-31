@@ -434,7 +434,6 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
     transcriptMapOverride?: ProjectTranscripts
   ): Promise<any[] | null> => {
     try {
-      console.log('🔄 Loading saved analyses...');
       const response = await fetch(`${API_BASE_URL}/api/caX/saved`, {
         headers: getAuthHeaders()
       });
@@ -741,18 +740,9 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
     
     const matchingTranscripts = projectTranscripts.filter(t => {
       const normalizedId = String(t.id).trim();
-      const isMatch = transcriptIds.has(normalizedId);
-      if (!isMatch && transcriptIds.size > 0) {
-        // Check if there's a close match (might be a string comparison issue)
-        const foundInIds = Array.from(transcriptIds).find(tid => tid === normalizedId || tid.includes(normalizedId) || normalizedId.includes(tid));
-        if (foundInIds) {
-          console.warn(`🔍 Potential ID mismatch for transcript ${t.id}: found similar ID ${foundInIds}`);
-        }
-      }
-      return isMatch;
+      return transcriptIds.has(normalizedId);
     });
     
-    console.log(`🔍 getTranscriptsForAnalysis result: ${matchingTranscripts.length} matching transcripts`);
     return matchingTranscripts;
   }, []);
 
@@ -975,14 +965,12 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
 
   // Always refresh saved analyses when component mounts (ensures fresh CA status)
   useEffect(() => {
-    console.log('🔄 Component mounted, refreshing saved analyses');
     loadSavedAnalyses();
   }, []);
 
   // Refresh saved analyses and transcripts every time the component mounts or project changes
   useEffect(() => {
     if (selectedProject) {
-      console.log('🔄 Refreshing saved analyses and transcripts for project:', selectedProject.id);
       loadSavedAnalyses();
       loadTranscripts();
     }
@@ -992,7 +980,6 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!document.hidden) {
-        console.log('🔄 Refreshing saved analyses and transcripts on visibility change');
         loadSavedAnalyses();
         loadTranscripts();
       }
@@ -1672,7 +1659,6 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
     const orphanedTranscripts = projectTranscripts.filter(t => {
       // If transcript has no respno, it's definitely unassigned
       if (!t.respno || String(t.respno).trim() === '') {
-        console.log(`🔍 Transcript ${t.id}: No respno, treating as unassigned`);
         return true;
       }
       
