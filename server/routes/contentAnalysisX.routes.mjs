@@ -242,8 +242,8 @@ async function saveAnalysesToFile(analyses) {
   }
 }
 
-// Cleanup function: Remove rows without transcriptIds from all sheets in an analysis
-function cleanupOrphanedRows(analysis) {
+// Cleanup function: Remove rows without transcriptIds or with transcriptIds that don't exist in project
+async function cleanupOrphanedRows(analysis, projectTranscripts = null) {
   if (!analysis || !analysis.data || typeof analysis.data !== 'object') {
     return false; // No cleanup needed
   }
@@ -251,13 +251,34 @@ function cleanupOrphanedRows(analysis) {
   let cleaned = false;
   const sheetNames = Object.keys(analysis.data);
 
+  // If projectTranscripts not provided, try to load them
+  let validTranscriptIds = new Set();
+  if (projectTranscripts) {
+    // projectTranscripts is an array for this project
+    validTranscriptIds = new Set(projectTranscripts.map(t => String(t.id).trim()));
+  } else if (analysis.projectId) {
+    // Try to load transcripts for this project
+    try {
+      const dataRoot = process.env.DATA_DIR || path.join(__dirname, '../data');
+      const transcriptsPath = path.join(dataRoot, 'transcripts.json');
+      const transcriptsData = await fs.readFile(transcriptsPath, 'utf8');
+      const transcriptsObj = JSON.parse(transcriptsData);
+      const projectTranscriptsList = Array.isArray(transcriptsObj[analysis.projectId]) 
+        ? transcriptsObj[analysis.projectId] 
+        : [];
+      validTranscriptIds = new Set(projectTranscriptsList.map(t => String(t.id).trim()));
+    } catch (error) {
+      console.warn(`⚠️ Could not load transcripts for project ${analysis.projectId} during cleanup:`, error.message);
+    }
+  }
+
   for (const sheetName of sheetNames) {
     const sheetData = analysis.data[sheetName];
     if (!Array.isArray(sheetData)) continue;
 
     const originalLength = sheetData.length;
     
-    // Filter out rows without transcriptIds (for respondent rows)
+    // Filter out rows without transcriptIds or with transcriptIds that don't exist
     analysis.data[sheetName] = sheetData.filter((row) => {
       if (!row || typeof row !== 'object') return false;
       
@@ -269,6 +290,14 @@ function cleanupOrphanedRows(analysis) {
       if (isRespondentRow && !tid) {
         console.log(`  🗑️ Removing orphaned row with respno ${resp} but no transcriptId from sheet "${sheetName}"`);
         return false;
+      }
+      
+      // If we have valid transcript IDs and this row has a transcriptId, check if it exists
+      if (tid && validTranscriptIds.size > 0 && isRespondentRow) {
+        if (!validTranscriptIds.has(tid)) {
+          console.log(`  🗑️ Removing row with transcriptId ${tid} (respno ${resp}) from sheet "${sheetName}" - transcript does not exist in project`);
+          return false;
+        }
       }
       
       return true;
@@ -762,10 +791,22 @@ router.get('/saved', async (req, res) => {
   try {
     let analyses = await loadSavedAnalyses();
     
+    // Load transcripts to validate transcriptIds during cleanup
+    const dataDir = process.env.DATA_DIR || path.join(__dirname, '../data');
+    const transcriptsPath = path.join(dataDir, 'transcripts.json');
+    let transcriptsObj = {};
+    try {
+      const raw = await fs.readFile(transcriptsPath, 'utf8');
+      transcriptsObj = safeJsonParse(raw || '{}', {});
+    } catch {}
+    
     // Cleanup orphaned rows from all analyses
     let anyCleaned = false;
     for (const analysis of analyses) {
-      const cleaned = cleanupOrphanedRows(analysis);
+      const projectTranscripts = Array.isArray(transcriptsObj[analysis.projectId]) 
+        ? transcriptsObj[analysis.projectId] 
+        : null;
+      const cleaned = await cleanupOrphanedRows(analysis, projectTranscripts);
       if (cleaned) {
         anyCleaned = true;
       }
@@ -838,8 +879,21 @@ router.get('/saved/:id', async (req, res) => {
     let item = analyses.find(a => String(a.id) === String(id));
     if (!item) return res.status(404).json({ error: 'Analysis not found' });
     
+    // Load transcripts to validate transcriptIds during cleanup
+    const dataDir = process.env.DATA_DIR || path.join(__dirname, '../data');
+    const transcriptsPath = path.join(dataDir, 'transcripts.json');
+    let transcriptsObj = {};
+    try {
+      const raw = await fs.readFile(transcriptsPath, 'utf8');
+      transcriptsObj = safeJsonParse(raw || '{}', {});
+    } catch {}
+    
+    const projectTranscripts = Array.isArray(transcriptsObj[item.projectId]) 
+      ? transcriptsObj[item.projectId] 
+      : null;
+    
     // Cleanup orphaned rows (rows without transcriptIds) before returning
-    const cleaned = cleanupOrphanedRows(item);
+    const cleaned = await cleanupOrphanedRows(item, projectTranscripts);
     let anyCleaned = cleaned;
     
     // Cleanup duplicate transcripts across all CAs
