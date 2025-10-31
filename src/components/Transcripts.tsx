@@ -2219,7 +2219,15 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
               // If a transcript appears in multiple CAs (data inconsistency), assign it to the first CA we encounter
               const transcriptToAnalysisMap = new Map<string, string>();
               projectAnalyses.forEach((analysis) => {
+                // Double-check that CA belongs to current project (safety check)
+                if (analysis.projectId !== selectedProject?.id) {
+                  console.warn(`⚠️ Skipping CA ${analysis.id} (${analysis.name}) - projectId mismatch: CA has ${analysis.projectId}, selected project is ${selectedProject?.id}`);
+                  return;
+                }
+                
                 const analysisTranscripts = getTranscriptsForAnalysis(analysis, projectTranscripts);
+                console.log(`🔍 First pass - CA ${analysis.id} (${analysis.name}) found ${analysisTranscripts.length} transcripts:`, analysisTranscripts.map(t => t.id));
+                
                 analysisTranscripts.forEach((transcript) => {
                   const tid = String(transcript.id).trim();
                   if (!transcriptToAnalysisMap.has(tid)) {
@@ -2231,6 +2239,8 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                   }
                 });
               });
+              
+              console.log(`🔍 transcriptToAnalysisMap after first pass (${transcriptToAnalysisMap.size} entries):`, Array.from(transcriptToAnalysisMap.entries()).map(([tid, aid]) => ({ transcriptId: tid, analysisId: aid })));
               
               // Second pass: render each CA box with only transcripts assigned to it
               return projectAnalyses.map((analysis) => {
