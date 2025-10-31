@@ -749,7 +749,7 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
   }, [transcripts, savedAnalyses]);
 
   // Get transcripts that belong to a specific content analysis
-  const getTranscriptsForAnalysis = useCallback((analysis: any, projectTranscripts: Transcript[]): Transcript[] => {
+  const getTranscriptsForAnalysis = useCallback((analysis: any, projectTranscripts: Transcript[], currentProjectId?: string): Transcript[] => {
     if (!analysis || !analysis.data) {
       console.log(`🔍 getTranscriptsForAnalysis: Analysis ${analysis?.id} has no data`);
       return [];
@@ -773,12 +773,12 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
       projectTranscriptIds: projectTranscripts.map(t => t.id),
       projectTranscriptCount: projectTranscripts.length,
       analysisProjectId: analysis.projectId,
-      selectedProjectId: selectedProject?.id
+      currentProjectId: currentProjectId || selectedProject?.id
     });
     
-    // Check if CA belongs to the current project
-    if (analysis.projectId !== selectedProject?.id) {
-      console.warn(`⚠️ CA ${analysis.id} (${analysis.name}) belongs to project ${analysis.projectId}, but current project is ${selectedProject?.id}`);
+    // Check if CA belongs to the current project (only warn if projectId is provided)
+    if (currentProjectId && analysis.projectId !== currentProjectId) {
+      console.warn(`⚠️ CA ${analysis.id} (${analysis.name}) belongs to project ${analysis.projectId}, but current project is ${currentProjectId}`);
     }
     
     // Check for mismatched transcript IDs
@@ -787,6 +787,7 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
     );
     if (mismatchedIds.length > 0) {
       console.warn(`⚠️ CA ${analysis.id} (${analysis.name}) has ${mismatchedIds.length} transcript IDs that don't exist in project transcripts:`, mismatchedIds);
+      console.warn(`⚠️ This usually means transcripts were deleted or the CA contains data from another project. Consider running cleanup.`);
     }
     
     const matchingTranscripts = projectTranscripts.filter(t => {
@@ -2225,7 +2226,7 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                   return;
                 }
                 
-                const analysisTranscripts = getTranscriptsForAnalysis(analysis, projectTranscripts);
+                const analysisTranscripts = getTranscriptsForAnalysis(analysis, projectTranscripts, selectedProject?.id);
                 console.log(`🔍 First pass - CA ${analysis.id} (${analysis.name}) found ${analysisTranscripts.length} transcripts:`, analysisTranscripts.map(t => t.id));
                 
                 analysisTranscripts.forEach((transcript) => {
@@ -2249,7 +2250,7 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                   projectTranscriptIds: projectTranscripts.map(t => t.id)
                 });
                 
-                const analysisTranscripts = getTranscriptsForAnalysis(analysis, projectTranscripts);
+                const analysisTranscripts = getTranscriptsForAnalysis(analysis, projectTranscripts, selectedProject?.id);
                 console.log(`🔍 After getTranscriptsForAnalysis:`, {
                   analysisTranscriptsCount: analysisTranscripts.length,
                   analysisTranscriptIds: analysisTranscripts.map(t => t.id)
