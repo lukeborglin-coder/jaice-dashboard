@@ -1830,8 +1830,9 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
             }
           });
           
-          // Fallback: If no transcriptIds found in data sheets, check transcripts array
-          if (transcriptIds.size === 0 && full?.transcripts && Array.isArray(full.transcripts)) {
+          // Also check transcripts array to catch any transcripts that might not be in data sheets yet
+          // This is important when transcripts are added but data sheets haven't been updated
+          if (full?.transcripts && Array.isArray(full.transcripts)) {
             full.transcripts.forEach((t: any) => {
               const tid = t?.id || t?.sourceTranscriptId || t?.transcriptId;
               if (tid) {
