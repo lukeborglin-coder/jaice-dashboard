@@ -538,15 +538,6 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
       if (analysis.data) {
         // Check Demographics sheet
         if (analysis.data.Demographics && Array.isArray(analysis.data.Demographics)) {
-          console.log(`🔍 Checking Demographics for analysis ${analysis.id} (${analysis.name}):`, {
-            demographicsCount: analysis.data.Demographics.length,
-            transcriptIds: analysis.data.Demographics.map((r: any) => ({ 
-              transcriptId: r.transcriptId, 
-              respno: r.respno || r['Respondent ID'],
-              hasTranscriptId: !!r.transcriptId
-            }))
-          });
-          
           const hasTranscript = analysis.data.Demographics.some((row: any) => {
             // Ensure both values are strings for comparison
             const rowTranscriptId = row.transcriptId ? String(row.transcriptId) : null;
