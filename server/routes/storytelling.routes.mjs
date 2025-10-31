@@ -247,7 +247,7 @@ async function getTranscriptsText(projectId, analysisId = null, transcriptIds = 
         if (hasAnyAnalysisId) {
           // Some transcripts have analysisId, but none match - return empty
           console.log('🔍 No transcripts found with matching analysisId, returning empty result');
-          return '';
+          return { text: '', metadata: {} };
         } else {
           // No transcripts have analysisId - filter by CA respondent IDs instead
           console.log('🔍 No transcripts have analysisId, filtering by CA respondent IDs');
@@ -256,7 +256,7 @@ async function getTranscriptsText(projectId, analysisId = null, transcriptIds = 
           const caDataObj = await getCAData(projectId, analysisId);
           if (!caDataObj || !caDataObj.data) {
             console.log('🔍 No CA data found, returning empty result');
-            return '';
+            return { text: '', metadata: {} };
           }
           
           // Collect transcript IDs from CA data rows
@@ -276,7 +276,7 @@ async function getTranscriptsText(projectId, analysisId = null, transcriptIds = 
           
           if (caTranscriptIds.size === 0) {
             console.log('🔍 No transcript IDs found in CA data, returning empty result');
-            return '';
+            return { text: '', metadata: {} };
           }
           
           // Filter transcripts by those found in CA data
@@ -321,19 +321,35 @@ async function getTranscriptsText(projectId, analysisId = null, transcriptIds = 
     }
 
     let combinedText = '';
+    const transcriptMetadata = {}; // Store metadata by respno for later lookup
+    
     for (const transcript of projectTranscripts) {
       const filePath = transcript.cleanedPath || transcript.originalPath;
+      const respno = transcript.respno || `T-${transcript.id}`;
+      
+      // Store metadata for this transcript
+      transcriptMetadata[respno] = {
+        respno: respno,
+        interviewDate: transcript.interviewDate || null,
+        interviewTime: transcript.interviewTime || null,
+        transcriptId: transcript.id
+      };
+      
       if (filePath) {
         try {
           // Use mammoth to extract text from .docx files (filters out images and binary data)
           const result = await mammoth.extractRawText({ path: filePath });
           const content = result.value; // This is plain text without images
-          combinedText += `\n\n=== ${transcript.respno || 'Transcript'} ===\n${content}`;
+          combinedText += `\n\n=== ${respno} ===\n${content}`;
         } catch (err) {
           console.warn(`Could not read transcript ${transcript.id}:`, err);
         }
       }
     }
+    
+    // Store metadata in a way we can access it later
+    // We'll attach it to the transcriptsText object or pass separately
+    // For now, we'll pass it via a global or return it - actually, let's modify to return both
 
     console.log('🔍 getTranscriptsText result:', {
       projectId,
@@ -343,10 +359,14 @@ async function getTranscriptsText(projectId, analysisId = null, transcriptIds = 
       hasContent: combinedText.length > 0
     });
 
-    return combinedText;
+    // Return both text and metadata
+    return {
+      text: combinedText,
+      metadata: transcriptMetadata
+    };
   } catch (error) {
     console.error('Error getting transcripts text:', error);
-    return '';
+    return { text: '', metadata: {} };
   }
 }
 
@@ -654,23 +674,42 @@ router.post('/:projectId/key-findings/generate', authenticateToken, async (req, 
       return res.status(400).json({ error: 'No transcript data available for this project' });
     }
 
-    // Calculate respondent count from CA data
+    // Calculate respondent count from CA data - count unique transcriptIds (most reliable)
     let respondentCount = 0;
     if (caDataObj && caDataObj.data) {
-      const allRespondents = new Set();
+      const uniqueTranscriptIds = new Set();
       Object.values(caDataObj.data).forEach((sheetData) => {
         if (Array.isArray(sheetData)) {
           sheetData.forEach((row) => {
-            if (row && typeof row === 'object') {
-              const respondentId = row['Respondent ID'] || row['respno'] || row['ID'] || row['id'];
-              if (respondentId && typeof respondentId === 'string' && respondentId.trim() !== '') {
-                allRespondents.add(respondentId.trim());
+            if (row && typeof row === 'object' && row.transcriptId) {
+              const transcriptId = String(row.transcriptId).trim();
+              if (transcriptId && transcriptId !== '') {
+                uniqueTranscriptIds.add(transcriptId);
               }
             }
           });
         }
       });
-      respondentCount = allRespondents.size;
+      
+      // If no transcriptIds found, fall back to counting unique respnos
+      if (uniqueTranscriptIds.size === 0) {
+        const allRespondents = new Set();
+        Object.values(caDataObj.data).forEach((sheetData) => {
+          if (Array.isArray(sheetData)) {
+            sheetData.forEach((row) => {
+              if (row && typeof row === 'object') {
+                const respondentId = row['Respondent ID'] || row['respno'] || row['ID'] || row['id'];
+                if (respondentId && typeof respondentId === 'string' && respondentId.trim() !== '') {
+                  allRespondents.add(respondentId.trim());
+                }
+              }
+            });
+          }
+        });
+        respondentCount = allRespondents.size;
+      } else {
+        respondentCount = uniqueTranscriptIds.size;
+      }
     }
 
     const findings = await generateKeyFindings(projectId, strategicQuestions, transcriptsText, caDataObj, detailLevel);
@@ -701,10 +740,11 @@ router.post('/:projectId/storyboard/generate', authenticateToken, async (req, re
     const { projectId } = req.params;
     const { detailLevel = 'moderate', analysisId } = req.body;
 
-    const transcriptsText = await getTranscriptsText(projectId, analysisId);
+    const transcriptsResult = await getTranscriptsText(projectId, analysisId);
+    const transcriptsText = typeof transcriptsResult === 'string' ? transcriptsResult : transcriptsResult.text;
     const caDataObj = await getCAData(projectId, analysisId);
 
-    if (!transcriptsText.trim()) {
+    if (!transcriptsText || !transcriptsText.trim()) {
       return res.status(400).json({ error: 'No transcript data available for this project' });
     }
 
@@ -760,10 +800,11 @@ router.post('/:projectId/executive-summary/generate', authenticateToken, async (
       return res.status(400).json({ error: 'No strategic questions defined for this project' });
     }
 
-    const transcriptsText = await getTranscriptsText(projectId, analysisId);
+    const transcriptsResult = await getTranscriptsText(projectId, analysisId);
+    const transcriptsText = typeof transcriptsResult === 'string' ? transcriptsResult : transcriptsResult.text;
     const caDataObj = await getCAData(projectId, analysisId);
 
-    if (!transcriptsText.trim()) {
+    if (!transcriptsText || !transcriptsText.trim()) {
       return res.status(400).json({ error: 'No transcript data available for this project' });
     }
 
@@ -1083,10 +1124,13 @@ router.post('/:projectId/quotes', authenticateToken, async (req, res) => {
     console.log(`🆕 No cached quotes found, generating new quotes for storytelling (analysisId: ${analysisId || 'none'})`);
 
     // Get transcripts for this project (scoped to analysisId)
-    const transcriptsText = await getTranscriptsText(projectId, analysisId);
-    if (!transcriptsText) {
+    const transcriptsResult = await getTranscriptsText(projectId, analysisId);
+    if (!transcriptsResult || !transcriptsResult.text) {
       return res.status(404).json({ error: 'No transcripts available for this project' });
     }
+    
+    const transcriptsText = typeof transcriptsResult === 'string' ? transcriptsResult : transcriptsResult.text;
+    const transcriptMetadata = typeof transcriptsResult === 'object' && transcriptsResult.metadata ? transcriptsResult.metadata : {};
 
     // Initialize OpenAI
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -1186,6 +1230,58 @@ ${transcriptsText.substring(0, 20000)}`; // Increased limit to 20000 chars for b
         }];
       }
     }
+
+    // Enrich quotes with respondent metadata (respno, interviewDate, interviewTime)
+    quotes = quotes.map(quote => {
+      // Try to extract respno from quote text (look for patterns like "R01:", "R02:", etc.)
+      let matchedRespno = null;
+      const respnoMatch = quote.text.match(/\b(R\d{2}|R\d{1,2}):\s*/i);
+      if (respnoMatch) {
+        matchedRespno = respnoMatch[1].toUpperCase();
+        // Ensure R01 format (not R1)
+        if (matchedRespno.match(/^R\d{1}$/)) {
+          matchedRespno = `R0${matchedRespno.substring(1)}`;
+        }
+      }
+      
+      // Also check if quote text starts with respno pattern
+      if (!matchedRespno) {
+        const lineMatch = quote.text.match(/^([A-Z]\d{2}):\s*/i);
+        if (lineMatch && lineMatch[1].match(/^R\d{2}$/i)) {
+          matchedRespno = lineMatch[1].toUpperCase();
+        }
+      }
+      
+      // Look for respno in context around the quote (check surrounding lines in transcript)
+      if (!matchedRespno) {
+        // Search in transcript text for this quote to find which section it came from
+        const quoteSnippet = quote.text.substring(0, 100).toLowerCase();
+        const transcriptLower = transcriptsText.toLowerCase();
+        const quoteIndex = transcriptLower.indexOf(quoteSnippet);
+        
+        if (quoteIndex >= 0) {
+          // Look backwards from quote position to find the respno marker
+          const beforeQuote = transcriptsText.substring(Math.max(0, quoteIndex - 200), quoteIndex);
+          const sectionMatch = beforeQuote.match(/===\s*(R\d{2}|R\d{1,2})\s*===/i);
+          if (sectionMatch) {
+            matchedRespno = sectionMatch[1].toUpperCase();
+            if (matchedRespno.match(/^R\d{1}$/)) {
+              matchedRespno = `R0${matchedRespno.substring(1)}`;
+            }
+          }
+        }
+      }
+      
+      // Get metadata for this respno
+      const metadata = matchedRespno && transcriptMetadata[matchedRespno] ? transcriptMetadata[matchedRespno] : null;
+      
+      return {
+        ...quote,
+        respno: matchedRespno || null,
+        interviewDate: metadata?.interviewDate || null,
+        interviewTime: metadata?.interviewTime || null
+      };
+    });
 
 
     // Cache the quotes for future requests (only if we got valid quotes)
@@ -1288,7 +1384,8 @@ router.post('/:projectId/estimate', authenticateToken, async (req, res) => {
     const { projectId } = req.params;
     const { detailLevel = 'moderate', analysisId } = req.body;
 
-    const transcriptsText = await getTranscriptsText(projectId, analysisId);
+    const transcriptsResult = await getTranscriptsText(projectId, analysisId);
+    const transcriptsText = typeof transcriptsResult === 'string' ? transcriptsResult : transcriptsResult.text;
     const caDataObj = await getCAData(projectId, analysisId);
 
     const estimate = estimateStorytellingCost(transcriptsText, caDataObj, detailLevel, 'moderate', 'storyboard');
@@ -1311,7 +1408,8 @@ router.post('/:projectId/find-quotes', authenticateToken, async (req, res) => {
     }
 
     // Get transcripts for this project, filtered by transcriptIds if provided
-    const transcriptsText = await getTranscriptsText(projectId, analysisId, transcriptIds);
+    const transcriptsResult = await getTranscriptsText(projectId, analysisId, transcriptIds);
+    const transcriptsText = typeof transcriptsResult === 'string' ? transcriptsResult : transcriptsResult.text;
     if (!transcriptsText) {
       return res.status(404).json({ error: 'No transcripts available for this project' });
     }

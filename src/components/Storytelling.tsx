@@ -1014,34 +1014,31 @@ export default function Storytelling({ analysisId, projectId, onNavigate, setAna
         // Use selected content analysis data if available, otherwise fall back to project data
         const respondentCount = selectedContentAnalysis ? 
           (() => {
-            // Count unique transcriptIds (most reliable) or respnos as fallback
+            // Count unique transcriptIds (most reliable) - match Transcripts page logic
             const allData = Object.values(selectedContentAnalysis.data || {}).flat();
             const uniqueTranscriptIds = new Set<string>();
-            const uniqueRespnos = new Set<string>();
             
             allData.forEach((item: any) => {
               if (item?.transcriptId) {
-                uniqueTranscriptIds.add(String(item.transcriptId));
-              }
-              if (item?.respno) {
-                uniqueRespnos.add(String(item.respno));
-              }
-              if (item?.['Respondent ID']) {
-                uniqueRespnos.add(String(item['Respondent ID']));
+                uniqueTranscriptIds.add(String(item.transcriptId).trim());
               }
             });
             
-            // Prefer transcriptId count (more accurate), fallback to respno count
-            // Use the larger of the two to ensure we don't miss any
-            const count = Math.max(uniqueTranscriptIds.size, uniqueRespnos.size);
-            console.log('🔍 Respondent count calculation:', {
-              transcriptIds: Array.from(uniqueTranscriptIds),
-              respnos: Array.from(uniqueRespnos),
-              transcriptIdCount: uniqueTranscriptIds.size,
-              respnoCount: uniqueRespnos.size,
-              finalCount: count
-            });
-            return count;
+            // If no transcriptIds found, fall back to counting unique respnos
+            if (uniqueTranscriptIds.size === 0) {
+              const uniqueRespnos = new Set<string>();
+              allData.forEach((item: any) => {
+                if (item?.respno) {
+                  uniqueRespnos.add(String(item.respno).trim());
+                }
+                if (item?.['Respondent ID']) {
+                  uniqueRespnos.add(String(item['Respondent ID']).trim());
+                }
+              });
+              return uniqueRespnos.size;
+            }
+            
+            return uniqueTranscriptIds.size;
           })() : 
           (projectMap[projectId]?.respondentCount ?? selectedProject?.respondentCount ?? 0);
         
@@ -1887,42 +1884,39 @@ export default function Storytelling({ analysisId, projectId, onNavigate, setAna
             const data = await response.json();
             console.log('🔍 Raw transcript data:', data);
             // Filter transcripts to only show those from the current content analysis
-            // We can match transcripts by:
-            // 1. analysisId matching currentAnalysisId, OR
-            // 2. Transcript ID being in the CA's transcripts array
+            // Use the same logic as Transcripts page: extract transcriptIds from CA's data sheets
             let filteredTranscripts: any[] = [];
             
-            if (selectedContentAnalysis && selectedContentAnalysis.transcripts && Array.isArray(selectedContentAnalysis.transcripts)) {
-              // Get transcript IDs from the CA's transcripts array
-              const caTranscriptIds = selectedContentAnalysis.transcripts.map((t: any) => t.id || t.sourceTranscriptId || t.transcriptId).filter(Boolean);
-              console.log('🔍 CA transcript IDs:', caTranscriptIds);
+            if (selectedContentAnalysis && selectedContentAnalysis.data) {
+              // Extract transcriptIds from all sheets in the CA (same logic as ContentAnalysisX and Transcripts pages)
+              const transcriptIds = new Set<string>();
+              Object.values(selectedContentAnalysis.data).forEach((sheetData: any) => {
+                if (Array.isArray(sheetData)) {
+                  sheetData.forEach((row: any) => {
+                    if (row?.transcriptId) {
+                      transcriptIds.add(String(row.transcriptId).trim());
+                    }
+                  });
+                }
+              });
               
-              // Match transcripts by analysisId OR by being in the CA's transcripts array
+              console.log('🔍 CA transcript IDs from data sheets:', Array.from(transcriptIds));
+              
+              // Filter transcripts to only those whose ID is in the transcriptIds set
               filteredTranscripts = data.filter((transcript: any) => {
-                // Match by analysisId if it exists
-                if (transcript.analysisId && transcript.analysisId === currentAnalysisId) {
-                  return true;
-                }
-                // Match by transcript ID being in CA's transcripts array
-                if (caTranscriptIds.length > 0 && caTranscriptIds.includes(transcript.id)) {
-                  return true;
-                }
-                return false;
+                return transcript.id && transcriptIds.has(String(transcript.id).trim());
               });
+              
+              // If we didn't find any via data sheets, try the transcripts array as fallback
+              if (filteredTranscripts.length === 0 && selectedContentAnalysis.transcripts && Array.isArray(selectedContentAnalysis.transcripts)) {
+                const caTranscriptIds = selectedContentAnalysis.transcripts.map((t: any) => t.id || t.sourceTranscriptId || t.transcriptId).filter(Boolean);
+                filteredTranscripts = data.filter((transcript: any) => {
+                  return caTranscriptIds.includes(transcript.id);
+                });
+              }
             } else {
-              // Fallback: Filter by analysisId if available, or show all if no CA selected
-              filteredTranscripts = data.filter((transcript: any) => {
-                // If transcript has analysisId, match it to current analysis
-                if (transcript.analysisId) {
-                  return transcript.analysisId === currentAnalysisId;
-                }
-                // If no analysisId and no selectedContentAnalysis, include all transcripts (legacy behavior)
-                if (!selectedContentAnalysis) {
-                  return true;
-                }
-                // If we have a selected CA but no transcripts array, exclude transcripts without analysisId
-                return false;
-              });
+              // Fallback: If no selectedContentAnalysis, show all transcripts for the project
+              filteredTranscripts = data;
             }
             console.log('🔍 Filtered transcripts:', filteredTranscripts);
             setAvailableTranscripts(filteredTranscripts || []);
@@ -2032,8 +2026,19 @@ export default function Storytelling({ analysisId, projectId, onNavigate, setAna
     const currentRespondentCount = selectedContentAnalysis ? 
       (() => {
         const allData = Object.values(selectedContentAnalysis.data || {}).flat();
-        const uniqueRespondents = new Set(allData.map((item: any) => item.respno).filter(Boolean));
-        return uniqueRespondents.size;
+        // Count unique transcriptIds (most reliable) - match Transcripts page logic
+        const uniqueTranscriptIds = new Set<string>();
+        allData.forEach((item: any) => {
+          if (item?.transcriptId) {
+            uniqueTranscriptIds.add(String(item.transcriptId).trim());
+          }
+        });
+        // If no transcriptIds found, fall back to counting unique respnos
+        if (uniqueTranscriptIds.size === 0) {
+          const uniqueRespnos = new Set(allData.map((item: any) => item.respno || item['Respondent ID']).filter(Boolean));
+          return uniqueRespnos.size;
+        }
+        return uniqueTranscriptIds.size;
       })() : 
       (projectMap[selectedProject?.id || '']?.respondentCount ?? selectedProject?.respondentCount ?? 0);
     const lastRespondentCount = keyFindings?.respondentCount;
@@ -2086,8 +2091,19 @@ export default function Storytelling({ analysisId, projectId, onNavigate, setAna
         const currentRespondentCount = selectedContentAnalysis ? 
           (() => {
             const allData = Object.values(selectedContentAnalysis.data || {}).flat();
-            const uniqueRespondents = new Set(allData.map((item: any) => item.respno).filter(Boolean));
-            return uniqueRespondents.size;
+            // Count unique transcriptIds (most reliable) - match Transcripts page logic
+            const uniqueTranscriptIds = new Set<string>();
+            allData.forEach((item: any) => {
+              if (item?.transcriptId) {
+                uniqueTranscriptIds.add(String(item.transcriptId).trim());
+              }
+            });
+            // If no transcriptIds found, fall back to counting unique respnos
+            if (uniqueTranscriptIds.size === 0) {
+              const uniqueRespnos = new Set(allData.map((item: any) => item.respno || item['Respondent ID']).filter(Boolean));
+              return uniqueRespnos.size;
+            }
+            return uniqueTranscriptIds.size;
           })() : 
           (projectMap[selectedProject.id]?.respondentCount ?? selectedProject.respondentCount ?? 0);
         setKeyFindings({
@@ -2112,12 +2128,23 @@ export default function Storytelling({ analysisId, projectId, onNavigate, setAna
     // Guard against rapid/multiple clicks
     if (generatingStoryboard) return;
 
-    // Check if there are changes in respondent count
+    // Check if there are changes in respondent count - use transcriptId (most reliable)
     const currentRespondentCount = selectedContentAnalysis ? 
       (() => {
         const allData = Object.values(selectedContentAnalysis.data || {}).flat();
-        const uniqueRespondents = new Set(allData.map((item: any) => item.respno).filter(Boolean));
-        return uniqueRespondents.size;
+        // Count unique transcriptIds (most reliable) - match Transcripts page logic
+        const uniqueTranscriptIds = new Set<string>();
+        allData.forEach((item: any) => {
+          if (item?.transcriptId) {
+            uniqueTranscriptIds.add(String(item.transcriptId).trim());
+          }
+        });
+        // If no transcriptIds found, fall back to counting unique respnos
+        if (uniqueTranscriptIds.size === 0) {
+          const uniqueRespnos = new Set(allData.map((item: any) => item.respno || item['Respondent ID']).filter(Boolean));
+          return uniqueRespnos.size;
+        }
+        return uniqueTranscriptIds.size;
       })() : 
       (projectMap[selectedProject?.id || '']?.respondentCount ?? selectedProject?.respondentCount ?? 0);
     const lastRespondentCount = storyboards[0]?.respondentCount;
@@ -2127,8 +2154,8 @@ export default function Storytelling({ analysisId, projectId, onNavigate, setAna
     const lastQuestions = storyboards[0]?.strategicQuestions || [];
     const questionsChanged = JSON.stringify(currentQuestions) !== JSON.stringify(lastQuestions);
     
+    // If no changes, don't proceed (button will be disabled)
     if (lastRespondentCount !== undefined && currentRespondentCount === lastRespondentCount && !questionsChanged) {
-      setShowNoChangesMessageStoryboard(true);
       return;
     }
     
@@ -2160,12 +2187,23 @@ export default function Storytelling({ analysisId, projectId, onNavigate, setAna
       if (response.ok) {
         const newStoryboard = await response.json();
 
-        // Add respondent count and strategic questions to storyboard
+        // Add respondent count and strategic questions to storyboard - use transcriptId (most reliable)
         newStoryboard.respondentCount = selectedContentAnalysis ?
           (() => {
             const allData = Object.values(selectedContentAnalysis.data || {}).flat();
-            const uniqueRespondents = new Set(allData.map((item: any) => item.respno).filter(Boolean));
-            return uniqueRespondents.size;
+            // Count unique transcriptIds (most reliable) - match Transcripts page logic
+            const uniqueTranscriptIds = new Set<string>();
+            allData.forEach((item: any) => {
+              if (item?.transcriptId) {
+                uniqueTranscriptIds.add(String(item.transcriptId).trim());
+              }
+            });
+            // If no transcriptIds found, fall back to counting unique respnos
+            if (uniqueTranscriptIds.size === 0) {
+              const uniqueRespnos = new Set(allData.map((item: any) => item.respno || item['Respondent ID']).filter(Boolean));
+              return uniqueRespnos.size;
+            }
+            return uniqueTranscriptIds.size;
           })() :
           (projectMap[selectedProject.id]?.respondentCount ?? selectedProject?.respondentCount ?? 0);
         newStoryboard.strategicQuestions = strategicQuestions;
@@ -2190,6 +2228,36 @@ export default function Storytelling({ analysisId, projectId, onNavigate, setAna
   const handleGenerateReport = async () => {
     if (!selectedProject) return;
 
+    // Guard against rapid/multiple clicks
+    if (generatingReport) return;
+
+    // Check if there are changes in respondent count - use transcriptId (most reliable)
+    const currentRespondentCount = selectedContentAnalysis ? 
+      (() => {
+        const allData = Object.values(selectedContentAnalysis.data || {}).flat();
+        // Count unique transcriptIds (most reliable) - match Transcripts page logic
+        const uniqueTranscriptIds = new Set<string>();
+        allData.forEach((item: any) => {
+          if (item?.transcriptId) {
+            uniqueTranscriptIds.add(String(item.transcriptId).trim());
+          }
+        });
+        // If no transcriptIds found, fall back to counting unique respnos
+        if (uniqueTranscriptIds.size === 0) {
+          const uniqueRespnos = new Set(allData.map((item: any) => item.respno || item['Respondent ID']).filter(Boolean));
+          return uniqueRespnos.size;
+        }
+        return uniqueTranscriptIds.size;
+      })() : 
+      (projectMap[selectedProject?.id || '']?.respondentCount ?? selectedProject?.respondentCount ?? 0);
+    const lastRespondentCount = reportOutline?.respondentCount;
+    
+    // If no changes, don't proceed (button will be disabled)
+    if (lastRespondentCount !== undefined && currentRespondentCount === lastRespondentCount) {
+      return;
+    }
+
+    // Immediately reflect generating state to disable buttons
     setGeneratingReport(true);
 
     try {
@@ -2225,11 +2293,32 @@ export default function Storytelling({ analysisId, projectId, onNavigate, setAna
           return slide;
         }) || [];
 
+        // Calculate respondent count using transcriptId (most reliable)
+        const currentRespondentCount = selectedContentAnalysis ? 
+          (() => {
+            const allData = Object.values(selectedContentAnalysis.data || {}).flat();
+            // Count unique transcriptIds (most reliable) - match Transcripts page logic
+            const uniqueTranscriptIds = new Set<string>();
+            allData.forEach((item: any) => {
+              if (item?.transcriptId) {
+                uniqueTranscriptIds.add(String(item.transcriptId).trim());
+              }
+            });
+            // If no transcriptIds found, fall back to counting unique respnos
+            if (uniqueTranscriptIds.size === 0) {
+              const uniqueRespnos = new Set(allData.map((item: any) => item.respno || item['Respondent ID']).filter(Boolean));
+              return uniqueRespnos.size;
+            }
+            return uniqueTranscriptIds.size;
+          })() :
+          (projectMap[selectedProject.id]?.respondentCount ?? selectedProject?.respondentCount ?? 0);
+
         const reportDataToSave = {
           slides: processedSlides,
           generatedAt: new Date().toISOString(),
           projectName: getProjectName(selectedProject),
-          client: getClientName(selectedProject)
+          client: getClientName(selectedProject),
+          respondentCount: currentRespondentCount
         };
 
         // Save to state
@@ -2752,8 +2841,19 @@ export default function Storytelling({ analysisId, projectId, onNavigate, setAna
                 n={selectedContentAnalysis ? 
                   (() => {
                     const allData = Object.values(selectedContentAnalysis.data || {}).flat();
-                    const uniqueRespondents = new Set(allData.map((item: any) => item.respno).filter(Boolean));
-                    return uniqueRespondents.size;
+                    // Count unique transcriptIds (most reliable) - match Transcripts page logic
+                    const uniqueTranscriptIds = new Set<string>();
+                    allData.forEach((item: any) => {
+                      if (item?.transcriptId) {
+                        uniqueTranscriptIds.add(String(item.transcriptId).trim());
+                      }
+                    });
+                    // If no transcriptIds found, fall back to counting unique respnos
+                    if (uniqueTranscriptIds.size === 0) {
+                      const uniqueRespnos = new Set(allData.map((item: any) => item.respno || item['Respondent ID']).filter(Boolean));
+                      return uniqueRespnos.size;
+                    }
+                    return uniqueTranscriptIds.size;
                   })() : 
                   (projectMap[selectedProject.id]?.respondentCount ?? selectedProject.respondentCount ?? 0)
                 }
@@ -2840,8 +2940,19 @@ export default function Storytelling({ analysisId, projectId, onNavigate, setAna
                   const currentRespondentCount = selectedContentAnalysis ? 
                     (() => {
                       const allData = Object.values(selectedContentAnalysis.data || {}).flat();
-                      const uniqueRespondents = new Set(allData.map((item: any) => item.respno).filter(Boolean));
-                      return uniqueRespondents.size;
+                      // Count unique transcriptIds (most reliable) - match Transcripts page logic
+                      const uniqueTranscriptIds = new Set<string>();
+                      allData.forEach((item: any) => {
+                        if (item?.transcriptId) {
+                          uniqueTranscriptIds.add(String(item.transcriptId).trim());
+                        }
+                      });
+                      // If no transcriptIds found, fall back to counting unique respnos
+                      if (uniqueTranscriptIds.size === 0) {
+                        const uniqueRespnos = new Set(allData.map((item: any) => item.respno || item['Respondent ID']).filter(Boolean));
+                        return uniqueRespnos.size;
+                      }
+                      return uniqueTranscriptIds.size;
                     })() : 
                     (projectMap[selectedProject?.id || '']?.respondentCount ?? selectedProject?.respondentCount ?? 0);
                   const lastRespondentCount = keyFindings?.respondentCount;
@@ -2853,7 +2964,12 @@ export default function Storytelling({ analysisId, projectId, onNavigate, setAna
                   return (
                     <div className="mt-6 pt-4 border-t border-gray-200">
                       <button
-                        onClick={handleGenerateFindings}
+                        onClick={() => {
+                          // Disable immediately to prevent double-clicks
+                          if (!generatingFindings && hasChanges) {
+                            handleGenerateFindings();
+                          }
+                        }}
                         disabled={generatingFindings || !hasChanges}
                         className="px-4 py-2 rounded-lg text-white text-sm font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         style={{ backgroundColor: BRAND_ORANGE }}
@@ -2866,8 +2982,19 @@ export default function Storytelling({ analysisId, projectId, onNavigate, setAna
                           Last updated: {formatDateTimeNoSeconds(keyFindings.generatedAt)} (n={keyFindings.respondentCount ?? (selectedContentAnalysis ? 
                             (() => {
                               const allData = Object.values(selectedContentAnalysis.data || {}).flat();
-                              const uniqueRespondents = new Set(allData.map((item: any) => item.respno).filter(Boolean));
-                              return uniqueRespondents.size;
+                              // Count unique transcriptIds (most reliable) - match Transcripts page logic
+                              const uniqueTranscriptIds = new Set<string>();
+                              allData.forEach((item: any) => {
+                                if (item?.transcriptId) {
+                                  uniqueTranscriptIds.add(String(item.transcriptId).trim());
+                                }
+                              });
+                              // If no transcriptIds found, fall back to counting unique respnos
+                              if (uniqueTranscriptIds.size === 0) {
+                                const uniqueRespnos = new Set(allData.map((item: any) => item.respno || item['Respondent ID']).filter(Boolean));
+                                return uniqueRespnos.size;
+                              }
+                              return uniqueTranscriptIds.size;
                             })() : 
                             (projectMap[selectedProject?.id || '']?.respondentCount ?? selectedProject?.respondentCount ?? 0))})
                         </p>
@@ -2941,20 +3068,51 @@ export default function Storytelling({ analysisId, projectId, onNavigate, setAna
                     {/* Generate Report Button and View Toggle */}
                     <div className="flex items-center justify-between mb-4">
                       <div>
-                        <button
-                          onClick={() => setShowGenerateOptionsModal(true)}
-                          disabled={generatingStoryboard || ((selectedContentAnalysis ? (() => { const allData = Object.values(selectedContentAnalysis.data || {}).flat(); const uniqueRespondents = new Set(allData.map((item: any) => item.respno).filter(Boolean)); return uniqueRespondents.size; })() : (projectMap[selectedProject.id]?.respondentCount ?? selectedProject?.respondentCount ?? 0)) === 0)}
-                          className="px-4 py-2 rounded-lg text-white text-sm font-medium flex items-center gap-2 disabled:opacity-50"
-                          style={{ backgroundColor: BRAND_ORANGE }}
-                        >
-                          {generatingStoryboard ? 'Generating...' : 'Generate Storyboard'}
-                          <DocumentTextIcon className="h-4 w-4" />
-                        </button>
-                        {showNoChangesMessageStoryboard && (
-                          <p className="text-sm mt-2" style={{ color: BRAND_ORANGE }}>
-                            No new respondents have been added or removed since the last storyboard generation.
-                          </p>
-                        )}
+                        {(() => {
+                          const currentRespondentCount = selectedContentAnalysis ? 
+                            (() => {
+                              const allData = Object.values(selectedContentAnalysis.data || {}).flat();
+                              // Count unique transcriptIds (most reliable) - match Transcripts page logic
+                              const uniqueTranscriptIds = new Set<string>();
+                              allData.forEach((item: any) => {
+                                if (item?.transcriptId) {
+                                  uniqueTranscriptIds.add(String(item.transcriptId).trim());
+                                }
+                              });
+                              // If no transcriptIds found, fall back to counting unique respnos
+                              if (uniqueTranscriptIds.size === 0) {
+                                const uniqueRespnos = new Set(allData.map((item: any) => item.respno || item['Respondent ID']).filter(Boolean));
+                                return uniqueRespnos.size;
+                              }
+                              return uniqueTranscriptIds.size;
+                            })() : 
+                            (projectMap[selectedProject.id]?.respondentCount ?? selectedProject?.respondentCount ?? 0);
+                          const lastRespondentCount = storyboards[0]?.respondentCount;
+                          const currentQuestions = strategicQuestions;
+                          const lastQuestions = storyboards[0]?.strategicQuestions || [];
+                          const questionsChanged = JSON.stringify(currentQuestions) !== JSON.stringify(lastQuestions);
+                          const hasChanges = lastRespondentCount === undefined || currentRespondentCount !== lastRespondentCount || questionsChanged;
+                          const isDisabled = generatingStoryboard || !hasChanges || currentRespondentCount === 0;
+
+                          return (
+                            <>
+                              <button
+                                onClick={handleGenerateStoryboard}
+                                disabled={isDisabled}
+                                className="px-4 py-2 rounded-lg text-white text-sm font-medium flex items-center gap-2 disabled:opacity-50"
+                                style={{ backgroundColor: BRAND_ORANGE }}
+                              >
+                                {generatingStoryboard ? 'Generating...' : 'Generate Storyboard'}
+                                <DocumentTextIcon className="h-4 w-4" />
+                              </button>
+                              {!hasChanges && lastRespondentCount !== undefined && (
+                                <p className="text-xs mt-2 text-gray-500">
+                                  No new respondents or strategic questions added since last generation. Storyboard up to date. Add new questions or add new respondents to the content analysis to generate a new storyboard.
+                                </p>
+                              )}
+                            </>
+                          );
+                        })()}
                       </div>
                     </div>
 
@@ -3020,15 +3178,51 @@ export default function Storytelling({ analysisId, projectId, onNavigate, setAna
                     <DocumentTextIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
                     <h3 className="text-lg font-medium text-gray-900 mb-2">No Storyboard Generated</h3>
                     <p className="text-gray-600 mb-6">Generate a storyboard to get started with your project insights.</p>
-                    <button
-                      onClick={handleGenerateStoryboard}
-                      disabled={generatingStoryboard || ((selectedContentAnalysis ? (() => { const allData = Object.values(selectedContentAnalysis.data || {}).flat(); const uniqueRespondents = new Set(allData.map((item: any) => item.respno).filter(Boolean)); return uniqueRespondents.size; })() : (projectMap[selectedProject?.id || '']?.respondentCount ?? selectedProject?.respondentCount ?? 0)) === 0)}
-                      className="px-6 py-3 rounded-lg text-white font-medium flex items-center gap-2 disabled:opacity-50 mx-auto"
-                      style={{ backgroundColor: BRAND_ORANGE }}
-                    >
-                      {generatingStoryboard ? 'Generating...' : 'Generate Storyboard'}
-                      <DocumentTextIcon className="h-5 w-5" />
-                    </button>
+                    {(() => {
+                      const currentRespondentCount = selectedContentAnalysis ? 
+                        (() => {
+                          const allData = Object.values(selectedContentAnalysis.data || {}).flat();
+                          // Count unique transcriptIds (most reliable) - match Transcripts page logic
+                          const uniqueTranscriptIds = new Set<string>();
+                          allData.forEach((item: any) => {
+                            if (item?.transcriptId) {
+                              uniqueTranscriptIds.add(String(item.transcriptId).trim());
+                            }
+                          });
+                          // If no transcriptIds found, fall back to counting unique respnos
+                          if (uniqueTranscriptIds.size === 0) {
+                            const uniqueRespnos = new Set(allData.map((item: any) => item.respno || item['Respondent ID']).filter(Boolean));
+                            return uniqueRespnos.size;
+                          }
+                          return uniqueTranscriptIds.size;
+                        })() : 
+                        (projectMap[selectedProject?.id || '']?.respondentCount ?? selectedProject?.respondentCount ?? 0);
+                      const lastRespondentCount = storyboards[0]?.respondentCount;
+                      const currentQuestions = strategicQuestions;
+                      const lastQuestions = storyboards[0]?.strategicQuestions || [];
+                      const questionsChanged = JSON.stringify(currentQuestions) !== JSON.stringify(lastQuestions);
+                      const hasChanges = lastRespondentCount === undefined || currentRespondentCount !== lastRespondentCount || questionsChanged;
+                      const isDisabled = generatingStoryboard || !hasChanges || currentRespondentCount === 0;
+
+                      return (
+                        <>
+                          <button
+                            onClick={handleGenerateStoryboard}
+                            disabled={isDisabled}
+                            className="px-6 py-3 rounded-lg text-white font-medium flex items-center gap-2 disabled:opacity-50 mx-auto"
+                            style={{ backgroundColor: BRAND_ORANGE }}
+                          >
+                            {generatingStoryboard ? 'Generating...' : 'Generate Storyboard'}
+                            <DocumentTextIcon className="h-5 w-5" />
+                          </button>
+                          {!hasChanges && lastRespondentCount !== undefined && (
+                            <p className="text-xs mt-2 text-gray-500">
+                              No new respondents or strategic questions added since last generation. Storyboard up to date. Add new questions or add new respondents to the content analysis to generate a new storyboard.
+                            </p>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
               )}
@@ -3047,7 +3241,7 @@ export default function Storytelling({ analysisId, projectId, onNavigate, setAna
                         <h4 className="text-xl font-semibold text-gray-900">{selectedProject?.name} - Report Outline</h4>
                         {reportOutline.generatedAt && (
                           <p className="text-sm text-gray-500 mt-1">
-                            Generated: {new Date(reportOutline.generatedAt).toLocaleString()}
+                            Generated: {formatDateTimeNoSeconds(reportOutline.generatedAt)}{reportOutline.respondentCount ? ` (n=${reportOutline.respondentCount})` : ''}
                           </p>
                         )}
                       </div>
@@ -3059,15 +3253,48 @@ export default function Storytelling({ analysisId, projectId, onNavigate, setAna
                     {/* Generate Report Button */}
                     <div className="flex items-center justify-between mb-4">
                       <div>
-                        <button
-                          onClick={() => setShowGenerateOptionsModal(true)}
-                          disabled={generatingReport}
-                          className="px-4 py-2 rounded-lg text-white text-sm font-medium flex items-center gap-2 disabled:opacity-50"
-                          style={{ backgroundColor: BRAND_ORANGE }}
-                        >
-                          {generatingReport ? 'Generating...' : 'Generate Report'}
-                          <PresentationChartBarIcon className="h-4 w-4" />
-                        </button>
+                        {(() => {
+                          const currentRespondentCount = selectedContentAnalysis ? 
+                            (() => {
+                              const allData = Object.values(selectedContentAnalysis.data || {}).flat();
+                              // Count unique transcriptIds (most reliable) - match Transcripts page logic
+                              const uniqueTranscriptIds = new Set<string>();
+                              allData.forEach((item: any) => {
+                                if (item?.transcriptId) {
+                                  uniqueTranscriptIds.add(String(item.transcriptId).trim());
+                                }
+                              });
+                              // If no transcriptIds found, fall back to counting unique respnos
+                              if (uniqueTranscriptIds.size === 0) {
+                                const uniqueRespnos = new Set(allData.map((item: any) => item.respno || item['Respondent ID']).filter(Boolean));
+                                return uniqueRespnos.size;
+                              }
+                              return uniqueTranscriptIds.size;
+                            })() : 
+                            (projectMap[selectedProject?.id || '']?.respondentCount ?? selectedProject?.respondentCount ?? 0);
+                          const lastRespondentCount = reportOutline?.respondentCount;
+                          const hasChanges = lastRespondentCount === undefined || currentRespondentCount !== lastRespondentCount;
+                          const isDisabled = generatingReport || !hasChanges || currentRespondentCount === 0;
+
+                          return (
+                            <>
+                              <button
+                                onClick={handleGenerateReport}
+                                disabled={isDisabled}
+                                className="px-4 py-2 rounded-lg text-white text-sm font-medium flex items-center gap-2 disabled:opacity-50"
+                                style={{ backgroundColor: BRAND_ORANGE }}
+                              >
+                                {generatingReport ? 'Generating...' : 'Generate Report'}
+                                <PresentationChartBarIcon className="h-4 w-4" />
+                              </button>
+                              {!hasChanges && lastRespondentCount !== undefined && (
+                                <p className="text-xs mt-2 text-gray-500">
+                                  No new respondents added since last generation. Report outline up to date. Add new respondents to the content analysis to generate a new report outline.
+                                </p>
+                              )}
+                            </>
+                          );
+                        })()}
                       </div>
                     </div>
 
@@ -3135,15 +3362,48 @@ export default function Storytelling({ analysisId, projectId, onNavigate, setAna
                   <PresentationChartBarIcon className="h-16 w-16 mx-auto mb-4 text-gray-400" />
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">No Report Outline Yet</h3>
                   <p className="text-gray-600 mb-6">Generate a report outline to see the structure here.</p>
-                  <button
-                    onClick={() => setShowGenerateOptionsModal(true)}
-                    disabled={generatingReport}
-                    className="px-6 py-3 rounded-lg text-white font-medium flex items-center gap-2 disabled:opacity-50 mx-auto"
-                    style={{ backgroundColor: BRAND_ORANGE }}
-                  >
-                    {generatingReport ? 'Generating...' : 'Generate Report Outline'}
-                    <PresentationChartBarIcon className="h-5 w-5" />
-                  </button>
+                  {(() => {
+                    const currentRespondentCount = selectedContentAnalysis ? 
+                      (() => {
+                        const allData = Object.values(selectedContentAnalysis.data || {}).flat();
+                        // Count unique transcriptIds (most reliable) - match Transcripts page logic
+                        const uniqueTranscriptIds = new Set<string>();
+                        allData.forEach((item: any) => {
+                          if (item?.transcriptId) {
+                            uniqueTranscriptIds.add(String(item.transcriptId).trim());
+                          }
+                        });
+                        // If no transcriptIds found, fall back to counting unique respnos
+                        if (uniqueTranscriptIds.size === 0) {
+                          const uniqueRespnos = new Set(allData.map((item: any) => item.respno || item['Respondent ID']).filter(Boolean));
+                          return uniqueRespnos.size;
+                        }
+                        return uniqueTranscriptIds.size;
+                      })() : 
+                      (projectMap[selectedProject?.id || '']?.respondentCount ?? selectedProject?.respondentCount ?? 0);
+                    const lastRespondentCount = reportOutline?.respondentCount;
+                    const hasChanges = lastRespondentCount === undefined || currentRespondentCount !== lastRespondentCount;
+                    const isDisabled = generatingReport || !hasChanges || currentRespondentCount === 0;
+
+                    return (
+                      <>
+                        <button
+                          onClick={handleGenerateReport}
+                          disabled={isDisabled}
+                          className="px-6 py-3 rounded-lg text-white font-medium flex items-center gap-2 disabled:opacity-50 mx-auto"
+                          style={{ backgroundColor: BRAND_ORANGE }}
+                        >
+                          {generatingReport ? 'Generating...' : 'Generate Report Outline'}
+                          <PresentationChartBarIcon className="h-5 w-5" />
+                        </button>
+                        {!hasChanges && lastRespondentCount !== undefined && (
+                          <p className="text-xs mt-2 text-gray-500">
+                            No new respondents added since last generation. Report outline up to date. Add new respondents to the content analysis to generate a new report outline.
+                          </p>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               )}
             </div>
@@ -3253,7 +3513,7 @@ export default function Storytelling({ analysisId, projectId, onNavigate, setAna
                       A: {msg.answer}
                     </div>
                     <div className="flex items-center justify-between text-xs text-gray-500">
-                      <span>{new Date(msg.timestamp).toLocaleString()}</span>
+                      <span>{formatDateTimeNoSeconds(msg.timestamp)}</span>
                       {msg.confidence && <span>Confidence: {msg.confidence}</span>}
                     </div>
                   </div>
@@ -3500,6 +3760,18 @@ export default function Storytelling({ analysisId, projectId, onNavigate, setAna
                               {quote.context}
                             </div>
                           )}
+                          {/* Metadata: respno, interviewDate, interviewTime */}
+                          <div className="text-xs text-gray-500 mt-1 flex items-center gap-2">
+                            {quote.respno && (
+                              <span className="font-medium text-gray-700">{quote.respno}</span>
+                            )}
+                            {quote.interviewDate && (
+                              <span>{quote.interviewDate}</span>
+                            )}
+                            {quote.interviewTime && (
+                              <span>{quote.interviewTime}</span>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
