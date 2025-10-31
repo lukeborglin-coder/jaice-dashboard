@@ -3412,38 +3412,6 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                 )}
                 <div className="text-xs text-gray-500 mt-0.5">Current Tab/Section: <span className="font-medium capitalize">{activeSheet.toLowerCase()}</span></div>
               </div>
-              
-              
-              {/* Add Respondent Transcript button - only allows selecting existing transcripts */}
-              {!currentAnalysis.id?.startsWith('temp-') && currentAnalysis.projectId && (
-                <div className="flex items-center">
-                  <button
-                    onClick={() => {
-                      setShowTranscriptUploadModal(true);
-                    }}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-white text-xs font-medium rounded-md hover:opacity-90 transition-colors cursor-pointer shadow-sm"
-                    style={{ backgroundColor: '#D14A2D' }}
-                    disabled={processingTranscript}
-                  >
-                    {processingTranscript ? (
-                      <>
-                        <div className="w-3 h-3 flex items-center justify-center">
-                          <svg className="animate-spin" width="12" height="12" viewBox="0 0 48 48">
-                            <circle cx="24" cy="24" r="20" fill="none" stroke="white" strokeWidth="4" strokeDasharray="50 75.4" strokeDashoffset="0" />
-                            <circle cx="24" cy="24" r="20" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="4" strokeDasharray="50 75.4" strokeDashoffset="-62.7" />
-                          </svg>
-                        </div>
-                        Processing...
-                      </>
-                    ) : (
-                      <>
-                        <CloudArrowUpIcon className="h-4 w-4" />
-                        Add Transcript
-                      </>
-                    )}
-                  </button>
-                </div>
-              )}
             </div>
           </div>
           {/* Sheet tabs and table container */}
