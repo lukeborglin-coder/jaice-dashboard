@@ -1257,9 +1257,35 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
     }
   };
 
-  // Helper function to sort transcripts chronologically
+  // Helper function to sort transcripts chronologically OR by respno order
   const sortTranscriptsChronologically = (transcriptList: Transcript[]): Transcript[] => {
     const sorted = [...transcriptList].sort((a, b) => {
+      // First, if both have respnos, sort by respno order (R01, R02, etc.)
+      // This ensures the transcripts list matches the CA order after respnos are reset
+      const respnoA = a.respno || '';
+      const respnoB = b.respno || '';
+      
+      if (respnoA && respnoB) {
+        // Extract numeric part from respno (e.g., "R01" -> 1, "R02" -> 2)
+        const numMatchA = respnoA.match(/R(\d+)/i);
+        const numMatchB = respnoB.match(/R(\d+)/i);
+        
+        if (numMatchA && numMatchB) {
+          const numA = parseInt(numMatchA[1], 10);
+          const numB = parseInt(numMatchB[1], 10);
+          if (!isNaN(numA) && !isNaN(numB)) {
+            return numA - numB;
+          }
+        }
+        // If respno format is unexpected, fall back to string comparison
+        return respnoA.localeCompare(respnoB);
+      }
+      
+      // If only one has respno, prioritize it
+      if (respnoA && !respnoB) return -1;
+      if (respnoB && !respnoA) return 1;
+      
+      // If neither has respno, sort chronologically
       const dateA = a.interviewDate || '';
       const dateB = b.interviewDate || '';
 
