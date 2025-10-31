@@ -1963,6 +1963,63 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
             full.data.Demographics = rows;
             console.log('🔄 Demographics mirrored from Transcripts page:', rows.length, 'rows');
             console.log('🔄 Row order:', rows.map((r: any) => `${r.respno || 'no-respno'} (${r.transcriptId})`));
+            
+            // Sync all other sheets to ensure they have rows for all transcripts in Demographics
+            const demographicsTranscriptIds = new Set<string>();
+            rows.forEach((r: any) => {
+              if (r?.transcriptId) {
+                demographicsTranscriptIds.add(String(r.transcriptId).trim());
+              }
+            });
+            
+            // Update all other sheets
+            Object.keys(full.data).forEach((sheetName) => {
+              if (sheetName === 'Demographics') return; // Skip Demographics
+              
+              const sheetData = full.data[sheetName];
+              if (!Array.isArray(sheetData)) return;
+              
+              // Build map of existing rows by transcriptId
+              const existingRowsByTranscriptId = new Map<string, any>();
+              sheetData.forEach((row: any) => {
+                if (row?.transcriptId) {
+                  const tid = String(row.transcriptId).trim();
+                  if (tid && !existingRowsByTranscriptId.has(tid)) {
+                    existingRowsByTranscriptId.set(tid, row);
+                  }
+                }
+              });
+              
+              // Create new sheet rows - one for each transcriptId in Demographics
+              const newSheetRows: any[] = [];
+              rows.forEach((demoRow: any) => {
+                const tid = String(demoRow.transcriptId).trim();
+                if (!tid) return;
+                
+                const existingRow = existingRowsByTranscriptId.get(tid);
+                if (existingRow) {
+                  // Preserve existing row but ensure transcriptId and respno are up to date
+                  newSheetRows.push({
+                    ...existingRow,
+                    transcriptId: tid,
+                    respno: demoRow.respno || existingRow.respno || null,
+                    'Respondent ID': demoRow.respno || existingRow['Respondent ID'] || existingRow.respno || null
+                  });
+                } else {
+                  // Create new row for this transcriptId
+                  newSheetRows.push({
+                    transcriptId: tid,
+                    respno: demoRow.respno || null,
+                    'Respondent ID': demoRow.respno || null
+                  });
+                }
+              });
+              
+              // Update the sheet with new rows
+              full.data[sheetName] = newSheetRows;
+            });
+            
+            console.log('🔄 Synced all sheets with Demographics rows');
           } else {
             // Preserve existing Demographics if we couldn't find matching transcripts
             // This prevents clearing Demographics during a temporary state where projectTranscripts
@@ -3466,10 +3523,12 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                             minWidth: (h === 'Original Transcript' || h === 'Cleaned Transcript' || h === 'Populate C.A.') ? 'auto' : (h === 'Respondent ID' ? 'auto' : '180px'),
                             lineHeight: '1.3',
                             width: (h === 'Respondent ID' || h === 'Original Transcript' || h === 'Cleaned Transcript' || h === 'Populate C.A.') ? '1%' : 'auto',
-                            position: (h === 'Respondent ID') ? 'sticky' as const : undefined,
+                            position: 'sticky' as const,
+                            top: 0,
                             left: h === 'Respondent ID' ? 0 : undefined,
-                            zIndex: (h === 'Respondent ID') ? 3 : undefined,
-                            backgroundColor: (h === 'Respondent ID') ? '#e5e7eb' : undefined
+                            zIndex: h === 'Respondent ID' ? 3 : 2,
+                            backgroundColor: '#e5e7eb',
+                            boxShadow: h === 'Respondent ID' ? '2px 0 0 0 #e5e7eb' : undefined
                           }}>
                           {activeSheet === 'Demographics' && h !== 'Respondent ID' && h !== 'respno' && h !== 'transcriptId' && h !== 'Interview Date' && h !== 'Interview Time' && h !== 'Original Transcript' && h !== 'Cleaned Transcript' && h !== 'Populate C.A.' ? (
                             <div className="flex items-center gap-1">
