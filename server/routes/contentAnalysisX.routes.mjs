@@ -824,14 +824,6 @@ router.get('/saved', async (req, res) => {
       await saveAnalysesToFile(analyses);
       console.log(`🧹 Cleaned orphaned rows and duplicates from all analyses`);
     }
-    
-    const dataDir = process.env.DATA_DIR || path.join(__dirname, '../data');
-    const transcriptsPath = path.join(dataDir, 'transcripts.json');
-    let transcriptsObj = {};
-    try {
-      const raw = await fs.readFile(transcriptsPath, 'utf8');
-      transcriptsObj = safeJsonParse(raw || '{}', {});
-    } catch {}
 
     const reconciled = analyses.map(a => {
       try {
