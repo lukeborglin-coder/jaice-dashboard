@@ -972,6 +972,17 @@ router.get('/saved/:id', async (req, res) => {
       // Reload item after cleanup (in case it was modified)
       analyses = await loadSavedAnalyses();
       item = analyses.find(a => String(a.id) === String(id));
+      // Reload transcripts after cleanup
+      try {
+        const raw = await fs.readFile(transcriptsPath, 'utf8');
+        transcriptsObj = safeJsonParse(raw || '{}', {});
+      } catch {}
+    }
+    
+    // Clear respnos from transcripts that are no longer in any CA
+    const transcriptsCleaned = await clearOrphanedRespnos(analyses, transcriptsObj);
+    if (transcriptsCleaned) {
+      anyCleaned = true;
     }
     
     if (anyCleaned) {
