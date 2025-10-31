@@ -440,21 +440,10 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
       });
       if (response.ok) {
         const data = await response.json();
-        console.log('📊 Raw saved analyses data:', data);
-        console.log('📊 Saved analyses count:', Array.isArray(data) ? data.length : 0);
         
         const currentTranscriptsMap = transcriptMapOverride || transcripts;
         const normalizedAnalyses = Array.isArray(data)
           ? await Promise.all(data.map(async (analysis: any) => {
-              // Debug: Log each analysis's Demographics data
-              if (analysis.data && analysis.data.Demographics) {
-                console.log(`📊 Analysis ${analysis.id} (${analysis.name}) Demographics:`, {
-                  count: Array.isArray(analysis.data.Demographics) ? analysis.data.Demographics.length : 0,
-                  transcriptIds: Array.isArray(analysis.data.Demographics) 
-                    ? analysis.data.Demographics.map((r: any) => r?.transcriptId).filter(Boolean)
-                    : []
-                });
-              }
               
               // Load project transcripts for this specific analysis
               let projectTranscripts = currentTranscriptsMap[analysis.projectId] || [];
@@ -484,23 +473,12 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
               return analysis;
             }))
           : [];
-        console.log('📊 Normalized saved analyses:', normalizedAnalyses);
-        console.log('📊 Checking Demographics transcriptIds after normalization:');
-        normalizedAnalyses.forEach((analysis: any) => {
-          if (analysis.data?.Demographics) {
-            console.log(`  Analysis ${analysis.id} (${analysis.name}):`, {
-              count: analysis.data.Demographics.length,
-              transcriptIds: analysis.data.Demographics.map((r: any) => r?.transcriptId).filter(Boolean)
-            });
-          }
-        });
         setSavedAnalyses(normalizedAnalyses);
         
         // Update selectedContentAnalysis if it exists - refresh it with the latest data
         if (selectedContentAnalysis && normalizedAnalyses.length > 0) {
           const updatedAnalysis = normalizedAnalyses.find((a: any) => a.id === selectedContentAnalysis.id);
           if (updatedAnalysis) {
-            console.log('🔄 Updating selectedContentAnalysis with latest data');
             setSelectedContentAnalysis(updatedAnalysis);
           }
         }
@@ -557,8 +535,6 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
   const isTranscriptInAnyCA = useCallback((transcriptId: string, projectId: string): boolean => {
     const projectAnalyses = savedAnalyses.filter(analysis => analysis.projectId === projectId);
     
-    console.log('🔍 isTranscriptInAnyCA called:', { transcriptId, projectId, projectAnalysesCount: projectAnalyses.length });
-    
     const result = projectAnalyses.some(analysis => {
       if (analysis.data) {
         // Check Demographics sheet
@@ -578,15 +554,10 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
             const checkId = String(transcriptId);
             const match = rowTranscriptId === checkId;
             
-            if (rowTranscriptId || checkId) {
-              console.log(`🔍 Comparing transcriptId: "${rowTranscriptId}" === "${checkId}" = ${match}`);
-            }
-            
             return match;
           });
           
           if (hasTranscript) {
-            console.log(`✅ Found transcript ${transcriptId} in analysis ${analysis.id} (${analysis.name}) Demographics`);
             return true;
           }
         }
@@ -601,7 +572,6 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
               return rowTranscriptId === checkId;
             });
             if (hasTranscript) {
-              console.log(`✅ Found transcript ${transcriptId} in analysis ${analysis.id} sheet ${sheetName}`);
               return true;
             }
           }
@@ -610,7 +580,6 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
       return false;
     });
     
-    console.log(`🔍 isTranscriptInAnyCA result for ${transcriptId}: ${result}`);
     return result;
   }, [savedAnalyses]);
 
@@ -646,13 +615,11 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
     });
     
     if (analysis) {
-      console.log('🔄 Navigating to Content Analysis for transcript:', transcriptId, 'analysis:', analysis.id);
       // Set the specific analysis to load
       setAnalysisToLoad(analysis.id);
       // Navigate to Content Analysis
       onNavigate('Content Analysis');
     } else {
-      console.log('❌ No analysis found containing transcript:', transcriptId, 'for project:', selectedProject.id);
       alert('No content analysis found containing this transcript.');
     }
   };
@@ -751,7 +718,6 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
   // Get transcripts that belong to a specific content analysis
   const getTranscriptsForAnalysis = useCallback((analysis: any, projectTranscripts: Transcript[], currentProjectId?: string): Transcript[] => {
     if (!analysis || !analysis.data) {
-      console.log(`🔍 getTranscriptsForAnalysis: Analysis ${analysis?.id} has no data`);
       return [];
     }
     
@@ -768,27 +734,10 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
       }
     });
     
-    console.log(`🔍 getTranscriptsForAnalysis for CA ${analysis.id} (${analysis.name}):`, {
-      transcriptIdsFound: Array.from(transcriptIds),
-      projectTranscriptIds: projectTranscripts.map(t => t.id),
       projectTranscriptCount: projectTranscripts.length,
       analysisProjectId: analysis.projectId,
       currentProjectId: currentProjectId || selectedProject?.id
     });
-    
-    // Check if CA belongs to the current project (only warn if projectId is provided)
-    if (currentProjectId && analysis.projectId !== currentProjectId) {
-      console.warn(`⚠️ CA ${analysis.id} (${analysis.name}) belongs to project ${analysis.projectId}, but current project is ${currentProjectId}`);
-    }
-    
-    // Check for mismatched transcript IDs
-    const mismatchedIds = Array.from(transcriptIds).filter(tid => 
-      !projectTranscripts.some(t => String(t.id).trim() === tid)
-    );
-    if (mismatchedIds.length > 0) {
-      console.warn(`⚠️ CA ${analysis.id} (${analysis.name}) has ${mismatchedIds.length} transcript IDs that don't exist in project transcripts:`, mismatchedIds);
-      console.warn(`⚠️ This usually means transcripts were deleted or the CA contains data from another project. Consider running cleanup.`);
-    }
     
     const matchingTranscripts = projectTranscripts.filter(t => {
       const normalizedId = String(t.id).trim();
@@ -872,12 +821,6 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
     setAddingTranscriptIds(prev => new Set(prev).add(transcript.id));
 
     try {
-      console.log('🔍 handleAddToCA called');
-      console.log('🔍 selectedProject.id:', selectedProject.id);
-      console.log('🔍 transcript.id:', transcript.id);
-      console.log('🔍 Using analysis:', { id: analysis.id, projectId: analysis.projectId, name: analysis.name });
-      console.log('🔍 Will add to analysis:', analysis.id);
-
       const response = await fetch(
         `${API_BASE_URL}/api/caX/process-transcript`,
         {
@@ -937,36 +880,25 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
       const query = searchQuery.toLowerCase();
       const projectTranscripts = transcripts[selectedProject.id] || [];
 
-      console.log(`🔎 Starting search for: "${searchQuery}"`);
-      console.log(`📊 Searching through ${projectTranscripts.length} transcripts`);
-
       // Search through all transcripts for this project
       for (const transcript of projectTranscripts) {
         try {
           // Download the transcript content as plain text - prefer cleaned version if available
           const preferCleaned = transcript.isCleaned ? 'preferCleaned=true&' : '';
-          console.log(`🔍 Searching transcript ${transcript.respno || transcript.id}, isCleaned: ${transcript.isCleaned}`);
           const response = await fetch(
             `${API_BASE_URL}/api/transcripts/download/${selectedProject.id}/${transcript.id}?${preferCleaned}asText=true`,
             { headers: getAuthHeaders() }
           );
 
           if (!response.ok) {
-            console.log(`❌ Failed to download transcript ${transcript.respno || transcript.id}`);
             continue;
           }
 
           const text = await response.text();
-          console.log(`📄 Downloaded ${text.length} characters from ${transcript.respno || transcript.id}`);
-
-          // Log a sample of the transcript to see what we're searching
-          const sampleLines = text.split('\n').slice(0, 10);
-          console.log(`📝 First 10 lines of ${transcript.respno || transcript.id}:`, sampleLines);
 
           // Check if the search query exists anywhere in the full text (ignoring line breaks)
           const fullTextLower = text.toLowerCase();
           const queryInFullText = fullTextLower.includes(query);
-          console.log(`🔍 Does "${searchQuery}" exist in full text (ignoring line breaks)? ${queryInFullText}`);
 
           const lines = text.split('\n');
 
@@ -998,13 +930,11 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
               });
             }
           }
-          console.log(`✅ Found ${matchCount} matches in ${transcript.respno || transcript.id}`);
         } catch (error) {
-          console.error(`Error searching transcript ${transcript.id}:`, error);
+          // Error searching transcript - skip it
         }
       }
 
-      console.log(`🎯 Search complete: ${results.length} total matches found`);
       setSearchResults(results);
     } catch (error) {
       console.error('Search error:', error);
@@ -1077,7 +1007,6 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
   // Refresh transcripts when returning to home view to ensure accurate counts
   useEffect(() => {
     if (viewMode === 'home') {
-      console.log('🔄 Refreshing transcripts for accurate counts on home view');
       loadTranscripts();
     }
   }, [viewMode]);
@@ -1146,8 +1075,6 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
 
 
   const handleFileSelect = async (file: File | null) => {
-    console.log('handleFileSelect called with file:', file?.name);
-
     if (!file || !selectedProject) {
       setUploadFile(null);
       setParsedDateTime(null);
@@ -1740,14 +1667,6 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
     const duplicateIds = findDuplicateInterviewTimes(projectTranscripts);
     
     // Get un-assigned transcripts (not in any CA)
-    // Use the same logic as debug table for consistency
-    console.log('🔍 Computing orphaned transcripts:', {
-      savedAnalysesCount: savedAnalyses.length,
-      projectTranscriptsCount: projectTranscripts.length,
-      projectAnalysesCount: projectAnalyses.length
-    });
-    
-    // Filter transcripts that are NOT assigned to any CA in this project
     // Primary check: If transcript has no respno, it's unassigned (respno is only assigned when added to CA)
     // Secondary check: Verify it's not in any CA's data sheets
     const orphanedTranscripts = projectTranscripts.filter(t => {
@@ -1794,17 +1713,14 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
             isAssigned = true;
             break;
           }
-        }
-        if (isAssigned) break;
       }
-      
-      console.log(`🔍 Transcript ${t.id}: respno=${t.respno}, isAssigned = ${isAssigned}`);
-      return !isAssigned;
-    });
+      if (isAssigned) break;
+    }
     
-    console.log('🔍 Orphaned transcripts count:', orphanedTranscripts.length);
-    console.log('🔍 Orphaned transcript IDs:', orphanedTranscripts.map(t => t.id));
-    const sortedOrphanedTranscripts = sortTranscriptsChronologically(orphanedTranscripts);
+    return !isAssigned;
+  });
+  
+  const sortedOrphanedTranscripts = sortTranscriptsChronologically(orphanedTranscripts);
 
     return (
       <main
@@ -1812,97 +1728,6 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
         style={{ backgroundColor: BRAND_BG, height: 'calc(100vh - 80px)', marginTop: '80px' }}
       >
         <div className="flex-1 p-6 space-y-6 max-w-full">
-          {/* Debug Section - Filtered to current project */}
-          <section className="bg-blue-50 border-2 border-blue-300 rounded-lg p-4 mb-6">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-lg font-bold text-blue-900">
-                🐛 Debug: Transcript Assignments
-              </h3>
-              <span className="text-sm text-blue-700 font-medium">
-                {debugTranscriptAssignments.filter(a => a.projectId === selectedProject.id).length} transcript{debugTranscriptAssignments.filter(a => a.projectId === selectedProject.id).length === 1 ? '' : 's'} for this project
-              </span>
-            </div>
-            <div className="bg-white shadow-sm border border-gray-200 rounded-lg overflow-hidden">
-              <div className="overflow-x-auto max-h-96 overflow-y-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-100 sticky top-0">
-                    <tr>
-                      <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                        Transcript ID
-                      </th>
-                      <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                        Respno
-                      </th>
-                      <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                        Project ID
-                      </th>
-                      <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                        Content Analysis ID
-                      </th>
-                      <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                        Content Analysis Name
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {debugTranscriptAssignments
-                      .filter(assignment => assignment.projectId === selectedProject.id)
-                      .map((assignment, index) => (
-                        <tr
-                          key={`${assignment.projectId}-${assignment.transcriptId}`}
-                          className={assignment.contentAnalysisId ? 'hover:bg-gray-50' : 'hover:bg-yellow-50 bg-yellow-50/50'}
-                        >
-                          <td className="px-4 py-2 whitespace-nowrap">
-                            <code className="text-xs font-mono text-gray-900 bg-gray-100 px-2 py-1 rounded">
-                              {assignment.transcriptId}
-                            </code>
-                          </td>
-                          <td className="px-4 py-2 whitespace-nowrap">
-                            {assignment.respno ? (
-                              <code className="text-xs font-mono text-blue-700 bg-blue-100 px-2 py-1 rounded">
-                                {assignment.respno}
-                              </code>
-                            ) : (
-                              <span className="text-xs text-gray-500 italic">
-                                -
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-4 py-2 whitespace-nowrap">
-                            <code className="text-xs font-mono text-gray-900 bg-gray-100 px-2 py-1 rounded">
-                              {assignment.projectId}
-                            </code>
-                          </td>
-                          <td className="px-4 py-2 whitespace-nowrap">
-                            {assignment.contentAnalysisId ? (
-                              <code className="text-xs font-mono text-green-700 bg-green-100 px-2 py-1 rounded">
-                                {assignment.contentAnalysisId}
-                              </code>
-                            ) : (
-                              <span className="text-xs font-medium text-yellow-700 italic">
-                                Not Assigned
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-4 py-2 whitespace-nowrap">
-                            {assignment.contentAnalysisName ? (
-                              <span className="text-xs text-green-700 font-medium">
-                                {assignment.contentAnalysisName}
-                              </span>
-                            ) : (
-                              <span className="text-xs text-yellow-700 italic">
-                                -
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </section>
-
           <section className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex-1">
               <div className="flex items-center justify-between mb-2">
@@ -2260,41 +2085,21 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                   if (!transcriptToAnalysisMap.has(tid)) {
                     transcriptToAnalysisMap.set(tid, analysis.id);
                   } else {
-                    // Transcript already assigned to another CA - log warning
-                    const existingAnalysisId = transcriptToAnalysisMap.get(tid);
-                    console.warn(`⚠️ Transcript ${tid} appears in multiple CAs - keeping in CA ${existingAnalysisId}, removing from CA ${analysis.id}`);
+                    // Transcript already assigned to another CA - skip it
                   }
                 });
               });
               
-              console.log(`🔍 transcriptToAnalysisMap after first pass (${transcriptToAnalysisMap.size} entries):`, Array.from(transcriptToAnalysisMap.entries()).map(([tid, aid]) => ({ transcriptId: tid, analysisId: aid })));
-              
               // Second pass: render each CA box with only transcripts assigned to it
               return projectAnalyses.map((analysis) => {
-                console.log(`🔍 Rendering CA ${analysis.id} (${analysis.name}):`, {
-                  projectTranscriptsCount: projectTranscripts.length,
-                  projectTranscriptIds: projectTranscripts.map(t => t.id)
-                });
-                
                 const analysisTranscripts = getTranscriptsForAnalysis(analysis, projectTranscripts, selectedProject?.id);
-                console.log(`🔍 After getTranscriptsForAnalysis:`, {
-                  analysisTranscriptsCount: analysisTranscripts.length,
-                  analysisTranscriptIds: analysisTranscripts.map(t => t.id)
-                });
                 
                 // Filter to only include transcripts that are assigned to THIS CA (prevent duplicates)
                 const filteredTranscripts = analysisTranscripts.filter((transcript) => {
                   const tid = String(transcript.id).trim();
                   const assignedCAId = transcriptToAnalysisMap.get(tid);
                   const isAssignedToThisCA = assignedCAId === analysis.id;
-                  if (!isAssignedToThisCA && analysisTranscripts.includes(transcript)) {
-                    console.warn(`🔍 Transcript ${tid} found in CA ${analysis.id} but assigned to CA ${assignedCAId} in map`);
-                  }
                   return isAssignedToThisCA;
-                });
-                console.log(`🔍 After filtering:`, {
-                  filteredCount: filteredTranscripts.length,
-                  filteredIds: filteredTranscripts.map(t => t.id)
                 });
                 
                 const sortedAnalysisTranscripts = sortTranscriptsChronologically(filteredTranscripts);

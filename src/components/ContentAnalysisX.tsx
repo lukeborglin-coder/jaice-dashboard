@@ -797,11 +797,11 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
         col !== 'Cleaned Transcript' &&
         col !== 'Populate C.A.' &&
         col !== 'respno' && // Exclude respno since we're using Respondent ID
-        col !== 'transcriptId' // Exclude transcriptId (will be added after Respondent ID)
+        col !== 'transcriptId' // Hide transcriptId column
       );
       
-      // Add transcriptId right after Respondent ID for debugging
-      return ['Respondent ID', 'transcriptId', ...baseHeaders.slice(1), ...additionalColumns];
+      // Don't include transcriptId in headers (hidden)
+      return ['Respondent ID', ...baseHeaders.slice(1), ...additionalColumns];
     }
     
     // For other sheets, use the original logic
@@ -812,18 +812,14 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
     }
     let headers = Array.from(set);
 
-    // Don't filter out transcriptId - we want to show it for debugging
-    // But still filter out respno since we're using Respondent ID
-    headers = headers.filter(h => h !== 'respno');
+    // Hide transcriptId and filter out respno since we're using Respondent ID
+    headers = headers.filter(h => h !== 'respno' && h !== 'transcriptId');
 
-    // Ensure Respondent ID appears as first column, then transcriptId
-    headers = headers.filter(h => h !== 'Respondent ID' && h !== 'transcriptId');
+    // Ensure Respondent ID appears as first column
+    headers = headers.filter(h => h !== 'Respondent ID');
     let finalHeaders = headers;
     const hasAnyResp = rows.some(r => r && (r['Respondent ID'] || r['respno']));
-    const hasTranscriptId = rows.some(r => r && r['transcriptId']);
-    if (hasAnyResp && hasTranscriptId) {
-      finalHeaders = ['Respondent ID', 'transcriptId', ...headers];
-    } else if (hasAnyResp) {
+    if (hasAnyResp) {
       finalHeaders = ['Respondent ID', ...headers];
     }
 
@@ -2860,108 +2856,6 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
           </div>
         )}
 
-        {/* Debug Section - Only show in viewer mode */}
-        {viewMode === 'viewer' && currentAnalysis && (
-          <section className="bg-blue-50 border-2 border-blue-300 rounded-lg p-4 mb-6">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-lg font-bold text-blue-900">
-                🐛 Debug: Transcript Assignments
-              </h3>
-              <span className="text-sm text-blue-700 font-medium">
-                {debugTranscriptAssignments.filter(a => a.contentAnalysisId === currentAnalysis.id).length} transcript{debugTranscriptAssignments.filter(a => a.contentAnalysisId === currentAnalysis.id).length === 1 ? '' : 's'} assigned to this CA
-              </span>
-            </div>
-            <div className="bg-white shadow-sm border border-gray-200 rounded-lg overflow-hidden">
-              <div className="overflow-x-auto max-h-96 overflow-y-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-100 sticky top-0">
-                    <tr>
-                      <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                        Transcript ID
-                      </th>
-                      <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                        Respno
-                      </th>
-                      <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                        Project ID
-                      </th>
-                      <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                        Content Analysis ID
-                      </th>
-                      <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                        Content Analysis Name
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {debugTranscriptAssignments
-                      .filter(assignment => assignment.contentAnalysisId === currentAnalysis.id)
-                      .map((assignment, index) => (
-                      <tr
-                        key={`${assignment.projectId}-${assignment.transcriptId}`}
-                        className={assignment.contentAnalysisId === currentAnalysis.id ? 'hover:bg-green-50 bg-green-50/30' : assignment.contentAnalysisId ? 'hover:bg-gray-50' : 'hover:bg-yellow-50 bg-yellow-50/50'}
-                      >
-                        <td className="px-4 py-2 whitespace-nowrap">
-                          <code className="text-xs font-mono text-gray-900 bg-gray-100 px-2 py-1 rounded">
-                            {assignment.transcriptId}
-                          </code>
-                        </td>
-                        <td className="px-4 py-2 whitespace-nowrap">
-                          {assignment.respno ? (
-                            <code className="text-xs font-mono text-blue-700 bg-blue-100 px-2 py-1 rounded">
-                              {assignment.respno}
-                            </code>
-                          ) : (
-                            <span className="text-xs text-gray-500 italic">
-                              -
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-4 py-2 whitespace-nowrap">
-                          <code className="text-xs font-mono text-gray-900 bg-gray-100 px-2 py-1 rounded">
-                            {assignment.projectId}
-                          </code>
-                        </td>
-                        <td className="px-4 py-2 whitespace-nowrap">
-                          {assignment.contentAnalysisId ? (
-                            <code className={`text-xs font-mono px-2 py-1 rounded ${
-                              assignment.contentAnalysisId === currentAnalysis.id 
-                                ? 'text-green-800 bg-green-200' 
-                                : 'text-green-700 bg-green-100'
-                            }`}>
-                              {assignment.contentAnalysisId}
-                            </code>
-                          ) : (
-                            <span className="text-xs font-medium text-yellow-700 italic">
-                              Not Assigned
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-4 py-2 whitespace-nowrap">
-                          {assignment.contentAnalysisName ? (
-                            <span className={`text-xs font-medium ${
-                              assignment.contentAnalysisId === currentAnalysis.id 
-                                ? 'text-green-800' 
-                                : 'text-green-700'
-                            }`}>
-                              {assignment.contentAnalysisName}
-                            </span>
-                          ) : (
-                            <span className="text-xs text-yellow-700 italic">
-                              -
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </section>
-        )}
-
-
         {/* Tabs - only show on home view */}
         {viewMode === 'home' && (
           <div>
@@ -3563,14 +3457,14 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                       <React.Fragment key={h}>
                         <th className={`px-2 py-2 font-medium border-r border-gray-300 last:border-r-0 align-top ${h === 'Original Transcript' || h === 'Cleaned Transcript' || h === 'Populate C.A.' ? 'text-center' : 'text-left'}`}
                           style={{
-                            whiteSpace: (h === 'Respondent ID' || h === 'transcriptId' || h === 'Original Transcript' || h === 'Cleaned Transcript' || h === 'Populate C.A.') ? 'nowrap' : 'normal',
-                            minWidth: (h === 'Original Transcript' || h === 'Cleaned Transcript' || h === 'Populate C.A.') ? 'auto' : (h === 'Respondent ID' || h === 'transcriptId' ? 'auto' : '180px'),
+                            whiteSpace: (h === 'Respondent ID' || h === 'Original Transcript' || h === 'Cleaned Transcript' || h === 'Populate C.A.') ? 'nowrap' : 'normal',
+                            minWidth: (h === 'Original Transcript' || h === 'Cleaned Transcript' || h === 'Populate C.A.') ? 'auto' : (h === 'Respondent ID' ? 'auto' : '180px'),
                             lineHeight: '1.3',
-                            width: (h === 'Respondent ID' || h === 'transcriptId' || h === 'Original Transcript' || h === 'Cleaned Transcript' || h === 'Populate C.A.') ? '1%' : 'auto',
-                            position: (h === 'Respondent ID' || h === 'transcriptId') ? 'sticky' as const : undefined,
-                            left: h === 'Respondent ID' ? 0 : h === 'transcriptId' ? 60 : undefined,
-                            zIndex: (h === 'Respondent ID' || h === 'transcriptId') ? 3 : undefined,
-                            backgroundColor: (h === 'Respondent ID' || h === 'transcriptId') ? '#e5e7eb' : undefined
+                            width: (h === 'Respondent ID' || h === 'Original Transcript' || h === 'Cleaned Transcript' || h === 'Populate C.A.') ? '1%' : 'auto',
+                            position: (h === 'Respondent ID') ? 'sticky' as const : undefined,
+                            left: h === 'Respondent ID' ? 0 : undefined,
+                            zIndex: (h === 'Respondent ID') ? 3 : undefined,
+                            backgroundColor: (h === 'Respondent ID') ? '#e5e7eb' : undefined
                           }}>
                           {activeSheet === 'Demographics' && h !== 'Respondent ID' && h !== 'respno' && h !== 'transcriptId' && h !== 'Interview Date' && h !== 'Interview Time' && h !== 'Original Transcript' && h !== 'Cleaned Transcript' && h !== 'Populate C.A.' ? (
                             <div className="flex items-center gap-1">
@@ -3614,7 +3508,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                             </div>
                           ) : (
                             <div style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                              {h === 'Respondent ID' ? 'respno' : h === 'transcriptId' ? 'transcriptId' : h}
+                              {h === 'Respondent ID' ? 'respno' : h}
                             </div>
                           )}
                         </th>
@@ -3734,15 +3628,15 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                           return (
                             <React.Fragment key={k}>
                               <td
-                                className={`px-2 py-1 text-gray-900 align-top border-r border-gray-300 last:border-r-0 border-b-0 ${activeSheet !== 'Demographics' && k !== 'Respondent ID' && k !== 'transcriptId' ? 'cursor-pointer hover:bg-blue-50' : ''}`}
+                                className={`px-2 py-1 text-gray-900 align-top border-r border-gray-300 last:border-r-0 border-b-0 ${activeSheet !== 'Demographics' && k !== 'Respondent ID' ? 'cursor-pointer hover:bg-blue-50' : ''}`}
                                 style={{
-                                  whiteSpace: (k === 'Respondent ID' || k === 'transcriptId') ? 'nowrap' : 'pre-wrap',
-                                  width: (k === 'Respondent ID' || k === 'transcriptId') ? '1%' : 'auto',
-                                  position: (k === 'Respondent ID' || k === 'transcriptId') ? 'sticky' as const : undefined,
-                                  left: k === 'Respondent ID' ? 0 : k === 'transcriptId' ? 60 : undefined,
-                                  zIndex: (k === 'Respondent ID' || k === 'transcriptId') ? 2 : undefined,
-                                  background: (k === 'Respondent ID' || k === 'transcriptId') ? '#ffffff' : undefined,
-                                  boxShadow: k === 'Respondent ID' ? '2px 0 0 0 #e5e7eb' : k === 'transcriptId' ? '2px 0 0 0 #e5e7eb' : undefined
+                                  whiteSpace: (k === 'Respondent ID') ? 'nowrap' : 'pre-wrap',
+                                  width: (k === 'Respondent ID') ? '1%' : 'auto',
+                                  position: (k === 'Respondent ID') ? 'sticky' as const : undefined,
+                                  left: k === 'Respondent ID' ? 0 : undefined,
+                                  zIndex: (k === 'Respondent ID') ? 2 : undefined,
+                                  background: (k === 'Respondent ID') ? '#ffffff' : undefined,
+                                  boxShadow: k === 'Respondent ID' ? '2px 0 0 0 #e5e7eb' : undefined
                                 }}
                                 onClick={(e) => {
                                   // Don't trigger click if clicking on an input field
@@ -3750,11 +3644,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                                   handleCellClick(row, k);
                                 }}
                               >
-                                {k === 'transcriptId' ? (
-                                  <code className="text-xs font-mono text-gray-700 bg-gray-50 px-1 py-0.5 rounded">
-                                    {row.transcriptId || '-'}
-                                  </code>
-                                ) : activeSheet === 'Demographics' && k !== 'Respondent ID' && k !== 'respno' && k !== 'Original Transcript' && k !== 'Cleaned Transcript' && k !== 'Populate C.A.' && k !== 'Interview Date' && k !== 'Interview Time' && k !== 'transcriptId' ? (
+                                {activeSheet === 'Demographics' && k !== 'Respondent ID' && k !== 'respno' && k !== 'Original Transcript' && k !== 'Cleaned Transcript' && k !== 'Populate C.A.' && k !== 'Interview Date' && k !== 'Interview Time' && k !== 'transcriptId' ? (
                                   <input
                                     type="text"
                                     value={String(row[k] ?? '')}
@@ -3845,16 +3735,21 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                                     const dateValue = row[k];
                                     if (!dateValue) return '-';
                                     try {
+                                      // Clean up any prefixes like "Qual", "Qualitative", "Transcript"
+                                      let cleaned = String(dateValue).trim();
+                                      cleaned = cleaned.replace(/^Qual(itative)?\s*/i, '').trim();
+                                      cleaned = cleaned.replace(/^Transcript\s*/i, '').trim();
+                                      
                                       // Handle YYYY-MM-DD format directly to avoid timezone issues
-                                      if (/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
-                                        const [year, month, day] = dateValue.split('-').map(Number);
+                                      if (/^\d{4}-\d{2}-\d{2}$/.test(cleaned)) {
+                                        const [year, month, day] = cleaned.split('-').map(Number);
                                         const shortYear = year.toString().slice(-2);
                                         return `${month}/${day}/${shortYear}`;
                                       }
                                       
                                       // For other formats, try parsing with Date
-                                      const date = new Date(dateValue);
-                                      if (isNaN(date.getTime())) return dateValue;
+                                      const date = new Date(cleaned);
+                                      if (isNaN(date.getTime())) return cleaned;
                                       const month = date.getMonth() + 1;
                                       const day = date.getDate();
                                       const year = date.getFullYear().toString().slice(-2);
