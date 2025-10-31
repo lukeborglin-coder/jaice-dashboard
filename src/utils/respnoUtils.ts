@@ -428,10 +428,12 @@ const formatShortDate = (value?: string | null): string | null => {
   let trimmed = value.trim();
   if (!trimmed) return null;
 
-  // Clean up any dates that have "Transcript" prefix
+  // Clean up any dates that have prefixes like "Transcript", "Qual", "Qualitative"
   if (trimmed.includes('Transcript')) {
     trimmed = trimmed.replace(/^Transcript\s*/i, '').trim();
   }
+  // Remove "Qual" or "Qualitative" prefix if present
+  trimmed = trimmed.replace(/^Qual(itative)?\s*/i, '').trim();
 
   const parsed = new Date(trimmed);
   if (!Number.isNaN(parsed.getTime())) {

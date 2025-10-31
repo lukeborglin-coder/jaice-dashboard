@@ -119,119 +119,13 @@
     "projectId": "P-1761243049041",
     "name": "AA test",
     "data": {
-      "Demographics": [
-        {
-          "transcriptId": "T-1761864070629",
-          "respno": "R01",
-          "Respondent ID": "R01",
-          "Interview Date": "Oct 3, 2025",
-          "Interview Time": "3:00 PM"
-        }
-      ],
-      "BACKGROUND": [
-        {
-          "Living Situation": "Michelle is 60 years old and lives with her spouse of thirty-four years and their 22-year-old daughter who is in college. They also have two dogs. Michelle works full-time at a university, overseeing a team of researchers in the fundraising arm. She has been at this university for almost thirteen years and previously worked at another university in the Midwest for seven years.",
-          "Free Time Activities": "Michelle enjoys flea markets and traveling. She recently returned from a twelve-day Mediterranean cruise. Despite her medical challenges, she remains active and engaged in her interests.",
-          "Journey with SMA": "Michelle was diagnosed with SMA at three years old, initially misdiagnosed with Weierman Costman Syndrome. She walked until she was 12 or 13 and transitioned to a wheelchair in late middle school. Over the years, she has experienced a decline in strength but remains active. She describes her SMA as having two body types, with her being on the heavier side, which she believes has helped her maintain stability.",
-          "Current Health Description": "Michelle recently experienced a medical emergency that resulted in pneumonia and respiratory failure, leading to a tracheostomy. She was hospitalized for three and a half weeks and had her gallbladder removed two weeks after returning home. Despite these challenges, she describes herself as a joyous person and is eager to return to work.",
-          "HCPs for SMA Care": "Michelle's primary care physician, neurologist, and pulmonologist are the main healthcare providers involved in her SMA care. Her neurologist is based at a university center of excellence and is an hour away, while her primary care physician is closer and often serves as the starting point for her medical needs.",
-          "Reasons for Not Seeing HCPs": "",
-          "Current SMA Management": "",
-          "Number of HCPs": "",
-          "HCP Involvement in Treatment Decisions": "Michelle actively participates in her treatment decisions, often bringing ideas to her neurologist. She appreciates her neurologist's support and responsiveness, especially when discussing new treatments.",
-          "Primary SMA Doctor": "Michelle's primary SMA doctor is her neurologist, whom she trusts and communicates with regularly through a portal for quick consultations.",
-          "Others Involved in Health Decisions": "Michelle's family, including her sister, spouse, and daughter, are involved in her health decisions. Her sister, in particular, stays well-connected with SMA groups and provides Michelle with information and support.",
-          "Support System Involvement": "Michelle's support system includes her family and online SMA communities. Her sister plays a significant role in staying informed and advocating for Michelle's health needs.",
-          "Comfort in Making Treatment Decisions": "Michelle feels comfortable making treatment decisions, often advocating for herself and seeking information from her neurologist and online communities. She values data and evidence in her decision-making process.",
-          "Health Goals": "Michelle's primary health goal is to maintain her independence and quality of life. She is open to considering treatments that could stop the progression of SMA or improve her strength, especially after her recent health scare.",
-          "respno": "R01",
-          "transcriptId": "T-1761864070629",
-          "Respondent ID": "R01"
-        }
-      ],
-      "CURRENT PERCEPTIONS & ATTITUDES": [
-        {
-          "Treatments Awareness": "Michelle is aware of various SMA treatments, including SPINRAZA and Evrysdi. She actively seeks information about new treatments and discusses them with her neurologist.",
-          "Treatments Experience": "Michelle has experience with SPINRAZA and Evrysdi. She found SPINRAZA challenging due to painful injections and a lack of perceived benefits. Evrysdi was more convenient but did not provide the improvements she hoped for.",
-          "Discontinued Treatment Experience": "Michelle discontinued Evrysdi in February 2022 after not seeing improvements and experiencing weight gain. She felt the treatment was not worth the logistical challenges and lack of noticeable benefits.",
-          "Discontinued Treatment Reasons": "Michelle stopped Evrysdi due to weight gain, lack of improvement, and logistical challenges with traveling and maintaining the treatment regimen. She also faced insurance challenges, which contributed to her decision.",
-          "Discontinued Treatment Impact": "Since discontinuing Evrysdi, Michelle has experienced a loss of strength, particularly after her hospitalization. She is considering restarting treatment, especially in light of her recent health challenges.",
-          "Discontinued Treatment Restart Consideration": "Michelle is open to restarting treatment, particularly if combined with a muscle builder. She is more open to treatment now than a year ago, especially after her recent health scare.",
-          "Treatment Never Taken Impressions": "",
-          "Treatment Never Taken Benefits": "",
-          "Treatment Never Taken Drawbacks": "",
-          "Treatment Never Taken Information Source": "",
-          "Treatment Never Taken Consideration Reasons": "",
-          "Treatment Never Taken HCP Discussion": "",
-          "Treatment Never Taken Impact of HCP": "",
-          "Treatment Never Taken Other Influencers": "",
-          "Treatment Never Taken Future Consideration": "",
-          "Treatment Never Taken Candidate Assessment": "",
-          "Treatments in Development Awareness": "Michelle is aware of treatments in development, such as the anti-myostatin drug by Scholar Rock. She is interested in new options that could improve her strength and quality of life.",
-          "Treatments in Development Impressions": "Michelle is curious about new treatments and is considering them as potential options to improve her health and stop the progression of SMA.",
-          "Treatments in Development Benefits": "",
-          "Treatments in Development Drawbacks": "",
-          "Treatments in Development Candidate Assessment": "",
-          "Treatments in Development Consideration": "",
-          "Treatments in Development Consideration Reasons": "",
-          "respno": "R01",
-          "transcriptId": "T-1761864070629",
-          "Respondent ID": "R01"
-        }
-      ],
-      "BARRIERS TO TREATMENT & UNMET NEEDS": [
-        {
-          "Reasons for Not on Treatment": "Michelle is not currently on treatment due to previous experiences with SPINRAZA and Evrysdi, which did not meet her expectations for improvement. She also faced logistical challenges and insurance issues.",
-          "Consideration Drivers": "Michelle's consideration for treatment is driven by the desire to stop the progression of SMA and improve her strength. Her recent health scare has made her more open to exploring treatment options.",
-          "Muscle Loss Impact": "Michelle has experienced muscle loss, particularly in her left arm, which has impacted her daily activities and increased her interest in treatments that could improve her strength.",
-          "Symptom Tracking Frequency": "",
-          "Symptom Tracking Discussion with HCP": "",
-          "Emotional Factors": "Michelle's recent health scare has heightened her awareness of her vulnerability and increased her motivation to consider treatment options to improve her quality of life.",
-          "Practical/Logistical Factors": "The logistical challenges of maintaining a treatment regimen, such as traveling with medication and daily dosing, have been significant barriers for Michelle.",
-          "Clinical Factors": "Michelle's decision to discontinue treatment was influenced by the lack of perceived clinical benefits and the side effects she experienced, such as weight gain.",
-          "Treatment Benefit Requirement": "Michelle requires treatment to provide noticeable improvements in strength or quality of life to justify the effort and cost involved.",
-          "Financial/Access Barriers": "Michelle faced financial barriers with insurance not covering her treatment, requiring her to rely on manufacturer assistance programs.",
-          "Access Challenges": "Michelle experienced challenges in accessing treatment due to insurance denials and the need for recertification through manufacturer programs.",
-          "Unmet Needs": "Michelle's unmet needs include treatments that provide tangible improvements in strength and quality of life, as well as better support and advocacy from treatment manufacturers.",
-          "respno": "R01",
-          "transcriptId": "T-1761864070629",
-          "Respondent ID": "R01"
-        }
-      ],
-      "MOTIVATIONS & FUTURE CONSIDERATION": [
-        {
-          "Future Treatment Consideration Likelihood": "Michelle is more open to considering treatment now than she was a year ago, especially after her recent health scare. She is interested in new treatments that could improve her strength and quality of life.",
-          "Consideration Influencing Factors": "Factors influencing Michelle's consideration include the potential for improved strength, stopping disease progression, and the availability of new treatment options.",
-          "Consideration Drivers": "Michelle's drivers for considering treatment include the desire to maintain her independence, improve her quality of life, and address the progression of SMA.",
-          "Decision Confidence Factors": "Michelle's confidence in treatment decisions is influenced by data and evidence, as well as the support and recommendations from her healthcare providers and family.",
-          "respno": "R01",
-          "transcriptId": "T-1761864070629",
-          "Respondent ID": "R01"
-        }
-      ],
-      "COMMUNITY ENGAGEMENT & INFO SOURCES": [
-        {
-          "Community Connection Level": "Michelle feels connected to the SMA community through Facebook groups and her involvement in SMA-specific groups. She values the information and support she receives from these communities.",
-          "Community Participation": "Michelle actively participates in online SMA communities, where she shares experiences and seeks advice from others with similar conditions.",
-          "Community Trust Issues": "",
-          "Information Sources": "Michelle relies on online communities, her sister, and healthcare providers for information about SMA and treatment options.",
-          "New Treatment Awareness": "Michelle is aware of new treatments in development and actively seeks information about them through her networks and healthcare providers.",
-          "Preferred Information Format": "",
-          "Facilitating Information Access": "",
-          "respno": "R01",
-          "transcriptId": "T-1761864070629",
-          "Respondent ID": "R01"
-        }
-      ],
-      "Misc.": [
-        {
-          "Final Comments": "Michelle emphasizes the importance of marketing and advocacy efforts that focus on adults with SMA. She believes that more data and support for adults could improve treatment uptake and outcomes.",
-          "Additional Notes": "Michelle values data-driven decisions and would like to see more adult-specific data in SMA treatment research. She also highlights the need for better advocacy and support from treatment manufacturers.",
-          "respno": "R01",
-          "transcriptId": "T-1761864070629",
-          "Respondent ID": "R01"
-        }
-      ]
+      "Demographics": [],
+      "BACKGROUND": [],
+      "CURRENT PERCEPTIONS & ATTITUDES": [],
+      "BARRIERS TO TREATMENT & UNMET NEEDS": [],
+      "MOTIVATIONS & FUTURE CONSIDERATION": [],
+      "COMMUNITY ENGAGEMENT & INFO SOURCES": [],
+      "Misc.": []
     },
     "guideMap": {
       "bySheet": {}
@@ -320,11 +214,7 @@
         "Additional Notes"
       ]
     },
-    "transcripts": [
-      {
-        "id": "T-1761864070629"
-      }
-    ],
+    "transcripts": [],
     "verbatimQuotes": {
       "BACKGROUND": {
         "R02": {

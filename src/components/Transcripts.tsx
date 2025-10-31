@@ -206,16 +206,34 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
   const formatDateToShort = (dateStr: string | undefined): string => {
     if (!dateStr) return '-';
     try {
+      // Clean up any prefixes like "Qual", "Qualitative", "Transcript"
+      let cleaned = dateStr.trim();
+      cleaned = cleaned.replace(/^Qual(itative)?\s*/i, '').trim();
+      cleaned = cleaned.replace(/^Transcript\s*/i, '').trim();
+      
       // Handle YYYY-MM-DD format directly to avoid timezone issues
-      if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-        const [year, month, day] = dateStr.split('-').map(Number);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(cleaned)) {
+        const [year, month, day] = cleaned.split('-').map(Number);
         const shortYear = year.toString().slice(-2);
         return `${month}/${day}/${shortYear}`;
       }
       
       // For other formats, try parsing with Date
-      const date = new Date(dateStr);
-      if (isNaN(date.getTime())) return dateStr; // Return original if can't parse
+      const date = new Date(cleaned);
+      if (isNaN(date.getTime())) {
+        // If parsing fails, try to extract just the date part
+        const dateMatch = cleaned.match(/(\w+\s+\d{1,2},?\s+\d{4})/);
+        if (dateMatch) {
+          const extractedDate = new Date(dateMatch[1]);
+          if (!isNaN(extractedDate.getTime())) {
+            const month = extractedDate.getMonth() + 1;
+            const day = extractedDate.getDate();
+            const year = extractedDate.getFullYear().toString().slice(-2);
+            return `${month}/${day}/${year}`;
+          }
+        }
+        return cleaned; // Return cleaned version if can't parse
+      }
       
       const month = date.getMonth() + 1;
       const day = date.getDate();
@@ -732,17 +750,45 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
 
   // Get transcripts that belong to a specific content analysis
   const getTranscriptsForAnalysis = useCallback((analysis: any, projectTranscripts: Transcript[]): Transcript[] => {
-    if (!analysis || !analysis.data) return [];
+    if (!analysis || !analysis.data) {
+      console.log(`🔍 getTranscriptsForAnalysis: Analysis ${analysis?.id} has no data`);
+      return [];
+    }
+    
     const transcriptIds = new Set<string>();
     // Collect only from sheet rows (authoritative source). Ignore analysis.transcripts to avoid stale items.
     Object.values(analysis.data).forEach((sheetData: any) => {
       if (Array.isArray(sheetData)) {
         sheetData.forEach((row: any) => {
-          if (row?.transcriptId) transcriptIds.add(String(row.transcriptId));
+          if (row?.transcriptId) {
+            const tid = String(row.transcriptId).trim();
+            transcriptIds.add(tid);
+          }
         });
       }
     });
-    return projectTranscripts.filter(t => transcriptIds.has(String(t.id)));
+    
+    console.log(`🔍 getTranscriptsForAnalysis for CA ${analysis.id} (${analysis.name}):`, {
+      transcriptIdsFound: Array.from(transcriptIds),
+      projectTranscriptIds: projectTranscripts.map(t => t.id),
+      projectTranscriptCount: projectTranscripts.length
+    });
+    
+    const matchingTranscripts = projectTranscripts.filter(t => {
+      const normalizedId = String(t.id).trim();
+      const isMatch = transcriptIds.has(normalizedId);
+      if (!isMatch && transcriptIds.size > 0) {
+        // Check if there's a close match (might be a string comparison issue)
+        const foundInIds = Array.from(transcriptIds).find(tid => tid === normalizedId || tid.includes(normalizedId) || normalizedId.includes(tid));
+        if (foundInIds) {
+          console.warn(`🔍 Potential ID mismatch for transcript ${t.id}: found similar ID ${foundInIds}`);
+        }
+      }
+      return isMatch;
+    });
+    
+    console.log(`🔍 getTranscriptsForAnalysis result: ${matchingTranscripts.length} matching transcripts`);
+    return matchingTranscripts;
   }, []);
 
   // Build per-CA respno map so Uploaded list shows R01.. in CA order
@@ -2173,12 +2219,32 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
               
               // Second pass: render each CA box with only transcripts assigned to it
               return projectAnalyses.map((analysis) => {
+                console.log(`🔍 Rendering CA ${analysis.id} (${analysis.name}):`, {
+                  projectTranscriptsCount: projectTranscripts.length,
+                  projectTranscriptIds: projectTranscripts.map(t => t.id)
+                });
+                
                 const analysisTranscripts = getTranscriptsForAnalysis(analysis, projectTranscripts);
+                console.log(`🔍 After getTranscriptsForAnalysis:`, {
+                  analysisTranscriptsCount: analysisTranscripts.length,
+                  analysisTranscriptIds: analysisTranscripts.map(t => t.id)
+                });
+                
                 // Filter to only include transcripts that are assigned to THIS CA (prevent duplicates)
                 const filteredTranscripts = analysisTranscripts.filter((transcript) => {
                   const tid = String(transcript.id).trim();
-                  return transcriptToAnalysisMap.get(tid) === analysis.id;
+                  const assignedCAId = transcriptToAnalysisMap.get(tid);
+                  const isAssignedToThisCA = assignedCAId === analysis.id;
+                  if (!isAssignedToThisCA && analysisTranscripts.includes(transcript)) {
+                    console.warn(`🔍 Transcript ${tid} found in CA ${analysis.id} but assigned to CA ${assignedCAId} in map`);
+                  }
+                  return isAssignedToThisCA;
                 });
+                console.log(`🔍 After filtering:`, {
+                  filteredCount: filteredTranscripts.length,
+                  filteredIds: filteredTranscripts.map(t => t.id)
+                });
+                
                 const sortedAnalysisTranscripts = sortTranscriptsChronologically(filteredTranscripts);
               
               return (

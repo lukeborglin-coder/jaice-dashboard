@@ -284,28 +284,27 @@ async function createFormattedWordDoc(cleanedText, projectName, respno, intervie
     })
   );
 
-  // Subtitle: [date] | [time] (no respno)
+  // Subtitle: [date] | [time] | Qualitative Transcript (no respno)
   const subtitleParts = [];
   if (interviewDate) subtitleParts.push(interviewDate);
   if (interviewTime) subtitleParts.push(interviewTime);
-  const subtitle = subtitleParts.length > 0 ? subtitleParts.join(' | ') : null;
+  subtitleParts.push('Qualitative Transcript');
+  const subtitle = subtitleParts.join(' | ');
 
-  // Only add subtitle if we have date or time
-  if (subtitle) {
-    paragraphs.push(
-      new Paragraph({
-        children: [
-          new TextRun({
-            text: subtitle,
-            italics: true,
-            size: 20, // 10pt
-          }),
-        ],
-        alignment: AlignmentType.CENTER,
-        spacing: { after: 400 },
-      })
-    );
-  }
+  // Always add subtitle (will include "Qualitative Transcript" at minimum)
+  paragraphs.push(
+    new Paragraph({
+      children: [
+        new TextRun({
+          text: subtitle,
+          italics: true,
+          size: 20, // 10pt
+        }),
+      ],
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 400 },
+    })
+  );
 
   // Process the cleaned transcript
   // First, collapse multiple consecutive blank lines into single blank lines
@@ -328,11 +327,37 @@ async function createFormattedWordDoc(cleanedText, projectName, respno, intervie
       const normalizedProjectName = projectName.replace(/\s+/g, ' ').toLowerCase();
       const normalizedSubtitle = subtitle ? subtitle.replace(/\s+/g, ' ').toLowerCase() : '';
 
+      // Skip project name if it matches
       if (normalizedLine === normalizedProjectName) {
         continue;
       }
 
+      // Skip subtitle if it matches (date | time | Qualitative Transcript)
       if (subtitle && normalizedLine === normalizedSubtitle) {
+        continue;
+      }
+      
+      // Skip partial subtitle matches (date or time alone)
+      if (interviewDate) {
+        const normalizedDate = interviewDate.replace(/\s+/g, ' ').toLowerCase();
+        if (normalizedLine === normalizedDate || normalizedLine.includes(normalizedDate)) {
+          continue;
+        }
+      }
+      if (interviewTime) {
+        const normalizedTime = interviewTime.replace(/\s+/g, ' ').toLowerCase();
+        if (normalizedLine === normalizedTime || normalizedLine.includes(normalizedTime)) {
+          continue;
+        }
+      }
+
+      // Skip date/time metadata lines (Interview Date, Interview Time, Date, Time, etc.)
+      if (/^(interview\s+)?(date|time)[:]\s*/i.test(trimmedLine)) {
+        continue;
+      }
+      
+      // Skip lines that are just date/time formats
+      if (/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}/.test(trimmedLine) || /^\d{1,2}:\d{2}\s*(am|pm)/i.test(trimmedLine)) {
         continue;
       }
 
@@ -351,10 +376,9 @@ async function createFormattedWordDoc(cleanedText, projectName, respno, intervie
       hasStartedContent = true;
     }
 
-    // Handle blank lines - only add one paragraph between speakers
+    // Handle blank lines - add ONE blank paragraph between speakers (single line break)
     if (!trimmedLine) {
-      // Only add blank paragraph if the previous line was a speaker line
-      // Skip if we already added a blank after the previous speaker
+      // If previous line was a speaker and we haven't added blanks yet, add ONE blank paragraph
       if (previousWasSpeaker && !previousWasBlank) {
         paragraphs.push(new Paragraph({ text: '' }));
         previousWasBlank = true;
@@ -373,32 +397,115 @@ async function createFormattedWordDoc(cleanedText, projectName, respno, intervie
       const speaker = match[1];
       const text = match[2];
 
-      // Add blank line before speaker if previous line was also a speaker (different speaker turn)
+      // Add ONE blank line before speaker if previous line was also a speaker (different speaker turn)
       if (previousWasSpeaker) {
         paragraphs.push(new Paragraph({ text: '' }));
       }
 
+      // Parse text to detect and bold speaker notes (text in parentheses)
+      const children = [];
+      children.push(
+        new TextRun({
+          text: speaker,
+          bold: true,
+        })
+      );
+      
+      // Process the text to bold speaker notes in parentheses
+      let remainingText = ' ' + text;
+      const noteRegex = /(\([^)]+\))/g;
+      let lastIndex = 0;
+      let noteMatch;
+      
+      while ((noteMatch = noteRegex.exec(text)) !== null) {
+        // Add text before the note
+        if (noteMatch.index > lastIndex) {
+          const textBefore = text.substring(lastIndex, noteMatch.index);
+          if (textBefore.trim()) {
+            children.push(new TextRun({ text: textBefore }));
+          }
+        }
+        
+        // Add the note in bold
+        children.push(
+          new TextRun({
+            text: noteMatch[0],
+            bold: true,
+          })
+        );
+        
+        lastIndex = noteMatch.index + noteMatch[0].length;
+      }
+      
+      // Add remaining text after the last note
+      if (lastIndex < text.length) {
+        const textAfter = text.substring(lastIndex);
+        if (textAfter.trim()) {
+          children.push(new TextRun({ text: textAfter }));
+        }
+      } else if (lastIndex === 0) {
+        // No notes found, add the entire text
+        children.push(new TextRun({ text: ' ' + text }));
+      }
+
       paragraphs.push(
         new Paragraph({
-          children: [
-            new TextRun({
-              text: speaker,
-              bold: true,
-            }),
-            new TextRun({
-              text: ' ' + text,
-            }),
-          ],
+          children: children,
         })
       );
       previousWasSpeaker = true;
     } else {
       // Regular text (continuation of previous speaker)
-      paragraphs.push(
-        new Paragraph({
-          text: trimmedLine,
-        })
-      );
+      // Also check for speaker notes in continuation lines
+      const noteRegex = /(\([^)]+\))/g;
+      const hasNotes = noteRegex.test(trimmedLine);
+      
+      if (hasNotes) {
+        const children = [];
+        let lastIndex = 0;
+        noteRegex.lastIndex = 0; // Reset regex
+        let noteMatch;
+        
+        while ((noteMatch = noteRegex.exec(trimmedLine)) !== null) {
+          // Add text before the note
+          if (noteMatch.index > lastIndex) {
+            const textBefore = trimmedLine.substring(lastIndex, noteMatch.index);
+            if (textBefore.trim()) {
+              children.push(new TextRun({ text: textBefore }));
+            }
+          }
+          
+          // Add the note in bold
+          children.push(
+            new TextRun({
+              text: noteMatch[0],
+              bold: true,
+            })
+          );
+          
+          lastIndex = noteMatch.index + noteMatch[0].length;
+        }
+        
+        // Add remaining text after the last note
+        if (lastIndex < trimmedLine.length) {
+          const textAfter = trimmedLine.substring(lastIndex);
+          if (textAfter.trim()) {
+            children.push(new TextRun({ text: textAfter }));
+          }
+        }
+        
+        paragraphs.push(
+          new Paragraph({
+            children: children,
+          })
+        );
+      } else {
+        paragraphs.push(
+          new Paragraph({
+            text: trimmedLine,
+          })
+        );
+      }
       previousWasSpeaker = false;
     }
   }
@@ -513,52 +620,65 @@ router.post('/upload', authenticateToken, upload.single('transcript'), async (re
 
         const providedModerator = req.body?.moderatorName || null;
         const providedRespondent = req.body?.respondentName || null;
+        
+        // Build speaker replacement instructions
+        let speakerReplacementInstructions = '';
+        if (providedModerator && providedRespondent) {
+          speakerReplacementInstructions = `
+CRITICAL - SPEAKER NAME ANONYMIZATION:
+- REPLACE ALL occurrences of "${providedModerator}" (or any variation/case) with "Moderator:"
+- REPLACE ALL occurrences of "${providedRespondent}" (or any variation/case) with "Respondent:"
+- This is for anonymity - the actual names should NEVER appear in the cleaned transcript
+- If you see lines like "${providedModerator}: How are you?" they should become "Moderator: How are you?"
+- If you see lines like "${providedRespondent}: I'm good." they should become "Respondent: I'm good."
+- The ONLY speaker labels allowed in the output are "Moderator:" and "Respondent:"`;
+        }
+        
         const systemPrompt = `You are a professional transcript editor specializing in qualitative research interviews. Clean this transcript by following these rules:
 
 CRITICAL INSTRUCTIONS:
-1. REMOVE DUPLICATE HEADER INFORMATION:
-   - If the transcript has duplicate title or project name information, keep only ONE instance
-   - If there are duplicate date/time lines, keep only ONE instance
-   - Remove any redundant header information that appears multiple times
+1. REMOVE ALL DATE/TIME METADATA FROM THE TRANSCRIPT BODY:
+   - The date and time are already extracted and will be displayed in the document header/title, so they should NOT appear in the transcript body
+   - DO NOT attempt to parse or extract date/time information - it has already been extracted and is provided separately
+   - Remove ALL instances of: Interview Date, Date, Interview Time, Time, Session Date, Session Time, or any other date/time metadata
+   - Remove any lines that contain only date or time information
+   - The transcript should start directly with speaker dialogue (Moderator: or Respondent:)
+   - NO date/time information should appear anywhere in the cleaned transcript body
 
-2. PRESERVE INTERVIEW METADATA AT THE TOP:
-   - Keep interview metadata (Date, Time, Interview Date, Interview Time, Session Date, etc.) at the very beginning
-   - Preserve the exact format of date and time information (e.g., "Interview Date: 10/15/2024" or "Date: October 15, 2024")
-   - This metadata should appear BEFORE any speaker dialogue
+${speakerReplacementInstructions}
 
-3. IDENTIFY SPEAKERS CORRECTLY:
+2. IDENTIFY SPEAKERS CORRECTLY:
    - The MODERATOR asks questions, probes, facilitates the interview (e.g., "Can you tell me...", "How do you feel...", "That's interesting...")
    - The RESPONDENT answers questions, shares experiences, provides opinions (e.g., "I think...", "In my experience...", "I was...")
    - DO NOT simply copy existing speaker labels - they may be WRONG or MISSING
    - READ THE CONTENT to determine who is actually speaking
+   ${providedModerator ? `- Use the provided moderator name "${providedModerator}" to identify moderator speech and replace it with "Moderator:"` : ''}
+   ${providedRespondent ? `- Use the provided respondent name "${providedRespondent}" to identify respondent speech and replace it with "Respondent:"` : ''}
 
-4. CLEAN UP THE TEXT:
+3. CLEAN UP THE TEXT:
    - Remove timestamps (e.g., (00:00:01 - 00:00:11))
    - Remove filler words (um, uh, like as filler, you know when used as filler)
    - Fix incomplete sentences and sentence fragments
    - Remove cross-talk and overlapping speech markers
    - Merge sentence fragments that belong together
    - Remove single-word fragments that don't add meaning (e.g., "This.", "Yeah." as standalone)
+   - PRESERVE speaker notes like (laughter), (pause), (sighs) - these should remain in parentheses
 
-5. FORMATTING:
+4. FORMATTING:
    - Use ONLY "Moderator:" and "Respondent:" as speaker labels
-   - Put a blank line between each speaker turn
+   - Put ONE blank line between each speaker turn (single line break)
    - Keep each speaker's full turn together (don't split mid-thought)
    - Maintain natural paragraph breaks within long turns
+   - Speaker notes in parentheses (e.g., (laughter), (pause)) should remain as-is but will be formatted separately
 
-7. SPEAKER LABELS (IF PROVIDED BY USER):
-   - If the user provided speaker tags, use them as the fixed speaker labels:
-     - Moderator label: ${providedModerator || 'Moderator'}
-     - Respondent label: ${providedRespondent || 'Respondent'}
-   - If not provided or ambiguous, default to Moderator/Respondent as labels
-
-6. PRESERVE CONTENT:
+5. PRESERVE CONTENT:
    - NEVER change meaning or remove substantive content
-   - Keep all medical terms, drug names, dates, and specific details
+   - Keep all medical terms, drug names, dates (except interview date/time), and specific details
    - Preserve the respondent's actual words and phrasing
    - Keep emotional context and tone
+   - Keep speaker notes like (laughter), (pause), (sighs), etc.
 
-Output ONLY the cleaned transcript. No explanations or notes.`;
+Output ONLY the cleaned transcript. No explanations or notes. Start directly with speaker dialogue.`;
 
         console.log('🤖 Calling OpenAI API for transcript cleaning...');
         const response = await client.chat.completions.create({
