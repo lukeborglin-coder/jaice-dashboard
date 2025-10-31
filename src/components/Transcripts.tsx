@@ -990,12 +990,23 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
         const stored = sessionStorage.getItem('cognitive_dash_transcripts_focus_project');
         if (stored) {
           setPendingProjectNavigation(stored);
+          
+          // Also check for view mode and analysis to load
+          const viewMode = sessionStorage.getItem('cognitive_dash_transcripts_view_mode');
+          if (viewMode === 'project') {
+            setViewMode('project');
+          }
+          
+          const analysisId = sessionStorage.getItem('cognitive_dash_transcripts_focus_analysis');
+          if (analysisId && setAnalysisToLoad) {
+            setAnalysisToLoad(analysisId);
+          }
         }
       } catch (error) {
         console.warn('Unable to read transcripts navigation target', error);
       }
     }
-  }, [pendingProjectNavigation]);
+  }, [pendingProjectNavigation, setAnalysisToLoad]);
 
   useEffect(() => {
     if (!pendingProjectNavigation) return;
@@ -1014,9 +1025,13 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
     }
 
     setSelectedProject(targetProject);
+    // Ensure we're in project view when navigating to a specific project
+    setViewMode('project');
 
     try {
       sessionStorage.removeItem('cognitive_dash_transcripts_focus_project');
+      sessionStorage.removeItem('cognitive_dash_transcripts_view_mode');
+      sessionStorage.removeItem('cognitive_dash_transcripts_focus_analysis');
     } catch (error) {
       console.warn('Unable to clear transcripts navigation target', error);
     }

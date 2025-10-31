@@ -1823,14 +1823,38 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
             if (Array.isArray(sheetData)) {
               sheetData.forEach((row: any) => {
                 if (row?.transcriptId) {
-                  transcriptIds.add(String(row.transcriptId));
+                  const tid = String(row.transcriptId).trim();
+                  if (tid) transcriptIds.add(tid);
                 }
               });
             }
           });
           
+          // Fallback: If no transcriptIds found in data sheets, check transcripts array
+          if (transcriptIds.size === 0 && full?.transcripts && Array.isArray(full.transcripts)) {
+            full.transcripts.forEach((t: any) => {
+              const tid = t?.id || t?.sourceTranscriptId || t?.transcriptId;
+              if (tid) {
+                const normalized = String(tid).trim();
+                if (normalized) transcriptIds.add(normalized);
+              }
+            });
+          }
+          
+          console.log('🔍 Collected transcriptIds from CA:', Array.from(transcriptIds));
+          console.log('🔍 Project transcripts available:', projectTranscripts.map(t => ({ id: t.id, respno: t.respno })));
+          
           // Step 2: Filter project transcripts to only those transcriptIds (EXACT same as Transcripts page)
-          const caTranscripts = projectTranscripts.filter((t: any) => transcriptIds.has(String(t.id)));
+          const caTranscripts = projectTranscripts.filter((t: any) => {
+            const tid = String(t.id).trim();
+            const found = transcriptIds.has(tid);
+            if (!found) {
+              console.log(`⚠️ Transcript ${tid} (${t.respno}) not found in transcriptIds set`);
+            }
+            return found;
+          });
+          
+          console.log('🔍 Filtered CA transcripts:', caTranscripts.map(t => ({ id: t.id, respno: t.respno })));
           
           // CRITICAL: If we have transcriptIds in the analysis but no matching projectTranscripts,
           // this means transcripts were deleted but analysis hasn't been cleaned yet.
@@ -2825,14 +2849,26 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                   onClick={() => {
                     if (!onNavigate) return;
                     try {
-                      // Signal the Transcripts page to focus this project
+                      // Signal the Transcripts page to focus this project and CA
                       sessionStorage.setItem(
                         'cognitive_dash_transcripts_focus_project',
                         currentAnalysis.projectId
                       );
+                      // Also set the CA to load/highlight
+                      if (currentAnalysis.id) {
+                        sessionStorage.setItem(
+                          'cognitive_dash_transcripts_focus_analysis',
+                          currentAnalysis.id
+                        );
+                      }
+                      // Set view mode to project view
+                      sessionStorage.setItem(
+                        'cognitive_dash_transcripts_view_mode',
+                        'project'
+                      );
                     } catch (e) {
                       // Non-fatal if storage unavailable
-                      console.warn('Unable to store transcripts focus project', e);
+                      console.warn('Unable to store transcripts navigation info', e);
                     }
                     onNavigate('Transcripts');
                   }}
@@ -4415,3 +4451,4 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
   </main>
   );
 }
+
