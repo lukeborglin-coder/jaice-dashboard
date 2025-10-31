@@ -771,8 +771,23 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
     console.log(`🔍 getTranscriptsForAnalysis for CA ${analysis.id} (${analysis.name}):`, {
       transcriptIdsFound: Array.from(transcriptIds),
       projectTranscriptIds: projectTranscripts.map(t => t.id),
-      projectTranscriptCount: projectTranscripts.length
+      projectTranscriptCount: projectTranscripts.length,
+      analysisProjectId: analysis.projectId,
+      selectedProjectId: selectedProject?.id
     });
+    
+    // Check if CA belongs to the current project
+    if (analysis.projectId !== selectedProject?.id) {
+      console.warn(`⚠️ CA ${analysis.id} (${analysis.name}) belongs to project ${analysis.projectId}, but current project is ${selectedProject?.id}`);
+    }
+    
+    // Check for mismatched transcript IDs
+    const mismatchedIds = Array.from(transcriptIds).filter(tid => 
+      !projectTranscripts.some(t => String(t.id).trim() === tid)
+    );
+    if (mismatchedIds.length > 0) {
+      console.warn(`⚠️ CA ${analysis.id} (${analysis.name}) has ${mismatchedIds.length} transcript IDs that don't exist in project transcripts:`, mismatchedIds);
+    }
     
     const matchingTranscripts = projectTranscripts.filter(t => {
       const normalizedId = String(t.id).trim();
