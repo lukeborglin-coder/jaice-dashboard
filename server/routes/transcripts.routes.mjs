@@ -492,6 +492,8 @@ router.post('/upload', authenticateToken, upload.single('transcript'), async (re
 
         const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
+        const providedModerator = req.body?.moderatorName || null;
+        const providedRespondent = req.body?.respondentName || null;
         const systemPrompt = `You are a professional transcript editor specializing in qualitative research interviews. Clean this transcript by following these rules:
 
 CRITICAL INSTRUCTIONS:
@@ -524,6 +526,12 @@ CRITICAL INSTRUCTIONS:
    - Put a blank line between each speaker turn
    - Keep each speaker's full turn together (don't split mid-thought)
    - Maintain natural paragraph breaks within long turns
+
+7. SPEAKER LABELS (IF PROVIDED BY USER):
+   - If the user provided speaker tags, use them as the fixed speaker labels:
+     - Moderator label: ${providedModerator || 'Moderator'}
+     - Respondent label: ${providedRespondent || 'Respondent'}
+   - If not provided or ambiguous, default to Moderator/Respondent as labels
 
 6. PRESERVE CONTENT:
    - NEVER change meaning or remove substantive content
@@ -632,8 +640,20 @@ Output ONLY the cleaned transcript. No explanations or notes.`;
 
     transcripts[projectId].push(transcriptRecord);
 
-    // Use the just-added record as the final transcript (no respno yet)
-    const finalTranscript = transcriptRecord;
+    // Assign a permanent respno if missing; never renumber existing ones
+    const projectList = transcripts[projectId];
+    const toDigits = (r) => parseInt(String(r || '').replace(/\D/g, '') || '0', 10);
+    let finalTranscript = projectList.find(t => t.id === transcriptId) || transcriptRecord;
+    if (!finalTranscript.respno || String(finalTranscript.respno).trim() === '') {
+      // Find next available number
+      const used = new Set(projectList.map(t => String(t.respno || '').trim()).filter(Boolean));
+      let n = 1;
+      while (used.has(`R${String(n).padStart(2, '0')}`) || used.has(`R${n}`)) n++;
+      finalTranscript.respno = n < 100 ? `R${String(n).padStart(2, '0')}` : `R${n}`;
+      finalTranscript.respnoLocked = true;
+    } else {
+      finalTranscript.respnoLocked = true;
+    }
 
     // If cleaned, generate Word document with the FINAL respno
     if (cleanTranscript === 'true' && cleanedText) {
@@ -713,22 +733,19 @@ Output ONLY the cleaned transcript. No explanations or notes.`;
             return row;
           });
 
-          // Sort demographics by the new respno order
+          // Sort demographics by the new respno order (R01, R02, ...)
           updatedDemographics.sort((a, b) => {
             const respnoA = a['Respondent ID'] || a['respno'];
             const respnoB = b['Respondent ID'] || b['respno'];
-
-            // Extract numeric part for comparison (e.g., R01 -> 1)
-            const numA = parseInt(String(respnoA).replace('R', ''), 10);
-            const numB = parseInt(String(respnoB).replace('R', ''), 10);
-
+            const numA = parseInt(String(respnoA).replace(/\D/g, '') || '999', 10);
+            const numB = parseInt(String(respnoB).replace(/\D/g, '') || '999', 10);
             return numA - numB;
           });
 
           // Update the analysis data
           analysis.data.Demographics = updatedDemographics;
 
-          // Update other sheets to match Demographics respnos and transcriptIds
+          // Update other sheets to match Demographics respnos and transcriptIds by index
           const sheetNames = Object.keys(analysis.data).filter(name => name !== 'Demographics');
           console.log('🔍 Updating other sheets:', sheetNames);
 
@@ -855,11 +872,8 @@ router.delete('/:projectId/:transcriptId', authenticateToken, async (req, res) =
     // Remove from list
     transcripts[projectId].splice(transcriptIndex, 1);
 
-    // Reassign respnos based on chronological order after deletion
-    transcripts[projectId] = assignRespnos(transcripts[projectId]);
-
-    // Regenerate cleaned transcripts with updated respnos
-    await regenerateCleanedTranscripts(projectId, transcripts[projectId], null);
+    // Do NOT renumber existing respnos on deletion; they are locked. Optionally regenerate docs unchanged.
+    try { await regenerateCleanedTranscripts(projectId, transcripts[projectId], null); } catch {}
 
     await fs.writeFile(TRANSCRIPTS_PATH, JSON.stringify(transcripts, null, 2));
 
@@ -914,65 +928,10 @@ router.delete('/:projectId/:transcriptId', authenticateToken, async (req, res) =
           delete analysis.quotes[deletedRespno];
         }
 
-        // Re-sort Demographics by date and reassign all respnos chronologically to match transcripts
+        // Update Demographics but do not renumber respnos; preserve remaining rows
         if (analysis.data && analysis.data.Demographics) {
           const demographics = analysis.data.Demographics;
-
-          // Sort by interview date and time
-          demographics.sort((a, b) => {
-            const dateA = a['Interview Date'] || '';
-            const timeA = a['Interview Time'] || '';
-            const dateB = b['Interview Date'] || '';
-            const timeB = b['Interview Time'] || '';
-
-            if (dateA && dateB) {
-              const parsedA = new Date(dateA + ' ' + timeA);
-              const parsedB = new Date(dateB + ' ' + timeB);
-              if (!isNaN(parsedA.getTime()) && !isNaN(parsedB.getTime())) {
-                return parsedA.getTime() - parsedB.getTime();
-              }
-            }
-            return 0;
-          });
-
-          // CRITICAL: Get current transcript order from transcripts.json to match transcriptIds
-          try {
-            console.log('🔍 Starting transcriptId update process...');
-            const transcriptsData = await fs.readFile(TRANSCRIPTS_PATH, 'utf8');
-            const allTranscripts = JSON.parse(transcriptsData);
-            const projectTranscripts = allTranscripts[projectId] || [];
-            
-            console.log('🔍 Project transcripts found:', projectTranscripts.length);
-            console.log('🔍 Project transcripts:', projectTranscripts.map(t => ({ id: t.id, respno: t.respno })));
-            
-            // Create mapping of respno to transcriptId from current transcript order
-            const respnoToTranscriptId = new Map();
-            projectTranscripts.forEach((transcript, index) => {
-              const respno = `R${String(index + 1).padStart(2, '0')}`;
-              respnoToTranscriptId.set(respno, transcript.id);
-            });
-            
-            console.log('🔍 Transcript deletion - respno to transcriptId mapping:', Array.from(respnoToTranscriptId.entries()));
-
-            // Reassign respnos and transcriptIds sequentially to match the transcript order
-            demographics.forEach((row, index) => {
-              const newRespno = `R${String(index + 1).padStart(2, '0')}`;
-              const newTranscriptId = respnoToTranscriptId.get(newRespno);
-              
-              console.log(`🔍 Updating row ${index}: old transcriptId=${row.transcriptId}, new transcriptId=${newTranscriptId}`);
-              
-              if ('Respondent ID' in row) row['Respondent ID'] = newRespno;
-              if ('respno' in row) row['respno'] = newRespno;
-              if (newTranscriptId) row['transcriptId'] = newTranscriptId;
-            });
-            
-            console.log('🔍 Updated demographics after transcriptId assignment:', demographics.map(r => ({ 
-              transcriptId: r.transcriptId, 
-              respno: r['Respondent ID'] || r.respno 
-            })));
-          } catch (error) {
-            console.error('❌ Error updating transcriptIds during deletion:', error);
-          }
+          // No re-numbering here
 
           // Update other sheets to match Demographics respnos and transcriptIds
           const sheetNames = Object.keys(analysis.data).filter(name => name !== 'Demographics');
@@ -984,10 +943,16 @@ router.delete('/:projectId/:transcriptId', authenticateToken, async (req, res) =
             console.log(`🔍 Processing sheet ${sheetName}:`, Array.isArray(rows) ? `Array with ${rows.length} rows` : 'Not an array');
             
             if (Array.isArray(rows) && rows.length > 0) {
-              // If demographics is empty, we need to clear all other sheets too
+              // If demographics is empty, remove only respondent rows; keep template/category rows
               if (demographics.length === 0) {
-                console.log(`🔍 Clearing ${sheetName} sheet because demographics is empty`);
-                analysis.data[sheetName] = [];
+                console.log(`🔍 Demographics is empty; preserving ${sheetName} template rows and removing respondent rows`);
+                const preserved = rows.filter((row) => {
+                  const rid = row?.['Respondent ID'] || row?.respno;
+                  const tid = row?.transcriptId;
+                  // Preserve rows that do NOT look like respondent rows
+                  return !( (typeof rid === 'string' && rid.trim().startsWith('R')) || (typeof tid === 'string' && tid.trim() !== '') );
+                });
+                analysis.data[sheetName] = preserved;
               } else {
                 // Update existing rows to match demographics
                 rows.forEach((row, index) => {
@@ -1031,6 +996,176 @@ router.delete('/:projectId/:transcriptId', authenticateToken, async (req, res) =
   }
 });
 
+// Helper function to update CA data sheets with new respnos
+async function updateCADataWithRespnos(projectId, transcriptIdToRespno) {
+  try {
+    const CAX_PATH = path.join(DATA_DIR, 'savedAnalyses.json');
+    const caData = await fs.readFile(CAX_PATH, 'utf8');
+    const analyses = JSON.parse(caData);
+    
+    const projectAnalyses = analyses.filter(a => a.projectId === projectId);
+    let updated = false;
+    
+    for (const analysis of projectAnalyses) {
+      if (!analysis.data || typeof analysis.data !== 'object') continue;
+      
+      let analysisUpdated = false;
+      
+      // Update all sheets
+      for (const [sheetName, sheetData] of Object.entries(analysis.data)) {
+        if (!Array.isArray(sheetData)) continue;
+        
+        const updatedSheet = sheetData.map(row => {
+          if (!row || typeof row !== 'object') return row;
+          if (!row.transcriptId) return row;
+          
+          const newRespno = transcriptIdToRespno.get(String(row.transcriptId));
+          if (newRespno) {
+            analysisUpdated = true;
+            return {
+              ...row,
+              'Respondent ID': newRespno,
+              respno: newRespno
+            };
+          }
+          return row;
+        });
+        
+        if (analysisUpdated) {
+          analysis.data[sheetName] = updatedSheet;
+        }
+      }
+      
+      if (analysisUpdated) {
+        updated = true;
+      }
+    }
+    
+    if (updated) {
+      await fs.writeFile(CAX_PATH, JSON.stringify(analyses, null, 2));
+    }
+    
+    return updated;
+  } catch (error) {
+    console.error('Error updating CA data with respnos:', error);
+    throw error;
+  }
+}
+
+// POST /api/transcripts/reset-respnos/:projectId - Reset all respnos for transcripts in CAs (exclude un-assigned)
+router.post('/reset-respnos/:projectId', authenticateToken, async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const transcriptsData = await fs.readFile(TRANSCRIPTS_PATH, 'utf8');
+    const transcripts = JSON.parse(transcriptsData);
+
+    if (!transcripts[projectId]) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    // Get all transcripts assigned to any CA for this project
+    const CAX_PATH = path.join(DATA_DIR, 'savedAnalyses.json');
+    const caData = await fs.readFile(CAX_PATH, 'utf8');
+    const analyses = JSON.parse(caData);
+    const projectAnalyses = analyses.filter(a => a.projectId === projectId);
+    
+    // Collect transcript IDs that are in any CA
+    const transcriptsInCA = new Set();
+    for (const analysis of projectAnalyses) {
+      if (!analysis.data || typeof analysis.data !== 'object') continue;
+      for (const sheetData of Object.values(analysis.data)) {
+        if (Array.isArray(sheetData)) {
+          sheetData.forEach(row => {
+            if (row?.transcriptId) {
+              transcriptsInCA.add(String(row.transcriptId));
+            }
+          });
+        }
+      }
+    }
+    
+    // Filter transcripts to only those in CAs
+    const transcriptsToReset = transcripts[projectId].filter(t => 
+      transcriptsInCA.has(String(t.id))
+    );
+    
+    if (transcriptsToReset.length === 0) {
+      return res.json({ success: true, projectId, updated: false, message: 'No transcripts in content analyses to reset' });
+    }
+    
+    // Sort chronologically
+    const sorted = assignRespnos(transcriptsToReset);
+    
+    // Create map of transcriptId to new respno
+    const transcriptIdToRespno = new Map();
+    sorted.forEach(t => {
+      if (t.id && t.respno) {
+        transcriptIdToRespno.set(String(t.id), t.respno);
+      }
+    });
+    
+    // Update transcripts array with new respnos (maintaining order of all transcripts)
+    const updatedTranscripts = transcripts[projectId].map(t => {
+      const newRespno = transcriptIdToRespno.get(String(t.id));
+      if (newRespno) {
+        return { ...t, respno: newRespno };
+      }
+      return t;
+    });
+    
+    transcripts[projectId] = updatedTranscripts;
+    
+    // Save transcripts
+    await fs.writeFile(TRANSCRIPTS_PATH, JSON.stringify(transcripts, null, 2));
+    
+    // Update CA data with new respnos
+    await updateCADataWithRespnos(projectId, transcriptIdToRespno);
+    
+    // Regenerate cleaned transcript files
+    try {
+      await regenerateCleanedTranscripts(projectId, transcripts[projectId], null);
+    } catch (e) {
+      console.warn('Failed to regenerate cleaned transcripts after reset:', e?.message);
+    }
+
+    res.json({ success: true, projectId, updated: true, transcriptsReset: sorted.length });
+  } catch (error) {
+    console.error('Error resetting respnos:', error);
+    res.status(500).json({ error: 'Failed to reset respnos', message: error.message });
+  }
+});
+
+// Recompute respnos for a project (utility endpoint)
+router.post('/reassign/:projectId', authenticateToken, async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const data = await fs.readFile(TRANSCRIPTS_PATH, 'utf8');
+    const transcripts = JSON.parse(data);
+
+    if (!transcripts[projectId]) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    const hadMissing = transcripts[projectId].some(t => !t.respno || String(t.respno).trim() === '');
+
+    // Always reassign to ensure correct chronological order
+    transcripts[projectId] = assignRespnos(transcripts[projectId]);
+
+    // Persist and regenerate cleaned transcript files with updated respnos
+    await fs.writeFile(TRANSCRIPTS_PATH, JSON.stringify(transcripts, null, 2));
+    try {
+      await regenerateCleanedTranscripts(projectId, transcripts[projectId], null);
+    } catch (e) {
+      console.warn('Failed to regenerate cleaned transcripts after reassign:', e?.message);
+    }
+
+    res.json({ success: true, projectId, updated: true, hadMissing });
+  } catch (error) {
+    console.error('Error reassigning respnos:', error);
+    res.status(500).json({ error: 'Failed to reassign respnos' });
+  }
+});
+
 // Parse date/time from transcript file
 router.post('/parse-datetime', authenticateToken, upload.single('file'), async (req, res) => {
   try {
@@ -1054,11 +1189,217 @@ router.post('/parse-datetime', authenticateToken, upload.single('file'), async (
 
     console.log('📝 Transcript text length:', transcriptText.length);
 
-    // Parse date and time
-    const { interviewDate, interviewTime } = parseDateTimeFromTranscript(transcriptText);
+    // Optional: projectId to aid name detection
+    const projectId = req.body?.projectId;
+    let projectModeratorName = null;
+    if (projectId) {
+      try {
+        const projectsRaw = await fs.readFile(PROJECTS_PATH, 'utf8');
+        const projectsObj = JSON.parse(projectsRaw || '{}');
+        for (const userProjects of Object.values(projectsObj)) {
+          if (Array.isArray(userProjects)) {
+            const proj = userProjects.find(p => p.id === projectId);
+            if (proj) {
+              projectModeratorName = proj.moderator || proj.moderatorName || proj.leadModerator || null;
+              break;
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to read project moderator:', e?.message);
+      }
+    }
 
-    console.log('📅 Parsed date:', interviewDate);
-    console.log('🕐 Parsed time:', interviewTime);
+    // Quick simple extraction: detect Moderator/Respondent tags or speaker labels
+    let moderatorName = null;
+    let respondentName = null;
+    const RESERVED = new Set(['date','time','moderator','respondent','interview','session','transcript']);
+    const isLikelyName = (s) => {
+      if (!s) return false;
+      const v = String(s).trim();
+      if (!v) return false;
+      if (v.length > 40) return false;
+      if (/[?!@#\$%\^&*_+=\[\]{}<>]/.test(v)) return false;
+      if (RESERVED.has(v.toLowerCase())) return false;
+      // Disallow sentences
+      if (/(thank you|appreciate|today|interview|time)/i.test(v)) return false;
+      const words = v.split(/\s+/);
+      if (words.length > 4) return false;
+      // Each word should be alphabetical with optional ' or - and start uppercase
+      const nameWord = /^[A-Z][a-zA-Z'-]*$/;
+      const ok = words.every(w => nameWord.test(w));
+      return ok;
+    };
+    const findNextLikelyName = (arr, startIdx) => {
+      for (let i = startIdx + 1; i < Math.min(arr.length, startIdx + 6); i++) {
+        const cand = arr[i].trim();
+        if (!cand) continue;
+        if (isLikelyName(cand)) return cand;
+        // also accept "Name (Moderator)" pattern
+        const paren = cand.match(/^([A-Z][A-Za-z'-]+(?:\s+[A-Z][A-Za-z'-]+){0,3})\s*\((?:Moderator|Respondent)\)/i);
+        if (paren && isLikelyName(paren[1])) return paren[1];
+      }
+      return null;
+    };
+    let modTagFound = false;
+    let respTagFound = false;
+    try {
+      const lines = transcriptText.split(/\r?\n/).slice(0, 200); // look only at first ~200 lines
+      for (let idx = 0; idx < lines.length; idx++) {
+        const line = lines[idx].trim();
+        if (!line) continue;
+        const modMatch = line.match(/^Moderator:\s*(.*)$/i);
+        const respMatch = line.match(/^Respondent:\s*(.*)$/i);
+        if (modMatch && !moderatorName) {
+          modTagFound = true;
+          const val = (modMatch[1] || '').trim();
+          moderatorName = isLikelyName(val) ? val : findNextLikelyName(lines, idx);
+        }
+        if (respMatch && !respondentName) {
+          respTagFound = true;
+          const val = (respMatch[1] || '').trim();
+          respondentName = isLikelyName(val) ? val : findNextLikelyName(lines, idx);
+        }
+        if (moderatorName && respondentName) break;
+      }
+      if (!moderatorName || !respondentName) {
+        // Detect speaker label pattern like "John:" or "Jane:"; infer moderator if it matches project moderator
+        const speakerLabel = lines
+          .map(l => l.trim())
+          .filter(l => /^[A-Za-z][A-Za-z .'-]{1,30}:/.test(l))
+          .map(l => l.split(':')[0].trim());
+        const unique = Array.from(new Set(speakerLabel));
+        if (!moderatorName && projectModeratorName) {
+          const pm = projectModeratorName.toLowerCase();
+          const hit = unique.find(n => n.toLowerCase() === pm || pm.includes(n.toLowerCase()) || n.toLowerCase().includes(pm));
+          if (hit) moderatorName = hit;
+        }
+        if (!moderatorName && unique.length && isLikelyName(unique[0])) moderatorName = unique[0];
+        if (!respondentName && unique.length > 1) {
+          const alt = unique.find(n => n !== moderatorName && isLikelyName(n));
+          if (alt) respondentName = alt;
+        }
+      }
+    } catch (e) {
+      // ignore simple extraction errors
+    }
+
+    // Use AI to extract metadata from first page only (cost-effective)
+    const firstPage = transcriptText.substring(0, 3000); // First ~3000 chars = roughly first page
+    console.log('🤖 Using AI to extract metadata from first page...');
+
+    let interviewDate = null;
+    let interviewTime = null;
+
+    try {
+      if (!process.env.OPENAI_API_KEY) {
+        throw new Error('OpenAI API key not configured');
+      }
+
+      const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+      const systemPrompt = `You are an expert at extracting metadata from interview transcripts. Use simple label detection first; do not read the full content. Look for explicit speaker tags such as "Moderator:" and "Respondent:" or speaker name labels like "John:".
+
+If a project moderator is provided, prefer mapping that name to the moderator role when ambiguous.
+
+Your task is to read the beginning of a transcript and extract:
+
+1. Interview Date (in a clear format like "Oct 15, 2024" or "10/15/2024")
+2. Interview Time (including AM/PM and timezone if available, like "3:00 PM EST")
+3. Moderator Name (the actual person's name, NOT just "Moderator" - look for headers, introductions, or labels)
+4. Respondent Name (the actual person's name, NOT just "Respondent" - look for headers, introductions, or labels)
+
+IMPORTANT INSTRUCTIONS:
+- Prefer explicit tags: lines starting with "Moderator:" or "Respondent:" and capture text after the colon.
+- If tags are not present, look for speaker labels like "John:" and "Jane:"; infer moderator using the provided project moderator when present.
+- Ignore single-letter speaker labels (e.g., "M:", "R:") as names.
+- If a proper name cannot be found, return the generic tag ("Moderator" / "Respondent") rather than a wrong guess.
+- If you cannot find an actual name, return null for that field.
+
+Return your response as a JSON object with these exact keys:
+{
+  "date": "string or null",
+  "time": "string or null",
+  "moderatorName": "string or null",
+  "respondentName": "string or null"
+}
+
+Return ONLY the JSON object, no additional text.`;
+
+      const response = await client.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: `Project Moderator (if known): ${projectModeratorName || 'null'}\nExisting simple extraction: moderator=${moderatorName || 'null'}, respondent=${respondentName || 'null'}\n\nExtract the metadata from this transcript:\n\n${firstPage}` }
+        ],
+        temperature: 0.1,
+        response_format: { type: 'json_object' }
+      });
+
+      if (!response.choices || !response.choices[0] || !response.choices[0].message || !response.choices[0].message.content) {
+        throw new Error('OpenAI API returned invalid response');
+      }
+
+      const extracted = JSON.parse(response.choices[0].message.content);
+      interviewDate = extracted.date || null;
+      interviewTime = extracted.time || null;
+      // Merge with simple extraction but validate AI outputs
+      const aiMod = extracted.moderatorName || null;
+      const aiResp = extracted.respondentName || null;
+      if (!moderatorName && isLikelyName(aiMod)) moderatorName = aiMod;
+      if (!respondentName && isLikelyName(aiResp)) respondentName = aiResp;
+
+      // Final sanity: avoid identical or reserved outputs
+      if (moderatorName && RESERVED.has(moderatorName.toLowerCase())) moderatorName = null;
+      if (respondentName && RESERVED.has(respondentName.toLowerCase())) respondentName = null;
+      if (moderatorName && respondentName && moderatorName.toLowerCase() === respondentName.toLowerCase()) {
+        // If both same, prefer project moderator assignment if available
+        if (projectModeratorName && moderatorName.toLowerCase() !== projectModeratorName.toLowerCase()) {
+          // assign moderator to project moderator if it passes name check
+          if (isLikelyName(projectModeratorName)) moderatorName = projectModeratorName;
+          else moderatorName = null;
+        } else {
+          respondentName = null;
+        }
+      }
+
+      // If still missing and tags were present, fall back to generic labels
+      if (!moderatorName && modTagFound) moderatorName = 'Moderator';
+      if (!respondentName && respTagFound) respondentName = 'Respondent';
+
+      console.log('✅ AI extraction successful:', { interviewDate, interviewTime, moderatorName, respondentName });
+
+      // Log cost for metadata extraction
+      try {
+        const inputTokens = response.usage?.prompt_tokens || 0;
+        const outputTokens = response.usage?.completion_tokens || 0;
+        if (inputTokens > 0 && outputTokens > 0) {
+          await logCost(
+            'metadata-extraction',
+            COST_CATEGORIES.TRANSCRIPT_CLEANING, // Reuse category
+            'gpt-4o-mini',
+            inputTokens,
+            outputTokens,
+            'Transcript metadata extraction'
+          );
+        }
+      } catch (e) {
+        console.warn('Failed to log metadata extraction cost:', e.message);
+      }
+    } catch (aiError) {
+      console.error('❌ AI extraction failed, falling back to regex:', aiError.message);
+
+      // Fallback to original regex-based parsing for date/time only
+      const parsed = parseDateTimeFromTranscript(transcriptText);
+      interviewDate = parsed.interviewDate;
+      interviewTime = parsed.interviewTime;
+      // Don't attempt name extraction with regex - better to return null than wrong data
+      moderatorName = null;
+      respondentName = null;
+    }
+
+    console.log('👤 Final parsed moderator:', moderatorName);
+    console.log('👤 Final parsed respondent:', respondentName);
 
     // Clean up uploaded file
     try {
@@ -1067,7 +1408,7 @@ router.post('/parse-datetime', authenticateToken, upload.single('file'), async (
       console.warn('Failed to clean up file:', e);
     }
 
-    const response = { date: interviewDate, time: interviewTime };
+    const response = { date: interviewDate, time: interviewTime, moderatorName, respondentName };
     console.log('✅ Sending response:', response);
 
     return res.json(response);
@@ -1150,13 +1491,9 @@ router.put('/:projectId/:transcriptId/datetime', authenticateToken, async (req, 
       }
     }
 
-    // Reassign respnos based on chronological order after update
-    // This function returns the sorted array, so we need to use it
-    const sortedTranscripts = assignRespnos(transcripts[projectId]);
-    transcripts[projectId] = sortedTranscripts;
-
-    // Regenerate cleaned transcripts with updated respnos
-    await regenerateCleanedTranscripts(projectId, sortedTranscripts, null);
+    // Do not reassign respnos on date/time edits; preserve CA-assigned respnos
+    // Optionally regenerate cleaned transcripts for this project without changing respnos
+    await regenerateCleanedTranscripts(projectId, transcripts[projectId], null);
 
     await fs.writeFile(TRANSCRIPTS_PATH, JSON.stringify(transcripts, null, 2));
 

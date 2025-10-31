@@ -238,7 +238,6 @@ async function getTranscriptsText(projectId, analysisId = null, transcriptIds = 
       const transcriptsWithAnalysisId = projectTranscripts.filter(t => t.analysisId === analysisId);
       
       // If transcripts have analysisId, filter by it
-      // If no transcripts have analysisId, use all transcripts (legacy behavior)
       if (transcriptsWithAnalysisId.length > 0) {
         projectTranscripts = transcriptsWithAnalysisId;
         console.log('🔍 Filtered to transcripts with matching analysisId');
@@ -246,10 +245,47 @@ async function getTranscriptsText(projectId, analysisId = null, transcriptIds = 
         // Check if any transcripts have analysisId at all
         const hasAnyAnalysisId = projectTranscripts.some(t => t.analysisId);
         if (hasAnyAnalysisId) {
-          console.log('🔍 No transcripts found with analysisId, returning empty result');
+          // Some transcripts have analysisId, but none match - return empty
+          console.log('🔍 No transcripts found with matching analysisId, returning empty result');
           return '';
         } else {
-          console.log('🔍 No transcripts have analysisId, using all transcripts (legacy behavior)');
+          // No transcripts have analysisId - filter by CA respondent IDs instead
+          console.log('🔍 No transcripts have analysisId, filtering by CA respondent IDs');
+          
+          // Load CA data to get respondent IDs
+          const caDataObj = await getCAData(projectId, analysisId);
+          if (!caDataObj || !caDataObj.data) {
+            console.log('🔍 No CA data found, returning empty result');
+            return '';
+          }
+          
+          // Collect transcript IDs from CA data rows
+          const caTranscriptIds = new Set();
+          Object.values(caDataObj.data).forEach((sheetData) => {
+            if (Array.isArray(sheetData)) {
+              sheetData.forEach((row) => {
+                if (row && typeof row === 'object') {
+                  // Check for transcriptId field
+                  if (row.transcriptId) {
+                    caTranscriptIds.add(String(row.transcriptId));
+                  }
+                }
+              });
+            }
+          });
+          
+          if (caTranscriptIds.size === 0) {
+            console.log('🔍 No transcript IDs found in CA data, returning empty result');
+            return '';
+          }
+          
+          // Filter transcripts by those found in CA data
+          projectTranscripts = projectTranscripts.filter(t => caTranscriptIds.has(String(t.id)));
+          console.log('🔍 Filtered transcripts by CA respondent IDs:', {
+            caTranscriptIds: Array.from(caTranscriptIds),
+            matchedTranscripts: projectTranscripts.length,
+            transcriptIds: projectTranscripts.map(t => t.id)
+          });
         }
       }
       
@@ -695,6 +731,22 @@ router.post('/:projectId/storyboard/generate', authenticateToken, async (req, re
   }
 });
 
+// GET /api/storytelling/:projectId/storyboards - Get storyboards for a project (optionally scoped by analysisId)
+router.get('/:projectId/storyboards', authenticateToken, async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const { analysisId } = req.query;
+
+    const projectData = await loadProjectStorytelling(projectId, analysisId);
+    const storyboards = Array.isArray(projectData.storyboards) ? projectData.storyboards : [];
+
+    res.json({ storyboards });
+  } catch (error) {
+    console.error('Error loading storyboards:', error);
+    res.status(500).json({ error: 'Failed to load storyboards', message: error.message });
+  }
+});
+
 // POST /api/storytelling/:projectId/executive-summary/generate - Generate concise executive summary
 router.post('/:projectId/executive-summary/generate', authenticateToken, async (req, res) => {
   try {
@@ -1009,16 +1061,16 @@ router.post('/:projectId/quotes', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Question and answer are required' });
     }
 
-    // Load project storytelling data to check cache
-    const projectData = await loadProjectStorytelling(projectId);
+    // Load project storytelling data to check cache - use analysisId for scoping
+    const projectData = await loadProjectStorytelling(projectId, analysisId);
     
-    // Create a cache key based on question and answer
-    const cacheKey = `${question}|${answer}`;
+    // Create a cache key based on question, answer, and analysisId (for proper scoping)
+    const cacheKey = analysisId ? `${question}|${answer}|${analysisId}` : `${question}|${answer}`;
     
     // Check if we already have cached quotes for this question/answer combination
     if (projectData.quotesCache && projectData.quotesCache[cacheKey]) {
       const cachedQuotes = projectData.quotesCache[cacheKey];
-      console.log(`✅ Returning cached quotes for storytelling (saved ${cachedQuotes.savedAt})`);
+      console.log(`✅ Returning cached quotes for storytelling (saved ${cachedQuotes.savedAt}, analysisId: ${analysisId || 'none'})`);
       return res.json({
         success: true,
         quotes: cachedQuotes.quotes,
@@ -1028,9 +1080,9 @@ router.post('/:projectId/quotes', authenticateToken, async (req, res) => {
       });
     }
 
-    console.log(`🆕 No cached quotes found, generating new quotes for storytelling`);
+    console.log(`🆕 No cached quotes found, generating new quotes for storytelling (analysisId: ${analysisId || 'none'})`);
 
-    // Get transcripts for this project
+    // Get transcripts for this project (scoped to analysisId)
     const transcriptsText = await getTranscriptsText(projectId, analysisId);
     if (!transcriptsText) {
       return res.status(404).json({ error: 'No transcripts available for this project' });
@@ -1150,9 +1202,9 @@ ${transcriptsText.substring(0, 20000)}`; // Increased limit to 20000 chars for b
         savedAt: new Date().toISOString()
       };
 
-      // Save the updated project data
-      await saveProjectStorytelling(projectId, projectData);
-      console.log(`💾 Cached quotes for storytelling: ${cacheKey}`);
+      // Save the updated project data (analysis-scoped)
+      await saveProjectStorytelling(projectId, projectData, analysisId);
+      console.log(`💾 Cached quotes for storytelling: ${cacheKey} (analysisId: ${analysisId || 'none'})`);
     } else {
       console.log(`⚠️ Not caching empty quotes for: ${cacheKey}`);
     }

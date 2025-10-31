@@ -101,20 +101,13 @@ export const normalizeTranscriptList = <T extends TranscriptLike>(
     return a.index - b.index;
   });
 
+  // Preserve existing respnos exactly as stored; do NOT auto-reassign
   const previousToNewRespno = new Map<string, string>();
   const idToRespno = new Map<string, string>();
 
-  const orderedAsc = withMeta.map((meta, idx) => {
-    const newRespno = formatRespno(idx + 1);
-    if (meta.normalizedRespno) {
-      previousToNewRespno.set(meta.normalizedRespno, newRespno);
-    }
-    idToRespno.set(meta.original.id, newRespno);
-    return {
-      ...meta.original,
-      respno: newRespno
-    };
-  });
+  const orderedAsc = withMeta.map(meta => ({
+    ...meta.original
+  }));
 
   const orderedDesc = [...orderedAsc].sort((a, b) => {
     return respnoToNumber(b.respno) - respnoToNumber(a.respno);
@@ -187,6 +180,12 @@ export const normalizeAnalysisRespnos = (
   
   if (!analysis || !analysis.data || !Array.isArray(analysis.data.Demographics)) {
     console.log('🔧 Early return - missing required data');
+    return analysis;
+  }
+
+  // If we don't have project transcripts to reference, do NOT touch respnos
+  if (!projectTranscripts || projectTranscripts.length === 0) {
+    console.log('🔧 Skipping normalization - no project transcripts provided');
     return analysis;
   }
 
@@ -295,13 +294,16 @@ export const normalizeAnalysisRespnos = (
       return;
     }
     
-    const newRespno = matchedTranscript.respno || formatRespno(idx + 1);
+    const newRespno = matchedTranscript.respno || null;
 
-    if (meta.normalizedRespno) {
-      previousToNew.set(meta.normalizedRespno, newRespno);
+    // Only set if found; otherwise leave original as-is
+    if (newRespno) {
+      if (meta.normalizedRespno) {
+        previousToNew.set(meta.normalizedRespno, newRespno);
+      }
+      meta.row['Respondent ID'] = newRespno;
+      meta.row['respno'] = newRespno;
     }
-    meta.row['Respondent ID'] = newRespno;
-    meta.row['respno'] = newRespno;
     
     // Update date/time fields from transcript data
     // Use the matched transcript (already found above) - don't fall back to respno matching
@@ -360,16 +362,6 @@ export const normalizeAnalysisRespnos = (
       }
       
       return meta.row;
-    })
-    .sort((a, b) => {
-      // Sort by respno number, but handle cases where respno might not be set
-      const respA = respnoToNumber(a['Respondent ID'] || a['respno']);
-      const respB = respnoToNumber(b['Respondent ID'] || b['respno']);
-      if (respA === respB) {
-        // If respnos are equal, maintain original order (by transcriptId or index)
-        return 0;
-      }
-      return respA - respB;
     });
   
   // Include all rows with transcriptId, even if transcript not found
@@ -391,60 +383,17 @@ export const normalizeAnalysisRespnos = (
       return;
     }
 
-    const updatedRows = sheetData.map((row: any) => {
-      const newRow = { ...row };
-      ['Respondent ID', 'respno'].forEach(key => {
-        if (!newRow[key]) return;
-        const normalized = normalizeRespnoValue(newRow[key]);
-        if (!normalized) return;
-        const mapped = previousToNew.get(normalized);
-        if (mapped) {
-          newRow[key] = mapped;
-        }
-      });
-      return newRow;
-    });
+    // Do not remap or normalize other sheets' respnos at all
+    const updatedRows = sheetData.map((row: any) => ({ ...row }));
 
-    const shouldSort = updatedRows.some(row => {
-      if (!row) return false;
-      const resp = row['Respondent ID'] || row['respno'];
-      return typeof resp === 'string' && resp.trim().length > 0;
-    });
-
-    if (shouldSort) {
-      normalizedData[sheetName] = [...updatedRows].sort((a, b) => {
-        const respA = normalizeRespnoValue(a['Respondent ID'] || a['respno']);
-        const respB = normalizeRespnoValue(b['Respondent ID'] || b['respno']);
-        const indexA = respnoOrderIndex.get(respA) ?? Number.MAX_SAFE_INTEGER;
-        const indexB = respnoOrderIndex.get(respB) ?? Number.MAX_SAFE_INTEGER;
-        return indexA - indexB;
-      });
-    } else {
-      normalizedData[sheetName] = updatedRows;
-    }
+    // Preserve original order; do not sort by respno
+    normalizedData[sheetName] = updatedRows;
   });
 
   const updatedTranscripts = Array.isArray(analysis.transcripts)
     ? analysis.transcripts.map(transcript => {
-        const normalized = normalizeRespnoValue(transcript.respno);
-        let mappedRespno = normalized ? previousToNew.get(normalized) : undefined;
-
-        if (!mappedRespno && projectTranscripts && projectTranscripts.length > 0) {
-          const metadata = extractInterviewMetadataFromRow(transcript.demographics || {});
-          const matchingTranscript = projectTranscripts.find(pt => {
-            return (
-              normalizeRespnoValue(pt.respno) === normalized ||
-              (metadata.interviewDate &&
-                metadata.interviewDate === pt.interviewDate &&
-                metadata.interviewTime === pt.interviewTime)
-            );
-          });
-          if (matchingTranscript) {
-            mappedRespno = matchingTranscript.respno || mappedRespno;
-          }
-        }
-
-        const newRespno = mappedRespno || transcript.respno;
+        // Keep transcript.respno as-is
+        const newRespno = transcript.respno;
         const demographics = transcript.demographics ? { ...transcript.demographics } : {};
         if (newRespno) {
           demographics['Respondent ID'] = newRespno;
@@ -459,15 +408,7 @@ export const normalizeAnalysisRespnos = (
       })
     : analysis.transcripts;
 
-  const sortedTranscripts = Array.isArray(updatedTranscripts)
-    ? [...updatedTranscripts].sort((a, b) => {
-        const respA = normalizeRespnoValue(a?.respno);
-        const respB = normalizeRespnoValue(b?.respno);
-        const indexA = respnoOrderIndex.get(respA) ?? Number.MAX_SAFE_INTEGER;
-        const indexB = respnoOrderIndex.get(respB) ?? Number.MAX_SAFE_INTEGER;
-        return indexA - indexB;
-      })
-    : updatedTranscripts;
+  const sortedTranscripts = updatedTranscripts;
 
   return {
     ...analysis,

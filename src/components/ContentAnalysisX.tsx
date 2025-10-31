@@ -8,7 +8,7 @@ import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } fro
 import ExcelJS from 'exceljs';
 import { renderAsync } from 'docx-preview';
 import StoryboardModal from './StoryboardModal';
-import { normalizeAnalysisRespnos, buildTranscriptDisplayName } from '../utils/respnoUtils';
+import { buildTranscriptDisplayName } from '../utils/respnoUtils';
 
 const BRAND_ORANGE = '#D14A2D';
 const BRAND_GRAY = '#5D5F62';
@@ -401,15 +401,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
   const [selectedTranscriptType, setSelectedTranscriptType] = useState<'original' | 'cleaned'>('cleaned');
   // Removed showGenerateModal - upload now directly populates CA
 
-  // Sync transcripts when currentAnalysis changes
-  useEffect(() => {
-    console.log('🔄 Syncing transcripts from currentAnalysis:', currentAnalysis?.transcripts);
-    if (currentAnalysis?.transcripts) {
-      setTranscripts(currentAnalysis.transcripts);
-    } else {
-      setTranscripts([]);
-    }
-  }, [currentAnalysis]);
+  // Removed syncing transcripts from currentAnalysis to avoid duplicates
 
   // Transcripts already linked to ANY content analysis for this project
   // Disable them in the picker so a single project transcript cannot be
@@ -723,15 +715,27 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
     for (const r of rows) {
       Object.keys(r || {}).forEach((k) => set.add(k));
     }
-    const headers = Array.from(set);
+    let headers = Array.from(set);
 
-    // Remove duplicate respno column if Respondent ID exists
-    if (headers.includes('Respondent ID') && headers.includes('respno')) {
-      const respnoIndex = headers.indexOf('respno');
-      headers.splice(respnoIndex, 1);
+    // Always hide internal transcriptId column
+    headers = headers.filter(h => h !== 'transcriptId');
+
+    // Ensure Respondent ID appears as first column and hide raw 'respno'
+    const hasRespondentId = headers.includes('Respondent ID');
+    const hasRespno = headers.includes('respno');
+    headers = headers.filter(h => h !== 'Respondent ID' && h !== 'respno');
+    let finalHeaders = headers;
+    const hasAnyResp = rows.some(r => r && (r['Respondent ID'] || r['respno']));
+    if (hasAnyResp) finalHeaders = ['Respondent ID', ...headers];
+
+    // If no rows (or no headers from rows), fall back to saved columnSchema
+    if ((!rows || rows.length === 0) && Array.isArray(currentAnalysis?.columnSchema?.[activeSheet])) {
+      const schemaCols = (currentAnalysis as any).columnSchema[activeSheet] as string[];
+      const cleaned = schemaCols.filter(h => h !== 'transcriptId' && h !== 'respno');
+      finalHeaders = ['Respondent ID', ...cleaned];
     }
 
-    return headers;
+    return finalHeaders;
   }, [currentAnalysis?.data, activeSheet, transcripts.length]);
 
   // Handler for deleting a demographic column
@@ -1293,6 +1297,42 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
       return;
     }
 
+    // Server-side removal to persist and move transcript to Un-Assigned
+    try {
+      // Find transcriptId from Demographics or any sheet row
+      let transcriptId: string | null = null;
+      const demoRows: any[] = Array.isArray(currentAnalysis?.data?.Demographics) ? currentAnalysis.data.Demographics : [];
+      const hit = demoRows.find((r: any) => (r['Respondent ID'] || r['respno']) === respondentId);
+      if (hit?.transcriptId) transcriptId = String(hit.transcriptId);
+      if (!transcriptId) {
+        for (const rows of Object.values(currentAnalysis?.data || {})) {
+          if (Array.isArray(rows)) {
+            const row = (rows as any[]).find(r => (r['Respondent ID'] || r['respno']) === respondentId && r?.transcriptId);
+            if (row) { transcriptId = String(row.transcriptId); break; }
+          }
+        }
+      }
+      if (transcriptId) {
+        const resp = await fetch(`${API_BASE_URL}/api/caX/remove-transcript`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` },
+          body: JSON.stringify({ projectId: currentAnalysis.projectId, analysisId: currentAnalysis.id, transcriptId })
+        });
+        if (resp.ok) {
+          const refreshed = await fetch(`${API_BASE_URL}/api/caX/saved/${currentAnalysis.id}`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
+          });
+          if (refreshed.ok) {
+            const fresh = await refreshed.json();
+            setCurrentAnalysis(fresh);
+            return; // Done - skip local mutation path
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Backend remove-transcript failed, falling back to local removal:', e);
+    }
+
     const updatedData = { ...currentAnalysis.data };
 
     // Remove the respondent from all sheets by matching respondent ID
@@ -1362,19 +1402,15 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
       columnSchema: columnSchema
     };
 
-    // Pass all project transcripts for normalization, not just the ones in CA
-    // This ensures normalization works correctly even after deletion
-    const normalizedAnalysis = normalizeAnalysisRespnos(updatedAnalysis, projectTranscriptsForUpload);
-
-    setCurrentAnalysis(normalizedAnalysis);
+    setCurrentAnalysis(updatedAnalysis);
 
     // Update transcripts
-    setTranscripts(normalizedAnalysis.transcripts || []);
+    setTranscripts(updatedAnalysis.transcripts || []);
 
     // Save to localStorage
     const updatedAnalyses = savedAnalyses.map(a =>
       a.id === currentAnalysis.id
-        ? normalizedAnalysis
+        ? updatedAnalysis
         : a
     );
     setSavedAnalyses(updatedAnalyses);
@@ -1388,12 +1424,34 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` },
           body: JSON.stringify({
             id: currentAnalysis.id,
-            data: normalizedAnalysis.data,
-            quotes: normalizedAnalysis.quotes || filteredQuotes,
-            context: normalizedAnalysis.context || filteredContext,
-            transcripts: normalizedAnalysis.transcripts || []
+            data: updatedAnalysis.data,
+            quotes: updatedAnalysis.quotes || filteredQuotes,
+            context: updatedAnalysis.context || filteredContext,
+            transcripts: updatedAnalysis.transcripts || []
           })
         });
+        // Recompute respnos (gapless chronological) after deletion
+        try {
+          await fetch(`${API_BASE_URL}/api/caX/sync-respnos`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` },
+            body: JSON.stringify({ projectId: currentAnalysis.projectId, analysisId: currentAnalysis.id })
+          });
+        } catch (e) {
+          console.warn('Respno recompute failed (non-fatal):', e);
+        }
+        // Reload latest analysis from server so Demos and ordering reflect removal
+        try {
+          const refreshed = await fetch(`${API_BASE_URL}/api/caX/saved/${currentAnalysis.id}`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
+          });
+          if (refreshed.ok) {
+            const fresh = await refreshed.json();
+            setCurrentAnalysis(fresh);
+          }
+        } catch (e) {
+          console.warn('Failed to refresh analysis after delete:', e);
+        }
       } catch (error) {
         console.error('Auto-save error:', error);
       }
@@ -1461,7 +1519,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
       }
       const json = await res.json();
       const normalized = Array.isArray(json)
-        ? json.map((analysis: any) => normalizeAnalysisRespnos(analysis, projectTranscriptsForUpload))
+        ? json
         : [];
       setSavedAnalyses(normalized);
     } catch (e) {
@@ -1624,6 +1682,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
     setViewMode('viewer');
     setLoadingSavedView(true);
     try {
+      // No respno renumbering; respnos are locked at project level
       const token = localStorage.getItem('cognitive_dash_token');
       // Try to fetch full analysis (including quotes) by id
       const resp = await fetch(`${API_BASE_URL}/api/caX/saved/${analysis.id}`, {
@@ -1656,43 +1715,169 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
         
         console.log('🔍 Project transcripts for normalization:', projectTranscripts);
         console.log('🔍 Analysis demographics before normalization:', full?.data?.Demographics);
-        
-        const normalizedFull = normalizeAnalysisRespnos(full || analysis, projectTranscripts);
-        
-        console.log('🔍 Normalizing analysis with transcripts:', {
-          analysisId: analysis.id,
-          projectTranscriptsCount: projectTranscripts?.length || 0,
-          demographicsBefore: full?.data?.Demographics?.map((r: any) => ({
-            respno: r['Respondent ID'] || r['respno'],
-            date: r['Interview Date'] || r['Date'],
-            time: r['Interview Time'] || r['Time']
-          })),
-          demographicsAfter: normalizedFull?.data?.Demographics?.map((r: any) => ({
-            respno: r['Respondent ID'] || r['respno'],
-            date: r['Interview Date'] || r['Date'],
-            time: r['Interview Time'] || r['Time']
-          }))
-        });
-        
-        console.log('🔍 Analysis demographics after normalization:', normalizedFull?.data?.Demographics);
-        setCurrentAnalysis(normalizedFull);
-        setTranscripts(normalizedFull?.transcripts || []);
-        const sheets = Object.keys(normalizedFull?.data || {});
+
+        // Populate Demographics in-view from project transcripts (frontend-only)
+        try {
+          // Always mirror the Transcripts page: build Demos from assigned transcriptIds and project transcript metadata
+          const includedIds = new Set<string>();
+          const respnosFound = new Set<string>(); // Track respnos found in any row
+          
+          // First, collect transcriptIds from ALL existing rows in all sheets (including Demographics)
+          Object.values(full?.data || {}).forEach((rows: any) => {
+            if (Array.isArray(rows)) {
+              rows.forEach((r: any) => { 
+                if (r?.transcriptId) {
+                  includedIds.add(String(r.transcriptId));
+                }
+                // Track all respnos found (even without transcriptId)
+                const respno = String(r?.respno || r?.['Respondent ID'] || '').trim();
+                if (respno) {
+                  respnosFound.add(respno);
+                }
+              }); 
+            }
+          });
+          
+          // CRITICAL: Only match transcripts by respno if we already have a row with that respno in THIS analysis
+          // Do NOT match by respno across all project transcripts - that would include transcripts from other CAs
+          // Only add transcripts that are already referenced in this CA's data
+          const respnosInThisAnalysis = new Set(respnosFound);
+          
+          // Match transcripts by respno ONLY if that respno was found in THIS analysis's rows
+          // AND we don't already have a transcriptId for it
+          const transcriptIdsByRespno = new Map<string, string>();
+          Object.values(full?.data || {}).forEach((rows: any) => {
+            if (Array.isArray(rows)) {
+              rows.forEach((r: any) => {
+                if (r?.transcriptId && (r?.respno || r?.['Respondent ID'])) {
+                  const respno = String(r?.respno || r?.['Respondent ID'] || '').trim();
+                  if (respno) {
+                    transcriptIdsByRespno.set(respno, String(r.transcriptId));
+                  }
+                }
+              });
+            }
+          });
+          
+          // Only match by respno if we found that respno in THIS analysis and have a transcriptId mapping
+          respnosFound.forEach((respno) => {
+            // If we already have a transcriptId for this respno from THIS analysis, use it
+            if (transcriptIdsByRespno.has(respno) && !Array.from(includedIds).some(id => {
+              const mappedRespno = transcriptIdsByRespno.get(respno);
+              return mappedRespno && String(mappedRespno) === String(id);
+            })) {
+              const transcriptId = transcriptIdsByRespno.get(respno);
+              if (transcriptId) {
+                includedIds.add(transcriptId);
+                console.log(`🔍 Adding transcript ${transcriptId} (${respno}) from respno mapping in THIS analysis`);
+              }
+            }
+          });
+          
+          // Also check analysis.transcripts as a fallback source of truth
+          if (Array.isArray(full?.transcripts)) {
+            full.transcripts.forEach((t: any) => {
+              const tid = t?.id || t?.sourceTranscriptId;
+              if (tid) includedIds.add(String(tid));
+            });
+          }
+          
+          console.log('🔍 Included transcriptIds after collecting:', Array.from(includedIds));
+          console.log('🔍 Respnos found in sheets:', Array.from(respnosFound));
+          
+          // Build rows from all included transcriptIds
+          const idToMeta = new Map(projectTranscripts.map((t: any) => [String(t.id), t]));
+          const existingRowMap = new Map(); // Map transcriptId -> existing row (to preserve other columns)
+          
+          // Preserve existing Demographics rows that might have additional data
+          // Also track by transcriptId to avoid duplicates
+          const seenTranscriptIds = new Set<string>();
+          if (Array.isArray(full?.data?.Demographics)) {
+            full.data.Demographics.forEach((row: any) => {
+              if (row?.transcriptId) {
+                const tid = String(row.transcriptId);
+                if (!seenTranscriptIds.has(tid)) {
+                  existingRowMap.set(tid, row);
+                  seenTranscriptIds.add(tid);
+                } else {
+                  console.log(`⚠️ Skipping duplicate Demographics row with transcriptId ${tid}`);
+                }
+              }
+            });
+          }
+          
+          const rows: any[] = [];
+          const addedTranscriptIds = new Set<string>(); // Track to prevent duplicates
+          
+          includedIds.forEach((tid) => {
+            const tidStr = String(tid);
+            // Skip if we've already added this transcriptId (prevent duplicates)
+            if (addedTranscriptIds.has(tidStr)) {
+              console.log(`⚠️ Skipping duplicate transcriptId: ${tidStr}`);
+              return;
+            }
+            
+            const t = idToMeta.get(tidStr);
+            if (!t) {
+              console.log(`⚠️ Transcript ${tidStr} not found in projectTranscripts`);
+              return;
+            }
+            
+            addedTranscriptIds.add(tidStr);
+            
+            // Use existing row if available, otherwise create new one
+            const existingRow = existingRowMap.get(tidStr);
+            if (existingRow) {
+              // Preserve existing row but ensure respno and transcriptId are correct
+              rows.push({
+                ...existingRow,
+                respno: t.respno || existingRow.respno || null,
+                'Respondent ID': t.respno || existingRow['Respondent ID'] || existingRow.respno || null,
+                'Interview Date': t.interviewDate || existingRow['Interview Date'] || null,
+                'Interview Time': t.interviewTime || existingRow['Interview Time'] || null,
+                transcriptId: tidStr
+              });
+            } else {
+              // Create new row
+              rows.push({
+                respno: t.respno || null,
+                'Respondent ID': t.respno || null,
+                'Interview Date': t.interviewDate || null,
+                'Interview Time': t.interviewTime || null,
+                transcriptId: t.id
+              });
+            }
+          });
+          
+          rows.sort((a, b) => {
+            const na = parseInt(String(a.respno || '').replace(/\D/g, '') || '999', 10);
+            const nb = parseInt(String(b.respno || '').replace(/\D/g, '') || '999', 10);
+            return na - nb;
+          });
+          if (!full.data) full.data = {} as any;
+          full.data.Demographics = rows;
+          console.log('🔄 Analysis demographics mirrored from Transcripts page view:', full.data.Demographics.length, 'rows');
+          console.log('🔄 Row respnos:', rows.map((r: any) => r.respno || r['Respondent ID']));
+        } catch (e) {
+          console.warn('Failed to populate Demographics in view:', e);
+        }
+
+        setCurrentAnalysis(full);
+        setTranscripts(full?.transcripts || []);
+        const sheets = Object.keys(full?.data || {});
         if (sheets.length) setActiveSheet(sheets[0]);
       } else {
         // Fallback to provided object
-        const normalizedFallback = normalizeAnalysisRespnos(analysis, projectTranscriptsForUpload);
-        setCurrentAnalysis(normalizedFallback);
-        setTranscripts(normalizedFallback?.transcripts || []);
-        const sheets = Object.keys(normalizedFallback?.data || {});
+        setCurrentAnalysis(analysis);
+        setTranscripts(analysis?.transcripts || []);
+        const sheets = Object.keys(analysis?.data || {});
         if (sheets.length) setActiveSheet(sheets[0]);
       }
     } catch (e) {
       // Network/endpoint not available; fallback to provided object
-      const normalizedFallback = normalizeAnalysisRespnos(analysis, projectTranscriptsForUpload);
-      setCurrentAnalysis(normalizedFallback);
-      setTranscripts(normalizedFallback?.transcripts || []);
-      const sheets = Object.keys(normalizedFallback?.data || {});
+      setCurrentAnalysis(analysis);
+      setTranscripts(analysis?.transcripts || []);
+      const sheets = Object.keys(analysis?.data || {});
       if (sheets.length) setActiveSheet(sheets[0]);
     } finally {
       setLoadingSavedView(false);
@@ -2137,12 +2322,11 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
         }
       }
 
-      const normalizedAnalysis = normalizeAnalysisRespnos(updatedAnalysis, projectTranscriptsForUpload);
-      setCurrentAnalysis(normalizedAnalysis);
-      setTranscripts(normalizedAnalysis?.transcripts || []);
+      setCurrentAnalysis(updatedAnalysis);
+      setTranscripts(updatedAnalysis?.transcripts || []);
       setSavedAnalyses(prev =>
         Array.isArray(prev)
-          ? prev.map(a => (a.id === normalizedAnalysis.id ? normalizedAnalysis : a))
+          ? prev.map(a => (a.id === updatedAnalysis.id ? updatedAnalysis : a))
           : prev
       );
       
@@ -2161,10 +2345,10 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` },
             body: JSON.stringify({
               id: currentAnalysis.id,
-              data: normalizedAnalysis.data,
-              quotes: normalizedAnalysis.quotes || mergedQuotes,
-              transcripts: normalizedAnalysis.transcripts || [],
-              context: normalizedAnalysis.context || mergedContext
+              data: updatedAnalysis.data,
+              quotes: updatedAnalysis.quotes || mergedQuotes,
+              transcripts: updatedAnalysis.transcripts || [],
+              context: updatedAnalysis.context || mergedContext
             })
           });
 
@@ -3174,7 +3358,17 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                   <tr>
                     {dynamicHeaders.map((h, idx) => (
                       <React.Fragment key={h}>
-                        <th className={`px-2 py-2 font-medium border-r border-gray-300 last:border-r-0 align-top ${h === 'Original Transcript' || h === 'Cleaned Transcript' || h === 'Populate C.A.' ? 'text-center' : 'text-left'}`} style={{ whiteSpace: (h === 'Respondent ID' || h === 'Original Transcript' || h === 'Cleaned Transcript' || h === 'Populate C.A.') ? 'nowrap' : 'normal', minWidth: (h === 'Original Transcript' || h === 'Cleaned Transcript' || h === 'Populate C.A.') ? 'auto' : (h === 'Respondent ID' ? 'auto' : '180px'), lineHeight: '1.3', width: (h === 'Respondent ID' || h === 'Original Transcript' || h === 'Cleaned Transcript' || h === 'Populate C.A.') ? '1%' : 'auto' }}>
+                        <th className={`px-2 py-2 font-medium border-r border-gray-300 last:border-r-0 align-top ${h === 'Original Transcript' || h === 'Cleaned Transcript' || h === 'Populate C.A.' ? 'text-center' : 'text-left'}`}
+                          style={{
+                            whiteSpace: (h === 'Respondent ID' || h === 'Original Transcript' || h === 'Cleaned Transcript' || h === 'Populate C.A.') ? 'nowrap' : 'normal',
+                            minWidth: (h === 'Original Transcript' || h === 'Cleaned Transcript' || h === 'Populate C.A.') ? 'auto' : (h === 'Respondent ID' ? 'auto' : '180px'),
+                            lineHeight: '1.3',
+                            width: (h === 'Respondent ID' || h === 'Original Transcript' || h === 'Cleaned Transcript' || h === 'Populate C.A.') ? '1%' : 'auto',
+                            position: h === 'Respondent ID' ? 'sticky' as const : undefined,
+                            left: h === 'Respondent ID' ? 0 : undefined,
+                            zIndex: h === 'Respondent ID' ? 3 : undefined,
+                            backgroundColor: h === 'Respondent ID' ? '#e5e7eb' : undefined
+                          }}>
                           {activeSheet === 'Demographics' && h !== 'Respondent ID' && h !== 'respno' && h !== 'Interview Date' && h !== 'Interview Time' && h !== 'Original Transcript' && h !== 'Cleaned Transcript' && h !== 'Populate C.A.' ? (
                             <div className="flex items-center gap-1">
                               {editingColumnName === h ? (
@@ -3293,8 +3487,16 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                           return (
                             <React.Fragment key={k}>
                               <td
-                                className={`px-2 py-1 text-gray-900 align-top border-r border-gray-300 last:border-r-0 border-b-0 ${activeSheet !== 'Demographics' && k !== 'Respondent ID' && k !== 'respno' ? 'cursor-pointer hover:bg-blue-50' : ''}`}
-                                style={{ whiteSpace: k === 'Respondent ID' ? 'nowrap' : 'pre-wrap', width: k === 'Respondent ID' ? '1%' : 'auto' }}
+                                className={`px-2 py-1 text-gray-900 align-top border-r border-gray-300 last:border-r-0 border-b-0 ${activeSheet !== 'Demographics' && k !== 'Respondent ID' ? 'cursor-pointer hover:bg-blue-50' : ''}`}
+                                style={{
+                                  whiteSpace: k === 'Respondent ID' ? 'nowrap' : 'pre-wrap',
+                                  width: k === 'Respondent ID' ? '1%' : 'auto',
+                                  position: k === 'Respondent ID' ? 'sticky' as const : undefined,
+                                  left: k === 'Respondent ID' ? 0 : undefined,
+                                  zIndex: k === 'Respondent ID' ? 2 : undefined,
+                                  background: k === 'Respondent ID' ? '#ffffff' : undefined,
+                                  boxShadow: k === 'Respondent ID' ? '2px 0 0 0 #e5e7eb' : undefined
+                                }}
                                 onClick={(e) => {
                                   // Don't trigger click if clicking on an input field
                                   if ((e.target as HTMLElement).tagName === 'INPUT') return;
@@ -3436,7 +3638,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                                     }
                                   })()
                                 ) : (
-                                  String(row[k] ?? '')
+                                  k === 'Respondent ID' ? String(row['Respondent ID'] ?? row['respno'] ?? '') : String(row[k] ?? '')
                                 )}
                               </td>
                               {/* Empty spacer cell for column divider (only for Demographics, after last column) */}
@@ -4013,9 +4215,8 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                             });
                             if (reloadResponse.ok) {
                               const reloadedAnalysis = await reloadResponse.json();
-                              const normalizedReloaded = normalizeAnalysisRespnos(reloadedAnalysis, projectTranscriptsForUpload);
-                              setCurrentAnalysis(normalizedReloaded);
-                              setTranscripts(normalizedReloaded?.transcripts || []);
+                              setCurrentAnalysis(reloadedAnalysis);
+                              setTranscripts(reloadedAnalysis?.transcripts || []);
                             }
                           } catch (e) {
                             console.error('Failed to reload analysis:', e);

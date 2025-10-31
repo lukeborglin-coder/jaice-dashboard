@@ -1014,9 +1014,34 @@ export default function Storytelling({ analysisId, projectId, onNavigate, setAna
         // Use selected content analysis data if available, otherwise fall back to project data
         const respondentCount = selectedContentAnalysis ? 
           (() => {
+            // Count unique transcriptIds (most reliable) or respnos as fallback
             const allData = Object.values(selectedContentAnalysis.data || {}).flat();
-            const uniqueRespondents = new Set(allData.map((item: any) => item.respno).filter(Boolean));
-            return uniqueRespondents.size;
+            const uniqueTranscriptIds = new Set<string>();
+            const uniqueRespnos = new Set<string>();
+            
+            allData.forEach((item: any) => {
+              if (item?.transcriptId) {
+                uniqueTranscriptIds.add(String(item.transcriptId));
+              }
+              if (item?.respno) {
+                uniqueRespnos.add(String(item.respno));
+              }
+              if (item?.['Respondent ID']) {
+                uniqueRespnos.add(String(item['Respondent ID']));
+              }
+            });
+            
+            // Prefer transcriptId count (more accurate), fallback to respno count
+            // Use the larger of the two to ensure we don't miss any
+            const count = Math.max(uniqueTranscriptIds.size, uniqueRespnos.size);
+            console.log('🔍 Respondent count calculation:', {
+              transcriptIds: Array.from(uniqueTranscriptIds),
+              respnos: Array.from(uniqueRespnos),
+              transcriptIdCount: uniqueTranscriptIds.size,
+              respnoCount: uniqueRespnos.size,
+              finalCount: count
+            });
+            return count;
           })() : 
           (projectMap[projectId]?.respondentCount ?? selectedProject?.respondentCount ?? 0);
         
@@ -1312,11 +1337,28 @@ export default function Storytelling({ analysisId, projectId, onNavigate, setAna
                 console.log(`🔍 Project ${project.name} (${project.id}): found ${projectAnalyses.length} analyses`);
                 console.log(`🔍 All analyses projectIds:`, allAnalyses.map(a => ({ id: a.id, projectId: a.projectId, name: a.name })));
                 console.log(`🔍 Project analyses:`, projectAnalyses.map(a => ({ id: a.id, projectId: a.projectId, name: a.name })));
+
+                // Compute respondent count across all analyses for this project
+                const respondentIdSet = new Set<string>();
+                for (const analysis of projectAnalyses) {
+                  try {
+                    const values = Object.values(analysis?.data || {}) as any[];
+                    const flat = ([] as any[]).concat(...values);
+                    flat
+                      .map((item: any) => item?.respno)
+                      .filter((id: any) => !!id)
+                      .forEach((id: any) => respondentIdSet.add(String(id)));
+                  } catch (e) {
+                    // ignore malformed analysis data
+                  }
+                }
+                const respondentCount = respondentIdSet.size;
                 
                 return {
                   ...project,
                   analysisCount: projectAnalyses.length,
-                  hasContentAnalysis: projectAnalyses.length > 0
+                  hasContentAnalysis: projectAnalyses.length > 0,
+                  respondentCount
                 };
               } else {
                 console.log(`🔍 Failed to load analysis data for ${project.name}: ${analysisResponse.status}`);
@@ -1328,7 +1370,8 @@ export default function Storytelling({ analysisId, projectId, onNavigate, setAna
             return {
               ...project,
               analysisCount: 0,
-              hasContentAnalysis: false
+              hasContentAnalysis: false,
+              respondentCount: 0
             };
           })
         );
@@ -2066,6 +2109,9 @@ export default function Storytelling({ analysisId, projectId, onNavigate, setAna
   };
 
   const handleGenerateStoryboard = async () => {
+    // Guard against rapid/multiple clicks
+    if (generatingStoryboard) return;
+
     // Check if there are changes in respondent count
     const currentRespondentCount = selectedContentAnalysis ? 
       (() => {
@@ -2086,6 +2132,9 @@ export default function Storytelling({ analysisId, projectId, onNavigate, setAna
       return;
     }
     
+    // Immediately reflect generating state to disable buttons
+    setGeneratingStoryboard(true);
+
     setPendingAction('storyboard');
     await estimateCost('storyboard');
   };
@@ -2559,11 +2608,19 @@ export default function Storytelling({ analysisId, projectId, onNavigate, setAna
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {contentAnalyses.map((analysis) => (
+                  {contentAnalyses.map((analysis) => {
+                    const respondentCount = analysis.data ? (() => {
+                      const allData = Object.values(analysis.data).flat();
+                      const uniqueRespondents = new Set(allData.map((item: any) => item.respno).filter(Boolean));
+                      return uniqueRespondents.size;
+                    })() : 0;
+                    const disabled = respondentCount === 0;
+                    return (
                     <tr 
                       key={analysis.id} 
-                      className="hover:bg-gray-50 cursor-pointer transition-colors"
+                      className={`${disabled ? 'opacity-60 cursor-not-allowed' : 'hover:bg-gray-50 cursor-pointer'} transition-colors`}
                       onClick={async () => {
+                        if (disabled) return;
                         setSelectedContentAnalysis(analysis);
                         setViewMode('project');
                         // Load the full analysis data first
@@ -2575,28 +2632,25 @@ export default function Storytelling({ analysisId, projectId, onNavigate, setAna
                       }}
                     >
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{analysis.name || 'Untitled Analysis'}</div>
+                        <div className={`text-sm font-medium ${disabled ? 'text-gray-400' : 'text-gray-900'}`}>{analysis.name || 'Untitled Analysis'}</div>
                         {analysis.description && (
-                          <div className="text-sm text-gray-500 truncate max-w-xs">{analysis.description}</div>
+                          <div className={`text-sm truncate max-w-xs ${disabled ? 'text-gray-400' : 'text-gray-500'}`}>{analysis.description}</div>
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {analysis.createdAt ? new Date(analysis.createdAt).toLocaleDateString() : '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <div className="flex items-center justify-center gap-1 text-sm text-gray-900">
+                        <div className={`flex items-center justify-center gap-1 text-sm ${disabled ? 'text-gray-400' : 'text-gray-900'}`}>
                           <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                           </svg>
-                          {analysis.data ? (() => {
-                            const allData = Object.values(analysis.data).flat();
-                            const uniqueRespondents = new Set(allData.map((item: any) => item.respno).filter(Boolean));
-                            return uniqueRespondents.size;
-                          })() : 0}
+                          {respondentCount}
+                          {respondentCount === 0 && <span className="ml-2 text-xs text-gray-400">(n=0)</span>}
                         </div>
                       </td>
                     </tr>
-                  ))}
+                  );})}
                 </tbody>
               </table>
             )}
@@ -2889,7 +2943,7 @@ export default function Storytelling({ analysisId, projectId, onNavigate, setAna
                       <div>
                         <button
                           onClick={() => setShowGenerateOptionsModal(true)}
-                          disabled={generatingStoryboard}
+                          disabled={generatingStoryboard || ((selectedContentAnalysis ? (() => { const allData = Object.values(selectedContentAnalysis.data || {}).flat(); const uniqueRespondents = new Set(allData.map((item: any) => item.respno).filter(Boolean)); return uniqueRespondents.size; })() : (projectMap[selectedProject.id]?.respondentCount ?? selectedProject?.respondentCount ?? 0)) === 0)}
                           className="px-4 py-2 rounded-lg text-white text-sm font-medium flex items-center gap-2 disabled:opacity-50"
                           style={{ backgroundColor: BRAND_ORANGE }}
                         >
@@ -2968,11 +3022,11 @@ export default function Storytelling({ analysisId, projectId, onNavigate, setAna
                     <p className="text-gray-600 mb-6">Generate a storyboard to get started with your project insights.</p>
                     <button
                       onClick={handleGenerateStoryboard}
-                      disabled={generatingStoryboard}
+                      disabled={generatingStoryboard || ((selectedContentAnalysis ? (() => { const allData = Object.values(selectedContentAnalysis.data || {}).flat(); const uniqueRespondents = new Set(allData.map((item: any) => item.respno).filter(Boolean)); return uniqueRespondents.size; })() : (projectMap[selectedProject?.id || '']?.respondentCount ?? selectedProject?.respondentCount ?? 0)) === 0)}
                       className="px-6 py-3 rounded-lg text-white font-medium flex items-center gap-2 disabled:opacity-50 mx-auto"
                       style={{ backgroundColor: BRAND_ORANGE }}
                     >
-                      {generatingStoryboard ? 'Generating...' : 'Generate Report'}
+                      {generatingStoryboard ? 'Generating...' : 'Generate Storyboard'}
                       <DocumentTextIcon className="h-5 w-5" />
                     </button>
                   </div>
@@ -3762,15 +3816,14 @@ export default function Storytelling({ analysisId, projectId, onNavigate, setAna
                 <tbody className="bg-white divide-y divide-gray-200">
                   {qualProjects.map(project => {
                     const hasContentAnalysis = project.hasContentAnalysis || (project.analysisCount || 0) > 0;
+                    // Project should be clickable if it has at least one content analysis, regardless of respondent count
+                    const canSelect = hasContentAnalysis;
                     return (
                       <tr
                         key={project.id}
-                        className={`transition-colors ${
-                          hasContentAnalysis
-                            ? 'hover:bg-gray-50 cursor-pointer'
-                            : 'hover:bg-gray-50 cursor-pointer opacity-75'
-                        }`}
+                        className={`transition-colors ${canSelect ? 'hover:bg-gray-50 cursor-pointer' : 'opacity-60 cursor-not-allowed'}`}
                         onClick={async () => {
+                          if (!canSelect) return;
                           setSelectedProject(project);
                           setViewMode('project');
                           // Load content analyses for this project
@@ -3778,21 +3831,24 @@ export default function Storytelling({ analysisId, projectId, onNavigate, setAna
                         }}
                       >
                         <td className="pl-6 pr-2 py-4 whitespace-nowrap w-0">
-                          <div className={`inline-block text-sm font-medium ${hasContentAnalysis ? 'text-gray-900' : 'text-gray-400'}`}>
+                          <div className={`inline-block text-sm font-medium ${canSelect ? 'text-gray-900' : 'text-gray-400'}`}>
                             {project.name}
                           </div>
                         </td>
                         <td className="pl-2 pr-6 py-4 whitespace-nowrap w-32">
-                          <div className={`text-sm truncate ${hasContentAnalysis ? 'text-gray-900' : 'text-gray-400'}`}>
+                          <div className={`text-sm truncate ${canSelect ? 'text-gray-900' : 'text-gray-400'}`}>
                             {project.client || '-'}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-center w-32">
-                          <div className={`flex items-center justify-center gap-1 text-sm ${hasContentAnalysis ? 'text-gray-900' : 'text-gray-400'}`}>
+                          <div className={`flex items-center justify-center gap-1 text-sm ${canSelect ? 'text-gray-900' : 'text-gray-400'}`}>
                             <IconBook2 className="h-4 w-4 text-gray-400" />
                             {project.analysisCount || 0}
                             {!hasContentAnalysis && (
                               <span className="ml-2 text-xs text-gray-400">(No content analysis)</span>
+                            )}
+                            {hasContentAnalysis && (project.respondentCount || 0) === 0 && (
+                              <span className="ml-2 text-xs text-gray-400">(n=0)</span>
                             )}
                           </div>
                         </td>

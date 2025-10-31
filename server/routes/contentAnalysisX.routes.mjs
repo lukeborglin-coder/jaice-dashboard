@@ -11,6 +11,7 @@ import { fileURLToPath } from 'url';
 import OpenAI from 'openai';
 import { logCost, COST_CATEGORIES } from '../services/costTracking.service.mjs';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
+import { recomputeAnalysisRespnos, removeTranscriptFromAnalysis } from '../services/respno.service.mjs';
 
 // Safe JSON parse utility with repair capabilities
 function safeJsonParse(data, fallback = null) {
@@ -99,6 +100,9 @@ function safeJsonParse(data, fallback = null) {
     return fallback;
   }
 }
+
+// Ensure Demographics sheet exists but contains no rows
+// Note: We now persist Demographics rows; do not strip them.
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uploadsDir = process.env.FILES_DIR || path.join(process.env.DATA_DIR || path.join(__dirname, '../data'), 'uploads');
@@ -469,6 +473,31 @@ router.post('/update', async (req, res) => {
     const idx = analyses.findIndex(a => a.id === id);
     if (idx === -1) return res.status(404).json({ error: 'Analysis not found' });
     if (name) analyses[idx].name = name; if (description) analyses[idx].description = description; if (projectId) analyses[idx].projectId = projectId; if (projectName) analyses[idx].projectName = projectName; analyses[idx].data = data; if (quotes) analyses[idx].quotes = quotes; if (transcripts) analyses[idx].transcripts = transcripts;
+    // Rebuild columnSchema so headers persist even with 0 rows
+    try {
+      const nextSchema = { ...(analyses[idx].columnSchema || {}) };
+      for (const [sheetName, rows] of Object.entries(analyses[idx].data || {})) {
+        if (Array.isArray(rows) && rows.length > 0) {
+          const first = rows[0] || {};
+          const cols = Object.keys(first).filter(k => k !== 'respno' && k !== 'Respondent ID' && k !== 'transcriptId' && k !== 'Original Transcript' && k !== 'Cleaned Transcript' && k !== 'Populate C.A.');
+          nextSchema[sheetName] = cols;
+        } else if (!nextSchema[sheetName]) {
+          nextSchema[sheetName] = [];
+        }
+      }
+      analyses[idx].columnSchema = nextSchema;
+    } catch {}
+    // Recompute transcripts list from data to avoid stale respondent resurrection
+    try {
+      const ids = new Set();
+      const d = data || {};
+      for (const rows of Object.values(d)) {
+        if (Array.isArray(rows)) {
+          rows.forEach((r) => { if (r && r.transcriptId) ids.add(String(r.transcriptId)); });
+        }
+      }
+      analyses[idx].transcripts = Array.from(ids).map(id => ({ id }));
+    } catch {}
     analyses[idx].savedAt = new Date().toISOString();
     await saveAnalysesToFile(analyses);
     res.json({ success: true });
@@ -514,6 +543,31 @@ router.put('/update', async (req, res) => {
     if (projectId) analyses[idx].projectId = projectId; 
     if (projectName) analyses[idx].projectName = projectName; 
     analyses[idx].data = data; 
+    // Rebuild columnSchema so headers persist even with 0 rows
+    try {
+      const nextSchema = { ...(analyses[idx].columnSchema || {}) };
+      for (const [sheetName, rows] of Object.entries(analyses[idx].data || {})) {
+        if (Array.isArray(rows) && rows.length > 0) {
+          const first = rows[0] || {};
+          const cols = Object.keys(first).filter(k => k !== 'respno' && k !== 'Respondent ID' && k !== 'transcriptId' && k !== 'Original Transcript' && k !== 'Cleaned Transcript' && k !== 'Populate C.A.');
+          nextSchema[sheetName] = cols;
+        } else if (!nextSchema[sheetName]) {
+          nextSchema[sheetName] = [];
+        }
+      }
+      analyses[idx].columnSchema = nextSchema;
+    } catch {}
+    // Recompute transcripts list from data to avoid stale respondent resurrection
+    try {
+      const ids = new Set();
+      const d = data || {};
+      for (const rows of Object.values(d)) {
+        if (Array.isArray(rows)) {
+          rows.forEach((r) => { if (r && r.transcriptId) ids.add(String(r.transcriptId)); });
+        }
+      }
+      analyses[idx].transcripts = Array.from(ids).map(id => ({ id }));
+    } catch {}
     if (quotes) analyses[idx].quotes = quotes; 
     if (transcripts) analyses[idx].transcripts = transcripts;
     if (context) {
@@ -590,7 +644,46 @@ router.put('/update', async (req, res) => {
 router.get('/saved', async (req, res) => {
   try {
     const analyses = await loadSavedAnalyses();
-    res.json(analyses);
+    const dataDir = process.env.DATA_DIR || path.join(__dirname, '../data');
+    const transcriptsPath = path.join(dataDir, 'transcripts.json');
+    let transcriptsObj = {};
+    try {
+      const raw = await fs.readFile(transcriptsPath, 'utf8');
+      transcriptsObj = safeJsonParse(raw || '{}', {});
+    } catch {}
+
+    const reconciled = analyses.map(a => {
+      try {
+        const projectTrans = Array.isArray(transcriptsObj?.[a.projectId]) ? transcriptsObj[a.projectId] : [];
+        const idToRespno = new Map(projectTrans.map(t => [String(t.id), t.respno]));
+        const updated = { ...a, data: { ...a.data } };
+        if (Array.isArray(updated?.data?.Demographics)) {
+          updated.data.Demographics = updated.data.Demographics.map(row => {
+            if (!row) return row;
+            const mapped = row.transcriptId ? idToRespno.get(String(row.transcriptId)) : null;
+            const existing = row.respno || row['Respondent ID'] || null;
+            const finalResp = mapped || existing || null;
+            const next = { ...row, respno: finalResp };
+            if (next.hasOwnProperty('Respondent ID')) delete next['Respondent ID'];
+            return next;
+          });
+        }
+        if (Array.isArray(updated?.transcripts)) {
+          updated.transcripts = updated.transcripts.map(t => {
+            const mapped = idToRespno.get(String(t.id)) || idToRespno.get(String(t.sourceTranscriptId));
+            const finalResp = mapped || t.respno || null;
+            const demographics = { ...(t.demographics || {}) };
+            demographics['respno'] = finalResp;
+            if (demographics.hasOwnProperty('Respondent ID')) delete demographics['Respondent ID'];
+            return { ...t, respno: finalResp, demographics };
+          });
+        }
+        return updated;
+      } catch {
+        return a;
+      }
+    });
+    res.json(reconciled);
   } catch (error) {
     console.error('Error in saved endpoint:', error);
     res.status(500).json({ error: error.message });
@@ -602,7 +695,7 @@ router.get('/saved/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const analyses = await loadSavedAnalyses();
-    const item = analyses.find(a => String(a.id) === String(id));
+    let item = analyses.find(a => String(a.id) === String(id));
     if (!item) return res.status(404).json({ error: 'Analysis not found' });
     console.log(`📖 Loading analysis ${id}, context keys:`, Object.keys(item.context || {}));
     if (item.context && Object.keys(item.context).length > 0) {
@@ -612,6 +705,31 @@ router.get('/saved/:id', async (req, res) => {
     } else {
       console.log('📖 No context data found for this analysis');
     }
+    // Reconcile respnos by transcriptId for this item
+    try {
+      const dataDir = process.env.DATA_DIR || path.join(__dirname, '../data');
+      const transcriptsPath = path.join(dataDir, 'transcripts.json');
+      const raw = await fs.readFile(transcriptsPath, 'utf8');
+      const transcriptsObj = safeJsonParse(raw || '{}', {});
+      const projectTrans = Array.isArray(transcriptsObj?.[item.projectId]) ? transcriptsObj[item.projectId] : [];
+      const idToRespno = new Map(projectTrans.map(t => [String(t.id), t.respno]));
+      const updated = { ...item, data: { ...item.data } };
+      // Force Demographics to be empty for UI reset
+      if (updated.data && Object.prototype.hasOwnProperty.call(updated.data, 'Demographics')) {
+        updated.data.Demographics = [];
+      }
+      if (Array.isArray(updated?.transcripts)) {
+        updated.transcripts = updated.transcripts.map(t => {
+          const mapped = idToRespno.get(String(t.id)) || idToRespno.get(String(t.sourceTranscriptId));
+          const finalResp = mapped || t.respno || null;
+          const demographics = { ...(t.demographics || {}) };
+          demographics['respno'] = finalResp;
+          if (demographics.hasOwnProperty('Respondent ID')) delete demographics['Respondent ID'];
+          return { ...t, respno: finalResp, demographics };
+        });
+      }
+      item = updated;
+    } catch {}
     res.json(item);
   } catch (error) {
     console.error('Error in saved/:id endpoint:', error);
@@ -961,7 +1079,11 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
     console.log('Request body:', req.body);
     console.log('Request file:', req.file);
 
-    const { projectId, activeSheet, discussionGuide, guideMap: guideMapRaw, analysisId, cleanTranscript, checkForAEs, messageConceptTesting, messageTestingDetails, transcriptId, preferCleanedTranscript } = req.body;
+    let { projectId, activeSheet, discussionGuide, guideMap: guideMapRaw, analysisId, cleanTranscript, checkForAEs, messageConceptTesting, messageTestingDetails, transcriptId, preferCleanedTranscript, respno, interviewDate, interviewTime } = req.body;
+
+    if (respno) {
+      console.log('✅ Respno received from frontend:', respno);
+    }
 
     if (!req.file && !transcriptId) {
       console.log('No file uploaded or transcriptId provided');
@@ -991,9 +1113,10 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
     let usedTranscriptId = transcriptId || null;
     let storedOriginalFilePath = req.file ? req.file.path : null;
     let storedCleanedFilePath = null;
-    let existingTranscriptRespno = null; // Store respno from transcript if using existing transcript
-    let existingTranscriptDate = null; // Store date from transcript if using existing transcript
-    let existingTranscriptTime = null; // Store time from transcript if using existing transcript
+    // Use respno/date/time passed directly from frontend (preferred), or look up from transcript record
+    let existingTranscriptRespno = respno || null; // Store respno from transcript if using existing transcript
+    let existingTranscriptDate = interviewDate || null; // Store date from transcript if using existing transcript
+    let existingTranscriptTime = interviewTime || null; // Store time from transcript if using existing transcript
 
     // Process transcript synchronously
     console.log(`Processing transcript for project: ${projectId}, sheet: ${activeSheet}`);
@@ -1077,14 +1200,15 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
           return res.status(404).json({ error: 'Transcript not found for this project' });
         }
 
-        // Store the respno and date/time from the existing transcript
-        existingTranscriptRespno = existingTranscript.respno;
-        existingTranscriptDate = existingTranscript.interviewDate;
-        existingTranscriptTime = existingTranscript.interviewTime;
-        console.log('📋 Using existing transcript metadata:', {
+        // Store the respno and date/time from the existing transcript (only if not already provided by frontend)
+        existingTranscriptRespno = existingTranscriptRespno || existingTranscript.respno;
+        existingTranscriptDate = existingTranscriptDate || existingTranscript.interviewDate;
+        existingTranscriptTime = existingTranscriptTime || existingTranscript.interviewTime;
+        console.log('📋 Using transcript metadata:', {
           respno: existingTranscriptRespno,
           date: existingTranscriptDate,
-          time: existingTranscriptTime
+          time: existingTranscriptTime,
+          source: respno ? 'passed from frontend' : 'from transcript record'
         });
 
         const resolvePath = (filePath) => {
@@ -1551,35 +1675,103 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
 
     // Integrate the results into currentData
     // Use existing respno from transcript if available, otherwise calculate next respno
-    let respno;
+    let finalRespno;
 
-    if (existingTranscriptRespno) {
-      // Use the respno assigned to the transcript in the Transcripts tab
-      respno = existingTranscriptRespno;
-      console.log(`Using existing respno from transcript: ${respno}`);
-    } else {
-      // Calculate next respno based on HIGHEST existing respno number (not array length)
-      // Filter out empty rows (rows with no respno) before counting
-      const demographicsArray = Array.isArray(currentData.Demographics) ? currentData.Demographics : [];
-      const existingRespondents = demographicsArray.filter(row => row.respno || row['Respondent ID']);
+    // ROBUST RESPNO RESOLUTION: Handle both new and existing transcripts
+    try {
+      const transcriptsPath = path.join(process.env.DATA_DIR || path.join(__dirname, '../data'), 'transcripts.json');
+      const rawTranscripts = await fs.readFile(transcriptsPath, 'utf8').catch(() => '{}');
+      const transcriptsObj = safeJsonParse(rawTranscripts || '{}', {});
+      const projectTranscripts = Array.isArray(transcriptsObj?.[projectId]) ? transcriptsObj[projectId] : [];
 
-      // Find the highest existing respondent number
-      let maxRespno = 0;
-      existingRespondents.forEach(row => {
-        const id = row['Respondent ID'] || row['respno'];
-        if (id) {
-          const match = String(id).match(/\d+/);
-          if (match) {
-            const num = parseInt(match[0], 10);
-            if (num > maxRespno) {
-              maxRespno = num;
+      // Step 1: If respno was passed from frontend and is valid, use it
+      if (existingTranscriptRespno && String(existingTranscriptRespno).trim() !== '' && existingTranscriptRespno !== 'null') {
+        finalRespno = existingTranscriptRespno;
+        console.log(`✅ Using respno passed from frontend: ${finalRespno}`);
+      }
+      // Step 2: Look up by transcriptId to get respno from transcript record
+      else if (usedTranscriptId) {
+        const matchedTranscript = projectTranscripts.find(t => String(t.id) === String(usedTranscriptId));
+        if (matchedTranscript && matchedTranscript.respno) {
+          finalRespno = matchedTranscript.respno;
+          console.log(`✅ Found respno by transcriptId lookup: ${finalRespno}`);
+        } else {
+          console.log(`⚠️ Transcript found by ID but respno is null - will calculate chronologically`);
+        }
+      }
+
+      // Step 3: If still no respno, try to match by date/time
+      if (!finalRespno) {
+        const normalizeDate = (v) => (v ? String(v).trim() : '');
+        const normalizeTime = (v) => (v ? String(v).trim().toUpperCase() : '');
+
+        const caDate = normalizeDate(existingTranscriptDate || dateTimeInfo?.date);
+        const caTime = normalizeTime(existingTranscriptTime || dateTimeInfo?.time);
+
+        // Try exact match first
+        let matched = projectTranscripts.find(t =>
+          normalizeDate(t.interviewDate) === caDate &&
+          normalizeTime(t.interviewTime) === caTime
+        );
+
+        // If not found, try date-only match as a fallback
+        if (!matched && caDate) {
+          const candidates = projectTranscripts.filter(t => normalizeDate(t.interviewDate) === caDate);
+          if (candidates.length === 1) matched = candidates[0];
+        }
+
+        if (matched && matched.respno) {
+          finalRespno = matched.respno;
+          console.log(`✅ Found respno by date/time match: ${finalRespno}`);
+        }
+      }
+
+      // Step 4: If STILL no respno, calculate it based on chronological order
+      if (!finalRespno && usedTranscriptId) {
+        console.log(`🔄 Calculating respno chronologically for transcript ${usedTranscriptId}...`);
+
+        // Find the transcript in the array
+        const transcriptIndex = projectTranscripts.findIndex(t => String(t.id) === String(usedTranscriptId));
+
+        if (transcriptIndex !== -1) {
+          // Sort transcripts chronologically
+          const sortedTranscripts = [...projectTranscripts].sort((a, b) => {
+            const dateA = a.interviewDate || '';
+            const dateB = b.interviewDate || '';
+
+            if (!dateA && !dateB) return 0;
+            if (!dateA) return 1;
+            if (!dateB) return -1;
+
+            try {
+              const parsedA = new Date(dateA);
+              const parsedB = new Date(dateB);
+
+              if (!isNaN(parsedA.getTime()) && !isNaN(parsedB.getTime())) {
+                return parsedA.getTime() - parsedB.getTime();
+              }
+            } catch (e) {
+              // If date parsing fails, maintain current order
             }
+
+            return 0;
+          });
+
+          // Find position in sorted array
+          const sortedIndex = sortedTranscripts.findIndex(t => String(t.id) === String(usedTranscriptId));
+          if (sortedIndex !== -1) {
+            finalRespno = `R${String(sortedIndex + 1).padStart(2, '0')}`;
+            console.log(`✅ Calculated respno chronologically: ${finalRespno} (position ${sortedIndex + 1}/${sortedTranscripts.length})`);
           }
         }
-      });
+      }
 
-      respno = `R${String(maxRespno + 1).padStart(2, '0')}`;
-      console.log(`Calculated new respno: ${respno}`);
+      if (!finalRespno) {
+        console.warn(`⚠️ Could not determine respno for transcript ${usedTranscriptId}`);
+      }
+    } catch (e) {
+      console.error('❌ Error resolving respno:', e);
+      finalRespno = null;
     }
 
     for (const [sheetName, rowData] of Object.entries(caResult.rows || {})) {
@@ -1601,9 +1793,10 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
       // Add new row with proper metadata
       const newRow = {
         ...rowData,
-        'Respondent ID': respno,
-        respno: respno
+        respno: finalRespno || rowData?.respno || rowData?.['Respondent ID'] || null
       };
+      // Ensure we don't carry both keys
+      if (newRow.hasOwnProperty('Respondent ID')) delete newRow['Respondent ID'];
       console.log(`📝 newRow keys for "${sheetName}":`, Object.keys(newRow));
 
       // For Demographics sheet ONLY, add transcript tracking and date/time fields
@@ -1623,7 +1816,7 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
       }
 
       currentData[sheetName].push(newRow);
-      console.log(`✅ Added row to ${sheetName} with respno: ${respno}`);
+      console.log(`✅ Added row to ${sheetName} with respno: ${finalRespno}`);
     }
     
     console.log('📊 Final data summary:');
@@ -1840,6 +2033,19 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
         
         savedAnalyses[idx].savedAt = new Date().toISOString();
         await saveAnalysesToFile(savedAnalyses);
+        // Canonical: recompute respnos and reorder sheets gaplessly after adding transcript
+        try {
+          if (projectId && analysisId) {
+            await recomputeAnalysisRespnos(projectId, analysisId);
+            const reloaded = await loadSavedAnalyses();
+            const updated = reloaded.find(a => a.id === analysisId);
+            if (updated && updated.data) {
+              processed.data = updated.data;
+            }
+          }
+        } catch (e) {
+          console.warn('Respno recompute failed (non-fatal):', e?.message);
+        }
         console.log(`Persisted updated analysis ${analysisId} with quotes and context`);
         console.log(`Context keys saved:`, Object.keys(savedAnalyses[idx].context || {}));
       } else {
@@ -1897,6 +2103,8 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
     }
 
     processed.context = contextBySheetAndRespondent;
+
+    // Keep Demographics content; it is now persisted
 
         console.log('Transcript processing completed successfully');
         console.log('Extracted respno:', respno);
@@ -4334,6 +4542,56 @@ router.post('/get-verbatim-quotes', async (req, res) => {
         t.id === transcriptIdFromDemographics || t.sourceTranscriptId === transcriptIdFromDemographics
       );
       console.log(`Matching by transcriptId from Demographics: ${transcriptIdFromDemographics}`);
+      
+      // Fallback: if not found in analysis.transcripts, check transcripts.json directly
+      if (!transcript) {
+        console.log(`⚠️ Transcript ${transcriptIdFromDemographics} not in analysis.transcripts, checking transcripts.json directly`);
+        const transcriptsPath = path.join(process.env.DATA_DIR || path.join(__dirname, '../data'), 'transcripts.json');
+        try {
+          const transcriptsData = await fs.readFile(transcriptsPath, 'utf8');
+          const allTranscripts = JSON.parse(transcriptsData);
+          const analysisProjectId = analysis.projectId;
+          if (!analysisProjectId) {
+            console.error(`⚠️ Analysis ${analysisId} has no projectId`);
+          } else {
+            const projectTranscripts = allTranscripts[analysisProjectId] || [];
+            const foundInProject = projectTranscripts.find(t => String(t.id) === String(transcriptIdFromDemographics));
+          
+            if (foundInProject) {
+              console.log(`✅ Found transcript in transcripts.json, constructing transcript object`);
+              // Construct transcript object similar to what would be in analysis.transcripts
+              // Load file paths and metadata
+              const transcriptDir = path.join(process.env.DATA_DIR || path.join(__dirname, '../data'), 'transcripts', analysisProjectId);
+            const originalPath = path.join(transcriptDir, foundInProject.originalFilename || foundInProject.filename);
+            const cleanedPath = path.join(transcriptDir, foundInProject.cleanedFilename || foundInProject.filename);
+            
+            transcript = {
+              id: foundInProject.id,
+              sourceTranscriptId: foundInProject.id,
+              respno: foundInProject.respno || respondentId,
+              originalPath: originalPath,
+              cleanedPath: cleanedPath,
+              originalTranscript: foundInProject.originalText,
+              cleanedTranscript: foundInProject.cleanedText,
+              isCleaned: !!foundInProject.cleanedText
+            };
+            
+              // Also add it to analysis.transcripts for future use (but don't save yet, just use it)
+              if (!analysis.transcripts) {
+                analysis.transcripts = [];
+              }
+              // Check if it's already there (avoid duplicates)
+              if (!analysis.transcripts.find(t => String(t.id) === String(transcriptIdFromDemographics))) {
+                analysis.transcripts.push(transcript);
+              }
+            } else {
+              console.log(`⚠️ Transcript ${transcriptIdFromDemographics} not found in transcripts.json for project ${analysisProjectId}`);
+            }
+          }
+        } catch (error) {
+          console.error(`Error loading transcripts.json:`, error);
+        }
+      }
     } else {
       transcript = analysis.transcripts?.find(t =>
         t.respno === respondentId ||
@@ -5475,6 +5733,401 @@ router.post('/sync/execute', async (req, res) => {
   } catch (error) {
     console.error('Error executing sync:', error);
     res.status(500).json({ error: 'Failed to execute sync' });
+  }
+});
+
+// POST /api/caX/sync-respnos - Sync respnos from transcripts array to Demographics data
+router.post('/sync-respnos', async (req, res) => {
+  try {
+    console.log('🔄 Canonical respno recompute request received');
+    const { projectId, analysisId } = req.body;
+    if (!projectId) return res.status(400).json({ error: 'projectId is required' });
+
+    if (analysisId) {
+      const result = await recomputeAnalysisRespnos(projectId, analysisId);
+      return res.json({ success: true, ...result });
+    }
+
+    // No analysisId: recompute for all analyses in project
+    const analysesPath = path.join(process.env.DATA_DIR || path.join(path.dirname(fileURLToPath(import.meta.url)), '../data'), 'savedAnalyses.json');
+    const data = await fs.readFile(analysesPath, 'utf8');
+    const all = JSON.parse(data);
+    const targets = all.filter(a => a.projectId === projectId);
+    let updated = 0;
+    for (const a of targets) {
+      const r = await recomputeAnalysisRespnos(projectId, a.id);
+      if (r.updated) updated++;
+    }
+    return res.json({ success: true, updatedAnalyses: updated });
+  } catch (error) {
+    console.error('❌ Error recomputing respnos:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/caX/lock-respnos - Assign missing respnos and lock at project level (no renumbering)
+router.post('/lock-respnos', async (req, res) => {
+  try {
+    const { projectId } = req.body || {};
+    const transcriptsPath = path.join(dataRoot, 'transcripts.json');
+    const analysesPath = path.join(dataRoot, 'savedAnalyses.json');
+
+    const transcriptsRaw = await fs.readFile(transcriptsPath, 'utf8').catch(() => '{}');
+    const analysesRaw = await fs.readFile(analysesPath, 'utf8').catch(() => '[]');
+    const transcripts = JSON.parse(transcriptsRaw || '{}');
+    const analyses = JSON.parse(analysesRaw || '[]');
+
+    function nextRespno(used) {
+      let n = 1;
+      while (used.has(`R${String(n).padStart(2, '0')}`) || used.has(`R${n}`)) n++;
+      return n < 100 ? `R${String(n).padStart(2, '0')}` : `R${n}`;
+    }
+
+    const projectIds = projectId ? [projectId] : Object.keys(transcripts);
+    for (const pid of projectIds) {
+      const list = transcripts[pid];
+      if (!Array.isArray(list)) continue;
+      const used = new Set(list.map(t => String(t.respno || '').trim()).filter(Boolean));
+      for (const t of list) {
+        if (!t.respno || String(t.respno).trim() === '') {
+          const r = nextRespno(used);
+          t.respno = r; used.add(r);
+        }
+        t.respnoLocked = true;
+      }
+      // Update CA rows to mirror locked respnos
+      const idToRespno = new Map(list.map(t => [String(t.id), t.respno]));
+      for (const a of analyses) {
+        if (a.projectId !== pid) continue;
+        if (a.data && a.data.Demographics && Array.isArray(a.data.Demographics)) {
+          a.data.Demographics = a.data.Demographics.map(row => {
+            if (row && row.transcriptId && idToRespno.has(String(row.transcriptId))) {
+              const r = idToRespno.get(String(row.transcriptId));
+              return { ...row, respno: r, 'Respondent ID': r };
+            }
+            return row;
+          });
+        }
+        if (a.data && typeof a.data === 'object') {
+          for (const [sheet, rows] of Object.entries(a.data)) {
+            if (sheet === 'Demographics' || !Array.isArray(rows)) continue;
+            a.data[sheet] = rows.map(row => {
+              if (row && row.transcriptId && idToRespno.has(String(row.transcriptId))) {
+                const r = idToRespno.get(String(row.transcriptId));
+                return { ...row, respno: r, 'Respondent ID': r };
+              }
+              return row;
+            });
+          }
+        }
+      }
+    }
+
+    await fs.writeFile(transcriptsPath, JSON.stringify(transcripts, null, 2));
+    await fs.writeFile(analysesPath, JSON.stringify(analyses, null, 2));
+
+    return res.json({ success: true, projectId: projectId || null });
+  } catch (error) {
+    console.error('❌ Error locking respnos:', error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/caX/reset-respnos - Reset respnos for a specific CA
+router.post('/reset-respnos', async (req, res) => {
+  try {
+    const { projectId, analysisId } = req.body;
+    if (!projectId || !analysisId) {
+      return res.status(400).json({ error: 'projectId and analysisId are required' });
+    }
+
+    const analysesPath = path.join(dataRoot, 'savedAnalyses.json');
+    const transcriptsPath = path.join(dataRoot, 'transcripts.json');
+    
+    // Load analyses and transcripts
+    const analysesData = await fs.readFile(analysesPath, 'utf8');
+    const analyses = JSON.parse(analysesData);
+    const transcriptsData = await fs.readFile(transcriptsPath, 'utf8');
+    const transcripts = JSON.parse(transcriptsData);
+
+    // Find the analysis
+    const analysis = analyses.find(a => a.id === analysisId && a.projectId === projectId);
+    if (!analysis) {
+      return res.status(404).json({ error: 'Content Analysis not found' });
+    }
+
+    // Get transcript IDs for this CA
+    // 1) Gather from any sheet rows with transcriptId
+    // 2) Also include analysis.transcripts list if present
+    const caTranscriptIds = new Set();
+    if (analysis.data && typeof analysis.data === 'object') {
+      for (const sheetData of Object.values(analysis.data)) {
+        if (Array.isArray(sheetData)) {
+          sheetData.forEach(row => {
+            if (row?.transcriptId) {
+              caTranscriptIds.add(String(row.transcriptId));
+            }
+          });
+        }
+      }
+    }
+    if (Array.isArray(analysis.transcripts)) {
+      analysis.transcripts.forEach(t => {
+        const tid = t?.id || t?.sourceTranscriptId;
+        if (tid) caTranscriptIds.add(String(tid));
+      });
+    }
+
+    if (caTranscriptIds.size === 0) {
+      return res.json({ success: true, updated: false, message: 'No transcripts in this content analysis' });
+    }
+
+    // Get transcripts for this CA
+    const projectTranscripts = transcripts[projectId] || [];
+    const caTranscripts = projectTranscripts.filter(t => caTranscriptIds.has(String(t.id)));
+
+    if (caTranscripts.length === 0) {
+      return res.json({ success: true, updated: false, message: 'No matching transcripts found' });
+    }
+
+    // Sort chronologically
+    const sorted = [...caTranscripts].sort((a, b) => {
+      const dateA = a.interviewDate || '';
+      const dateB = b.interviewDate || '';
+
+      if (!dateA && !dateB) {
+        // If both lack dates, sort by time
+        const timeA = a.interviewTime || '';
+        const timeB = b.interviewTime || '';
+        if (!timeA && !timeB) return 0;
+        if (!timeA) return 1;
+        if (!timeB) return -1;
+        return timeA.localeCompare(timeB);
+      }
+      if (!dateA) return 1;
+      if (!dateB) return -1;
+
+      try {
+        const parsedA = new Date(dateA);
+        const parsedB = new Date(dateB);
+
+        if (!isNaN(parsedA.getTime()) && !isNaN(parsedB.getTime())) {
+          const dateCompare = parsedA.getTime() - parsedB.getTime();
+          if (dateCompare !== 0) return dateCompare;
+          
+          // If dates are equal, compare times
+          const timeA = a.interviewTime || '';
+          const timeB = b.interviewTime || '';
+          if (timeA && timeB) {
+            return timeA.localeCompare(timeB);
+          }
+          return 0;
+        }
+      } catch (e) {
+        // If date parsing fails, maintain current order
+      }
+
+      return 0;
+    });
+
+    // Assign respnos starting from R01
+    const transcriptIdToRespno = new Map();
+    sorted.forEach((transcript, index) => {
+      const newRespno = `R${String(index + 1).padStart(2, '0')}`;
+      transcriptIdToRespno.set(String(transcript.id), newRespno);
+    });
+
+    // Update transcripts with new respnos
+    transcripts[projectId] = projectTranscripts.map(t => {
+      const newRespno = transcriptIdToRespno.get(String(t.id));
+      if (newRespno) {
+        return { ...t, respno: newRespno };
+      }
+      return t;
+    });
+
+    // Ensure Demographics has rows for all transcripts assigned to this CA
+    if (!analysis.data) {
+      analysis.data = {};
+    }
+    if (!analysis.data.Demographics || !Array.isArray(analysis.data.Demographics)) {
+      analysis.data.Demographics = [];
+    }
+    
+    // First, remove duplicate Demographics rows (keep first occurrence of each transcriptId)
+    const seenTranscriptIds = new Set();
+    const uniqueDemographics = [];
+    for (const row of analysis.data.Demographics) {
+      if (!row || typeof row !== 'object') continue;
+      const tid = row.transcriptId ? String(row.transcriptId) : null;
+      if (tid) {
+        if (seenTranscriptIds.has(tid)) {
+          console.log(`⚠️ Removing duplicate Demographics row with transcriptId ${tid}`);
+          continue; // Skip duplicate
+        }
+        seenTranscriptIds.add(tid);
+      }
+      uniqueDemographics.push(row);
+    }
+    analysis.data.Demographics = uniqueDemographics;
+    
+    // Build map of existing transcriptIds in Demographics
+    const existingDemographicsTranscriptIds = new Set(
+      analysis.data.Demographics
+        .filter(row => row && row.transcriptId)
+        .map(row => String(row.transcriptId))
+    );
+    
+    // Ensure analysis.transcripts includes all transcripts assigned to this CA
+    if (!analysis.transcripts) {
+      analysis.transcripts = [];
+    }
+    const existingTranscriptIds = new Set(
+      analysis.transcripts.map(t => String(t.id || t.sourceTranscriptId)).filter(Boolean)
+    );
+    
+    // Add missing transcripts to analysis.transcripts
+    for (const transcript of sorted) {
+      const tid = String(transcript.id);
+      if (!existingTranscriptIds.has(tid)) {
+        const transcriptDir = path.join(process.env.DATA_DIR || path.join(__dirname, '../data'), 'transcripts', projectId);
+        const originalPath = path.join(transcriptDir, transcript.originalFilename || transcript.filename);
+        const cleanedPath = path.join(transcriptDir, transcript.cleanedFilename || transcript.filename);
+        
+        analysis.transcripts.push({
+          id: tid,
+          sourceTranscriptId: tid,
+          respno: transcriptIdToRespno.get(tid) || transcript.respno,
+          originalPath: originalPath,
+          cleanedPath: cleanedPath,
+          originalTranscript: transcript.originalText,
+          cleanedTranscript: transcript.cleanedText,
+          isCleaned: !!transcript.cleanedText,
+          addedAt: new Date().toISOString()
+        });
+        console.log(`✅ Added transcript ${tid} to analysis.transcripts`);
+      }
+    }
+    
+    // Add missing Demographics rows for transcripts that don't have them
+    for (const transcript of sorted) {
+      const tid = String(transcript.id);
+      if (!existingDemographicsTranscriptIds.has(tid)) {
+        const newRespno = transcriptIdToRespno.get(tid);
+        const newRow = {
+          transcriptId: tid,
+          respno: newRespno,
+          'Respondent ID': newRespno,
+          'Interview Date': transcript.interviewDate || null,
+          'Interview Time': transcript.interviewTime || null
+        };
+        analysis.data.Demographics.push(newRow);
+        console.log(`✅ Added missing Demographics row for transcript ${tid} (${newRespno})`);
+      }
+    }
+    
+    // Update CA data sheets with new respnos and remove duplicates
+    let analysisUpdated = false;
+    if (analysis.data && typeof analysis.data === 'object') {
+      for (const [sheetName, sheetData] of Object.entries(analysis.data)) {
+        if (!Array.isArray(sheetData)) continue;
+        
+        // Remove duplicates first (keep first occurrence by transcriptId, or by respno if no transcriptId)
+        const seenTranscriptIdsInSheet = new Set();
+        const seenRespnosInSheet = new Set();
+        const uniqueSheetRows = [];
+        for (const row of sheetData) {
+          if (!row || typeof row !== 'object') continue;
+          const tid = row.transcriptId ? String(row.transcriptId) : null;
+          if (tid) {
+            if (seenTranscriptIdsInSheet.has(tid)) {
+              console.log(`⚠️ Removing duplicate row with transcriptId ${tid} in sheet ${sheetName}`);
+              continue; // Skip duplicate
+            }
+            seenTranscriptIdsInSheet.add(tid);
+          } else {
+            const resp = (row['Respondent ID'] || row['respno'] || '').toString().trim();
+            if (resp) {
+              if (seenRespnosInSheet.has(resp)) {
+                console.log(`⚠️ Removing duplicate row with respno ${resp} in sheet ${sheetName}`);
+                continue;
+              }
+              seenRespnosInSheet.add(resp);
+            }
+          }
+          uniqueSheetRows.push(row);
+        }
+        
+        const updatedSheet = uniqueSheetRows.map(row => {
+          if (!row || typeof row !== 'object') return row;
+          if (!row.transcriptId) return row;
+          
+          const newRespno = transcriptIdToRespno.get(String(row.transcriptId));
+          if (newRespno) {
+            analysisUpdated = true;
+            return {
+              ...row,
+              'Respondent ID': newRespno,
+              respno: newRespno
+            };
+          }
+          return row;
+        });
+        
+        // Also update Interview Date/Time from transcript metadata if missing
+        if (sheetName === 'Demographics') {
+          const finalSheet = updatedSheet.map(row => {
+            if (!row || !row.transcriptId) return row;
+            const transcript = caTranscripts.find(t => String(t.id) === String(row.transcriptId));
+            if (transcript) {
+              return {
+                ...row,
+                'Interview Date': row['Interview Date'] || transcript.interviewDate || null,
+                'Interview Time': row['Interview Time'] || transcript.interviewTime || null
+              };
+            }
+            return row;
+          });
+          analysis.data[sheetName] = finalSheet;
+        } else {
+          analysis.data[sheetName] = updatedSheet;
+        }
+      }
+    }
+
+    // Save updates
+    await fs.writeFile(transcriptsPath, JSON.stringify(transcripts, null, 2));
+    await fs.writeFile(analysesPath, JSON.stringify(analyses, null, 2));
+
+    // Note: Cleaned transcript file regeneration would require importing createFormattedWordDoc
+    // from transcripts.routes.mjs. For now, respnos are updated in transcripts.json and CA data.
+    // Cleaned transcript files can be regenerated manually if needed.
+    console.log(`✅ Reset respnos for ${sorted.length} transcripts in CA ${analysisId}`);
+
+    return res.json({ 
+      success: true, 
+      updated: analysisUpdated,
+      transcriptsReset: sorted.length,
+      analysisId 
+    });
+  } catch (error) {
+    console.error('❌ Error resetting respnos for CA:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/caX/remove-transcript - remove a transcript from an analysis and renumber
+router.post('/remove-transcript', async (req, res) => {
+  try {
+    const { projectId, analysisId, transcriptId } = req.body;
+    if (!projectId || !analysisId || !transcriptId) {
+      return res.status(400).json({ error: 'projectId, analysisId, transcriptId are required' });
+    }
+    const result = await removeTranscriptFromAnalysis(projectId, analysisId, transcriptId);
+    return res.json({ success: true, ...result });
+  } catch (error) {
+    console.error('❌ Error removing transcript from analysis:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 

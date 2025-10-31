@@ -10,10 +10,10 @@ import {
   PencilIcon,
   MagnifyingGlassIcon
 } from '@heroicons/react/24/outline';
-import { IconScript } from '@tabler/icons-react';
+import { IconScript, IconTable } from '@tabler/icons-react';
 import { API_BASE_URL } from '../config';
 import { useAuth } from '../contexts/AuthContext';
-import { normalizeTranscriptList, normalizeAnalysisRespnos, buildTranscriptDisplayName } from '../utils/respnoUtils';
+import { normalizeTranscriptList, buildTranscriptDisplayName } from '../utils/respnoUtils';
 
 const BRAND_ORANGE = '#D14A2D';
 const BRAND_BG = '#F7F7F8';
@@ -137,12 +137,15 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
   const [archivedProjects, setArchivedProjects] = useState<Project[]>([]);
   const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const [viewMode, setViewMode] = useState<'home' | 'project' | 'transcripts-by-ca'>('home');
+  const [viewMode, setViewMode] = useState<'home' | 'project'>('home');
   const [selectedContentAnalysis, setSelectedContentAnalysis] = useState<any | null>(null);
+  const [showCASelectionModal, setShowCASelectionModal] = useState(false);
+  const [transcriptToAdd, setTranscriptToAdd] = useState<Transcript | null>(null);
+  const [isResettingRespnos, setIsResettingRespnos] = useState(false);
   const [transcripts, setTranscripts] = useState<ProjectTranscripts>({});
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
-  const [cleanTranscript, setCleanTranscript] = useState(false);
+  const [cleanTranscript, setCleanTranscript] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
   const [isLoadingArchived, setIsLoadingArchived] = useState(false);
@@ -158,12 +161,15 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isParsingFile, setIsParsingFile] = useState(false);
+  const [parsedModerator, setParsedModerator] = useState<string>('');
+  const [parsedRespondent, setParsedRespondent] = useState<string>('');
+  const [processingStage, setProcessingStage] = useState<'cleaning' | 'adding' | null>(null);
+  const [isSavingDateTime, setIsSavingDateTime] = useState(false);
   
   // Date/time editing state
   const [editingTranscriptId, setEditingTranscriptId] = useState<string | null>(null);
   const [editingField, setEditingField] = useState<'date' | 'time' | null>(null);
   const [editingValue, setEditingValue] = useState<string>('');
-  const [isSavingDateTime, setIsSavingDateTime] = useState(false);
 
   // Date formatting utilities
   const formatDateToShort = (dateStr: string | undefined): string => {
@@ -386,9 +392,21 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
       if (response.ok) {
         const data = await response.json();
         console.log('📊 Raw saved analyses data:', data);
+        console.log('📊 Saved analyses count:', Array.isArray(data) ? data.length : 0);
+        
         const currentTranscriptsMap = transcriptMapOverride || transcripts;
         const normalizedAnalyses = Array.isArray(data)
           ? await Promise.all(data.map(async (analysis: any) => {
+              // Debug: Log each analysis's Demographics data
+              if (analysis.data && analysis.data.Demographics) {
+                console.log(`📊 Analysis ${analysis.id} (${analysis.name}) Demographics:`, {
+                  count: Array.isArray(analysis.data.Demographics) ? analysis.data.Demographics.length : 0,
+                  transcriptIds: Array.isArray(analysis.data.Demographics) 
+                    ? analysis.data.Demographics.map((r: any) => r?.transcriptId).filter(Boolean)
+                    : []
+                });
+              }
+              
               // Load project transcripts for this specific analysis
               let projectTranscripts = currentTranscriptsMap[analysis.projectId] || [];
               
@@ -413,26 +431,20 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                 }
               }
               
-              const normalized = normalizeAnalysisRespnos(analysis, projectTranscripts);
-              console.log('🔍 Normalizing analysis in transcripts view:', {
-                analysisId: analysis.id,
-                projectId: analysis.projectId,
-                projectTranscriptsCount: projectTranscripts.length,
-                demographicsBefore: analysis?.data?.Demographics?.map((r: any) => ({
-                  respno: r['Respondent ID'] || r['respno'],
-                  date: r['Interview Date'] || r['Date'],
-                  time: r['Interview Time'] || r['Time']
-                })),
-                demographicsAfter: normalized?.data?.Demographics?.map((r: any) => ({
-                  respno: r['Respondent ID'] || r['respno'],
-                  date: r['Interview Date'] || r['Date'],
-                  time: r['Interview Time'] || r['Time']
-                }))
-              });
-              return normalized;
+              // Do not normalize in transcripts view; use server data as-is
+              return analysis;
             }))
           : [];
         console.log('📊 Normalized saved analyses:', normalizedAnalyses);
+        console.log('📊 Checking Demographics transcriptIds after normalization:');
+        normalizedAnalyses.forEach((analysis: any) => {
+          if (analysis.data?.Demographics) {
+            console.log(`  Analysis ${analysis.id} (${analysis.name}):`, {
+              count: analysis.data.Demographics.length,
+              transcriptIds: analysis.data.Demographics.map((r: any) => r?.transcriptId).filter(Boolean)
+            });
+          }
+        });
         setSavedAnalyses(normalizedAnalyses);
         
         // Update selectedContentAnalysis if it exists - refresh it with the latest data
@@ -456,59 +468,34 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
     return null;
   };
 
+  // Ensure respnos are gapless/chronological on page open and project change
+  // No respno renumbering; keep respnos locked at project level
+
   const isTranscriptInAnalysis = (transcriptId: string): boolean => {
     // ONLY check analyses that belong to the current project
     const projectAnalyses = savedAnalyses.filter(analysis => analysis.projectId === selectedProject?.id);
-
-    console.log('🔍 isTranscriptInAnalysis called for transcriptId:', transcriptId);
-    console.log('🔍 Project analyses found:', projectAnalyses.length);
-    console.log('🔍 Current project:', selectedProject?.id);
 
     const result = projectAnalyses.some(analysis => {
       // Check if the transcript ID exists in any CA row (not respno, which can change)
       if (analysis.data) {
         let foundInData = false;
-        
-        // First check Demographics sheet specifically (where transcriptId is stored)
         if (analysis.data.Demographics && Array.isArray(analysis.data.Demographics)) {
-          console.log('🔍 Checking Demographics sheet for transcriptId:', transcriptId);
-          console.log('🔍 Demographics rows:', analysis.data.Demographics.map((r: any) => ({ transcriptId: r.transcriptId, respno: r['Respondent ID'] })));
-          
-          const hasTranscript = analysis.data.Demographics.some((row: any) =>
-            row.transcriptId === transcriptId
-          );
-          if (hasTranscript) {
-            console.log('✅ Found transcript in Demographics sheet');
-            foundInData = true;
-          }
+          const hasTranscript = analysis.data.Demographics.some((row: any) => row.transcriptId === transcriptId);
+          if (hasTranscript) foundInData = true;
         }
-        
-        // If not found in Demographics, check other sheets as fallback
         if (!foundInData) {
-          Object.entries(analysis.data).forEach(([sheetName, sheetData]) => {
+          Object.entries(analysis.data).forEach(([_, sheetData]) => {
             if (Array.isArray(sheetData)) {
-              // Check by transcript ID first (preferred method)
-              const hasTranscript = sheetData.some((row: any) =>
-                row.transcriptId === transcriptId
-              );
-              if (hasTranscript) {
-                console.log(`✅ Found transcript in ${sheetName} sheet`);
-                foundInData = true;
-              }
+              const hasTranscript = sheetData.some((row: any) => row.transcriptId === transcriptId);
+              if (hasTranscript) foundInData = true;
             }
           });
         }
-        
-        if (foundInData) {
-          return true;
-        }
+        if (foundInData) return true;
       }
-
-      // If no data found, don't consider it added
       return false;
     });
 
-    console.log('🔍 isTranscriptInAnalysis result:', result);
     return result;
   };
 
@@ -521,28 +508,61 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
   const isTranscriptInAnyCA = useCallback((transcriptId: string, projectId: string): boolean => {
     const projectAnalyses = savedAnalyses.filter(analysis => analysis.projectId === projectId);
     
-    return projectAnalyses.some(analysis => {
+    console.log('🔍 isTranscriptInAnyCA called:', { transcriptId, projectId, projectAnalysesCount: projectAnalyses.length });
+    
+    const result = projectAnalyses.some(analysis => {
       if (analysis.data) {
         // Check Demographics sheet
         if (analysis.data.Demographics && Array.isArray(analysis.data.Demographics)) {
-          const hasTranscript = analysis.data.Demographics.some((row: any) =>
-            row.transcriptId === transcriptId
-          );
-          if (hasTranscript) return true;
+          console.log(`🔍 Checking Demographics for analysis ${analysis.id} (${analysis.name}):`, {
+            demographicsCount: analysis.data.Demographics.length,
+            transcriptIds: analysis.data.Demographics.map((r: any) => ({ 
+              transcriptId: r.transcriptId, 
+              respno: r.respno || r['Respondent ID'],
+              hasTranscriptId: !!r.transcriptId
+            }))
+          });
+          
+          const hasTranscript = analysis.data.Demographics.some((row: any) => {
+            // Ensure both values are strings for comparison
+            const rowTranscriptId = row.transcriptId ? String(row.transcriptId) : null;
+            const checkId = String(transcriptId);
+            const match = rowTranscriptId === checkId;
+            
+            if (rowTranscriptId || checkId) {
+              console.log(`🔍 Comparing transcriptId: "${rowTranscriptId}" === "${checkId}" = ${match}`);
+            }
+            
+            return match;
+          });
+          
+          if (hasTranscript) {
+            console.log(`✅ Found transcript ${transcriptId} in analysis ${analysis.id} (${analysis.name}) Demographics`);
+            return true;
+          }
         }
         
         // Check other sheets
         for (const [sheetName, sheetData] of Object.entries(analysis.data)) {
           if (Array.isArray(sheetData)) {
-            const hasTranscript = sheetData.some((row: any) =>
-              row.transcriptId === transcriptId
-            );
-            if (hasTranscript) return true;
+            const hasTranscript = sheetData.some((row: any) => {
+              // Ensure both values are strings for comparison
+              const rowTranscriptId = row.transcriptId ? String(row.transcriptId) : null;
+              const checkId = String(transcriptId);
+              return rowTranscriptId === checkId;
+            });
+            if (hasTranscript) {
+              console.log(`✅ Found transcript ${transcriptId} in analysis ${analysis.id} sheet ${sheetName}`);
+              return true;
+            }
           }
         }
       }
       return false;
     });
+    
+    console.log(`🔍 isTranscriptInAnyCA result for ${transcriptId}: ${result}`);
+    return result;
   }, [savedAnalyses]);
 
   const handleNavigateToCA = (transcriptId: string) => {
@@ -599,35 +619,46 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
   // Get transcripts that belong to a specific content analysis
   const getTranscriptsForAnalysis = useCallback((analysis: any, projectTranscripts: Transcript[]): Transcript[] => {
     if (!analysis || !analysis.data) return [];
-    
     const transcriptIds = new Set<string>();
-    
-    // Collect all transcript IDs from the analysis data
+    // Collect only from sheet rows (authoritative source). Ignore analysis.transcripts to avoid stale items.
     Object.values(analysis.data).forEach((sheetData: any) => {
       if (Array.isArray(sheetData)) {
         sheetData.forEach((row: any) => {
-          if (row.transcriptId) {
-            transcriptIds.add(row.transcriptId);
-          }
+          if (row?.transcriptId) transcriptIds.add(String(row.transcriptId));
         });
       }
     });
-    
-    // Also check the transcripts array in the analysis object
-    if (analysis.transcripts && Array.isArray(analysis.transcripts)) {
-      analysis.transcripts.forEach((t: any) => {
-        if (t.id || t.sourceTranscriptId) {
-          transcriptIds.add(t.id || t.sourceTranscriptId);
-        }
-      });
-    }
-    
-    // Filter project transcripts to only include those in this analysis
-    return projectTranscripts.filter(t => transcriptIds.has(t.id));
+    return projectTranscripts.filter(t => transcriptIds.has(String(t.id)));
   }, []);
 
+  // Build per-CA respno map so Uploaded list shows R01.. in CA order
+  const caRespnoByTranscriptId = useMemo(() => {
+    const map = new Map<string, string>();
+    if (!selectedContentAnalysis || !selectedContentAnalysis.data) return map;
+    const demoRows = Array.isArray(selectedContentAnalysis.data.Demographics) ? selectedContentAnalysis.data.Demographics : [];
+    let orderedIds: string[] = [];
+    if (demoRows.length > 0) {
+      orderedIds = demoRows
+        .map((r: any) => r?.transcriptId)
+        .filter((id: any) => typeof id === 'string' && id.trim() !== '');
+    } else {
+      // Fallback: collect from any sheet rows
+      const ids = new Set<string>();
+      Object.values(selectedContentAnalysis.data).forEach((rows: any) => {
+        if (Array.isArray(rows)) rows.forEach((r: any) => { if (r?.transcriptId) ids.add(String(r.transcriptId)); });
+      });
+      orderedIds = Array.from(ids);
+    }
+    orderedIds.forEach((tid, idx) => {
+      const n = idx + 1;
+      const r = n < 100 ? `R${String(n).padStart(2, '0')}` : `R${n}`;
+      map.set(String(tid), r);
+    });
+    return map;
+  }, [selectedContentAnalysis?.id, selectedContentAnalysis?.data]);
 
-  const handleAddToCA = async (transcript: Transcript) => {
+
+  const handleAddToCA = async (transcript: Transcript, analysisId?: string) => {
     if (!selectedProject) return;
 
     // Prevent adding if already in progress
@@ -635,12 +666,31 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
       return;
     }
 
-    // Use the selected content analysis - if we're viewing transcripts for a specific CA, use that one
-    // Otherwise, find the first analysis for the project (fallback for when viewing from home)
-    const analysis = selectedContentAnalysis || savedAnalyses.find(a => a.projectId === selectedProject.id);
+    // If analysisId is provided, use it directly
+    // Otherwise, check if there's only one CA (auto-add) or show modal
+    let analysisIdToUse = analysisId;
+    
+    if (!analysisIdToUse) {
+      const projectAnalyses = savedAnalyses.filter(a => a.projectId === selectedProject.id);
+      
+      if (projectAnalyses.length === 0) {
+        alert('No Content Analysis found for this project. Please create one first.');
+        return;
+      } else if (projectAnalyses.length === 1) {
+        // Only one CA - auto-add
+        analysisIdToUse = projectAnalyses[0].id;
+      } else {
+        // Multiple CAs - show selection modal
+        setTranscriptToAdd(transcript);
+        setShowCASelectionModal(true);
+        return;
+      }
+    }
+
+    const analysis = savedAnalyses.find(a => a.id === analysisIdToUse);
 
     if (!analysis) {
-      alert('No Content Analysis found for this project. Please create one first.');
+      alert('Content Analysis not found.');
       return;
     }
 
@@ -652,7 +702,6 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
       console.log('🔍 selectedProject.id:', selectedProject.id);
       console.log('🔍 transcript.id:', transcript.id);
       console.log('🔍 Using analysis:', { id: analysis.id, projectId: analysis.projectId, name: analysis.name });
-      console.log('🔍 selectedContentAnalysis:', selectedContentAnalysis?.id);
       console.log('🔍 Will add to analysis:', analysis.id);
 
       const response = await fetch(
@@ -665,8 +714,8 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
           },
           body: JSON.stringify({
             projectId: selectedProject.id,
-            transcriptId: transcript.id, // Only send the clicked transcript ID
-            analysisId: analysis.id, // Use the selected analysis ID
+            transcriptId: transcript.id,
+            analysisId: analysis.id,
             activeSheet: analysis.activeSheet || 'Demographics',
             currentData: JSON.stringify(analysis.data || {}),
             discussionGuide: analysis.rawGuideText || '',
@@ -677,16 +726,13 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
       );
 
       if (response.ok) {
-        // Refresh the saved analyses to get the updated data
-        const updatedAnalyses = await loadSavedAnalyses();
-        
-        // Update selectedContentAnalysis if it was updated
-        if (selectedContentAnalysis && updatedAnalyses) {
-          const updatedAnalysis = updatedAnalyses.find((a: any) => a.id === selectedContentAnalysis.id);
-          if (updatedAnalysis) {
-            setSelectedContentAnalysis(updatedAnalysis);
-          }
-        }
+        // Refresh analyses and transcripts - ensure both complete before continuing
+        await Promise.all([
+          loadTranscripts(),
+          loadSavedAnalyses()
+        ]);
+        // Do NOT call updateContentAnalysisOrdering here; server already persists ordering.
+        // Avoid overwriting server-added rows with stale client state.
       } else {
         const error = await response.json();
         alert(`Failed to add transcript to CA: ${error.error || 'Unknown error'}`);
@@ -701,6 +747,9 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
         next.delete(transcript.id);
         return next;
       });
+      // Close modal if open
+      setShowCASelectionModal(false);
+      setTranscriptToAdd(null);
     }
   };
 
@@ -946,6 +995,7 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
     try {
       const formData = new FormData();
       formData.append('file', file);
+      if (selectedProject?.id) formData.append('projectId', selectedProject.id);
 
       console.log('Fetching /api/transcripts/parse-datetime...');
       const response = await fetch(`${API_BASE_URL}/api/transcripts/parse-datetime`, {
@@ -959,6 +1009,8 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
       if (response.ok) {
         const data = await response.json();
         setParsedDateTime(data);
+        if (data?.moderatorName) setParsedModerator(data.moderatorName);
+        if (data?.respondentName) setParsedRespondent(data.respondentName);
 
         // Check for duplicate
         const projectTranscripts = transcripts[selectedProject.id] || [];
@@ -988,7 +1040,7 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
       return;
     }
 
-
+    setProcessingStage('cleaning');
     setIsProcessing(true);
 
     try {
@@ -996,6 +1048,8 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
       formData.append('transcript', uploadFile);
       formData.append('projectId', selectedProject.id);
       formData.append('cleanTranscript', cleanTranscript.toString());
+      if (parsedModerator) formData.append('moderatorName', parsedModerator);
+      if (parsedRespondent) formData.append('respondentName', parsedRespondent);
 
       const response = await fetch(`${API_BASE_URL}/api/transcripts/upload`, {
         method: 'POST',
@@ -1005,13 +1059,19 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
 
       if (response.ok) {
         const uploadedTranscript = await response.json();
+        // Transcript uploaded - it will appear in the un-assigned section
+        // User must manually add it to a CA if desired
+
         const normalized = await loadTranscripts();
         await loadSavedAnalyses(normalized || undefined);
 
 
         setShowUploadModal(false);
         setUploadFile(null);
-        setCleanTranscript(false);
+        setCleanTranscript(true);
+        setParsedModerator('');
+        setParsedRespondent('');
+        setProcessingStage(null);
       } else {
         const error = await response.json();
         alert(`Failed to upload transcript: ${error.error || 'Unknown error'}`);
@@ -1021,6 +1081,153 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
       alert('Failed to upload transcript');
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  // Helper function to sort transcripts chronologically
+  const sortTranscriptsChronologically = (transcriptList: Transcript[]): Transcript[] => {
+    const sorted = [...transcriptList].sort((a, b) => {
+      const dateA = a.interviewDate || '';
+      const dateB = b.interviewDate || '';
+
+      if (!dateA && !dateB) {
+        // If both lack dates, sort by time
+        const timeA = a.interviewTime || '';
+        const timeB = b.interviewTime || '';
+        if (!timeA && !timeB) return 0;
+        if (!timeA) return 1;
+        if (!timeB) return -1;
+        return timeA.localeCompare(timeB);
+      }
+      if (!dateA) return 1;
+      if (!dateB) return -1;
+
+      try {
+        const parsedA = new Date(dateA);
+        const parsedB = new Date(dateB);
+
+        if (!isNaN(parsedA.getTime()) && !isNaN(parsedB.getTime())) {
+          const dateCompare = parsedA.getTime() - parsedB.getTime();
+          if (dateCompare !== 0) return dateCompare;
+          
+          // If dates are equal, compare times
+          const timeA = a.interviewTime || '';
+          const timeB = b.interviewTime || '';
+          if (timeA && timeB) {
+            return timeA.localeCompare(timeB);
+          }
+          return 0;
+        }
+      } catch (e) {
+        // If date parsing fails, maintain current order
+      }
+
+      return 0;
+    });
+
+    return sorted;
+  };
+
+  const handleResetCARespnos = async (analysisId: string, analysisName: string) => {
+    if (!selectedProject) return;
+
+    const confirmed = window.confirm(
+      `This will reset respnos for all transcripts in "${analysisName}" based on their chronological order (by interview date/time).\n\nTranscripts will be renumbered starting from R01.\n\nContinue?`
+    );
+
+    if (!confirmed) return;
+
+    setIsResettingRespnos(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/caX/reset-respnos`, {
+        method: 'POST',
+        headers: {
+          ...getAuthHeaders(),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          projectId: selectedProject.id,
+          analysisId: analysisId
+        })
+      });
+
+      if (response.ok) {
+        alert(`Respnos have been reset for "${analysisName}"!`);
+        await loadTranscripts();
+        await loadSavedAnalyses();
+      } else {
+        const error = await response.json();
+        alert(`Failed to reset respnos: ${error.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Failed to reset respnos:', error);
+      alert('Failed to reset respnos');
+    } finally {
+      setIsResettingRespnos(false);
+    }
+  };
+
+  const handleReassignRespnos = async () => {
+    if (!selectedProject) return;
+
+    const confirmed = window.confirm(
+      `This will reassign respnos for all transcripts in "${selectedProject.name}" based on their chronological order (by interview date/time).\n\nAny transcripts with missing respnos will be assigned new ones.\n\nContinue?`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/transcripts/reassign/${selectedProject.id}`, {
+        method: 'POST',
+        headers: getAuthHeaders()
+      });
+
+      if (response.ok) {
+        alert('Respnos have been reassigned successfully!');
+        // Reload transcripts to see the updated respnos
+        await loadTranscripts();
+        await loadSavedAnalyses();
+      } else {
+        const error = await response.json();
+        alert(`Failed to reassign respnos: ${error.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Failed to reassign respnos:', error);
+      alert('Failed to reassign respnos');
+    }
+  };
+
+  const handleSyncRespnos = async () => {
+    if (!selectedProject) return;
+
+    const confirmed = window.confirm(
+      `This will sync respnos in all content analyses for "${selectedProject.name}".\n\nIt will update Demographics data to match the respnos stored in each analysis's transcripts array.\n\nThis fixes respnos that are null/undefined in your existing content analyses.\n\nContinue?`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/caX/sync-respnos`, {
+        method: 'POST',
+        headers: {
+          ...getAuthHeaders(),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ projectId: selectedProject.id })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        alert(`Respnos synced successfully!\n\n${result.analysesUpdated} content analysis/analyses updated\n${result.totalRowsUpdated} total rows updated`);
+        // Reload to see the updated respnos
+        await loadSavedAnalyses();
+      } else {
+        const error = await response.json();
+        alert(`Failed to sync respnos: ${error.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Failed to sync respnos:', error);
+      alert('Failed to sync respnos');
     }
   };
 
@@ -1280,9 +1487,30 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
     }
   };
 
-  // Project view - show list of content analyses
+  // Project view - show transcripts organized by CA boxes
   if (selectedProject && viewMode === 'project') {
     const projectAnalyses = analysesForSelectedProject;
+    const projectTranscripts = transcripts[selectedProject.id] || [];
+    const duplicateIds = findDuplicateInterviewTimes(projectTranscripts);
+    
+    // Get un-assigned transcripts (not in any CA)
+    // Only filter if we have savedAnalyses loaded to avoid false positives
+    console.log('🔍 Computing orphaned transcripts:', {
+      savedAnalysesCount: savedAnalyses.length,
+      projectTranscriptsCount: projectTranscripts.length,
+      projectAnalysesCount: projectAnalyses.length
+    });
+    
+    const orphanedTranscripts = savedAnalyses.length > 0 
+      ? projectTranscripts.filter(t => {
+          const isAssigned = isTranscriptInAnyCA(String(t.id), selectedProject.id);
+          console.log(`🔍 Transcript ${t.id}: isAssigned = ${isAssigned}`);
+          return !isAssigned;
+        })
+      : [];
+    
+    console.log('🔍 Orphaned transcripts count:', orphanedTranscripts.length);
+    const sortedOrphanedTranscripts = sortTranscriptsChronologically(orphanedTranscripts);
 
     return (
       <main
@@ -1317,160 +1545,10 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                 {selectedProject.archived && ' • Archived'}
               </p>
             </div>
-          </section>
-
-          <div className="bg-white shadow-sm border border-gray-200 rounded-lg overflow-hidden">
-            {/* Content Analyses Table */}
-            <div className="overflow-x-auto">
-              {projectAnalyses.length === 0 ? (
-                <div className="p-8 text-center">
-                  <DocumentTextIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Content Analyses</h3>
-                  <p className="text-gray-600 mb-4">This project doesn't have any content analyses yet.</p>
-                  <p className="text-sm text-gray-500">
-                    Create a content analysis in the Content Analysis tab to organize transcripts by analysis.
-                  </p>
-                </div>
-              ) : (
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Analysis Name
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Created
-                      </th>
-                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Transcripts
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {projectAnalyses.map((analysis) => {
-                      const projectTranscripts = transcripts[selectedProject.id] || [];
-                      const analysisTranscripts = getTranscriptsForAnalysis(analysis, projectTranscripts);
-                      return (
-                        <tr 
-                          key={analysis.id} 
-                          className="hover:bg-gray-50 cursor-pointer transition-colors"
-                          onClick={() => {
-                            setViewMode('transcripts-by-ca');
-                            setSelectedContentAnalysis(analysis);
-                          }}
-                        >
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900">{analysis.name || 'Untitled Analysis'}</div>
-                            {analysis.description && (
-                              <div className="text-sm text-gray-500 truncate max-w-xs">{analysis.description}</div>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {analysis.savedAt ? new Date(analysis.savedAt).toLocaleDateString() : (analysis.createdAt ? new Date(analysis.createdAt).toLocaleDateString() : '-')}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-center">
-                            <div className="flex items-center justify-center gap-1 text-sm text-gray-900">
-                              <IconScript className="h-4 w-4 text-gray-400" />
-                              {analysisTranscripts.length}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </div>
-        </div>
-      </main>
-    );
-  }
-
-  // Transcripts view - show transcripts organized by content analysis
-  // Only show transcripts if a content analysis is selected
-  if (selectedProject && viewMode === 'transcripts-by-ca') {
-    // If no content analysis is selected, redirect back to project view
-    if (!selectedContentAnalysis) {
-      return (
-        <main
-          className="flex-1 overflow-y-auto"
-          style={{ backgroundColor: BRAND_BG, height: 'calc(100vh - 80px)', marginTop: '80px' }}
-        >
-          <div className="flex-1 p-6 space-y-6 max-w-full">
-            <div className="text-center py-12">
-              <p className="text-gray-600 mb-4">Please select a content analysis to view transcripts.</p>
-              <button
-                onClick={() => {
-                  setViewMode('project');
-                  setSelectedContentAnalysis(null);
-                }}
-                className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:opacity-90"
-                style={{ backgroundColor: BRAND_ORANGE }}
-              >
-                <ArrowLeftIcon className="h-4 w-4" />
-                Back to Content Analyses
-              </button>
-            </div>
-          </div>
-        </main>
-      );
-    }
-
-    const projectTranscripts = transcripts[selectedProject.id] || [];
-    // Backend now handles the sorting, so we use the transcripts as they come
-    const duplicateIds = findDuplicateInterviewTimes(projectTranscripts);
-
-    // Filter transcripts based on selected content analysis
-    const displayedTranscripts = getTranscriptsForAnalysis(selectedContentAnalysis, projectTranscripts);
-
-    return (
-      <main
-        className="flex-1 overflow-y-auto"
-        style={{ backgroundColor: BRAND_BG, height: 'calc(100vh - 80px)', marginTop: '80px' }}
-      >
-        <div className="flex-1 p-6 space-y-6 max-w-full">
-          <section className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex-1">
-              <div className="flex items-center justify-between mb-2">
-              <button
-                  onClick={() => {
-                    setViewMode('project');
-                    setSelectedContentAnalysis(null);
-                  }}
-                  className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition"
-              >
-                <ArrowLeftIcon className="h-4 w-4" />
-                Back to {selectedContentAnalysis.name || 'Content Analyses'}
-              </button>
-              </div>
-              <h2
-                className="text-2xl font-bold"
-                style={{ color: BRAND_GRAY }}
-              >
-                {selectedProject.name}
-              </h2>
-              <p className="mt-1 text-sm text-gray-500">
-                {displayedTranscripts.length} of {projectTranscripts.length}{' '}
-                {displayedTranscripts.length === 1 ? 'transcript' : 'transcripts'} in{' '}
-                <button
-                  onClick={() => {
-                    if (selectedContentAnalysis && onNavigate && setAnalysisToLoad) {
-                      setAnalysisToLoad(selectedContentAnalysis.id);
-                      onNavigate('Content Analysis');
-                    }
-                  }}
-                  className="text-[#D14A2D] hover:text-[#A03824] hover:underline font-medium transition-colors"
-                >
-                  {selectedContentAnalysis.name || 'this analysis'}
-                </button>
-                {selectedProject.archived && ' • Archived'}
-              </p>
-            </div>
             <div className="flex items-center gap-2 self-end">
               <button
                 onClick={() => setShowSearchModal(true)}
-                disabled={addingTranscriptIds.size > 0}
+                disabled={addingTranscriptIds.size > 0 || isResettingRespnos}
                 className="inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium shadow-sm transition bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <MagnifyingGlassIcon className="h-4 w-4" />
@@ -1478,7 +1556,7 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
               </button>
               <button
                 onClick={() => setShowUploadModal(true)}
-                disabled={addingTranscriptIds.size > 0}
+                disabled={addingTranscriptIds.size > 0 || isResettingRespnos}
                 className="inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ backgroundColor: BRAND_ORANGE }}
               >
@@ -1488,28 +1566,258 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
             </div>
           </section>
 
-          {/* Show orphaned transcripts (not in ANY CA) */}
-          {(() => {
-            // Always check if transcript is in ANY CA, not just the selected one
-            // Orphaned transcripts are those not assigned to any content analysis
-            const orphanedTranscripts = projectTranscripts.filter(t => {
-              return !isTranscriptInAnyCA(t.id, selectedProject.id);
-            });
-            
-            if (orphanedTranscripts.length > 0) {
+          {/* Un-Assigned Transcripts Box */}
+          {sortedOrphanedTranscripts.length > 0 && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <h3 className="text-sm font-semibold text-yellow-900">
+                    Un-Assigned Transcripts
+                  </h3>
+                  <p className="mt-1 text-xs text-yellow-700">
+                    {sortedOrphanedTranscripts.length} transcript{sortedOrphanedTranscripts.length === 1 ? '' : 's'} uploaded to this project but not assigned to any content analysis
+                  </p>
+                </div>
+              </div>
+              <div className="bg-white shadow-sm border border-gray-200 rounded-lg overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Filename
+                        </th>
+                        <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
+                          Interview Date
+                        </th>
+                        <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-28 whitespace-nowrap">
+                          Interview Time
+                        </th>
+                        <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
+                          Original
+                        </th>
+                        <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
+                          Cleaned
+                        </th>
+                        <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-28">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {sortedOrphanedTranscripts.map(transcript => {
+                        const displayName = buildTranscriptDisplayName({
+                          projectName: selectedProject?.name,
+                          respno: null,
+                          interviewDate: transcript.interviewDate,
+                          interviewTime: transcript.interviewTime,
+                          fallbackFilename: transcript.originalFilename
+                        });
+
+                        return (
+                          <tr
+                            key={transcript.id}
+                            className="hover:bg-gray-50 transition-colors"
+                          >
+                            <td className="px-4 py-4 whitespace-nowrap">
+                              <div className="text-sm text-gray-900">{displayName}</div>
+                            </td>
+                            <td className="px-3 py-4 whitespace-nowrap text-center">
+                              <div className={`text-sm flex items-center justify-center gap-1 ${
+                                duplicateIds.has(transcript.id) ? 'text-red-600' : 'text-gray-900'
+                              }`}>
+                                {editingTranscriptId === transcript.id && editingField === 'date' ? (
+                                  <div className="flex items-center gap-1">
+                                    <input
+                                      type="text"
+                                      value={editingValue}
+                                      onChange={(e) => setEditingValue(e.target.value)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                          handleSaveDateTime(transcript.id, 'date', editingValue);
+                                        } else if (e.key === 'Escape') {
+                                          handleCancelEditing();
+                                        }
+                                      }}
+                                      onBlur={() => handleSaveDateTime(transcript.id, 'date', editingValue)}
+                                      className="text-sm border border-gray-300 rounded px-2 py-1 w-24 text-center"
+                                      placeholder="MM/DD/YY"
+                                      autoFocus
+                                      disabled={isSavingDateTime || addingTranscriptIds.size > 0}
+                                    />
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-1">
+                                    <span>{formatDateToShort(transcript.interviewDate)}</span>
+                                    <button
+                                      onClick={() => handleStartEditing(transcript.id, 'date', formatDateToShort(transcript.interviewDate))}
+                                      className="text-gray-400 hover:text-gray-600 p-0.5 rounded"
+                                      title="Edit date (MM/DD/YY format)"
+                                      disabled={isSavingDateTime || addingTranscriptIds.size > 0}
+                                    >
+                                      <PencilIcon className="h-3 w-3" />
+                                    </button>
+                                    {duplicateIds.has(transcript.id) && (
+                                      <ExclamationTriangleIcon className="h-4 w-4 text-red-600" />
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-3 py-4 whitespace-nowrap text-center">
+                              <div className={`text-sm flex items-center justify-center gap-1 ${
+                                duplicateIds.has(transcript.id) ? 'text-red-600' : 'text-gray-900'
+                              }`}>
+                                {editingTranscriptId === transcript.id && editingField === 'time' ? (
+                                  <div className="flex items-center gap-1">
+                                    <input
+                                      type="text"
+                                      value={editingValue}
+                                      onChange={(e) => setEditingValue(e.target.value)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                          handleSaveDateTime(transcript.id, 'time', editingValue);
+                                        } else if (e.key === 'Escape') {
+                                          handleCancelEditing();
+                                        }
+                                      }}
+                                      onBlur={() => handleSaveDateTime(transcript.id, 'time', editingValue)}
+                                      className="text-sm border border-gray-300 rounded px-2 py-1 w-24 text-center"
+                                      placeholder="HH:MM AM/PM"
+                                      autoFocus
+                                      disabled={isSavingDateTime || addingTranscriptIds.size > 0}
+                                    />
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-1">
+                                    <span>{formatTimeToStandard(transcript.interviewTime)}</span>
+                                    <button
+                                      onClick={() => handleStartEditing(transcript.id, 'time', formatTimeToStandard(transcript.interviewTime))}
+                                      className="text-gray-400 hover:text-gray-600 p-0.5 rounded"
+                                      title="Edit time (HH:MM AM/PM format)"
+                                      disabled={isSavingDateTime || addingTranscriptIds.size > 0}
+                                    >
+                                      <PencilIcon className="h-3 w-3" />
+                                    </button>
+                                    {duplicateIds.has(transcript.id) && (
+                                      <ExclamationTriangleIcon className="h-4 w-4 text-red-600" />
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-3 py-4 whitespace-nowrap text-center">
+                              <button
+                                onClick={() => handleDownload(transcript, false)}
+                                disabled={addingTranscriptIds.size > 0}
+                                className="text-blue-600 hover:text-blue-800 p-1 rounded-lg hover:bg-blue-50 mx-auto disabled:opacity-50 disabled:cursor-not-allowed"
+                                title="Download Original"
+                              >
+                                <DocumentTextIcon className="h-5 w-5" />
+                              </button>
+                            </td>
+                            <td className="px-3 py-4 whitespace-nowrap text-center">
+                              {transcript.isCleaned ? (
+                                <button
+                                  onClick={() => handleDownload(transcript, true)}
+                                  disabled={addingTranscriptIds.size > 0}
+                                  className="text-blue-600 hover:text-blue-800 p-1 rounded-lg hover:bg-blue-50 mx-auto disabled:opacity-50 disabled:cursor-not-allowed"
+                                  title="Download Cleaned"
+                                >
+                                  <DocumentTextIcon className="h-5 w-5" />
+                                </button>
+                              ) : (
+                                <span className="text-sm text-gray-400">-</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-4 whitespace-nowrap text-center">
+                              {addingTranscriptIds.has(transcript.id) ? (
+                                <div className="flex items-center justify-center gap-1 text-xs text-gray-500">
+                                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-[#D14A2D]"></div>
+                                  <span>Adding...</span>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                    handleAddToCA(transcript);
+                                  }}
+                                  disabled={addingTranscriptIds.size > 0}
+                                  className="text-[#D14A2D] hover:text-[#A03824] text-xs font-medium whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  Add to CA
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Content Analysis Boxes */}
+          {projectAnalyses.length === 0 ? (
+            <div className="bg-white shadow-sm border border-gray-200 rounded-lg p-8 text-center">
+              <DocumentTextIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No Content Analyses</h3>
+              <p className="text-gray-600 mb-4">This project doesn't have any content analyses yet.</p>
+              <p className="text-sm text-gray-500">
+                Create a content analysis in the Content Analysis tab to organize transcripts by analysis.
+              </p>
+            </div>
+          ) : (
+            projectAnalyses.map((analysis) => {
+              const analysisTranscripts = getTranscriptsForAnalysis(analysis, projectTranscripts);
+              const sortedAnalysisTranscripts = sortTranscriptsChronologically(analysisTranscripts);
+              
               return (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div>
-                      <h3 className="text-sm font-semibold text-yellow-900">
-                        Orphaned Transcripts
-                      </h3>
-                      <p className="mt-1 text-xs text-yellow-700">
-                        {orphanedTranscripts.length} transcript{orphanedTranscripts.length === 1 ? '' : 's'} uploaded to this project but not assigned to any content analysis
-                      </p>
+                <div key={analysis.id} className="bg-white shadow-sm border border-gray-200 rounded-lg overflow-hidden">
+                  <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">{analysis.name || 'Untitled Analysis'}</h3>
+                        {analysis.description && (
+                          <p className="mt-1 text-sm text-gray-500">{analysis.description}</p>
+                        )}
+                        <p className="mt-1 text-xs text-gray-500">
+                          {sortedAnalysisTranscripts.length} transcript{sortedAnalysisTranscripts.length === 1 ? '' : 's'}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            if (onNavigate && setAnalysisToLoad) {
+                              setAnalysisToLoad(analysis.id);
+                              onNavigate('Content Analysis');
+                            }
+                          }}
+                          className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium shadow-sm transition bg-white border border-gray-300 hover:bg-gray-50 text-gray-700"
+                          title="Open Content Analysis"
+                        >
+                          <IconTable className="h-4 w-4" />
+                          Open CA
+                        </button>
+                        <button
+                          onClick={() => handleResetCARespnos(analysis.id, analysis.name || 'Untitled Analysis')}
+                          disabled={isResettingRespnos || sortedAnalysisTranscripts.length === 0}
+                          className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium shadow-sm transition bg-gray-700 hover:bg-gray-800 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Reset respnos for this CA based on chronological order"
+                        >
+                          Reset Respnos
+                        </button>
+                      </div>
                     </div>
                   </div>
-                  <div className="bg-white shadow-sm border border-gray-200 rounded-lg overflow-hidden">
+                  {sortedAnalysisTranscripts.length === 0 ? (
+                    <div className="p-8 text-center">
+                      <p className="text-sm text-gray-500">No transcripts assigned to this content analysis yet.</p>
+                    </div>
+                  ) : (
                     <div className="overflow-x-auto">
                       <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
@@ -1532,16 +1840,13 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                             <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
                               Cleaned
                             </th>
-                            <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-28">
-                              Add to CA
-                            </th>
                             <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
                               Actions
                             </th>
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                          {orphanedTranscripts.map(transcript => {
+                          {sortedAnalysisTranscripts.map(transcript => {
                             const displayName = buildTranscriptDisplayName({
                               projectName: selectedProject?.name,
                               respno: transcript.respno,
@@ -1556,12 +1861,13 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                                 className="hover:bg-gray-50 transition-colors"
                               >
                                 <td className="pl-6 pr-2 py-4 whitespace-nowrap">
-                                  {transcript.respno && (
+                                  {transcript.respno ? (
                                     <span className="inline-flex items-center rounded-md bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">
                                       {transcript.respno}
                                     </span>
+                                  ) : (
+                                    <span className="text-sm text-gray-400">-</span>
                                   )}
-                                  {!transcript.respno && <span className="text-sm text-gray-400">-</span>}
                                 </td>
                                 <td className="px-4 py-4 whitespace-nowrap">
                                   <div className="text-sm text-gray-900">{displayName}</div>
@@ -1675,26 +1981,6 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                                   )}
                                 </td>
                                 <td className="px-3 py-4 whitespace-nowrap text-center">
-                                  {addingTranscriptIds.has(transcript.id) ? (
-                                    <div className="flex items-center justify-center gap-1 text-xs text-gray-500">
-                                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-[#D14A2D]"></div>
-                                      <span>Adding...</span>
-                                    </div>
-                                  ) : (
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        e.preventDefault();
-                                        handleAddToCA(transcript);
-                                      }}
-                                      disabled={addingTranscriptIds.size > 0}
-                                      className="text-[#D14A2D] hover:text-[#A03824] text-xs font-medium whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                      Add to CA
-                                    </button>
-                                  )}
-                                </td>
-                                <td className="px-3 py-4 whitespace-nowrap text-center">
                                   <button
                                     onClick={() => handleDeleteTranscript(transcript.id)}
                                     disabled={addingTranscriptIds.size > 0}
@@ -1710,510 +1996,332 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                         </tbody>
                       </table>
                     </div>
-                  </div>
+                  )}
                 </div>
               );
-            }
-            return null;
-          })()}
+            })
+          )}
 
-          <div className="bg-white shadow-sm border border-gray-200 rounded-lg overflow-hidden">
-            {displayedTranscripts.length === 0 ? (
-              <div className="p-12 text-center">
-                <DocumentTextIcon className="mx-auto mb-4 h-16 w-16 text-gray-300" />
-                <h3 className="text-lg font-semibold text-gray-900">
-                  {projectTranscripts.length === 0 
-                    ? 'No transcripts yet'
-                    : selectedContentAnalysis
-                      ? `No transcripts in ${selectedContentAnalysis.name || 'this content analysis'}`
-                      : 'No transcripts found'}
-                </h3>
-                <p className="mt-2 text-gray-500">
-                  {projectTranscripts.length === 0 
-                    ? 'Upload a transcript to get started.'
-                    : selectedContentAnalysis
-                      ? 'This content analysis doesn\'t have any transcripts yet. Add transcripts to this analysis from the Content Analysis tab.'
-                      : 'No transcripts match the current filter.'}
-                </p>
-                {projectTranscripts.length === 0 && (
-                <button
-                  onClick={() => setShowUploadModal(true)}
-                  className="mt-6 inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:opacity-90"
-                  style={{ backgroundColor: BRAND_ORANGE }}
-                >
-                  <CloudArrowUpIcon className="h-5 w-5" />
-                  Upload Transcript
-                </button>
-                )}
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="pl-6 pr-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Respno
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Filename
-                      </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
-                        Interview Date
-                      </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-28 whitespace-nowrap">
-                        Interview Time
-                      </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
-                        Original
-                      </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
-                        Cleaned
-                      </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-28">
-                        Added to CA
-                      </th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {displayedTranscripts.map(transcript => {
-                      const displayName = buildTranscriptDisplayName({
-                        projectName: selectedProject?.name,
-                        respno: transcript.respno,
-                        interviewDate: transcript.interviewDate,
-                        interviewTime: transcript.interviewTime,
-                        fallbackFilename: transcript.originalFilename
-                      });
-
-                      return (
-                        <tr
-                          key={transcript.id}
-                          className="hover:bg-gray-50 transition-colors"
-                        >
-                          <td className="pl-6 pr-2 py-4 whitespace-nowrap">
-                            {transcript.respno && (
-                              <span className="inline-flex items-center rounded-md bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">
-                                {transcript.respno}
-                              </span>
-                            )}
-                            {!transcript.respno && <span className="text-sm text-gray-400">-</span>}
-                          </td>
-                          <td className="px-4 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">{displayName}</div>
-                          </td>
-                          <td className="px-3 py-4 whitespace-nowrap text-center">
-                            <div className={`text-sm flex items-center justify-center gap-1 ${
-                              duplicateIds.has(transcript.id) ? 'text-red-600' : 'text-gray-900'
-                            }`}>
-                              {editingTranscriptId === transcript.id && editingField === 'date' ? (
-                                <div className="flex items-center gap-1">
-                                  <input
-                                    type="text"
-                                    value={editingValue}
-                                    onChange={(e) => setEditingValue(e.target.value)}
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Enter') {
-                                        handleSaveDateTime(transcript.id, 'date', editingValue);
-                                      } else if (e.key === 'Escape') {
-                                        handleCancelEditing();
-                                      }
-                                    }}
-                                    onBlur={() => handleSaveDateTime(transcript.id, 'date', editingValue)}
-                                    className="text-sm border border-gray-300 rounded px-2 py-1 w-24 text-center"
-                                    placeholder="MM/DD/YY"
-                                    autoFocus
-                                    disabled={isSavingDateTime || addingTranscriptIds.size > 0}
-                                  />
-                                </div>
-                              ) : (
-                                <div className="flex items-center gap-1">
-                                  <span>{formatDateToShort(transcript.interviewDate)}</span>
-                                  <button
-                                    onClick={() => handleStartEditing(transcript.id, 'date', formatDateToShort(transcript.interviewDate))}
-                                    className="text-gray-400 hover:text-gray-600 p-0.5 rounded"
-                                    title="Edit date (MM/DD/YY format)"
-                                    disabled={isSavingDateTime || addingTranscriptIds.size > 0}
-                                  >
-                                    <PencilIcon className="h-3 w-3" />
-                                  </button>
-                                  {duplicateIds.has(transcript.id) && (
-                                    <ExclamationTriangleIcon className="h-4 w-4 text-red-600" />
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-3 py-4 whitespace-nowrap text-center">
-                            <div className={`text-sm flex items-center justify-center gap-1 ${
-                              duplicateIds.has(transcript.id) ? 'text-red-600' : 'text-gray-900'
-                            }`}>
-                              {editingTranscriptId === transcript.id && editingField === 'time' ? (
-                                <div className="flex items-center gap-1">
-                                  <input
-                                    type="text"
-                                    value={editingValue}
-                                    onChange={(e) => setEditingValue(e.target.value)}
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Enter') {
-                                        handleSaveDateTime(transcript.id, 'time', editingValue);
-                                      } else if (e.key === 'Escape') {
-                                        handleCancelEditing();
-                                      }
-                                    }}
-                                    onBlur={() => handleSaveDateTime(transcript.id, 'time', editingValue)}
-                                    className="text-sm border border-gray-300 rounded px-2 py-1 w-24 text-center"
-                                    placeholder="HH:MM AM/PM"
-                                    autoFocus
-                                    disabled={isSavingDateTime || addingTranscriptIds.size > 0}
-                                  />
-                                </div>
-                              ) : (
-                                <div className="flex items-center gap-1">
-                                  <span>{formatTimeToStandard(transcript.interviewTime)}</span>
-                                  <button
-                                    onClick={() => handleStartEditing(transcript.id, 'time', formatTimeToStandard(transcript.interviewTime))}
-                                    className="text-gray-400 hover:text-gray-600 p-0.5 rounded"
-                                    title="Edit time (HH:MM AM/PM format)"
-                                    disabled={isSavingDateTime || addingTranscriptIds.size > 0}
-                                  >
-                                    <PencilIcon className="h-3 w-3" />
-                                  </button>
-                                  {duplicateIds.has(transcript.id) && (
-                                    <ExclamationTriangleIcon className="h-4 w-4 text-red-600" />
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-3 py-4 whitespace-nowrap text-center">
-                            <button
-                              onClick={() => handleDownload(transcript, false)}
-                              disabled={addingTranscriptIds.size > 0}
-                              className="text-blue-600 hover:text-blue-800 p-1 rounded-lg hover:bg-blue-50 mx-auto disabled:opacity-50 disabled:cursor-not-allowed"
-                              title="Download Original"
-                            >
-                              <DocumentTextIcon className="h-5 w-5" />
-                            </button>
-                          </td>
-                          <td className="px-3 py-4 whitespace-nowrap text-center">
-                            {transcript.isCleaned ? (
-                              <button
-                                onClick={() => handleDownload(transcript, true)}
-                                disabled={addingTranscriptIds.size > 0}
-                                className="text-blue-600 hover:text-blue-800 p-1 rounded-lg hover:bg-blue-50 mx-auto disabled:opacity-50 disabled:cursor-not-allowed"
-                                title="Download Cleaned"
-                              >
-                                <DocumentTextIcon className="h-5 w-5" />
-                              </button>
-                            ) : (
-                              <span className="text-sm text-gray-400">-</span>
-                            )}
-                          </td>
-                          <td className="px-3 py-4 whitespace-nowrap text-center">
-                            {isTranscriptInAnalysis(transcript.id) ? (
-                              <div className="flex items-center justify-center">
-                                <CheckCircleIcon className="h-5 w-5 text-green-600" />
-                              </div>
-                            ) : addingTranscriptIds.has(transcript.id) ? (
-                              <div className="flex items-center justify-center gap-1 text-xs text-gray-500">
-                                <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
-                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0c5.373 0 10 4.627 10 12h-4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                </svg>
-                                <span>Adding...</span>
-                              </div>
-                            ) : (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  e.preventDefault();
-                                  handleAddToCA(transcript);
-                                }}
-                                disabled={addingTranscriptIds.size > 0}
-                                className="text-[#D14A2D] hover:text-[#A03824] text-xs font-medium whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
-                              >
-                                Add to CA
-                              </button>
-                            )}
-                          </td>
-                          <td className="px-3 py-4 whitespace-nowrap text-center">
-                            <button
-                              onClick={() => handleDeleteTranscript(transcript.id)}
-                              disabled={addingTranscriptIds.size > 0}
-                              className="text-red-600 hover:text-red-800 p-1 rounded-lg hover:bg-red-50 mx-auto disabled:opacity-50 disabled:cursor-not-allowed"
-                              title="Delete"
-                            >
-                              <TrashIcon className="h-4 w-4" />
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {showUploadModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-            <div className="w-full max-w-lg rounded-xl bg-white shadow-xl">
-              <div className="border-b border-gray-200 px-6 py-4">
-                <h2 className="text-xl font-bold text-gray-900">
-                  Upload Transcript
-                </h2>
-                <p className="mt-1 text-sm text-gray-500">
-                  Upload .docx or .txt files for {selectedProject.name}
-                </p>
-              </div>
-
-              <div className="px-6 py-5">
-                {isProcessing ? (
-                  <div className="flex flex-col items-center justify-center gap-4 py-8 text-center">
-                    <div
-                      className="h-12 w-12 animate-spin rounded-full border-4 border-gray-200"
-                      style={{ borderTopColor: BRAND_ORANGE }}
-                    ></div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900">
-                        {cleanTranscript
-                          ? 'Cleaning Transcript'
-                          : 'Uploading Transcript'}
-                      </h3>
-                      <p className="mt-1 text-sm text-gray-500">
-                        This may take a moment...
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-5">
-                    {/* Step 1: File Selection */}
-                    <div>
-                      <label className="mb-2 block text-sm font-medium text-gray-700">
-                        Select transcript file
-                      </label>
-                      <input
-                        type="file"
-                        accept=".docx,.txt"
-                        onChange={e =>
-                          handleFileSelect(e.target.files?.[0] || null)
-                        }
-                        className="block w-full cursor-pointer rounded-lg border border-gray-300 bg-gray-50 text-sm text-gray-900 focus:outline-none file:mr-4 file:py-2 file:px-4 file:rounded-l-lg file:border-0 file:text-sm file:font-medium file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100"
-                      />
-                      <p className="mt-2 text-xs text-gray-500">
-                        Supported formats: .docx and .txt
-                      </p>
-                    </div>
-
-                    {/* Parsing Loading State */}
-                    {isParsingFile && uploadFile && (
-                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                        <div className="flex items-center gap-3">
-                          <div
-                            className="h-5 w-5 animate-spin rounded-full border-2 border-gray-300"
-                            style={{ borderTopColor: BRAND_ORANGE }}
-                          ></div>
-                          <p className="text-sm text-gray-600">Parsing interview date and time...</p>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Step 2: Show parsed date/time and options */}
-                    {uploadStep === 'options' && uploadFile && !isParsingFile && (
-                      <>
-                        {/* Parsed Date/Time Display */}
-                        {parsedDateTime && (
-                          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                            <h4 className="text-sm font-medium text-blue-900 mb-2">Detected Interview Information:</h4>
-                            <div className="text-sm text-blue-800">
-                              <p><strong>Date:</strong> {parsedDateTime.date}</p>
-                              <p><strong>Time:</strong> {parsedDateTime.time}</p>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Duplicate Warning */}
-                        {duplicateWarning && (
-                          <div className="bg-yellow-50 border border-yellow-400 rounded-lg p-3">
-                            <div className="flex items-start gap-2">
-                              <svg className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                              </svg>
-                              <div>
-                                <h4 className="text-sm font-medium text-yellow-800">Possible Duplicate</h4>
-                                <p className="text-xs text-yellow-700 mt-1">
-                                  A transcript with the same interview date and time already exists in this project.
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Clean Transcript Option */}
-                        <div>
-                          <label className="flex items-center gap-2 text-sm text-gray-700">
-                            <input
-                              type="checkbox"
-                              checked={cleanTranscript}
-                              onChange={e => setCleanTranscript(e.target.checked)}
-                              className="h-4 w-4 rounded border-gray-300"
-                              style={{ accentColor: BRAND_ORANGE }}
-                            />
-                            Clean this transcript (remove timestamps, tidy formatting)
-                          </label>
-                        </div>
-
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {!isProcessing && (
-                <div className="flex items-center justify-between border-t border-gray-200 px-6 py-4">
-                  <div>
-                  </div>
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => {
-                        setShowUploadModal(false);
-                        setUploadFile(null);
-                        setCleanTranscript(false);
-                        setParsedDateTime(null);
-                        setDuplicateWarning(false);
-                        setUploadStep('select');
-                        setIsParsingFile(false);
-                      }}
-                      className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={handleUploadTranscript}
-                      disabled={!uploadFile}
-                      className="rounded-lg px-4 py-2 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-                      style={{ backgroundColor: BRAND_ORANGE }}
-                    >
-                      Upload
-                    </button>
-                  </div>
+          {/* Upload Modal */}
+          {showUploadModal && (
+            <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/50 px-4" style={{ top: 0, left: 0, right: 0, bottom: 0 }}>
+              <div className="w-full max-w-lg rounded-xl bg-white shadow-xl">
+                <div className="border-b border-gray-200 px-6 py-4">
+                  <h2 className="text-xl font-bold text-gray-900">
+                    Upload Transcript
+                  </h2>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Upload .docx or .txt files for {selectedProject.name}
+                  </p>
                 </div>
-              )}
-            </div>
-          </div>
-        )}
 
-        {/* Search Modal */}
-        {showSearchModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[99999] p-4">
-            <div className="bg-white rounded-lg w-full max-w-4xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-              <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900">Search Transcripts</h3>
-                <button
-                  onClick={() => {
-                    setShowSearchModal(false);
-                    setSearchQuery('');
-                    setSearchResults([]);
-                  }}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+                <div className="px-6 py-5">
+                  {isProcessing ? (
+                    <div className="flex flex-col items-center justify-center gap-4 py-8 text-center">
+                      <div
+                        className="h-12 w-12 animate-spin rounded-full border-4 border-gray-200"
+                        style={{ borderTopColor: BRAND_ORANGE }}
+                      ></div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">
+                          {processingStage === 'adding'
+                            ? 'Adding to Content Analysis'
+                            : cleanTranscript ? 'Cleaning Transcript' : 'Uploading Transcript'}
+                        </h3>
+                        <p className="mt-1 text-sm text-gray-500">
+                          This may take a moment...
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-5">
+                      <div>
+                        <label className="mb-2 block text-sm font-medium text-gray-700">
+                          Select transcript file
+                        </label>
+                        <input
+                          type="file"
+                          accept=".docx,.txt"
+                          onChange={e =>
+                            handleFileSelect(e.target.files?.[0] || null)
+                          }
+                          className="block w-full cursor-pointer rounded-lg border border-gray-300 bg-gray-50 text-sm text-gray-900 focus:outline-none file:mr-4 file:py-2 file:px-4 file:rounded-l-lg file:border-0 file:text-sm file:font-medium file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100"
+                        />
+                        <p className="mt-2 text-xs text-gray-500">
+                          Supported formats: .docx and .txt
+                        </p>
+                      </div>
+
+                      {isParsingFile && uploadFile && (
+                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                          <div className="flex items-center gap-3">
+                            <div
+                              className="h-5 w-5 animate-spin rounded-full border-2 border-gray-300"
+                              style={{ borderTopColor: BRAND_ORANGE }}
+                            ></div>
+                            <p className="text-sm text-gray-600">Parsing interview date and time...</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {uploadStep === 'options' && uploadFile && !isParsingFile && (
+                        <>
+                          {parsedDateTime && (
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                              <h4 className="text-sm font-medium text-blue-900 mb-2">Detected Interview Information:</h4>
+                              <div className="text-sm text-blue-800">
+                                <p><strong>Date:</strong> {parsedDateTime.date}</p>
+                                <p><strong>Time:</strong> {parsedDateTime.time}</p>
+                              </div>
+                            </div>
+                          )}
+
+                          {(parsedModerator || parsedRespondent) && (
+                            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                              <h4 className="text-sm font-medium text-green-900 mb-2">Detected Speaker Names:</h4>
+                              <div className="space-y-2 text-sm text-green-800">
+                                <div className="flex items-center gap-2">
+                                  <span><strong>Moderator:</strong> {parsedModerator || 'Not detected'}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span><strong>Respondent:</strong> {parsedRespondent || 'Not detected'}</span>
+                                </div>
+                                {parsedModerator && parsedRespondent && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const temp = parsedModerator;
+                                      setParsedModerator(parsedRespondent);
+                                      setParsedRespondent(temp);
+                                    }}
+                                    className="mt-2 inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium text-green-700 bg-green-100 hover:bg-green-200 transition-colors"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                                    </svg>
+                                    Swap Moderator ↔ Respondent
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {duplicateWarning && (
+                            <div className="bg-yellow-50 border border-yellow-400 rounded-lg p-3">
+                              <div className="flex items-start gap-2">
+                                <ExclamationTriangleIcon className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                                <div>
+                                  <h4 className="text-sm font-medium text-yellow-800">Possible Duplicate</h4>
+                                  <p className="text-xs text-yellow-700 mt-1">
+                                    A transcript with the same interview date and time already exists in this project.
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          <div>
+                            <label className="flex items-center gap-2 text-sm text-gray-700">
+                              <input
+                                type="checkbox"
+                                checked={cleanTranscript}
+                                onChange={e => setCleanTranscript(e.target.checked)}
+                                className="h-4 w-4 rounded border-gray-300"
+                                style={{ accentColor: BRAND_ORANGE }}
+                              />
+                              Clean this transcript (remove timestamps, tidy formatting)
+                            </label>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {!isProcessing && (
+                  <div className="flex items-center justify-between border-t border-gray-200 px-6 py-4">
+                    <div></div>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => {
+                          setShowUploadModal(false);
+                          setUploadFile(null);
+                          setCleanTranscript(true);
+                          setParsedDateTime(null);
+                          setDuplicateWarning(false);
+                          setUploadStep('select');
+                          setIsParsingFile(false);
+                        }}
+                        className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleUploadTranscript}
+                        disabled={!uploadFile}
+                        className="rounded-lg px-4 py-2 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                        style={{ backgroundColor: BRAND_ORANGE }}
+                      >
+                        Upload
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
+            </div>
+          )}
 
-              <div className="p-6 space-y-4">
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && searchQuery.trim()) {
-                        handleSearch();
-                      }
-                    }}
-                    placeholder="Enter a quote or phrase to search..."
-                    className="w-full border border-gray-300 rounded-lg px-4 py-3 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  />
+          {/* Search Modal */}
+          {showSearchModal && (
+            <div className="fixed inset-0 z-[999999] bg-black bg-opacity-50 flex items-center justify-center p-4" style={{ top: 0, left: 0, right: 0, bottom: 0 }}>
+              <div className="bg-white rounded-lg w-full max-w-4xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                  <h3 className="text-lg font-semibold text-gray-900">Search Transcripts</h3>
                   <button
-                    onClick={handleSearch}
-                    disabled={!searchQuery.trim() || isSearching}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-md transition disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
-                    style={{ color: BRAND_ORANGE }}
+                    onClick={() => {
+                      setShowSearchModal(false);
+                      setSearchQuery('');
+                      setSearchResults([]);
+                    }}
+                    className="text-gray-400 hover:text-gray-600 transition-colors"
                   >
-                    <MagnifyingGlassIcon className="h-5 w-5" />
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
                   </button>
                 </div>
 
-                {isSearching && (
-                  <div className="text-center py-8">
-                    <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-gray-200" style={{ borderTopColor: BRAND_ORANGE }}></div>
-                    <p className="text-sm text-gray-500">Searching transcripts...</p>
+                <div className="p-6 space-y-4">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && searchQuery.trim()) {
+                          handleSearch();
+                        }
+                      }}
+                      placeholder="Enter a quote or phrase to search..."
+                      className="w-full border border-gray-300 rounded-lg px-4 py-3 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    />
+                    <button
+                      onClick={handleSearch}
+                      disabled={!searchQuery.trim() || isSearching}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-md transition disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
+                      style={{ color: BRAND_ORANGE }}
+                    >
+                      <MagnifyingGlassIcon className="h-5 w-5" />
+                    </button>
                   </div>
-                )}
 
-                {!isSearching && searchResults.length === 0 && searchQuery && (
-                  <div className="text-center py-8">
-                    <DocumentTextIcon className="mx-auto mb-4 h-16 w-16 text-gray-300" />
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No matches found</h3>
-                    <p className="text-sm text-gray-500">Try searching with different keywords</p>
-                  </div>
-                )}
+                  {isSearching && (
+                    <div className="text-center py-8">
+                      <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-gray-200" style={{ borderTopColor: BRAND_ORANGE }}></div>
+                      <p className="text-sm text-gray-500">Searching transcripts...</p>
+                    </div>
+                  )}
 
-                {!isSearching && searchResults.length > 0 && (
-                  <div className="space-y-4 overflow-y-auto max-h-[50vh]">
-                    <p className="text-sm text-gray-600">Found {searchResults.length} {searchResults.length === 1 ? 'match' : 'matches'}</p>
-                    {searchResults.map((result, index) => (
-                      <div key={index} className="border border-gray-200 rounded-lg p-4 space-y-2 hover:bg-gray-50 transition-colors">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <span className="inline-flex items-center rounded-md bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">
-                              {result.respno || 'No Respno'}
-                            </span>
-                            {result.interviewDate && (
-                              <span className="text-xs text-gray-500">{result.interviewDate}</span>
-                            )}
-                            {result.interviewTime && (
-                              <span className="text-xs text-gray-500">{result.interviewTime}</span>
-                            )}
+                  {!isSearching && searchResults.length === 0 && searchQuery && (
+                    <div className="text-center py-8">
+                      <DocumentTextIcon className="mx-auto mb-4 h-16 w-16 text-gray-300" />
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">No matches found</h3>
+                      <p className="text-sm text-gray-500">Try searching with different keywords</p>
+                    </div>
+                  )}
+
+                  {!isSearching && searchResults.length > 0 && (
+                    <div className="space-y-4 overflow-y-auto max-h-[50vh]">
+                      <p className="text-sm text-gray-600">Found {searchResults.length} {searchResults.length === 1 ? 'match' : 'matches'}</p>
+                      {searchResults.map((result, index) => (
+                        <div key={index} className="border border-gray-200 rounded-lg p-4 space-y-2 hover:bg-gray-50 transition-colors">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <span className="inline-flex items-center rounded-md bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">
+                                {result.respno || 'No Respno'}
+                              </span>
+                              {result.interviewDate && (
+                                <span className="text-xs text-gray-500">{result.interviewDate}</span>
+                              )}
+                              {result.interviewTime && (
+                                <span className="text-xs text-gray-500">{result.interviewTime}</span>
+                              )}
+                            </div>
                           </div>
+
+                          {result.contextBefore && (
+                            <div className="text-sm text-gray-500 italic pl-4 border-l-2 border-gray-200">
+                              {result.contextBefore}
+                            </div>
+                          )}
+
+                          <div className="text-sm text-gray-900 pl-4 border-l-2" style={{ borderColor: BRAND_ORANGE }}>
+                            <span dangerouslySetInnerHTML={{ __html: formatSearchResultText(result.highlightedText) }} />
+                          </div>
+
+                          {result.contextAfter && (
+                            <div className="text-sm text-gray-500 italic pl-4 border-l-2 border-gray-200">
+                              {result.contextAfter}
+                            </div>
+                          )}
                         </div>
-
-                        {/* Context: Line before */}
-                        {result.contextBefore && (
-                          <div className="text-sm text-gray-500 italic pl-4 border-l-2 border-gray-200">
-                            {result.contextBefore}
-                          </div>
-                        )}
-
-                        {/* Matched line with highlighting */}
-                        <div className="text-sm text-gray-900 pl-4 border-l-2" style={{ borderColor: BRAND_ORANGE }}>
-                          <span dangerouslySetInnerHTML={{ __html: formatSearchResultText(result.highlightedText) }} />
-                        </div>
-
-                        {/* Context: Line after */}
-                        {result.contextAfter && (
-                          <div className="text-sm text-gray-500 italic pl-4 border-l-2 border-gray-200">
-                            {result.contextAfter}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
+
+          {/* CA Selection Modal */}
+          {showCASelectionModal && transcriptToAdd && (
+            <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/50 px-4" style={{ top: 0, left: 0, right: 0, bottom: 0 }}>
+              <div className="w-full max-w-md rounded-xl bg-white shadow-xl">
+                <div className="border-b border-gray-200 px-6 py-4">
+                  <h2 className="text-xl font-bold text-gray-900">
+                    Select Content Analysis
+                  </h2>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Choose which content analysis to add this transcript to
+                  </p>
+                </div>
+                <div className="px-6 py-5">
+                  <div className="space-y-2">
+                    {projectAnalyses.map((analysis) => (
+                      <button
+                        key={analysis.id}
+                        onClick={() => handleAddToCA(transcriptToAdd, analysis.id)}
+                        disabled={addingTranscriptIds.has(transcriptToAdd.id)}
+                        className="w-full text-left p-4 rounded-lg border border-gray-200 hover:border-[#D14A2D] hover:bg-orange-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <div className="font-medium text-gray-900">{analysis.name || 'Untitled Analysis'}</div>
+                        {analysis.description && (
+                          <div className="mt-1 text-sm text-gray-500">{analysis.description}</div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-4">
+                  <button
+                    onClick={() => {
+                      setShowCASelectionModal(false);
+                      setTranscriptToAdd(null);
+                    }}
+                    className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </main>
     );
   }
 
+  // Home view - show list of projects
   return (
     <main
       className="flex-1 overflow-y-auto"
@@ -2304,11 +2412,9 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {displayProjects.map(project => {
+                    // Count total transcripts for this project (includes un-assigned and all CA transcripts)
                     const projectTranscripts = transcripts[project.id] || [];
-                    // Only count transcripts that are assigned to a content analysis
-                    const transcriptsInCA = projectTranscripts.filter(t => 
-                      isTranscriptInAnyCA(t.id, project.id)
-                    );
+                    const totalUploads = projectTranscripts.length;
                     return (
                       <tr
                         key={project.id}
@@ -2330,7 +2436,7 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                         <td className="px-6 py-4 whitespace-nowrap text-center w-20">
                           <div className="flex items-center justify-center gap-1 text-sm text-gray-900">
                             <IconScript className="h-4 w-4 text-gray-400" />
-                            {transcriptsInCA.length}
+                            {totalUploads}
                           </div>
                         </td>
                       </tr>
