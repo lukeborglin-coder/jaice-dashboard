@@ -724,11 +724,6 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
       }
     });
     
-      projectTranscriptCount: projectTranscripts.length,
-      analysisProjectId: analysis.projectId,
-      currentProjectId: currentProjectId || selectedProject?.id
-    });
-    
     const matchingTranscripts = projectTranscripts.filter(t => {
       const normalizedId = String(t.id).trim();
       return transcriptIds.has(normalizedId);
