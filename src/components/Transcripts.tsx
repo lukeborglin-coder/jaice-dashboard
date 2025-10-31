@@ -1664,7 +1664,6 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
       
       // If no savedAnalyses, all transcripts are unassigned
       if (savedAnalyses.length === 0) {
-        console.log(`🔍 Transcript ${t.id}: No savedAnalyses, treating as unassigned`);
         return true;
       }
       
