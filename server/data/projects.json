@@ -1628,18 +1628,18 @@
       "sampleDetails": "TBD",
       "files": [
         {
-          "id": "file-1761251648433-dg",
-          "name": "test CA 2 Discussion Guide.docx",
+          "id": "file-1761850850769-dg",
+          "name": "AA test Discussion Guide.docx",
           "type": "discussion-guide",
-          "url": "/uploads/Discussion_Guide_P-1761243049041_1761251648433.docx",
-          "uploadedAt": "2025-10-23T20:34:08.433Z"
+          "url": "/uploads/Discussion_Guide_P-1761243049041_1761850850769.docx",
+          "uploadedAt": "2025-10-30T19:00:50.769Z"
         },
         {
-          "id": "file-1761757964783-dg",
-          "name": "test 1 Discussion Guide.docx",
+          "id": "file-1761920970793-dg",
+          "name": "aa test 2 Discussion Guide.docx",
           "type": "discussion-guide",
-          "url": "/uploads/Discussion_Guide_P-1761243049041_1761757964783.docx",
-          "uploadedAt": "2025-10-29T17:12:44.784Z"
+          "url": "/uploads/Discussion_Guide_P-1761243049041_1761920970793.docx",
+          "uploadedAt": "2025-10-31T14:29:30.793Z"
         }
       ],
       "segments": [
@@ -1683,9 +1683,9 @@
       "fieldworkRange": "10/10/25",
       "reportDeadline": "10/31/25",
       "teamMembersText": "Luke Borglin,  Ciara Mcevoy-Benisti, Nikki",
+      "calculatedProgress": 78,
       "hasDiscussionGuide": true,
-      "discussionGuideUpdatedAt": "2025-10-29T17:12:44.884Z",
-      "calculatedProgress": 78
+      "discussionGuideUpdatedAt": "2025-10-31T14:29:30.853Z"
     },
     {
       "name": "qualitative testing",
@@ -1699,7 +1699,7 @@
       "kickoffDeck": null,
       "sampleSize": 0,
       "subgroups": [],
-      "moderator": "TBD",
+      "moderator": "1761832384609",
       "sampleProvider": "",
       "requireAdvancedAnalytics": false,
       "analyticsPartner": "",
@@ -5669,7 +5669,7 @@
       "usePreloadedTasks": true,
       "customTasks": [],
       "id": "P-1761587443521",
-      "phase": "Kickoff",
+      "phase": "Reporting",
       "methodologyDisplay": "Quantitative - ATU (Awareness, Trial, Usage)",
       "phaseTimeline": {
         "Kickoff": {
@@ -6414,7 +6414,7 @@
       "kickoffDeck": null,
       "sampleSize": 0,
       "subgroups": [],
-      "moderator": "1761832384609",
+      "moderator": "",
       "sampleProvider": "",
       "requireAdvancedAnalytics": false,
       "analyticsPartner": "",

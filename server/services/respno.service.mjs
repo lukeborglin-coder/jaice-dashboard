@@ -225,22 +225,90 @@ export async function removeTranscriptFromAnalysis(projectId, analysisId, transc
   const analysis = analyses[idx];
   if (!analysis.data) return { updated: false };
 
+  // Normalize the transcriptId for comparison
+  const normalizedTranscriptId = String(transcriptId).trim();
+  
+  // Get the respno associated with this transcript from Demographics (if exists)
+  let associatedRespno = null;
+  if (analysis.data.Demographics && Array.isArray(analysis.data.Demographics)) {
+    const demoRow = analysis.data.Demographics.find(r => {
+      const rowTranscriptId = r?.transcriptId ? String(r.transcriptId).trim() : null;
+      return rowTranscriptId === normalizedTranscriptId;
+    });
+    if (demoRow) {
+      associatedRespno = demoRow.respno || demoRow['Respondent ID'];
+    }
+  }
+
+  // Remove from all sheets by transcriptId
   for (const sheetName of Object.keys(analysis.data)) {
     const rows = analysis.data[sheetName];
     if (!Array.isArray(rows)) continue;
-    analysis.data[sheetName] = rows.filter(r => r.transcriptId !== transcriptId);
+    
+    // Filter out rows matching the transcriptId (using string comparison for safety)
+    // Also remove by respno if we found an associated respno (for rows that might not have transcriptId)
+    analysis.data[sheetName] = rows.filter(r => {
+      const rowTranscriptId = r?.transcriptId ? String(r.transcriptId).trim() : null;
+      const rowRespno = r?.respno || r?.['Respondent ID'];
+      
+      // Remove if transcriptId matches
+      if (rowTranscriptId === normalizedTranscriptId) {
+        return false;
+      }
+      
+      // Also remove by respno if we have an associated respno and this row doesn't have a transcriptId
+      // (to catch any orphaned rows that might reference the same respondent)
+      if (associatedRespno && rowRespno && !rowTranscriptId) {
+        if (String(rowRespno).trim() === String(associatedRespno).trim()) {
+          return false;
+        }
+      }
+      
+      return true;
+    });
   }
 
   // Also remove from analysis.transcripts list if present
   if (Array.isArray(analysis.transcripts)) {
     analysis.transcripts = analysis.transcripts.filter(t => {
       const id = t?.id || t?.sourceTranscriptId;
-      return String(id) !== String(transcriptId);
+      return String(id).trim() !== normalizedTranscriptId;
     });
   }
 
   analyses[idx] = analysis;
   await fs.writeFile(ANALYSES_PATH, JSON.stringify(analyses, null, 2));
+  
+  console.log(`🗑️ Removed transcript ${transcriptId} from analysis ${analysisId} (${analysis.name || 'Untitled'})`);
+  
+  // Check if transcript is still in any other CA for this project
+  const otherAnalyses = analyses.filter(a => a.projectId === projectId && a.id !== analysisId);
+  let stillInAnotherCA = false;
+  for (const otherAnalysis of otherAnalyses) {
+    if (otherAnalysis.data && otherAnalysis.data.Demographics) {
+      const hasTranscript = otherAnalysis.data.Demographics.some(row => 
+        row?.transcriptId && String(row.transcriptId) === String(transcriptId)
+      );
+      if (hasTranscript) {
+        stillInAnotherCA = true;
+        break;
+      }
+    }
+  }
+  
+  // Clear respno from transcript if not in any CA
+  if (!stillInAnotherCA) {
+    const transcriptsAll = await readJsonSafe(TRANSCRIPTS_PATH, {});
+    const projectTranscripts = transcriptsAll[projectId] || [];
+    const transcriptIndex = projectTranscripts.findIndex(t => String(t.id) === String(transcriptId));
+    if (transcriptIndex !== -1) {
+      projectTranscripts[transcriptIndex].respno = null;
+      transcriptsAll[projectId] = projectTranscripts;
+      await fs.writeFile(TRANSCRIPTS_PATH, JSON.stringify(transcriptsAll, null, 2));
+      console.log(`🗑️ Cleared respno from transcript ${transcriptId} (not in any CA)`);
+    }
+  }
+  
   // Recompute to recompact respnos
   return recomputeAnalysisRespnos(projectId, analysisId);
 }

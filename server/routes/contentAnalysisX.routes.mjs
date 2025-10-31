@@ -242,6 +242,123 @@ async function saveAnalysesToFile(analyses) {
   }
 }
 
+// Cleanup function: Remove rows without transcriptIds from all sheets in an analysis
+function cleanupOrphanedRows(analysis) {
+  if (!analysis || !analysis.data || typeof analysis.data !== 'object') {
+    return false; // No cleanup needed
+  }
+
+  let cleaned = false;
+  const sheetNames = Object.keys(analysis.data);
+
+  for (const sheetName of sheetNames) {
+    const sheetData = analysis.data[sheetName];
+    if (!Array.isArray(sheetData)) continue;
+
+    const originalLength = sheetData.length;
+    
+    // Filter out rows without transcriptIds (for respondent rows)
+    analysis.data[sheetName] = sheetData.filter((row) => {
+      if (!row || typeof row !== 'object') return false;
+      
+      const tid = row?.transcriptId ? String(row.transcriptId).trim() : null;
+      const resp = (row['Respondent ID'] || row['respno'] || '').toString().trim();
+      const isRespondentRow = resp && resp.startsWith('R');
+      
+      // Remove any respondent row that doesn't have a transcriptId
+      if (isRespondentRow && !tid) {
+        console.log(`  🗑️ Removing orphaned row with respno ${resp} but no transcriptId from sheet "${sheetName}"`);
+        return false;
+      }
+      
+      return true;
+    });
+
+    if (analysis.data[sheetName].length !== originalLength) {
+      cleaned = true;
+      console.log(`  ✅ Cleaned sheet "${sheetName}": ${originalLength} → ${analysis.data[sheetName].length} rows`);
+    }
+  }
+
+  return cleaned;
+}
+
+// Cleanup function: Remove transcripts from an analysis if they're in another CA
+// This prevents transcripts from appearing in multiple CAs
+async function cleanupDuplicateTranscriptsAcrossCAs(analyses) {
+  if (!Array.isArray(analyses)) return false;
+  
+  let anyCleaned = false;
+  const transcriptToFirstCA = new Map(); // transcriptId -> analysisId (first CA that has it)
+  
+  // First pass: identify which CA each transcript should belong to (first one encountered)
+  for (const analysis of analyses) {
+    if (!analysis || !analysis.data || !analysis.id) continue;
+    
+    const transcriptIds = new Set();
+    // Collect transcriptIds from all sheets
+    for (const sheetData of Object.values(analysis.data)) {
+      if (Array.isArray(sheetData)) {
+        sheetData.forEach((row) => {
+          if (row?.transcriptId) {
+            const tid = String(row.transcriptId).trim();
+            if (tid) transcriptIds.add(tid);
+          }
+        });
+      }
+    }
+    
+    // Mark transcripts as belonging to first CA encountered
+    for (const tid of transcriptIds) {
+      if (!transcriptToFirstCA.has(tid)) {
+        transcriptToFirstCA.set(tid, analysis.id);
+      }
+    }
+  }
+  
+  // Second pass: remove transcripts from CAs that aren't their "first" CA
+  for (const analysis of analyses) {
+    if (!analysis || !analysis.data || !analysis.id) continue;
+    
+    const analysisId = analysis.id;
+    let analysisCleaned = false;
+    
+    // Check each sheet and remove rows with transcriptIds that belong to other CAs
+    for (const [sheetName, sheetData] of Object.entries(analysis.data)) {
+      if (!Array.isArray(sheetData)) continue;
+      
+      const originalLength = sheetData.length;
+      
+      analysis.data[sheetName] = sheetData.filter((row) => {
+        if (!row || typeof row !== 'object') return true;
+        
+        const tid = row?.transcriptId ? String(row.transcriptId).trim() : null;
+        if (!tid) return true; // Keep rows without transcriptId (might be template rows)
+        
+        const assignedCAId = transcriptToFirstCA.get(tid);
+        if (assignedCAId && assignedCAId !== analysisId) {
+          // This transcript belongs to another CA - remove it from this CA
+          console.log(`  🗑️ Removing transcript ${tid} from CA ${analysisId} (${analysis.name}) - it belongs to CA ${assignedCAId}`);
+          analysisCleaned = true;
+          return false;
+        }
+        
+        return true;
+      });
+      
+      if (analysis.data[sheetName].length !== originalLength) {
+        console.log(`  ✅ Cleaned sheet "${sheetName}" in CA ${analysisId}: ${originalLength} → ${analysis.data[sheetName].length} rows`);
+      }
+    }
+    
+    if (analysisCleaned) {
+      anyCleaned = true;
+    }
+  }
+  
+  return anyCleaned;
+}
+
 const cloneContext = (context) => {
   if (!context) return {};
   try {
@@ -643,7 +760,30 @@ router.put('/update', async (req, res) => {
 // GET /api/caX/saved - Get saved content analyses
 router.get('/saved', async (req, res) => {
   try {
-    const analyses = await loadSavedAnalyses();
+    let analyses = await loadSavedAnalyses();
+    
+    // Cleanup orphaned rows from all analyses
+    let anyCleaned = false;
+    for (const analysis of analyses) {
+      const cleaned = cleanupOrphanedRows(analysis);
+      if (cleaned) {
+        anyCleaned = true;
+      }
+    }
+    
+    // Cleanup duplicate transcripts across CAs (remove from CAs that aren't the "first" one)
+    const duplicatesCleaned = await cleanupDuplicateTranscriptsAcrossCAs(analyses);
+    if (duplicatesCleaned) {
+      anyCleaned = true;
+      console.log(`🧹 Cleaned duplicate transcripts across CAs`);
+    }
+    
+    // Save cleaned analyses back to file if any were cleaned
+    if (anyCleaned) {
+      await saveAnalysesToFile(analyses);
+      console.log(`🧹 Cleaned orphaned rows and duplicates from all analyses`);
+    }
+    
     const dataDir = process.env.DATA_DIR || path.join(__dirname, '../data');
     const transcriptsPath = path.join(dataDir, 'transcripts.json');
     let transcriptsObj = {};
@@ -694,9 +834,29 @@ router.get('/saved', async (req, res) => {
 router.get('/saved/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const analyses = await loadSavedAnalyses();
+    let analyses = await loadSavedAnalyses();
     let item = analyses.find(a => String(a.id) === String(id));
     if (!item) return res.status(404).json({ error: 'Analysis not found' });
+    
+    // Cleanup orphaned rows (rows without transcriptIds) before returning
+    const cleaned = cleanupOrphanedRows(item);
+    let anyCleaned = cleaned;
+    
+    // Cleanup duplicate transcripts across all CAs
+    const duplicatesCleaned = await cleanupDuplicateTranscriptsAcrossCAs(analyses);
+    if (duplicatesCleaned) {
+      anyCleaned = true;
+      // Reload item after cleanup (in case it was modified)
+      analyses = await loadSavedAnalyses();
+      item = analyses.find(a => String(a.id) === String(id));
+    }
+    
+    if (anyCleaned) {
+      // Save the cleaned analyses back to file
+      await saveAnalysesToFile(analyses);
+      console.log(`🧹 Cleaned orphaned rows and duplicates from analyses`);
+    }
+    
     console.log(`📖 Loading analysis ${id}, context keys:`, Object.keys(item.context || {}));
     if (item.context && Object.keys(item.context).length > 0) {
       for (const [sheet, sheetContext] of Object.entries(item.context)) {
@@ -1616,30 +1776,41 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
       
       // CRITICAL: Check if transcript is already in a DIFFERENT analysis
       // Load all saved analyses to check if this transcriptId exists in another CA
+      // Check ALL sheets, not just Demographics
       try {
         const allAnalyses = await loadSavedAnalyses();
         const otherAnalyses = allAnalyses.filter(a => a.id !== analysisId);
         
         for (const otherAnalysis of otherAnalyses) {
-          if (otherAnalysis.data && otherAnalysis.data.Demographics && Array.isArray(otherAnalysis.data.Demographics)) {
-            const transcriptInOtherAnalysis = otherAnalysis.data.Demographics.find((row) => 
-              row.transcriptId === usedTranscriptId
-            );
-            
-            if (transcriptInOtherAnalysis) {
-              console.error(`❌ Transcript ${usedTranscriptId} is already in another content analysis:`, {
-                analysisId: otherAnalysis.id,
-                analysisName: otherAnalysis.name,
-                projectId: otherAnalysis.projectId
-              });
-              
-              return res.status(400).json({ 
-                error: `This transcript is already added to another Content Analysis: "${otherAnalysis.name}". Each transcript can only be added to one Content Analysis.`,
-                duplicateInOtherAnalysis: true,
-                otherAnalysisId: otherAnalysis.id,
-                otherAnalysisName: otherAnalysis.name
-              });
+          if (!otherAnalysis.data) continue;
+          
+          // Check all sheets for this transcriptId
+          let foundInOtherAnalysis = false;
+          for (const [sheetName, sheetData] of Object.entries(otherAnalysis.data)) {
+            if (Array.isArray(sheetData)) {
+              const hasTranscript = sheetData.some((row) => 
+                row?.transcriptId && String(row.transcriptId) === String(usedTranscriptId)
+              );
+              if (hasTranscript) {
+                foundInOtherAnalysis = true;
+                console.error(`❌ Transcript ${usedTranscriptId} is already in another content analysis:`, {
+                  analysisId: otherAnalysis.id,
+                  analysisName: otherAnalysis.name,
+                  projectId: otherAnalysis.projectId,
+                  sheet: sheetName
+                });
+                break;
+              }
             }
+          }
+          
+          if (foundInOtherAnalysis) {
+            return res.status(400).json({ 
+              error: `This transcript is already added to another Content Analysis: "${otherAnalysis.name}". Each transcript can only be added to one Content Analysis.`,
+              duplicateInOtherAnalysis: true,
+              otherAnalysisId: otherAnalysis.id,
+              otherAnalysisName: otherAnalysis.name
+            });
           }
         }
         
@@ -1726,16 +1897,28 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
         }
       }
 
-      // Step 4: If STILL no respno, calculate it based on chronological order
+      // Step 4: If STILL no respno, calculate it based on chronological order within THIS CA
       if (!finalRespno && usedTranscriptId) {
-        console.log(`🔄 Calculating respno chronologically for transcript ${usedTranscriptId}...`);
+        console.log(`🔄 Calculating respno chronologically for transcript ${usedTranscriptId} within CA...`);
 
-        // Find the transcript in the array
-        const transcriptIndex = projectTranscripts.findIndex(t => String(t.id) === String(usedTranscriptId));
+        // Get all transcripts that are in THIS CA (from Demographics)
+        const caTranscriptIds = new Set();
+        if (currentData && currentData.Demographics && Array.isArray(currentData.Demographics)) {
+          currentData.Demographics.forEach(row => {
+            if (row?.transcriptId) {
+              caTranscriptIds.add(String(row.transcriptId));
+            }
+          });
+        }
+        // Add the current transcript being added
+        caTranscriptIds.add(String(usedTranscriptId));
 
-        if (transcriptIndex !== -1) {
-          // Sort transcripts chronologically
-          const sortedTranscripts = [...projectTranscripts].sort((a, b) => {
+        // Get all transcripts that are in this CA
+        const caTranscripts = projectTranscripts.filter(t => caTranscriptIds.has(String(t.id)));
+
+        if (caTranscripts.length > 0) {
+          // Sort CA transcripts chronologically
+          const sortedCATranscripts = [...caTranscripts].sort((a, b) => {
             const dateA = a.interviewDate || '';
             const dateB = b.interviewDate || '';
 
@@ -1757,12 +1940,24 @@ router.post('/process-transcript', upload.single('transcript'), async (req, res)
             return 0;
           });
 
-          // Find position in sorted array
-          const sortedIndex = sortedTranscripts.findIndex(t => String(t.id) === String(usedTranscriptId));
+          // Find position in sorted CA array
+          const sortedIndex = sortedCATranscripts.findIndex(t => String(t.id) === String(usedTranscriptId));
           if (sortedIndex !== -1) {
             finalRespno = `R${String(sortedIndex + 1).padStart(2, '0')}`;
-            console.log(`✅ Calculated respno chronologically: ${finalRespno} (position ${sortedIndex + 1}/${sortedTranscripts.length})`);
+            console.log(`✅ Calculated respno chronologically within CA: ${finalRespno} (position ${sortedIndex + 1}/${sortedCATranscripts.length})`);
           }
+        }
+      }
+      
+      // Step 5: Update transcript record with assigned respno in transcripts.json
+      if (finalRespno && usedTranscriptId) {
+        const transcriptIndex = projectTranscripts.findIndex(t => String(t.id) === String(usedTranscriptId));
+        if (transcriptIndex !== -1) {
+          projectTranscripts[transcriptIndex].respno = finalRespno;
+          transcriptsObj[projectId] = projectTranscripts;
+          // Save updated transcripts
+          await fs.writeFile(transcriptsPath, JSON.stringify(transcriptsObj, null, 2));
+          console.log(`✅ Assigned respno ${finalRespno} to transcript ${usedTranscriptId} in transcripts.json`);
         }
       }
 
@@ -5845,46 +6040,46 @@ router.post('/reset-respnos', async (req, res) => {
     const transcriptsPath = path.join(dataRoot, 'transcripts.json');
     
     // Load analyses and transcripts
-    const analysesData = await fs.readFile(analysesPath, 'utf8');
-    const analyses = JSON.parse(analysesData);
+    let analysesData = await fs.readFile(analysesPath, 'utf8');
+    let analyses = JSON.parse(analysesData);
     const transcriptsData = await fs.readFile(transcriptsPath, 'utf8');
     const transcripts = JSON.parse(transcriptsData);
 
-    // Find the analysis
-    const analysis = analyses.find(a => a.id === analysisId && a.projectId === projectId);
+    // First, clean up duplicate transcripts across all CAs
+    await cleanupDuplicateTranscriptsAcrossCAs(analyses);
+    
+    // Save cleaned analyses and reload
+    await fs.writeFile(analysesPath, JSON.stringify(analyses, null, 2));
+    analysesData = await fs.readFile(analysesPath, 'utf8');
+    analyses = JSON.parse(analysesData);
+    
+    // Find the analysis after cleanup
+    let analysis = analyses.find(a => a.id === analysisId && a.projectId === projectId);
     if (!analysis) {
       return res.status(404).json({ error: 'Content Analysis not found' });
     }
-
-    // Get transcript IDs for this CA
-    // 1) Gather from any sheet rows with transcriptId
-    // 2) Also include analysis.transcripts list if present
-    const caTranscriptIds = new Set();
-    if (analysis.data && typeof analysis.data === 'object') {
-      for (const sheetData of Object.values(analysis.data)) {
-        if (Array.isArray(sheetData)) {
-          sheetData.forEach(row => {
-            if (row?.transcriptId) {
-              caTranscriptIds.add(String(row.transcriptId));
-            }
-          });
+    
+    // CRITICAL: Use Demographics as the source of truth for which transcripts belong to THIS CA
+    // Only transcripts in Demographics should be considered part of this CA
+    const validTranscriptIds = new Set();
+    if (analysis.data && analysis.data.Demographics && Array.isArray(analysis.data.Demographics)) {
+      analysis.data.Demographics.forEach(row => {
+        if (row?.transcriptId) {
+          const tid = String(row.transcriptId).trim();
+          if (tid) validTranscriptIds.add(tid);
         }
-      }
-    }
-    if (Array.isArray(analysis.transcripts)) {
-      analysis.transcripts.forEach(t => {
-        const tid = t?.id || t?.sourceTranscriptId;
-        if (tid) caTranscriptIds.add(String(tid));
       });
     }
 
-    if (caTranscriptIds.size === 0) {
+    if (validTranscriptIds.size === 0) {
       return res.json({ success: true, updated: false, message: 'No transcripts in this content analysis' });
     }
 
+    console.log(`✅ Valid transcriptIds for CA ${analysisId}:`, Array.from(validTranscriptIds));
+
     // Get transcripts for this CA
     const projectTranscripts = transcripts[projectId] || [];
-    const caTranscripts = projectTranscripts.filter(t => caTranscriptIds.has(String(t.id)));
+    const caTranscripts = projectTranscripts.filter(t => validTranscriptIds.has(String(t.id)));
 
     if (caTranscripts.length === 0) {
       return res.json({ success: true, updated: false, message: 'No matching transcripts found' });
@@ -6026,35 +6221,67 @@ router.post('/reset-respnos', async (req, res) => {
       }
     }
     
-    // Update CA data sheets with new respnos and remove duplicates
+    // Update CA data sheets with new respnos and remove rows with invalid transcriptIds
     let analysisUpdated = false;
     if (analysis.data && typeof analysis.data === 'object') {
       for (const [sheetName, sheetData] of Object.entries(analysis.data)) {
         if (!Array.isArray(sheetData)) continue;
         
-        // Remove duplicates first (keep first occurrence by transcriptId, or by respno if no transcriptId)
+        const originalLength = sheetData.length;
+        
+        // CRITICAL: Filter to only keep rows with transcriptIds that are valid for THIS CA
+        // Remove any rows with transcriptIds NOT in validTranscriptIds
         const seenTranscriptIdsInSheet = new Set();
         const seenRespnosInSheet = new Set();
         const uniqueSheetRows = [];
+        
         for (const row of sheetData) {
           if (!row || typeof row !== 'object') continue;
-          const tid = row.transcriptId ? String(row.transcriptId) : null;
-          if (tid) {
+          const tid = row.transcriptId ? String(row.transcriptId).trim() : null;
+          const resp = (row['Respondent ID'] || row['respno'] || '').toString().trim();
+          const isRespondentRow = resp && resp.startsWith('R');
+          
+          // For respondent rows: must have a transcriptId that's valid for this CA
+          if (isRespondentRow) {
+            if (!tid) {
+              console.log(`⚠️ Removing row with respno ${resp} but no transcriptId in sheet ${sheetName}`);
+              continue; // Skip rows without transcriptId
+            }
+            
+            // CRITICAL: Remove rows with transcriptIds NOT assigned to this CA
+            if (!validTranscriptIds.has(tid)) {
+              console.log(`🗑️ Removing row with transcriptId ${tid} from sheet ${sheetName} - not assigned to this CA`);
+              continue; // Skip rows with transcriptIds not in this CA
+            }
+            
+            // Remove duplicates within this sheet
             if (seenTranscriptIdsInSheet.has(tid)) {
               console.log(`⚠️ Removing duplicate row with transcriptId ${tid} in sheet ${sheetName}`);
               continue; // Skip duplicate
             }
             seenTranscriptIdsInSheet.add(tid);
-          } else {
-            const resp = (row['Respondent ID'] || row['respno'] || '').toString().trim();
-            if (resp) {
-              if (seenRespnosInSheet.has(resp)) {
-                console.log(`⚠️ Removing duplicate row with respno ${resp} in sheet ${sheetName}`);
-                continue;
-              }
-              seenRespnosInSheet.add(resp);
+          } else if (tid) {
+            // Non-respondent rows with transcriptIds: also check if valid
+            if (!validTranscriptIds.has(tid)) {
+              console.log(`🗑️ Removing non-respondent row with transcriptId ${tid} from sheet ${sheetName} - not assigned to this CA`);
+              continue;
             }
+            
+            // Remove duplicates
+            if (seenTranscriptIdsInSheet.has(tid)) {
+              console.log(`⚠️ Removing duplicate row with transcriptId ${tid} in sheet ${sheetName}`);
+              continue;
+            }
+            seenTranscriptIdsInSheet.add(tid);
+          } else if (resp) {
+            // Rows with respno but no transcriptId: check for duplicates by respno
+            if (seenRespnosInSheet.has(resp)) {
+              console.log(`⚠️ Removing duplicate row with respno ${resp} in sheet ${sheetName}`);
+              continue;
+            }
+            seenRespnosInSheet.add(resp);
           }
+          
           uniqueSheetRows.push(row);
         }
         
@@ -6074,25 +6301,72 @@ router.post('/reset-respnos', async (req, res) => {
           return row;
         });
         
+        if (updatedSheet.length !== originalLength) {
+          console.log(`✅ Cleaned sheet "${sheetName}": ${originalLength} → ${updatedSheet.length} rows (removed ${originalLength - updatedSheet.length} invalid/duplicate rows)`);
+          analysisUpdated = true;
+        }
+        
         // Also update Interview Date/Time from transcript metadata if missing
         if (sheetName === 'Demographics') {
-          const finalSheet = updatedSheet.map(row => {
-            if (!row || !row.transcriptId) return row;
-            const transcript = caTranscripts.find(t => String(t.id) === String(row.transcriptId));
-            if (transcript) {
-              return {
-                ...row,
-                'Interview Date': row['Interview Date'] || transcript.interviewDate || null,
-                'Interview Time': row['Interview Time'] || transcript.interviewTime || null
-              };
+          // For Demographics, rebuild from valid transcripts in chronological order
+          // This ensures we only have rows for transcripts that actually belong to this CA
+          const finalSheet = [];
+          
+          // Build rows in chronological order (matching sorted transcripts)
+          for (const transcript of sorted) {
+            const tid = String(transcript.id);
+            const existingRow = updatedSheet.find(r => r?.transcriptId && String(r.transcriptId) === tid);
+            
+            if (existingRow) {
+              // Update existing row with respno and date/time
+              finalSheet.push({
+                ...existingRow,
+                'Respondent ID': transcriptIdToRespno.get(tid),
+                respno: transcriptIdToRespno.get(tid),
+                'Interview Date': existingRow['Interview Date'] || transcript.interviewDate || null,
+                'Interview Time': existingRow['Interview Time'] || transcript.interviewTime || null,
+                transcriptId: tid
+              });
+            } else {
+              // Create new row if missing
+              finalSheet.push({
+                transcriptId: tid,
+                'Respondent ID': transcriptIdToRespno.get(tid),
+                respno: transcriptIdToRespno.get(tid),
+                'Interview Date': transcript.interviewDate || null,
+                'Interview Time': transcript.interviewTime || null
+              });
             }
-            return row;
-          });
+          }
+          
           analysis.data[sheetName] = finalSheet;
         } else {
-          analysis.data[sheetName] = updatedSheet;
+          // For other sheets, filter to only include rows with valid transcriptIds
+          // And match the order and count of Demographics
+          const demographicsTranscriptIds = analysis.data.Demographics
+            .filter(r => r?.transcriptId)
+            .map(r => String(r.transcriptId));
+          
+          const orderedSheet = [];
+          for (const tid of demographicsTranscriptIds) {
+            const matchingRow = updatedSheet.find(r => r?.transcriptId && String(r.transcriptId) === tid);
+            if (matchingRow) {
+              orderedSheet.push(matchingRow);
+            }
+          }
+          
+          analysis.data[sheetName] = orderedSheet;
         }
       }
+    }
+    
+    // Cleanup orphaned rows (rows without transcriptIds) - already handled in the loop above
+    // The cleanup is now integrated into the sheet processing logic
+    
+    // Save updates to analyses array
+    const analysisIndex = analyses.findIndex(a => a.id === analysisId && a.projectId === projectId);
+    if (analysisIndex !== -1) {
+      analyses[analysisIndex] = analysis;
     }
 
     // Save updates

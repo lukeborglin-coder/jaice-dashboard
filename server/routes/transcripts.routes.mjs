@@ -92,22 +92,22 @@ async function regenerateCleanedTranscripts(projectId, transcripts, projectName)
             const cleanedText = result.value;
             
             if (cleanedText && cleanedText.trim()) {
-              // Regenerate Word document with updated respno
+              // Regenerate Word document (no respno)
               const wordBuffer = await createFormattedWordDoc(
                 cleanedText,
                 finalProjectName,
-                transcript.respno, // Use current respno
+                null, // No respno in cleaned transcripts
                 transcript.interviewDate,
                 transcript.interviewTime
               );
 
               await fs.writeFile(transcript.cleanedPath, wordBuffer);
               transcript.cleanedSize = wordBuffer.length;
-              console.log(`✅ Regenerated cleaned transcript for ${transcript.respno} (${transcript.id})`);
+              console.log(`✅ Regenerated cleaned transcript for ${transcript.id}`);
             }
           }
         } catch (error) {
-          console.warn(`⚠️ Failed to regenerate cleaned transcript for ${transcript.respno} (${transcript.id}):`, error.message);
+          console.warn(`⚠️ Failed to regenerate cleaned transcript for ${transcript.id}:`, error.message);
         }
       }
     }
@@ -265,6 +265,7 @@ function parseDateTimeFromTranscript(transcriptText) {
   return { interviewDate, interviewTime };
 }
 // Helper function to create formatted Word document
+// Note: respno parameter is kept for backward compatibility but is not used (cleaned transcripts don't include respno)
 async function createFormattedWordDoc(cleanedText, projectName, respno, interviewDate, interviewTime) {
   const paragraphs = [];
 
@@ -283,34 +284,36 @@ async function createFormattedWordDoc(cleanedText, projectName, respno, intervie
     })
   );
 
-  // Subtitle: [date] | [time] | [respno] Transcript (respno optional)
+  // Subtitle: [date] | [time] (no respno)
   const subtitleParts = [];
   if (interviewDate) subtitleParts.push(interviewDate);
   if (interviewTime) subtitleParts.push(interviewTime);
-  if (respno) {
-    subtitleParts.push(`${respno} Transcript`);
-  } else {
-    subtitleParts.push('Transcript');
-  }
-  const subtitle = subtitleParts.join(' | ');
+  const subtitle = subtitleParts.length > 0 ? subtitleParts.join(' | ') : null;
 
-  paragraphs.push(
-    new Paragraph({
-      children: [
-        new TextRun({
-          text: subtitle,
-          italics: true,
-          size: 20, // 10pt
-        }),
-      ],
-      alignment: AlignmentType.CENTER,
-      spacing: { after: 400 },
-    })
-  );
+  // Only add subtitle if we have date or time
+  if (subtitle) {
+    paragraphs.push(
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: subtitle,
+            italics: true,
+            size: 20, // 10pt
+          }),
+        ],
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 400 },
+      })
+    );
+  }
 
   // Process the cleaned transcript
-  const lines = cleanedText.split('\n');
+  // First, collapse multiple consecutive blank lines into single blank lines
+  let normalizedText = cleanedText.replace(/\n{3,}/g, '\n\n');
+  const lines = normalizedText.split('\n');
   let hasStartedContent = false;
+  let previousWasBlank = false;
+  let previousWasSpeaker = false;
 
   for (let i = 0; i < lines.length; i++) {
     const rawLine = lines[i];
@@ -324,7 +327,6 @@ async function createFormattedWordDoc(cleanedText, projectName, respno, intervie
       const normalizedLine = trimmedLine.replace(/\s+/g, ' ').toLowerCase();
       const normalizedProjectName = projectName.replace(/\s+/g, ' ').toLowerCase();
       const normalizedSubtitle = subtitle ? subtitle.replace(/\s+/g, ' ').toLowerCase() : '';
-      const respnoLine = respno ? `${respno} transcript`.toLowerCase() : '';
 
       if (normalizedLine === normalizedProjectName) {
         continue;
@@ -334,7 +336,8 @@ async function createFormattedWordDoc(cleanedText, projectName, respno, intervie
         continue;
       }
 
-      if (respno && normalizedLine === respnoLine) {
+      // Skip lines that look like respno patterns (e.g., "R01", "R01 Transcript", "R 01", "R01 - Transcript", etc.)
+      if (/^r\s*\d{2}\s*[-:]?\s*(transcript)?$/i.test(trimmedLine)) {
         continue;
       }
 
@@ -348,10 +351,19 @@ async function createFormattedWordDoc(cleanedText, projectName, respno, intervie
       hasStartedContent = true;
     }
 
+    // Handle blank lines - only add one paragraph between speakers
     if (!trimmedLine) {
-      paragraphs.push(new Paragraph({ text: '' }));
+      // Only add blank paragraph if the previous line was a speaker line
+      // Skip if we already added a blank after the previous speaker
+      if (previousWasSpeaker && !previousWasBlank) {
+        paragraphs.push(new Paragraph({ text: '' }));
+        previousWasBlank = true;
+      }
       continue;
     }
+
+    // Reset blank flag since we have content
+    previousWasBlank = false;
 
     const moderatorMatch = trimmedLine.match(/^(Moderator:)\s*(.*)$/);
     const respondentMatch = trimmedLine.match(/^(Respondent:)\s*(.*)$/);
@@ -360,6 +372,11 @@ async function createFormattedWordDoc(cleanedText, projectName, respno, intervie
       const match = moderatorMatch || respondentMatch;
       const speaker = match[1];
       const text = match[2];
+
+      // Add blank line before speaker if previous line was also a speaker (different speaker turn)
+      if (previousWasSpeaker) {
+        paragraphs.push(new Paragraph({ text: '' }));
+      }
 
       paragraphs.push(
         new Paragraph({
@@ -374,6 +391,7 @@ async function createFormattedWordDoc(cleanedText, projectName, respno, intervie
           ],
         })
       );
+      previousWasSpeaker = true;
     } else {
       // Regular text (continuation of previous speaker)
       paragraphs.push(
@@ -381,6 +399,7 @@ async function createFormattedWordDoc(cleanedText, projectName, respno, intervie
           text: trimmedLine,
         })
       );
+      previousWasSpeaker = false;
     }
   }
 
@@ -588,7 +607,7 @@ Output ONLY the cleaned transcript. No explanations or notes.`;
           console.warn('Failed to log cleaning cost:', e.message);
         }
 
-        // Save cleaned filename and path (will regenerate with correct respno later)
+        // Save cleaned filename and path (no respno in filename)
         cleanedFilename = `cleaned_${Date.now()}_${req.file.originalname.replace(/\.(txt|docx)$/i, '.docx')}`;
         cleanedPath = path.join(DATA_DIR, 'uploads', cleanedFilename);
         
@@ -640,51 +659,40 @@ Output ONLY the cleaned transcript. No explanations or notes.`;
 
     transcripts[projectId].push(transcriptRecord);
 
-    // Assign a permanent respno if missing; never renumber existing ones
-    const projectList = transcripts[projectId];
-    const toDigits = (r) => parseInt(String(r || '').replace(/\D/g, '') || '0', 10);
-    let finalTranscript = projectList.find(t => t.id === transcriptId) || transcriptRecord;
-    if (!finalTranscript.respno || String(finalTranscript.respno).trim() === '') {
-      // Find next available number
-      const used = new Set(projectList.map(t => String(t.respno || '').trim()).filter(Boolean));
-      let n = 1;
-      while (used.has(`R${String(n).padStart(2, '0')}`) || used.has(`R${n}`)) n++;
-      finalTranscript.respno = n < 100 ? `R${String(n).padStart(2, '0')}` : `R${n}`;
-      finalTranscript.respnoLocked = true;
-    } else {
-      finalTranscript.respnoLocked = true;
-    }
-
-    // If cleaned, generate Word document with the FINAL respno
+    // DO NOT assign respno on upload - respnos are only assigned when transcript is added to a Content Analysis
+    // Keep respno as null until added to CA
+    
+    // If cleaned, generate Word document (respno will be null/placeholder until added to CA)
     if (cleanTranscript === 'true' && cleanedText) {
       console.log('💾 Saving cleaned transcript to file...');
       console.log('📁 Cleaned path:', cleanedPath);
       console.log('📄 Cleaned text length:', cleanedText.length);
       
       try {
+        // Generate Word doc without respno (will be regenerated when added to CA with proper respno)
         const wordBuffer = await createFormattedWordDoc(
           cleanedText,
           projectName,
-          finalTranscript.respno,
+          null, // No respno yet - will be assigned when added to CA
           interviewDate,
           interviewTime
         );
 
         await fs.writeFile(cleanedPath, wordBuffer);
-        finalTranscript.cleanedSize = wordBuffer.length;
-        console.log('✅ Cleaned transcript saved successfully');
+        transcriptRecord.cleanedSize = wordBuffer.length;
+        console.log('✅ Cleaned transcript saved successfully (without respno)');
         console.log('📊 File size:', wordBuffer.length, 'bytes');
       } catch (saveError) {
         console.error('❌ Error saving cleaned transcript file:', saveError);
         console.error('Error details:', saveError.message);
         // Don't fail the upload if file save fails, but mark as not cleaned
-        finalTranscript.isCleaned = false;
-        finalTranscript.cleanedPath = null;
-        finalTranscript.cleanedFilename = null;
+        transcriptRecord.isCleaned = false;
+        transcriptRecord.cleanedPath = null;
+        transcriptRecord.cleanedFilename = null;
       }
     } else if (cleanTranscript === 'true' && !cleanedText) {
       console.warn('⚠️ Cleaning was requested but no cleaned text was generated');
-      finalTranscript.isCleaned = false;
+      transcriptRecord.isCleaned = false;
     }
 
     // Save the final transcripts array
@@ -779,7 +787,7 @@ Output ONLY the cleaned transcript. No explanations or notes.`;
       // Don't fail the transcript upload if CA update fails
     }
 
-    res.json(finalTranscript);
+    res.json(transcriptRecord);
   } catch (error) {
     console.error('Error uploading transcript:', error);
     res.status(500).json({ error: 'Failed to upload transcript' });
@@ -857,7 +865,8 @@ router.delete('/:projectId/:transcriptId', authenticateToken, async (req, res) =
     }
 
     const transcript = transcripts[projectId][transcriptIndex];
-    const deletedRespno = transcript.respno; // Store respno before deletion
+    const deletedTranscriptId = transcript.id; // Use transcriptId, not respno
+    const deletedRespno = transcript.respno; // Store for logging
 
     // Delete files
     try {
@@ -887,14 +896,22 @@ router.delete('/:projectId/:transcriptId', authenticateToken, async (req, res) =
       const projectAnalyses = analyses.filter(a => a.projectId === projectId);
 
       for (const analysis of projectAnalyses) {
-        console.log(`Processing analysis ${analysis.id} for deleted transcript ${deletedRespno}`);
+        console.log(`Processing analysis ${analysis.id} for deleted transcript ${deletedTranscriptId} (${deletedRespno})`);
 
-        // Remove rows matching the deleted respno from all sheets
+        // CRITICAL: Remove rows matching the deleted transcriptId, NOT respno
+        // Different CAs can have different transcripts with the same respno
         if (analysis.data) {
           for (const sheetName of Object.keys(analysis.data)) {
             if (Array.isArray(analysis.data[sheetName])) {
               const beforeLength = analysis.data[sheetName].length;
               const filteredRows = analysis.data[sheetName].filter(row => {
+                // Match by transcriptId first (most reliable), fallback to respno only if no transcriptId exists
+                const rowTranscriptId = row?.transcriptId ? String(row.transcriptId) : null;
+                if (rowTranscriptId) {
+                  return rowTranscriptId !== String(deletedTranscriptId);
+                }
+                // Fallback: if row has no transcriptId, match by respno (legacy rows)
+                // This is less reliable but needed for backwards compatibility
                 const rowRespno = row['Respondent ID'] || row['respno'];
                 return rowRespno !== deletedRespno;
               });
@@ -914,29 +931,69 @@ router.delete('/:projectId/:transcriptId', authenticateToken, async (req, res) =
           }
         }
 
-        // Remove context for deleted respno
-        if (analysis.context) {
+        // Remove context for deleted transcript (match by respno since context is keyed by respno)
+        // Find the respno that was associated with this transcriptId in this CA
+        let respnoToRemoveFromContext = null;
+        if (analysis.data?.Demographics) {
+          const demoRow = analysis.data.Demographics.find(r => 
+            r?.transcriptId && String(r.transcriptId) === String(deletedTranscriptId)
+          );
+          if (demoRow) {
+            respnoToRemoveFromContext = demoRow['Respondent ID'] || demoRow['respno'];
+          }
+        }
+        
+        if (analysis.context && respnoToRemoveFromContext) {
           for (const sheetName of Object.keys(analysis.context)) {
-            if (analysis.context[sheetName] && analysis.context[sheetName][deletedRespno]) {
-              delete analysis.context[sheetName][deletedRespno];
+            if (analysis.context[sheetName] && analysis.context[sheetName][respnoToRemoveFromContext]) {
+              delete analysis.context[sheetName][respnoToRemoveFromContext];
             }
           }
         }
 
-        // Remove quotes for deleted respno
-        if (analysis.quotes && analysis.quotes[deletedRespno]) {
-          delete analysis.quotes[deletedRespno];
+        // Remove quotes for deleted transcript (match by respno since quotes are keyed by respno)
+        if (analysis.quotes && respnoToRemoveFromContext) {
+          if (analysis.quotes[respnoToRemoveFromContext]) {
+            delete analysis.quotes[respnoToRemoveFromContext];
+          }
+        }
+        
+        // Also remove from verbatimQuotes if present
+        if (analysis.verbatimQuotes && respnoToRemoveFromContext) {
+          for (const sheetName of Object.keys(analysis.verbatimQuotes)) {
+            if (analysis.verbatimQuotes[sheetName] && analysis.verbatimQuotes[sheetName][respnoToRemoveFromContext]) {
+              delete analysis.verbatimQuotes[sheetName][respnoToRemoveFromContext];
+            }
+          }
+        }
+        
+        // Remove from analysis.transcripts array
+        if (Array.isArray(analysis.transcripts)) {
+          const beforeTranscriptsLength = analysis.transcripts.length;
+          analysis.transcripts = analysis.transcripts.filter(t => {
+            const tid = t?.id || t?.sourceTranscriptId;
+            return String(tid) !== String(deletedTranscriptId);
+          });
+          if (analysis.transcripts.length !== beforeTranscriptsLength) {
+            console.log(`  Removed transcript ${deletedTranscriptId} from analysis.transcripts`);
+          }
         }
 
-        // Update Demographics but do not renumber respnos; preserve remaining rows
+        // After deletion, ensure other sheets don't have more rows than Demographics
+        // This is a cleanup step - rows with deleted transcriptIds should already be removed above
         if (analysis.data && analysis.data.Demographics) {
           const demographics = analysis.data.Demographics;
-          // No re-numbering here
+          const demographicsTranscriptIds = new Set(
+            demographics
+              .filter(r => r?.transcriptId)
+              .map(r => String(r.transcriptId))
+          );
 
-          // Update other sheets to match Demographics respnos and transcriptIds
+          // Update other sheets to match Demographics - remove any rows that don't have matching transcriptIds
           const sheetNames = Object.keys(analysis.data).filter(name => name !== 'Demographics');
           console.log('🔍 Sheet names to update:', sheetNames);
           console.log('🔍 Demographics length:', demographics.length);
+          console.log('🔍 Demographics transcriptIds:', Array.from(demographicsTranscriptIds));
           
           for (const sheetName of sheetNames) {
             const rows = analysis.data[sheetName];
@@ -954,30 +1011,56 @@ router.delete('/:projectId/:transcriptId', authenticateToken, async (req, res) =
                 });
                 analysis.data[sheetName] = preserved;
               } else {
-                // Update existing rows to match demographics
-                rows.forEach((row, index) => {
-                  console.log(`🔍 Sheet ${sheetName} row ${index}: current respno=${row['Respondent ID'] || row.respno}`);
+                // CRITICAL: Remove rows that don't have transcriptIds matching Demographics
+                const validRows = rows.filter((row) => {
+                  const tid = row?.transcriptId ? String(row.transcriptId).trim() : null;
+                  const rid = row?.['Respondent ID'] || row?.respno;
+                  const isRespondentRow = rid && typeof rid === 'string' && rid.trim().startsWith('R');
                   
+                  // Remove any respondent row (starts with 'R') that doesn't have a transcriptId
+                  if (isRespondentRow && !tid) {
+                    console.log(`  Removing row from ${sheetName} with respno ${rid} but no transcriptId`);
+                    return false;
+                  }
+                  
+                  // Keep rows that:
+                  // 1. Have a transcriptId that matches Demographics, OR
+                  // 2. Don't have a transcriptId/respno (template/category rows)
+                  if (tid) {
+                    const keep = demographicsTranscriptIds.has(tid);
+                    if (!keep) {
+                      console.log(`  Removing row from ${sheetName} with transcriptId ${tid} (not in Demographics)`);
+                    }
+                    return keep;
+                  }
+                  
+                  // Keep rows without transcriptIds that are NOT respondent rows (template/category rows)
+                  return !isRespondentRow;
+                });
+                
+                // Now update remaining rows to match Demographics order
+                const updatedRows = validRows.map((row, index) => {
                   if (index < demographics.length) {
                     const newRespno = demographics[index]['Respondent ID'] || demographics[index]['respno'];
                     const newTranscriptId = demographics[index]['transcriptId'];
                     
-                    console.log(`🔍 Updating ${sheetName} row ${index}: old respno=${row['Respondent ID'] || row.respno}, new respno=${newRespno}, newTranscriptId=${newTranscriptId}`);
-                    
-                    if ('Respondent ID' in row) row['Respondent ID'] = newRespno;
-                    if ('respno' in row) row['respno'] = newRespno;
-                    if (newTranscriptId) row['transcriptId'] = newTranscriptId;
-                    
-                    console.log(`🔍 Updated ${sheetName} row ${index}: new respno=${row['Respondent ID'] || row.respno}`);
-                  } else {
-                    console.log(`🔍 Skipping ${sheetName} row ${index}: index ${index} >= demographics.length ${demographics.length}`);
+                    return {
+                      ...row,
+                      'Respondent ID': newRespno,
+                      respno: newRespno,
+                      transcriptId: newTranscriptId || row.transcriptId
+                    };
                   }
-                });
+                  return row;
+                }).slice(0, demographics.length); // Ensure we don't have more rows than Demographics
+                
+                analysis.data[sheetName] = updatedRows;
+                console.log(`  Updated ${sheetName}: ${rows.length} → ${updatedRows.length} rows`);
               }
             }
           }
 
-          console.log(`  Updated respnos and transcriptIds in CA to match new transcript order`);
+          console.log(`  Updated sheets to match Demographics after deletion`);
         }
       }
 

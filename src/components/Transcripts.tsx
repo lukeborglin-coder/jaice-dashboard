@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   DocumentTextIcon,
   CloudArrowUpIcon,
@@ -8,7 +9,8 @@ import {
   CheckCircleIcon,
   ExclamationTriangleIcon,
   PencilIcon,
-  MagnifyingGlassIcon
+  MagnifyingGlassIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline';
 import { IconScript, IconTable } from '@tabler/icons-react';
 import { API_BASE_URL } from '../config';
@@ -139,8 +141,9 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [viewMode, setViewMode] = useState<'home' | 'project'>('home');
   const [selectedContentAnalysis, setSelectedContentAnalysis] = useState<any | null>(null);
-  const [showCASelectionModal, setShowCASelectionModal] = useState(false);
-  const [transcriptToAdd, setTranscriptToAdd] = useState<Transcript | null>(null);
+  const [openDropdownTranscriptId, setOpenDropdownTranscriptId] = useState<string | null>(null);
+  const dropdownButtonRefs = useRef<Map<string, HTMLElement>>(new Map());
+  const [dropdownPosition, setDropdownPosition] = useState<{ top: number; left: number; width: number } | null>(null);
   const [isResettingRespnos, setIsResettingRespnos] = useState(false);
   const [transcripts, setTranscripts] = useState<ProjectTranscripts>({});
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -165,6 +168,34 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
   const [parsedRespondent, setParsedRespondent] = useState<string>('');
   const [processingStage, setProcessingStage] = useState<'cleaning' | 'adding' | null>(null);
   const [isSavingDateTime, setIsSavingDateTime] = useState(false);
+  const [removingTranscriptIds, setRemovingTranscriptIds] = useState<Set<string>>(new Set());
+  
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (openDropdownTranscriptId) {
+        const buttonElement = dropdownButtonRefs.current.get(openDropdownTranscriptId);
+        if (buttonElement) {
+          const target = event.target as HTMLElement;
+          // Check if click is outside both button and dropdown
+          // The dropdown is rendered via portal, so check if it contains the target
+          const dropdownElement = document.querySelector('[data-dropdown-ca-selection]');
+          if (!buttonElement.contains(target) && 
+              !(dropdownElement && dropdownElement.contains(target))) {
+            setOpenDropdownTranscriptId(null);
+            setDropdownPosition(null);
+          }
+        }
+      }
+    };
+
+    if (openDropdownTranscriptId) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [openDropdownTranscriptId]);
   
   // Date/time editing state
   const [editingTranscriptId, setEditingTranscriptId] = useState<string | null>(null);
@@ -616,6 +647,89 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
     [savedAnalyses, selectedProject?.id]
   );
 
+  // Debug: Create array of all transcripts with their CA assignments
+  // This must be at the top level (unconditionally) to follow Rules of Hooks
+  const debugTranscriptAssignments = useMemo(() => {
+    const assignments: Array<{
+      transcriptId: string;
+      projectId: string;
+      respno: string | null;
+      contentAnalysisId: string | null;
+      contentAnalysisName: string | null;
+    }> = [];
+
+    // Iterate through all projects and their transcripts
+    Object.entries(transcripts).forEach(([projectId, projectTranscripts]) => {
+      if (!Array.isArray(projectTranscripts)) return;
+
+      projectTranscripts.forEach((transcript: any) => {
+        // Find which CA (if any) contains this transcript
+        let assignedCAId: string | null = null;
+        let assignedCAName: string | null = null;
+
+        // If transcript has no respno, it's definitely not assigned to any CA
+        // (respno is only assigned when added to a CA)
+        const hasRespno = transcript.respno && String(transcript.respno).trim() !== '';
+        
+        if (hasRespno) {
+          // Normalize transcript ID for comparison
+          const normalizedTranscriptId = String(transcript.id).trim();
+
+          const projectAnalyses = savedAnalyses.filter(a => a.projectId === projectId);
+          for (const analysis of projectAnalyses) {
+            // Check if transcript is in this analysis
+            if (analysis.data) {
+              for (const [sheetName, sheetData] of Object.entries(analysis.data)) {
+                if (Array.isArray(sheetData)) {
+                  const hasTranscript = sheetData.some((row: any) => {
+                    const rowTranscriptId = row?.transcriptId ? String(row.transcriptId).trim() : null;
+                    return rowTranscriptId === normalizedTranscriptId;
+                  });
+                  if (hasTranscript) {
+                    assignedCAId = analysis.id;
+                    assignedCAName = analysis.name || 'Untitled';
+                    break;
+                  }
+                }
+              }
+            }
+            // Also check analysis.transcripts array
+            if (!assignedCAId && Array.isArray(analysis.transcripts)) {
+              const hasTranscript = analysis.transcripts.some((t: any) => {
+                const tid = t?.id || t?.sourceTranscriptId;
+                return String(tid).trim() === normalizedTranscriptId;
+              });
+              if (hasTranscript) {
+                assignedCAId = analysis.id;
+                assignedCAName = analysis.name || 'Untitled';
+                break;
+              }
+            }
+            if (assignedCAId) break;
+          }
+        }
+        // If no respno, assignedCAId and assignedCAName remain null (not assigned)
+
+        assignments.push({
+          transcriptId: transcript.id,
+          projectId: projectId,
+          respno: transcript.respno || null,
+          contentAnalysisId: assignedCAId,
+          contentAnalysisName: assignedCAName
+        });
+      });
+    });
+
+    return assignments.sort((a, b) => {
+      // Sort by projectId, then by CA assignment status (unassigned first), then by transcriptId
+      if (a.projectId !== b.projectId) return a.projectId.localeCompare(b.projectId);
+      if (!!a.contentAnalysisId !== !!b.contentAnalysisId) {
+        return a.contentAnalysisId ? 1 : -1; // Unassigned first
+      }
+      return a.transcriptId.localeCompare(b.transcriptId);
+    });
+  }, [transcripts, savedAnalyses]);
+
   // Get transcripts that belong to a specific content analysis
   const getTranscriptsForAnalysis = useCallback((analysis: any, projectTranscripts: Transcript[]): Transcript[] => {
     if (!analysis || !analysis.data) return [];
@@ -680,9 +794,7 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
         // Only one CA - auto-add
         analysisIdToUse = projectAnalyses[0].id;
       } else {
-        // Multiple CAs - show selection modal
-        setTranscriptToAdd(transcript);
-        setShowCASelectionModal(true);
+        // Multiple CAs - show dropdown (handled by button click event)
         return;
       }
     }
@@ -747,9 +859,8 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
         next.delete(transcript.id);
         return next;
       });
-      // Close modal if open
-      setShowCASelectionModal(false);
-      setTranscriptToAdd(null);
+      // Close dropdown if open
+      setOpenDropdownTranscriptId(null);
     }
   };
 
@@ -1269,6 +1380,53 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
     }
   };
 
+  const handleRemoveFromCA = async (transcriptId: string, analysisId: string) => {
+    if (!selectedProject) return;
+
+    // Prevent removing if already in progress
+    if (removingTranscriptIds.has(transcriptId)) {
+      return;
+    }
+
+    setRemovingTranscriptIds(prev => new Set(prev).add(transcriptId));
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/caX/remove-transcript`,
+        {
+          method: 'POST',
+          headers: {
+            ...getAuthHeaders(),
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            projectId: selectedProject.id,
+            analysisId: analysisId,
+            transcriptId: transcriptId
+          })
+        }
+      );
+
+      if (response.ok) {
+        // Refresh transcripts and analyses
+        const normalized = await loadTranscripts();
+        await loadSavedAnalyses(normalized || undefined);
+      } else {
+        const error = await response.json();
+        alert(`Failed to remove transcript from CA: ${error.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Failed to remove transcript from CA:', error);
+      alert('Failed to remove transcript from CA');
+    } finally {
+      setRemovingTranscriptIds(prev => {
+        const next = new Set(prev);
+        next.delete(transcriptId);
+        return next;
+      });
+    }
+  };
+
   const handleDeleteTranscript = async (transcriptId: string) => {
     if (!selectedProject) return;
 
@@ -1494,22 +1652,70 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
     const duplicateIds = findDuplicateInterviewTimes(projectTranscripts);
     
     // Get un-assigned transcripts (not in any CA)
-    // Only filter if we have savedAnalyses loaded to avoid false positives
+    // Use the same logic as debug table for consistency
     console.log('🔍 Computing orphaned transcripts:', {
       savedAnalysesCount: savedAnalyses.length,
       projectTranscriptsCount: projectTranscripts.length,
       projectAnalysesCount: projectAnalyses.length
     });
     
-    const orphanedTranscripts = savedAnalyses.length > 0 
-      ? projectTranscripts.filter(t => {
-          const isAssigned = isTranscriptInAnyCA(String(t.id), selectedProject.id);
-          console.log(`🔍 Transcript ${t.id}: isAssigned = ${isAssigned}`);
-          return !isAssigned;
-        })
-      : [];
+    // Filter transcripts that are NOT assigned to any CA in this project
+    // Primary check: If transcript has no respno, it's unassigned (respno is only assigned when added to CA)
+    // Secondary check: Verify it's not in any CA's data sheets
+    const orphanedTranscripts = projectTranscripts.filter(t => {
+      // If transcript has no respno, it's definitely unassigned
+      if (!t.respno || String(t.respno).trim() === '') {
+        console.log(`🔍 Transcript ${t.id}: No respno, treating as unassigned`);
+        return true;
+      }
+      
+      // If no savedAnalyses, all transcripts are unassigned
+      if (savedAnalyses.length === 0) {
+        console.log(`🔍 Transcript ${t.id}: No savedAnalyses, treating as unassigned`);
+        return true;
+      }
+      
+      // Check if this transcript is assigned to any CA (even if it has a respno, verify it's actually in a CA)
+      const projectAnalyses = savedAnalyses.filter(a => a.projectId === selectedProject.id);
+      const normalizedTranscriptId = String(t.id).trim();
+      let isAssigned = false;
+      
+      for (const analysis of projectAnalyses) {
+        // Check if transcript is in this analysis's data sheets
+        if (analysis.data) {
+          for (const [sheetName, sheetData] of Object.entries(analysis.data)) {
+            if (Array.isArray(sheetData)) {
+              const hasTranscript = sheetData.some((row: any) => {
+                const rowTranscriptId = row?.transcriptId ? String(row.transcriptId).trim() : null;
+                return rowTranscriptId === normalizedTranscriptId;
+              });
+              if (hasTranscript) {
+                isAssigned = true;
+                break;
+              }
+            }
+          }
+        }
+        // Also check analysis.transcripts array
+        if (!isAssigned && Array.isArray(analysis.transcripts)) {
+          const hasTranscript = analysis.transcripts.some((transcript: any) => {
+            const tid = transcript?.id || transcript?.sourceTranscriptId;
+            return String(tid).trim() === normalizedTranscriptId;
+          });
+          if (hasTranscript) {
+            isAssigned = true;
+            break;
+          }
+        }
+        if (isAssigned) break;
+      }
+      
+      console.log(`🔍 Transcript ${t.id}: respno=${t.respno}, isAssigned = ${isAssigned}`);
+      return !isAssigned;
+    });
     
     console.log('🔍 Orphaned transcripts count:', orphanedTranscripts.length);
+    console.log('🔍 Orphaned transcript IDs:', orphanedTranscripts.map(t => t.id));
     const sortedOrphanedTranscripts = sortTranscriptsChronologically(orphanedTranscripts);
 
     return (
@@ -1518,6 +1724,97 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
         style={{ backgroundColor: BRAND_BG, height: 'calc(100vh - 80px)', marginTop: '80px' }}
       >
         <div className="flex-1 p-6 space-y-6 max-w-full">
+          {/* Debug Section - Filtered to current project */}
+          <section className="bg-blue-50 border-2 border-blue-300 rounded-lg p-4 mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-bold text-blue-900">
+                🐛 Debug: Transcript Assignments
+              </h3>
+              <span className="text-sm text-blue-700 font-medium">
+                {debugTranscriptAssignments.filter(a => a.projectId === selectedProject.id).length} transcript{debugTranscriptAssignments.filter(a => a.projectId === selectedProject.id).length === 1 ? '' : 's'} for this project
+              </span>
+            </div>
+            <div className="bg-white shadow-sm border border-gray-200 rounded-lg overflow-hidden">
+              <div className="overflow-x-auto max-h-96 overflow-y-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-100 sticky top-0">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Transcript ID
+                      </th>
+                      <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Respno
+                      </th>
+                      <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Project ID
+                      </th>
+                      <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Content Analysis ID
+                      </th>
+                      <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Content Analysis Name
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {debugTranscriptAssignments
+                      .filter(assignment => assignment.projectId === selectedProject.id)
+                      .map((assignment, index) => (
+                        <tr
+                          key={`${assignment.projectId}-${assignment.transcriptId}`}
+                          className={assignment.contentAnalysisId ? 'hover:bg-gray-50' : 'hover:bg-yellow-50 bg-yellow-50/50'}
+                        >
+                          <td className="px-4 py-2 whitespace-nowrap">
+                            <code className="text-xs font-mono text-gray-900 bg-gray-100 px-2 py-1 rounded">
+                              {assignment.transcriptId}
+                            </code>
+                          </td>
+                          <td className="px-4 py-2 whitespace-nowrap">
+                            {assignment.respno ? (
+                              <code className="text-xs font-mono text-blue-700 bg-blue-100 px-2 py-1 rounded">
+                                {assignment.respno}
+                              </code>
+                            ) : (
+                              <span className="text-xs text-gray-500 italic">
+                                -
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-2 whitespace-nowrap">
+                            <code className="text-xs font-mono text-gray-900 bg-gray-100 px-2 py-1 rounded">
+                              {assignment.projectId}
+                            </code>
+                          </td>
+                          <td className="px-4 py-2 whitespace-nowrap">
+                            {assignment.contentAnalysisId ? (
+                              <code className="text-xs font-mono text-green-700 bg-green-100 px-2 py-1 rounded">
+                                {assignment.contentAnalysisId}
+                              </code>
+                            ) : (
+                              <span className="text-xs font-medium text-yellow-700 italic">
+                                Not Assigned
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-2 whitespace-nowrap">
+                            {assignment.contentAnalysisName ? (
+                              <span className="text-xs text-green-700 font-medium">
+                                {assignment.contentAnalysisName}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-yellow-700 italic">
+                                -
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
           <section className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex-1">
               <div className="flex items-center justify-between mb-2">
@@ -1730,24 +2027,109 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                                 <span className="text-sm text-gray-400">-</span>
                               )}
                             </td>
-                            <td className="px-3 py-4 whitespace-nowrap text-center">
+                            <td className="px-3 py-4 whitespace-nowrap text-center relative">
                               {addingTranscriptIds.has(transcript.id) ? (
                                 <div className="flex items-center justify-center gap-1 text-xs text-gray-500">
                                   <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-[#D14A2D]"></div>
                                   <span>Adding...</span>
                                 </div>
                               ) : (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    e.preventDefault();
-                                    handleAddToCA(transcript);
-                                  }}
-                                  disabled={addingTranscriptIds.size > 0}
-                                  className="text-[#D14A2D] hover:text-[#A03824] text-xs font-medium whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                  Add to CA
-                                </button>
+                                <>
+                                  <div className="flex items-center justify-center gap-2">
+                                    <button
+                                      ref={(el) => {
+                                        if (el) {
+                                          dropdownButtonRefs.current.set(transcript.id, el);
+                                        } else {
+                                          dropdownButtonRefs.current.delete(transcript.id);
+                                        }
+                                      }}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        e.preventDefault();
+                                        const projectAnalyses = savedAnalyses.filter(a => a.projectId === selectedProject?.id);
+                                        
+                                        if (projectAnalyses.length === 0) {
+                                          alert('No Content Analysis found for this project. Please create one first.');
+                                          return;
+                                        } else if (projectAnalyses.length === 1) {
+                                          // Only one CA - auto-add
+                                          handleAddToCA(transcript, projectAnalyses[0].id);
+                                        } else {
+                                          // Multiple CAs - toggle dropdown
+                                          if (openDropdownTranscriptId === transcript.id) {
+                                            setOpenDropdownTranscriptId(null);
+                                            setDropdownPosition(null);
+                                          } else {
+                                            // Calculate button position for dropdown
+                                            const buttonElement = dropdownButtonRefs.current.get(transcript.id);
+                                            if (buttonElement) {
+                                              const rect = buttonElement.getBoundingClientRect();
+                                              setDropdownPosition({
+                                                top: rect.top - 10, // Position above button
+                                                left: rect.right - 256, // Align right edge (256px = w-64)
+                                                width: 256 // w-64 = 256px
+                                              });
+                                            }
+                                            setOpenDropdownTranscriptId(transcript.id);
+                                          }
+                                        }
+                                      }}
+                                      disabled={addingTranscriptIds.size > 0 || removingTranscriptIds.has(transcript.id)}
+                                      className="text-[#D14A2D] hover:text-[#A03824] text-xs font-medium whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                      Add to CA
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteTranscript(transcript.id)}
+                                      disabled={addingTranscriptIds.size > 0 || removingTranscriptIds.has(transcript.id)}
+                                      className="text-red-600 hover:text-red-800 p-1 rounded-lg hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                      title="Delete"
+                                    >
+                                      <TrashIcon className="h-4 w-4" />
+                                    </button>
+                                  </div>
+                                  
+                                  {/* Dropdown for CA selection - rendered via portal */}
+                                  {openDropdownTranscriptId === transcript.id && dropdownPosition && createPortal(
+                                    <div
+                                      data-dropdown-ca-selection
+                                      className="fixed z-[999999] bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden"
+                                      style={{
+                                        top: `${dropdownPosition.top}px`,
+                                        left: `${dropdownPosition.left}px`,
+                                        width: `${dropdownPosition.width}px`,
+                                        maxHeight: '400px',
+                                        overflowY: 'auto'
+                                      }}
+                                    >
+                                      <div className="py-1">
+                                        {savedAnalyses
+                                          .filter(a => a.projectId === selectedProject?.id)
+                                          .map((analysis) => (
+                                            <button
+                                              key={analysis.id}
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                e.preventDefault();
+                                                handleAddToCA(transcript, analysis.id);
+                                                setOpenDropdownTranscriptId(null);
+                                                setDropdownPosition(null);
+                                              }}
+                                              disabled={addingTranscriptIds.has(transcript.id)}
+                                              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-[#D14A2D] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                              <div className="font-medium">{analysis.name || 'Untitled Analysis'}</div>
+                                              {analysis.description && (
+                                                <div className="text-xs text-gray-500 mt-0.5 truncate">{analysis.description}</div>
+                                              )}
+                                            </button>
+                                          ))}
+                                      </div>
+                                    </div>,
+                                    document.body
+                                  )}
+                                </>
                               )}
                             </td>
                           </tr>
@@ -1771,9 +2153,33 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
               </p>
             </div>
           ) : (
-            projectAnalyses.map((analysis) => {
-              const analysisTranscripts = getTranscriptsForAnalysis(analysis, projectTranscripts);
-              const sortedAnalysisTranscripts = sortTranscriptsChronologically(analysisTranscripts);
+            (() => {
+              // First pass: build a map of transcriptId -> analysisId
+              // If a transcript appears in multiple CAs (data inconsistency), assign it to the first CA we encounter
+              const transcriptToAnalysisMap = new Map<string, string>();
+              projectAnalyses.forEach((analysis) => {
+                const analysisTranscripts = getTranscriptsForAnalysis(analysis, projectTranscripts);
+                analysisTranscripts.forEach((transcript) => {
+                  const tid = String(transcript.id).trim();
+                  if (!transcriptToAnalysisMap.has(tid)) {
+                    transcriptToAnalysisMap.set(tid, analysis.id);
+                  } else {
+                    // Transcript already assigned to another CA - log warning
+                    const existingAnalysisId = transcriptToAnalysisMap.get(tid);
+                    console.warn(`⚠️ Transcript ${tid} appears in multiple CAs - keeping in CA ${existingAnalysisId}, removing from CA ${analysis.id}`);
+                  }
+                });
+              });
+              
+              // Second pass: render each CA box with only transcripts assigned to it
+              return projectAnalyses.map((analysis) => {
+                const analysisTranscripts = getTranscriptsForAnalysis(analysis, projectTranscripts);
+                // Filter to only include transcripts that are assigned to THIS CA (prevent duplicates)
+                const filteredTranscripts = analysisTranscripts.filter((transcript) => {
+                  const tid = String(transcript.id).trim();
+                  return transcriptToAnalysisMap.get(tid) === analysis.id;
+                });
+                const sortedAnalysisTranscripts = sortTranscriptsChronologically(filteredTranscripts);
               
               return (
                 <div key={analysis.id} className="bg-white shadow-sm border border-gray-200 rounded-lg overflow-hidden">
@@ -1981,14 +2387,28 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                                   )}
                                 </td>
                                 <td className="px-3 py-4 whitespace-nowrap text-center">
-                                  <button
-                                    onClick={() => handleDeleteTranscript(transcript.id)}
-                                    disabled={addingTranscriptIds.size > 0}
-                                    className="text-red-600 hover:text-red-800 p-1 rounded-lg hover:bg-red-50 mx-auto disabled:opacity-50 disabled:cursor-not-allowed"
-                                    title="Delete"
-                                  >
-                                    <TrashIcon className="h-4 w-4" />
-                                  </button>
+                                  <div className="flex items-center justify-center gap-2">
+                                    <button
+                                      onClick={() => handleRemoveFromCA(transcript.id, analysis.id)}
+                                      disabled={addingTranscriptIds.size > 0 || removingTranscriptIds.has(transcript.id)}
+                                      className="text-orange-600 hover:text-orange-800 p-1 rounded-lg hover:bg-orange-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                      title="Remove from CA"
+                                    >
+                                      {removingTranscriptIds.has(transcript.id) ? (
+                                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-orange-300 border-t-orange-600"></div>
+                                      ) : (
+                                        <XMarkIcon className="h-4 w-4" />
+                                      )}
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteTranscript(transcript.id)}
+                                      disabled={addingTranscriptIds.size > 0 || removingTranscriptIds.has(transcript.id)}
+                                      className="text-red-600 hover:text-red-800 p-1 rounded-lg hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                      title="Delete"
+                                    >
+                                      <TrashIcon className="h-4 w-4" />
+                                    </button>
+                                  </div>
                                 </td>
                               </tr>
                             );
@@ -1999,7 +2419,8 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
                   )}
                 </div>
               );
-            })
+              });
+            })()
           )}
 
           {/* Upload Modal */}
@@ -2273,49 +2694,6 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
             </div>
           )}
 
-          {/* CA Selection Modal */}
-          {showCASelectionModal && transcriptToAdd && (
-            <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/50 px-4" style={{ top: 0, left: 0, right: 0, bottom: 0 }}>
-              <div className="w-full max-w-md rounded-xl bg-white shadow-xl">
-                <div className="border-b border-gray-200 px-6 py-4">
-                  <h2 className="text-xl font-bold text-gray-900">
-                    Select Content Analysis
-                  </h2>
-                  <p className="mt-1 text-sm text-gray-500">
-                    Choose which content analysis to add this transcript to
-                  </p>
-                </div>
-                <div className="px-6 py-5">
-                  <div className="space-y-2">
-                    {projectAnalyses.map((analysis) => (
-                      <button
-                        key={analysis.id}
-                        onClick={() => handleAddToCA(transcriptToAdd, analysis.id)}
-                        disabled={addingTranscriptIds.has(transcriptToAdd.id)}
-                        className="w-full text-left p-4 rounded-lg border border-gray-200 hover:border-[#D14A2D] hover:bg-orange-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <div className="font-medium text-gray-900">{analysis.name || 'Untitled Analysis'}</div>
-                        {analysis.description && (
-                          <div className="mt-1 text-sm text-gray-500">{analysis.description}</div>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-4">
-                  <button
-                    onClick={() => {
-                      setShowCASelectionModal(false);
-                      setTranscriptToAdd(null);
-                    }}
-                    className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </main>
     );

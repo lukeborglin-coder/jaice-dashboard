@@ -1,108 +1,350 @@
 [
   {
-    "id": "1761757964783",
+    "id": "1761920970793",
     "projectId": "P-1761243049041",
-    "name": "test 1",
+    "name": "aa test 2",
     "data": {
       "Demographics": [],
       "BACKGROUND": [],
-      "DETAILED REVIEW OF MESSAGING": [],
-      "COMPREHENSIVE RANKING EXERCISE": [],
-      "GPF MESSAGE EVAL": [],
+      "CURRENT PERCEPTIONS & ATTITUDES": [],
+      "BARRIERS TO TREATMENT & UNMET NEEDS": [],
+      "MOTIVATIONS & FUTURE CONSIDERATION": [],
+      "COMMUNITY ENGAGEMENT & INFO SOURCES": [],
       "Misc.": []
     },
     "guideMap": {
       "bySheet": {}
     },
     "quotes": {},
-    "savedAt": "2025-10-29T18:48:30.157Z",
+    "savedAt": "2025-10-31T17:04:58.786Z",
     "savedBy": "You",
     "context": {},
-    "transcripts": [
-      {
-        "id": "T-1761251220504",
-        "sourceTranscriptId": "T-1761251220504",
-        "respno": "R01",
-        "addedAt": "2025-10-29T18:33:20.102Z",
-        "filename": "cleaned_1761251233286_transcript example 3.docx",
-        "originalPath": "C:\\Users\\LukeBorglin\\Desktop\\Apps\\JaiceDashboard_master\\server\\data\\uploads\\original_1761251233287_transcript example 3.docx",
-        "cleanedPath": "C:\\Users\\LukeBorglin\\Desktop\\Apps\\JaiceDashboard_master\\server\\data\\uploads\\cleaned_1761251233286_transcript example 3.docx",
-        "originalFilename": "transcript example 3.docx",
-        "cleanedFilename": "cleaned_1761251233286_transcript example 3.docx",
-        "isCleaned": true,
-        "demographics": {
-          "Respondent ID": "R01",
-          "respno": "R01"
-        }
-      }
-    ],
     "columnSchema": {
       "Demographics": [
-        "Respondent ID",
         "Interview Date",
         "Interview Time"
       ],
       "BACKGROUND": [
-        "Respondent ID",
-        "Introduction",
-        "Specialty",
-        "Years in Practice",
-        "Practice Setting",
-        "SMA Patients Under Care",
-        "Primary Role in Managing SMA Patients",
-        "Factors for Treatment Decision",
-        "Typical Approach to Treating SMA",
-        "Discussion on Treatment Switching",
-        "Biggest Challenges for Patients",
-        "Access Challenges for Specific Treatments",
-        "Addressing Challenges",
-        "Reliance on Support Programs",
-        "Unmet Needs in Insurance Support"
+        "Living Situation",
+        "Free Time Activities",
+        "Journey with SMA",
+        "Current Health Description",
+        "HCPs for SMA Care",
+        "Reasons for Not Seeing HCPs",
+        "Current SMA Management",
+        "Number of HCPs",
+        "HCP Involvement in Treatment Decisions",
+        "Primary SMA Doctor",
+        "Support System Involvement",
+        "Comfort in Making Treatment Decisions",
+        "Health Goals - Short-term",
+        "Health Goals - Long-term",
+        "Personal Aspirations",
+        "Respondent ID"
       ],
-      "DETAILED REVIEW OF MESSAGING": [
-        "Respondent ID",
-        "Overall Reaction to Statements",
-        "Surprising Information",
-        "Ranking of Statements",
-        "Reason for Ranking",
-        "Impact on Manufacturer Perception",
-        "Alignment with Current Understanding",
-        "New Learnings",
-        "Individual Statement Review",
-        "Main Takeaway"
+      "CURRENT PERCEPTIONS & ATTITUDES": [
+        "Treatments Awareness",
+        "Treatments Experience",
+        "Discontinued Treatment Experience",
+        "Discontinued Treatment Benefits",
+        "Discontinued Treatment Drawbacks",
+        "Discontinued Treatment Discontinuation Reason",
+        "Discontinued Treatment Life Changes",
+        "Discontinued Treatment Insurance Coverage Impact",
+        "Discontinued Treatment Restart Consideration",
+        "Treatment Never Taken Impressions",
+        "Treatment Never Taken Information Source",
+        "Treatment Never Taken Benefits",
+        "Treatment Never Taken Drawbacks",
+        "Treatment Never Taken Consideration Factors",
+        "Treatment Never Taken HCP Discussion",
+        "Treatment Never Taken Impact of HCP on Decision",
+        "Treatment Never Taken Other Influencers",
+        "Treatment Never Taken Future Consideration Likelihood",
+        "Treatment Never Taken Future Consideration Drivers",
+        "Treatments in Development Awareness",
+        "Treatments in Development Impressions",
+        "Treatments in Development Benefits",
+        "Treatments in Development Drawbacks",
+        "Treatments in Development Candidate Consideration",
+        "Respondent ID"
       ],
-      "COMPREHENSIVE RANKING EXERCISE": [
-        "Respondent ID",
-        "Compelling Story Statements",
-        "Message Order Explanation",
-        "Most Important Messages",
-        "Perception Changes",
-        "Access Process Impact",
-        "Likelihood to Consider Evrysdi",
-        "Missing Elements",
-        "New Learnings"
+      "BARRIERS TO TREATMENT & UNMET NEEDS": [
+        "Reasons for Not Being on Treatment",
+        "Reasons for Not Being on Treatment Additional Factors",
+        "Factors Driving Treatment Consideration",
+        "Muscle Loss Impact on Treatment Consideration",
+        "Symptom/Progression Tracking Frequency",
+        "Symptom/Progression Tracking Discussion with HCP",
+        "Emotional Factors",
+        "Practical/Logistical Factors",
+        "Clinical Factors",
+        "Treatment Benefit Requirement",
+        "Treatment Benefit Discussion with HCP",
+        "Financial/Access Barriers",
+        "Financial/Access Barriers Challenges",
+        "Unmet Needs",
+        "Unmet Needs Additional Factors",
+        "Most Important Unmet Needs",
+        "Respondent ID"
       ],
-      "GPF MESSAGE EVAL": [
-        "Respondent ID",
-        "Overall Reaction to Statements",
-        "Surprising Information",
-        "Ranking of Statements",
-        "Reason for Ranking",
-        "Impact on Manufacturer Perception",
-        "Alignment with Current Understanding",
-        "New Learnings",
-        "Individual Statement Review",
-        "Main Takeaway",
-        "Familiarity with GPF",
-        "Pursuit of GPF",
-        "Flexibility of GPF",
-        "Awareness of Limited Resource"
+      "MOTIVATIONS & FUTURE CONSIDERATION": [
+        "Future Treatment Consideration Likelihood",
+        "Future Treatment Consideration Drivers",
+        "Future Treatment Consideration Influencers",
+        "Confidence in Treatment Decision Making",
+        "Respondent ID"
+      ],
+      "COMMUNITY ENGAGEMENT & INFO SOURCES": [
+        "Connectedness to SMA Community",
+        "Participation in SMA Groups",
+        "Reasons for Non-Involvement in SMA Community",
+        "Information Sources Trust",
+        "Untrusted Sources",
+        "New Treatment Information Source",
+        "Preferred Information Format",
+        "Improving Information Accessibility",
+        "Respondent ID"
       ],
       "Misc.": [
-        "Respondent ID",
+        "Final Comments",
+        "Additional Notes",
+        "Respondent ID"
+      ]
+    },
+    "transcripts": []
+  },
+  {
+    "id": "1761850850769",
+    "projectId": "P-1761243049041",
+    "name": "AA test",
+    "data": {
+      "Demographics": [
+        {
+          "transcriptId": "T-1761864070629",
+          "respno": "R01",
+          "Respondent ID": "R01",
+          "Interview Date": "Oct 3, 2025",
+          "Interview Time": "3:00 PM"
+        }
+      ],
+      "BACKGROUND": [
+        {
+          "Living Situation": "Michelle is 60 years old and lives with her spouse of thirty-four years and their 22-year-old daughter who is in college. They also have two dogs. Michelle works full-time at a university, overseeing a team of researchers in the fundraising arm. She has been at this university for almost thirteen years and previously worked at another university in the Midwest for seven years.",
+          "Free Time Activities": "Michelle enjoys flea markets and traveling. She recently returned from a twelve-day Mediterranean cruise. Despite her medical challenges, she remains active and engaged in her interests.",
+          "Journey with SMA": "Michelle was diagnosed with SMA at three years old, initially misdiagnosed with Weierman Costman Syndrome. She walked until she was 12 or 13 and transitioned to a wheelchair in late middle school. Over the years, she has experienced a decline in strength but remains active. She describes her SMA as having two body types, with her being on the heavier side, which she believes has helped her maintain stability.",
+          "Current Health Description": "Michelle recently experienced a medical emergency that resulted in pneumonia and respiratory failure, leading to a tracheostomy. She was hospitalized for three and a half weeks and had her gallbladder removed two weeks after returning home. Despite these challenges, she describes herself as a joyous person and is eager to return to work.",
+          "HCPs for SMA Care": "Michelle's primary care physician, neurologist, and pulmonologist are the main healthcare providers involved in her SMA care. Her neurologist is based at a university center of excellence and is an hour away, while her primary care physician is closer and often serves as the starting point for her medical needs.",
+          "Reasons for Not Seeing HCPs": "",
+          "Current SMA Management": "",
+          "Number of HCPs": "",
+          "HCP Involvement in Treatment Decisions": "Michelle actively participates in her treatment decisions, often bringing ideas to her neurologist. She appreciates her neurologist's support and responsiveness, especially when discussing new treatments.",
+          "Primary SMA Doctor": "Michelle's primary SMA doctor is her neurologist, whom she trusts and communicates with regularly through a portal for quick consultations.",
+          "Others Involved in Health Decisions": "Michelle's family, including her sister, spouse, and daughter, are involved in her health decisions. Her sister, in particular, stays well-connected with SMA groups and provides Michelle with information and support.",
+          "Support System Involvement": "Michelle's support system includes her family and online SMA communities. Her sister plays a significant role in staying informed and advocating for Michelle's health needs.",
+          "Comfort in Making Treatment Decisions": "Michelle feels comfortable making treatment decisions, often advocating for herself and seeking information from her neurologist and online communities. She values data and evidence in her decision-making process.",
+          "Health Goals": "Michelle's primary health goal is to maintain her independence and quality of life. She is open to considering treatments that could stop the progression of SMA or improve her strength, especially after her recent health scare.",
+          "respno": "R01",
+          "transcriptId": "T-1761864070629",
+          "Respondent ID": "R01"
+        }
+      ],
+      "CURRENT PERCEPTIONS & ATTITUDES": [
+        {
+          "Treatments Awareness": "Michelle is aware of various SMA treatments, including SPINRAZA and Evrysdi. She actively seeks information about new treatments and discusses them with her neurologist.",
+          "Treatments Experience": "Michelle has experience with SPINRAZA and Evrysdi. She found SPINRAZA challenging due to painful injections and a lack of perceived benefits. Evrysdi was more convenient but did not provide the improvements she hoped for.",
+          "Discontinued Treatment Experience": "Michelle discontinued Evrysdi in February 2022 after not seeing improvements and experiencing weight gain. She felt the treatment was not worth the logistical challenges and lack of noticeable benefits.",
+          "Discontinued Treatment Reasons": "Michelle stopped Evrysdi due to weight gain, lack of improvement, and logistical challenges with traveling and maintaining the treatment regimen. She also faced insurance challenges, which contributed to her decision.",
+          "Discontinued Treatment Impact": "Since discontinuing Evrysdi, Michelle has experienced a loss of strength, particularly after her hospitalization. She is considering restarting treatment, especially in light of her recent health challenges.",
+          "Discontinued Treatment Restart Consideration": "Michelle is open to restarting treatment, particularly if combined with a muscle builder. She is more open to treatment now than a year ago, especially after her recent health scare.",
+          "Treatment Never Taken Impressions": "",
+          "Treatment Never Taken Benefits": "",
+          "Treatment Never Taken Drawbacks": "",
+          "Treatment Never Taken Information Source": "",
+          "Treatment Never Taken Consideration Reasons": "",
+          "Treatment Never Taken HCP Discussion": "",
+          "Treatment Never Taken Impact of HCP": "",
+          "Treatment Never Taken Other Influencers": "",
+          "Treatment Never Taken Future Consideration": "",
+          "Treatment Never Taken Candidate Assessment": "",
+          "Treatments in Development Awareness": "Michelle is aware of treatments in development, such as the anti-myostatin drug by Scholar Rock. She is interested in new options that could improve her strength and quality of life.",
+          "Treatments in Development Impressions": "Michelle is curious about new treatments and is considering them as potential options to improve her health and stop the progression of SMA.",
+          "Treatments in Development Benefits": "",
+          "Treatments in Development Drawbacks": "",
+          "Treatments in Development Candidate Assessment": "",
+          "Treatments in Development Consideration": "",
+          "Treatments in Development Consideration Reasons": "",
+          "respno": "R01",
+          "transcriptId": "T-1761864070629",
+          "Respondent ID": "R01"
+        }
+      ],
+      "BARRIERS TO TREATMENT & UNMET NEEDS": [
+        {
+          "Reasons for Not on Treatment": "Michelle is not currently on treatment due to previous experiences with SPINRAZA and Evrysdi, which did not meet her expectations for improvement. She also faced logistical challenges and insurance issues.",
+          "Consideration Drivers": "Michelle's consideration for treatment is driven by the desire to stop the progression of SMA and improve her strength. Her recent health scare has made her more open to exploring treatment options.",
+          "Muscle Loss Impact": "Michelle has experienced muscle loss, particularly in her left arm, which has impacted her daily activities and increased her interest in treatments that could improve her strength.",
+          "Symptom Tracking Frequency": "",
+          "Symptom Tracking Discussion with HCP": "",
+          "Emotional Factors": "Michelle's recent health scare has heightened her awareness of her vulnerability and increased her motivation to consider treatment options to improve her quality of life.",
+          "Practical/Logistical Factors": "The logistical challenges of maintaining a treatment regimen, such as traveling with medication and daily dosing, have been significant barriers for Michelle.",
+          "Clinical Factors": "Michelle's decision to discontinue treatment was influenced by the lack of perceived clinical benefits and the side effects she experienced, such as weight gain.",
+          "Treatment Benefit Requirement": "Michelle requires treatment to provide noticeable improvements in strength or quality of life to justify the effort and cost involved.",
+          "Financial/Access Barriers": "Michelle faced financial barriers with insurance not covering her treatment, requiring her to rely on manufacturer assistance programs.",
+          "Access Challenges": "Michelle experienced challenges in accessing treatment due to insurance denials and the need for recertification through manufacturer programs.",
+          "Unmet Needs": "Michelle's unmet needs include treatments that provide tangible improvements in strength and quality of life, as well as better support and advocacy from treatment manufacturers.",
+          "respno": "R01",
+          "transcriptId": "T-1761864070629",
+          "Respondent ID": "R01"
+        }
+      ],
+      "MOTIVATIONS & FUTURE CONSIDERATION": [
+        {
+          "Future Treatment Consideration Likelihood": "Michelle is more open to considering treatment now than she was a year ago, especially after her recent health scare. She is interested in new treatments that could improve her strength and quality of life.",
+          "Consideration Influencing Factors": "Factors influencing Michelle's consideration include the potential for improved strength, stopping disease progression, and the availability of new treatment options.",
+          "Consideration Drivers": "Michelle's drivers for considering treatment include the desire to maintain her independence, improve her quality of life, and address the progression of SMA.",
+          "Decision Confidence Factors": "Michelle's confidence in treatment decisions is influenced by data and evidence, as well as the support and recommendations from her healthcare providers and family.",
+          "respno": "R01",
+          "transcriptId": "T-1761864070629",
+          "Respondent ID": "R01"
+        }
+      ],
+      "COMMUNITY ENGAGEMENT & INFO SOURCES": [
+        {
+          "Community Connection Level": "Michelle feels connected to the SMA community through Facebook groups and her involvement in SMA-specific groups. She values the information and support she receives from these communities.",
+          "Community Participation": "Michelle actively participates in online SMA communities, where she shares experiences and seeks advice from others with similar conditions.",
+          "Community Trust Issues": "",
+          "Information Sources": "Michelle relies on online communities, her sister, and healthcare providers for information about SMA and treatment options.",
+          "New Treatment Awareness": "Michelle is aware of new treatments in development and actively seeks information about them through her networks and healthcare providers.",
+          "Preferred Information Format": "",
+          "Facilitating Information Access": "",
+          "respno": "R01",
+          "transcriptId": "T-1761864070629",
+          "Respondent ID": "R01"
+        }
+      ],
+      "Misc.": [
+        {
+          "Final Comments": "Michelle emphasizes the importance of marketing and advocacy efforts that focus on adults with SMA. She believes that more data and support for adults could improve treatment uptake and outcomes.",
+          "Additional Notes": "Michelle values data-driven decisions and would like to see more adult-specific data in SMA treatment research. She also highlights the need for better advocacy and support from treatment manufacturers.",
+          "respno": "R01",
+          "transcriptId": "T-1761864070629",
+          "Respondent ID": "R01"
+        }
+      ]
+    },
+    "guideMap": {
+      "bySheet": {}
+    },
+    "quotes": {},
+    "savedAt": "2025-10-31T17:23:10.331Z",
+    "savedBy": "You",
+    "context": {},
+    "columnSchema": {
+      "Demographics": [
+        "Interview Date",
+        "Interview Time"
+      ],
+      "BACKGROUND": [
+        "Living Situation",
+        "Free Time Activities",
+        "Journey with SMA",
+        "Current Health Description",
+        "HCPs for SMA Care",
+        "Reasons for Not Seeing HCPs",
+        "Current SMA Management",
+        "Number of HCPs",
+        "HCP Involvement in Treatment Decisions",
+        "Primary SMA Doctor",
+        "Others Involved in Health Decisions",
+        "Support System Involvement",
+        "Comfort in Making Treatment Decisions",
+        "Health Goals"
+      ],
+      "CURRENT PERCEPTIONS & ATTITUDES": [
+        "Treatments Awareness",
+        "Treatments Experience",
+        "Discontinued Treatment Experience",
+        "Discontinued Treatment Reasons",
+        "Discontinued Treatment Impact",
+        "Discontinued Treatment Restart Consideration",
+        "Treatment Never Taken Impressions",
+        "Treatment Never Taken Benefits",
+        "Treatment Never Taken Drawbacks",
+        "Treatment Never Taken Information Source",
+        "Treatment Never Taken Consideration Reasons",
+        "Treatment Never Taken HCP Discussion",
+        "Treatment Never Taken Impact of HCP",
+        "Treatment Never Taken Other Influencers",
+        "Treatment Never Taken Future Consideration",
+        "Treatment Never Taken Candidate Assessment",
+        "Treatments in Development Awareness",
+        "Treatments in Development Impressions",
+        "Treatments in Development Benefits",
+        "Treatments in Development Drawbacks",
+        "Treatments in Development Candidate Assessment",
+        "Treatments in Development Consideration",
+        "Treatments in Development Consideration Reasons"
+      ],
+      "BARRIERS TO TREATMENT & UNMET NEEDS": [
+        "Reasons for Not on Treatment",
+        "Consideration Drivers",
+        "Muscle Loss Impact",
+        "Symptom Tracking Frequency",
+        "Symptom Tracking Discussion with HCP",
+        "Emotional Factors",
+        "Practical/Logistical Factors",
+        "Clinical Factors",
+        "Treatment Benefit Requirement",
+        "Financial/Access Barriers",
+        "Access Challenges",
+        "Unmet Needs"
+      ],
+      "MOTIVATIONS & FUTURE CONSIDERATION": [
+        "Future Treatment Consideration Likelihood",
+        "Consideration Influencing Factors",
+        "Consideration Drivers",
+        "Decision Confidence Factors"
+      ],
+      "COMMUNITY ENGAGEMENT & INFO SOURCES": [
+        "Community Connection Level",
+        "Community Participation",
+        "Community Trust Issues",
+        "Information Sources",
+        "New Treatment Awareness",
+        "Preferred Information Format",
+        "Facilitating Information Access"
+      ],
+      "Misc.": [
         "Final Comments",
         "Additional Notes"
       ]
+    },
+    "transcripts": [
+      {
+        "id": "T-1761864070629"
+      }
+    ],
+    "verbatimQuotes": {
+      "BACKGROUND": {
+        "R02": {
+          "Living Situation": {
+            "quotes": [
+              {
+                "text": "Michelle: So I am 60 years old, and I live with my spouse of thirty-four years. We have a 22-year-old daughter who's in college, and she also lives here. And then our two dogs, only one isn't here with me.",
+                "context": "This quote provides specific details about Michelle's living situation, confirming her age, the duration of her marriage, her daughter's age and college status, and the presence of two dogs in the household."
+              },
+              {
+                "text": "Michelle: I work full time at a university. Nancy: Oh. Michelle: I oversee a team of researchers in the fundraising arm of the university, and I have been doing that for I've been at this university for almost thirteen years, and I was at another university in the Midwest for seven years.",
+                "context": "This quote details Michelle's professional background, including her full-time employment at a university, her role overseeing researchers in fundraising, and her tenure at two different universities, aligning with the key finding."
+              }
+            ],
+            "transcriptType": "cleaned",
+            "savedAt": "2025-10-30T22:48:54.068Z",
+            "keyFinding": "Michelle is 60 years old and lives with her spouse of thirty-four years and their 22-year-old daughter who is in college. They also have two dogs. Michelle works full-time at a university, overseeing a team of researchers in the fundraising arm. She has been at this university for almost thirteen years and previously worked at another university in the Midwest for seven years."
+          }
+        }
+      }
     }
   },
   {
@@ -213,368 +455,11 @@
     "savedBy": "You"
   },
   {
-    "id": "1761251648433",
-    "projectId": "P-1761243049041",
-    "name": "test CA 2",
-    "data": {
-      "Demographics": [
-        {
-          "Respondent ID": "R01",
-          "Interview Date": "Oct 28, 2025",
-          "Interview Time": "5:00 PM",
-          "respno": "R01",
-          "transcriptId": "T-1761763093840"
-        }
-      ],
-      "BACKGROUND": [
-        {
-          "Respondent ID": "R01",
-          "Living Situation": "",
-          "Free Time Activities": "",
-          "Journey with SMA": "",
-          "Current Health Description": "",
-          "HCPs for SMA Care": "The respondent is a professor in pediatric neurology at an academic medical center, where they have been working for over twenty years. They manage a dedicated MDA clinic and have seen approximately 30 patients with SMA throughout their career. Currently, they regularly see 13 patients, with 80% being under 18 and the oldest patient being 22 years old. The respondent's approach to treating SMA involves gene therapy for younger patients and intrathecal injections or pills for others, with no patients on double therapy yet.",
-          "Reasons for Not Seeing HCPs": "",
-          "Current SMA Management": "The respondent manages SMA by using gene therapy for patients younger than two years old, before they can receive SPINRAZA. For other patients, they use intrathecal injections like SPINRAZA or a pill form of medication. They have five patients on SPINRAZA and the rest on the pill. They have not yet started any patients on double therapy, although they are considering it for one patient who showed muscle weakness after gene therapy.",
-          "Number of HCPs": "",
-          "HCP Involvement in Treatment Decisions": "",
-          "Primary SMA Doctor": "",
-          "Others Involved in Health Decisions": "",
-          "Support System Involvement": "",
-          "Comfort in Making Treatment Decisions": "",
-          "Health Goals - Short-term": "",
-          "Health Goals - Long-term": "",
-          "Personal Aspirations": "",
-          "respno": "R01"
-        }
-      ],
-      "CURRENT PERCEPTIONS & ATTITUDES": [
-        {
-          "Respondent ID": "R01",
-          "Treatments Awareness": "",
-          "Evrysdi Experience": "",
-          "Spinraza Experience": "",
-          "Zolgensma Experience": "",
-          "Discontinued Treatment Experience": "",
-          "Discontinued Treatment Benefits": "",
-          "Discontinued Treatment Drawbacks": "",
-          "Discontinuation Reason": "",
-          "Life Changes Impact": "",
-          "Insurance Coverage Impact": "The respondent notes that insurance access to SMA therapies has improved significantly, with approvals now happening much quicker than before. However, combinations of therapies still present challenges and require justification. They are currently appealing for one patient, documenting motor function and symptoms to support the case. The manufacturer assists with paperwork and the appeal process, which the respondent finds helpful.",
-          "Restarting Consideration": "",
-          "Treatment Impressions": "",
-          "Information Source": "",
-          "Consideration Factors": "",
-          "Developmental Treatments Awareness": "",
-          "Developmental Treatments Impressions": "",
-          "Candidate Consideration": "",
-          "Future Treatment Consideration": "",
-          "Consideration Drivers": "",
-          "Consideration Hesitations": "",
-          "Anti-myostatins Awareness": "",
-          "Anti-myostatins Brands": "",
-          "respno": "R01"
-        }
-      ],
-      "BARRIERS TO TREATMENT & UNMET NEEDS": [
-        {
-          "Respondent ID": "R01",
-          "Reasons for Not on Treatment": "",
-          "Manageable Severity Impact": "",
-          "Consideration Drivers": "",
-          "Muscle Loss Impact": "",
-          "Symptom Tracking Frequency": "",
-          "Symptom Tracking Method": "",
-          "Symptom Tracking Discussion": "",
-          "Emotional Factors Impact": "",
-          "Practical Factors Impact": "",
-          "Clinical Factors Impact": "",
-          "Treatment Benefit Requirement": "",
-          "Treatment Benefit Discussion": "",
-          "Financial Barriers Impact": "",
-          "Financial Challenges": "",
-          "Access Challenges": "",
-          "Specialized Care Availability": "",
-          "HCP Trust": "",
-          "Support System Gaps": "",
-          "Unmet Needs": "",
-          "respno": "R01"
-        }
-      ],
-      "MOTIVATIONS & FUTURE CONSIDERATION": [
-        {
-          "Respondent ID": "R01",
-          "Future Treatment Likelihood": "",
-          "Consideration Influences": "",
-          "Consideration Situations": "",
-          "Consideration Drivers": "",
-          "Consideration Hesitations": "",
-          "Improvement Expectations": "",
-          "Influential Decision Makers": "",
-          "Decision Maker Involvement": "",
-          "Decision Confidence Factors": "",
-          "respno": "R01"
-        }
-      ],
-      "COMMUNITY ENGAGEMENT & INFO SOURCES": [
-        {
-          "Respondent ID": "R01",
-          "Community Connection": "",
-          "Community Participation": "",
-          "Community Involvement Reasons": "",
-          "Information Sources": "",
-          "Trusted Sources": "",
-          "Distrusted Sources": "",
-          "New Information Awareness": "",
-          "Information Preferences": "",
-          "Preferred Information Format": "",
-          "Facilitation Suggestions": "",
-          "respno": "R01"
-        }
-      ],
-      "Misc.": [
-        {
-          "Respondent ID": "R01",
-          "Final Comments": "",
-          "Additional Notes": "",
-          "respno": "R01"
-        }
-      ]
-    },
-    "guideMap": {
-      "bySheet": {}
-    },
-    "quotes": {},
-    "savedAt": "2025-10-29T18:39:39.914Z",
-    "savedBy": "You",
-    "context": {},
-    "transcripts": [
-      {
-        "id": "T-1761244346544",
-        "sourceTranscriptId": "T-1761244346544",
-        "respno": "R03",
-        "addedAt": "2025-10-23T20:44:50.612Z",
-        "filename": "cleaned_1761244424155_Treatment Naive_ENGLISH (UNITED STATES)_MT.docx",
-        "originalPath": "C:\\Users\\LukeBorglin\\Desktop\\Apps\\JaiceDashboard_master\\server\\data\\uploads\\original_1761244424156_Treatment Naive_ENGLISH (UNITED STATES)_MT.docx",
-        "cleanedPath": "C:\\Users\\LukeBorglin\\Desktop\\Apps\\JaiceDashboard_master\\server\\data\\uploads\\cleaned_1761244424155_Treatment Naive_ENGLISH (UNITED STATES)_MT.docx",
-        "originalFilename": "Treatment Naive_ENGLISH (UNITED STATES)_MT.docx",
-        "cleanedFilename": "cleaned_1761244424155_Treatment Naive_ENGLISH (UNITED STATES)_MT.docx",
-        "isCleaned": true
-      },
-      {
-        "id": "T-1761251220504",
-        "sourceTranscriptId": "T-1761251220504",
-        "respno": "R01",
-        "addedAt": "2025-10-23T20:50:19.728Z",
-        "filename": "cleaned_1761251233286_transcript example 3.docx",
-        "originalPath": "C:\\Users\\LukeBorglin\\Desktop\\Apps\\JaiceDashboard_master\\server\\data\\uploads\\original_1761251233287_transcript example 3.docx",
-        "cleanedPath": "C:\\Users\\LukeBorglin\\Desktop\\Apps\\JaiceDashboard_master\\server\\data\\uploads\\cleaned_1761251233286_transcript example 3.docx",
-        "originalFilename": "transcript example 3.docx",
-        "cleanedFilename": "cleaned_1761251233286_transcript example 3.docx",
-        "isCleaned": true
-      },
-      {
-        "id": "T-1761250872583",
-        "sourceTranscriptId": "T-1761250872583",
-        "respno": "R02",
-        "addedAt": "2025-10-23T20:51:08.128Z",
-        "filename": "cleaned_1761250900961_transcript example 2.docx",
-        "originalPath": "C:\\Users\\LukeBorglin\\Desktop\\Apps\\JaiceDashboard_master\\server\\data\\uploads\\original_1761250900962_transcript example 2.docx",
-        "cleanedPath": "C:\\Users\\LukeBorglin\\Desktop\\Apps\\JaiceDashboard_master\\server\\data\\uploads\\cleaned_1761250900961_transcript example 2.docx",
-        "originalFilename": "transcript example 2.docx",
-        "cleanedFilename": "cleaned_1761250900961_transcript example 2.docx",
-        "isCleaned": true
-      },
-      {
-        "id": "T-1761252705435",
-        "sourceTranscriptId": "T-1761252705435",
-        "respno": "R03",
-        "addedAt": "2025-10-23T20:53:59.196Z",
-        "filename": "cleaned_1761252772006_transcript example.docx",
-        "originalPath": "C:\\Users\\LukeBorglin\\Desktop\\Apps\\JaiceDashboard_master\\server\\data\\uploads\\original_1761252772007_transcript example.docx",
-        "cleanedPath": "C:\\Users\\LukeBorglin\\Desktop\\Apps\\JaiceDashboard_master\\server\\data\\uploads\\cleaned_1761252772006_transcript example.docx",
-        "originalFilename": "transcript example.docx",
-        "cleanedFilename": "cleaned_1761252772006_transcript example.docx",
-        "isCleaned": true
-      },
-      {
-        "id": "T-1761763093840",
-        "sourceTranscriptId": "T-1761763093840",
-        "respno": "R01",
-        "addedAt": "2025-10-29T18:39:39.913Z",
-        "filename": "cleaned_1761763146694_HCP 491135_ENGLISH (UNITED STATES)_MT.docx",
-        "originalPath": "C:\\Users\\LukeBorglin\\Desktop\\Apps\\JaiceDashboard_master\\server\\data\\uploads\\original_1761763146696_HCP 491135_ENGLISH (UNITED STATES)_MT.docx",
-        "cleanedPath": "C:\\Users\\LukeBorglin\\Desktop\\Apps\\JaiceDashboard_master\\server\\data\\uploads\\cleaned_1761763146694_HCP 491135_ENGLISH (UNITED STATES)_MT.docx",
-        "originalFilename": "HCP 491135_ENGLISH (UNITED STATES)_MT.docx",
-        "cleanedFilename": "cleaned_1761763146694_HCP 491135_ENGLISH (UNITED STATES)_MT.docx",
-        "isCleaned": true
-      }
-    ],
-    "columnSchema": {
-      "Demographics": [
-        "Respondent ID",
-        "Interview Date",
-        "Interview Time"
-      ],
-      "BACKGROUND": [
-        "Respondent ID",
-        "Living Situation",
-        "Free Time Activities",
-        "Journey with SMA",
-        "Current Health Description",
-        "HCPs for SMA Care",
-        "Reasons for Not Seeing HCPs",
-        "Current SMA Management",
-        "Number of HCPs",
-        "HCP Involvement in Treatment Decisions",
-        "Primary SMA Doctor",
-        "Others Involved in Health Decisions",
-        "Support System Involvement",
-        "Comfort in Making Treatment Decisions",
-        "Health Goals - Short-term",
-        "Health Goals - Long-term",
-        "Personal Aspirations"
-      ],
-      "CURRENT PERCEPTIONS & ATTITUDES": [
-        "Respondent ID",
-        "Treatments Awareness",
-        "Evrysdi Experience",
-        "Spinraza Experience",
-        "Zolgensma Experience",
-        "Discontinued Treatment Experience",
-        "Discontinued Treatment Benefits",
-        "Discontinued Treatment Drawbacks",
-        "Discontinuation Reason",
-        "Life Changes Impact",
-        "Insurance Coverage Impact",
-        "Restarting Consideration",
-        "Treatment Impressions",
-        "Information Source",
-        "Consideration Factors",
-        "Developmental Treatments Awareness",
-        "Developmental Treatments Impressions",
-        "Candidate Consideration",
-        "Future Treatment Consideration",
-        "Consideration Drivers",
-        "Consideration Hesitations",
-        "Anti-myostatins Awareness",
-        "Anti-myostatins Brands"
-      ],
-      "BARRIERS TO TREATMENT & UNMET NEEDS": [
-        "Respondent ID",
-        "Reasons for Not on Treatment",
-        "Manageable Severity Impact",
-        "Consideration Drivers",
-        "Muscle Loss Impact",
-        "Symptom Tracking Frequency",
-        "Symptom Tracking Method",
-        "Symptom Tracking Discussion",
-        "Emotional Factors Impact",
-        "Practical Factors Impact",
-        "Clinical Factors Impact",
-        "Treatment Benefit Requirement",
-        "Treatment Benefit Discussion",
-        "Financial Barriers Impact",
-        "Financial Challenges",
-        "Access Challenges",
-        "Specialized Care Availability",
-        "HCP Trust",
-        "Support System Gaps",
-        "Unmet Needs"
-      ],
-      "MOTIVATIONS & FUTURE CONSIDERATION": [
-        "Respondent ID",
-        "Future Treatment Likelihood",
-        "Consideration Influences",
-        "Consideration Situations",
-        "Consideration Drivers",
-        "Consideration Hesitations",
-        "Improvement Expectations",
-        "Influential Decision Makers",
-        "Decision Maker Involvement",
-        "Decision Confidence Factors"
-      ],
-      "COMMUNITY ENGAGEMENT & INFO SOURCES": [
-        "Respondent ID",
-        "Community Connection",
-        "Community Participation",
-        "Community Involvement Reasons",
-        "Information Sources",
-        "Trusted Sources",
-        "Distrusted Sources",
-        "New Information Awareness",
-        "Information Preferences",
-        "Preferred Information Format",
-        "Facilitation Suggestions"
-      ],
-      "Misc.": [
-        "Respondent ID",
-        "Final Comments",
-        "Additional Notes"
-      ]
-    },
-    "verbatimQuotes": {
-      "BACKGROUND": {
-        "R01": {
-          "Living Situation": {
-            "quotes": [
-              {
-                "text": "Moderator: Can you tell me a little bit about yourself, if you live with anybody else, how you spend your days, just so I have a sense of who you are?\n\nRespondent: Sure. I live with my children and my husband, and we have two dogs. I work part-time for a local school, and I am enrolled in school to earn my bachelor's. I do all the other daily things in between.",
-                "context": "This quote provides a direct description of the respondent's living situation, including her family members, pets, part-time job, and pursuit of a bachelor's degree, illustrating her busy and structured living environment."
-              },
-              {
-                "text": "Moderator: How old are your kids?\n\nRespondent: I've got 19, 17, and 15.",
-                "context": "This quote specifies the ages of the respondent's children, confirming the details about her family composition as mentioned in the key finding."
-              },
-              {
-                "text": "Moderator: And amazing you're getting your bachelor's. What are you majoring in? Sorry, these are just nosy questions. They're not crucial, but it helps me get to know you a little bit.\n\nRespondent: You're good. I've got my associates in medical coding and billing and medical office admin, so I thought it'd be fun to get my bachelor's in human resource management.",
-                "context": "This quote highlights the respondent's educational pursuits, specifically her goal to earn a bachelor's degree in human resource management, which is part of her structured living environment."
-              }
-            ],
-            "transcriptType": "cleaned",
-            "savedAt": "2025-10-23T20:55:49.249Z",
-            "keyFinding": "The respondent lives with her husband and three children, aged 19, 17, and 15, along with two dogs. She balances her time between family responsibilities and her part-time job at a local school. Additionally, she is pursuing a bachelor's degree in human resource management, indicating a busy and structured living environment."
-          }
-        }
-      },
-      "COMMUNITY ENGAGEMENT & INFO SOURCES": {
-        "R04": {
-          "Community Connection": {
-            "quotes": [
-              {
-                "text": "Moderator: Coming to the present, to what extent do you feel connected to any kind of SMA community now?\n\nRespondent: There's not really one here where I am. There was an MDA call center here for several years. I would visit them during the summer and hang out. I sort of became their mascot. Whenever they had an event in the area, I would get invited.",
-                "context": "This quote shows that the respondent had some past involvement with the SMA community through the MDA call center but indicates that there is no active SMA community where he currently resides."
-              },
-              {
-                "text": "Moderator: Do you have any connections to the SMA community, like online or in person?\n\nRespondent: Not particularly. I'm still friends with my counselor from camp on Facebook. We don't talk, but I see his life events.",
-                "context": "This quote illustrates the respondent's limited connection to the SMA community, highlighting that his only ongoing connection is a passive one through Facebook with a former camp counselor."
-              },
-              {
-                "text": "Moderator: Have you ever looked into or involved yourself in any of the online SMA stuff?\n\nRespondent: No. Not really. I find it more depressing than anything.\n\nModerator: Tell me about that. I'm really interested in that.\n\nRespondent: I've never particularly seen myself as disabled. It's just something that I live with. I find that mindset unique among the disabled community. Most of the time, they're like, \"I'm so crippled. I can't do this and I can't do that.\" Talking and whining about it isn't going to change anything. I've never found anything worth my time to be a part of as far as Facebook groups or anything.",
-                "context": "This quote provides insight into the respondent's perception of online SMA communities, which he views as adopting a victim mentality, leading to his lack of engagement with them."
-              }
-            ],
-            "transcriptType": "cleaned",
-            "savedAt": "2025-10-29T15:54:49.402Z",
-            "keyFinding": "The respondent has limited connection to the SMA community, both online and in person. He maintains some social connections from past experiences, such as MDA camp, but does not actively engage with SMA groups. His limited involvement is due to a preference for independence and a perception that online communities often adopt a victim mentality."
-          }
-        }
-      }
-    }
-  },
-  {
     "id": "1761237964523",
     "projectId": "P-1759172819869",
     "name": "aa CA",
     "data": {
-      "Demographics": [
-        {
-          "Respondent ID": "R01",
-          "Interview Date": "Oct 1, 2025",
-          "Interview Time": "3:00 PM",
-          "respno": "R01"
-        }
-      ],
+      "Demographics": [],
       "BACKGROUND": [
         {
           "Respondent ID": "",

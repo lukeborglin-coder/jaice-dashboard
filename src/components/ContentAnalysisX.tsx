@@ -465,6 +465,100 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
     return map;
   }, [projectTranscriptsForUpload]);
 
+  // State for all transcripts across all projects (for debug)
+  const [allTranscripts, setAllTranscripts] = useState<Record<string, any[]>>({});
+
+  // Load all transcripts for debug
+  useEffect(() => {
+    const loadAllTranscripts = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/transcripts/all`, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setAllTranscripts(data || {});
+        }
+      } catch (error) {
+        console.error('Failed to load all transcripts for debug:', error);
+      }
+    };
+    if (viewMode === 'viewer') {
+      loadAllTranscripts();
+    }
+  }, [viewMode]);
+
+  // Debug: Create array of all transcripts with their CA assignments (for current project)
+  const debugTranscriptAssignments = useMemo(() => {
+    if (!currentAnalysis?.projectId) return [];
+    
+    const assignments: Array<{
+      transcriptId: string;
+      projectId: string;
+      respno: string | null;
+      contentAnalysisId: string | null;
+      contentAnalysisName: string | null;
+    }> = [];
+
+    const projectTranscripts = allTranscripts[currentAnalysis.projectId] || [];
+    if (!Array.isArray(projectTranscripts)) return [];
+
+    projectTranscripts.forEach((transcript: any) => {
+      // Find which CA (if any) contains this transcript
+      let assignedCAId: string | null = null;
+      let assignedCAName: string | null = null;
+
+      const projectAnalyses = savedAnalyses.filter(a => a.projectId === currentAnalysis.projectId);
+      for (const analysis of projectAnalyses) {
+        // Check if transcript is in this analysis
+        if (analysis.data) {
+          for (const [sheetName, sheetData] of Object.entries(analysis.data)) {
+            if (Array.isArray(sheetData)) {
+              const hasTranscript = sheetData.some((row: any) => {
+                const rowTranscriptId = row?.transcriptId ? String(row.transcriptId) : null;
+                return rowTranscriptId === String(transcript.id);
+              });
+              if (hasTranscript) {
+                assignedCAId = analysis.id;
+                assignedCAName = analysis.name || 'Untitled';
+                break;
+              }
+            }
+          }
+        }
+        // Also check analysis.transcripts array
+        if (!assignedCAId && Array.isArray(analysis.transcripts)) {
+          const hasTranscript = analysis.transcripts.some((t: any) => {
+            const tid = t?.id || t?.sourceTranscriptId;
+            return String(tid) === String(transcript.id);
+          });
+          if (hasTranscript) {
+            assignedCAId = analysis.id;
+            assignedCAName = analysis.name || 'Untitled';
+            break;
+          }
+        }
+        if (assignedCAId) break;
+      }
+
+      assignments.push({
+        transcriptId: transcript.id,
+        projectId: currentAnalysis.projectId,
+        respno: transcript.respno || null,
+        contentAnalysisId: assignedCAId,
+        contentAnalysisName: assignedCAName
+      });
+    });
+
+    return assignments.sort((a, b) => {
+      // Sort by CA assignment status (unassigned first), then by transcriptId
+      if (!!a.contentAnalysisId !== !!b.contentAnalysisId) {
+        return a.contentAnalysisId ? 1 : -1; // Unassigned first
+      }
+      return a.transcriptId.localeCompare(b.transcriptId);
+    });
+  }, [allTranscripts, savedAnalyses, currentAnalysis?.projectId]);
+
   // Project filtering logic (same as Transcripts tab)
   const isQualitative = (project: any) => {
     const methodology = project?.methodologyType?.toLowerCase();
@@ -703,10 +797,11 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
         col !== 'Cleaned Transcript' &&
         col !== 'Populate C.A.' &&
         col !== 'respno' && // Exclude respno since we're using Respondent ID
-        col !== 'transcriptId' // Exclude transcriptId (internal metadata)
+        col !== 'transcriptId' // Exclude transcriptId (will be added after Respondent ID)
       );
       
-      return [...baseHeaders, ...additionalColumns];
+      // Add transcriptId right after Respondent ID for debugging
+      return ['Respondent ID', 'transcriptId', ...baseHeaders.slice(1), ...additionalColumns];
     }
     
     // For other sheets, use the original logic
@@ -717,22 +812,26 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
     }
     let headers = Array.from(set);
 
-    // Always hide internal transcriptId column
-    headers = headers.filter(h => h !== 'transcriptId');
+    // Don't filter out transcriptId - we want to show it for debugging
+    // But still filter out respno since we're using Respondent ID
+    headers = headers.filter(h => h !== 'respno');
 
-    // Ensure Respondent ID appears as first column and hide raw 'respno'
-    const hasRespondentId = headers.includes('Respondent ID');
-    const hasRespno = headers.includes('respno');
-    headers = headers.filter(h => h !== 'Respondent ID' && h !== 'respno');
+    // Ensure Respondent ID appears as first column, then transcriptId
+    headers = headers.filter(h => h !== 'Respondent ID' && h !== 'transcriptId');
     let finalHeaders = headers;
     const hasAnyResp = rows.some(r => r && (r['Respondent ID'] || r['respno']));
-    if (hasAnyResp) finalHeaders = ['Respondent ID', ...headers];
+    const hasTranscriptId = rows.some(r => r && r['transcriptId']);
+    if (hasAnyResp && hasTranscriptId) {
+      finalHeaders = ['Respondent ID', 'transcriptId', ...headers];
+    } else if (hasAnyResp) {
+      finalHeaders = ['Respondent ID', ...headers];
+    }
 
     // If no rows (or no headers from rows), fall back to saved columnSchema
     if ((!rows || rows.length === 0) && Array.isArray(currentAnalysis?.columnSchema?.[activeSheet])) {
       const schemaCols = (currentAnalysis as any).columnSchema[activeSheet] as string[];
-      const cleaned = schemaCols.filter(h => h !== 'transcriptId' && h !== 'respno');
-      finalHeaders = ['Respondent ID', ...cleaned];
+      const cleaned = schemaCols.filter(h => h !== 'respno');
+      finalHeaders = ['Respondent ID', 'transcriptId', ...cleaned];
     }
 
     return finalHeaders;
@@ -1716,150 +1815,146 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
         console.log('🔍 Project transcripts for normalization:', projectTranscripts);
         console.log('🔍 Analysis demographics before normalization:', full?.data?.Demographics);
 
-        // Populate Demographics in-view from project transcripts (frontend-only)
+        // Populate Demographics - EXACT mirror of Transcripts page logic
+        // Store existing Demographics before processing to preserve them if needed
+        const existingDemographics = Array.isArray(full?.data?.Demographics) ? full.data.Demographics : [];
+        
         try {
-          // Always mirror the Transcripts page: build Demos from assigned transcriptIds and project transcript metadata
-          const includedIds = new Set<string>();
-          const respnosFound = new Set<string>(); // Track respnos found in any row
-          
-          // First, collect transcriptIds from ALL existing rows in all sheets (including Demographics)
-          Object.values(full?.data || {}).forEach((rows: any) => {
-            if (Array.isArray(rows)) {
-              rows.forEach((r: any) => { 
-                if (r?.transcriptId) {
-                  includedIds.add(String(r.transcriptId));
-                }
-                // Track all respnos found (even without transcriptId)
-                const respno = String(r?.respno || r?.['Respondent ID'] || '').trim();
-                if (respno) {
-                  respnosFound.add(respno);
-                }
-              }); 
-            }
-          });
-          
-          // CRITICAL: Only match transcripts by respno if we already have a row with that respno in THIS analysis
-          // Do NOT match by respno across all project transcripts - that would include transcripts from other CAs
-          // Only add transcripts that are already referenced in this CA's data
-          const respnosInThisAnalysis = new Set(respnosFound);
-          
-          // Match transcripts by respno ONLY if that respno was found in THIS analysis's rows
-          // AND we don't already have a transcriptId for it
-          const transcriptIdsByRespno = new Map<string, string>();
-          Object.values(full?.data || {}).forEach((rows: any) => {
-            if (Array.isArray(rows)) {
-              rows.forEach((r: any) => {
-                if (r?.transcriptId && (r?.respno || r?.['Respondent ID'])) {
-                  const respno = String(r?.respno || r?.['Respondent ID'] || '').trim();
-                  if (respno) {
-                    transcriptIdsByRespno.set(respno, String(r.transcriptId));
-                  }
+          // Step 1: Use the EXACT same logic as Transcripts page getTranscriptsForAnalysis
+          const transcriptIds = new Set<string>();
+          // Collect transcriptIds from all sheets (authoritative source)
+          Object.values(full?.data || {}).forEach((sheetData: any) => {
+            if (Array.isArray(sheetData)) {
+              sheetData.forEach((row: any) => {
+                if (row?.transcriptId) {
+                  transcriptIds.add(String(row.transcriptId));
                 }
               });
             }
           });
           
-          // Only match by respno if we found that respno in THIS analysis and have a transcriptId mapping
-          respnosFound.forEach((respno) => {
-            // If we already have a transcriptId for this respno from THIS analysis, use it
-            if (transcriptIdsByRespno.has(respno) && !Array.from(includedIds).some(id => {
-              const mappedRespno = transcriptIdsByRespno.get(respno);
-              return mappedRespno && String(mappedRespno) === String(id);
-            })) {
-              const transcriptId = transcriptIdsByRespno.get(respno);
-              if (transcriptId) {
-                includedIds.add(transcriptId);
-                console.log(`🔍 Adding transcript ${transcriptId} (${respno}) from respno mapping in THIS analysis`);
-              }
-            }
-          });
+          // Step 2: Filter project transcripts to only those transcriptIds (EXACT same as Transcripts page)
+          const caTranscripts = projectTranscripts.filter((t: any) => transcriptIds.has(String(t.id)));
           
-          // Also check analysis.transcripts as a fallback source of truth
-          if (Array.isArray(full?.transcripts)) {
-            full.transcripts.forEach((t: any) => {
-              const tid = t?.id || t?.sourceTranscriptId;
-              if (tid) includedIds.add(String(tid));
-            });
+          // CRITICAL: If we have transcriptIds in the analysis but no matching projectTranscripts,
+          // this means transcripts were deleted but analysis hasn't been cleaned yet.
+          // In this case, preserve existing Demographics rows that still have valid transcriptIds.
+          // Only rebuild if we have matching transcripts or if Demographics is empty.
+          const hasMatchingTranscripts = caTranscripts.length > 0;
+          const shouldRebuild = hasMatchingTranscripts || existingDemographics.length === 0;
+          
+          if (!shouldRebuild && existingDemographics.length > 0) {
+            // Preserve existing Demographics - don't clear them if projectTranscripts is temporarily empty
+            console.log('⚠️ No matching projectTranscripts found, preserving existing Demographics to prevent clearing');
+            // Still update the analysis but don't rebuild Demographics
+            setCurrentAnalysis(full);
+            setTranscripts(full?.transcripts || []);
+            const sheets = Object.keys(full?.data || {});
+            if (sheets.length) setActiveSheet(sheets[0]);
+            setLoadingSavedView(false);
+            return;
           }
           
-          console.log('🔍 Included transcriptIds after collecting:', Array.from(includedIds));
-          console.log('🔍 Respnos found in sheets:', Array.from(respnosFound));
+          // Step 3: Sort chronologically (EXACT same as Transcripts page sortTranscriptsChronologically)
+          const sortedTranscripts = [...caTranscripts].sort((a: any, b: any) => {
+            const dateA = a.interviewDate || '';
+            const dateB = b.interviewDate || '';
+
+            if (!dateA && !dateB) {
+              // If both lack dates, sort by time
+              const timeA = a.interviewTime || '';
+              const timeB = b.interviewTime || '';
+              if (!timeA && !timeB) return 0;
+              if (!timeA) return 1;
+              if (!timeB) return -1;
+              return timeA.localeCompare(timeB);
+            }
+            if (!dateA) return 1;
+            if (!dateB) return -1;
+
+            try {
+              const parsedA = new Date(dateA);
+              const parsedB = new Date(dateB);
+
+              if (!isNaN(parsedA.getTime()) && !isNaN(parsedB.getTime())) {
+                const dateCompare = parsedA.getTime() - parsedB.getTime();
+                if (dateCompare !== 0) return dateCompare;
+                
+                // If dates are equal, compare times
+                const timeA = a.interviewTime || '';
+                const timeB = b.interviewTime || '';
+                if (timeA && timeB) {
+                  return timeA.localeCompare(timeB);
+                }
+                return 0;
+              }
+            } catch (e) {
+              // If date parsing fails, maintain current order
+            }
+
+            return 0;
+          });
           
-          // Build rows from all included transcriptIds
-          const idToMeta = new Map(projectTranscripts.map((t: any) => [String(t.id), t]));
-          const existingRowMap = new Map(); // Map transcriptId -> existing row (to preserve other columns)
-          
-          // Preserve existing Demographics rows that might have additional data
-          // Also track by transcriptId to avoid duplicates
-          const seenTranscriptIds = new Set<string>();
+          // Step 4: Build Demographics rows from sorted transcripts (preserving existing row data for other columns)
+          const existingRowMap = new Map<string, any>(); // Map transcriptId -> existing row
           if (Array.isArray(full?.data?.Demographics)) {
             full.data.Demographics.forEach((row: any) => {
               if (row?.transcriptId) {
                 const tid = String(row.transcriptId);
-                if (!seenTranscriptIds.has(tid)) {
+                if (!existingRowMap.has(tid)) {
                   existingRowMap.set(tid, row);
-                  seenTranscriptIds.add(tid);
-                } else {
-                  console.log(`⚠️ Skipping duplicate Demographics row with transcriptId ${tid}`);
                 }
               }
             });
           }
           
-          const rows: any[] = [];
-          const addedTranscriptIds = new Set<string>(); // Track to prevent duplicates
-          
-          includedIds.forEach((tid) => {
-            const tidStr = String(tid);
-            // Skip if we've already added this transcriptId (prevent duplicates)
-            if (addedTranscriptIds.has(tidStr)) {
-              console.log(`⚠️ Skipping duplicate transcriptId: ${tidStr}`);
-              return;
-            }
+          // Build rows in the EXACT same order as Transcripts page
+          const rows: any[] = sortedTranscripts.map((t: any) => {
+            const tid = String(t.id);
+            const existingRow = existingRowMap.get(tid);
             
-            const t = idToMeta.get(tidStr);
-            if (!t) {
-              console.log(`⚠️ Transcript ${tidStr} not found in projectTranscripts`);
-              return;
-            }
-            
-            addedTranscriptIds.add(tidStr);
-            
-            // Use existing row if available, otherwise create new one
-            const existingRow = existingRowMap.get(tidStr);
             if (existingRow) {
-              // Preserve existing row but ensure respno and transcriptId are correct
-              rows.push({
+              // Preserve existing row data but update key fields from transcript
+              return {
                 ...existingRow,
+                transcriptId: tid,
                 respno: t.respno || existingRow.respno || null,
                 'Respondent ID': t.respno || existingRow['Respondent ID'] || existingRow.respno || null,
                 'Interview Date': t.interviewDate || existingRow['Interview Date'] || null,
-                'Interview Time': t.interviewTime || existingRow['Interview Time'] || null,
-                transcriptId: tidStr
-              });
+                'Interview Time': t.interviewTime || existingRow['Interview Time'] || null
+              };
             } else {
               // Create new row
-              rows.push({
+              return {
+                transcriptId: tid,
                 respno: t.respno || null,
                 'Respondent ID': t.respno || null,
                 'Interview Date': t.interviewDate || null,
-                'Interview Time': t.interviewTime || null,
-                transcriptId: t.id
-              });
+                'Interview Time': t.interviewTime || null
+              };
             }
           });
           
-          rows.sort((a, b) => {
-            const na = parseInt(String(a.respno || '').replace(/\D/g, '') || '999', 10);
-            const nb = parseInt(String(b.respno || '').replace(/\D/g, '') || '999', 10);
-            return na - nb;
-          });
           if (!full.data) full.data = {} as any;
-          full.data.Demographics = rows;
-          console.log('🔄 Analysis demographics mirrored from Transcripts page view:', full.data.Demographics.length, 'rows');
-          console.log('🔄 Row respnos:', rows.map((r: any) => r.respno || r['Respondent ID']));
+          
+          // Only update Demographics if we have rows to show, or if we're intentionally clearing it
+          if (rows.length > 0 || existingDemographics.length === 0) {
+            full.data.Demographics = rows;
+            console.log('🔄 Demographics mirrored from Transcripts page:', rows.length, 'rows');
+            console.log('🔄 Row order:', rows.map((r: any) => `${r.respno || 'no-respno'} (${r.transcriptId})`));
+          } else {
+            // Preserve existing Demographics if we couldn't find matching transcripts
+            // This prevents clearing Demographics during a temporary state where projectTranscripts
+            // might not have been refreshed yet after a deletion
+            console.log('⚠️ Preserving existing Demographics (no matching transcripts found, but existing rows present)');
+          }
         } catch (e) {
           console.warn('Failed to populate Demographics in view:', e);
+          // On error, preserve existing Demographics rather than clearing them
+          if (!full.data) full.data = {} as any;
+          if (!full.data.Demographics && Array.isArray(existingDemographics) && existingDemographics.length > 0) {
+            full.data.Demographics = existingDemographics;
+          }
         }
 
         setCurrentAnalysis(full);
@@ -2765,6 +2860,107 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
           </div>
         )}
 
+        {/* Debug Section - Only show in viewer mode */}
+        {viewMode === 'viewer' && currentAnalysis && (
+          <section className="bg-blue-50 border-2 border-blue-300 rounded-lg p-4 mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-bold text-blue-900">
+                🐛 Debug: Transcript Assignments
+              </h3>
+              <span className="text-sm text-blue-700 font-medium">
+                {debugTranscriptAssignments.filter(a => a.contentAnalysisId === currentAnalysis.id).length} transcript{debugTranscriptAssignments.filter(a => a.contentAnalysisId === currentAnalysis.id).length === 1 ? '' : 's'} assigned to this CA
+              </span>
+            </div>
+            <div className="bg-white shadow-sm border border-gray-200 rounded-lg overflow-hidden">
+              <div className="overflow-x-auto max-h-96 overflow-y-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-100 sticky top-0">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Transcript ID
+                      </th>
+                      <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Respno
+                      </th>
+                      <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Project ID
+                      </th>
+                      <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Content Analysis ID
+                      </th>
+                      <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Content Analysis Name
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {debugTranscriptAssignments
+                      .filter(assignment => assignment.contentAnalysisId === currentAnalysis.id)
+                      .map((assignment, index) => (
+                      <tr
+                        key={`${assignment.projectId}-${assignment.transcriptId}`}
+                        className={assignment.contentAnalysisId === currentAnalysis.id ? 'hover:bg-green-50 bg-green-50/30' : assignment.contentAnalysisId ? 'hover:bg-gray-50' : 'hover:bg-yellow-50 bg-yellow-50/50'}
+                      >
+                        <td className="px-4 py-2 whitespace-nowrap">
+                          <code className="text-xs font-mono text-gray-900 bg-gray-100 px-2 py-1 rounded">
+                            {assignment.transcriptId}
+                          </code>
+                        </td>
+                        <td className="px-4 py-2 whitespace-nowrap">
+                          {assignment.respno ? (
+                            <code className="text-xs font-mono text-blue-700 bg-blue-100 px-2 py-1 rounded">
+                              {assignment.respno}
+                            </code>
+                          ) : (
+                            <span className="text-xs text-gray-500 italic">
+                              -
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2 whitespace-nowrap">
+                          <code className="text-xs font-mono text-gray-900 bg-gray-100 px-2 py-1 rounded">
+                            {assignment.projectId}
+                          </code>
+                        </td>
+                        <td className="px-4 py-2 whitespace-nowrap">
+                          {assignment.contentAnalysisId ? (
+                            <code className={`text-xs font-mono px-2 py-1 rounded ${
+                              assignment.contentAnalysisId === currentAnalysis.id 
+                                ? 'text-green-800 bg-green-200' 
+                                : 'text-green-700 bg-green-100'
+                            }`}>
+                              {assignment.contentAnalysisId}
+                            </code>
+                          ) : (
+                            <span className="text-xs font-medium text-yellow-700 italic">
+                              Not Assigned
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2 whitespace-nowrap">
+                          {assignment.contentAnalysisName ? (
+                            <span className={`text-xs font-medium ${
+                              assignment.contentAnalysisId === currentAnalysis.id 
+                                ? 'text-green-800' 
+                                : 'text-green-700'
+                            }`}>
+                              {assignment.contentAnalysisName}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-yellow-700 italic">
+                              -
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        )}
+
 
         {/* Tabs - only show on home view */}
         {viewMode === 'home' && (
@@ -2984,9 +3180,16 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                             </svg>
                             {analysis.data ? (() => {
+                              // Count only rows with valid transcriptIds
                               const allData = Object.values(analysis.data).flat();
-                              const uniqueRespondents = new Set(allData.map((item: any) => item.respno).filter(Boolean));
-                              return uniqueRespondents.size;
+                              // Filter to only rows with valid transcriptIds, then get unique transcriptIds
+                              const validRows = allData.filter((item: any) => 
+                                item?.transcriptId && String(item.transcriptId).trim() !== ''
+                              );
+                              const uniqueTranscriptIds = new Set(
+                                validRows.map((item: any) => String(item.transcriptId).trim()).filter(Boolean)
+                              );
+                              return uniqueTranscriptIds.size;
                             })() : 0}
                           </div>
                         </td>
@@ -3360,16 +3563,16 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                       <React.Fragment key={h}>
                         <th className={`px-2 py-2 font-medium border-r border-gray-300 last:border-r-0 align-top ${h === 'Original Transcript' || h === 'Cleaned Transcript' || h === 'Populate C.A.' ? 'text-center' : 'text-left'}`}
                           style={{
-                            whiteSpace: (h === 'Respondent ID' || h === 'Original Transcript' || h === 'Cleaned Transcript' || h === 'Populate C.A.') ? 'nowrap' : 'normal',
-                            minWidth: (h === 'Original Transcript' || h === 'Cleaned Transcript' || h === 'Populate C.A.') ? 'auto' : (h === 'Respondent ID' ? 'auto' : '180px'),
+                            whiteSpace: (h === 'Respondent ID' || h === 'transcriptId' || h === 'Original Transcript' || h === 'Cleaned Transcript' || h === 'Populate C.A.') ? 'nowrap' : 'normal',
+                            minWidth: (h === 'Original Transcript' || h === 'Cleaned Transcript' || h === 'Populate C.A.') ? 'auto' : (h === 'Respondent ID' || h === 'transcriptId' ? 'auto' : '180px'),
                             lineHeight: '1.3',
-                            width: (h === 'Respondent ID' || h === 'Original Transcript' || h === 'Cleaned Transcript' || h === 'Populate C.A.') ? '1%' : 'auto',
-                            position: h === 'Respondent ID' ? 'sticky' as const : undefined,
-                            left: h === 'Respondent ID' ? 0 : undefined,
-                            zIndex: h === 'Respondent ID' ? 3 : undefined,
-                            backgroundColor: h === 'Respondent ID' ? '#e5e7eb' : undefined
+                            width: (h === 'Respondent ID' || h === 'transcriptId' || h === 'Original Transcript' || h === 'Cleaned Transcript' || h === 'Populate C.A.') ? '1%' : 'auto',
+                            position: (h === 'Respondent ID' || h === 'transcriptId') ? 'sticky' as const : undefined,
+                            left: h === 'Respondent ID' ? 0 : h === 'transcriptId' ? 60 : undefined,
+                            zIndex: (h === 'Respondent ID' || h === 'transcriptId') ? 3 : undefined,
+                            backgroundColor: (h === 'Respondent ID' || h === 'transcriptId') ? '#e5e7eb' : undefined
                           }}>
-                          {activeSheet === 'Demographics' && h !== 'Respondent ID' && h !== 'respno' && h !== 'Interview Date' && h !== 'Interview Time' && h !== 'Original Transcript' && h !== 'Cleaned Transcript' && h !== 'Populate C.A.' ? (
+                          {activeSheet === 'Demographics' && h !== 'Respondent ID' && h !== 'respno' && h !== 'transcriptId' && h !== 'Interview Date' && h !== 'Interview Time' && h !== 'Original Transcript' && h !== 'Cleaned Transcript' && h !== 'Populate C.A.' ? (
                             <div className="flex items-center gap-1">
                               {editingColumnName === h ? (
                                 <input
@@ -3411,7 +3614,7 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                             </div>
                           ) : (
                             <div style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                              {h === 'Respondent ID' ? 'respno' : h}
+                              {h === 'Respondent ID' ? 'respno' : h === 'transcriptId' ? 'transcriptId' : h}
                             </div>
                           )}
                         </th>
@@ -3448,19 +3651,63 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                   </tr>
                 </thead>
                 <tbody>
-                  {currentAnalysis.data[activeSheet]
-                    .filter((row: any) => {
-                      if (activeSheet === 'Demographics') {
-                        // Only show rows that have a transcriptId (actual added transcripts)
-                        // Filter out template rows that don't have transcripts
+                  {(() => {
+                    // First, filter rows and remove duplicates based on transcriptId
+                    const filteredRows = currentAnalysis.data[activeSheet]
+                      .filter((row: any) => {
+                        if (activeSheet === 'Demographics') {
+                          // Only show rows that have a transcriptId (actual added transcripts)
+                          // Filter out template rows that don't have transcripts
+                          const hasTranscriptId = row.transcriptId && String(row.transcriptId).trim() !== '';
+                          const respondentId = row['Respondent ID'] ?? row['respno'];
+                          const hasRespondentId = respondentId !== undefined && String(respondentId).trim() !== '';
+                          // Must have BOTH transcriptId (actual transcript) AND respondentId
+                          return hasTranscriptId && hasRespondentId;
+                        }
+                        // For non-Demographics sheets, filter out rows without transcriptId
                         const hasTranscriptId = row.transcriptId && String(row.transcriptId).trim() !== '';
-                        const respondentId = row['Respondent ID'] ?? row['respno'];
-                        const hasRespondentId = respondentId !== undefined && String(respondentId).trim() !== '';
-                        // Must have BOTH transcriptId (actual transcript) AND respondentId
-                        return hasTranscriptId && hasRespondentId;
+                        if (!hasTranscriptId) {
+                          return false; // Remove rows without transcriptId
+                        }
+                        return Object.values(row).some(v => String(v ?? '').trim() !== '');
+                      });
+                    
+                    // For non-Demographics sheets, remove duplicate rows based on transcriptId
+                    if (activeSheet !== 'Demographics') {
+                      const seenTranscriptIds = new Set<string>();
+                      const uniqueRows: any[] = [];
+                      const duplicateRows: any[] = [];
+                      const orphanedRows: any[] = [];
+                      
+                      filteredRows.forEach((row: any) => {
+                        const transcriptId = row?.transcriptId ? String(row.transcriptId).trim() : null;
+                        if (!transcriptId) {
+                          orphanedRows.push(row);
+                          return; // Skip rows without transcriptId
+                        }
+                        if (seenTranscriptIds.has(transcriptId)) {
+                          duplicateRows.push(row);
+                          return; // Skip duplicate
+                        }
+                        seenTranscriptIds.add(transcriptId);
+                        uniqueRows.push(row);
+                      });
+                      
+                      if (orphanedRows.length > 0) {
+                        console.warn(`⚠️ Found ${orphanedRows.length} orphaned row(s) in sheet "${activeSheet}" without transcriptId:`, 
+                          orphanedRows.map(r => ({ respno: r['Respondent ID'] || r['respno'], transcriptId: r.transcriptId })));
                       }
-                      return Object.values(row).some(v => String(v ?? '').trim() !== '');
-                    })
+                      
+                      if (duplicateRows.length > 0) {
+                        console.warn(`⚠️ Found ${duplicateRows.length} duplicate row(s) in sheet "${activeSheet}" with transcriptIds:`, 
+                          duplicateRows.map(r => r.transcriptId));
+                      }
+                      
+                      return uniqueRows;
+                    }
+                    
+                    return filteredRows;
+                  })()
                     .map((row: any, i: number) => {
                       const rowRespondentId = row['Respondent ID'] || row['respno'];
                       const stringRespondentId = rowRespondentId !== undefined && rowRespondentId !== null ? String(rowRespondentId) : '';
@@ -3487,15 +3734,15 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                           return (
                             <React.Fragment key={k}>
                               <td
-                                className={`px-2 py-1 text-gray-900 align-top border-r border-gray-300 last:border-r-0 border-b-0 ${activeSheet !== 'Demographics' && k !== 'Respondent ID' ? 'cursor-pointer hover:bg-blue-50' : ''}`}
+                                className={`px-2 py-1 text-gray-900 align-top border-r border-gray-300 last:border-r-0 border-b-0 ${activeSheet !== 'Demographics' && k !== 'Respondent ID' && k !== 'transcriptId' ? 'cursor-pointer hover:bg-blue-50' : ''}`}
                                 style={{
-                                  whiteSpace: k === 'Respondent ID' ? 'nowrap' : 'pre-wrap',
-                                  width: k === 'Respondent ID' ? '1%' : 'auto',
-                                  position: k === 'Respondent ID' ? 'sticky' as const : undefined,
-                                  left: k === 'Respondent ID' ? 0 : undefined,
-                                  zIndex: k === 'Respondent ID' ? 2 : undefined,
-                                  background: k === 'Respondent ID' ? '#ffffff' : undefined,
-                                  boxShadow: k === 'Respondent ID' ? '2px 0 0 0 #e5e7eb' : undefined
+                                  whiteSpace: (k === 'Respondent ID' || k === 'transcriptId') ? 'nowrap' : 'pre-wrap',
+                                  width: (k === 'Respondent ID' || k === 'transcriptId') ? '1%' : 'auto',
+                                  position: (k === 'Respondent ID' || k === 'transcriptId') ? 'sticky' as const : undefined,
+                                  left: k === 'Respondent ID' ? 0 : k === 'transcriptId' ? 60 : undefined,
+                                  zIndex: (k === 'Respondent ID' || k === 'transcriptId') ? 2 : undefined,
+                                  background: (k === 'Respondent ID' || k === 'transcriptId') ? '#ffffff' : undefined,
+                                  boxShadow: k === 'Respondent ID' ? '2px 0 0 0 #e5e7eb' : k === 'transcriptId' ? '2px 0 0 0 #e5e7eb' : undefined
                                 }}
                                 onClick={(e) => {
                                   // Don't trigger click if clicking on an input field
@@ -3503,7 +3750,11 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
                                   handleCellClick(row, k);
                                 }}
                               >
-                                {activeSheet === 'Demographics' && k !== 'Respondent ID' && k !== 'respno' && k !== 'Original Transcript' && k !== 'Cleaned Transcript' && k !== 'Populate C.A.' && k !== 'Interview Date' && k !== 'Interview Time' ? (
+                                {k === 'transcriptId' ? (
+                                  <code className="text-xs font-mono text-gray-700 bg-gray-50 px-1 py-0.5 rounded">
+                                    {row.transcriptId || '-'}
+                                  </code>
+                                ) : activeSheet === 'Demographics' && k !== 'Respondent ID' && k !== 'respno' && k !== 'Original Transcript' && k !== 'Cleaned Transcript' && k !== 'Populate C.A.' && k !== 'Interview Date' && k !== 'Interview Time' && k !== 'transcriptId' ? (
                                   <input
                                     type="text"
                                     value={String(row[k] ?? '')}
