@@ -667,10 +667,11 @@ router.post('/:projectId/key-findings/generate', authenticateToken, async (req, 
       return res.status(400).json({ error: 'No strategic questions defined for this project' });
     }
 
-    const transcriptsText = await getTranscriptsText(projectId, analysisId);
+    const transcriptsResult = await getTranscriptsText(projectId, analysisId);
+    const transcriptsText = typeof transcriptsResult === 'string' ? transcriptsResult : transcriptsResult.text;
     const caDataObj = await getCAData(projectId, analysisId);
 
-    if (!transcriptsText.trim()) {
+    if (!transcriptsText || !transcriptsText.trim()) {
       return res.status(400).json({ error: 'No transcript data available for this project' });
     }
 
@@ -839,10 +840,11 @@ router.post('/:projectId/dynamic-report/generate', authenticateToken, async (req
     // Allow report generation even without strategic questions
     // The executive summary slide will show a message when no questions are available
 
-    const transcriptsText = await getTranscriptsText(projectId, analysisId);
+    const transcriptsResult = await getTranscriptsText(projectId, analysisId);
+    const transcriptsText = typeof transcriptsResult === 'string' ? transcriptsResult : transcriptsResult.text;
     const caDataObj = await getCAData(projectId, analysisId);
 
-    if (!transcriptsText.trim()) {
+    if (!transcriptsText || !transcriptsText.trim()) {
       return res.status(400).json({ error: 'No transcript data available for this project' });
     }
 
