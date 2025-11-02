@@ -172,15 +172,96 @@ export async function parseDataFile(file: File): Promise<ParsedDataFile> {
           return;
         }
         
+        console.log(`Using data sheet: "${dataSheetName}"`);
+        console.log(`Using datamap sheet: "${datamapSheetName}"`);
+        console.log(`All sheets:`, workbook.SheetNames);
+        
         // Parse datamap to get variable definitions
         const variables = parseDatamapSheet(datamapWorksheet);
+        console.log(`Parsed ${variables.length} variables from datamap`);
         
         // Parse data sheet
-        const dataJson = XLSX.utils.sheet_to_json(dataWorksheet, { defval: null });
+        const dataJson = XLSX.utils.sheet_to_json(dataWorksheet, { defval: null }) as Record<string, any>[];
+        console.log(`Parsed ${dataJson.length} rows from data sheet`);
+        
+        // Create a mapping from variable names to actual column names (handles case-insensitive and whitespace differences)
+        const variableToColumnMap: Record<string, string> = {};
+        if (dataJson.length > 0) {
+          const firstRow = dataJson[0];
+          const columnNames = Object.keys(firstRow);
+          
+          // Build mapping: for each variable, find matching column (case-insensitive, trimmed)
+          // Column headers may include descriptions like "QS1 - Question text here"
+          variables.forEach(v => {
+            const varNameNormalized = v.name.trim().toLowerCase();
+            // Try exact match first
+            let matchingColumn = columnNames.find(col => {
+              const colTrimmed = col.trim().toLowerCase();
+              return colTrimmed === varNameNormalized;
+            });
+            
+            // If no exact match, try matching the part before " - " (description separator)
+            if (!matchingColumn) {
+              matchingColumn = columnNames.find(col => {
+                const colTrimmed = col.trim();
+                // Extract variable name part (before " - " or just the column name)
+                const varPart = colTrimmed.split(' - ')[0].trim().toLowerCase();
+                return varPart === varNameNormalized;
+              });
+            }
+            
+            if (matchingColumn) {
+              variableToColumnMap[v.name] = matchingColumn;
+            } else {
+              // Only log the first few to avoid spam
+              if (variables.indexOf(v) < 5) {
+                console.warn(`Variable "${v.name}" not found in data columns.`);
+              }
+            }
+          });
+          
+          // Debug: log mapping summary and actual columns
+          console.log(`Matched ${Object.keys(variableToColumnMap).length} of ${variables.length} variables to columns`);
+          console.log(`Actual data columns (${columnNames.length}):`, columnNames);
+          console.log(`Variables from datamap (first 10):`, variables.slice(0, 10).map(v => v.name));
+          
+          // Normalize row data: add variable names as aliases for column access
+          // This allows row[variableName] to work even if column header differs slightly
+          dataJson.forEach(row => {
+            Object.keys(variableToColumnMap).forEach(varName => {
+              const columnName = variableToColumnMap[varName];
+              if (columnName in row) {
+                // Add variable name as an alias to the column value
+                row[varName] = row[columnName];
+              }
+            });
+            
+            // Also add aliases for columns that have descriptions (extract variable name part)
+            Object.keys(row).forEach(colName => {
+              const trimmed = colName.trim();
+              // Extract variable name part (before " - ")
+              if (trimmed.includes(' - ')) {
+                const varPart = trimmed.split(' - ')[0].trim();
+                // Only add as alias if it matches a variable name (case-insensitive)
+                const matchingVar = variables.find(v => 
+                  v.name.trim().toLowerCase() === varPart.toLowerCase()
+                );
+                if (matchingVar && !(matchingVar.name in row)) {
+                  row[matchingVar.name] = row[colName];
+                }
+              }
+              
+              // Also normalize all column names by trimming (so exact matches work)
+              if (trimmed !== colName && !(trimmed in row)) {
+                row[trimmed] = row[colName];
+              }
+            });
+          });
+        }
         
         const result: ParsedDataFile = {
           variables,
-          data: dataJson as Record<string, any>[],
+          data: dataJson,
           rowCount: dataJson.length,
           metadata: {
             fileName: file.name,

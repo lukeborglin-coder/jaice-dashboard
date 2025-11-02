@@ -431,7 +431,17 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
 
     // Count occurrences in data
     parsedFile.data.forEach(row => {
-      const value = row[selectedVariable];
+      // Try exact match first
+      let value = row[selectedVariable];
+      // If key doesn't exist, try case-insensitive match
+      if (!(selectedVariable in row)) {
+        const matchingKey = Object.keys(row).find(
+          key => key.trim().toLowerCase() === selectedVariable.trim().toLowerCase()
+        );
+        if (matchingKey) {
+          value = row[matchingKey];
+        }
+      }
       if (value !== null && value !== undefined && value !== '') {
         base++;
         const codeStr = String(value);
@@ -539,7 +549,18 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
     if (!parsedFile) return 0;
     let base = 0;
     parsedFile.data.forEach(row => {
-      const value = row[variableName];
+      // Try exact match first
+      let value = row[variableName];
+      // If key doesn't exist, try case-insensitive match
+      if (!(variableName in row)) {
+        const matchingKey = Object.keys(row).find(
+          key => key.trim().toLowerCase() === variableName.trim().toLowerCase()
+        );
+        if (matchingKey) {
+          value = row[matchingKey];
+        }
+      }
+      // Count non-empty values
       if (value !== null && value !== undefined && value !== '') {
         base++;
       }
@@ -783,6 +804,9 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
                           Variables
                         </th>
                         <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Respondents
+                        </th>
+                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Actions
                         </th>
                       </tr>
@@ -808,6 +832,9 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
                               <IconTable className="h-4 w-4 text-gray-400" />
                               {tabulation.parsedData?.variables?.length || 0}
                             </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">
+                            {tabulation.parsedData?.rowCount || 0}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-center">
                             <button
