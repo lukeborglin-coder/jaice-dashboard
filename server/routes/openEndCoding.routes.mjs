@@ -52,10 +52,15 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
 });
 
-// Initialize OpenAI
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
+// Initialize OpenAI client (lazy initialization)
+function getOpenAIClient() {
+  if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'your_openai_api_key_here') {
+    throw new Error('OPENAI_API_KEY is not configured. Please set it in your .env file.');
+  }
+  return new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY
+  });
+}
 
 // Helper function to parse Excel/CSV file
 function parseFile(filePath) {
@@ -117,6 +122,7 @@ Requirements:
 
 Return ONLY valid JSON, no other text.`;
 
+  const openai = getOpenAIClient();
   const completion = await openai.chat.completions.create({
     model: 'gpt-4o',
     messages: [
@@ -190,7 +196,8 @@ Format: {"1": [1, 3], "2": [2], "3": [1, 2, 4], ...}
 
 Return ONLY valid JSON, no other text.`;
 
-    const completion = await openai.chat.completions.create({
+    const openai = getOpenAIClient();
+  const completion = await openai.chat.completions.create({
       model: 'gpt-4o',
       messages: [
         { role: 'system', content: 'You are an expert qualitative researcher who codes open-ended survey responses. Always respond with valid JSON only.' },

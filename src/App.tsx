@@ -58,6 +58,7 @@ import QuestionnaireParser from "./components/QuestionnaireParser";
 import StatTesting from "./components/StatTesting";
 import OpenEndCoding from "./components/OpenEndCoding";
 import ConjointProjects from "./components/ConjointProjects";
+import DataTabulation from "./components/DataTabulation";
 import AuthWrapper from "./components/AuthWrapper";
 import TopBar from "./components/TopBar";
 import Feedback from "./components/Feedback";
@@ -4327,6 +4328,7 @@ export default function App() {
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [currentSelectedProject, setCurrentSelectedProject] = useState<Project | null>(null);
   const [isViewingProjectDetails, setIsViewingProjectDetails] = useState(false);
+  const [dataTabulationHeader, setDataTabulationHeader] = useState<string | null>(null);
 
   // One-time migration: normalize project.moderator to store moderator ID
   useEffect(() => {
@@ -4440,17 +4442,6 @@ export default function App() {
 
   const handleMarkAllAsRead = () => {
     notificationService.markAsRead();
-  };
-
-  // Test function for development
-  const generateTestNotifications = async () => {
-    if (user?.id) {
-      const { generateTestNotifications } = await import('./utils/testNotifications');
-      generateTestNotifications(user.id);
-      // Reload notifications
-      const loadedNotifications = notificationService.loadNotifications();
-      setNotifications(loadedNotifications);
-    }
   };
 
   // Load admin notification count
@@ -5149,6 +5140,7 @@ export default function App() {
       const tools = [
         { name: "Stat Testing", icon: IconChartBar },
         { name: "Open-End Coding", icon: IconCode },
+        { name: "Data Tabulation", icon: IconTable },
         { name: "QNR (Coming Soon)", icon: IconCheckbox, disabled: true },
         { name: "Data QA (Coming Soon)", icon: IconDatabaseExclamation, disabled: true },
       ];
@@ -5248,6 +5240,15 @@ export default function App() {
             {route === "Open-End Coding" && (
               <div className="flex items-center gap-3">
                 <h1 className="text-2xl font-bold" style={{ color: BRAND.gray }}>Open-End Coding</h1>
+              </div>
+            )}
+            {route === "Data Tabulation" && (
+              <div className="flex items-center gap-3">
+                {dataTabulationHeader ? (
+                  <h1 className="text-2xl font-bold" style={{ color: BRAND.gray }}>{dataTabulationHeader}</h1>
+                ) : (
+                  <h1 className="text-2xl font-bold" style={{ color: BRAND.gray }}>Data Tabulation</h1>
+                )}
               </div>
             )}
             {route === "Conjoint Simulator" && (
@@ -5514,6 +5515,8 @@ export default function App() {
         <StatTesting />
       ) : route === "Open-End Coding" ? (
         <OpenEndCoding />
+      ) : route === "Data Tabulation" ? (
+        <DataTabulation projects={projects} onHeaderChange={setDataTabulationHeader} />
       ) : route === "Conjoint Simulator" ? (
         user?.role === 'admin' ? (
           <ConjointProjects

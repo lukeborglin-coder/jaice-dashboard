@@ -21,10 +21,15 @@ const DATA_ROOT = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
 const WORKFLOW_STORE_PATH = path.join(DATA_ROOT, 'conjointWorkflows.json');
 const WORKFLOW_UPLOAD_ROOT = path.join(DATA_ROOT, 'conjoint-workflows');
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
+// Initialize OpenAI client (lazy initialization)
+function getOpenAIClient() {
+  if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'your_openai_api_key_here') {
+    throw new Error('OPENAI_API_KEY is not configured. Please set it in your .env file.');
+  }
+  return new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY
+  });
+}
 
 async function ensureDataStore() {
   await fs.mkdir(DATA_ROOT, { recursive: true });
@@ -720,6 +725,7 @@ Format your response as JSON with this structure:
 Questionnaire text:
 ${fullText.substring(0, 20000)}`;
 
+    const openai = getOpenAIClient();
     const aiResponse = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
