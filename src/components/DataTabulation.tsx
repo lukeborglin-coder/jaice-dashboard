@@ -429,6 +429,24 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
       });
     }
 
+    // Build a reverse lookup map: label -> code (for faster matching)
+    const labelToCodeMap = new Map<string, string>();
+    if (variableDef && variableDef.type === 'categorical') {
+      Object.keys(variableDef.codes).forEach(code => {
+        const label = variableDef.codes[code];
+        if (label) {
+          // Store normalized label as key, code as value
+          const normalizedLabel = label.trim().toLowerCase();
+          labelToCodeMap.set(normalizedLabel, code);
+        }
+      });
+      
+      // Debug: log the mapping for troubleshooting
+      console.log(`Label to Code Map for "${selectedVariable}":`, Array.from(labelToCodeMap.entries()));
+      console.log(`Defined codes:`, Object.keys(variableDef.codes));
+      console.log(`Code definitions:`, variableDef.codes);
+    }
+
     // Count occurrences in data
     parsedFile.data.forEach(row => {
       // Try exact match first
@@ -445,20 +463,112 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
       if (value !== null && value !== undefined && value !== '') {
         base++;
         const codeStr = String(value);
+        
+        // Try exact code match first (if data contains codes like "1", "2", "3")
         if (counts.hasOwnProperty(codeStr)) {
           counts[codeStr] = (counts[codeStr] || 0) + 1;
         } else {
-          // If code not in definition, still count it
-          counts[codeStr] = (counts[codeStr] || 0) + 1;
+          const normalizedValue = codeStr.trim().toLowerCase();
+          if (labelToCodeMap.has(normalizedValue)) {
+            // Check if it's a label that matches a defined code label
+            // Map the label to its numeric code
+            const matchedCode = labelToCodeMap.get(normalizedValue)!;
+            counts[matchedCode] = (counts[matchedCode] || 0) + 1;
+            // IMPORTANT: Do NOT add the label string itself to counts
+            
+            // Debug logging
+            console.log(`[${selectedVariable}] Mapped label "${codeStr}" to code "${matchedCode}"`);
+          } else {
+            // Try fuzzy/partial matching - check if the value contains or is contained in any label
+            let bestMatch: { code: string; similarity: number } | null = null;
+            
+            labelToCodeMap.forEach((code, normalizedLabel) => {
+              const value = normalizedValue;
+              const label = normalizedLabel;
+              
+              // Check if one contains the other (case-insensitive)
+              if (value.includes(label) || label.includes(value)) {
+                const similarity = Math.min(value.length, label.length) / Math.max(value.length, label.length);
+                if (!bestMatch || similarity > bestMatch.similarity) {
+                  bestMatch = { code, similarity };
+                }
+              } else {
+                // Also check for word overlap (split by spaces and check if any words match)
+                const valueWords = value.split(/\s+/);
+                const labelWords = label.split(/\s+/);
+                const commonWords = valueWords.filter(w => labelWords.includes(w));
+                if (commonWords.length > 0) {
+                  // Calculate similarity based on common words
+                  const maxWords = Math.max(valueWords.length, labelWords.length);
+                  const similarity = commonWords.length / maxWords;
+                  if (!bestMatch || similarity > bestMatch.similarity) {
+                    bestMatch = { code, similarity };
+                  }
+                }
+              }
+            });
+            
+            if (bestMatch && bestMatch.similarity > 0.5) {
+              // If we found a reasonable match (at least 50% similarity), use it
+              counts[bestMatch.code] = (counts[bestMatch.code] || 0) + 1;
+              console.log(`[${selectedVariable}] Fuzzy matched "${codeStr}" to code "${bestMatch.code}" (similarity: ${(bestMatch.similarity * 100).toFixed(1)}%)`);
+            } else {
+              // If no match found, it's an unexpected value - still count it as-is
+              counts[codeStr] = (counts[codeStr] || 0) + 1;
+              
+              // Debug logging
+              console.log(`[${selectedVariable}] No match found for "${codeStr}" in label map. Available labels:`, Array.from(labelToCodeMap.keys()));
+            }
+          }
         }
       }
     });
 
     // Create rows from all codes (definition codes first, then any extra codes from data)
+    // Exclude label strings that correspond to defined codes (they've been mapped)
     const allCodeKeys = [...allCodes];
-    Object.keys(counts).forEach(code => {
-      if (!allCodeKeys.includes(code)) {
-        allCodeKeys.push(code);
+    
+    // Build set of label strings that correspond to defined codes
+    const labelStrings = new Set<string>();
+    if (variableDef && variableDef.type === 'categorical') {
+      Object.values(variableDef.codes).forEach(label => {
+        if (label) {
+          labelStrings.add(label.trim().toLowerCase());
+        }
+      });
+    }
+    
+    // Add any codes from counts that aren't already in allCodeKeys
+    // BUT exclude:
+    // 1. Label strings that match defined code labels (they've been mapped to codes)
+    // 2. Any string values that aren't numeric codes (for categorical variables, we only want defined codes)
+    Object.keys(counts).forEach(key => {
+      const normalizedKey = key.trim().toLowerCase();
+      const isLabelString = labelStrings.has(normalizedKey);
+      
+      // For categorical variables, only include:
+      // - Defined numeric codes (already in allCodes)
+      // - String values that match defined labels (already mapped, so skip)
+      // - For non-categorical or undefined variables, include everything
+      
+      if (variableDef && variableDef.type === 'categorical' && allCodes.length > 0) {
+        // For categorical with defined codes, only show defined codes
+        // Don't add unmatched string values
+        if (!allCodeKeys.includes(key) && !isLabelString) {
+          // Only add if it's a numeric string that might be a valid code
+          // or if it's not a label string
+          const isNumeric = /^\d+$/.test(key.trim());
+          if (!isNumeric) {
+            // Skip non-numeric strings that don't match labels (unmatched values)
+            return;
+          }
+          allCodeKeys.push(key);
+        }
+      } else {
+        // For non-categorical or undefined, include everything except mapped labels
+        if (!allCodeKeys.includes(key) && !isLabelString) {
+          allCodeKeys.push(key);
+        }
       }
     });
 

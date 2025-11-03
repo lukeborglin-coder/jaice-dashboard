@@ -5516,7 +5516,16 @@ export default function App() {
       ) : route === "Open-End Coding" ? (
         <OpenEndCoding />
       ) : route === "Data Tabulation" ? (
-        <DataTabulation projects={projects} onHeaderChange={setDataTabulationHeader} />
+        user?.role === 'admin' ? (
+          <DataTabulation projects={projects} onHeaderChange={setDataTabulationHeader} />
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center p-8">
+              <h2 className="text-2xl font-semibold text-gray-900 mb-2">Access Restricted</h2>
+              <p className="text-gray-600">The Data Tabulation is only available to administrators.</p>
+            </div>
+          </div>
+        )
       ) : route === "Conjoint Simulator" ? (
         user?.role === 'admin' ? (
           <ConjointProjects
