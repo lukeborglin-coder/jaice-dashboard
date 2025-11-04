@@ -8,6 +8,7 @@ import * as XLSX from 'xlsx';
 import ConjointSimulator from './ConjointSimulator';
 import ConjointAIWorkflow from './ConjointAIWorkflow';
 import AIConjointSimulator from './AIConjointSimulator';
+import AverageUtilitiesView from './AverageUtilitiesView';
 
 const BRAND_ORANGE = '#D14A2D';
 const BRAND_ORANGE_LIGHT = '#FDE6DE';
@@ -262,6 +263,7 @@ export default function ConjointProjects({
   const [selectedProject, setSelectedProject] = useState<any | null>(null);
   const [workflowViewMode, setWorkflowViewMode] = useState<'list' | 'wizard' | 'simulator' | 'ai-workflow'>('list');
   const [selectedWorkflow, setSelectedWorkflow] = useState<any | null>(null);
+  const [simulatorSubTab, setSimulatorSubTab] = useState<'simulator' | 'average-utilities' | 'summary' | 'data'>('summary');
   const [showWorkflowWizard, setShowWorkflowWizard] = useState(false);
   const [workflowWizardStep, setWorkflowWizardStep] = useState(1);
   const [workflowDesignFile, setWorkflowDesignFile] = useState<File | null>(null);
@@ -723,9 +725,11 @@ export default function ConjointProjects({
           sourceFileName: draft?.sourceFileName || null,
           surveyUploadedAt: draft?.survey?.uploadedAt || null,
           surveySummary: draft?.survey?.summary || null,
+          survey: draft?.survey || null, // Include full survey object for persistence
           aiGenerated: draft?.aiGenerated || false,
           aiAnalysis: draft?.aiAnalysis || null,
           temporary: draft?.temporary || false,
+          estimation: draft?.estimation || null, // Include estimation for AI workflows
           estimationResult: draft?.estimation
             ? {
                 utilities: draft.estimation.utilities || null,
@@ -1423,16 +1427,31 @@ export default function ConjointProjects({
           <div className="bg-white shadow-sm border border-gray-200 rounded-lg overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
               <div className="flex items-center justify-between">
-                <button
-                  onClick={() => {
-                    setViewMode('home');
-                    setSelectedProject(null);
-                  }}
-                  className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 px-3 py-1 rounded-lg transition-colors"
-                >
-                  <ArrowLeftIcon className="h-4 w-4" />
-                  Back to Projects
-                </button>
+                {workflowViewMode === 'list' && (
+                  <button
+                    onClick={() => {
+                      setViewMode('home');
+                      setSelectedProject(null);
+                    }}
+                    className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 px-3 py-1 rounded-lg transition-colors"
+                  >
+                    <ArrowLeftIcon className="h-4 w-4" />
+                    Back to Projects
+                  </button>
+                )}
+                {workflowViewMode === 'simulator' && selectedWorkflow && (
+                  <button
+                    onClick={() => {
+                      setWorkflowViewMode('list');
+                      setSelectedWorkflow(null);
+                      setSimulatorSubTab('summary');
+                    }}
+                    className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 px-3 py-1 rounded-lg transition-colors"
+                  >
+                    <ArrowLeftIcon className="h-4 w-4" />
+                    Back to Workflows
+                  </button>
+                )}
               </div>
             </div>
 
@@ -1458,66 +1477,245 @@ export default function ConjointProjects({
                 </section>
               ) : workflowViewMode === 'simulator' && selectedWorkflow ? (
                 <section>
-                  <div className="mb-4">
-                    <button
-                      onClick={() => {
+                  {/* Subtabs */}
+                  <div className="mb-4 border-b border-gray-200">
+                    <nav className="flex space-x-8" aria-label="Tabs">
+                      <button
+                        onClick={() => setSimulatorSubTab('simulator')}
+                        className={`${
+                          simulatorSubTab === 'simulator'
+                            ? 'border-b-2 border-blue-500 text-blue-600'
+                            : 'border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        } py-4 px-1 text-sm font-medium whitespace-nowrap transition-colors`}
+                      >
+                        Simulator
+                      </button>
+                      <button
+                        onClick={() => setSimulatorSubTab('average-utilities')}
+                        className={`${
+                          simulatorSubTab === 'average-utilities'
+                            ? 'border-b-2 border-blue-500 text-blue-600'
+                            : 'border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        } py-4 px-1 text-sm font-medium whitespace-nowrap transition-colors`}
+                      >
+                        Average Utilities
+                      </button>
+                      <button
+                        onClick={() => setSimulatorSubTab('summary')}
+                        className={`${
+                          simulatorSubTab === 'summary'
+                            ? 'border-b-2 border-blue-500 text-blue-600'
+                            : 'border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        } py-4 px-1 text-sm font-medium whitespace-nowrap transition-colors`}
+                      >
+                        Summary
+                      </button>
+                      <button
+                        onClick={() => setSimulatorSubTab('data')}
+                        className={`${
+                          simulatorSubTab === 'data'
+                            ? 'border-b-2 border-blue-500 text-blue-600'
+                            : 'border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        } py-4 px-1 text-sm font-medium whitespace-nowrap transition-colors`}
+                      >
+                        Data
+                      </button>
+                    </nav>
+                  </div>
+
+                  {/* Tab Content */}
+                  {simulatorSubTab === 'data' ? (
+                    <AIConjointSimulator
+                      workflow={selectedWorkflow}
+                      onClose={() => {
                         setWorkflowViewMode('list');
                         setSelectedWorkflow(null);
+                        setSimulatorSubTab('summary');
                       }}
-                      className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 px-3 py-1 rounded-lg transition-colors"
-                    >
-                      <ArrowLeftIcon className="h-4 w-4" />
-                      Back to Workflows
-                    </button>
-                  </div>
-                  {selectedWorkflow.aiGenerated ? (
-                    <>
-                      {console.log('Rendering AIConjointSimulator with workflow:', selectedWorkflow)}
-                      <AIConjointSimulator
-                        workflow={selectedWorkflow}
-                        onClose={() => {
-                          setWorkflowViewMode('list');
-                          setSelectedWorkflow(null);
-                        }}
-                      />
-                    </>
+                      dataOnly={true}
+                      onWorkflowUpdate={async () => {
+                        // Refresh workflow data when data is uploaded or deleted
+                        if (selectedProject?.id) {
+                          await loadProjectWorkflowDrafts(selectedProject.id);
+                          // Update selectedWorkflow with the latest data
+                          const updatedWorkflow = projectWorkflows.find(w => w.id === selectedWorkflow?.id);
+                          if (updatedWorkflow) {
+                            setSelectedWorkflow(updatedWorkflow);
+                          }
+                        }
+                      }}
+                    />
+                  ) : simulatorSubTab === 'simulator' ? (
+                    selectedWorkflow.aiGenerated ? (
+                      <>
+                        {console.log('Rendering AIConjointSimulator with workflow:', selectedWorkflow)}
+                        <AIConjointSimulator
+                          workflow={selectedWorkflow}
+                          onClose={() => {
+                            setWorkflowViewMode('list');
+                            setSelectedWorkflow(null);
+                            setSimulatorSubTab('simulator');
+                          }}
+                          onWorkflowUpdate={async () => {
+                            // Refresh workflow data when data is uploaded or deleted
+                            if (selectedProject?.id) {
+                              await loadProjectWorkflowDrafts(selectedProject.id);
+                              // Update selectedWorkflow with the latest data
+                              const updatedWorkflow = projectWorkflows.find(w => w.id === selectedWorkflow?.id);
+                              if (updatedWorkflow) {
+                                setSelectedWorkflow(updatedWorkflow);
+                              }
+                            }
+                          }}
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">
+                          Simulator - Workflow {selectedWorkflow.id}
+                        </h3>
+                        <ConjointSimulator
+                          embedded
+                          initialModel={{
+                            intercept:
+                              selectedWorkflow.estimationResult?.intercept !== null &&
+                              selectedWorkflow.estimationResult?.intercept !== undefined
+                                ? Number(selectedWorkflow.estimationResult.intercept)
+                                : 0,
+                            utilities: selectedWorkflow.estimationResult?.utilities || {},
+                            schema: selectedWorkflow.estimationResult?.schema || { attributes: [] }
+                          }}
+                          currentProducts={selectedWorkflow.surveySummary?.marketShareProducts || []}
+                        />
+                      </>
+                    )
+                  ) : simulatorSubTab === 'average-utilities' ? (
+                    <AverageUtilitiesView workflow={selectedWorkflow} />
                   ) : (
-                    <>
-                      <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">
-                        Simulator - Workflow {selectedWorkflow.id}
-                      </h3>
-                      <ConjointSimulator
-                        embedded
-                        initialModel={{
-                          intercept:
-                            selectedWorkflow.estimationResult?.intercept !== null &&
-                            selectedWorkflow.estimationResult?.intercept !== undefined
-                              ? Number(selectedWorkflow.estimationResult.intercept)
-                              : 0,
-                          utilities: selectedWorkflow.estimationResult?.utilities || {},
-                          schema: selectedWorkflow.estimationResult?.schema || { attributes: [] }
-                        }}
-                        currentProducts={selectedWorkflow.surveySummary?.marketShareProducts || []}
-                      />
-                    </>
+                    <div className="min-h-full">
+                      <div className="bg-white border-b border-gray-200 px-6 py-4">
+                        <div>
+                          <h1 className="text-xl font-semibold text-gray-900">Summary</h1>
+                          <p className="text-sm text-gray-600 mt-1">Products and attributes found in the conjoint design</p>
+                        </div>
+                      </div>
+                      
+                      <div className="px-6 py-6 bg-gray-50 space-y-4">
+                        {/* Products */}
+                        {selectedWorkflow?.aiAnalysis?.products && selectedWorkflow.aiAnalysis.products.length > 0 && (
+                          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                            <h3 className="text-sm font-semibold text-blue-800 mb-2">Products ({selectedWorkflow.aiAnalysis.products.length})</h3>
+                            <div className="space-y-1">
+                              {selectedWorkflow.aiAnalysis.products.map((product: any, i: number) => (
+                                <div key={i} className="text-sm text-gray-700 bg-white p-2 rounded border">
+                                  {i + 1}. {product.name || product}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Attributes */}
+                        {selectedWorkflow?.aiAnalysis?.attributes && selectedWorkflow.aiAnalysis.attributes.length > 0 && (
+                          <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                            <h3 className="text-sm font-semibold text-purple-800 mb-2">Attributes ({selectedWorkflow.aiAnalysis.attributes.length})</h3>
+                            <div className="space-y-3">
+                              {selectedWorkflow.aiAnalysis.attributes.map((attr: any, i: number) => (
+                                <div key={i} className="bg-white p-3 rounded border">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <div className="font-medium text-gray-900">
+                                      {attr.attributeNo || i + 1}. {attr.attributeText || attr.name}
+                                    </div>
+                                    {attr.levels && attr.levels.length > 0 && (
+                                      <div className="text-xs text-gray-600">{attr.levels.length} levels</div>
+                                    )}
+                                  </div>
+                                  {attr.levels && attr.levels.length > 0 && (
+                                    <div className="ml-2">
+                                      <div className="space-y-1">
+                                        {attr.levels.map((level: any, j: number) => (
+                                          <div key={j} className="text-xs text-gray-600 bg-gray-50 p-1 rounded">
+                                            {j + 1}. {level.levelText || level.name || level}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Design Summary */}
+                        {selectedWorkflow?.designSummary && (
+                          <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                            <h3 className="text-sm font-semibold text-yellow-800 mb-2">Design Summary</h3>
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                              <div>
+                                <span className="font-medium">Total Rows:</span> {selectedWorkflow.designSummary.totalRows}
+                              </div>
+                              <div>
+                                <span className="font-medium">Attribute Columns:</span> {selectedWorkflow.designSummary.attColumnCount}
+                              </div>
+                              <div>
+                                <span className="font-medium">Versions:</span> {selectedWorkflow.designSummary.versions}
+                              </div>
+                              <div>
+                                <span className="font-medium">Coverage:</span> {selectedWorkflow.designSummary.attributeCoverage}%
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Market Share Question */}
+                        {selectedWorkflow?.aiAnalysis?.marketShareQuestion && (
+                          <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
+                            <h3 className="text-sm font-semibold text-indigo-800 mb-2">Market Share Question</h3>
+                            <p className="text-sm text-gray-700">{selectedWorkflow.aiAnalysis.marketShareQuestion}</p>
+                          </div>
+                        )}
+
+                        {/* Conjoint Section */}
+                        {selectedWorkflow?.aiAnalysis?.conjointSection && (
+                          <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                            <h3 className="text-sm font-semibold text-green-800 mb-2">Conjoint Section Identified</h3>
+                            <p className="text-sm text-gray-700">{selectedWorkflow.aiAnalysis.conjointSection}</p>
+                            {selectedWorkflow.aiAnalysis.sectionDescription && (
+                              <p className="text-xs text-gray-600 mt-1">{selectedWorkflow.aiAnalysis.sectionDescription}</p>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Workflow Info */}
+                        <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                          <h3 className="text-sm font-semibold text-gray-800 mb-2">Workflow Information</h3>
+                          <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                              <span className="font-medium">Workflow ID:</span> {selectedWorkflow?.id}
+                            </div>
+                            <div>
+                              <span className="font-medium">Created:</span> {selectedWorkflow?.createdAt ? new Date(selectedWorkflow.createdAt).toLocaleString() : 'Unknown'}
+                            </div>
+                            <div>
+                              <span className="font-medium">Source File:</span> {selectedWorkflow?.sourceFileName || 'Unknown'}
+                            </div>
+                            <div>
+                              <span className="font-medium">Status:</span> {selectedWorkflow?.temporary ? 'Temporary' : 'Finalized'}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   )}
                 </section>
-              ) : (() => {
-                const workflowCount = projectWorkflows.length;
-                const aiWorkflows = projectWorkflows.filter(w => w.aiGenerated);
-                const manualWorkflows = projectWorkflows.filter(w => !w.aiGenerated);
-                
-                return (
-                  <>
-                    {/* AI Workflow Section */}
-                    <section className="rounded-lg border-2 border-blue-200 bg-blue-50 p-5">
-                      <div className="flex items-start justify-between mb-3">
-                        <div>
-                          <h3 className="text-sm font-semibold text-blue-900 uppercase tracking-wide">AI Workflow (Beta)</h3>
-                          <p className="text-xs text-blue-700 mt-1">
-                            Let AI automatically configure your conjoint workflow from your questionnaire
-                          </p>
-                        </div>
+              ) : (
+                <>
+                  {/* Workflows List */}
+                  <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                    <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Workflows</h3>
                         <button
                           onClick={() => setWorkflowViewMode('ai-workflow')}
                           className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition"
@@ -1525,290 +1723,129 @@ export default function ConjointProjects({
                           Start AI Workflow
                         </button>
                       </div>
-                      
-                      {/* AI Workflows List */}
-                      {aiWorkflows.length > 0 && (
-                        <div className="mt-4 space-y-2">
-                          <h4 className="text-sm font-medium text-blue-800">Your AI Workflows:</h4>
-                          <div className="space-y-2">
-                            {aiWorkflows.map(workflow => (
-                              <div
-                                key={workflow.id}
-                                className="flex items-center justify-between p-3 bg-white rounded-lg border border-blue-200 hover:bg-blue-25 transition-colors cursor-pointer"
-                                onClick={() => {
-                                  // Always allow launching simulator for AI workflows
-                                  // The simulator can handle missing data gracefully
-                                  setSelectedWorkflow(workflow);
-                                  setWorkflowViewMode('simulator');
-                                }}
-                              >
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-sm font-medium text-gray-900">
-                                      {workflow.name || workflow.id}
-                                    </span>
-                                    {workflow.estimationResult && (
-                                      <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-                                        <span className="h-2 w-2 rounded-full bg-green-500" />
-                                        Ready
+                    </div>
+                    
+                    {projectWorkflows.length > 0 ? (
+                      <div className="divide-y divide-gray-200">
+                        {projectWorkflows.map(workflow => (
+                          <div
+                            key={workflow.id}
+                            className="px-6 py-4 hover:bg-gray-50 transition-colors cursor-pointer"
+                            onClick={() => {
+                              setSelectedWorkflow(workflow);
+                              setWorkflowViewMode('simulator');
+                              setSimulatorSubTab('summary');
+                            }}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-3">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-sm font-medium text-gray-900">
+                                        {workflow.name || workflow.id}
                                       </span>
-                                    )}
-                                  </div>
-                                  <div className="text-xs text-gray-500 mt-1">
-                                    Created {new Date(workflow.createdAt).toLocaleString(undefined, { 
-                                      year: 'numeric', 
-                                      month: 'numeric', 
-                                      day: 'numeric', 
-                                      hour: 'numeric', 
-                                      minute: '2-digit' 
-                                    })}
+                                      {workflow.estimationResult && (
+                                        <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                                          <span className="h-2 w-2 rounded-full bg-green-500" />
+                                          Ready
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="text-xs text-gray-500 mt-1">
+                                      Created {new Date(workflow.createdAt).toLocaleString(undefined, { 
+                                        year: 'numeric', 
+                                        month: 'numeric', 
+                                        day: 'numeric', 
+                                        hour: 'numeric', 
+                                        minute: '2-digit' 
+                                      })}
+                                    </div>
                                   </div>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                  {/* Upload Data button for AI workflows that need survey data */}
-                                  {workflow.aiGenerated && workflow.temporary && !workflow.surveyUploadedAt && (
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        const input = document.createElement('input');
-                                        input.type = 'file';
-                                        input.accept = '.xlsx,.xls';
-                                        input.onchange = async (event) => {
-                                          const file = (event.target as HTMLInputElement).files?.[0];
-                                          if (!file) return;
-                                          
-                                          try {
-                                            const formData = new FormData();
-                                            formData.append('file', file);
-                                            formData.append('workflowId', workflow.id);
-
-                                            const token = localStorage.getItem('cognitive_dash_token');
-                                            const response = await fetch(`${API_BASE_URL}/api/conjoint/ai-workflow/process-data`, {
-                                              method: 'POST',
-                                              headers: {
-                                                'Authorization': `Bearer ${token}`
-                                              },
-                                              body: formData
-                                            });
-
-                                            if (!response.ok) {
-                                              const errorData = await response.json();
-                                              throw new Error(errorData.detail || 'Failed to upload survey data');
-                                            }
-
-                                            // Refresh the workflow list
-                                            loadProjectWorkflowDrafts(selectedProject.id);
-                                            alert('Survey data uploaded successfully! You can now launch the simulator.');
-                                          } catch (error) {
-                                            console.error('Upload error:', error);
-                                            alert(`Failed to upload survey data: ${error.message}`);
-                                          }
-                                        };
-                                        input.click();
-                                      }}
-                                      className="px-3 py-1 bg-purple-600 text-white text-xs font-semibold rounded hover:bg-purple-700 transition"
-                                      title="Upload survey data for this workflow"
-                                    >
-                                      Upload Data
-                                    </button>
-                                  )}
-                                  
+                              </div>
+                              <div className="flex items-center gap-2 ml-4">
+                                {/* Upload Data button for AI workflows that need survey data */}
+                                {workflow.aiGenerated && workflow.temporary && !workflow.surveyUploadedAt && (
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      if (window.confirm(`Delete workflow "${workflow.name || workflow.id}"?`)) {
-                                        fetch(`${API_BASE_URL}/api/conjoint/workflows/${workflow.id}`, {
-                                          method: 'DELETE',
-                                          headers: { Authorization: `Bearer ${localStorage.getItem('cognitive_dash_token') || localStorage.getItem('token') || ''}` }
-                                        }).then(() => {
-                                          loadProjectWorkflowDrafts(selectedProject.id);
-                                        }).catch(err => {
-                                          console.error('Error deleting workflow:', err);
-                                          alert('Failed to delete workflow');
-                                        });
-                                      }
-                                    }}
-                                    className="text-red-600 hover:text-red-800 p-1 rounded transition-colors"
-                                    title="Delete workflow"
-                                  >
-                                    <TrashIcon className="h-4 w-4" />
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </section>
+                                      const input = document.createElement('input');
+                                      input.type = 'file';
+                                      input.accept = '.xlsx,.xls';
+                                      input.onchange = async (event) => {
+                                        const file = (event.target as HTMLInputElement).files?.[0];
+                                        if (!file) return;
+                                        
+                                        try {
+                                          const formData = new FormData();
+                                          formData.append('file', file);
+                                          formData.append('workflowId', workflow.id);
 
-                    {/* Manual Workflows Section - DISABLED */}
-                    <section className="opacity-50 pointer-events-none">
-                      <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Manual Workflows (Disabled)</h3>
-                    {manualWorkflows.length > 0 ? (
-                      <div className="rounded-lg border border-gray-200 bg-white p-5 space-y-4">
-                        <div>
-                          <p className="text-sm text-gray-700">
-                            You currently have <span className="font-semibold">{manualWorkflows.length}</span>{' '}
-                            saved manual {manualWorkflows.length === 1 ? 'workflow' : 'workflows'} for this project.
-                          </p>
-                          <p className="mt-2 text-xs text-gray-500">
-                            We&apos;ll surface editing and reporting controls here as soon as additional workflow stages are implemented.
-                          </p>
-                        </div>
-                        <div className="overflow-x-auto">
-                          <table className="min-w-full divide-y divide-gray-200 text-left text-sm text-gray-700">
-                            <thead className="bg-gray-50">
-                              <tr>
-                                <th className="px-3 py-2 font-semibold uppercase tracking-wide text-gray-500">Workflow ID</th>
-                                <th className="px-3 py-2 font-semibold uppercase tracking-wide text-gray-500">Saved</th>
-                                <th className="px-3 py-2 font-semibold uppercase tracking-wide text-gray-500">Warnings</th>
-                                <th className="px-3 py-2 font-semibold uppercase tracking-wide text-gray-500">Source</th>
-                                <th className="px-3 py-2 font-semibold uppercase tracking-wide text-gray-500">Survey</th>
-                                <th className="px-3 py-2 font-semibold uppercase tracking-wide text-gray-500">Estimation</th>
-                                <th className="px-3 py-2 font-semibold uppercase tracking-wide text-gray-500">Actions</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100 bg-white">
-                              {manualWorkflows.slice(0, 5).map(workflow => (
-                                <tr
-                                  key={workflow.id}
-                                  className="hover:bg-gray-50 cursor-pointer transition-colors"
-                                  onClick={() => {
-                                    if (workflow.estimationResult) {
-                                      setSelectedWorkflow(workflow);
-                                      setWorkflowViewMode('simulator');
+                                          const token = localStorage.getItem('cognitive_dash_token');
+                                          const response = await fetch(`${API_BASE_URL}/api/conjoint/ai-workflow/process-data`, {
+                                            method: 'POST',
+                                            headers: {
+                                              'Authorization': `Bearer ${token}`
+                                            },
+                                            body: formData
+                                          });
+
+                                          if (!response.ok) {
+                                            const errorData = await response.json();
+                                            throw new Error(errorData.detail || 'Failed to upload survey data');
+                                          }
+
+                                          // Refresh the workflow list
+                                          loadProjectWorkflowDrafts(selectedProject.id);
+                                          alert('Survey data uploaded successfully! You can now launch the simulator.');
+                                        } catch (error: any) {
+                                          console.error('Upload error:', error);
+                                          alert(`Failed to upload survey data: ${error.message}`);
+                                        }
+                                      };
+                                      input.click();
+                                    }}
+                                    className="px-3 py-1 bg-purple-600 text-white text-xs font-semibold rounded hover:bg-purple-700 transition"
+                                    title="Upload survey data for this workflow"
+                                  >
+                                    Upload Data
+                                  </button>
+                                )}
+                                
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (window.confirm(`Delete workflow "${workflow.name || workflow.id}"?`)) {
+                                      fetch(`${API_BASE_URL}/api/conjoint/workflows/${workflow.id}`, {
+                                        method: 'DELETE',
+                                        headers: { Authorization: `Bearer ${localStorage.getItem('cognitive_dash_token') || localStorage.getItem('token') || ''}` }
+                                      }).then(() => {
+                                        loadProjectWorkflowDrafts(selectedProject.id);
+                                      }).catch(err => {
+                                        console.error('Error deleting workflow:', err);
+                                        alert('Failed to delete workflow');
+                                      });
                                     }
                                   }}
+                                  className="text-red-600 hover:text-red-800 p-1 rounded transition-colors"
+                                  title="Delete workflow"
                                 >
-                                  <td className="px-3 py-2 font-mono text-xs text-gray-800">{workflow.id}</td>
-                                  <td className="px-3 py-2 text-sm text-gray-700">
-                                    {workflow.updatedAt
-                                      ? new Date(workflow.updatedAt).toLocaleString()
-                                      : new Date(workflow.createdAt).toLocaleString()}
-                                  </td>
-                                  <td className="px-3 py-2 text-sm text-gray-700">
-                                    {workflow.warnings.length > 0 ? (
-                                      <span className="inline-flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 text-xs text-yellow-700">
-                                        {workflow.warnings.length} warning{workflow.warnings.length === 1 ? '' : 's'}
-                                      </span>
-                                    ) : (
-                                      <span className="text-xs text-green-700">None</span>
-                                    )}
-                                  </td>
-                                  <td className="px-3 py-2 text-sm text-gray-700">
-                                    {workflow.sourceFileName ? workflow.sourceFileName : <span className="text-xs text-gray-500">N/A</span>}
-                                  </td>
-                                  <td className="px-3 py-2 text-sm text-gray-700">
-                                    {workflow.surveyUploadedAt ? (
-                                      <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700">
-                                        <span className="h-2 w-2 rounded-full bg-green-500" />
-                                        Survey validated {new Date(workflow.surveyUploadedAt).toLocaleDateString()}
-                                      </span>
-                                    ) : (
-                                      <span className="text-xs text-gray-500">Not uploaded</span>
-                                    )}
-                                  </td>
-                                  <td className="px-3 py-2 text-sm text-gray-700">
-                                    {workflow.estimationResult?.estimatedAt ? (
-                                      <div className="flex flex-col gap-1">
-                                        <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">
-                                          <span className="h-2 w-2 rounded-full bg-blue-500" />
-                                          Estimated {new Date(workflow.estimationResult.estimatedAt).toLocaleDateString()}
-                                        </span>
-                                        {workflow.estimationResult.diagnostics?.pseudo_r2 !== undefined && (
-                                          <span className="text-xs text-gray-600">
-                                            Pseudo R^2 = {formatNumber(workflow.estimationResult.diagnostics.pseudo_r2, 3)}
-                                          </span>
-                                        )}
-                                        {workflow.estimationResult.diagnostics?.converged !== undefined && (
-                                          <span className={`text-xs ${workflow.estimationResult.diagnostics.converged ? 'text-green-600' : 'text-red-600'}`}>
-                                            {workflow.estimationResult.diagnostics.converged ? 'Converged' : 'Not converged'}
-                                          </span>
-                                        )}
-                                      </div>
-                                    ) : (
-                                      <span className="text-xs text-gray-500">Not estimated</span>
-                                    )}
-                                  </td>
-                                  <td className="px-3 py-2 text-sm text-gray-700">
-                                    <div className="flex items-center gap-2">
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          if (window.confirm(`Delete workflow ${workflow.id}?`)) {
-                                            fetch(`${API_BASE_URL}/api/conjoint/workflows/${workflow.id}`, {
-                                              method: 'DELETE',
-                                              headers: { Authorization: `Bearer ${localStorage.getItem('cognitive_dash_token') || localStorage.getItem('token') || ''}` }
-                                            }).then(() => {
-                                              loadProjectWorkflowDrafts(selectedProject.id);
-                                            }).catch(err => {
-                                              console.error('Error deleting workflow:', err);
-                                              alert('Failed to delete workflow');
-                                            });
-                                          }
-                                        }}
-                                        className="text-red-600 hover:text-red-800 hover:underline text-xs"
-                                      >
-                                        Delete
-                                      </button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                        <button
-                          onClick={openWorkflowWizard}
-                          className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium shadow-sm transition-opacity text-gray-400 cursor-not-allowed"
-                          style={{ backgroundColor: '#d1d5db' }}
-                          disabled
-                        >
-                          <IconPlus className="h-4 w-4" />
-                          Add Another Workflow (Disabled)
-                        </button>
+                                  <TrashIcon className="h-4 w-4" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     ) : (
-                      <div
-                        className="rounded-lg border border-dashed p-5"
-                        style={{ borderColor: BRAND_ORANGE_BORDER, backgroundColor: BRAND_ORANGE_LIGHT }}
-                      >
-                        <p className="text-sm text-gray-700">
-                          No conjoint workflow has been created for this project yet. Use the AI Workflow option above to automatically configure your conjoint analysis from your questionnaire files.
-                        </p>
-                        <div className="mt-4 flex flex-wrap items-center gap-3">
-                          <button
-                            onClick={openWorkflowWizard}
-                            className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium shadow-sm transition-opacity text-gray-400 cursor-not-allowed"
-                            style={{ backgroundColor: '#d1d5db' }}
-                            disabled
-                          >
-                            <IconPlus className="h-4 w-4" />
-                            Start Conjoint Workflow (Disabled)
-                          </button>
-                          <a
-                            href="/assets/MOCK%20Conjoint%20Design.xlsx"
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-sm underline transition-opacity hover:opacity-80"
-                            style={{ color: BRAND_ORANGE }}
-                          >
-                            View sample design workbook
-                          </a>
-                        </div>
+                      <div className="px-6 py-12 text-center text-gray-500">
+                        <p className="text-sm">No workflows yet. Create one to get started.</p>
                       </div>
                     )}
-                    {loadProjectWorkflowsError && (
-                      <p className="mt-3 text-sm text-red-600">{loadProjectWorkflowsError}</p>
-                    )}
-                    {loadingProjectWorkflows && workflowCount === 0 && (
-                      <p className="mt-3 text-sm text-gray-500">Loading existing workflow drafts...</p>
-                    )}
-                  </section>
-
-                  </>
-                );
-              })()}
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}

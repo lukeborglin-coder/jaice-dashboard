@@ -1,0 +1,429 @@
+
+[notice] A new release of pip is available: 25.2 -> 25.3
+[notice] To update, run: python.exe -m pip install --upgrade pip
+INFO:     Will watch for changes in these directories: ['C:\\Users\\LukeBorglin\\Desktop\\Apps\\jaice-dashboard\\conjoint-backend']
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [33140] using WatchFiles
+C:\Users\LukeBorglin\Desktop\Apps\jaice-dashboard\conjoint-backend\.venv\Lib\site-packages\pydantic\_internal\_fields.py:172: UserWarning: Field name "schema" in "EstimateResponse" shadows an attribute in parent "BaseModel"
+  warnings.warn(
+INFO:     Started server process [30196]
+INFO:     Waiting for application startup.
+2025-11-03 14:22:40,838 - app - INFO - ============================================================
+2025-11-03 14:22:40,838 - app - INFO - Conjoint Analysis API starting up
+2025-11-03 14:22:40,838 - app - INFO - Version: 0.4.0
+2025-11-03 14:22:40,839 - app - INFO - Max file size: 50MB
+2025-11-03 14:22:40,839 - app - INFO - Allowed origins: ['http://localhost:3000', 'http://localhost:3005', 'http://localhost:5173', 'http://localhost:5174', 'http://127.0.0.1:3000', 'http://127.0.0.1:3005', 'http://127.0.0.1:5173', 'http://127.0.0.1:5174']
+2025-11-03 14:22:40,840 - app - INFO - ============================================================
+INFO:     Application startup complete.
+2025-11-03 14:23:52,499 - app - INFO - Survey export estimation request: survey.xlsx
+2025-11-03 14:23:52,500 - app - INFO - File size: 548.1KB
+2025-11-03 14:23:54,112 - app - INFO - Read survey data: 80 rows × 1122 columns
+2025-11-03 14:23:54,113 - app - INFO - Using attribute definitions from design: 20 attributes
+2025-11-03 14:23:54,113 - app - INFO - First attribute: name='ON_TABLE_CLOSURE_RATE', levels=5
+2025-11-03 14:23:54,113 - app - INFO - Parsing survey export data...
+2025-11-03 14:23:54,114 - app - INFO - Built code mapping for 20 attributes from design
+2025-11-03 14:23:54,115 - app - INFO - Found 15 choice tasks: ['QC1_1', 'QC1_2', 'QC1_3', 'QC1_4', 'QC1_5', 'QC1_6', 'QC1_7', 'QC1_8', 'QC1_9', 'QC1_10', 'QC1_11', 'QC1_12', 'QC1_13', 'QC1_14', 'QC1_15']
+2025-11-03 14:23:54,118 - app - INFO - Detected 2 branded alternatives: ['GORE', 'PFO']
+2025-11-03 14:23:54,533 - app - INFO - Converted to long format: 3598 rows and 24 columns
+2025-11-03 14:23:54,533 - app - INFO - Attribute columns in long format (20): ['RATE_OF_ANY_ATRIAL_ARRHYTHMIA_REQUIRING_PROCEDURAL_INTERVENTION_POST_IMPLANT', 'ATRIAL_ARRHYTHMIA_REQUIRING_SHORT_TERM_MEDICAL_MANAGEMENT', 'DEVICE_FRAME_RELATED_CARDIAC_INJURY_RATE_EROSION_OR_PERFORATION_POST_IMPLANT', 'TIME_TO_COMPLETE_ENDOTHELIALIZATION', 'LEAVE_LESS_BEHIND_BIOABSORBABLE_LESS_METAL', 'PROCEDURE_TIME', 'DEVICE_PREP_TIME', 'DELIVERY_SYSTEM_REFRESHER', 'AVERAGE_NUMBER_OF_DEVICE_REPOSITIONS', 'IMAGING_VISABILITY_UNDER_IMAGING']...
+2025-11-03 14:23:54,545 - app - INFO -   Column 'RATE_OF_ANY_ATRIAL_ARRHYTHMIA_REQUIRING_PROCEDURAL_INTERVENTION_POST_IMPLANT': 5 unique values, sample: ['45', '44', '42', '41', '43']
+2025-11-03 14:23:54,547 - app - INFO -   Column 'ATRIAL_ARRHYTHMIA_REQUIRING_SHORT_TERM_MEDICAL_MANAGEMENT': 5 unique values, sample: ['52', '53', '55', '54', '51']
+2025-11-03 14:23:54,549 - app - INFO -   Column 'DEVICE_FRAME_RELATED_CARDIAC_INJURY_RATE_EROSION_OR_PERFORATION_POST_IMPLANT': 5 unique values, sample: ['63', '65', '64', '61', '62']
+2025-11-03 14:23:54,551 - app - INFO -   Column 'TIME_TO_COMPLETE_ENDOTHELIALIZATION': 5 unique values, sample: ['71', '72', '75', '73', '74']
+2025-11-03 14:23:54,553 - app - INFO -   Column 'LEAVE_LESS_BEHIND_BIOABSORBABLE_LESS_METAL': 3 unique values, sample: ['93', '92', '91']
+2025-11-03 14:23:54,726 - app - INFO - Design matrix: 3598 rows × 67 columns
+2025-11-03 14:23:55,139 - app - INFO - Design matrix rank: 1 (columns: 67)
+2025-11-03 14:23:55,140 - app - WARNING - Design matrix is rank-deficient: rank 1 < 67 columns. This will cause singularity issues.
+2025-11-03 14:23:55,564 - app - INFO - Fitting model with Newton-Raphson...
+2025-11-03 14:23:56,169 - app - WARNING - Newton method failed (Singular matrix), trying BFGS...
+C:\Users\LukeBorglin\Desktop\Apps\jaice-dashboard\conjoint-backend\.venv\Lib\site-packages\statsmodels\base\model.py:595: HessianInversionWarning: Inverting hessian failed, no bse or cov_params available
+  warnings.warn('Inverting hessian failed, no bse or cov_params '
+2025-11-03 14:23:56,226 - app - INFO - Model estimated successfully. Log-likelihood: -2290.64
+INFO:     127.0.0.1:65155 - "POST /estimate_from_survey_export HTTP/1.1" 200 OK
+WARNING:  WatchFiles detected changes in 'app.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2025-11-03 14:24:51,753 - app - INFO - Conjoint Analysis API shutting down
+INFO:     Application shutdown complete.
+INFO:     Finished server process [30196]
+WARNING:  WatchFiles detected changes in 'app.py'. Reloading...
+Process SpawnProcess-2:
+Traceback (most recent call last):
+  File "C:\Users\LukeBorglin\AppData\Local\Programs\Python\Python313\Lib\multiprocessing\process.py", line 313, in _bootstrap
+    self.run()
+    ~~~~~~~~^^
+  File "C:\Users\LukeBorglin\AppData\Local\Programs\Python\Python313\Lib\multiprocessing\process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\LukeBorglin\Desktop\Apps\jaice-dashboard\conjoint-backend\.venv\Lib\site-packages\uvicorn\_subprocess.py", line 73, in subprocess_started
+    sys.stdin = os.fdopen(stdin_fileno)  # pragma: full coverage
+                ~~~~~~~~~^^^^^^^^^^^^^^
+  File "<frozen os>", line 1069, in fdopen
+  File "<frozen codecs>", line 312, in __init__
+KeyboardInterrupt
+C:\Users\LukeBorglin\Desktop\Apps\jaice-dashboard\conjoint-backend\.venv\Lib\site-packages\pydantic\_internal\_fields.py:172: UserWarning: Field name "schema" in "EstimateResponse" shadows an attribute in parent "BaseModel"
+  warnings.warn(
+INFO:     Started server process [29000]
+INFO:     Waiting for application startup.
+2025-11-03 14:24:55,691 - app - INFO - ============================================================
+2025-11-03 14:24:55,691 - app - INFO - Conjoint Analysis API starting up
+2025-11-03 14:24:55,691 - app - INFO - Version: 0.4.0
+2025-11-03 14:24:55,692 - app - INFO - Max file size: 50MB
+2025-11-03 14:24:55,692 - app - INFO - Allowed origins: ['http://localhost:3000', 'http://localhost:3005', 'http://localhost:5173', 'http://localhost:5174', 'http://127.0.0.1:3000', 'http://127.0.0.1:3005', 'http://127.0.0.1:5173', 'http://127.0.0.1:5174']
+2025-11-03 14:24:55,692 - app - INFO - ============================================================
+INFO:     Application startup complete.
+2025-11-03 14:25:12,755 - app - INFO - Survey export estimation request: survey.xlsx
+2025-11-03 14:25:12,757 - app - INFO - File size: 548.1KB
+2025-11-03 14:25:14,136 - app - INFO - Read survey data: 80 rows × 1122 columns
+2025-11-03 14:25:14,137 - app - INFO - Using attribute definitions from design: 20 attributes
+2025-11-03 14:25:14,137 - app - INFO - First attribute: name='ON_TABLE_CLOSURE_RATE', levels=5
+2025-11-03 14:25:14,137 - app - INFO - Parsing survey export data...
+2025-11-03 14:25:14,137 - app - INFO - Built code mapping for 20 attributes from design
+2025-11-03 14:25:14,139 - app - INFO - Found 15 choice tasks: ['QC1_1', 'QC1_2', 'QC1_3', 'QC1_4', 'QC1_5', 'QC1_6', 'QC1_7', 'QC1_8', 'QC1_9', 'QC1_10', 'QC1_11', 'QC1_12', 'QC1_13', 'QC1_14', 'QC1_15']
+2025-11-03 14:25:14,141 - app - INFO - Detected 2 branded alternatives: ['GORE', 'PFO']
+2025-11-03 14:25:14,144 - app - WARNING - Code '45' not found in code_map for attr_no=4, schema_name=RATE_OF_ANY_ATRIAL_ARRHYTHMIA_REQUIRING_PROCEDURAL_INTERVENTION_POST_IMPLANT. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:25:14,144 - app - WARNING - Code '52' not found in code_map for attr_no=5, schema_name=ATRIAL_ARRHYTHMIA_REQUIRING_SHORT_TERM_MEDICAL_MANAGEMENT. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:25:14,145 - app - WARNING - Code '63' not found in code_map for attr_no=6, schema_name=DEVICE_FRAME_RELATED_CARDIAC_INJURY_RATE_EROSION_OR_PERFORATION_POST_IMPLANT. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:25:14,145 - app - WARNING - Code '71' not found in code_map for attr_no=7, schema_name=TIME_TO_COMPLETE_ENDOTHELIALIZATION. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:25:14,145 - app - WARNING - Code '93' not found in code_map for attr_no=9, schema_name=LEAVE_LESS_BEHIND_BIOABSORBABLE_LESS_METAL. Available codes: ['1', '2', '3']
+2025-11-03 14:25:14,145 - app - WARNING - Code '121' not found in code_map for attr_no=12, schema_name=PROCEDURE_TIME. Available codes: ['1', '2', '3']
+2025-11-03 14:25:14,145 - app - WARNING - Code '132' not found in code_map for attr_no=13, schema_name=DEVICE_PREP_TIME. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:25:14,146 - app - WARNING - Code '141' not found in code_map for attr_no=14, schema_name=DELIVERY_SYSTEM_REFRESHER. Available codes: ['1', '2', '3']
+2025-11-03 14:25:14,146 - app - WARNING - Code '153' not found in code_map for attr_no=15, schema_name=AVERAGE_NUMBER_OF_DEVICE_REPOSITIONS. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:25:14,146 - app - WARNING - Code '161' not found in code_map for attr_no=16, schema_name=IMAGING_VISABILITY_UNDER_IMAGING. Available codes: ['1', '2', '3']
+2025-11-03 14:25:14,146 - app - WARNING - Code '44' not found in code_map for attr_no=4, schema_name=RATE_OF_ANY_ATRIAL_ARRHYTHMIA_REQUIRING_PROCEDURAL_INTERVENTION_POST_IMPLANT. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:25:14,147 - app - WARNING - Code '53' not found in code_map for attr_no=5, schema_name=ATRIAL_ARRHYTHMIA_REQUIRING_SHORT_TERM_MEDICAL_MANAGEMENT. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:25:14,147 - app - WARNING - Code '65' not found in code_map for attr_no=6, schema_name=DEVICE_FRAME_RELATED_CARDIAC_INJURY_RATE_EROSION_OR_PERFORATION_POST_IMPLANT. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:25:14,148 - app - WARNING - Code '72' not found in code_map for attr_no=7, schema_name=TIME_TO_COMPLETE_ENDOTHELIALIZATION. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:25:14,148 - app - WARNING - Code '92' not found in code_map for attr_no=9, schema_name=LEAVE_LESS_BEHIND_BIOABSORBABLE_LESS_METAL. Available codes: ['1', '2', '3']
+2025-11-03 14:25:14,148 - app - WARNING - Code '122' not found in code_map for attr_no=12, schema_name=PROCEDURE_TIME. Available codes: ['1', '2', '3']
+2025-11-03 14:25:14,148 - app - WARNING - Code '131' not found in code_map for attr_no=13, schema_name=DEVICE_PREP_TIME. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:25:14,149 - app - WARNING - Code '142' not found in code_map for attr_no=14, schema_name=DELIVERY_SYSTEM_REFRESHER. Available codes: ['1', '2', '3']
+2025-11-03 14:25:14,149 - app - WARNING - Code '152' not found in code_map for attr_no=15, schema_name=AVERAGE_NUMBER_OF_DEVICE_REPOSITIONS. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:25:14,149 - app - WARNING - Code '162' not found in code_map for attr_no=16, schema_name=IMAGING_VISABILITY_UNDER_IMAGING. Available codes: ['1', '2', '3']
+2025-11-03 14:25:14,149 - app - WARNING - Code '13' not found in code_map for attr_no=1, schema_name=ON_TABLE_CLOSURE_RATE. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:25:14,150 - app - WARNING - Code '35' not found in code_map for attr_no=3, schema_name=DEVICE_EMBOLIZATION_RATE_DEVICE_DISLODGES. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:25:14,150 - app - WARNING - Code '44' not found in code_map for attr_no=4, schema_name=RATE_OF_ANY_ATRIAL_ARRHYTHMIA_REQUIRING_PROCEDURAL_INTERVENTION_POST_IMPLANT. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:25:14,150 - app - WARNING - Code '64' not found in code_map for attr_no=6, schema_name=DEVICE_FRAME_RELATED_CARDIAC_INJURY_RATE_EROSION_OR_PERFORATION_POST_IMPLANT. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:25:14,150 - app - WARNING - Code '104' not found in code_map for attr_no=10, schema_name=DEVICE_CROSSABILITY. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:25:14,151 - app - WARNING - Code '143' not found in code_map for attr_no=14, schema_name=DELIVERY_SYSTEM_REFRESHER. Available codes: ['1', '2', '3']
+2025-11-03 14:25:14,151 - app - WARNING - Code '152' not found in code_map for attr_no=15, schema_name=AVERAGE_NUMBER_OF_DEVICE_REPOSITIONS. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:25:14,151 - app - WARNING - Code '171' not found in code_map for attr_no=17, schema_name=DELIVERY_PROFILE. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:25:14,151 - app - WARNING - Code '184' not found in code_map for attr_no=18, schema_name=DEVICE_SIZE. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:25:14,152 - app - WARNING - Code '193' not found in code_map for attr_no=19, schema_name=PROCEDURAL_SUCCESS_RATE. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:25:14,152 - app - WARNING - Code '14' not found in code_map for attr_no=1, schema_name=ON_TABLE_CLOSURE_RATE. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:25:14,152 - app - WARNING - Code '36' not found in code_map for attr_no=3, schema_name=DEVICE_EMBOLIZATION_RATE_DEVICE_DISLODGES. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:25:14,152 - app - WARNING - Code '42' not found in code_map for attr_no=4, schema_name=RATE_OF_ANY_ATRIAL_ARRHYTHMIA_REQUIRING_PROCEDURAL_INTERVENTION_POST_IMPLANT. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:25:14,153 - app - WARNING - Code '65' not found in code_map for attr_no=6, schema_name=DEVICE_FRAME_RELATED_CARDIAC_INJURY_RATE_EROSION_OR_PERFORATION_POST_IMPLANT. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:25:14,153 - app - WARNING - Code '103' not found in code_map for attr_no=10, schema_name=DEVICE_CROSSABILITY. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:25:14,153 - app - WARNING - Code '142' not found in code_map for attr_no=14, schema_name=DELIVERY_SYSTEM_REFRESHER. Available codes: ['1', '2', '3']
+2025-11-03 14:25:14,153 - app - WARNING - Code '151' not found in code_map for attr_no=15, schema_name=AVERAGE_NUMBER_OF_DEVICE_REPOSITIONS. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:25:14,153 - app - WARNING - Code '174' not found in code_map for attr_no=17, schema_name=DELIVERY_PROFILE. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:25:14,154 - app - WARNING - Code '183' not found in code_map for attr_no=18, schema_name=DEVICE_SIZE. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:25:14,154 - app - WARNING - Code '192' not found in code_map for attr_no=19, schema_name=PROCEDURAL_SUCCESS_RATE. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:25:14,154 - app - WARNING - Code '11' not found in code_map for attr_no=1, schema_name=ON_TABLE_CLOSURE_RATE. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:25:14,154 - app - WARNING - Code '21' not found in code_map for attr_no=2, schema_name=DEVICE_CLOSURE_RATE_6_MONTHS_AFTER_SURGERY. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:25:14,154 - app - WARNING - Code '55' not found in code_map for attr_no=5, schema_name=ATRIAL_ARRHYTHMIA_REQUIRING_SHORT_TERM_MEDICAL_MANAGEMENT. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:25:14,155 - app - WARNING - Code '84' not found in code_map for attr_no=8, schema_name=DEVICE_RELATED_THROMBUS_RATE_6_MONTHS_AFTER_PROCEDURE. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:25:14,155 - app - WARNING - Code '92' not found in code_map for attr_no=9, schema_name=LEAVE_LESS_BEHIND_BIOABSORBABLE_LESS_METAL. Available codes: ['1', '2', '3']
+2025-11-03 14:25:14,155 - app - WARNING - Code '114' not found in code_map for attr_no=11, schema_name=WIRE_FRAME_FRACTURE_RATE_WITHOUT_CLINICAL_SEQUELAE. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:25:14,155 - app - WARNING - Code '123' not found in code_map for attr_no=12, schema_name=PROCEDURE_TIME. Available codes: ['1', '2', '3']
+2025-11-03 14:25:14,155 - app - WARNING - Code '131' not found in code_map for attr_no=13, schema_name=DEVICE_PREP_TIME. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:25:14,156 - app - WARNING - Code '162' not found in code_map for attr_no=16, schema_name=IMAGING_VISABILITY_UNDER_IMAGING. Available codes: ['1', '2', '3']
+2025-11-03 14:25:14,156 - app - WARNING - Code '201' not found in code_map for attr_no=20, schema_name=STROKE_RATE_REDUCTION. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:25:14,156 - app - WARNING - Code '15' not found in code_map for attr_no=1, schema_name=ON_TABLE_CLOSURE_RATE. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:25:14,156 - app - WARNING - Code '24' not found in code_map for attr_no=2, schema_name=DEVICE_CLOSURE_RATE_6_MONTHS_AFTER_SURGERY. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:25:14,156 - app - WARNING - Code '54' not found in code_map for attr_no=5, schema_name=ATRIAL_ARRHYTHMIA_REQUIRING_SHORT_TERM_MEDICAL_MANAGEMENT. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:25:14,157 - app - WARNING - Code '81' not found in code_map for attr_no=8, schema_name=DEVICE_RELATED_THROMBUS_RATE_6_MONTHS_AFTER_PROCEDURE. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:25:14,157 - app - WARNING - Code '91' not found in code_map for attr_no=9, schema_name=LEAVE_LESS_BEHIND_BIOABSORBABLE_LESS_METAL. Available codes: ['1', '2', '3']
+2025-11-03 14:25:14,158 - app - WARNING - Code '113' not found in code_map for attr_no=11, schema_name=WIRE_FRAME_FRACTURE_RATE_WITHOUT_CLINICAL_SEQUELAE. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:25:14,158 - app - WARNING - Code '122' not found in code_map for attr_no=12, schema_name=PROCEDURE_TIME. Available codes: ['1', '2', '3']
+2025-11-03 14:25:14,158 - app - WARNING - Code '134' not found in code_map for attr_no=13, schema_name=DEVICE_PREP_TIME. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:25:14,158 - app - WARNING - Code '163' not found in code_map for attr_no=16, schema_name=IMAGING_VISABILITY_UNDER_IMAGING. Available codes: ['1', '2', '3']
+2025-11-03 14:25:14,158 - app - WARNING - Code '202' not found in code_map for attr_no=20, schema_name=STROKE_RATE_REDUCTION. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:25:14,159 - app - WARNING - Code '24' not found in code_map for attr_no=2, schema_name=DEVICE_CLOSURE_RATE_6_MONTHS_AFTER_SURGERY. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:25:14,159 - app - WARNING - Code '35' not found in code_map for attr_no=3, schema_name=DEVICE_EMBOLIZATION_RATE_DEVICE_DISLODGES. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:25:14,159 - app - WARNING - Code '83' not found in code_map for attr_no=8, schema_name=DEVICE_RELATED_THROMBUS_RATE_6_MONTHS_AFTER_PROCEDURE. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:25:14,160 - app - WARNING - Code '91' not found in code_map for attr_no=9, schema_name=LEAVE_LESS_BEHIND_BIOABSORBABLE_LESS_METAL. Available codes: ['1', '2', '3']
+2025-11-03 14:25:14,160 - app - WARNING - Code '123' not found in code_map for attr_no=12, schema_name=PROCEDURE_TIME. Available codes: ['1', '2', '3']
+2025-11-03 14:25:14,160 - app - WARNING - Code '141' not found in code_map for attr_no=14, schema_name=DELIVERY_SYSTEM_REFRESHER. Available codes: ['1', '2', '3']
+2025-11-03 14:25:14,161 - app - WARNING - Code '161' not found in code_map for attr_no=16, schema_name=IMAGING_VISABILITY_UNDER_IMAGING. Available codes: ['1', '2', '3']
+2025-11-03 14:25:14,161 - app - WARNING - Code '173' not found in code_map for attr_no=17, schema_name=DELIVERY_PROFILE. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:25:14,162 - app - WARNING - Code '191' not found in code_map for attr_no=19, schema_name=PROCEDURAL_SUCCESS_RATE. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:25:14,162 - app - WARNING - Code '203' not found in code_map for attr_no=20, schema_name=STROKE_RATE_REDUCTION. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:25:14,163 - app - WARNING - Code '23' not found in code_map for attr_no=2, schema_name=DEVICE_CLOSURE_RATE_6_MONTHS_AFTER_SURGERY. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:25:14,163 - app - WARNING - Code '31' not found in code_map for attr_no=3, schema_name=DEVICE_EMBOLIZATION_RATE_DEVICE_DISLODGES. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:25:14,163 - app - WARNING - Code '82' not found in code_map for attr_no=8, schema_name=DEVICE_RELATED_THROMBUS_RATE_6_MONTHS_AFTER_PROCEDURE. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:25:14,164 - app - WARNING - Code '93' not found in code_map for attr_no=9, schema_name=LEAVE_LESS_BEHIND_BIOABSORBABLE_LESS_METAL. Available codes: ['1', '2', '3']
+2025-11-03 14:25:14,164 - app - WARNING - Code '121' not found in code_map for attr_no=12, schema_name=PROCEDURE_TIME. Available codes: ['1', '2', '3']
+2025-11-03 14:25:14,164 - app - WARNING - Code '143' not found in code_map for attr_no=14, schema_name=DELIVERY_SYSTEM_REFRESHER. Available codes: ['1', '2', '3']
+2025-11-03 14:25:14,165 - app - WARNING - Code '162' not found in code_map for attr_no=16, schema_name=IMAGING_VISABILITY_UNDER_IMAGING. Available codes: ['1', '2', '3']
+2025-11-03 14:25:14,165 - app - WARNING - Code '172' not found in code_map for attr_no=17, schema_name=DELIVERY_PROFILE. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:25:14,166 - app - WARNING - Code '194' not found in code_map for attr_no=19, schema_name=PROCEDURAL_SUCCESS_RATE. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:25:14,166 - app - WARNING - Code '204' not found in code_map for attr_no=20, schema_name=STROKE_RATE_REDUCTION. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:25:14,592 - app - INFO - Converted to long format: 3598 rows and 24 columns
+2025-11-03 14:25:14,593 - app - INFO - Attribute columns in long format (20): ['RATE_OF_ANY_ATRIAL_ARRHYTHMIA_REQUIRING_PROCEDURAL_INTERVENTION_POST_IMPLANT', 'ATRIAL_ARRHYTHMIA_REQUIRING_SHORT_TERM_MEDICAL_MANAGEMENT', 'DEVICE_FRAME_RELATED_CARDIAC_INJURY_RATE_EROSION_OR_PERFORATION_POST_IMPLANT', 'TIME_TO_COMPLETE_ENDOTHELIALIZATION', 'LEAVE_LESS_BEHIND_BIOABSORBABLE_LESS_METAL', 'PROCEDURE_TIME', 'DEVICE_PREP_TIME', 'DELIVERY_SYSTEM_REFRESHER', 'AVERAGE_NUMBER_OF_DEVICE_REPOSITIONS', 'IMAGING_VISABILITY_UNDER_IMAGING']...
+2025-11-03 14:25:14,595 - app - INFO -   Column 'RATE_OF_ANY_ATRIAL_ARRHYTHMIA_REQUIRING_PROCEDURAL_INTERVENTION_POST_IMPLANT': 5 unique values, sample: ['45', '44', '42', '41', '43']
+2025-11-03 14:25:14,596 - app - INFO -   Column 'ATRIAL_ARRHYTHMIA_REQUIRING_SHORT_TERM_MEDICAL_MANAGEMENT': 5 unique values, sample: ['52', '53', '55', '54', '51']
+2025-11-03 14:25:14,598 - app - INFO -   Column 'DEVICE_FRAME_RELATED_CARDIAC_INJURY_RATE_EROSION_OR_PERFORATION_POST_IMPLANT': 5 unique values, sample: ['63', '65', '64', '61', '62']
+2025-11-03 14:25:14,599 - app - INFO -   Column 'TIME_TO_COMPLETE_ENDOTHELIALIZATION': 5 unique values, sample: ['71', '72', '75', '73', '74']
+2025-11-03 14:25:14,601 - app - INFO -   Column 'LEAVE_LESS_BEHIND_BIOABSORBABLE_LESS_METAL': 3 unique values, sample: ['93', '92', '91']
+2025-11-03 14:25:14,602 - app - INFO - Using levels from data for 'ON_TABLE_CLOSURE_RATE': 5 levels
+2025-11-03 14:25:14,603 - app - INFO - Using levels from data for 'DEVICE_CLOSURE_RATE_6_MONTHS_AFTER_SURGERY': 4 levels
+2025-11-03 14:25:14,604 - app - INFO - Using levels from data for 'DEVICE_EMBOLIZATION_RATE_DEVICE_DISLODGES': 6 levels
+2025-11-03 14:25:14,605 - app - INFO - Using levels from data for 'RATE_OF_ANY_ATRIAL_ARRHYTHMIA_REQUIRING_PROCEDURAL_INTERVENTION_POST_IMPLANT': 5 levels
+2025-11-03 14:25:14,606 - app - INFO - Using levels from data for 'ATRIAL_ARRHYTHMIA_REQUIRING_SHORT_TERM_MEDICAL_MANAGEMENT': 5 levels
+2025-11-03 14:25:14,607 - app - INFO - Using levels from data for 'DEVICE_FRAME_RELATED_CARDIAC_INJURY_RATE_EROSION_OR_PERFORATION_POST_IMPLANT': 5 levels
+2025-11-03 14:25:14,608 - app - INFO - Using levels from data for 'TIME_TO_COMPLETE_ENDOTHELIALIZATION': 5 levels
+2025-11-03 14:25:14,609 - app - INFO - Using levels from data for 'DEVICE_RELATED_THROMBUS_RATE_6_MONTHS_AFTER_PROCEDURE': 5 levels
+2025-11-03 14:25:14,610 - app - INFO - Using levels from data for 'LEAVE_LESS_BEHIND_BIOABSORBABLE_LESS_METAL': 3 levels
+2025-11-03 14:25:14,611 - app - INFO - Using levels from data for 'DEVICE_CROSSABILITY': 4 levels
+2025-11-03 14:25:14,612 - app - INFO - Using levels from data for 'WIRE_FRAME_FRACTURE_RATE_WITHOUT_CLINICAL_SEQUELAE':6 levels
+2025-11-03 14:25:14,613 - app - INFO - Using levels from data for 'PROCEDURE_TIME': 3 levels
+2025-11-03 14:25:14,614 - app - INFO - Using levels from data for 'DEVICE_PREP_TIME': 4 levels
+2025-11-03 14:25:14,615 - app - INFO - Using levels from data for 'DELIVERY_SYSTEM_REFRESHER': 3 levels
+2025-11-03 14:25:14,616 - app - INFO - Using levels from data for 'AVERAGE_NUMBER_OF_DEVICE_REPOSITIONS': 4 levels
+2025-11-03 14:25:14,618 - app - INFO - Using levels from data for 'IMAGING_VISABILITY_UNDER_IMAGING': 3 levels
+2025-11-03 14:25:14,619 - app - INFO - Using levels from data for 'DELIVERY_PROFILE': 4 levels
+2025-11-03 14:25:14,620 - app - INFO - Using levels from data for 'DEVICE_SIZE': 4 levels
+2025-11-03 14:25:14,621 - app - INFO - Using levels from data for 'PROCEDURAL_SUCCESS_RATE': 4 levels
+2025-11-03 14:25:14,622 - app - INFO - Using levels from data for 'STROKE_RATE_REDUCTION': 4 levels
+2025-11-03 14:25:14,846 - app - INFO - Design matrix: 3598 rows × 87 columns
+2025-11-03 14:25:14,875 - app - INFO - Design matrix rank: 87 (columns: 87)
+2025-11-03 14:25:14,915 - app - INFO - Fitting model with Newton-Raphson...
+2025-11-03 14:25:15,006 - app - INFO - Model estimated successfully. Log-likelihood: -2187.92
+INFO:     127.0.0.1:58345 - "POST /estimate_from_survey_export HTTP/1.1" 200 OK
+WARNING:  WatchFiles detected changes in 'app.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2025-11-03 14:27:23,121 - app - INFO - Conjoint Analysis API shutting down
+INFO:     Application shutdown complete.
+INFO:     Finished server process [29000]
+WARNING:  WatchFiles detected changes in 'app.py'. Reloading...
+Process SpawnProcess-4:
+Traceback (most recent call last):
+  File "C:\Users\LukeBorglin\AppData\Local\Programs\Python\Python313\Lib\multiprocessing\process.py", line 313, in _bootstrap
+    self.run()
+    ~~~~~~~~^^
+  File "C:\Users\LukeBorglin\AppData\Local\Programs\Python\Python313\Lib\multiprocessing\process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\LukeBorglin\Desktop\Apps\jaice-dashboard\conjoint-backend\.venv\Lib\site-packages\uvicorn\_subprocess.py", line 73, in subprocess_started
+    sys.stdin = os.fdopen(stdin_fileno)  # pragma: full coverage
+                ~~~~~~~~~^^^^^^^^^^^^^^
+  File "<frozen os>", line 1069, in fdopen
+  File "<frozen codecs>", line 312, in __init__
+KeyboardInterrupt
+C:\Users\LukeBorglin\Desktop\Apps\jaice-dashboard\conjoint-backend\.venv\Lib\site-packages\pydantic\_internal\_fields.py:172: UserWarning: Field name "schema" in "EstimateResponse" shadows an attribute in parent "BaseModel"
+  warnings.warn(
+INFO:     Started server process [25244]
+INFO:     Waiting for application startup.
+2025-11-03 14:27:26,244 - app - INFO - ============================================================
+2025-11-03 14:27:26,244 - app - INFO - Conjoint Analysis API starting up
+2025-11-03 14:27:26,245 - app - INFO - Version: 0.4.0
+2025-11-03 14:27:26,245 - app - INFO - Max file size: 50MB
+2025-11-03 14:27:26,245 - app - INFO - Allowed origins: ['http://localhost:3000', 'http://localhost:3005', 'http://localhost:5173', 'http://localhost:5174', 'http://127.0.0.1:3000', 'http://127.0.0.1:3005', 'http://127.0.0.1:5173', 'http://127.0.0.1:5174']
+2025-11-03 14:27:26,245 - app - INFO - ============================================================
+INFO:     Application startup complete.
+2025-11-03 14:28:40,301 - app - INFO - Survey export estimation request: survey.xlsx
+2025-11-03 14:28:40,305 - app - INFO - File size: 548.1KB
+2025-11-03 14:28:41,620 - app - INFO - Read survey data: 80 rows × 1122 columns
+2025-11-03 14:28:41,620 - app - INFO - Using attribute definitions from design: 20 attributes
+2025-11-03 14:28:41,621 - app - INFO - First attribute: name='ON_TABLE_CLOSURE_RATE', levels=5
+2025-11-03 14:28:41,621 - app - INFO - Parsing survey export data...
+2025-11-03 14:28:41,622 - app - INFO - Built code mapping for 20 attributes from design
+2025-11-03 14:28:41,622 - app - INFO - Sample code_map for attribute 1 (ON_TABLE_CLOSURE_RATE): {'1': '70% On-table closure rate during procedure', '2': '80% On-table closure rate during procedure', '3': '90% On-table closure rate during procedure', '4': '99% On-table closure rate during procedure', '5': 'On-table closure rate is unavailable'}
+2025-11-03 14:28:41,624 - app - INFO - Found 15 choice tasks: ['QC1_1', 'QC1_2', 'QC1_3', 'QC1_4', 'QC1_5', 'QC1_6', 'QC1_7', 'QC1_8', 'QC1_9', 'QC1_10', 'QC1_11', 'QC1_12', 'QC1_13', 'QC1_14', 'QC1_15']
+2025-11-03 14:28:41,626 - app - INFO - Detected 2 branded alternatives: ['GORE', 'PFO']
+2025-11-03 14:28:41,630 - app - WARNING - Code '45' not found in code_map for attr_no=4, schema_name=RATE_OF_ANY_ATRIAL_ARRHYTHMIA_REQUIRING_PROCEDURAL_INTERVENTION_POST_IMPLANT. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:28:41,630 - app - WARNING - Code_map contents: {'1': 'Rate of any atrial arrhythmia requiring procedural intervention post-implant: 5% of cases', '2': 'Rate of any atrial arrhythmia requiring procedural intervention post-implant: 10% of cases', '3': 'Rate of any atrial arrhythmia requiring procedural intervention post-implant: 20% of cases', '4': 'Rate of any atrial arrhythmia requiring procedural intervention post-implant: 30% of cases', '5': 'Rate of any atrial arrhythmia requiring procedural intervention post-implant is unavailable'}
+2025-11-03 14:28:41,630 - app - WARNING - Code '52' not found in code_map for attr_no=5, schema_name=ATRIAL_ARRHYTHMIA_REQUIRING_SHORT_TERM_MEDICAL_MANAGEMENT. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:28:41,631 - app - WARNING - Code_map contents: {'1': 'Rate of atrial arrhythmia requiring short-term medical management: 5% of cases', '2': 'Rate of atrial arrhythmia requiring short-term medical management: 3% of cases', '3': 'Rate of atrial arrhythmia requiring short-term medical management: 1% of cases', '4': 'Rate of atrial arrhythmia requiring short-term medical management: 0.5% of cases', '5': 'Rate of atrial arrhythmia requiring short-term medical management is unavailable'}
+2025-11-03 14:28:41,631 - app - WARNING - Code '63' not found in code_map for attr_no=6, schema_name=DEVICE_FRAME_RELATED_CARDIAC_INJURY_RATE_EROSION_OR_PERFORATION_POST_IMPLANT. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:28:41,632 - app - WARNING - Code_map contents: {'1': 'Device Frame-Related Cardiac Injury Rate (Erosion or Perforation) Post-Implant: 1 in 1,000 cases', '2': 'Device Frame-Related Cardiac Injury Rate (Erosion or Perforation) Post-Implant: 1 in 10,000 cases', '3': 'Device Frame-Related Cardiac Injury Rate (Erosion or Perforation) Post-Implant: 1 in 100,000 cases', '4': 'Device Frame-Related Cardiac Injury Rate (Erosion or Perforation) Post-Implant: 1 in 150,000 cases', '5': 'Device Frame-Related Cardiac Injury Rate (Erosion or Perforation) Post-Implant is unavailable'}
+2025-11-03 14:28:41,632 - app - WARNING - Code '71' not found in code_map for attr_no=7, schema_name=TIME_TO_COMPLETE_ENDOTHELIALIZATION. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:28:41,633 - app - WARNING - Code_map contents: {'1': 'Time to Complete Endothelialization: 1 month', '2':'Time to Complete Endothelialization: 6 months', '3': 'Time to Complete Endothelialization: 12 months', '4': 'Time to Complete Endothelialization: 18 months', '5': 'Time to Complete Endothelialization is pending'}
+2025-11-03 14:28:41,633 - app - WARNING - Code '93' not found in code_map for attr_no=9, schema_name=LEAVE_LESS_BEHIND_BIOABSORBABLE_LESS_METAL. Available codes: ['1', '2', '3']
+2025-11-03 14:28:41,633 - app - WARNING - Code_map contents: {'1': 'Leave Less Behind (bioabsorbable/less metal): Standard nitinol-based', '2': 'Leave Less Behind (bioabsorbable/less metal): 50% absorbable', '3': 'Leave Less Behind (bioabsorbable/less metal): Fully absorbable'}
+2025-11-03 14:28:41,634 - app - WARNING - Code '121' not found in code_map for attr_no=12, schema_name=PROCEDURE_TIME. Available codes: ['1', '2', '3']
+2025-11-03 14:28:41,634 - app - WARNING - Code_map contents: {'1': 'Slower than average procedure time', '2': 'Average procedure time', '3': 'Quicker than average procedure time'}
+2025-11-03 14:28:41,634 - app - WARNING - Code '132' not found in code_map for attr_no=13, schema_name=DEVICE_PREP_TIME. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:28:41,635 - app - WARNING - Code_map contents: {'1': 'Device prep time in 30 seconds', '2': 'Device prep time in 1 min', '3': 'Device prep time in 3 mins', '4': 'Device prep time in 6 mins'}
+2025-11-03 14:28:41,635 - app - WARNING - Code '141' not found in code_map for attr_no=14, schema_name=DELIVERY_SYSTEM_REFRESHER. Available codes: ['1', '2', '3']
+2025-11-03 14:28:41,636 - app - WARNING - Code_map contents: {'1': 'Requires refresher on delivery system steps each time', '2': 'Requires brief refresher on delivery system steps', '3': 'No delivery system refresher needed, intuitive delivery system steps'}
+2025-11-03 14:28:41,636 - app - WARNING - Code '153' not found in code_map for attr_no=15, schema_name=AVERAGE_NUMBER_OF_DEVICE_REPOSITIONS. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:28:41,636 - app - WARNING - Code_map contents: {'1': 'On average 5 device repositions are needed', '2': 'On average 3 device repositions are needed', '3': 'On average 1 device reposition is needed', '4': 'No device repositioning needed'}
+2025-11-03 14:28:41,637 - app - WARNING - Code '161' not found in code_map for attr_no=16, schema_name=IMAGING_VISABILITY_UNDER_IMAGING. Available codes: ['1', '2', '3']
+2025-11-03 14:28:41,637 - app - WARNING - Code_map contents: {'1': 'Difficult to visualize under imaging', '2': 'Moderate visability under imaging', '3': 'Clearly visible under imaging'}
+2025-11-03 14:28:41,637 - app - WARNING - Code '44' not found in code_map for attr_no=4, schema_name=RATE_OF_ANY_ATRIAL_ARRHYTHMIA_REQUIRING_PROCEDURAL_INTERVENTION_POST_IMPLANT. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:28:41,638 - app - WARNING - Code_map contents: {'1': 'Rate of any atrial arrhythmia requiring procedural intervention post-implant: 5% of cases', '2': 'Rate of any atrial arrhythmia requiring procedural intervention post-implant: 10% of cases', '3': 'Rate of any atrial arrhythmia requiring procedural intervention post-implant: 20% of cases', '4': 'Rate of any atrial arrhythmia requiring procedural intervention post-implant: 30% of cases', '5': 'Rate of any atrial arrhythmia requiring procedural intervention post-implant is unavailable'}
+2025-11-03 14:28:41,638 - app - WARNING - Code '53' not found in code_map for attr_no=5, schema_name=ATRIAL_ARRHYTHMIA_REQUIRING_SHORT_TERM_MEDICAL_MANAGEMENT. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:28:41,638 - app - WARNING - Code_map contents: {'1': 'Rate of atrial arrhythmia requiring short-term medical management: 5% of cases', '2': 'Rate of atrial arrhythmia requiring short-term medical management: 3% of cases', '3': 'Rate of atrial arrhythmia requiring short-term medical management: 1% of cases', '4': 'Rate of atrial arrhythmia requiring short-term medical management: 0.5% of cases', '5': 'Rate of atrial arrhythmia requiring short-term medical management is unavailable'}
+2025-11-03 14:28:41,639 - app - WARNING - Code '65' not found in code_map for attr_no=6, schema_name=DEVICE_FRAME_RELATED_CARDIAC_INJURY_RATE_EROSION_OR_PERFORATION_POST_IMPLANT. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:28:41,639 - app - WARNING - Code_map contents: {'1': 'Device Frame-Related Cardiac Injury Rate (Erosion or Perforation) Post-Implant: 1 in 1,000 cases', '2': 'Device Frame-Related Cardiac Injury Rate (Erosion or Perforation) Post-Implant: 1 in 10,000 cases', '3': 'Device Frame-Related Cardiac Injury Rate (Erosion or Perforation) Post-Implant: 1 in 100,000 cases', '4': 'Device Frame-Related Cardiac Injury Rate (Erosion or Perforation) Post-Implant: 1 in 150,000 cases', '5': 'Device Frame-Related Cardiac Injury Rate (Erosion or Perforation) Post-Implant is unavailable'}
+2025-11-03 14:28:41,639 - app - WARNING - Code '72' not found in code_map for attr_no=7, schema_name=TIME_TO_COMPLETE_ENDOTHELIALIZATION. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:28:41,640 - app - WARNING - Code_map contents: {'1': 'Time to Complete Endothelialization: 1 month', '2':'Time to Complete Endothelialization: 6 months', '3': 'Time to Complete Endothelialization: 12 months', '4': 'Time to Complete Endothelialization: 18 months', '5': 'Time to Complete Endothelialization is pending'}
+2025-11-03 14:28:41,640 - app - WARNING - Code '92' not found in code_map for attr_no=9, schema_name=LEAVE_LESS_BEHIND_BIOABSORBABLE_LESS_METAL. Available codes: ['1', '2', '3']
+2025-11-03 14:28:41,640 - app - WARNING - Code_map contents: {'1': 'Leave Less Behind (bioabsorbable/less metal): Standard nitinol-based', '2': 'Leave Less Behind (bioabsorbable/less metal): 50% absorbable', '3': 'Leave Less Behind (bioabsorbable/less metal): Fully absorbable'}
+2025-11-03 14:28:41,641 - app - WARNING - Code '122' not found in code_map for attr_no=12, schema_name=PROCEDURE_TIME. Available codes: ['1', '2', '3']
+2025-11-03 14:28:41,641 - app - WARNING - Code_map contents: {'1': 'Slower than average procedure time', '2': 'Average procedure time', '3': 'Quicker than average procedure time'}
+2025-11-03 14:28:41,641 - app - WARNING - Code '131' not found in code_map for attr_no=13, schema_name=DEVICE_PREP_TIME. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:28:41,641 - app - WARNING - Code_map contents: {'1': 'Device prep time in 30 seconds', '2': 'Device prep time in 1 min', '3': 'Device prep time in 3 mins', '4': 'Device prep time in 6 mins'}
+2025-11-03 14:28:41,642 - app - WARNING - Code '142' not found in code_map for attr_no=14, schema_name=DELIVERY_SYSTEM_REFRESHER. Available codes: ['1', '2', '3']
+2025-11-03 14:28:41,642 - app - WARNING - Code_map contents: {'1': 'Requires refresher on delivery system steps each time', '2': 'Requires brief refresher on delivery system steps', '3': 'No delivery system refresher needed, intuitive delivery system steps'}
+2025-11-03 14:28:41,643 - app - WARNING - Code '152' not found in code_map for attr_no=15, schema_name=AVERAGE_NUMBER_OF_DEVICE_REPOSITIONS. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:28:41,643 - app - WARNING - Code_map contents: {'1': 'On average 5 device repositions are needed', '2': 'On average 3 device repositions are needed', '3': 'On average 1 device reposition is needed', '4': 'No device repositioning needed'}
+2025-11-03 14:28:41,643 - app - WARNING - Code '162' not found in code_map for attr_no=16, schema_name=IMAGING_VISABILITY_UNDER_IMAGING. Available codes: ['1', '2', '3']
+2025-11-03 14:28:41,644 - app - WARNING - Code_map contents: {'1': 'Difficult to visualize under imaging', '2': 'Moderate visability under imaging', '3': 'Clearly visible under imaging'}
+2025-11-03 14:28:41,644 - app - WARNING - Code '13' not found in code_map for attr_no=1, schema_name=ON_TABLE_CLOSURE_RATE. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:28:41,644 - app - WARNING - Code_map contents: {'1': '70% On-table closure rate during procedure', '2': '80% On-table closure rate during procedure', '3': '90% On-table closure rate during procedure', '4': '99% On-table closure rate during procedure', '5': 'On-table closure rate is unavailable'}
+2025-11-03 14:28:41,644 - app - WARNING - Code '35' not found in code_map for attr_no=3, schema_name=DEVICE_EMBOLIZATION_RATE_DEVICE_DISLODGES. Available codes: ['1', '2', '3', '4', '5', '6']
+2025-11-03 14:28:41,645 - app - WARNING - Code_map contents: {'1': 'Device Embolization Rate (Device Dislodges): 1 in 100 cases', '2': 'Device Embolization Rate (Device Dislodges): 1 in 250 cases', '3': 'Device Embolization Rate (Device Dislodges): 1 in 500 cases', '4': 'Device Embolization Rate (Device Dislodges): 1 in 1,000 cases', '5': 'Device Embolization Rate (Device Dislodges): 1 in 1,250 cases'}
+2025-11-03 14:28:41,645 - app - WARNING - Code '44' not found in code_map for attr_no=4, schema_name=RATE_OF_ANY_ATRIAL_ARRHYTHMIA_REQUIRING_PROCEDURAL_INTERVENTION_POST_IMPLANT. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:28:41,645 - app - WARNING - Code_map contents: {'1': 'Rate of any atrial arrhythmia requiring procedural intervention post-implant: 5% of cases', '2': 'Rate of any atrial arrhythmia requiring procedural intervention post-implant: 10% of cases', '3': 'Rate of any atrial arrhythmia requiring procedural intervention post-implant: 20% of cases', '4': 'Rate of any atrial arrhythmia requiring procedural intervention post-implant: 30% of cases', '5': 'Rate of any atrial arrhythmia requiring procedural intervention post-implant is unavailable'}
+2025-11-03 14:28:41,645 - app - WARNING - Code '64' not found in code_map for attr_no=6, schema_name=DEVICE_FRAME_RELATED_CARDIAC_INJURY_RATE_EROSION_OR_PERFORATION_POST_IMPLANT. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:28:41,646 - app - WARNING - Code_map contents: {'1': 'Device Frame-Related Cardiac Injury Rate (Erosion or Perforation) Post-Implant: 1 in 1,000 cases', '2': 'Device Frame-Related Cardiac Injury Rate (Erosion or Perforation) Post-Implant: 1 in 10,000 cases', '3': 'Device Frame-Related Cardiac Injury Rate (Erosion or Perforation) Post-Implant: 1 in 100,000 cases', '4': 'Device Frame-Related Cardiac Injury Rate (Erosion or Perforation) Post-Implant: 1 in 150,000 cases', '5': 'Device Frame-Related Cardiac Injury Rate (Erosion or Perforation) Post-Implant is unavailable'}
+2025-11-03 14:28:41,646 - app - WARNING - Code '104' not found in code_map for attr_no=10, schema_name=DEVICE_CROSSABILITY. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:28:41,646 - app - WARNING - Code_map contents: {'1': 'Device is not crossable', '2': 'Device can be crossed, but with significant effort', '3': 'Device can be crossed, but with moderate effort', '4': 'Device can be crossed easily'}
+2025-11-03 14:28:41,647 - app - WARNING - Code '143' not found in code_map for attr_no=14, schema_name=DELIVERY_SYSTEM_REFRESHER. Available codes: ['1', '2', '3']
+2025-11-03 14:28:41,647 - app - WARNING - Code_map contents: {'1': 'Requires refresher on delivery system steps each time', '2': 'Requires brief refresher on delivery system steps', '3': 'No delivery system refresher needed, intuitive delivery system steps'}
+2025-11-03 14:28:41,647 - app - WARNING - Code '152' not found in code_map for attr_no=15, schema_name=AVERAGE_NUMBER_OF_DEVICE_REPOSITIONS. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:28:41,648 - app - WARNING - Code_map contents: {'1': 'On average 5 device repositions are needed', '2': 'On average 3 device repositions are needed', '3': 'On average 1 device reposition is needed', '4': 'No device repositioning needed'}
+2025-11-03 14:28:41,648 - app - WARNING - Code '171' not found in code_map for attr_no=17, schema_name=DELIVERY_PROFILE. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:28:41,648 - app - WARNING - Code_map contents: {'1': 'Delivery Profile: 5 French', '2': 'Delivery Profile: 9 French', '3': 'Delivery Profile: 12 French', '4': 'Delivery Profile: 15 French'}
+2025-11-03 14:28:41,648 - app - WARNING - Code '184' not found in code_map for attr_no=18, schema_name=DEVICE_SIZE. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:28:41,648 - app - WARNING - Code_map contents: {'1': 'Device size: up to 25mm', '2': 'Device size: up to 30mm', '3': 'Device size: up to 35mm', '4': 'Device size: up to 40mm'}
+2025-11-03 14:28:41,649 - app - WARNING - Code '193' not found in code_map for attr_no=19, schema_name=PROCEDURAL_SUCCESS_RATE. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:28:41,649 - app - WARNING - Code_map contents: {'1': 'Procedural Success Rate: 90%', '2': 'Procedural Success Rate: 95%', '3': 'Procedural Success Rate: 99%', '4': 'Procedural Success Rate is unknown'}
+2025-11-03 14:28:41,649 - app - WARNING - Code '14' not found in code_map for attr_no=1, schema_name=ON_TABLE_CLOSURE_RATE. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:28:41,650 - app - WARNING - Code_map contents: {'1': '70% On-table closure rate during procedure', '2': '80% On-table closure rate during procedure', '3': '90% On-table closure rate during procedure', '4': '99% On-table closure rate during procedure', '5': 'On-table closure rate is unavailable'}
+2025-11-03 14:28:41,650 - app - WARNING - Code '36' not found in code_map for attr_no=3, schema_name=DEVICE_EMBOLIZATION_RATE_DEVICE_DISLODGES. Available codes: ['1', '2', '3', '4', '5', '6']
+2025-11-03 14:28:41,650 - app - WARNING - Code_map contents: {'1': 'Device Embolization Rate (Device Dislodges): 1 in 100 cases', '2': 'Device Embolization Rate (Device Dislodges): 1 in 250 cases', '3': 'Device Embolization Rate (Device Dislodges): 1 in 500 cases', '4': 'Device Embolization Rate (Device Dislodges): 1 in 1,000 cases', '5': 'Device Embolization Rate (Device Dislodges): 1 in 1,250 cases'}
+2025-11-03 14:28:41,651 - app - WARNING - Code '42' not found in code_map for attr_no=4, schema_name=RATE_OF_ANY_ATRIAL_ARRHYTHMIA_REQUIRING_PROCEDURAL_INTERVENTION_POST_IMPLANT. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:28:41,651 - app - WARNING - Code_map contents: {'1': 'Rate of any atrial arrhythmia requiring procedural intervention post-implant: 5% of cases', '2': 'Rate of any atrial arrhythmia requiring procedural intervention post-implant: 10% of cases', '3': 'Rate of any atrial arrhythmia requiring procedural intervention post-implant: 20% of cases', '4': 'Rate of any atrial arrhythmia requiring procedural intervention post-implant: 30% of cases', '5': 'Rate of any atrial arrhythmia requiring procedural intervention post-implant is unavailable'}
+2025-11-03 14:28:41,651 - app - WARNING - Code '65' not found in code_map for attr_no=6, schema_name=DEVICE_FRAME_RELATED_CARDIAC_INJURY_RATE_EROSION_OR_PERFORATION_POST_IMPLANT. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:28:41,652 - app - WARNING - Code_map contents: {'1': 'Device Frame-Related Cardiac Injury Rate (Erosion or Perforation) Post-Implant: 1 in 1,000 cases', '2': 'Device Frame-Related Cardiac Injury Rate (Erosion or Perforation) Post-Implant: 1 in 10,000 cases', '3': 'Device Frame-Related Cardiac Injury Rate (Erosion or Perforation) Post-Implant: 1 in 100,000 cases', '4': 'Device Frame-Related Cardiac Injury Rate (Erosion or Perforation) Post-Implant: 1 in 150,000 cases', '5': 'Device Frame-Related Cardiac Injury Rate (Erosion or Perforation) Post-Implant is unavailable'}
+2025-11-03 14:28:41,652 - app - WARNING - Code '103' not found in code_map for attr_no=10, schema_name=DEVICE_CROSSABILITY. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:28:41,653 - app - WARNING - Code_map contents: {'1': 'Device is not crossable', '2': 'Device can be crossed, but with significant effort', '3': 'Device can be crossed, but with moderate effort', '4': 'Device can be crossed easily'}
+2025-11-03 14:28:41,653 - app - WARNING - Code '142' not found in code_map for attr_no=14, schema_name=DELIVERY_SYSTEM_REFRESHER. Available codes: ['1', '2', '3']
+2025-11-03 14:28:41,653 - app - WARNING - Code_map contents: {'1': 'Requires refresher on delivery system steps each time', '2': 'Requires brief refresher on delivery system steps', '3': 'No delivery system refresher needed, intuitive delivery system steps'}
+2025-11-03 14:28:41,653 - app - WARNING - Code '151' not found in code_map for attr_no=15, schema_name=AVERAGE_NUMBER_OF_DEVICE_REPOSITIONS. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:28:41,654 - app - WARNING - Code_map contents: {'1': 'On average 5 device repositions are needed', '2': 'On average 3 device repositions are needed', '3': 'On average 1 device reposition is needed', '4': 'No device repositioning needed'}
+2025-11-03 14:28:41,654 - app - WARNING - Code '174' not found in code_map for attr_no=17, schema_name=DELIVERY_PROFILE. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:28:41,654 - app - WARNING - Code_map contents: {'1': 'Delivery Profile: 5 French', '2': 'Delivery Profile: 9 French', '3': 'Delivery Profile: 12 French', '4': 'Delivery Profile: 15 French'}
+2025-11-03 14:28:41,654 - app - WARNING - Code '183' not found in code_map for attr_no=18, schema_name=DEVICE_SIZE. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:28:41,654 - app - WARNING - Code_map contents: {'1': 'Device size: up to 25mm', '2': 'Device size: up to 30mm', '3': 'Device size: up to 35mm', '4': 'Device size: up to 40mm'}
+2025-11-03 14:28:41,655 - app - WARNING - Code '192' not found in code_map for attr_no=19, schema_name=PROCEDURAL_SUCCESS_RATE. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:28:41,655 - app - WARNING - Code_map contents: {'1': 'Procedural Success Rate: 90%', '2': 'Procedural Success Rate: 95%', '3': 'Procedural Success Rate: 99%', '4': 'Procedural Success Rate is unknown'}
+2025-11-03 14:28:41,655 - app - WARNING - Code '11' not found in code_map for attr_no=1, schema_name=ON_TABLE_CLOSURE_RATE. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:28:41,655 - app - WARNING - Code_map contents: {'1': '70% On-table closure rate during procedure', '2': '80% On-table closure rate during procedure', '3': '90% On-table closure rate during procedure', '4': '99% On-table closure rate during procedure', '5': 'On-table closure rate is unavailable'}
+2025-11-03 14:28:41,655 - app - WARNING - Code '21' not found in code_map for attr_no=2, schema_name=DEVICE_CLOSURE_RATE_6_MONTHS_AFTER_SURGERY. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:28:41,656 - app - WARNING - Code_map contents: {'1': '80% Device Closure Rate (6 months after surgery)', '2': '90% Device Closure Rate (6 months after surgery)', '3': '99% Device Closure Rate (6 months after surgery)', '4': 'Device Closure Rate (6 months after surgery) is unavailable'}
+2025-11-03 14:28:41,656 - app - WARNING - Code '55' not found in code_map for attr_no=5, schema_name=ATRIAL_ARRHYTHMIA_REQUIRING_SHORT_TERM_MEDICAL_MANAGEMENT. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:28:41,656 - app - WARNING - Code_map contents: {'1': 'Rate of atrial arrhythmia requiring short-term medical management: 5% of cases', '2': 'Rate of atrial arrhythmia requiring short-term medical management: 3% of cases', '3': 'Rate of atrial arrhythmia requiring short-term medical management: 1% of cases', '4': 'Rate of atrial arrhythmia requiring short-term medical management: 0.5% of cases', '5': 'Rate of atrial arrhythmia requiring short-term medical management is unavailable'}
+2025-11-03 14:28:41,656 - app - WARNING - Code '84' not found in code_map for attr_no=8, schema_name=DEVICE_RELATED_THROMBUS_RATE_6_MONTHS_AFTER_PROCEDURE. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:28:41,656 - app - WARNING - Code_map contents: {'1': 'Device-Related Thrombus Rate (6 months after procedure): 0.5% of cases', '2': 'Device-Related Thrombus Rate (6 months after procedure): 2.5% of cases', '3': 'Device-Related Thrombus Rate (6 months after procedure): 5% of cases', '4': 'Device-Related Thrombus Rate (6 months after procedure):7.5% of cases', '5': 'Device-Related Thrombus Rate (6 months after procedure) is unavailable'}
+2025-11-03 14:28:41,657 - app - WARNING - Code '92' not found in code_map for attr_no=9, schema_name=LEAVE_LESS_BEHIND_BIOABSORBABLE_LESS_METAL. Available codes: ['1', '2', '3']
+2025-11-03 14:28:41,657 - app - WARNING - Code_map contents: {'1': 'Leave Less Behind (bioabsorbable/less metal): Standard nitinol-based', '2': 'Leave Less Behind (bioabsorbable/less metal): 50% absorbable', '3': 'Leave Less Behind (bioabsorbable/less metal): Fully absorbable'}
+2025-11-03 14:28:41,657 - app - WARNING - Code '114' not found in code_map for attr_no=11, schema_name=WIRE_FRAME_FRACTURE_RATE_WITHOUT_CLINICAL_SEQUELAE. Available codes: ['1', '2', '3', '4', '5', '6']
+2025-11-03 14:28:41,658 - app - WARNING - Code_map contents: {'1': 'Wire Frame Fracture Rate without clinical sequelae:0% of cases', '2': 'Wire Frame Fracture Rate without clinical sequelae: 5% of cases', '3': 'Wire Frame Fracture Rate without clinical sequelae: 15% of cases', '4': 'Wire Frame Fracture Rate without clinical sequelae: 25% of cases', '5': 'Wire Frame Fracture Rate without clinical sequelae: 40% of cases'}
+2025-11-03 14:28:41,658 - app - WARNING - Code '123' not found in code_map for attr_no=12, schema_name=PROCEDURE_TIME. Available codes: ['1', '2', '3']
+2025-11-03 14:28:41,658 - app - WARNING - Code_map contents: {'1': 'Slower than average procedure time', '2': 'Average procedure time', '3': 'Quicker than average procedure time'}
+2025-11-03 14:28:41,658 - app - WARNING - Code '131' not found in code_map for attr_no=13, schema_name=DEVICE_PREP_TIME. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:28:41,659 - app - WARNING - Code_map contents: {'1': 'Device prep time in 30 seconds', '2': 'Device prep time in 1 min', '3': 'Device prep time in 3 mins', '4': 'Device prep time in 6 mins'}
+2025-11-03 14:28:41,659 - app - WARNING - Code '162' not found in code_map for attr_no=16, schema_name=IMAGING_VISABILITY_UNDER_IMAGING. Available codes: ['1', '2', '3']
+2025-11-03 14:28:41,659 - app - WARNING - Code_map contents: {'1': 'Difficult to visualize under imaging', '2': 'Moderate visability under imaging', '3': 'Clearly visible under imaging'}
+2025-11-03 14:28:41,660 - app - WARNING - Code '201' not found in code_map for attr_no=20, schema_name=STROKE_RATE_REDUCTION. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:28:41,660 - app - WARNING - Code_map contents: {'1': 'Stroke rate reduction: 59% relative reduction for recurrent cryptogenic stroke', '2': 'Stroke rate reduction: 79% relative reduction for recurrent cryptogenic stroke', '3': 'Stroke rate reduction: 99% relative reduction for recurrent cryptogenic stroke', '4': 'Stroke rate reduction is unknown'}
+2025-11-03 14:28:41,661 - app - WARNING - Code '15' not found in code_map for attr_no=1, schema_name=ON_TABLE_CLOSURE_RATE. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:28:41,661 - app - WARNING - Code_map contents: {'1': '70% On-table closure rate during procedure', '2': '80% On-table closure rate during procedure', '3': '90% On-table closure rate during procedure', '4': '99% On-table closure rate during procedure', '5': 'On-table closure rate is unavailable'}
+2025-11-03 14:28:41,661 - app - WARNING - Code '24' not found in code_map for attr_no=2, schema_name=DEVICE_CLOSURE_RATE_6_MONTHS_AFTER_SURGERY. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:28:41,661 - app - WARNING - Code_map contents: {'1': '80% Device Closure Rate (6 months after surgery)', '2': '90% Device Closure Rate (6 months after surgery)', '3': '99% Device Closure Rate (6 months after surgery)', '4': 'Device Closure Rate (6 months after surgery) is unavailable'}
+2025-11-03 14:28:41,662 - app - WARNING - Code '54' not found in code_map for attr_no=5, schema_name=ATRIAL_ARRHYTHMIA_REQUIRING_SHORT_TERM_MEDICAL_MANAGEMENT. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:28:41,662 - app - WARNING - Code_map contents: {'1': 'Rate of atrial arrhythmia requiring short-term medical management: 5% of cases', '2': 'Rate of atrial arrhythmia requiring short-term medical management: 3% of cases', '3': 'Rate of atrial arrhythmia requiring short-term medical management: 1% of cases', '4': 'Rate of atrial arrhythmia requiring short-term medical management: 0.5% of cases', '5': 'Rate of atrial arrhythmia requiring short-term medical management is unavailable'}
+2025-11-03 14:28:41,662 - app - WARNING - Code '81' not found in code_map for attr_no=8, schema_name=DEVICE_RELATED_THROMBUS_RATE_6_MONTHS_AFTER_PROCEDURE. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:28:41,662 - app - WARNING - Code_map contents: {'1': 'Device-Related Thrombus Rate (6 months after procedure): 0.5% of cases', '2': 'Device-Related Thrombus Rate (6 months after procedure): 2.5% of cases', '3': 'Device-Related Thrombus Rate (6 months after procedure): 5% of cases', '4': 'Device-Related Thrombus Rate (6 months after procedure):7.5% of cases', '5': 'Device-Related Thrombus Rate (6 months after procedure) is unavailable'}
+2025-11-03 14:28:41,663 - app - WARNING - Code '91' not found in code_map for attr_no=9, schema_name=LEAVE_LESS_BEHIND_BIOABSORBABLE_LESS_METAL. Available codes: ['1', '2', '3']
+2025-11-03 14:28:41,663 - app - WARNING - Code_map contents: {'1': 'Leave Less Behind (bioabsorbable/less metal): Standard nitinol-based', '2': 'Leave Less Behind (bioabsorbable/less metal): 50% absorbable', '3': 'Leave Less Behind (bioabsorbable/less metal): Fully absorbable'}
+2025-11-03 14:28:41,663 - app - WARNING - Code '113' not found in code_map for attr_no=11, schema_name=WIRE_FRAME_FRACTURE_RATE_WITHOUT_CLINICAL_SEQUELAE. Available codes: ['1', '2', '3', '4', '5', '6']
+2025-11-03 14:28:41,663 - app - WARNING - Code_map contents: {'1': 'Wire Frame Fracture Rate without clinical sequelae:0% of cases', '2': 'Wire Frame Fracture Rate without clinical sequelae: 5% of cases', '3': 'Wire Frame Fracture Rate without clinical sequelae: 15% of cases', '4': 'Wire Frame Fracture Rate without clinical sequelae: 25% of cases', '5': 'Wire Frame Fracture Rate without clinical sequelae: 40% of cases'}
+2025-11-03 14:28:41,664 - app - WARNING - Code '122' not found in code_map for attr_no=12, schema_name=PROCEDURE_TIME. Available codes: ['1', '2', '3']
+2025-11-03 14:28:41,664 - app - WARNING - Code_map contents: {'1': 'Slower than average procedure time', '2': 'Average procedure time', '3': 'Quicker than average procedure time'}
+2025-11-03 14:28:41,665 - app - WARNING - Code '134' not found in code_map for attr_no=13, schema_name=DEVICE_PREP_TIME. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:28:41,665 - app - WARNING - Code_map contents: {'1': 'Device prep time in 30 seconds', '2': 'Device prep time in 1 min', '3': 'Device prep time in 3 mins', '4': 'Device prep time in 6 mins'}
+2025-11-03 14:28:41,665 - app - WARNING - Code '163' not found in code_map for attr_no=16, schema_name=IMAGING_VISABILITY_UNDER_IMAGING. Available codes: ['1', '2', '3']
+2025-11-03 14:28:41,665 - app - WARNING - Code_map contents: {'1': 'Difficult to visualize under imaging', '2': 'Moderate visability under imaging', '3': 'Clearly visible under imaging'}
+2025-11-03 14:28:41,666 - app - WARNING - Code '202' not found in code_map for attr_no=20, schema_name=STROKE_RATE_REDUCTION. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:28:41,666 - app - WARNING - Code_map contents: {'1': 'Stroke rate reduction: 59% relative reduction for recurrent cryptogenic stroke', '2': 'Stroke rate reduction: 79% relative reduction for recurrent cryptogenic stroke', '3': 'Stroke rate reduction: 99% relative reduction for recurrent cryptogenic stroke', '4': 'Stroke rate reduction is unknown'}
+2025-11-03 14:28:41,667 - app - WARNING - Code '24' not found in code_map for attr_no=2, schema_name=DEVICE_CLOSURE_RATE_6_MONTHS_AFTER_SURGERY. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:28:41,667 - app - WARNING - Code_map contents: {'1': '80% Device Closure Rate (6 months after surgery)', '2': '90% Device Closure Rate (6 months after surgery)', '3': '99% Device Closure Rate (6 months after surgery)', '4': 'Device Closure Rate (6 months after surgery) is unavailable'}
+2025-11-03 14:28:41,667 - app - WARNING - Code '35' not found in code_map for attr_no=3, schema_name=DEVICE_EMBOLIZATION_RATE_DEVICE_DISLODGES. Available codes: ['1', '2', '3', '4', '5', '6']
+2025-11-03 14:28:41,668 - app - WARNING - Code_map contents: {'1': 'Device Embolization Rate (Device Dislodges): 1 in 100 cases', '2': 'Device Embolization Rate (Device Dislodges): 1 in 250 cases', '3': 'Device Embolization Rate (Device Dislodges): 1 in 500 cases', '4': 'Device Embolization Rate (Device Dislodges): 1 in 1,000 cases', '5': 'Device Embolization Rate (Device Dislodges): 1 in 1,250 cases'}
+2025-11-03 14:28:41,668 - app - WARNING - Code '83' not found in code_map for attr_no=8, schema_name=DEVICE_RELATED_THROMBUS_RATE_6_MONTHS_AFTER_PROCEDURE. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:28:41,668 - app - WARNING - Code_map contents: {'1': 'Device-Related Thrombus Rate (6 months after procedure): 0.5% of cases', '2': 'Device-Related Thrombus Rate (6 months after procedure): 2.5% of cases', '3': 'Device-Related Thrombus Rate (6 months after procedure): 5% of cases', '4': 'Device-Related Thrombus Rate (6 months after procedure):7.5% of cases', '5': 'Device-Related Thrombus Rate (6 months after procedure) is unavailable'}
+2025-11-03 14:28:41,668 - app - WARNING - Code '91' not found in code_map for attr_no=9, schema_name=LEAVE_LESS_BEHIND_BIOABSORBABLE_LESS_METAL. Available codes: ['1', '2', '3']
+2025-11-03 14:28:41,669 - app - WARNING - Code_map contents: {'1': 'Leave Less Behind (bioabsorbable/less metal): Standard nitinol-based', '2': 'Leave Less Behind (bioabsorbable/less metal): 50% absorbable', '3': 'Leave Less Behind (bioabsorbable/less metal): Fully absorbable'}
+2025-11-03 14:28:41,669 - app - WARNING - Code '123' not found in code_map for attr_no=12, schema_name=PROCEDURE_TIME. Available codes: ['1', '2', '3']
+2025-11-03 14:28:41,669 - app - WARNING - Code_map contents: {'1': 'Slower than average procedure time', '2': 'Average procedure time', '3': 'Quicker than average procedure time'}
+2025-11-03 14:28:41,669 - app - WARNING - Code '141' not found in code_map for attr_no=14, schema_name=DELIVERY_SYSTEM_REFRESHER. Available codes: ['1', '2', '3']
+2025-11-03 14:28:41,669 - app - WARNING - Code_map contents: {'1': 'Requires refresher on delivery system steps each time', '2': 'Requires brief refresher on delivery system steps', '3': 'No delivery system refresher needed, intuitive delivery system steps'}
+2025-11-03 14:28:41,670 - app - WARNING - Code '161' not found in code_map for attr_no=16, schema_name=IMAGING_VISABILITY_UNDER_IMAGING. Available codes: ['1', '2', '3']
+2025-11-03 14:28:41,670 - app - WARNING - Code_map contents: {'1': 'Difficult to visualize under imaging', '2': 'Moderate visability under imaging', '3': 'Clearly visible under imaging'}
+2025-11-03 14:28:41,670 - app - WARNING - Code '173' not found in code_map for attr_no=17, schema_name=DELIVERY_PROFILE. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:28:41,671 - app - WARNING - Code_map contents: {'1': 'Delivery Profile: 5 French', '2': 'Delivery Profile: 9 French', '3': 'Delivery Profile: 12 French', '4': 'Delivery Profile: 15 French'}
+2025-11-03 14:28:41,671 - app - WARNING - Code '191' not found in code_map for attr_no=19, schema_name=PROCEDURAL_SUCCESS_RATE. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:28:41,671 - app - WARNING - Code_map contents: {'1': 'Procedural Success Rate: 90%', '2': 'Procedural Success Rate: 95%', '3': 'Procedural Success Rate: 99%', '4': 'Procedural Success Rate is unknown'}
+2025-11-03 14:28:41,671 - app - WARNING - Code '203' not found in code_map for attr_no=20, schema_name=STROKE_RATE_REDUCTION. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:28:41,672 - app - WARNING - Code_map contents: {'1': 'Stroke rate reduction: 59% relative reduction for recurrent cryptogenic stroke', '2': 'Stroke rate reduction: 79% relative reduction for recurrent cryptogenic stroke', '3': 'Stroke rate reduction: 99% relative reduction for recurrent cryptogenic stroke', '4': 'Stroke rate reduction is unknown'}
+2025-11-03 14:28:41,672 - app - WARNING - Code '23' not found in code_map for attr_no=2, schema_name=DEVICE_CLOSURE_RATE_6_MONTHS_AFTER_SURGERY. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:28:41,672 - app - WARNING - Code_map contents: {'1': '80% Device Closure Rate (6 months after surgery)', '2': '90% Device Closure Rate (6 months after surgery)', '3': '99% Device Closure Rate (6 months after surgery)', '4': 'Device Closure Rate (6 months after surgery) is unavailable'}
+2025-11-03 14:28:41,673 - app - WARNING - Code '31' not found in code_map for attr_no=3, schema_name=DEVICE_EMBOLIZATION_RATE_DEVICE_DISLODGES. Available codes: ['1', '2', '3', '4', '5', '6']
+2025-11-03 14:28:41,673 - app - WARNING - Code_map contents: {'1': 'Device Embolization Rate (Device Dislodges): 1 in 100 cases', '2': 'Device Embolization Rate (Device Dislodges): 1 in 250 cases', '3': 'Device Embolization Rate (Device Dislodges): 1 in 500 cases', '4': 'Device Embolization Rate (Device Dislodges): 1 in 1,000 cases', '5': 'Device Embolization Rate (Device Dislodges): 1 in 1,250 cases'}
+2025-11-03 14:28:41,673 - app - WARNING - Code '82' not found in code_map for attr_no=8, schema_name=DEVICE_RELATED_THROMBUS_RATE_6_MONTHS_AFTER_PROCEDURE. Available codes: ['1', '2', '3', '4', '5']
+2025-11-03 14:28:41,674 - app - WARNING - Code_map contents: {'1': 'Device-Related Thrombus Rate (6 months after procedure): 0.5% of cases', '2': 'Device-Related Thrombus Rate (6 months after procedure): 2.5% of cases', '3': 'Device-Related Thrombus Rate (6 months after procedure): 5% of cases', '4': 'Device-Related Thrombus Rate (6 months after procedure):7.5% of cases', '5': 'Device-Related Thrombus Rate (6 months after procedure) is unavailable'}
+2025-11-03 14:28:41,674 - app - WARNING - Code '93' not found in code_map for attr_no=9, schema_name=LEAVE_LESS_BEHIND_BIOABSORBABLE_LESS_METAL. Available codes: ['1', '2', '3']
+2025-11-03 14:28:41,674 - app - WARNING - Code_map contents: {'1': 'Leave Less Behind (bioabsorbable/less metal): Standard nitinol-based', '2': 'Leave Less Behind (bioabsorbable/less metal): 50% absorbable', '3': 'Leave Less Behind (bioabsorbable/less metal): Fully absorbable'}
+2025-11-03 14:28:41,675 - app - WARNING - Code '121' not found in code_map for attr_no=12, schema_name=PROCEDURE_TIME. Available codes: ['1', '2', '3']
+2025-11-03 14:28:41,675 - app - WARNING - Code_map contents: {'1': 'Slower than average procedure time', '2': 'Average procedure time', '3': 'Quicker than average procedure time'}
+2025-11-03 14:28:41,675 - app - WARNING - Code '143' not found in code_map for attr_no=14, schema_name=DELIVERY_SYSTEM_REFRESHER. Available codes: ['1', '2', '3']
+2025-11-03 14:28:41,675 - app - WARNING - Code_map contents: {'1': 'Requires refresher on delivery system steps each time', '2': 'Requires brief refresher on delivery system steps', '3': 'No delivery system refresher needed, intuitive delivery system steps'}
+2025-11-03 14:28:41,676 - app - WARNING - Code '162' not found in code_map for attr_no=16, schema_name=IMAGING_VISABILITY_UNDER_IMAGING. Available codes: ['1', '2', '3']
+2025-11-03 14:28:41,676 - app - WARNING - Code_map contents: {'1': 'Difficult to visualize under imaging', '2': 'Moderate visability under imaging', '3': 'Clearly visible under imaging'}
+2025-11-03 14:28:41,676 - app - WARNING - Code '172' not found in code_map for attr_no=17, schema_name=DELIVERY_PROFILE. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:28:41,676 - app - WARNING - Code_map contents: {'1': 'Delivery Profile: 5 French', '2': 'Delivery Profile: 9 French', '3': 'Delivery Profile: 12 French', '4': 'Delivery Profile: 15 French'}
+2025-11-03 14:28:41,677 - app - WARNING - Code '194' not found in code_map for attr_no=19, schema_name=PROCEDURAL_SUCCESS_RATE. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:28:41,677 - app - WARNING - Code_map contents: {'1': 'Procedural Success Rate: 90%', '2': 'Procedural Success Rate: 95%', '3': 'Procedural Success Rate: 99%', '4': 'Procedural Success Rate is unknown'}
+2025-11-03 14:28:41,677 - app - WARNING - Code '204' not found in code_map for attr_no=20, schema_name=STROKE_RATE_REDUCTION. Available codes: ['1', '2', '3', '4']
+2025-11-03 14:28:41,677 - app - WARNING - Code_map contents: {'1': 'Stroke rate reduction: 59% relative reduction for recurrent cryptogenic stroke', '2': 'Stroke rate reduction: 79% relative reduction for recurrent cryptogenic stroke', '3': 'Stroke rate reduction: 99% relative reduction for recurrent cryptogenic stroke', '4': 'Stroke rate reduction is unknown'}
+2025-11-03 14:28:42,091 - app - INFO - Converted to long format: 3598 rows and 24 columns
+2025-11-03 14:28:42,091 - app - INFO - Attribute columns in long format (20): ['RATE_OF_ANY_ATRIAL_ARRHYTHMIA_REQUIRING_PROCEDURAL_INTERVENTION_POST_IMPLANT', 'ATRIAL_ARRHYTHMIA_REQUIRING_SHORT_TERM_MEDICAL_MANAGEMENT', 'DEVICE_FRAME_RELATED_CARDIAC_INJURY_RATE_EROSION_OR_PERFORATION_POST_IMPLANT', 'TIME_TO_COMPLETE_ENDOTHELIALIZATION', 'LEAVE_LESS_BEHIND_BIOABSORBABLE_LESS_METAL', 'PROCEDURE_TIME', 'DEVICE_PREP_TIME', 'DELIVERY_SYSTEM_REFRESHER', 'AVERAGE_NUMBER_OF_DEVICE_REPOSITIONS', 'IMAGING_VISABILITY_UNDER_IMAGING']...
+2025-11-03 14:28:42,093 - app - INFO -   Column 'RATE_OF_ANY_ATRIAL_ARRHYTHMIA_REQUIRING_PROCEDURAL_INTERVENTION_POST_IMPLANT': 5 unique values, sample: ['45', '44', '42', '41', '43']
+2025-11-03 14:28:42,095 - app - INFO -   Column 'ATRIAL_ARRHYTHMIA_REQUIRING_SHORT_TERM_MEDICAL_MANAGEMENT': 5 unique values, sample: ['52', '53', '55', '54', '51']
+2025-11-03 14:28:42,098 - app - INFO -   Column 'DEVICE_FRAME_RELATED_CARDIAC_INJURY_RATE_EROSION_OR_PERFORATION_POST_IMPLANT': 5 unique values, sample: ['63', '65', '64', '61', '62']
+2025-11-03 14:28:42,099 - app - INFO -   Column 'TIME_TO_COMPLETE_ENDOTHELIALIZATION': 5 unique values, sample: ['71', '72', '75', '73', '74']
+2025-11-03 14:28:42,101 - app - INFO -   Column 'LEAVE_LESS_BEHIND_BIOABSORBABLE_LESS_METAL': 3 unique values, sample: ['93', '92', '91']
+2025-11-03 14:28:42,103 - app - INFO - Using levels from data for 'ON_TABLE_CLOSURE_RATE': 5 levels
+2025-11-03 14:28:42,104 - app - INFO - Using levels from data for 'DEVICE_CLOSURE_RATE_6_MONTHS_AFTER_SURGERY': 4 levels
+2025-11-03 14:28:42,105 - app - INFO - Using levels from data for 'DEVICE_EMBOLIZATION_RATE_DEVICE_DISLODGES': 6 levels
+2025-11-03 14:28:42,107 - app - INFO - Using levels from data for 'RATE_OF_ANY_ATRIAL_ARRHYTHMIA_REQUIRING_PROCEDURAL_INTERVENTION_POST_IMPLANT': 5 levels
+2025-11-03 14:28:42,108 - app - INFO - Using levels from data for 'ATRIAL_ARRHYTHMIA_REQUIRING_SHORT_TERM_MEDICAL_MANAGEMENT': 5 levels
+2025-11-03 14:28:42,109 - app - INFO - Using levels from data for 'DEVICE_FRAME_RELATED_CARDIAC_INJURY_RATE_EROSION_OR_PERFORATION_POST_IMPLANT': 5 levels
+2025-11-03 14:28:42,110 - app - INFO - Using levels from data for 'TIME_TO_COMPLETE_ENDOTHELIALIZATION': 5 levels
+2025-11-03 14:28:42,111 - app - INFO - Using levels from data for 'DEVICE_RELATED_THROMBUS_RATE_6_MONTHS_AFTER_PROCEDURE': 5 levels
+2025-11-03 14:28:42,112 - app - INFO - Using levels from data for 'LEAVE_LESS_BEHIND_BIOABSORBABLE_LESS_METAL': 3 levels
+2025-11-03 14:28:42,114 - app - INFO - Using levels from data for 'DEVICE_CROSSABILITY': 4 levels
+2025-11-03 14:28:42,115 - app - INFO - Using levels from data for 'WIRE_FRAME_FRACTURE_RATE_WITHOUT_CLINICAL_SEQUELAE':6 levels
+2025-11-03 14:28:42,117 - app - INFO - Using levels from data for 'PROCEDURE_TIME': 3 levels
+2025-11-03 14:28:42,118 - app - INFO - Using levels from data for 'DEVICE_PREP_TIME': 4 levels
+2025-11-03 14:28:42,119 - app - INFO - Using levels from data for 'DELIVERY_SYSTEM_REFRESHER': 3 levels
+2025-11-03 14:28:42,121 - app - INFO - Using levels from data for 'AVERAGE_NUMBER_OF_DEVICE_REPOSITIONS': 4 levels
+2025-11-03 14:28:42,122 - app - INFO - Using levels from data for 'IMAGING_VISABILITY_UNDER_IMAGING': 3 levels
+2025-11-03 14:28:42,123 - app - INFO - Using levels from data for 'DELIVERY_PROFILE': 4 levels
+2025-11-03 14:28:42,124 - app - INFO - Using levels from data for 'DEVICE_SIZE': 4 levels
+2025-11-03 14:28:42,125 - app - INFO - Using levels from data for 'PROCEDURAL_SUCCESS_RATE': 4 levels
+2025-11-03 14:28:42,126 - app - INFO - Using levels from data for 'STROKE_RATE_REDUCTION': 4 levels
+2025-11-03 14:28:42,334 - app - INFO - Design matrix: 3598 rows × 87 columns
+2025-11-03 14:28:42,358 - app - INFO - Design matrix rank: 87 (columns: 87)
+2025-11-03 14:28:42,388 - app - INFO - Fitting model with Newton-Raphson...
+2025-11-03 14:28:42,462 - app - INFO - Model estimated successfully. Log-likelihood: -2187.92
+INFO:     127.0.0.1:54838 - "POST /estimate_from_survey_export HTTP/1.1" 200 OK

@@ -55,7 +55,9 @@
       "Bash(Start_Conjoint_API.bat)",
       "Bash(.venvScriptspython.exe -m pip install --quiet -r requirements.txt)",
       "Bash(.venvScriptspython.exe -m uvicorn app:app --reload --port 8000)",
-      "Bash(conjoint-backend/.venv/Scripts/python.exe -m uvicorn:*)"
+      "Bash(conjoint-backend/.venv/Scripts/python.exe -m uvicorn:*)",
+      "Bash(del debug-excel.js test-parse.js)",
+      "Bash(nul)"
     ],
     "deny": [],
     "ask": []

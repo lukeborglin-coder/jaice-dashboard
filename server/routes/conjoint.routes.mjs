@@ -23,7 +23,12 @@ const WORKFLOW_UPLOAD_ROOT = path.join(DATA_ROOT, 'conjoint-workflows');
 
 // Initialize OpenAI client (lazy initialization)
 function getOpenAIClient() {
-  if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'your_openai_api_key_here') {
+  // Debug logging
+  console.log('[getOpenAIClient] OPENAI_API_KEY exists:', !!process.env.OPENAI_API_KEY);
+  console.log('[getOpenAIClient] OPENAI_API_KEY length:', process.env.OPENAI_API_KEY?.length || 0);
+  console.log('[getOpenAIClient] OPENAI_API_KEY starts with sk-:', process.env.OPENAI_API_KEY?.startsWith('sk-') || false);
+  
+  if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'your_openai_api_key_here' || process.env.OPENAI_API_KEY.trim() === '') {
     throw new Error('OPENAI_API_KEY is not configured. Please set it in your .env file.');
   }
   return new OpenAI({
@@ -392,6 +397,106 @@ router.post('/workflows', async (req, res) => {
     console.error('Error saving conjoint workflow:', error);
     res.status(500).json({
       detail: 'Failed to save workflow draft.',
+      message: error.message
+    });
+  }
+});
+
+router.delete('/workflows/:workflowId/survey', async (req, res) => {
+  console.log('[DELETE Survey] Request received:', req.params, req.method, req.path);
+  try {
+    const { workflowId } = req.params;
+    if (!workflowId) {
+      console.log('[DELETE Survey] Missing workflowId');
+      return res.status(400).json({ detail: 'workflowId is required in the URL path.' });
+    }
+
+    console.log('[DELETE Survey] Loading workflows for workflowId:', workflowId);
+    const workflows = await loadWorkflows();
+    const index = workflows.findIndex(workflow => workflow.id === workflowId);
+
+    if (index === -1) {
+      console.log('[DELETE Survey] Workflow not found:', workflowId);
+      return res.status(404).json({ detail: `Workflow ${workflowId} not found.` });
+    }
+
+    const workflow = workflows[index];
+    console.log('[DELETE Survey] Workflow found, removing survey data...');
+
+    // Remove survey data and estimation results
+    if (workflow.survey?.storedFileName) {
+      try {
+        const surveyFilePath = path.join(WORKFLOW_UPLOAD_ROOT, workflowId, workflow.survey.storedFileName);
+        await fs.rm(surveyFilePath, { force: true });
+        console.log(`[Survey Delete] Removed survey file: ${surveyFilePath}`);
+      } catch (cleanupError) {
+        console.warn('[Survey Delete] Failed to remove survey file:', cleanupError);
+        // Continue anyway - we'll still remove from database
+      }
+    }
+
+    // Remove survey data and estimation from workflow
+    workflows[index] = {
+      ...workflow,
+      survey: undefined,
+      surveyUploadedAt: undefined,
+      surveySummary: undefined,
+      estimation: undefined,
+      estimationResult: undefined,
+      updatedAt: new Date().toISOString()
+    };
+
+    await saveWorkflows(workflows);
+
+    res.status(200).json({ 
+      message: 'Survey data and estimation results removed successfully', 
+      workflowId 
+    });
+  } catch (error) {
+    console.error('Error removing survey data:', error);
+    res.status(500).json({
+      detail: 'Failed to remove survey data.',
+      message: error.message
+    });
+  }
+});
+
+// Download survey file
+router.get('/workflows/:workflowId/survey/download', async (req, res) => {
+  try {
+    const { workflowId } = req.params;
+    if (!workflowId) {
+      return res.status(400).json({ detail: 'workflowId is required in the URL path.' });
+    }
+
+    const workflows = await loadWorkflows();
+    const workflow = workflows.find(w => w.id === workflowId);
+    
+    if (!workflow) {
+      return res.status(404).json({ detail: `Workflow ${workflowId} not found.` });
+    }
+
+    if (!workflow.survey?.storedFileName) {
+      return res.status(404).json({ detail: 'Survey file not found for this workflow.' });
+    }
+
+    const surveyFilePath = path.join(WORKFLOW_UPLOAD_ROOT, workflowId, workflow.survey.storedFileName);
+    
+    // Check if file exists
+    try {
+      await fs.access(surveyFilePath);
+    } catch {
+      return res.status(404).json({ detail: 'Survey file not found on disk.' });
+    }
+
+    // Get the original filename (remove leading underscore if present)
+    const originalFileName = workflow.survey.fileName || workflow.survey.storedFileName.replace(/^_/, '');
+
+    res.download(surveyFilePath, originalFileName);
+  } catch (error) {
+    console.error('Error downloading survey file:', error);
+    res.status(500).json({
+      detail: 'Failed to download survey file.',
       message: error.message
     });
   }
@@ -975,6 +1080,16 @@ router.post('/ai-workflow/process-data', upload.single('file'), async (req, res)
 
     console.log('[Data Processing] Preprocessing complete:', preprocessingResult.summary);
 
+    // Save the uploaded file to disk for estimation to use later
+    const workflowUploadDir = path.join(WORKFLOW_UPLOAD_ROOT, workflowId);
+    await fs.mkdir(workflowUploadDir, { recursive: true });
+    
+    const timestamp = Date.now();
+    const storedFileName = `${timestamp}_${req.file.originalname}`;
+    const filePath = path.join(workflowUploadDir, storedFileName);
+    await fs.writeFile(filePath, req.file.buffer);
+    console.log('[Data Processing] Saved survey file to:', filePath);
+
     // Process market share data using deterministic preprocessing
     const marketShareProducts = [];
     const { marketShareScenarios, productNameMap } = preprocessingResult;
@@ -1281,6 +1396,7 @@ router.post('/ai-workflow/process-data', upload.single('file'), async (req, res)
       survey: {
         uploadedAt: new Date().toISOString(),
         fileName: req.file.originalname,
+        storedFileName: storedFileName, // Save the stored file name for estimation endpoint
         summary: {
           totalRows: preprocessingResult.summary.cleanedRows,
           relevantColumns: allRelevantColumns,
@@ -1432,50 +1548,63 @@ router.post('/workflows/:workflowId/estimate', async (req, res) => {
       });
     }
 
-    // Extract attribute short names from survey export columns
+    // Verify survey file has hATTR columns (but don't use them to filter attributes)
+    // The column format is hATTR_{BRAND}_{TASK}c{SLOT} where BRAND is the product name,
+    // and the VALUES in these columns are attribute codes that correspond to the 20 attributes
     const workbook = XLSX.read(surveyBuffer, { type: 'buffer' });
     const firstSheetName = workbook.SheetNames[0];
     const surveySheet = workbook.Sheets[firstSheetName];
     const surveyRows = XLSX.utils.sheet_to_json(surveySheet, { defval: '', raw: false });
     const columns = surveyRows.length > 0 ? Object.keys(surveyRows[0]) : [];
 
-    // Extract attribute short names from columns like hATTR_GORE_1c1
-    const attributeShortNames = [];
+    // Check for hATTR columns to verify file format
     const attrPattern = /^hATTR_(.+?)_\d+c\d+$/i;
-    const seenNames = new Set();
+    const hasAttrColumns = columns.some(col => col.match(attrPattern));
 
-    for (const col of columns) {
-      const match = col.match(attrPattern);
-      if (match) {
-        const shortName = match[1] ? match[1].toUpperCase() : '';
-        if (!seenNames.has(shortName)) {
-          attributeShortNames.push(shortName);
-          seenNames.add(shortName);
-        }
-      }
-    }
-
-    if (!attributeShortNames.length) {
+    if (!hasAttrColumns) {
       return res.status(400).json({
         detail: 'No attribute columns (hATTR_*) were detected in the survey export. Please verify the survey file matches the validation template.'
       });
     }
 
-    const preEstimationWarnings = [];
-    const uniqueAttrNos = new Set((workflow.attributes || []).map(attr => String(attr?.attributeNo ?? '').trim()).filter(Boolean));
-    if (uniqueAttrNos.size && attributeShortNames.length !== uniqueAttrNos.size) {
-      preEstimationWarnings.push(
-        `Attribute mismatch detected. Survey export includes ${attributeShortNames.length} attribute groups but the design lists ${uniqueAttrNos.size}.`
-      );
+    // Extract brand/product names from column headers for logging (not for filtering)
+    const brandNames = new Set();
+    for (const col of columns) {
+      const match = col.match(attrPattern);
+      if (match) {
+        const brandName = match[1] ? match[1].toUpperCase() : '';
+        if (brandName) {
+          brandNames.add(brandName);
+        }
+      }
     }
 
+    const preEstimationWarnings = [];
+    const uniqueAttrNos = new Set((workflow.attributes || []).map(attr => String(attr?.attributeNo ?? '').trim()).filter(Boolean));
+    
+    // Log information about brands found (for debugging, not filtering)
+    if (brandNames.size > 0) {
+      console.log(`[Estimation] Found ${brandNames.size} brands/products in survey: ${Array.from(brandNames).join(', ')}`);
+    }
+    console.log(`[Estimation] Processing ${uniqueAttrNos.size} attributes from workflow design`);
+
     // Transform attributes from flat format to grouped format for Python
-    // Map by attribute number to short name
-    const attributesGrouped = transformAttributesToGroupedFormat(workflow.attributes || [], attributeShortNames);
+    // Pass ALL attributes from workflow - Python backend will extract which ones are actually used
+    // Don't filter by "attributeShortNames" - those are brand names, not attributes
+    const attributesGrouped = transformAttributesToGroupedFormat(workflow.attributes || [], []);
     if (!attributesGrouped.length) {
       return res.status(400).json({
         detail: 'Unable to map attribute metadata for estimation. Please re-import the attribute list and try again.'
       });
+    }
+    
+    // Log what we're sending for debugging
+    console.log(`[Estimation] Sending ${attributesGrouped.length} attributes to Python backend:`);
+    attributesGrouped.slice(0, 5).forEach((attr, idx) => {
+      console.log(`  ${idx + 1}. name="${attr.name}", attributeNo="${attr.attributeNo}", levels=${attr.levels?.length || 0}, sample_codes=${attr.levels?.slice(0, 3).map(l => l.code).join(',') || 'none'}`);
+    });
+    if (attributesGrouped.length > 5) {
+      console.log(`  ... and ${attributesGrouped.length - 5} more`);
     }
 
     // Create form data to forward to Python backend
@@ -1501,6 +1630,22 @@ router.post('/workflows/:workflowId/estimate', async (req, res) => {
       });
 
       estimationData = pythonResponse.data;
+      
+      // Log estimation results for debugging
+      console.log(`[Estimation] Python backend returned:`, {
+        utilitiesCount: Object.keys(estimationData.utilities || {}).length,
+        schemaAttributesCount: estimationData.schema?.attributes?.length || 0,
+        intercept: estimationData.intercept,
+        converged: estimationData.diagnostics?.converged,
+        iterations: estimationData.diagnostics?.iterations,
+        pseudo_r2: estimationData.diagnostics?.pseudo_r2
+      });
+      
+      // Log which attributes have utilities
+      if (estimationData.utilities) {
+        const attrNames = Object.keys(estimationData.utilities);
+        console.log(`[Estimation] Attributes with utilities (${attrNames.length}):`, attrNames.slice(0, 10).join(', '), attrNames.length > 10 ? `... and ${attrNames.length - 10} more` : '');
+      }
     } catch (error) {
       console.error('Python API error during estimation:', error);
 
@@ -1621,35 +1766,49 @@ router.post('/workflows/:workflowId/scenario-analysis', async (req, res) => {
     // Prepare data for Python backend
     const originalMarketShares = workflow.survey.summary.marketShareProducts || [];
     
-    // For now, use default utilities - in a real implementation, these would come from conjoint estimation
-    const utilities = {
-      "Brand": {
-        "Brand A": 0.5,
-        "Brand B": 0.3,
-        "Brand C": 0.2
-      },
-      "Price": {
-        "Low": 0.4,
-        "Medium": 0.2,
-        "High": -0.1
-      },
-      "Feature": {
-        "Standard": 0.0,
-        "Premium": 0.3,
-        "Deluxe": 0.6
-      }
-    };
+    // Extract utilities from workflow estimation (same as AverageUtilitiesView)
+    // Check for estimation data - prefer estimationResult (which is mapped from estimation),
+    // but fall back to estimation directly if estimationResult isn't available
+    const estimationData = workflow?.estimationResult || workflow?.estimation;
+    
+    if (!estimationData?.utilities) {
+      return res.status(400).json({
+        detail: 'No utilities found in workflow. Please run estimation first before running scenario analysis.'
+      });
+    }
+
+    const utilities = estimationData.utilities;
+    const intercept = estimationData.intercept !== undefined && estimationData.intercept !== null
+      ? Number(estimationData.intercept)
+      : 0.0;
+
+    // Get schema for attribute mapping
+    const schemaAttributes = estimationData.schema?.attributes || [];
+
+    console.log('[Scenario Analysis] Using utilities from workflow:', {
+      intercept,
+      utilityAttributeCount: Object.keys(utilities).length,
+      utilityAttributes: Object.keys(utilities),
+      schemaAttributeCount: schemaAttributes.length,
+      newScenariosCount: newScenarios.length
+    });
 
     // Call Python backend scenario analysis endpoint
     const pythonPayload = {
-      intercept: 0.0,
+      intercept: intercept,
       utilities: utilities,
       original_market_shares: originalMarketShares,
       new_scenarios: newScenarios,
-      rule: choiceRule
+      rule: choiceRule,
+      schema: estimationData.schema || null
     };
 
-    console.log('[Scenario Analysis] Calling Python backend...');
+    console.log('[Scenario Analysis] Calling Python backend with payload:', {
+      intercept: pythonPayload.intercept,
+      utilitiesKeys: Object.keys(pythonPayload.utilities),
+      scenarioCount: pythonPayload.new_scenarios.length,
+      firstScenario: pythonPayload.new_scenarios[0] || null
+    });
     
     const pythonResponse = await axios.post(`${PYTHON_API_URL}/analyze_scenarios`, pythonPayload, {
       headers: {
@@ -1827,16 +1986,28 @@ function transformAttributesToGroupedFormat(flatAttributes, attributeShortNames 
   const usedNames = new Set();
   const result = [];
 
+  // Process ALL attributes from the workflow
+  // The Python backend will extract which attributes are actually present in the survey data
+  // by looking at the attribute codes in the hATTR column values, not the column names
+  // (The column names contain brand/product names, not attribute identifiers)
   sortedAttrNos.forEach((attrNo, index) => {
     const entry = grouped.get(attrNo);
     if (!entry) {
       return;
     }
 
-    const candidateShort = attributeShortNames[index] || '';
-    let name = sanitizeName(candidateShort);
-    if (!name) {
-      name = sanitizeName(entry.attributeText, `ATT${String(index + 1).padStart(2, '0')}`);
+    // Generate attribute name from attribute number or text
+    // Don't use attributeShortNames here - those are brand names, not attribute identifiers
+    let name = sanitizeName(entry.attributeText, `ATT${String(attrNo).padStart(2, '0')}`);
+    
+    // If attributeShortNames is provided and matches position, use it as a fallback identifier
+    // but prefer the attribute number or text
+    if (attributeShortNames.length > 0 && index < attributeShortNames.length) {
+      const candidateShort = attributeShortNames[index];
+      const sanitizedShort = sanitizeName(candidateShort);
+      if (sanitizedShort && !name) {
+        name = sanitizedShort;
+      }
     }
 
     let uniqueName = name;

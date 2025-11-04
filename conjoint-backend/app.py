@@ -919,6 +919,13 @@ def parse_survey_export_to_long(df: pd.DataFrame, attributes_from_design: Option
                 design_lookup_by_no[attr_no] = entry_data
 
         logger.info(f"Built code mapping for {len(design_lookup_by_no) or len(design_lookup)} attributes from design")
+        
+        # Log code_map for first attribute for debugging
+        if design_lookup_by_no:
+            first_attr_no = list(design_lookup_by_no.keys())[0]
+            first_entry = design_lookup_by_no[first_attr_no]
+            code_map = first_entry.get('code_map', {})
+            logger.info(f"Sample code_map for attribute {first_attr_no} ({first_entry.get('schema_name')}): {dict(list(code_map.items())[:5])}")
 
     choice_cols = [c for c in df.columns if re.match(r'^QC1_\d+$', c)]
     n_tasks = len(choice_cols)
@@ -1056,17 +1063,61 @@ def parse_survey_export_to_long(df: pd.DataFrame, attributes_from_design: Option
                         continue
 
                     level_code = normalize_code(raw_value)
-                    level_name = design_entry.get('code_map', {}).get(level_code)
+                    code_map = design_entry.get('code_map', {})
+                    
+                    # The survey data has full codes like "45" (attribute 4, level 5)
+                    # But the code_map might have just level numbers like "1", "2", "3", "4", "5"
+                    # So we need to extract the level number from the full code
+                    level_for_lookup = level_code
+                    if attr_no and len(level_code) > len(str(attr_no)):
+                        # Try extracting level number: if code is "45" and attr_no is "4", level is "5"
+                        level_for_lookup = level_code[len(str(attr_no)):]
+                        # Also try the last character if it's a single digit
+                        if len(level_code) > 1 and level_code[-1].isdigit():
+                            level_for_lookup_single = level_code[-1]
+                        else:
+                            level_for_lookup_single = level_for_lookup
+                    else:
+                        level_for_lookup_single = level_code
+                    
+                    # Try multiple lookup strategies
+                    level_name = code_map.get(level_code)  # Try full code first
                     if not level_name:
-                        if level_code in (design_entry.get('level_names') or []):
+                        level_name = code_map.get(level_for_lookup)  # Try extracted level
+                    if not level_name:
+                        level_name = code_map.get(level_for_lookup_single)  # Try single digit
+                    if not level_name:
+                        # Try with leading/trailing whitespace removed
+                        level_name = code_map.get(level_code.strip())
+                    if not level_name:
+                        level_name = code_map.get(level_for_lookup.strip())
+                    if not level_name:
+                        # Try converting to int then back to string (in case of type mismatch)
+                        try:
+                            level_code_int = str(int(level_for_lookup))
+                            level_name = code_map.get(level_code_int)
+                        except (ValueError, TypeError):
+                            pass
+                    
+                    if not level_name:
+                        level_names = design_entry.get('level_names') or []
+                        if level_code in level_names:
                             level_name = level_code
                         else:
                             level_name = level_code
-
+                            # Log when code_map lookup fails
+                            if len(long_data) < 10 and resp_idx < 2:
+                                logger.warning(f"Code '{level_code}' not found in code_map for attr_no={attr_no}, schema_name={design_entry.get('schema_name')}. Tried: '{level_code}', '{level_for_lookup}', '{level_for_lookup_single}'. Available codes: {list(code_map.keys())[:10]}")
+                                logger.warning(f"Code_map contents: {dict(list(code_map.items())[:5])}")
+                    
                     schema_name = design_entry.get('schema_name') or design_entry.get('label') or attr_no or brand
                     alt_data[schema_name] = level_name
                     attributes_seen.add(schema_name)
                     attribute_values_found = True
+                    
+                    # Debug logging for first few rows
+                    if len(long_data) < 5 and resp_idx < 2:
+                        logger.debug(f"Row {len(long_data)}, slot {slot}: attr_no={attr_no}, schema_name={schema_name}, level_code={level_code}, level_name={level_name}, code_map_keys={list(code_map.keys())[:3]}")
 
                 if attribute_values_found or has_slots:
                     alt_rows_for_task.append(alt_data)
@@ -1107,6 +1158,15 @@ def parse_survey_export_to_long(df: pd.DataFrame, attributes_from_design: Option
 
     df_long = pd.DataFrame(long_data)
     logger.info(f"Converted to long format: {len(df_long)} rows and {len(df_long.columns)} columns")
+    
+    # Log which attributes were actually found in the data
+    attribute_cols = [c for c in df_long.columns if c not in ['resp_id', 'task_id', 'alt_id', 'chosen']]
+    logger.info(f"Attribute columns in long format ({len(attribute_cols)}): {attribute_cols[:10]}{'...' if len(attribute_cols) > 10 else ''}")
+    
+    # Check for attributes with no variation
+    for col in attribute_cols[:5]:  # Check first 5 for debugging
+        unique_vals = df_long[col].nunique()
+        logger.info(f"  Column '{col}': {unique_vals} unique values, sample: {list(df_long[col].dropna().unique()[:5])}")
 
     if attributes_from_design:
         attributes_schema = []
@@ -1127,17 +1187,32 @@ def parse_survey_export_to_long(df: pd.DataFrame, attributes_from_design: Option
                 continue
 
             schema_name = design_entry.get('schema_name') or attr_name or attr_key or attr_no
-            levels = design_entry.get('level_names') or []
-            if not levels:
-                level_values = []
-                levels_data = attr.get('levels', [])
-                if isinstance(levels_data, list):
-                    for level_info in levels_data:
-                        if isinstance(level_info, dict):
-                            level_values.append(str(level_info.get('level', '')).strip())
-                        else:
-                            level_values.append(str(level_info).strip())
-                levels = [lvl for lvl in level_values if lvl]
+            
+            # Get levels from the actual data that was parsed, not from design_entry
+            # This ensures we use the same level names that are in the long format data
+            if schema_name in df_long.columns:
+                levels_series = df_long[schema_name].dropna() if schema_name in df_long.columns else pd.Series(dtype=str)
+                seen_levels: List[str] = []
+                for val in levels_series.unique():
+                    val_str = str(val)
+                    if val_str not in seen_levels:
+                        seen_levels.append(val_str)
+                levels = seen_levels
+                logger.info(f"Using levels from data for '{schema_name}': {len(levels)} levels")
+            else:
+                # Fallback to design_entry or attribute definition
+                levels = design_entry.get('level_names') or []
+                if not levels:
+                    level_values = []
+                    levels_data = attr.get('levels', [])
+                    if isinstance(levels_data, list):
+                        for level_info in levels_data:
+                            if isinstance(level_info, dict):
+                                level_values.append(str(level_info.get('level', '')).strip())
+                            else:
+                                level_values.append(str(level_info).strip())
+                    levels = [lvl for lvl in level_values if lvl]
+                logger.info(f"Using levels from design for '{schema_name}': {len(levels)} levels")
 
             attributes_schema.append({
                 "name": schema_name,
@@ -1254,9 +1329,32 @@ async def estimate_from_survey_export(
             raise ValueError("No valid choice data found after removing missing values")
 
         y = df[chosen_col].astype(int)
+        
+        # Check for attributes with no variation before building design matrix
+        problematic_attrs = []
+        for attr in attributes_schema:
+            attr_name = attr.get("name")
+            if attr_name and attr_name in df.columns:
+                unique_values = df[attr_name].nunique()
+                value_counts = df[attr_name].value_counts()
+                if unique_values <= 1:
+                    logger.warning(f"Attribute '{attr_name}' has no variation (only {unique_values} unique value(s)): {dict(value_counts)}")
+                    problematic_attrs.append(attr_name)
+        
         X = build_design_matrix(df, attributes_schema)
 
         logger.info(f"Design matrix: {X.shape[0]} rows × {X.shape[1]} columns")
+        
+        # Check for near-singularity or rank issues
+        try:
+            rank = np.linalg.matrix_rank(X.values)
+            logger.info(f"Design matrix rank: {rank} (columns: {X.shape[1]})")
+            if rank < X.shape[1]:
+                logger.warning(f"Design matrix is rank-deficient: rank {rank} < {X.shape[1]} columns. This will cause singularity issues.")
+                if problematic_attrs:
+                    logger.warning(f"Attributes with no variation: {problematic_attrs}")
+        except Exception as e:
+            logger.warning(f"Could not compute matrix rank: {e}")
 
         # Estimate model
         model = MNLogit(y, X)

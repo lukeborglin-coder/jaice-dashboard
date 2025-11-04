@@ -418,8 +418,8 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
 
     // Get the variable definition to access all codes
     const variableDef = parsedFile.variables.find(v => v.name === selectedVariable);
-    const allCodes = variableDef && variableDef.type === 'categorical' 
-      ? Object.keys(variableDef.codes) 
+    const allCodes = variableDef && (variableDef.type === 'categorical' || variableDef.type === 'multi-select' || variableDef.type === 'grid')
+      ? Object.keys(variableDef.codes)
       : [];
 
     // Initialize all codes with 0 count
@@ -431,7 +431,7 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
 
     // Build a reverse lookup map: label -> code (for faster matching)
     const labelToCodeMap = new Map<string, string>();
-    if (variableDef && variableDef.type === 'categorical') {
+    if (variableDef && (variableDef.type === 'categorical' || variableDef.type === 'multi-select' || variableDef.type === 'grid')) {
       Object.keys(variableDef.codes).forEach(code => {
         const label = variableDef.codes[code];
         if (label) {
@@ -448,81 +448,186 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
     }
 
     // Count occurrences in data
-    parsedFile.data.forEach(row => {
-      // Try exact match first
-      let value = row[selectedVariable];
-      // If key doesn't exist, try case-insensitive match
-      if (!(selectedVariable in row)) {
-        const matchingKey = Object.keys(row).find(
-          key => key.trim().toLowerCase() === selectedVariable.trim().toLowerCase()
-        );
-        if (matchingKey) {
-          value = row[matchingKey];
-        }
+    // Handle different question types differently
+    if (variableDef?.type === 'multi-select') {
+      // For multi-select: find all columns that start with "variableName - "
+      // Each column represents one option, values are 0 (unchecked) or 1 (checked)
+      const multiSelectColumns: Array<{ columnName: string; optionLabel: string }> = [];
+
+      // Find all columns for this multi-select question
+      if (parsedFile.data.length > 0) {
+        const firstRow = parsedFile.data[0];
+        const prefix = `${selectedVariable} - `;
+        Object.keys(firstRow).forEach(colName => {
+          if (colName.startsWith(prefix)) {
+            const optionLabel = colName.substring(prefix.length).trim();
+            multiSelectColumns.push({ columnName: colName, optionLabel });
+          }
+        });
       }
-      if (value !== null && value !== undefined && value !== '') {
-        base++;
-        const codeStr = String(value);
-        
-        // Try exact code match first (if data contains codes like "1", "2", "3")
-        if (counts.hasOwnProperty(codeStr)) {
-          counts[codeStr] = (counts[codeStr] || 0) + 1;
-        } else {
-          const normalizedValue = codeStr.trim().toLowerCase();
-          if (labelToCodeMap.has(normalizedValue)) {
-            // Check if it's a label that matches a defined code label
-            // Map the label to its numeric code
-            const matchedCode = labelToCodeMap.get(normalizedValue)!;
-            counts[matchedCode] = (counts[matchedCode] || 0) + 1;
-            // IMPORTANT: Do NOT add the label string itself to counts
+
+      // Count base (respondents who saw this question)
+      base = parsedFile.data.length;
+
+      // Count how many checked each option
+      parsedFile.data.forEach(row => {
+        multiSelectColumns.forEach(({ columnName, optionLabel }) => {
+          const value = row[columnName];
+          if (value === 1 || value === '1') {
+            // Match the option label to the code definitions
+            const normalizedLabel = optionLabel.trim().toLowerCase();
+            let matchingCode = labelToCodeMap.get(normalizedLabel);
             
-            // Debug logging
-            console.log(`[${selectedVariable}] Mapped label "${codeStr}" to code "${matchedCode}"`);
-          } else {
-            // Try fuzzy/partial matching - check if the value contains or is contained in any label
-            let bestMatch: { code: string; similarity: number } | null = null;
-            
-            labelToCodeMap.forEach((code, normalizedLabel) => {
-              const value = normalizedValue;
-              const label = normalizedLabel;
+            // If exact match fails, try fuzzy matching
+            if (!matchingCode) {
+              let bestMatch: { code: string; similarity: number } | null = null;
               
-              // Check if one contains the other (case-insensitive)
-              if (value.includes(label) || label.includes(value)) {
-                const similarity = Math.min(value.length, label.length) / Math.max(value.length, label.length);
-                if (!bestMatch || similarity > bestMatch.similarity) {
-                  bestMatch = { code, similarity };
-                }
-              } else {
-                // Also check for word overlap (split by spaces and check if any words match)
-                const valueWords = value.split(/\s+/);
-                const labelWords = label.split(/\s+/);
-                const commonWords = valueWords.filter(w => labelWords.includes(w));
-                if (commonWords.length > 0) {
-                  // Calculate similarity based on common words
-                  const maxWords = Math.max(valueWords.length, labelWords.length);
-                  const similarity = commonWords.length / maxWords;
+              labelToCodeMap.forEach((code, normalizedCodeLabel) => {
+                // Check if one contains the other (case-insensitive)
+                if (normalizedCodeLabel.includes(normalizedLabel) || normalizedLabel.includes(normalizedCodeLabel)) {
+                  const similarity = Math.min(normalizedLabel.length, normalizedCodeLabel.length) / Math.max(normalizedLabel.length, normalizedCodeLabel.length);
                   if (!bestMatch || similarity > bestMatch.similarity) {
                     bestMatch = { code, similarity };
                   }
+                } else {
+                  // Also check for word overlap
+                  const labelWords = normalizedLabel.split(/\s+/);
+                  const codeWords = normalizedCodeLabel.split(/\s+/);
+                  const commonWords = labelWords.filter(w => codeWords.includes(w));
+                  if (commonWords.length > 0) {
+                    const maxWords = Math.max(labelWords.length, codeWords.length);
+                    const similarity = commonWords.length / maxWords;
+                    if (!bestMatch || similarity > bestMatch.similarity) {
+                      bestMatch = { code, similarity };
+                    }
+                  }
                 }
-              }
-            });
-            
-            if (bestMatch && bestMatch.similarity > 0.5) {
-              // If we found a reasonable match (at least 50% similarity), use it
-              counts[bestMatch.code] = (counts[bestMatch.code] || 0) + 1;
-              console.log(`[${selectedVariable}] Fuzzy matched "${codeStr}" to code "${bestMatch.code}" (similarity: ${(bestMatch.similarity * 100).toFixed(1)}%)`);
-            } else {
-              // If no match found, it's an unexpected value - still count it as-is
-              counts[codeStr] = (counts[codeStr] || 0) + 1;
+              });
               
+              if (bestMatch && bestMatch.similarity > 0.5) {
+                matchingCode = bestMatch.code;
+                console.log(`[${selectedVariable}] Fuzzy matched "${optionLabel}" to code "${matchingCode}" (similarity: ${(bestMatch.similarity * 100).toFixed(1)}%)`);
+              }
+            }
+            
+            if (matchingCode) {
+              counts[matchingCode] = (counts[matchingCode] || 0) + 1;
+            } else {
+              // Log when we can't match - this helps debug issues
+              console.warn(`[${selectedVariable}] Could not match multi-select option label "${optionLabel}" from column "${columnName}" to any code definition. Available codes:`, Array.from(labelToCodeMap.entries()));
+            }
+          }
+        });
+      });
+    } else if (variableDef?.type === 'grid') {
+      // For grid: find all columns that start with "variableName - "
+      // Each column represents one statement, values are response codes (1, 2, 3, etc.)
+      const gridColumns: string[] = [];
+
+      // Find all columns for this grid question
+      if (parsedFile.data.length > 0) {
+        const firstRow = parsedFile.data[0];
+        const prefix = `${selectedVariable} - `;
+        Object.keys(firstRow).forEach(colName => {
+          if (colName.startsWith(prefix)) {
+            gridColumns.push(colName);
+          }
+        });
+      }
+
+      // Count base (total number of responses across all statements)
+      base = parsedFile.data.length * gridColumns.length;
+
+      // Count response codes across all grid statements
+      parsedFile.data.forEach(row => {
+        gridColumns.forEach(colName => {
+          const value = row[colName];
+          if (value !== null && value !== undefined && value !== '') {
+            const codeStr = String(value);
+            if (counts.hasOwnProperty(codeStr)) {
+              counts[codeStr] = (counts[codeStr] || 0) + 1;
+            }
+          }
+        });
+      });
+    } else {
+      // For categorical/single-select: original logic
+      parsedFile.data.forEach(row => {
+        // Try exact match first
+        let value = row[selectedVariable];
+        // If key doesn't exist, try case-insensitive match
+        if (!(selectedVariable in row)) {
+          const matchingKey = Object.keys(row).find(
+            key => key.trim().toLowerCase() === selectedVariable.trim().toLowerCase()
+          );
+          if (matchingKey) {
+            value = row[matchingKey];
+          }
+        }
+        if (value !== null && value !== undefined && value !== '') {
+          base++;
+          const codeStr = String(value);
+
+          // Try exact code match first (if data contains codes like "1", "2", "3")
+          if (counts.hasOwnProperty(codeStr)) {
+            counts[codeStr] = (counts[codeStr] || 0) + 1;
+          } else {
+            const normalizedValue = codeStr.trim().toLowerCase();
+            if (labelToCodeMap.has(normalizedValue)) {
+              // Check if it's a label that matches a defined code label
+              // Map the label to its numeric code
+              const matchedCode = labelToCodeMap.get(normalizedValue)!;
+              counts[matchedCode] = (counts[matchedCode] || 0) + 1;
+              // IMPORTANT: Do NOT add the label string itself to counts
+
               // Debug logging
-              console.log(`[${selectedVariable}] No match found for "${codeStr}" in label map. Available labels:`, Array.from(labelToCodeMap.keys()));
+              console.log(`[${selectedVariable}] Mapped label "${codeStr}" to code "${matchedCode}"`);
+            } else {
+              // Try fuzzy/partial matching - check if the value contains or is contained in any label
+              let bestMatch: { code: string; similarity: number } | null = null;
+
+              labelToCodeMap.forEach((code, normalizedLabel) => {
+                const value = normalizedValue;
+                const label = normalizedLabel;
+
+                // Check if one contains the other (case-insensitive)
+                if (value.includes(label) || label.includes(value)) {
+                  const similarity = Math.min(value.length, label.length) / Math.max(value.length, label.length);
+                  if (!bestMatch || similarity > bestMatch.similarity) {
+                    bestMatch = { code, similarity };
+                  }
+                } else {
+                  // Also check for word overlap (split by spaces and check if any words match)
+                  const valueWords = value.split(/\s+/);
+                  const labelWords = label.split(/\s+/);
+                  const commonWords = valueWords.filter(w => labelWords.includes(w));
+                  if (commonWords.length > 0) {
+                    // Calculate similarity based on common words
+                    const maxWords = Math.max(valueWords.length, labelWords.length);
+                    const similarity = commonWords.length / maxWords;
+                    if (!bestMatch || similarity > bestMatch.similarity) {
+                      bestMatch = { code, similarity };
+                    }
+                  }
+                }
+              });
+
+              if (bestMatch && bestMatch.similarity > 0.5) {
+                // If we found a reasonable match (at least 50% similarity), use it
+                counts[bestMatch.code] = (counts[bestMatch.code] || 0) + 1;
+                console.log(`[${selectedVariable}] Fuzzy matched "${codeStr}" to code "${bestMatch.code}" (similarity: ${(bestMatch.similarity * 100).toFixed(1)}%)`);
+              } else {
+                // If no match found, it's an unexpected value - still count it as-is
+                counts[codeStr] = (counts[codeStr] || 0) + 1;
+
+                // Debug logging
+                console.log(`[${selectedVariable}] No match found for "${codeStr}" in label map. Available labels:`, Array.from(labelToCodeMap.keys()));
+              }
             }
           }
         }
-      }
-    });
+      });
+    }
 
     // Create rows from all codes (definition codes first, then any extra codes from data)
     // Exclude label strings that correspond to defined codes (they've been mapped)
@@ -530,7 +635,7 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
     
     // Build set of label strings that correspond to defined codes
     const labelStrings = new Set<string>();
-    if (variableDef && variableDef.type === 'categorical') {
+    if (variableDef && (variableDef.type === 'categorical' || variableDef.type === 'multi-select' || variableDef.type === 'grid')) {
       Object.values(variableDef.codes).forEach(label => {
         if (label) {
           labelStrings.add(label.trim().toLowerCase());
@@ -551,7 +656,7 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
       // - String values that match defined labels (already mapped, so skip)
       // - For non-categorical or undefined variables, include everything
       
-      if (variableDef && variableDef.type === 'categorical' && allCodes.length > 0) {
+      if (variableDef && (variableDef.type === 'categorical' || variableDef.type === 'multi-select' || variableDef.type === 'grid') && allCodes.length > 0) {
         // For categorical with defined codes, only show defined codes
         // Don't add unmatched string values
         if (!allCodeKeys.includes(key) && !isLabelString) {
@@ -588,8 +693,8 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
     const sortOption = sortOptions[selectedVariable] || 'qnr';
     
     // Get code order for sorting (already have variableDef from above)
-    const codeOrder = variableDef && variableDef.type === 'categorical' 
-      ? Object.keys(variableDef.codes) 
+    const codeOrder = variableDef && (variableDef.type === 'categorical' || variableDef.type === 'multi-select' || variableDef.type === 'grid')
+      ? Object.keys(variableDef.codes)
       : [];
     
     // Apply sorting
@@ -1262,11 +1367,18 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
                             </div>
                             <span className={`text-xs px-1.5 py-0.5 rounded flex-shrink-0 ml-2 ${
                               isDisabled ? 'bg-gray-100 text-gray-400' :
+                              variable.type === 'multi-select' ? 'bg-purple-100 text-purple-800' :
+                              variable.type === 'grid' ? 'bg-orange-100 text-orange-800' :
                               variable.type === 'categorical' ? 'bg-blue-100 text-blue-800' :
                               variable.type === 'open-numeric' ? 'bg-green-100 text-green-800' :
                               'bg-gray-100 text-gray-800'
                             }`}>
-                              {variable.type}
+                              {variable.type === 'multi-select' ? 'Multi-Select' :
+                               variable.type === 'grid' ? 'Grid' :
+                               variable.type === 'categorical' ? 'Single Select' :
+                               variable.type === 'open-numeric' ? 'Numeric' :
+                               variable.type === 'open-text' ? 'Open End' :
+                               variable.type}
                             </span>
                           </div>
                           <p className={`text-xs line-clamp-2 ${isDisabled ? 'text-gray-400' : 'text-gray-600'}`}>

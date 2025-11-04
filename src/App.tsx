@@ -1,5 +1,6 @@
 // @ts-nocheck
 import React, { useMemo, useState, useEffect, useRef, useCallback } from "react";
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { createPortal } from "react-dom";
 import { API_BASE_URL } from './config';
 import {
@@ -59,6 +60,7 @@ import StatTesting from "./components/StatTesting";
 import OpenEndCoding from "./components/OpenEndCoding";
 import ConjointProjects from "./components/ConjointProjects";
 import DataTabulation from "./components/DataTabulation";
+import TabTesting from "./components/TabTesting";
 import AuthWrapper from "./components/AuthWrapper";
 import TopBar from "./components/TopBar";
 import Feedback from "./components/Feedback";
@@ -3472,95 +3474,7 @@ function AdminCenter({ onProjectUpdate }: { onProjectUpdate?: () => void }) {
               </div>
             </div>
           )}
-
-                {/* Previous Projects - Full width below schedule/details */}
-                {(() => {
-                  const { activeProjects, archivedProjects } = getVendorProjects(
-                    selectedVendor.id,
-                    selectedVendor.company
-                  );
-                  const allProjects = [...activeProjects, ...archivedProjects];
-                  const today = new Date();
-                  const postPhases = new Set(['Post-Field Analysis', 'Reporting', 'Complete']);
-                  const previousByDate = allProjects.filter((p: any) => {
-                    if (postPhases.has(p.phase)) return true;
-                    const end = p.endDate ? new Date(p.endDate) : null;
-                    return !!(end && end < today);
-                  });
-                  return (
-                    <div className="mt-6 p-4 bg-gray-50 rounded-lg transition-colors shadow-sm hover:bg-gray-100 hover:shadow">
-                      <h4 className="text-sm font-medium text-gray-600 uppercase tracking-wide mb-2">
-                        Previous Projects ({previousByDate.length})
-                      </h4>
-                      <div className="h-px bg-gray-200 mb-3" />
-                      {previousByDate.length > 0 ? (
-                        <div className="space-y-2">
-                          {previousByDate.map((project: any) => (
-                            <div key={project.id} className="p-3 bg-gray-100 border border-gray-200 rounded-lg">
-                              <div className="text-sm font-medium text-gray-700">{project.name}</div>
-                              <div className="text-xs text-gray-600 mt-1">
-                                {project.client} • {project.methodologyType}
-        </div>
-                              {project.endDate && (
-                                <div className="text-xs text-gray-500 mt-1">Field ended: {new Date(project.endDate).toLocaleDateString()}</div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-sm text-gray-500 italic">No previous projects</p>
-                      )}
-                    </div>
-                  );
-                })()}
-
-                {/* Inactive/Archived Projects - Full width below schedule/details */}
-                {(() => {
-                  const { archivedProjects } = getVendorProjects(
-                    selectedVendor.id,
-                    selectedVendor.company
-                  );
-                  return (
-                    <div className="mt-6 p-4 bg-gray-50 rounded-lg transition-colors shadow-sm hover:bg-gray-100 hover:shadow">
-                      <button
-                        onClick={() => setShowInactiveProjects(!showInactiveProjects)}
-                        className="flex items-center justify-between w-full text-left"
-                      >
-                        <h4 className="text-sm font-medium text-gray-600 uppercase tracking-wide">
-                          Inactive Projects ({archivedProjects.length})
-                        </h4>
-                        <svg
-                          className={`w-5 h-5 text-gray-500 transition-transform ${showInactiveProjects ? 'rotate-180' : ''}`}
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </button>
-                      <div className="h-px bg-gray-200 mt-2" />
-                      {showInactiveProjects && (
-                        archivedProjects.length > 0 ? (
-                          <div className="mt-3 space-y-2">
-                            {archivedProjects.map((project: any) => (
-                              <div key={project.id} className="p-3 bg-gray-100 border border-gray-200 rounded-lg">
-                                <div className="text-sm font-medium text-gray-700">{project.name}</div>
-                                <div className="text-xs text-gray-600 mt-1">
-                                  {project.client} • {project.methodologyType}
-                                </div>
-                                <div className="text-xs text-gray-500 mt-1">
-                                  Archived
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="mt-3 text-sm text-gray-500 italic">No archived projects</p>
-                        )
-                      )}
-                    </div>
-                  );
-                })()}
+        
         </div>
       )}
 
@@ -4306,6 +4220,8 @@ const getMemberColor = (memberId: string, teamMembers?: any[]) => {
 
 export default function App() {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   // Helper function for authentication headers
@@ -4313,7 +4229,64 @@ export default function App() {
     const token = localStorage.getItem('cognitive_dash_token');
     return token ? { Authorization: `Bearer ${token}` } : { Authorization: '' };
   }, []);
-  const [route, setRoute] = useState("Home");
+  // Map URL path to route name
+  const pathToRoute: Record<string, string> = {
+    '/': 'Home',
+    '/home': 'Home',
+    '/project-hub': 'Project Hub',
+    '/vendor-library': 'Vendor Library',
+    '/content-analysis': 'Content Analysis',
+    '/transcripts': 'Transcripts',
+    '/storytelling': 'Storytelling',
+    '/stat-testing': 'Stat Testing',
+    '/open-end-coding': 'Open-End Coding',
+    '/data-tabulation': 'Data Tabulation',
+    '/tab-testing': 'Tab Testing',
+    '/conjoint-simulator': 'Conjoint Simulator',
+    '/admin-center': 'Admin Center',
+    '/feedback': 'Feedback',
+    '/qnr': 'QNR',
+  };
+
+  // Map route name to URL path
+  const routeToPath: Record<string, string> = {
+    'Home': '/',
+    'Project Hub': '/project-hub',
+    'Vendor Library': '/vendor-library',
+    'Content Analysis': '/content-analysis',
+    'Transcripts': '/transcripts',
+    'Storytelling': '/storytelling',
+    'Stat Testing': '/stat-testing',
+    'Open-End Coding': '/open-end-coding',
+    'Data Tabulation': '/data-tabulation',
+    'Tab Testing': '/tab-testing',
+    'Conjoint Simulator': '/conjoint-simulator',
+    'Admin Center': '/admin-center',
+    'Feedback': '/feedback',
+    'QNR': '/qnr',
+  };
+
+  // Sync route state with URL
+  const currentRouteFromPath = pathToRoute[location.pathname] || 'Home';
+  const [route, setRoute] = useState(currentRouteFromPath);
+
+  // Update route when URL changes (back/forward button)
+  useEffect(() => {
+    const newRoute = pathToRoute[location.pathname] || 'Home';
+    setRoute(newRoute);
+  }, [location.pathname]);
+
+  // Navigation function that updates both state and URL
+  const navigateToRoute = useCallback((routeName: string) => {
+    const path = routeToPath[routeName];
+    if (path) {
+      navigate(path);
+      setRoute(routeName);
+    } else {
+      // Fallback for routes without path mapping
+      setRoute(routeName);
+    }
+  }, [navigate]);
   const [qualToolsDropdownOpen, setQualToolsDropdownOpen] = useState(true);
   const [quantToolsDropdownOpen, setQuantToolsDropdownOpen] = useState(true);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -4364,6 +4337,11 @@ export default function App() {
       setIsViewingProjectDetails(false);
     }
   }, [route]);
+  
+  // Create a wrapper that maintains backward compatibility for setRoute
+  const setRouteWithNavigation = useCallback((routeName: string) => {
+    navigateToRoute(routeName);
+  }, [navigateToRoute]);
 
   // Admin notification state
   const [adminNotificationCount, setAdminNotificationCount] = useState(0);
@@ -5064,7 +5042,7 @@ export default function App() {
     // Reload projects from backend to ensure consistency
     loadProjects();
     // Redirect to Project Hub after successful creation
-    setRoute('Project Hub');
+    navigateToRoute('Project Hub');
   };
 
   const handleProjectView = (project: Project) => {
@@ -5140,14 +5118,15 @@ export default function App() {
       const tools = [
         { name: "Stat Testing", icon: IconChartBar },
         { name: "Open-End Coding", icon: IconCode },
-        { name: "Data Tabulation", icon: IconTable },
         { name: "QNR (Coming Soon)", icon: IconCheckbox, disabled: true },
         { name: "Data QA (Coming Soon)", icon: IconDatabaseExclamation, disabled: true },
       ];
 
-      // Only show Conjoint Simulator to admins
+      // Only show Data Tabulation, Conjoint Simulator and Tab Testing to admins
       if (user?.role === 'admin') {
-        tools.splice(2, 0, { name: "Conjoint Simulator", icon: IconChartDots });
+        tools.splice(2, 0, { name: "Data Tabulation", icon: IconTable });
+        tools.splice(3, 0, { name: "Conjoint Simulator", icon: IconChartDots });
+        tools.splice(4, 0, { name: "Tab Testing", icon: IconTable });
       }
 
       return tools;
@@ -5251,6 +5230,11 @@ export default function App() {
                 )}
               </div>
             )}
+            {route === "Tab Testing" && (
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-bold" style={{ color: BRAND.gray }}>Tab Testing</h1>
+              </div>
+            )}
             {route === "Conjoint Simulator" && (
               <div className="flex items-center gap-3">
                 <h1 className="text-2xl font-bold" style={{ color: BRAND.gray }}>Conjoint Simulator</h1>
@@ -5325,19 +5309,31 @@ export default function App() {
         {/* Logo area removed from sidebar since it's now in the header */}
         <nav className="p-2 space-y-1 overflow-y-auto flex-1">
           {/* Main Navigation */}
-          {mainNav.map((item) => (
-            <button
-              key={item.name}
-              onClick={() => setRoute(item.name)}
+          {mainNav.map((item) => {
+            const isActive = route === item.name;
+            const content = (
+              <div
               className={`w-full flex items-center gap-3 rounded-xl px-3 py-2 transition ${
-                route === item.name ? "" : "hover:bg-gray-100"
+                  isActive ? "" : "hover:bg-gray-100"
               } ${!sidebarOpen ? 'justify-center' : ''}`}
-              style={route === item.name ? { backgroundColor: '#D14A2D', color: 'white' } : {}}
+                style={isActive ? { backgroundColor: '#D14A2D', color: 'white' } : {}}
             >
               <item.icon className="h-5 w-5" />
               {sidebarOpen && <span className="text-sm font-medium">{item.name}</span>}
+              </div>
+            );
+            
+            // Keep using button for now to maintain existing behavior
+            return (
+              <button
+                key={item.name}
+                onClick={() => navigateToRoute(item.name)}
+                className="w-full text-left"
+              >
+                {content}
             </button>
-          ))}
+            );
+          })}
 
           {/* Qualitative Tools Dropdown */}
           <div className="space-y-1">
@@ -5366,7 +5362,7 @@ export default function App() {
                 {qualitativeTools.map((item) => (
                   <button
                     key={item.name}
-                    onClick={() => setRoute(item.name)}
+                    onClick={() => navigateToRoute(item.name)}
                     className={`w-full flex items-center gap-3 rounded-xl px-3 py-2 transition ${
                       route === item.name ? "" : "hover:bg-gray-100"
                     }`}
@@ -5407,7 +5403,7 @@ export default function App() {
                 {quantitativeTools.map((item) => (
                   <button
                     key={item.name}
-                    onClick={() => !item.disabled && setRoute(item.name)}
+                    onClick={() => !item.disabled && navigateToRoute(item.name)}
                     disabled={item.disabled}
                     className={`w-full flex items-center gap-3 rounded-xl px-3 py-2 transition ${
                       item.disabled 
@@ -5431,7 +5427,7 @@ export default function App() {
             {adminNav.map((item) => (
               <button
                 key={item.name}
-                onClick={() => setRoute(item.name)}
+                onClick={() => navigateToRoute(item.name)}
                 className={`w-full flex items-center gap-3 rounded-xl px-3 py-2 transition relative ${
                   route === item.name ? "" : "hover:bg-gray-100"
                 } ${!sidebarOpen ? 'justify-center' : ''}`}
@@ -5465,13 +5461,13 @@ export default function App() {
               <div className="text-xs text-gray-600 space-x-3">
                 <button
                   className="underline hover:text-gray-800"
-                  onClick={() => { try { window.history.replaceState(null, '', '?route=Feedback&type=bug'); } catch {} setRoute('Feedback'); }}
+                  onClick={() => navigateToRoute('Feedback')}
                 >
                   Report bug
                 </button>
                 <button
                   className="underline hover:text-gray-800"
-                  onClick={() => { try { window.history.replaceState(null, '', '?route=Feedback&type=feature'); } catch {} setRoute('Feedback'); }}
+                  onClick={() => navigateToRoute('Feedback')}
                 >
                   Feature request
                 </button>
@@ -5496,21 +5492,21 @@ export default function App() {
       {route === "Content Analysis" || route === "content-analysis" ? (
         <ContentAnalysisX 
           projects={projects} 
-          onNavigate={setRoute} 
+          onNavigate={navigateToRoute} 
           onNavigateToProject={handleProjectView}
           analysisToLoad={analysisToLoad}
           onAnalysisLoaded={() => setAnalysisToLoad(null)}
           onNavigateToStorytelling={(analysisId, projectId) => {
             setCurrentAnalysisId(analysisId);
             setCurrentProjectId(projectId);
-            setRoute("Storytelling");
+            navigateToRoute("Storytelling");
           }}
           currentProjectId={currentProjectId}
         />
       ) : route === "Transcripts" || route === "transcripts" ? (
-        <Transcripts onNavigate={setRoute} setAnalysisToLoad={setAnalysisToLoad} />
+        <Transcripts onNavigate={navigateToRoute} setAnalysisToLoad={setAnalysisToLoad} />
       ) : route === "Storytelling" || route === "storytelling" ? (
-        <Storytelling analysisId={currentAnalysisId} projectId={currentProjectId} onNavigate={setRoute} setAnalysisToLoad={setAnalysisToLoad} />
+        <Storytelling analysisId={currentAnalysisId} projectId={currentProjectId} onNavigate={navigateToRoute} setAnalysisToLoad={setAnalysisToLoad} />
       ) : route === "Stat Testing" ? (
         <StatTesting />
       ) : route === "Open-End Coding" ? (
@@ -5523,6 +5519,17 @@ export default function App() {
             <div className="text-center p-8">
               <h2 className="text-2xl font-semibold text-gray-900 mb-2">Access Restricted</h2>
               <p className="text-gray-600">The Data Tabulation is only available to administrators.</p>
+            </div>
+          </div>
+        )
+      ) : route === "Tab Testing" ? (
+        user?.role === 'admin' ? (
+          <TabTesting />
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center p-8">
+              <h2 className="text-2xl font-semibold text-gray-900 mb-2">Access Restricted</h2>
+              <p className="text-gray-600">Tab Testing is only available to administrators.</p>
             </div>
           </div>
         )
@@ -5569,10 +5576,10 @@ export default function App() {
               </div>
             ) : (
               <>
-                {route === "Home" && user?.role === 'oversight' && <OversightDashboard projects={projects} loading={loadingProjects} onProjectCreated={handleProjectCreated} onNavigateToProject={handleProjectView} setRoute={setRoute} />}
-                {route === "Home" && user?.role !== 'oversight' && <Dashboard projects={projects} loading={loadingProjects} onProjectCreated={handleProjectCreated} onNavigateToProject={handleProjectView} setRoute={setRoute} />}
+                {route === "Home" && user?.role === 'oversight' && <OversightDashboard projects={projects} loading={loadingProjects} onProjectCreated={handleProjectCreated} onNavigateToProject={handleProjectView} setRoute={navigateToRoute} />}
+                {route === "Home" && user?.role !== 'oversight' && <Dashboard projects={projects} loading={loadingProjects} onProjectCreated={handleProjectCreated} onNavigateToProject={handleProjectView} setRoute={navigateToRoute} />}
                 {route === "Feedback" && <Feedback defaultType={(new URLSearchParams(window.location.search).get('type') as any) || 'bug'} />}
-                {route === "Project Hub" && <ProjectHub projects={projects} onProjectCreated={handleProjectCreated} onArchive={handleArchiveProject} setProjects={setProjects} savedContentAnalyses={savedContentAnalyses} setRoute={setRoute} setAnalysisToLoad={setAnalysisToLoad} setIsLoadingProjectFile={setIsLoadingProjectFile} initialProject={projectToNavigate} setCurrentSelectedProject={setCurrentSelectedProject} setIsViewingProjectDetails={setIsViewingProjectDetails} />}
+                {route === "Project Hub" && <ProjectHub projects={projects} onProjectCreated={handleProjectCreated} onArchive={handleArchiveProject} setProjects={setProjects} savedContentAnalyses={savedContentAnalyses} setRoute={navigateToRoute} setAnalysisToLoad={setAnalysisToLoad} setIsLoadingProjectFile={setIsLoadingProjectFile} initialProject={projectToNavigate} setCurrentSelectedProject={setCurrentSelectedProject} setIsViewingProjectDetails={setIsViewingProjectDetails} />}
               </>
             )}
             {route === "Vendor Library" && <VendorLibrary projects={projects} />}
@@ -5747,6 +5754,9 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
       console.error('Error loading vendors data:', error);
     }
   }, []);
+
+  // Collapsible state: Overdue tasks collapsed by default
+  const [showOverdueExpanded, setShowOverdueExpanded] = useState(false);
 
   // Load all projects when component mounts
   useEffect(() => {
@@ -6252,41 +6262,49 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
 
                 return (
                   <div className="bg-red-50 rounded-lg border border-red-200 overflow-hidden flex flex-col flex-shrink-0">
-                    <div className="flex items-center justify-between px-4 py-3 border-b border-red-200 flex-shrink-0 bg-red-100">
+                    <button
+                      className="flex items-center justify-between px-4 py-3 border-b border-red-200 flex-shrink-0 bg-red-100 w-full text-left"
+                      onClick={() => setShowOverdueExpanded(!showOverdueExpanded)}
+                    >
                       <h3 className="text-lg font-semibold text-red-700">Overdue Tasks ({totalOverdueTasks})</h3>
-                    </div>
-                    <div className="p-2 flex-1 min-h-0 overflow-hidden">
-                      <div className="space-y-2">
-                        {Array.from(overdueByProject.values()).map((projectData, index) => (
-                          <div
-                            key={`overdue-project-${projectData.project.id}-${index}`}
-                            className="flex items-center justify-between p-3 bg-red-50 border border-red-100 rounded cursor-pointer hover:bg-red-100 transition-colors"
-                            onClick={() => {
-                              if (onNavigateToProject) {
-                                onNavigateToProject(projectData.project);
-                              }
-                            }}
-                          >
-                            <div className="flex-1 min-w-0">
-                              <div className="text-xs font-medium text-gray-900 truncate">
-                                {projectData.project.name}
+                      <svg className={`w-5 h-5 text-red-700 transition-transform ${showOverdueExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                    {showOverdueExpanded && (
+                      <div className="p-2 flex-1 min-h-0 overflow-hidden">
+                        <div className="space-y-2">
+                          {Array.from(overdueByProject.values()).map((projectData, index) => (
+                            <div
+                              key={`overdue-project-${projectData.project.id}-${index}`}
+                              className="flex items-center justify-between p-3 bg-red-50 border border-red-100 rounded cursor-pointer hover:bg-red-100 transition-colors"
+                              onClick={() => {
+                                if (onNavigateToProject) {
+                                  onNavigateToProject(projectData.project);
+                                }
+                              }}
+                            >
+                              <div className="flex-1 min-w-0">
+                                <div className="text-xs font-medium text-gray-900 truncate">
+                                  {projectData.project.name}
+                                </div>
+                                <div className="text-xs text-gray-500 truncate">
+                                  {projectData.project.client}
+                                </div>
                               </div>
-                              <div className="text-xs text-gray-500 truncate">
-                                {projectData.project.client}
+                              <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+                                <div className="bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-full min-w-[20px] text-center">
+                                  {projectData.totalCount}
+                                </div>
+                                <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                </svg>
                               </div>
                             </div>
-                            <div className="flex items-center gap-2 flex-shrink-0 ml-3">
-                              <div className="bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-full min-w-[20px] text-center">
-                                {projectData.totalCount}
-                              </div>
-                              <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                              </svg>
-                            </div>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 );
               })()}
@@ -6348,25 +6366,40 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
 
                         return (
                           <div className="space-y-1">
-                            {todayTasks.map((task, index) => (
-                              <div
-                                key={`today-${task.id}-${task.projectName}-${index}`}
-                                className="p-2 bg-orange-50 border border-orange-100 rounded cursor-pointer hover:bg-orange-100 transition-colors"
-                                onClick={() => {
-                                  const project = projects.find(p => p.name === task.project);
-                                  if (project && onNavigateToProject) {
-                                    onNavigateToProject(project);
-                                  }
-                                }}
-                              >
-                                <div className="text-xs font-medium text-gray-900 truncate">
-                                  {task.description}
+                            {todayTasks.map((task, index) => {
+                              const project = projects.find(p => p.name === task.project);
+                              let phaseColor = '#6B7280';
+                              if (project) {
+                                if (project.segments && project.segments.length > 0) {
+                                  const today = new Date();
+                                  const todayStr = today.toISOString().split('T')[0];
+                                  const seg = project.segments.find(s => todayStr >= s.startDate && todayStr <= s.endDate);
+                                  const currentPhase = seg ? seg.phase : project.phase;
+                                  phaseColor = PHASE_COLORS[currentPhase] || '#6B7280';
+                                } else {
+                                  phaseColor = PHASE_COLORS[project.phase] || '#6B7280';
+                                }
+                              }
+                              return (
+                                <div
+                                  key={`today-${task.id}-${task.projectName}-${index}`}
+                                  className="bg-gray-50 border border-gray-100 rounded cursor-pointer hover:bg-gray-100 transition-colors px-3 py-2"
+                                  style={{ borderLeft: `3px solid ${phaseColor}` }}
+                                  onClick={() => {
+                                    if (project && onNavigateToProject) {
+                                      onNavigateToProject(project);
+                                    }
+                                  }}
+                                >
+                                  <div className="text-xs font-medium text-gray-900 truncate">
+                                    {task.description}
+                                  </div>
+                                  <div className="text-[10px] text-gray-500 truncate mt-0.5">
+                                    {task.project}
+                                  </div>
                                 </div>
-                                <div className="text-[10px] text-gray-500 truncate mt-0.5">
-                                  {task.project}
-                                </div>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         );
                       })()}
@@ -6430,25 +6463,40 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
 
                         return (
                           <div className="space-y-1">
-                            {ongoingTasks.map((task, index) => (
-                              <div
-                                key={`ongoing-${task.id}-${task.projectName}-${index}`}
-                                className="p-2 bg-blue-50 border border-blue-100 rounded cursor-pointer hover:bg-blue-100 transition-colors"
-                                onClick={() => {
-                                  const project = projects.find(p => p.name === task.project);
-                                  if (project && onNavigateToProject) {
-                                    onNavigateToProject(project);
-                                  }
-                                }}
-                              >
-                                <div className="text-xs font-medium text-gray-900 truncate">
-                                  {task.description}
+                            {ongoingTasks.map((task, index) => {
+                              const project = projects.find(p => p.name === task.project);
+                              let phaseColor = '#6B7280';
+                              if (project) {
+                                if (project.segments && project.segments.length > 0) {
+                                  const today = new Date();
+                                  const todayStr = today.toISOString().split('T')[0];
+                                  const seg = project.segments.find(s => todayStr >= s.startDate && todayStr <= s.endDate);
+                                  const currentPhase = seg ? seg.phase : project.phase;
+                                  phaseColor = PHASE_COLORS[currentPhase] || '#6B7280';
+                                } else {
+                                  phaseColor = PHASE_COLORS[project.phase] || '#6B7280';
+                                }
+                              }
+                              return (
+                                <div
+                                  key={`ongoing-${task.id}-${task.projectName}-${index}`}
+                                  className="bg-gray-50 border border-gray-100 rounded cursor-pointer hover:bg-gray-100 transition-colors px-3 py-2"
+                                  style={{ borderLeft: `3px solid ${phaseColor}` }}
+                                  onClick={() => {
+                                    if (project && onNavigateToProject) {
+                                      onNavigateToProject(project);
+                                    }
+                                  }}
+                                >
+                                  <div className="text-xs font-medium text-gray-900 truncate">
+                                    {task.description}
+                                  </div>
+                                  <div className="text-[10px] text-gray-500 truncate mt-0.5">
+                                    {task.project}
+                                  </div>
                                 </div>
-                                <div className="text-[10px] text-gray-500 truncate mt-0.5">
-                                  {task.project}
-                                </div>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         );
                       })()}
@@ -6758,7 +6806,7 @@ function Dashboard({ projects, loading, onProjectCreated, onNavigateToProject, s
                       </button>
                       <button
                         onClick={() => {
-                          setRoute('Project Hub');
+                          navigateToRoute('Project Hub');
                           // Need to signal to Project Hub to change the filter
                           setTimeout(() => {
                             // This will be handled by setting a flag or URL param
@@ -9216,6 +9264,122 @@ function ProjectTimeline({ projects, onDateRangeChange, maxWeeks, onProjectClick
   );
 }
 
+// Compact per-phase timeline for a single project (week-based header + phase rows)
+function ProjectPhaseTimeline({ project }: { project: Project }) {
+  const timelineRef = useRef<HTMLDivElement>(null);
+  const [visibleWeeks, setVisibleWeeks] = useState(6);
+  const [weekOffset, setWeekOffset] = useState(0);
+
+  useEffect(() => {
+    const updateVisibleWeeks = () => {
+      if (timelineRef.current) {
+        const containerWidth = timelineRef.current.offsetWidth;
+        const weeksToShow = Math.max(3, Math.min(6, Math.floor(containerWidth / 160)));
+        setVisibleWeeks(weeksToShow);
+      }
+    };
+    updateVisibleWeeks();
+    const ro = new ResizeObserver(updateVisibleWeeks);
+    if (timelineRef.current) ro.observe(timelineRef.current);
+    return () => ro.disconnect();
+  }, []);
+
+  const getWeekStart = (offset: number) => {
+    const today = new Date();
+    const currentDay = today.getUTCDay();
+    const daysToMonday = currentDay === 0 ? -6 : 1 - currentDay;
+    const currentMonday = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() + daysToMonday));
+    return new Date(Date.UTC(currentMonday.getUTCFullYear(), currentMonday.getUTCMonth(), currentMonday.getUTCDate() + offset * 7));
+  };
+
+  const weeks = Array.from({ length: visibleWeeks }, (_, i) => {
+    const start = getWeekStart(weekOffset + i);
+    const end = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate() + 4));
+    const days = Array.from({ length: 5 }, (_, d) => new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate() + d)));
+    return { start, end, days };
+  });
+
+  // Build bars for each phase based on project.segments
+  const phases = ['Kickoff', 'Pre-Field', 'Fielding', 'Post-Field Analysis', 'Reporting'];
+  const allDays = weeks.flatMap(w => w.days);
+  const totalDays = allDays.length;
+
+  const dateStr = (d: Date) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`;
+
+  const getBarForPhase = (phase: string) => {
+    const seg = (project.segments || []).find(s => s.phase === phase);
+    if (!seg) return null;
+    // Find indices overlapping visible days (Mon-Fri only)
+    let startIndex = -1;
+    let endIndex = -1;
+    allDays.forEach((d, idx) => {
+      const ds = dateStr(d);
+      if (ds >= seg.startDate && ds <= seg.endDate) {
+        if (startIndex === -1) startIndex = idx;
+        endIndex = idx;
+      }
+    });
+    if (startIndex === -1 || endIndex === -1) return null;
+    const left = (startIndex / totalDays) * 100;
+    const width = ((endIndex - startIndex + 1) / totalDays) * 100;
+    return { left, width, color: PHASE_COLORS[phase as keyof typeof PHASE_COLORS] };
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <button onClick={() => setWeekOffset(o => o - 1)} className="p-2 text-gray-500 hover:text-gray-700"><ChevronLeftIcon className="w-5 h-5" /></button>
+        <div className="text-sm font-medium text-gray-700">Week of</div>
+        <button onClick={() => setWeekOffset(o => o + 1)} className="p-2 text-gray-500 hover:text-gray-700"><ChevronRightIcon className="w-5 h-5" /></button>
+      </div>
+
+      <div ref={timelineRef} className="border border-gray-200 rounded-lg overflow-hidden">
+        {/* Header */}
+        <div className="flex border-b" style={{ backgroundColor: '#B43C22' }}>
+          <div className="w-40 text-white text-sm font-semibold px-4 py-3">Week of</div>
+          <div className="flex-1 flex">
+            {weeks.map((w, i) => (
+              <div key={i} className="flex-1 text-center text-white text-sm font-semibold py-3 border-l border-white/30">
+                {w.start.getUTCMonth() + 1}/{w.start.getUTCDate()}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Rows */}
+        {phases.map((ph, rowIdx) => (
+          <div key={ph} className="flex items-stretch border-b last:border-b-0 bg-white">
+            <div className="w-40 px-4 py-3 text-sm text-gray-800">{getPhaseDisplayName(ph)}</div>
+            <div className="flex-1 relative" style={{ height: 48 }}>
+              {/* Grid */}
+              <div className="absolute inset-0 flex">
+                {weeks.map((w, wi) => (
+                  <div key={wi} className="flex-1 flex">
+                    {w.days.map((_, di) => (
+                      <div key={di} className={`border-r border-gray-200 ${di===4?'':'bg-transparent'}`} style={{ width: `${100/5}%` }} />
+                    ))}
+                  </div>
+                ))}
+              </div>
+              {/* Bar */}
+              {(() => {
+                const bar = getBarForPhase(ph);
+                if (!bar) return null;
+                return (
+                  <div className="absolute top-1/2 -translate-y-1/2 rounded-full text-[12px] flex items-center justify-center"
+                    style={{ left: `${bar.left}%`, width: `${bar.width}%`, height: 28, background: `${bar.color}99`, color: 'white' }}>
+                    {/* Optionally show start/end markers */}
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // Moderator Timeline Component
 function ModeratorTimeline({ projects, moderators, onDateRangeChange }: { projects: Project[]; moderators?: any[]; onDateRangeChange?: (dateRange: string) => void }) {
   const [currentWeekOffset, setCurrentWeekOffset] = useState(0);
@@ -10944,6 +11108,7 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
   const [loadingArchived, setLoadingArchived] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [showDashboard, setShowDashboard] = useState(false);
+  const [activeProjectTab, setActiveProjectTab] = useState<'dashboard' | 'files' | 'timeline' | 'details'>('dashboard');
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [showAddTeamMember, setShowAddTeamMember] = useState(false);
   const [showAddRoleDropdown, setShowAddRoleDropdown] = useState<string | null>(null);
@@ -12291,7 +12456,7 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
         </div>
       )}
 
-      {/* Dashboard View */}
+      {/* Dashboard View (Project Details Page with sub-tabs) */}
       {showDashboard && selectedProject && !isTransitioning && (
         <div>
           {/* Dashboard Header with Return Button */}
@@ -12479,7 +12644,42 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
             </div>
           </div>
 
-          {/* Project Dashboard Content */}
+          {/* Sub-tabs */}
+          <div className="border-b border-gray-200 mb-4">
+            <nav className="-mb-px flex space-x-6">
+              <button
+                onClick={() => setActiveProjectTab('dashboard')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${activeProjectTab === 'dashboard' ? 'text-white' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+                style={activeProjectTab === 'dashboard' ? { borderBottomColor: BRAND.orange, color: BRAND.orange } : {}}
+              >
+                Dashboard
+              </button>
+              <button
+                onClick={() => setActiveProjectTab('files')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${activeProjectTab === 'files' ? 'text-white' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+                style={activeProjectTab === 'files' ? { borderBottomColor: BRAND.orange, color: BRAND.orange } : {}}
+              >
+                Project files
+              </button>
+              <button
+                onClick={() => setActiveProjectTab('timeline')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${activeProjectTab === 'timeline' ? 'text-white' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+                style={activeProjectTab === 'timeline' ? { borderBottomColor: BRAND.orange, color: BRAND.orange } : {}}
+              >
+                Timeline
+              </button>
+              <button
+                onClick={() => setActiveProjectTab('details')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${activeProjectTab === 'details' ? 'text-white' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+                style={activeProjectTab === 'details' ? { borderBottomColor: BRAND.orange, color: BRAND.orange } : {}}
+              >
+                Project details
+              </button>
+            </nav>
+          </div>
+
+          {/* Tab Content */}
+          {activeProjectTab === 'dashboard' && (
           <ProjectDashboard
             project={selectedProject}
             onEdit={() => {
@@ -12490,8 +12690,6 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
             setProjects={setProjects}
             onProjectUpdate={(updatedProject) => {
               setSelectedProject(updatedProject);
-              
-              // Update the main App component's current selected project
               if (setCurrentSelectedProject) {
                 setCurrentSelectedProject(updatedProject);
               }
@@ -12501,6 +12699,130 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
             setAnalysisToLoad={setAnalysisToLoad}
             setIsLoadingProjectFile={setIsLoadingProjectFile}
           />
+          )}
+
+          {activeProjectTab === 'files' && (
+            <div className="space-y-4">
+              {/* Folder list per tool */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="border rounded-lg bg-white">
+                  <div className="px-4 py-3 border-b font-medium">Transcripts</div>
+                  <div className="p-4 text-sm text-gray-600">Open transcripts for this project in the Transcripts tool.</div>
+                  <div className="px-4 pb-4">
+                    <button onClick={() => navigateToRoute('Transcripts')} className="text-sm text-orange-700 hover:underline">Open Transcripts</button>
+                  </div>
+                </div>
+                <div className="border rounded-lg bg-white">
+                  <div className="px-4 py-3 border-b font-medium">Content Analysis</div>
+                  <div className="p-4">
+                    {(savedContentAnalyses || []).filter(ca => ca.projectId === selectedProject.id).length === 0 && (
+                      <div className="text-sm text-gray-600">No saved analyses yet.</div>
+                    )}
+                    {(savedContentAnalyses || []).filter(ca => ca.projectId === selectedProject.id).map((ca) => (
+                      <div key={ca.id} className="flex items-center justify-between py-2 border-b last:border-b-0">
+                        <div>
+                          <div className="text-sm font-medium">{ca.name || 'Saved analysis'}</div>
+                          <div className="text-xs text-gray-500">{ca.savedDate}</div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            navigateToRoute('Content Analysis');
+                            if (setAnalysisToLoad) setAnalysisToLoad(ca.id);
+                          }}
+                          className="text-sm text-orange-700 hover:underline"
+                        >
+                          Open
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="border rounded-lg bg-white">
+                  <div className="px-4 py-3 border-b font-medium">Data Tabulation</div>
+                  <div className="p-4 text-sm text-gray-600">Go to Data Tabulation for saved tables.</div>
+                  <div className="px-4 pb-4">
+                    <button 
+                      onClick={() => navigateToRoute('Data Tabulation')} 
+                      className="text-sm text-orange-700 hover:underline"
+                    >
+                      Open Data Tabulation
+                    </button>
+                  </div>
+                </div>
+                <div className="border rounded-lg bg-white">
+                  <div className="px-4 py-3 border-b font-medium">Other Files</div>
+                  <div className="p-4">
+                    {(selectedProject.files || []).length === 0 && (
+                      <div className="text-sm text-gray-600">No files uploaded yet.</div>
+                    )}
+                    {(selectedProject.files || []).map(file => (
+                      <div key={file.id} className="py-2 border-b last:border-b-0">
+                        <a href={file.url} target="_blank" rel="noreferrer" className="text-sm text-orange-700 hover:underline">{file.name}</a>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeProjectTab === 'timeline' && (
+            <div className="bg-white rounded-lg border">
+              <div className="px-4 py-3 border-b font-medium">Project Timeline</div>
+              <div className="p-4 space-y-4">
+                {/* Phase timeline (wizard-style) */}
+                <ProjectPhaseTimeline project={selectedProject} />
+
+                {/* Dates box (existing) */}
+                <div className="text-sm text-gray-700">
+                {/* Simple phase timeline summary */}
+                {(selectedProject.segments || []).length === 0 ? (
+                  <div className="text-gray-600">No timeline segments set.</div>
+                ) : (
+                  <div className="space-y-2">
+                    {selectedProject.segments.map((seg, i) => (
+                      <div key={`${seg.phase}-${i}`} className="flex items-center justify-between">
+                        <div className="font-medium">{seg.phase}</div>
+                        <div className="text-gray-500">{formatDateForDisplay(seg.startDate)} - {formatDateForDisplay(seg.endDate)}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeProjectTab === 'details' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-white border rounded-lg">
+                <div className="px-4 py-3 border-b font-medium">Project Details</div>
+                <div className="p-4 text-sm">
+                  <div className="flex justify-between py-2 border-b"><span className="text-gray-500">Client</span><span>{selectedProject.client || '-'}</span></div>
+                  <div className="flex justify-between py-2 border-b"><span className="text-gray-500">Methodology</span><span>{selectedProject.methodology || '-'}</span></div>
+                  <div className="flex justify-between py-2 border-b"><span className="text-gray-500">Sample</span><span>{selectedProject.sampleSize || '-'}{selectedProject.subgroups?.length ? ` (${selectedProject.subgroups.map((s:any)=>`${s.name} ${s.size}`).join(', ')})` : ''}</span></div>
+                  <div className="flex justify-between py-2"><span className="text-gray-500">Moderator</span><span>{selectedProject.moderator || '-'}</span></div>
+                </div>
+              </div>
+              <div className="bg-white border rounded-lg">
+                <div className="px-4 py-3 border-b font-medium">Key Dates</div>
+                <div className="p-4 text-sm">
+                  {(selectedProject.keyDeadlines || []).length === 0 ? (
+                    <div className="text-gray-600">No key dates set.</div>
+                  ) : (
+                    <div className="space-y-2">
+                      {selectedProject.keyDeadlines.map((kd:any, idx:number) => (
+                        <div key={idx} className="flex items-center justify-between">
+                          <div>{kd.label}</div>
+                          <div className="text-gray-500">{kd.date}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -16755,8 +17077,8 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
             );
           })()}
 
-          {/* Top Row: Today + Ongoing Tasks + Future Tasks */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Top Row: Today + Ongoing Tasks */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Today Box */}
             <Card className="!p-0 overflow-hidden rounded-none h-64">
           <div className="px-3 py-2 flex items-center justify-between" style={{ backgroundColor: BRAND.orange }}>
@@ -16826,13 +17148,33 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                       return (
                         <div
                           key={task.id}
-                          className="p-1.5 bg-gray-50 border border-gray-100 rounded cursor-pointer hover:bg-gray-100 transition-colors"
+                          className="bg-gray-50 border border-gray-100 rounded cursor-pointer hover:bg-gray-100 transition-colors px-3 py-2 flex justify-between items-start"
+                          style={{ borderLeft: `3px solid ${PHASE_COLORS[activePhase] || '#6B7280'}` }}
                         >
-                          <div className="text-xs font-medium text-gray-900 truncate">
+                          <div className="text-xs font-medium text-gray-900 truncate pr-2">
                             {task.description || task.content || 'Untitled task'}
                           </div>
-                          <div className="text-[10px] text-gray-500 truncate mt-0.5">
-                            {assignedMembers}
+                          <div className="flex items-center gap-0.5 flex-shrink-0 ml-2">
+                            {task.assignedTo && task.assignedTo.filter(id => id && id.trim() !== '').length > 0 && (
+                              <div className="flex items-center">
+                                {task.assignedTo
+                                  .filter(id => id && id.trim() !== '')
+                                  .slice(0, 2)
+                                  .map((memberId, idx) => (
+                                    <div
+                                      key={memberId}
+                                      className={`w-5 h-5 rounded-full flex items-center justify-center text-white text-[9px] font-medium overflow-hidden border-2 border-gray-100 ${idx > 0 ? '-ml-1' : ''}`}
+                                      style={{ backgroundColor: getMemberColor(memberId, project.teamMembers), zIndex: idx === 0 ? 2 : 1 }}
+                                      title={project.teamMembers.find(m => m.id === memberId)?.name || 'Unknown'}
+                                    >
+                                      <span className="truncate leading-none">{getInitials(project.teamMembers.find(m => m.id === memberId)?.name || 'U')}</span>
+                                    </div>
+                                  ))}
+                                {task.assignedTo.filter(id => id && id.trim() !== '').length > 2 && (
+                                  <span className="text-[10px] italic text-gray-500 ml-0.5">+{task.assignedTo.filter(id => id && id.trim() !== '').length - 2}</span>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                       );
@@ -16908,13 +17250,33 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                       return (
                         <div
                           key={task.id}
-                          className="p-1.5 bg-gray-50 border border-gray-100 rounded cursor-pointer hover:bg-gray-100 transition-colors"
+                          className="bg-gray-50 border border-gray-100 rounded cursor-pointer hover:bg-gray-100 transition-colors px-3 py-2 flex justify-between items-start"
+                          style={{ borderLeft: `3px solid ${PHASE_COLORS[activePhase] || '#6B7280'}` }}
                         >
-                          <div className="text-xs font-medium text-gray-900 truncate">
+                          <div className="text-xs font-medium text-gray-900 truncate pr-2">
                             {task.description || task.content || 'Untitled task'}
                           </div>
-                          <div className="text-[10px] text-gray-500 truncate mt-0.5">
-                            {assignedMembers}
+                          <div className="flex items-center gap-0.5 flex-shrink-0 ml-2">
+                            {task.assignedTo && task.assignedTo.filter(id => id && id.trim() !== '').length > 0 && (
+                              <div className="flex items-center">
+                                {task.assignedTo
+                                  .filter(id => id && id.trim() !== '')
+                                  .slice(0, 2)
+                                  .map((memberId, idx) => (
+                                    <div
+                                      key={memberId}
+                                      className={`w-5 h-5 rounded-full flex items-center justify-center text-white text-[9px] font-medium overflow-hidden border-2 border-gray-100 ${idx > 0 ? '-ml-1' : ''}`}
+                                      style={{ backgroundColor: getMemberColor(memberId, project.teamMembers), zIndex: idx === 0 ? 2 : 1 }}
+                                      title={project.teamMembers.find(m => m.id === memberId)?.name || 'Unknown'}
+                                    >
+                                      <span className="truncate leading-none">{getInitials(project.teamMembers.find(m => m.id === memberId)?.name || 'U')}</span>
+                          </div>
+                                  ))}
+                                {task.assignedTo.filter(id => id && id.trim() !== '').length > 2 && (
+                                  <span className="text-[10px] italic text-gray-500 ml-0.5">+{task.assignedTo.filter(id => id && id.trim() !== '').length - 2}</span>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                       );
@@ -16922,110 +17284,6 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                     {remainingCount > 0 && (
                       <div className="text-[10px] text-gray-500 text-center pt-1">
                         +{remainingCount} more ongoing task{remainingCount !== 1 ? 's' : ''}
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-            </div>
-            {/* Gradient overlay to indicate more content */}
-            <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white to-transparent pointer-events-none"></div>
-          </div>
-            </Card>
-
-            {/* Future Tasks Box */}
-            <Card className="!p-0 overflow-hidden rounded-none h-64">
-          <div className="px-3 py-2 flex items-center justify-between" style={{ backgroundColor: '#5D5F62' }}>
-            <h3 className="text-base font-semibold text-gray-200 uppercase">Future Tasks</h3>
-            <span className="text-xs font-normal italic text-gray-200">(next 2 weeks)</span>
-          </div>
-          <div className="border-b border-gray-200"></div>
-
-          {/* Future Tasks (next 2 weeks) - Single List */}
-          <div className="px-3 pb-3 pt-2 h-52 overflow-hidden relative">
-            <div className="h-full overflow-y-auto">
-              {(() => {
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                
-                // Calculate 14 days from today
-                const twoWeeksFromToday = new Date(today);
-                twoWeeksFromToday.setDate(today.getDate() + 14);
-                twoWeeksFromToday.setHours(23, 59, 59, 999);
-
-                // Combine all tasks for the next 14 days (exclude ongoing tasks)
-                const allFutureTasks = projectTasks.filter(task => {
-                  if (task.status === 'completed') return false;
-                  if (!task.dueDate) return false;
-                  if (task.isOngoing) return false; // Exclude ongoing tasks
-
-                  const taskDate = new Date(task.dueDate + 'T00:00:00');
-                  taskDate.setHours(0, 0, 0, 0);
-
-                  // Task must be after today AND within the next 14 days
-                  const isAfterToday = taskDate.getTime() > today.getTime();
-                  const isWithinTwoWeeks = taskDate.getTime() <= twoWeeksFromToday.getTime();
-
-                  return isAfterToday && isWithinTwoWeeks;
-                });
-
-                // Sort by date (closest to furthest) and then by assigned to me
-                const sortedFutureTasks = allFutureTasks.sort((a, b) => {
-                  const aDate = new Date(a.dueDate + 'T00:00:00').getTime();
-                  const bDate = new Date(b.dueDate + 'T00:00:00').getTime();
-                  
-                  // First sort by date (closest first)
-                  if (aDate !== bDate) {
-                    return aDate - bDate;
-                  }
-                  
-                  // Then sort by assigned to me
-                  const aAssignedToMe = isAssignedToCurrentUser(a);
-                  const bAssignedToMe = isAssignedToCurrentUser(b);
-                  if (aAssignedToMe && !bAssignedToMe) return -1;
-                  if (!aAssignedToMe && bAssignedToMe) return 1;
-                  return 0;
-                });
-
-                if (sortedFutureTasks.length === 0) {
-                  return <div className="text-xs italic text-gray-500">No future tasks in the next 2 weeks</div>;
-                }
-
-                // Limit to first 8 tasks to prevent overflow
-                const maxTasks = 8;
-                const tasksToShow = sortedFutureTasks.slice(0, maxTasks);
-                const remainingCount = sortedFutureTasks.length - maxTasks;
-
-                return (
-                  <div className="space-y-1">
-                    {tasksToShow.map(task => {
-                      const isAssignedToMe = isAssignedToCurrentUser(task);
-                      const assignedMembers = task.assignedTo && task.assignedTo.length > 0 
-                        ? (() => {
-                            const validMembers = task.assignedTo
-                              .map(id => project.teamMembers.find(member => member.id === id)?.name)
-                              .filter(name => name); // Remove undefined/null values
-                            return validMembers.length > 0 ? validMembers.join(', ') : 'Not Assigned';
-                          })()
-                        : 'Not Assigned';
-
-                      return (
-                        <div
-                          key={task.id}
-                          className="p-1.5 bg-gray-50 border border-gray-100 rounded cursor-pointer hover:bg-gray-100 transition-colors"
-                        >
-                          <div className="text-xs font-medium text-gray-900 truncate">
-                            {task.description || task.content || 'Untitled task'}
-                          </div>
-                          <div className="text-[10px] text-gray-500 truncate mt-0.5">
-                            {assignedMembers}
-                          </div>
-                        </div>
-                      );
-                    })}
-                    {remainingCount > 0 && (
-                      <div className="text-[10px] text-gray-500 italic">
-                        +{remainingCount} more tasks
                       </div>
                     )}
                   </div>
