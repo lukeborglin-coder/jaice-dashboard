@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 
 interface AverageUtilitiesViewProps {
   workflow: any;
@@ -21,7 +21,17 @@ interface AttributeUtilities {
   spreadColor?: string;
 }
 
+// Helper function to convert hex color to rgba with opacity
+const hexToRgba = (hex: string, opacity: number): string => {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+};
+
 export default function AverageUtilitiesView({ workflow }: AverageUtilitiesViewProps) {
+  const [selectedAttributeForTable, setSelectedAttributeForTable] = useState<string | null>(null);
+
   const attributesData = useMemo(() => {
     // Extract utilities from workflow
     // The workflow stores estimation in either:
@@ -117,7 +127,7 @@ export default function AverageUtilitiesView({ workflow }: AverageUtilitiesViewP
       
       // Fallback: try to get from schema levels if they're objects
       if (levelLabelToCode.size === 0) {
-        schemaLevels.forEach((schemaLevel) => {
+        schemaLevels.forEach((schemaLevel: any) => {
           if (typeof schemaLevel === 'object' && schemaLevel.code && schemaLevel.level) {
             const label = String(schemaLevel.level).trim();
             const code = String(schemaLevel.code).trim();
@@ -335,22 +345,8 @@ export default function AverageUtilitiesView({ workflow }: AverageUtilitiesViewP
   }
 
   // Note: Y-axis will be calculated per-attribute for independent scaling
-
-  // Calculate the maximum height needed for tables based on number of levels
-  // Header: ~60px (title + range box + padding), Each row: ~35px
-  // Note: p-4 adds 16px padding on all sides (top and bottom = 32px total)
-  const calculateTableContentHeight = (numLevels: number) => {
-    const headerHeight = 60; // Title + range box + mb-3 spacing
-    const rowHeight = 35; // Approximate row height with padding
-    return headerHeight + (numLevels * rowHeight);
-  };
-
-  const maxTableContentHeight = attributesData.length > 0
-    ? Math.max(...attributesData.map(attr => calculateTableContentHeight(attr.levels.length)))
-    : 0;
-  
-  // The table box includes p-4 padding (16px top + 16px bottom = 32px)
-  const maxTableBoxHeight = maxTableContentHeight + 32;
+  // Fixed chart height for consistency
+  const defaultChartHeight = 400;
 
   return (
     <div className="min-h-full">
@@ -380,54 +376,60 @@ export default function AverageUtilitiesView({ workflow }: AverageUtilitiesViewP
 
       <div className="px-6 py-6 bg-gray-50 space-y-8">
         {attributesData.map((attr, index) => {
-          const chartWidth = 800;
-          // Use the maximum table box height (including padding) to ensure charts align with table boxes
-          const chartHeight = maxTableBoxHeight > 0 ? maxTableBoxHeight : 300;
-          // Bottom margin fixed to accommodate 2-line wrapped labels
+          const chartHeight = defaultChartHeight;
+          // Bottom margin fixed to accommodate 3-line wrapped labels
           // Top margin minimal to maximize plot area - expand plot area to fill available space
-          const bottomMargin = 110; // Fixed bottom margin for labels
+          const labelHeight = 70; // Height for 3-line labels
+          const bottomMargin = labelHeight + 10; // Just enough for labels with a small gap
           const topMargin = 20; // Minimal top margin
-          const margin = { top: topMargin, right: 40, bottom: bottomMargin, left: 60 };
-          const plotWidth = chartWidth - margin.left - margin.right;
+          const margin = { top: topMargin, right: 0, bottom: bottomMargin, left: 60 };
+          // Chart width will be calculated dynamically based on container, but we need a base for calculations
+          // The actual width will be set via CSS to fill the container
+          const baseChartWidth = 1000; // Base width for calculations, but SVG will scale to container
+          const plotWidth = baseChartWidth - margin.left - margin.right;
           // Calculate plot height to use all available vertical space
           const plotHeight = chartHeight - margin.top - margin.bottom;
           
           // Calculate spacing between points - ensure at least some space between levels
-          // Account for Y-axis on left and chart boundary on right
-          const minLabelWidth = 100; // Minimum label width
-          const startPadding = 60; // Padding from Y-axis (half of typical label width)
-          const endPadding = 40; // Padding on the right (half of typical label width)
-          const availableWidth = plotWidth - startPadding - endPadding;
+          // The space between Y-axis and first point, and after last point, should equal the spacing between points
+          const minLabelWidth = 80; // Minimum label width
+          const maxLabelWidth = 250; // Maximum label width to prevent labels from being too wide
           
-          const pointSpacing = attr.levels.length > 1 
-            ? availableWidth / (attr.levels.length - 1)
+          // Calculate point spacing: distribute available width evenly
+          // We want: spacing from Y-axis to first point = spacing between points = spacing from last point to right edge
+          // So if we have n levels, we need (n + 1) intervals of equal width
+          const availableWidth = plotWidth - margin.left - margin.right;
+          const pointSpacing = attr.levels.length > 0 
+            ? availableWidth / (attr.levels.length + 1) // +1 for spacing from Y-axis to first point, and last point to right edge
             : availableWidth / 2;
           
-          // Dynamic label width: use pointSpacing to fill the space evenly
-          // Make sure it's at least the minimum width
-          // But also ensure it doesn't cause labels to extend beyond chart boundaries
-          let labelWidth = Math.max(pointSpacing, minLabelWidth);
+          // Start padding equals point spacing so first point is one spacing unit from Y-axis
+          const startPadding = pointSpacing;
+          // End padding equals point spacing so last point is one spacing unit from right edge
+          const endPadding = pointSpacing;
           
-          // Check if labels would extend beyond boundaries
-          // First point's label should start at or after margin.left (Y-axis)
-          // Last point's label should end at or before chartWidth (right edge of chart)
-          if (attr.levels.length > 0) {
-            const firstPointX = margin.left + startPadding;
-            const lastPointX = margin.left + startPadding + (attr.levels.length - 1) * pointSpacing;
-            const chartRightEdge = chartWidth;
-            
-            // Check left boundary: first label's left edge should be >= margin.left (Y-axis)
-            const firstLabelLeft = firstPointX - labelWidth / 2;
-            if (firstLabelLeft < margin.left) {
-              labelWidth = Math.min(labelWidth, (firstPointX - margin.left) * 2);
-            }
-            
-            // Check right boundary: last label's right edge should be <= chartRightEdge
-            const lastLabelRight = lastPointX + labelWidth / 2;
-            if (lastLabelRight > chartRightEdge) {
-              labelWidth = Math.min(labelWidth, (chartRightEdge - lastPointX) * 2);
-            }
+          // Dynamic label width based on available space between points
+          // When there are fewer levels, pointSpacing is larger, so labels can be wider
+          // When there are more levels, pointSpacing is smaller, so labels need to be narrower
+          // Use 80-90% of pointSpacing to allow some padding between labels
+          let labelWidth = pointSpacing * 0.85;
+          
+          // Ensure label width is within min/max bounds
+          labelWidth = Math.max(labelWidth, minLabelWidth);
+          labelWidth = Math.min(labelWidth, maxLabelWidth);
+          
+          // For very few levels (3 or less), allow labels to be wider
+          if (attr.levels.length <= 3) {
+            labelWidth = Math.min(pointSpacing * 0.95, maxLabelWidth);
           }
+          
+          // For many levels (8 or more), make labels narrower to prevent overlap
+          if (attr.levels.length >= 8) {
+            labelWidth = Math.max(pointSpacing * 0.7, minLabelWidth);
+          }
+          
+          // Note: Removed constraints on first/last labels - they can extend beyond chart boundaries
+          // to use available space more effectively
           
           // Calculate Y-axis scaling per-attribute for independent scaling
           const attrMin = attr.minUtility;
@@ -462,12 +464,34 @@ export default function AverageUtilitiesView({ workflow }: AverageUtilitiesViewP
             return { x, y, level, value: level.value };
           });
           
-          // Calculate where the lines should end (at the right edge of the last label)
+          // Calculate the X position of the last point (for line endings)
           const lastPointX = points.length > 0 ? points[points.length - 1].x : margin.left + startPadding;
-          const lineEndX = lastPointX + labelWidth / 2;
+          const firstPointX = points.length > 0 ? points[0].x : margin.left + startPadding;
+          
+          // Extend lines to fill the full width - extend to the right edge of the viewBox
+          const lineStartX = firstPointX - pointSpacing;
+          const lineEndX = baseChartWidth; // Extend all the way to the right edge
+          
+          // Calculate label distribution: evenly space labels from Y-axis to end of X-axis
+          // First label's left edge aligns with Y-axis, last label's right edge aligns with end of X-axis
+          const labelAreaStart = margin.left; // Y-axis position
+          const labelAreaEnd = lineEndX; // End of X-axis line
+          const labelAreaWidth = labelAreaEnd - labelAreaStart;
+          const labelCount = attr.levels.length;
+          const labelWidthPerLabel = labelAreaWidth / labelCount;
+          
+          // Reposition points to match label positions (centered in each label's allocated space)
+          const repositionedPoints = points.map((point, i) => {
+            // Each label's center is at: labelAreaStart + (i * labelWidthPerLabel) + (labelWidthPerLabel / 2)
+            const labelCenterX = labelAreaStart + (i * labelWidthPerLabel) + (labelWidthPerLabel / 2);
+            return {
+              ...point,
+              x: labelCenterX
+            };
+          });
 
-          // Create path for the line
-          const linePath = points.map((point, i) => {
+          // Create path for the line using repositioned points
+          const linePath = repositionedPoints.map((point, i) => {
             return `${i === 0 ? 'M' : 'L'} ${point.x} ${point.y}`;
           }).join(' ');
 
@@ -475,209 +499,251 @@ export default function AverageUtilitiesView({ workflow }: AverageUtilitiesViewP
             <div key={attr.attributeName || index} className="bg-white rounded-lg border border-gray-200 p-6 relative">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-semibold text-gray-900">{attr.attributeLabel}</h3>
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded border border-gray-300 text-xs text-gray-600">
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => {
+                      setSelectedAttributeForTable(
+                        selectedAttributeForTable === attr.attributeName 
+                          ? null 
+                          : attr.attributeName
+                      );
+                    }}
+                    className={`px-3 py-1.5 border rounded transition text-xs ${
+                      selectedAttributeForTable === attr.attributeName
+                        ? 'bg-gray-100 border-gray-400 text-gray-900'
+                        : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
+                    title={selectedAttributeForTable === attr.attributeName ? "View chart" : "View table data"}
+                  >
+                    {selectedAttributeForTable === attr.attributeName ? 'View Chart' : 'View Table'}
+                  </button>
                   <div 
-                    className="w-2 h-2 rounded-full"
-                    style={{ backgroundColor: attr.spreadColor || '#9ca3af' }}
-                  ></div>
-                  <span>Spread: {attr.spread.toFixed(3)}</span>
+                    className="flex items-center gap-2 px-3 py-1.5 rounded border text-xs text-gray-700"
+                    style={{ 
+                      backgroundColor: attr.spreadColor ? hexToRgba(attr.spreadColor, 0.15) : '#f3f4f6',
+                      borderColor: attr.spreadColor ? hexToRgba(attr.spreadColor, 0.3) : '#d1d5db'
+                    }}
+                  >
+                    <div 
+                      className="w-2 h-2 rounded-full"
+                      style={{ backgroundColor: attr.spreadColor || '#9ca3af' }}
+                    ></div>
+                    <span>Spread: {attr.spread.toFixed(3)}</span>
+                  </div>
                 </div>
               </div>
               
-              <div className="flex gap-6 items-stretch">
-                {/* Table on the left */}
-                <div className="flex-1 min-w-0 flex flex-col">
-                  <div 
-                    className="bg-gray-50 rounded border border-gray-300 p-4 flex flex-col"
-                    style={{ minHeight: `${maxTableBoxHeight}px` }}
-                  >
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-xs">
-                        <thead>
-                          <tr className="border-b border-gray-300">
-                            <th className="text-left py-2 px-3 font-semibold text-gray-700" colSpan={2}>Levels ({attr.levels.length})</th>
-                            <th className="text-left py-2 px-3 font-semibold text-gray-700">Raw Value</th>
+              {/* Chart or Table - toggle view */}
+              <div className="w-full">
+                {selectedAttributeForTable === attr.attributeName ? (
+                  /* Table view */
+                  <div className="w-full overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-gray-300">
+                          <th className="text-center py-2 px-3 font-semibold text-gray-700">Code</th>
+                          <th className="text-left py-2 px-3 font-semibold text-gray-700">Level</th>
+                          <th className="text-center py-2 px-3 font-semibold text-gray-700">Raw Value</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {attr.levels.map((level, levelIdx) => (
+                          <tr 
+                            key={levelIdx} 
+                            className="border-b border-gray-200"
+                          >
+                            <td className="py-2 px-3 text-gray-500 text-sm whitespace-nowrap text-center">
+                              {level.code || 'N/A'}
+                            </td>
+                            <td className="py-2 px-3 text-gray-900 text-sm" title={level.level}>
+                              {String(level.level || '').replace(/^[-•·\s]+/, '').trim() || level.level}
+                            </td>
+                            <td className="py-2 px-3 text-gray-900 text-sm text-center">
+                              {level.value.toFixed(6)}
+                            </td>
                           </tr>
-                        </thead>
-                        <tbody>
-                          {attr.levels.map((level, levelIdx) => (
-                            <tr 
-                              key={levelIdx} 
-                              className="border-b border-gray-200"
-                            >
-                              <td className="py-2 px-3 text-gray-500 text-xs whitespace-nowrap w-auto">
-                                {level.code || level.level}
-                              </td>
-                              <td className="py-2 px-3 text-gray-900 text-xs max-w-xs truncate" title={level.level}>
-                                {String(level.level || '').replace(/^[-•·\s]+/, '').trim() || level.level}
-                              </td>
-                              <td className="py-2 px-3 text-gray-900 text-xs">
-                                {level.value.toFixed(6)}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                </div>
-                
-                {/* Chart on the right */}
-                <div className="overflow-x-auto flex-shrink-0 flex flex-col justify-end" style={{ minHeight: '100%' }}>
-                  <svg width={chartWidth} height={chartHeight} className="w-full flex-shrink-0" style={{ minWidth: chartWidth }}>
-                  {/* Y-axis line */}
-                  <line
-                    x1={margin.left}
-                    y1={margin.top}
-                    x2={margin.left}
-                    y2={margin.top + plotHeight}
-                    stroke="#d1d5db"
-                    strokeWidth="1"
-                  />
-                  
-                  {/* Y-axis ticks and labels */}
-                  {yTicks.map((tickValue, i) => {
-                    const y = valueToY(tickValue);
-                    return (
-                      <g key={i}>
-                        <line
-                          x1={margin.left - 5}
-                          y1={y}
-                          x2={margin.left}
-                          y2={y}
-                          stroke="#d1d5db"
-                          strokeWidth="1"
-                        />
-                        <text
-                          x={margin.left - 10}
-                          y={y + 4}
-                          textAnchor="end"
-                          className="text-xs fill-gray-600"
-                        >
-                          {tickValue.toFixed(2)}
-                        </text>
-                      </g>
-                    );
-                  })}
-                  
-                  {/* Zero line - always show if zero is within the visible range */}
-                  {(() => {
-                    const zeroY = valueToY(0);
-                    // Only show zero line if it's within the visible plot area
-                    if (zeroY >= margin.top && zeroY <= margin.top + plotHeight) {
-                      return (
-                        <line
-                          x1={margin.left}
-                          y1={zeroY}
-                          x2={lineEndX}
-                          y2={zeroY}
-                          stroke="#9ca3af"
-                          strokeWidth="1"
-                          strokeDasharray="4 4"
-                          opacity="0.6"
-                        />
-                      );
-                    }
-                    return null;
-                  })()}
-                  
-                  {/* X-axis line - extend to end of last label */}
-                  <line
-                    x1={margin.left}
-                    y1={margin.top + plotHeight}
-                    x2={lineEndX}
-                    y2={margin.top + plotHeight}
-                    stroke="#d1d5db"
-                    strokeWidth="1"
-                  />
-                  
-                  {/* X-axis tick marks */}
-                  {points.map((point, i) => (
+                ) : (
+                  /* Chart view */
+                  <svg 
+                    viewBox={`0 0 ${baseChartWidth} ${chartHeight}`} 
+                    preserveAspectRatio="xMidYMid meet"
+                    className="w-full h-auto"
+                    style={{ minHeight: `${chartHeight}px` }}
+                  >
+                    {/* Y-axis line */}
                     <line
-                      key={`x-tick-${i}`}
-                      x1={point.x}
-                      y1={margin.top + plotHeight}
-                      x2={point.x}
-                      y2={margin.top + plotHeight + 5}
+                      x1={margin.left}
+                      y1={margin.top}
+                      x2={margin.left}
+                      y2={margin.top + plotHeight}
                       stroke="#d1d5db"
                       strokeWidth="1"
                     />
-                  ))}
-                  
-                  {/* Line path */}
-                  <path
-                    d={linePath}
-                    fill="none"
-                    stroke="#3b82f6"
-                    strokeWidth="2"
-                  />
-                  
-                  {/* Data points */}
-                  {points.map((point, i) => (
-                    <g key={i}>
-                      <circle
-                        cx={point.x}
-                        cy={point.y}
-                        r="5"
-                        fill="#3b82f6"
-                        stroke="white"
-                        strokeWidth="2"
-                      />
-                      {/* Value label above point */}
-                      <text
-                        x={point.x}
-                        y={point.y - 10}
-                        textAnchor="middle"
-                        className="text-xs fill-gray-700 font-medium"
-                      >
-                        {point.value.toFixed(3)}
-                      </text>
-                    </g>
-                  ))}
-                  
-                  {/* X-axis labels - horizontal, clean text without dashes, wrapped to 2 lines */}
-                  {points.map((point, i) => {
-                    // Clean the level text - remove leading dashes/bullets
-                    const cleanLevelText = String(point.level.level || '').replace(/^[-•·\s]+/, '').trim();
-                    // Use dynamic label width calculated above
-                    const labelX = point.x - labelWidth / 2;
                     
-                    return (
-                      <g key={i}>
-                        <foreignObject
-                          x={labelX}
-                          y={margin.top + plotHeight + 25}
-                          width={labelWidth}
-                          height={50}
-                        >
-                          <div
-                            className="text-xs text-gray-700"
-                            style={{
-                              width: `${labelWidth}px`,
-                              display: '-webkit-box',
-                              WebkitLineClamp: 2,
-                              WebkitBoxOrient: 'vertical',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              textAlign: 'center',
-                              lineHeight: '1.2',
-                              wordBreak: 'break-word'
-                            }}
-                            title={cleanLevelText || point.level.level}
+                    {/* Y-axis ticks and labels */}
+                    {yTicks.map((tickValue, i) => {
+                      const y = valueToY(tickValue);
+                      return (
+                        <g key={i}>
+                          <line
+                            x1={margin.left - 5}
+                            y1={y}
+                            x2={margin.left}
+                            y2={y}
+                            stroke="#d1d5db"
+                            strokeWidth="1"
+                          />
+                          <text
+                            x={margin.left - 10}
+                            y={y + 4}
+                            textAnchor="end"
+                            className="text-xs fill-gray-600"
                           >
-                            {cleanLevelText || point.level.level}
-                          </div>
-                        </foreignObject>
+                            {tickValue.toFixed(2)}
+                          </text>
+                        </g>
+                      );
+                    })}
+                    
+                    {/* Zero line - always show if zero is within the visible range */}
+                    {(() => {
+                      const zeroY = valueToY(0);
+                      // Only show zero line if it's within the visible plot area
+                      if (zeroY >= margin.top && zeroY <= margin.top + plotHeight) {
+                        return (
+                          <line
+                            x1={lineStartX}
+                            y1={zeroY}
+                            x2={lineEndX}
+                            y2={zeroY}
+                            stroke="#9ca3af"
+                            strokeWidth="1"
+                            strokeDasharray="4 4"
+                            opacity="0.6"
+                          />
+                        );
+                      }
+                      return null;
+                    })()}
+                    
+                    {/* X-axis line - extend equally on both sides */}
+                    <line
+                      x1={lineStartX}
+                      y1={margin.top + plotHeight}
+                      x2={lineEndX}
+                      y2={margin.top + plotHeight}
+                      stroke="#d1d5db"
+                      strokeWidth="1"
+                    />
+                    
+                    {/* X-axis tick marks */}
+                    {repositionedPoints.map((point, i) => (
+                      <line
+                        key={`x-tick-${i}`}
+                        x1={point.x}
+                        y1={margin.top + plotHeight}
+                        x2={point.x}
+                        y2={margin.top + plotHeight + 5}
+                        stroke="#d1d5db"
+                        strokeWidth="1"
+                      />
+                    ))}
+                    
+                    {/* Line path */}
+                    <path
+                      d={linePath}
+                      fill="none"
+                      stroke="#3b82f6"
+                      strokeWidth="2"
+                    />
+                    
+                    {/* Data points */}
+                    {repositionedPoints.map((point, i) => (
+                      <g key={i}>
+                        <circle
+                          cx={point.x}
+                          cy={point.y}
+                          r="5"
+                          fill="#3b82f6"
+                          stroke="white"
+                          strokeWidth="2"
+                        />
+                        {/* Value label above point */}
+                        <text
+                          x={point.x}
+                          y={point.y - 10}
+                          textAnchor="middle"
+                          className="text-xs fill-gray-700 font-medium"
+                        >
+                          {point.value.toFixed(3)}
+                        </text>
                       </g>
-                    );
-                  })}
+                    ))}
+                    
+                    {/* X-axis labels - horizontal, clean text without dashes, wrapped to 3 lines */}
+                    {repositionedPoints.map((point, i) => {
+                      // Clean the level text - remove leading dashes/bullets
+                      const cleanLevelText = String(point.level.level || '').replace(/^[-•·\s]+/, '').trim();
+                      
+                      // Calculate label width - evenly distribute labels across the label area
+                      // Each label gets equal width based on the number of labels
+                      const labelCount = points.length;
+                      const labelWidthPerLabel = labelAreaWidth / labelCount;
+                      
+                      // Ensure width is within bounds
+                      let pointLabelWidth = Math.max(labelWidthPerLabel, minLabelWidth);
+                      pointLabelWidth = Math.min(pointLabelWidth, maxLabelWidth);
+                      
+                      // Position labels: first label left-aligned at Y-axis, last label right-aligned at end of X-axis
+                      // Labels are evenly distributed in between
+                      const labelX = labelAreaStart + (i * labelWidthPerLabel);
+                      
+                      // Position labels below the tick marks with some spacing
+                      const tickMarkY = margin.top + plotHeight; // Y position of tick marks
+                      const spaceBetweenTickAndLabel = 8; // Space between tick mark and label
+                      const labelY = tickMarkY + 5 + spaceBetweenTickAndLabel; // Position labels below tick marks with spacing
+                      
+                      return (
+                        <g key={i}>
+                          <foreignObject
+                            x={labelX}
+                            y={labelY}
+                            width={pointLabelWidth}
+                            height={labelHeight}
+                          >
+                            <div
+                              className="text-xs text-gray-700"
+                              style={{
+                                width: `${pointLabelWidth}px`,
+                                display: '-webkit-box',
+                                WebkitLineClamp: 3,
+                                WebkitBoxOrient: 'vertical',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                textAlign: 'center',
+                                lineHeight: '1.3',
+                                wordBreak: 'break-word'
+                              }}
+                              title={cleanLevelText || point.level.level}
+                            >
+                              {cleanLevelText || point.level.level}
+                            </div>
+                          </foreignObject>
+                        </g>
+                      );
+                    })}
                   </svg>
-                </div>
+                )}
               </div>
             </div>
           );
         })}
       </div>
+
     </div>
   );
 }

@@ -9,6 +9,7 @@ import ConjointSimulator from './ConjointSimulator';
 import ConjointAIWorkflow from './ConjointAIWorkflow';
 import AIConjointSimulator from './AIConjointSimulator';
 import AverageUtilitiesView from './AverageUtilitiesView';
+import SavedScenariosView from './SavedScenariosView';
 
 const BRAND_ORANGE = '#D14A2D';
 const BRAND_ORANGE_LIGHT = '#FDE6DE';
@@ -263,7 +264,7 @@ export default function ConjointProjects({
   const [selectedProject, setSelectedProject] = useState<any | null>(null);
   const [workflowViewMode, setWorkflowViewMode] = useState<'list' | 'wizard' | 'simulator' | 'ai-workflow'>('list');
   const [selectedWorkflow, setSelectedWorkflow] = useState<any | null>(null);
-  const [simulatorSubTab, setSimulatorSubTab] = useState<'simulator' | 'average-utilities' | 'summary' | 'data'>('summary');
+  const [simulatorSubTab, setSimulatorSubTab] = useState<'simulator' | 'average-utilities' | 'summary' | 'data' | 'saved-scenarios'>('simulator');
   const [showWorkflowWizard, setShowWorkflowWizard] = useState(false);
   const [workflowWizardStep, setWorkflowWizardStep] = useState(1);
   const [workflowDesignFile, setWorkflowDesignFile] = useState<File | null>(null);
@@ -695,28 +696,46 @@ export default function ConjointProjects({
     setLoadProjectWorkflowsError(null);
     try {
       const token = typeof window !== 'undefined' ? localStorage.getItem('cognitive_dash_token') : null;
-      const response = await fetch(`${API_BASE_URL}/api/conjoint/workflows?projectId=${encodeURIComponent(projectId)}`, {
+      const url = `${API_BASE_URL}/api/conjoint/workflows?projectId=${encodeURIComponent(projectId)}`;
+      console.log('Loading workflows from:', url);
+      
+      const response = await fetch(url, {
         headers: {
+          'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {})
         }
       });
+      
       if (!response.ok) {
-        let detail = 'Failed to load workflow drafts.';
+        let detail = `Failed to load workflow drafts (${response.status} ${response.statusText}).`;
         try {
           const payload = await response.json();
           if (payload?.detail) {
             detail = payload.detail;
+          } else if (payload?.message) {
+            detail = payload.message;
           }
-        } catch {
-          // ignore parse errors
+        } catch (parseError) {
+          // If response is not JSON, try to get text
+          try {
+            const text = await response.text();
+            if (text) {
+              detail = `${detail} Response: ${text.substring(0, 200)}`;
+            }
+          } catch {
+            // ignore parse errors
+          }
         }
+        console.error('API error response:', response.status, detail);
         throw new Error(detail);
       }
 
       const data = await response.json();
       const workflows = Array.isArray(data?.workflows) ? data.workflows : [];
-      setProjectWorkflows(
-        workflows.map((draft: any) => ({
+      console.log(`Loaded ${workflows.length} workflows for project ${projectId}`);
+      
+      const mappedWorkflows = workflows.map((draft: any) => {
+        const mapped = {
           id: draft?.id,
           name: draft?.name || null,
           createdAt: draft?.createdAt || draft?.updatedAt || '',
@@ -730,30 +749,59 @@ export default function ConjointProjects({
           aiAnalysis: draft?.aiAnalysis || null,
           temporary: draft?.temporary || false,
           estimation: draft?.estimation || null, // Include estimation for AI workflows
-          estimationResult: draft?.estimation
-            ? {
-                utilities: draft.estimation.utilities || null,
-                intercept:
-                  draft.estimation.intercept !== undefined && draft.estimation.intercept !== null
-                    ? Number(draft.estimation.intercept)
-                    : null,
-                diagnostics: draft.estimation.diagnostics || {},
-                warnings: Array.isArray(draft.estimation.warnings) ? draft.estimation.warnings : [],
-                estimatedAt:
-                  draft.estimation.estimatedAt ||
-                  draft.updatedAt ||
-                  draft.createdAt ||
-                  new Date().toISOString(),
-                schema: draft.estimation.schema || null,
-                columns: Array.isArray(draft.estimation.columns) ? draft.estimation.columns : []
-              }
-            : null
-        }))
-      );
+          // Include all other properties (especially attributes, designMatrix, etc.)
+          ...draft
+        };
+        
+        // Log for debugging AI workflows
+        if (draft?.aiGenerated) {
+          console.log('[ConjointProjects] Loaded AI workflow:', {
+            id: mapped.id,
+            name: mapped.name,
+            hasAiAnalysis: !!mapped.aiAnalysis,
+            hasAttributes: !!mapped.aiAnalysis?.attributes,
+            attributesCount: mapped.aiAnalysis?.attributes?.length || 0,
+            hasWorkflowAttributes: !!mapped.attributes,
+            workflowAttributesCount: Array.isArray(mapped.attributes) ? mapped.attributes.length : 0
+          });
+        }
+        
+        // Add estimationResult if estimation exists
+        if (draft?.estimation) {
+          mapped.estimationResult = {
+            utilities: draft.estimation.utilities || null,
+            intercept:
+              draft.estimation.intercept !== undefined && draft.estimation.intercept !== null
+                ? Number(draft.estimation.intercept)
+                : null,
+            diagnostics: draft.estimation.diagnostics || {},
+            warnings: Array.isArray(draft.estimation.warnings) ? draft.estimation.warnings : [],
+            estimatedAt:
+              draft.estimation.estimatedAt ||
+              draft.updatedAt ||
+              draft.createdAt ||
+              new Date().toISOString(),
+            schema: draft.estimation.schema || null,
+            columns: Array.isArray(draft.estimation.columns) ? draft.estimation.columns : []
+          };
+        }
+        
+        return mapped;
+      });
+      
+      setProjectWorkflows(mappedWorkflows);
+      return mappedWorkflows; // Return the workflows so they can be used immediately
     } catch (error) {
       console.error('Failed to load workflow drafts:', error);
-      setProjectWorkflows([]);
-      setLoadProjectWorkflowsError(error instanceof Error ? error.message : 'Failed to load workflow drafts.');
+      // Only show error if it's not a network error or if we have a specific error message
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        console.error('Network error - backend may not be running');
+        setLoadProjectWorkflowsError('Unable to connect to server. Please check if the backend is running.');
+      } else {
+        setProjectWorkflows([]);
+        setLoadProjectWorkflowsError(error instanceof Error ? error.message : 'Failed to load workflow drafts.');
+      }
+      return []; // Return empty array on error
     } finally {
       setLoadingProjectWorkflows(false);
     }
@@ -1444,7 +1492,7 @@ export default function ConjointProjects({
                     onClick={() => {
                       setWorkflowViewMode('list');
                       setSelectedWorkflow(null);
-                      setSimulatorSubTab('summary');
+                      setSimulatorSubTab('simulator');
                     }}
                     className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 px-3 py-1 rounded-lg transition-colors"
                   >
@@ -1520,6 +1568,16 @@ export default function ConjointProjects({
                       >
                         Data
                       </button>
+                      <button
+                        onClick={() => setSimulatorSubTab('saved-scenarios')}
+                        className={`${
+                          simulatorSubTab === 'saved-scenarios'
+                            ? 'border-b-2 border-blue-500 text-blue-600'
+                            : 'border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        } py-4 px-1 text-sm font-medium whitespace-nowrap transition-colors`}
+                      >
+                        Saved Scenarios
+                      </button>
                     </nav>
                   </div>
 
@@ -1530,15 +1588,16 @@ export default function ConjointProjects({
                       onClose={() => {
                         setWorkflowViewMode('list');
                         setSelectedWorkflow(null);
-                        setSimulatorSubTab('summary');
+                        setSimulatorSubTab('simulator');
                       }}
                       dataOnly={true}
                       onWorkflowUpdate={async () => {
                         // Refresh workflow data when data is uploaded or deleted
-                        if (selectedProject?.id) {
-                          await loadProjectWorkflowDrafts(selectedProject.id);
-                          // Update selectedWorkflow with the latest data
-                          const updatedWorkflow = projectWorkflows.find(w => w.id === selectedWorkflow?.id);
+                        if (selectedProject?.id && selectedWorkflow?.id) {
+                          const workflowIdToUpdate = selectedWorkflow.id;
+                          const updatedWorkflows = await loadProjectWorkflowDrafts(selectedProject.id);
+                          // Find and update the selected workflow with the fresh data
+                          const updatedWorkflow = updatedWorkflows.find(w => w.id === workflowIdToUpdate);
                           if (updatedWorkflow) {
                             setSelectedWorkflow(updatedWorkflow);
                           }
@@ -1549,6 +1608,12 @@ export default function ConjointProjects({
                     selectedWorkflow.aiGenerated ? (
                       <>
                         {console.log('Rendering AIConjointSimulator with workflow:', selectedWorkflow)}
+                        {console.log('Workflow attributes check:', {
+                          hasAttributes: !!selectedWorkflow?.attributes,
+                          attributesLength: Array.isArray(selectedWorkflow?.attributes) ? selectedWorkflow.attributes.length : 'not array',
+                          hasAiAnalysis: !!selectedWorkflow?.aiAnalysis,
+                          aiAnalysisAttributesLength: Array.isArray(selectedWorkflow?.aiAnalysis?.attributes) ? selectedWorkflow.aiAnalysis.attributes.length : 'not array'
+                        })}
                         <AIConjointSimulator
                           workflow={selectedWorkflow}
                           onClose={() => {
@@ -1558,10 +1623,11 @@ export default function ConjointProjects({
                           }}
                           onWorkflowUpdate={async () => {
                             // Refresh workflow data when data is uploaded or deleted
-                            if (selectedProject?.id) {
-                              await loadProjectWorkflowDrafts(selectedProject.id);
-                              // Update selectedWorkflow with the latest data
-                              const updatedWorkflow = projectWorkflows.find(w => w.id === selectedWorkflow?.id);
+                            if (selectedProject?.id && selectedWorkflow?.id) {
+                              const workflowIdToUpdate = selectedWorkflow.id;
+                              const updatedWorkflows = await loadProjectWorkflowDrafts(selectedProject.id);
+                              // Find and update the selected workflow with the fresh data
+                              const updatedWorkflow = updatedWorkflows.find(w => w.id === workflowIdToUpdate);
                               if (updatedWorkflow) {
                                 setSelectedWorkflow(updatedWorkflow);
                               }
@@ -1591,6 +1657,17 @@ export default function ConjointProjects({
                     )
                   ) : simulatorSubTab === 'average-utilities' ? (
                     <AverageUtilitiesView workflow={selectedWorkflow} />
+                  ) : simulatorSubTab === 'saved-scenarios' ? (
+                    <div className="min-h-full">
+                      <div className="bg-white border-b border-gray-200 px-6 py-4">
+                        <div>
+                          <h1 className="text-xl font-semibold text-gray-900">Saved Scenarios</h1>
+                          <p className="text-sm text-gray-600 mt-1">View all saved product scenarios and their attribute levels</p>
+                        </div>
+                      </div>
+                      
+                      <SavedScenariosView workflow={selectedWorkflow} />
+                    </div>
                   ) : (
                     <div className="min-h-full">
                       <div className="bg-white border-b border-gray-200 px-6 py-4">
@@ -1616,36 +1693,74 @@ export default function ConjointProjects({
                         )}
 
                         {/* Attributes */}
-                        {selectedWorkflow?.aiAnalysis?.attributes && selectedWorkflow.aiAnalysis.attributes.length > 0 && (
-                          <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
-                            <h3 className="text-sm font-semibold text-purple-800 mb-2">Attributes ({selectedWorkflow.aiAnalysis.attributes.length})</h3>
-                            <div className="space-y-3">
-                              {selectedWorkflow.aiAnalysis.attributes.map((attr: any, i: number) => (
-                                <div key={i} className="bg-white p-3 rounded border">
-                                  <div className="flex items-center justify-between mb-2">
-                                    <div className="font-medium text-gray-900">
-                                      {attr.attributeNo || i + 1}. {attr.attributeText || attr.name}
+                        {(() => {
+                          // Check for attributes in multiple possible locations
+                          // Priority 1: Check workflow.attributes (normalized format) - this is the most reliable source
+                          let attributesToDisplay: any[] = [];
+                          
+                          if (selectedWorkflow?.attributes && Array.isArray(selectedWorkflow.attributes) && selectedWorkflow.attributes.length > 0) {
+                            // Group normalized attributes by attributeNo
+                            const attributeMap = new Map();
+                            selectedWorkflow.attributes.forEach((attr: any) => {
+                              const key = String(attr.attributeNo || '').trim();
+                              if (!key) return;
+                              
+                              if (!attributeMap.has(key)) {
+                                attributeMap.set(key, {
+                                  attributeNo: key,
+                                  attributeText: attr.attributeText || '',
+                                  levels: []
+                                });
+                              }
+                              
+                              attributeMap.get(key).levels.push({
+                                levelNo: String(attr.levelNo || ''),
+                                levelText: attr.levelText || '',
+                                code: String(attr.code || attr.levelNo || '')
+                              });
+                            });
+                            
+                            attributesToDisplay = Array.from(attributeMap.values());
+                          } else if (selectedWorkflow?.aiAnalysis?.attributes && Array.isArray(selectedWorkflow.aiAnalysis.attributes) && selectedWorkflow.aiAnalysis.attributes.length > 0) {
+                            // Priority 2: Check aiAnalysis.attributes (grouped format)
+                            attributesToDisplay = selectedWorkflow.aiAnalysis.attributes;
+                          }
+                          
+                          if (attributesToDisplay.length === 0) {
+                            return null;
+                          }
+                          
+                          return (
+                            <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                              <h3 className="text-sm font-semibold text-purple-800 mb-2">Attributes ({attributesToDisplay.length})</h3>
+                              <div className="space-y-3">
+                                {attributesToDisplay.map((attr: any, i: number) => (
+                                  <div key={i} className="bg-white p-3 rounded border">
+                                    <div className="flex items-center justify-between mb-2">
+                                      <div className="font-medium text-gray-900">
+                                        {attr.attributeNo || i + 1}. {attr.attributeText || attr.name}
+                                      </div>
+                                      {attr.levels && attr.levels.length > 0 && (
+                                        <div className="text-xs text-gray-600">{attr.levels.length} levels</div>
+                                      )}
                                     </div>
                                     {attr.levels && attr.levels.length > 0 && (
-                                      <div className="text-xs text-gray-600">{attr.levels.length} levels</div>
+                                      <div className="ml-2">
+                                        <div className="space-y-1">
+                                          {attr.levels.map((level: any, j: number) => (
+                                            <div key={j} className="text-xs text-gray-600 bg-gray-50 p-1 rounded">
+                                              {j + 1}. {level.levelText || level.name || level}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
                                     )}
                                   </div>
-                                  {attr.levels && attr.levels.length > 0 && (
-                                    <div className="ml-2">
-                                      <div className="space-y-1">
-                                        {attr.levels.map((level: any, j: number) => (
-                                          <div key={j} className="text-xs text-gray-600 bg-gray-50 p-1 rounded">
-                                            {j + 1}. {level.levelText || level.name || level}
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
+                                ))}
+                              </div>
                             </div>
-                          </div>
-                        )}
+                          );
+                        })()}
 
                         {/* Design Summary */}
                         {selectedWorkflow?.designSummary && (
@@ -1653,16 +1768,16 @@ export default function ConjointProjects({
                             <h3 className="text-sm font-semibold text-yellow-800 mb-2">Design Summary</h3>
                             <div className="grid grid-cols-2 gap-4 text-sm">
                               <div>
-                                <span className="font-medium">Total Rows:</span> {selectedWorkflow.designSummary.totalRows}
+                                <span className="font-medium">Total Rows:</span> {selectedWorkflow.designSummary.totalRows || 0}
                               </div>
                               <div>
-                                <span className="font-medium">Attribute Columns:</span> {selectedWorkflow.designSummary.attColumnCount}
+                                <span className="font-medium">Attribute Columns:</span> {selectedWorkflow.designSummary.attColumnCount || 0}
                               </div>
                               <div>
-                                <span className="font-medium">Versions:</span> {selectedWorkflow.designSummary.versions}
+                                <span className="font-medium">Versions:</span> {Array.isArray(selectedWorkflow.designSummary.versions) ? selectedWorkflow.designSummary.versions.length : 0}
                               </div>
                               <div>
-                                <span className="font-medium">Coverage:</span> {selectedWorkflow.designSummary.attributeCoverage}%
+                                <span className="font-medium">Attribute Coverage Entries:</span> {Array.isArray(selectedWorkflow.designSummary.attributeCoverage) ? selectedWorkflow.designSummary.attributeCoverage.length : 0}
                               </div>
                             </div>
                           </div>
@@ -1734,7 +1849,7 @@ export default function ConjointProjects({
                             onClick={() => {
                               setSelectedWorkflow(workflow);
                               setWorkflowViewMode('simulator');
-                              setSimulatorSubTab('summary');
+                              setSimulatorSubTab('simulator');
                             }}
                           >
                             <div className="flex items-center justify-between">

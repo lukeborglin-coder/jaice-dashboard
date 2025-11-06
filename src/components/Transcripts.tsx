@@ -2334,7 +2334,7 @@ export default function Transcripts({ onNavigate, setAnalysisToLoad }: Transcrip
 
           {/* Upload Modal */}
           {showUploadModal && (
-            <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/50 px-4" style={{ top: 0, left: 0, right: 0, bottom: 0 }}>
+            <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/50 px-4" style={{ margin: 0, top: 0, left: 0, right: 0, bottom: 0 }}>
               <div className="w-full max-w-lg rounded-xl bg-white shadow-xl">
                 <div className="border-b border-gray-200 px-6 py-4">
                   <h2 className="text-xl font-bold text-gray-900">

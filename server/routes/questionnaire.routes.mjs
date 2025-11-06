@@ -4,6 +4,7 @@ import path from 'path';
 import fs from 'fs/promises';
 import mammoth from 'mammoth';
 import OpenAI from 'openai';
+import XLSX from 'xlsx';
 import { authenticateToken, requireCognitiveOrAdmin } from '../middleware/auth.middleware.mjs';
 import { logCost, COST_CATEGORIES } from '../services/costTracking.service.mjs';
 
@@ -51,6 +52,297 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
 });
 
+// Storage for data files (Excel/CSV) - store temporarily first
+const dataFileStorage = multer.diskStorage({
+  destination: async (req, file, cb) => {
+    try {
+      // Store temporarily in uploads directory first
+      await fs.mkdir(filesDir, { recursive: true });
+      cb(null, filesDir);
+    } catch (error) {
+      cb(error);
+    }
+  },
+  filename: (req, file, cb) => {
+    const timestamp = Date.now();
+    const ext = path.extname(file.originalname);
+    cb(null, `data_temp_${timestamp}${ext}`);
+  }
+});
+
+// File filter for data files (Excel/CSV)
+const dataFileFilter = (req, file, cb) => {
+  const allowedTypes = [
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+    'application/vnd.ms-excel', // .xls
+    'text/csv', // .csv
+    'application/vnd.ms-excel.sheet.macroEnabled.12' // .xlsm
+  ];
+
+  if (allowedTypes.includes(file.mimetype) || file.originalname.match(/\.(xlsx|xls|csv)$/i)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Invalid file type. Only .xlsx, .xls, and .csv files are allowed.'), false);
+  }
+};
+
+const uploadDataFile = multer({
+  storage: dataFileStorage,
+  fileFilter: dataFileFilter,
+  limits: { fileSize: 50 * 1024 * 1024 } // 50MB limit for data files
+});
+
+// Helper function to split questionnaire text into chunks
+function splitQuestionnaireIntoChunks(text, maxChunkSize = 35000) {
+  // Improved regex to catch more question formats: QS14, S1, A1, Q1, Section 1, Question 1, etc.
+  // This pattern matches: QS followed by digits, S/Q followed by digits, any letter followed by digits, or Section/Question headers
+  // Note: QS must come before Q to avoid matching QS as just Q
+  const questionPattern = /(?:^|\n)(QS\d+|S\d+|Q\d+|A\d+|[A-Z]+\d+|Section\s+\d+|Question\s+\d+)/i;
+  
+  // Find all question markers and their positions
+  const markers = [];
+  let match;
+  const regex = new RegExp(questionPattern.source, questionPattern.flags + 'g');
+  
+  while ((match = regex.exec(text)) !== null) {
+    markers.push({
+      index: match.index,
+      text: match[0].trim(),
+      fullMatch: match[0]
+    });
+  }
+  
+  // If no markers found, split by size only
+  if (markers.length === 0) {
+    const chunks = [];
+    for (let i = 0; i < text.length; i += maxChunkSize) {
+      chunks.push(text.substring(i, i + maxChunkSize));
+    }
+    return chunks;
+  }
+  
+  // Split into chunks at question boundaries
+  // Strategy: Start from first marker, accumulate questions until we hit size limit, then split
+  const chunks = [];
+  const chunkInfo = []; // Track chunk positions for verification
+  
+  if (markers.length === 0) {
+    // No markers found, split by size only
+    for (let i = 0; i < text.length; i += maxChunkSize) {
+      const chunk = text.substring(i, i + maxChunkSize);
+      chunks.push(chunk);
+      chunkInfo.push({ start: i, end: i + chunk.length });
+    }
+    return chunks;
+  }
+  
+  // Start from the first marker (or beginning if no markers)
+  let chunkStart = markers[0]?.index ?? 0;
+  
+  for (let i = 0; i < markers.length; i++) {
+    const marker = markers[i];
+    const nextMarker = markers[i + 1];
+    
+    // Calculate where this chunk would end if we include this marker's question
+    // The chunk ends at the start of the next marker (or end of text)
+    const proposedChunkEnd = nextMarker ? nextMarker.index : text.length;
+    const proposedChunkSize = proposedChunkEnd - chunkStart;
+    
+    // If adding this question would exceed max size AND we're not at the first marker,
+    // we need to split before this marker
+    if (proposedChunkSize > maxChunkSize && i > 0) {
+      // End the current chunk right before this marker
+      const chunk = text.substring(chunkStart, marker.index);
+      if (chunk.length > 0) {
+        chunks.push(chunk);
+        chunkInfo.push({ start: chunkStart, end: marker.index });
+        const firstMarkerInChunk = markers.find(m => m.index >= chunkStart);
+        console.log(`📦 Chunk ${chunks.length}: ${chunk.length} chars, positions ${chunkStart}-${marker.index}, from marker ${firstMarkerInChunk?.text || 'start'} to before ${marker.text}`);
+      }
+      // Start a new chunk at this marker
+      chunkStart = marker.index;
+    }
+    
+    // If this is the last marker, we're done - will add final chunk below
+    if (!nextMarker) {
+      break;
+    }
+  }
+  
+  // Always add the final chunk (from current chunkStart to end of text)
+  const finalChunk = text.substring(chunkStart);
+  if (finalChunk.length > 0) {
+    chunks.push(finalChunk);
+    chunkInfo.push({ start: chunkStart, end: text.length });
+    const firstMarkerInChunk = markers.find(m => m.index >= chunkStart);
+    const lastMarker = markers[markers.length - 1];
+  }
+  
+  // Verify all markers are included in chunks
+  let markersInChunks = 0;
+  chunkInfo.forEach((info) => {
+    const markersInThisChunk = markers.filter(m => m.index >= info.start && m.index < info.end);
+    markersInChunks += markersInThisChunk.length;
+  });
+  
+  if (markersInChunks < markers.length) {
+    console.warn(`⚠️ Warning: Only ${markersInChunks} of ${markers.length} markers found in chunks!`);
+  }
+  
+  // If we somehow have no chunks, return the whole text
+  if (chunks.length === 0) {
+    return [text];
+  }
+  
+  console.log(`📦 Split into ${chunks.length} chunks at question boundaries`);
+  
+  return chunks;
+}
+
+// Parse a single chunk of questionnaire
+async function parseQuestionnaireChunk(textChunk, chunkIndex, totalChunks, systemPrompt, projectId) {
+  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  
+  const userPrompt = `Please parse this ${chunkIndex === 0 && totalChunks > 1 ? 'FIRST SECTION' : chunkIndex === totalChunks - 1 && totalChunks > 1 ? 'FINAL SECTION' : totalChunks > 1 ? `SECTION ${chunkIndex + 1} of ${totalChunks}` : ''} of a questionnaire document and extract ALL questions with their details:
+
+${textChunk}
+
+${totalChunks > 1 ? `\nCRITICAL: This is section ${chunkIndex + 1} of ${totalChunks}. You MUST parse EVERY SINGLE question in this section. Do not skip any questions. Look for all question markers (QS, S, Q, A, F, G, etc. followed by numbers) and extract every question you find.` : '\nCRITICAL: You MUST parse EVERY SINGLE question in this document. Do not skip any questions. Look for all question markers (QS, S, Q, A, F, G, etc. followed by numbers) and extract every question you find.'}
+
+Return a JSON object with this structure:
+{
+  "questions": [
+    {
+      "id": "unique-id",
+      "number": "question number (e.g., S1, A1, Q1)",
+      "text": "full question text",
+      "type": "specific Forsta question type from the library above",
+      "options": ["option1", "option2", ...],  // For non-grid questions: response options
+      "statementOptions": [{"code": "r1", "text": "statement 1"}, ...],  // For grid questions: row labels/statements (ALWAYS use "r" prefix: r1, r2, r3, etc.)
+      "responseOptions": [{"code": "c1", "text": "Option 1"}, ...],  // For grid questions: column headers/response scale (ALWAYS use "c" prefix: c1, c2, c3, etc.)
+      "showLogic": "condition for showing this question (if present)",
+      "randomize": true/false,
+      "tags": ["tag1", "tag2"],
+      "needsReview": true/false,
+      "logic": "any skip logic or conditions"
+    }
+  ]
+}
+
+CRITICAL STRUCTURE RULES:
+- For NUMERIC GRID: Use statementOptions (rows) only. DO NOT include responseOptions.
+- For SINGLE SELECT GRID: Use BOTH statementOptions (rows) AND responseOptions (column headers/scale like 1-7, Yes/No, etc.)
+- For MULTI-SELECT GRID: Use BOTH statementOptions (rows) AND responseOptions (columns)
+- For regular questions (non-grid): Use "options" field (not statementOptions/responseOptions)
+- If a grid asks for numbers/amounts/counts, it's a NUMERIC GRID, not a multi-select grid
+
+CRITICAL: CODE FORMATTING RULES:
+- statementOptions codes MUST always use "r" prefix: "r1", "r2", "r3", etc. (for rows)
+- responseOptions codes MUST always use "c" prefix: "c1", "c2", "c3", etc. (for columns)
+- Never use just numbers like "1", "2" for responseOptions - ALWAYS use "c1", "c2", etc.
+- Never use just numbers like "1", "2" for statementOptions - ALWAYS use "r1", "r2", etc.
+
+CRITICAL: RATING/SCALE QUESTION LABELS:
+For rating questions (Button Rating, Rating Scale, Single Select Grid with scales, etc.), you MUST capture FULL labels, not just numbers:
+
+PRIMARY METHOD - Extract from column headers/table headers:
+- If the QNR shows column headers like "1 Strongly Disagree", "2 Disagree", "3 Neutral", "4 Agree", "5 Strongly Agree"
+- Extract the FULL text: "1 Strongly Disagree" (not just "1")
+- Look in the table/column headers for complete labels
+
+FALLBACK METHOD - Extract from question text:
+- If column headers are not available, look for labels defined in the question text itself
+- Patterns to look for: "1=X", "4=Y", "7=Z" or "where 1=X, 4=Y, 7=Z" or "1=X, 4=Y, 7=Z"
+- Example: "Please use a 7-point scale where 1=Less Likely to be Compliant on the Tablet, 4=Equally as Likely to be Compliant on the Tablet, and 7=More Likely to be Compliant on the Tablet"
+- Extract: "1" → "1 Less Likely to be Compliant on the Tablet", "4" → "4 Equally as Likely to be Compliant on the Tablet", "7" → "7 More Likely to be Compliant on the Tablet"
+- For intermediate numbers not explicitly labeled, use just the number (e.g., "2", "3", "5", "6")
+
+ALWAYS prioritize column headers over question text. If both are present, use column headers.
+
+Response options should ALWAYS include the full descriptive text, not just the numeric code.
+
+TAG SYSTEM - ADDITIONAL METADATA:
+Questions should include tags in the "tags" array to provide additional context:
+
+1. SCALE TAG:
+   - ONLY add "Scale" tag if the question is ACTUALLY a rating scale question, NOT just because it has 5, 7, or 10 options
+   - Rating scales are questions that ask respondents to RATE, EVALUATE, or MEASURE something on a numeric scale (e.g., satisfaction, agreement, likelihood, importance)
+   - Look for key indicators in the question text: "rate", "how satisfied", "how likely", "how much do you agree", "on a scale of", "rate from 1 to X", "how important", "how would you rate", etc.
+   - Examples of ACTUAL scales: "How satisfied are you?" with 1-5 options, "How likely are you to recommend?" with 1-10 options, "Rate your agreement" with 1-7 options
+   - Examples of NON-scales (DO NOT add Scale tag): "How many years of experience?" with 5 options (1-5, 6-10, etc.) → NOT a scale, "Which age group?" with 5 options → NOT a scale, "How many times per week?" with 7 options → NOT a scale, "How many patients?" with 10 options → NOT a scale
+   - The question must be asking for a RATING/EVALUATION/MEASUREMENT, not just a categorical selection, count, or demographic question
+   - If the question has 5, 7, or 10 options but is asking for a category, count, demographic, or selection (not a rating), DO NOT add the Scale tag
+   - When in doubt, ask yourself: "Is this asking the respondent to rate/evaluate something?" If no, don't add the Scale tag
+
+2. NUMERIC TYPE TAGS:
+   - For Numeric questions or Numeric Grid questions:
+     - If the question text mentions "percent", "percentage", "%", or asks for a percentage → add "%" tag
+     - If the question asks for a number, count, amount, or quantity (not a percentage) → add "Number" tag
+   - Examples: "What percentage of..." → add "%" tag
+   - Examples: "How many patients..." → add "Number" tag
+   - Examples: "Enter a number from 0-100..." → determine from context (if asking for percentage, add "%", otherwise "Number")
+
+3. BUTTON RATING CLASSIFICATION:
+   - Button Rating questions should be classified as "Single Select" type
+   - ONLY add the "Scale" tag if the Button Rating question is actually asking for a rating/evaluation (see SCALE TAG rules above)
+   - DO NOT automatically add Scale tag just because it has 5, 7, or 10 options
+
+IMPORTANT: Return ONLY valid JSON. Do not include any explanatory text outside the JSON object.`;
+
+  const response = await client.chat.completions.create({
+    model: 'gpt-4o',
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt }
+    ],
+    temperature: 0.1,
+    response_format: { type: 'json_object' },
+    max_tokens: 16384  // Maximum for gpt-4o
+  });
+
+  const finishReason = response.choices[0].finish_reason;
+  if (finishReason === 'length') {
+    throw new Error(`Chunk ${chunkIndex + 1} response was truncated. The questionnaire section is too large.`);
+  }
+
+  const content = response.choices[0].message.content;
+  if (!content || content.trim().length === 0) {
+    throw new Error(`Chunk ${chunkIndex + 1} returned empty response`);
+  }
+
+  let parsedData;
+  try {
+    parsedData = JSON.parse(content);
+  } catch (parseError) {
+    console.error(`JSON Parse Error for chunk ${chunkIndex + 1}:`, parseError);
+    throw new Error(`Failed to parse JSON response for chunk ${chunkIndex + 1}: ${parseError.message}`);
+  }
+
+  const questions = parsedData.questions || [];
+  
+  // Log cost for this chunk
+  if (projectId && response.usage) {
+    const inputTokens = response.usage.prompt_tokens || 0;
+    const outputTokens = response.usage.completion_tokens || 0;
+    if (inputTokens > 0 && outputTokens > 0) {
+      try {
+        await logCost(
+          projectId,
+          COST_CATEGORIES.QUESTIONNAIRE_PARSING,
+          'gpt-4o',
+          inputTokens,
+          outputTokens,
+          `Questionnaire parsing chunk ${chunkIndex + 1} of ${totalChunks}`
+        );
+      } catch (costError) {
+        console.warn('Failed to log cost for chunk:', costError.message);
+      }
+    }
+  }
+  
+  return questions;
+}
+
 // Parse questionnaire from .docx file using AI
 async function parseQuestionnaire(filePath, projectId) {
   try {
@@ -58,9 +350,7 @@ async function parseQuestionnaire(filePath, projectId) {
     const result = await mammoth.extractRawText({ path: filePath });
     const text = result.value;
     
-    // Use OpenAI to intelligently parse the questionnaire
-    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    
+    // Define systemPrompt (used for both chunked and non-chunked parsing)
     const systemPrompt = `You are a Forsta/Decipher questionnaire expert. Parse questionnaires with EXACT fidelity to programming logic.
 
 CRITICAL PARSING RULES:
@@ -73,13 +363,40 @@ CRITICAL PARSING RULES:
    - "RANGE: X-Y" → validation: {type: "range", min: X, max: Y}
    - "MUST = 100%" → validation: {type: "sum", value: 100, unit: "%"}
 
-2. GRID DETECTION:
-   Look for patterns like:
-   - Multiple columns with headers
-   - Row labels on the left
+2. GRID DETECTION AND CLASSIFICATION:
+   Grid questions are matrix-style questions with rows and columns. CRITICAL DISTINCTIONS:
+   
+   NUMERIC GRID:
+   - Has row labels (statements) but NO column headers (response codes)
+   - Respondents enter numeric values (numbers, counts, percentages, etc.)
+   - If the question asks for numbers, counts, percentages, or amounts for each row → it's a numeric grid
+   - Examples: "How many patients..." (numeric grid), "Enter a number from 0-100..." (numeric grid)
+   - Type: "Numeric Grid"
+   - Structure: statementOptions only (rows), NO responseOptions (columns)
+   
+   SINGLE SELECT GRID:
+   - Has row labels (statements) AND column headers (response codes/options)
+   - Respondents select ONE option per row
+   - Column headers are the response options (e.g., 1-7 scale, Yes/No, etc.)
+   - Row labels are the statements (what's being rated/selected)
+   - Type: "Single Select Grid"
+   - Structure: statementOptions (rows) AND responseOptions (columns/headers)
+   
+   MULTI-SELECT GRID:
+   - Has row labels (statements) AND column headers (response codes)
+   - Respondents can select MULTIPLE options per row
+   - Typically has "Values: 0-1" indicating checked/unchecked
+   - Type: "Multi-Select Grid"
+   - Structure: statementOptions (rows) AND responseOptions (columns)
+   
+   DETECTION PATTERNS:
+   - Multiple columns with headers → check if numeric input or selection
+   - Row labels on the left → these are statementOptions
    - Codes like "r1c2" (row 1, column 2)
    - "AUTOFILL SUM OF..." → autofill calculation
    - "DO NOT SHOW COLUMN" → hidden column for calculations
+   - If asking for numbers/amounts → numeric grid
+   - If asking to select/rate from options → single-select or multi-select grid
 
 3. SPECIAL TAGS (IN BRACKETS):
    - [ANCHOR] → anchor option to bottom
@@ -105,12 +422,13 @@ Basic Question Types:
 - Multi-Select: Respondents pick one or more options (supports exclusive options)
 - Dropdown Menu: Drop-down list with up to three dimensions
 - Button Single Select: Mobile-friendly button-based single selection
-- Single Select Grid: Matrix-style grid with one column selection per row
+- Single Select Grid: Matrix-style grid with one column selection per row. Has statementOptions (rows) and responseOptions (column headers/scale)
 - Button Single Select Grid: Touch-friendly grid with button selections
-- Multi-Select Grid: Grid allowing multiple selections per row/cell
+- Numeric Grid: Grid where respondents enter numeric values for each row. Has statementOptions (rows) but NO responseOptions. Use when asking for numbers, counts, percentages, or amounts
+- Multi-Select Grid: Grid allowing multiple selections per row/cell. Has statementOptions (rows) and responseOptions (columns). Typically has "Values: 0-1"
 - Button Multi-Select/Grid: Button-based multi-select including grid variants
-- Text/Open-Ended: Freeform alphanumeric text input
-- Number Question: Numeric values only
+- Open End: Freeform alphanumeric text input
+- Numeric: Numeric values only (single numeric input, not a grid)
 
 Dynamic/Advanced Types:
 - Autosuggest: Type-ahead suggestions from predefined list
@@ -148,7 +466,13 @@ Structural Elements:
 OUTPUT STRUCTURE:
 Return enhanced JSON with all logic preserved.`;
 
-    const userPrompt = `Please parse this questionnaire document and extract all questions with their details:
+    const estimatedTokens = text.length / 4; // Rough estimate: 4 chars per token
+    
+    // Single-pass parsing - use full context window
+    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    
+    const userPrompt = `Please parse this questionnaire document and extract ALL questions with their details. CRITICAL: You MUST parse EVERY SINGLE question in this document. Do not skip any questions. Look for all question markers (QS, S, Q, A, F, G, etc. followed by numbers) and extract every question you find:
+
 
 ${text}
 
@@ -162,7 +486,9 @@ Return a JSON object with this structure:
       "number": "question number (e.g., S1, A1, Q1)",
       "text": "full question text",
       "type": "specific Forsta question type from the library above",
-      "options": ["option1", "option2", ...],
+      "options": ["option1", "option2", ...],  // For non-grid questions: response options
+      "statementOptions": [{"code": "r1", "text": "statement 1"}, ...],  // For grid questions: row labels/statements (ALWAYS use "r" prefix: r1, r2, r3, etc.)
+      "responseOptions": [{"code": "c1", "text": "Option 1"}, ...],  // For grid questions: column headers/response scale (ALWAYS use "c" prefix: c1, c2, c3, etc.)
       "showLogic": "condition for showing this question (if present)",
       "randomize": true/false,
       "tags": ["tag1", "tag2"],
@@ -171,6 +497,64 @@ Return a JSON object with this structure:
     }
   ]
 }
+
+CRITICAL STRUCTURE RULES:
+- For NUMERIC GRID: Use statementOptions (rows) only. DO NOT include responseOptions.
+- For SINGLE SELECT GRID: Use BOTH statementOptions (rows) AND responseOptions (column headers/scale like 1-7, Yes/No, etc.)
+- For MULTI-SELECT GRID: Use BOTH statementOptions (rows) AND responseOptions (columns)
+- For regular questions (non-grid): Use "options" field (not statementOptions/responseOptions)
+- If a grid asks for numbers/amounts/counts, it's a NUMERIC GRID, not a multi-select grid
+
+CRITICAL: CODE FORMATTING RULES:
+- statementOptions codes MUST always use "r" prefix: "r1", "r2", "r3", etc. (for rows)
+- responseOptions codes MUST always use "c" prefix: "c1", "c2", "c3", etc. (for columns)
+- Never use just numbers like "1", "2" for responseOptions - ALWAYS use "c1", "c2", etc.
+- Never use just numbers like "1", "2" for statementOptions - ALWAYS use "r1", "r2", etc.
+
+CRITICAL: RATING/SCALE QUESTION LABELS:
+For rating questions (Button Rating, Rating Scale, Single Select Grid with scales, etc.), you MUST capture FULL labels, not just numbers:
+
+PRIMARY METHOD - Extract from column headers/table headers:
+- If the QNR shows column headers like "1 Strongly Disagree", "2 Disagree", "3 Neutral", "4 Agree", "5 Strongly Agree"
+- Extract the FULL text: "1 Strongly Disagree" (not just "1")
+- Look in the table/column headers for complete labels
+
+FALLBACK METHOD - Extract from question text:
+- If column headers are not available, look for labels defined in the question text itself
+- Patterns to look for: "1=X", "4=Y", "7=Z" or "where 1=X, 4=Y, 7=Z" or "1=X, 4=Y, 7=Z"
+- Example: "Please use a 7-point scale where 1=Less Likely to be Compliant on the Tablet, 4=Equally as Likely to be Compliant on the Tablet, and 7=More Likely to be Compliant on the Tablet"
+- Extract: "1" → "1 Less Likely to be Compliant on the Tablet", "4" → "4 Equally as Likely to be Compliant on the Tablet", "7" → "7 More Likely to be Compliant on the Tablet"
+- For intermediate numbers not explicitly labeled, use just the number (e.g., "2", "3", "5", "6")
+
+ALWAYS prioritize column headers over question text. If both are present, use column headers.
+
+Response options should ALWAYS include the full descriptive text, not just the numeric code.
+
+TAG SYSTEM - ADDITIONAL METADATA:
+Questions should include tags in the "tags" array to provide additional context:
+
+1. SCALE TAG:
+   - ONLY add "Scale" tag if the question is ACTUALLY a rating scale question, NOT just because it has 5, 7, or 10 options
+   - Rating scales are questions that ask respondents to RATE, EVALUATE, or MEASURE something on a numeric scale (e.g., satisfaction, agreement, likelihood, importance)
+   - Look for key indicators in the question text: "rate", "how satisfied", "how likely", "how much do you agree", "on a scale of", "rate from 1 to X", "how important", "how would you rate", etc.
+   - Examples of ACTUAL scales: "How satisfied are you?" with 1-5 options, "How likely are you to recommend?" with 1-10 options, "Rate your agreement" with 1-7 options
+   - Examples of NON-scales (DO NOT add Scale tag): "How many years of experience?" with 5 options (1-5, 6-10, etc.) → NOT a scale, "Which age group?" with 5 options → NOT a scale, "How many times per week?" with 7 options → NOT a scale, "How many patients?" with 10 options → NOT a scale
+   - The question must be asking for a RATING/EVALUATION/MEASUREMENT, not just a categorical selection, count, or demographic question
+   - If the question has 5, 7, or 10 options but is asking for a category, count, demographic, or selection (not a rating), DO NOT add the Scale tag
+   - When in doubt, ask yourself: "Is this asking the respondent to rate/evaluate something?" If no, don't add the Scale tag
+
+2. NUMERIC TYPE TAGS:
+   - For Numeric questions or Numeric Grid questions:
+     - If the question text mentions "percent", "percentage", "%", or asks for a percentage → add "%" tag
+     - If the question asks for a number, count, amount, or quantity (not a percentage) → add "Number" tag
+   - Examples: "What percentage of..." → add "%" tag
+   - Examples: "How many patients..." → add "Number" tag
+   - Examples: "Enter a number from 0-100..." → determine from context (if asking for percentage, add "%", otherwise "Number")
+
+3. BUTTON RATING CLASSIFICATION:
+   - Button Rating questions should be classified as "Single Select" type
+   - ONLY add the "Scale" tag if the Button Rating question is actually asking for a rating/evaluation (see SCALE TAG rules above)
+   - DO NOT automatically add Scale tag just because it has 5, 7, or 10 options
 
 IMPORTANT: Return ONLY valid JSON. Do not include any explanatory text outside the JSON object.`;
 
@@ -181,27 +565,61 @@ IMPORTANT: Return ONLY valid JSON. Do not include any explanatory text outside t
         { role: 'user', content: userPrompt }
       ],
       temperature: 0.1,
-      response_format: { type: 'json_object' }
+      response_format: { type: 'json_object' },
+      max_tokens: 16384  // Maximum output tokens for gpt-4o
     });
 
+    const finishReason = response.choices[0].finish_reason;
+    const content = response.choices[0].message.content;
+    
+    if (finishReason === 'length') {
+      throw new Error('AI response was truncated due to output token limit (16,384 tokens max). The questionnaire may be too large to parse in a single pass. Please try splitting the questionnaire or contact support.');
+    }
+    
+    // Check if content ends properly (basic check for incomplete JSON)
+    if (!content || content.trim().length === 0) {
+      throw new Error('AI returned empty response');
+    }
+
+    // Check if JSON appears incomplete (doesn't end with } or ])
+    const trimmedContent = content.trim();
     let parsedData;
+    if (!trimmedContent.endsWith('}') && !trimmedContent.endsWith(']')) {
+      console.warn('Response may be incomplete - does not end with closing brace/bracket');
+      // Try to find the last complete JSON object
+      const lastBrace = trimmedContent.lastIndexOf('}');
+      if (lastBrace > 0) {
+        const potentiallyComplete = trimmedContent.substring(0, lastBrace + 1);
+        try {
+          parsedData = JSON.parse(potentiallyComplete);
+          console.warn('Attempted to parse potentially truncated JSON - some questions may be missing');
+        } catch (e) {
+          // Fall through to full parse attempt
+        }
+      }
+    }
+
     try {
-      parsedData = JSON.parse(response.choices[0].message.content);
+      if (!parsedData) {
+        parsedData = JSON.parse(content);
+      }
     } catch (parseError) {
       console.error('JSON Parse Error:', parseError);
-      console.error('Raw response:', response.choices[0].message.content);
+      console.error('Finish reason:', finishReason);
+      console.error('Response length:', content.length);
+      console.error('Raw response (first 1000 chars):', content.substring(0, 1000));
+      console.error('Raw response (last 500 chars):', content.substring(Math.max(0, content.length - 500)));
       
       // Try to extract JSON from the response if it's wrapped in text
-      const content = response.choices[0].message.content;
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         try {
           parsedData = JSON.parse(jsonMatch[0]);
         } catch (secondError) {
-          throw new Error('Failed to parse JSON response from AI. Raw content: ' + content.substring(0, 500));
+          throw new Error('Failed to parse JSON response from AI. The response may be incomplete. Finish reason: ' + finishReason + '. Error: ' + parseError.message + '. Raw content preview: ' + content.substring(0, 500));
         }
       } else {
-        throw new Error('No valid JSON found in AI response. Raw content: ' + content.substring(0, 500));
+        throw new Error('No valid JSON found in AI response. Finish reason: ' + finishReason + '. Raw content preview: ' + content.substring(0, 500));
       }
     }
     
@@ -209,7 +627,6 @@ IMPORTANT: Return ONLY valid JSON. Do not include any explanatory text outside t
     const inputTokens = response.usage?.prompt_tokens || 0;
     const outputTokens = response.usage?.completion_tokens || 0;
     
-    // Log the cost if we have valid token counts
     if (inputTokens > 0 && outputTokens > 0 && projectId) {
       await logCost(
         projectId,
@@ -221,17 +638,81 @@ IMPORTANT: Return ONLY valid JSON. Do not include any explanatory text outside t
       );
     }
     
+    parsedData = parsedData || { questions: [] };
+    
     // Add unique IDs and ensure proper formatting
-    const questions = parsedData.questions.map((question, index) => ({
-      ...question,
-      id: question.id || `q-${Date.now()}-${index + 1}`,
-      needsReview: question.needsReview || false,
-      tags: question.tags || [],
-      showLogic: question.showLogic || null,
-      randomize: question.randomize || false,
-      // Handle legacy logic field for backward compatibility
-      logic: question.logic || question.showLogic || ''
-    }));
+    const questions = parsedData.questions.map((question, index) => {
+      // Normalize statementOptions codes to always use "r" prefix
+      const normalizedStatementOptions = question.statementOptions?.map((stmt, stmtIndex) => {
+        const stmtObj = typeof stmt === 'string' ? { code: `r${stmtIndex + 1}`, text: stmt } : stmt;
+        const code = stmtObj.code || `r${stmtIndex + 1}`;
+        // Ensure code starts with "r" prefix
+        const normalizedCode = code.startsWith('r') ? code : `r${code.replace(/^r?/, '')}`;
+        return { ...stmtObj, code: normalizedCode };
+      });
+
+      // Normalize responseOptions codes to always use "c" prefix
+      const normalizedResponseOptions = question.responseOptions?.map((resp, respIndex) => {
+        const respObj = typeof resp === 'string' ? { code: `c${respIndex + 1}`, text: resp } : resp;
+        const code = respObj.code || `c${respIndex + 1}`;
+        // Ensure code starts with "c" prefix
+        const normalizedCode = code.startsWith('c') ? code : `c${code.replace(/^c?/, '')}`;
+        return { ...respObj, code: normalizedCode };
+      });
+
+      // Process tags - ensure we have an array
+      let processedTags = Array.isArray(question.tags) ? [...question.tags] : [];
+
+      // Convert Button Rating to Single Select
+      if (question.type === 'Button Rating') {
+        question.type = 'Single Select';
+      }
+
+      // Detect scale questions - ONLY if actually a rating/evaluation question, not just based on number of options
+      // The AI should have already determined this in the prompt, but we do a final check for explicit scale mentions
+      const questionText = (question.text || '').toLowerCase();
+      const mentionsScale = questionText.includes('point scale') || questionText.includes('-point scale') || 
+                           questionText.includes('rating scale') || 
+                           (questionText.includes('scale') && (questionText.includes('rate') || questionText.includes('rate from') || questionText.includes('on a scale'))) ||
+                           questionText.includes('how satisfied') || questionText.includes('how likely') || 
+                           questionText.includes('how much do you agree') || questionText.includes('rate your') ||
+                           questionText.includes('how important') || questionText.includes('how would you rate');
+      
+      // Only add Scale tag if AI already added it OR if question explicitly mentions scale terminology
+      // DO NOT automatically add based on number of options - let AI determine from context
+      if (mentionsScale && !processedTags.includes('Scale')) {
+        processedTags.push('Scale');
+      }
+
+      // Detect numeric type tags for Numeric questions and Numeric Grids
+      const isNumericQuestion = question.type === 'Numeric' || question.type === 'Numeric Grid';
+      if (isNumericQuestion) {
+        const isPercent = questionText.includes('percent') || questionText.includes('percentage') || 
+                          questionText.includes('%') || questionText.match(/\d+\s*%/);
+        
+        if (isPercent && !processedTags.includes('%')) {
+          processedTags.push('%');
+        } else if (!isPercent && !processedTags.includes('Number') && !processedTags.includes('%')) {
+          processedTags.push('Number');
+        }
+      }
+
+      return {
+        ...question,
+        id: question.id || `q-${Date.now()}-${index + 1}`,
+        needsReview: question.needsReview || false,
+        tags: processedTags,
+        showLogic: question.showLogic || null,
+        randomize: question.randomize || false,
+        // Handle legacy logic field for backward compatibility
+        logic: question.logic || question.showLogic || '',
+        // Ensure statementOptions and responseOptions are properly formatted with correct prefixes
+        statementOptions: normalizedStatementOptions || (question.type && question.type.toLowerCase().includes('grid') ? [] : undefined),
+        responseOptions: normalizedResponseOptions || (question.type && question.type.toLowerCase().includes('grid') && !question.type.toLowerCase().includes('numeric') ? [] : undefined),
+        // Keep options for backward compatibility with non-grid questions
+        options: question.options || []
+      };
+    });
     
     return questions;
   } catch (error) {
@@ -421,7 +902,7 @@ function generateXml(questionnaire) {
       <max>10</max>
       <step>1</step>
     </attributes>`;
-    } else if (question.type === 'open-end' || question.type === 'Text/Open-Ended') {
+    } else if (question.type === 'open-end' || question.type === 'Text/Open-Ended' || question.type === 'Open End') {
       xml += `
     <attributes>
       <maxLength>1000</maxLength>
@@ -655,12 +1136,13 @@ Basic Question Types:
 - Multi-Select: Respondents pick one or more options (supports exclusive options)
 - Dropdown Menu: Drop-down list with up to three dimensions
 - Button Single Select: Mobile-friendly button-based single selection
-- Single Select Grid: Matrix-style grid with one column selection per row
+- Single Select Grid: Matrix-style grid with one column selection per row. Has statementOptions (rows) and responseOptions (column headers/scale)
 - Button Single Select Grid: Touch-friendly grid with button selections
-- Multi-Select Grid: Grid allowing multiple selections per row/cell
+- Numeric Grid: Grid where respondents enter numeric values for each row. Has statementOptions (rows) but NO responseOptions. Use when asking for numbers, counts, percentages, or amounts
+- Multi-Select Grid: Grid allowing multiple selections per row/cell. Has statementOptions (rows) and responseOptions (columns). Typically has "Values: 0-1"
 - Button Multi-Select/Grid: Button-based multi-select including grid variants
-- Text/Open-Ended: Freeform alphanumeric text input
-- Number Question: Numeric values only
+- Open End: Freeform alphanumeric text input
+- Numeric: Numeric values only (single numeric input, not a grid)
 
 Dynamic/Advanced Types:
 - Autosuggest: Type-ahead suggestions from predefined list
@@ -810,7 +1292,7 @@ router.post('/validate', async (req, res) => {
         validationResults.suggestions.push(`Question ${index + 1}: Consider using Dropdown Menu for ${question.options.length} options`);
       }
       
-      if (question.type === 'Text/Open-Ended' && !question.validation) {
+      if ((question.type === 'Text/Open-Ended' || question.type === 'Open End' || question.type === 'open-end') && !question.validation) {
         validationResults.suggestions.push(`Question ${index + 1}: Consider adding character limits for open-ended questions`);
       }
     });
@@ -862,12 +1344,13 @@ Basic Question Types:
 - Multi-Select: Respondents pick one or more options (supports exclusive options)
 - Dropdown Menu: Drop-down list with up to three dimensions
 - Button Single Select: Mobile-friendly button-based single selection
-- Single Select Grid: Matrix-style grid with one column selection per row
+- Single Select Grid: Matrix-style grid with one column selection per row. Has statementOptions (rows) and responseOptions (column headers/scale)
 - Button Single Select Grid: Touch-friendly grid with button selections
-- Multi-Select Grid: Grid allowing multiple selections per row/cell
+- Numeric Grid: Grid where respondents enter numeric values for each row. Has statementOptions (rows) but NO responseOptions. Use when asking for numbers, counts, percentages, or amounts
+- Multi-Select Grid: Grid allowing multiple selections per row/cell. Has statementOptions (rows) and responseOptions (columns). Typically has "Values: 0-1"
 - Button Multi-Select/Grid: Button-based multi-select including grid variants
-- Text/Open-Ended: Freeform alphanumeric text input
-- Number Question: Numeric values only
+- Open End: Freeform alphanumeric text input
+- Numeric: Numeric values only (single numeric input, not a grid)
 
 Dynamic/Advanced Types:
 - Autosuggest: Type-ahead suggestions from predefined list
@@ -947,6 +1430,962 @@ Provide 3-7 relevant response options that would be appropriate for this questio
   } catch (error) {
     console.error('Error suggesting options:', error);
     res.status(500).json({ error: 'Failed to suggest options' });
+  }
+});
+
+// POST /api/questionnaire/map-columns - AI mapping of variable names to data file column headers
+router.post('/map-columns', async (req, res) => {
+  try {
+    const { variableNames, dataHeaders, dataMapHeaders, questionnaireId } = req.body;
+    
+    if (!variableNames || !Array.isArray(variableNames) || variableNames.length === 0) {
+      return res.status(400).json({ error: 'Variable names are required' });
+    }
+    
+    if (!dataHeaders || !Array.isArray(dataHeaders) || dataHeaders.length === 0) {
+      return res.status(400).json({ error: 'Data headers are required' });
+    }
+    
+    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    
+    const systemPrompt = `You are an expert at matching survey variable names with data file column headers. Your task is to match variable names (like S1, S2, C1_r1, etc.) with the corresponding column headers from a data file.
+
+Variable naming conventions:
+- Simple variables: S1, S2, Q1, A1, etc.
+- Grid variables: C1_r1 (question C1, row 1), C1_r2 (question C1, row 2), etc.
+- Grid variables with columns: C1_r1c1, C1_r1c2 (question C1, row 1, column 1/2), etc.
+- Multi-select variables: QS3r1, QS3r2 (question QS3, option 1/2), etc.
+
+Column headers in data files may:
+- Match exactly: "S1" matches variable "S1"
+- Start with the variable name followed by question text: "QS1 - Which of the following best describes your primary medical specialty?" matches variable "QS1" or "S1"
+- Have prefixes/suffixes: "Q1_1", "Q1_2" might match "Q1" with sub-options
+- Use different formats: "S1r1", "S1_r1", "S1-r1" all match "S1_r1"
+- Be in a data map sheet with different formats
+
+CRITICAL MATCHING RULES:
+1. If a variable is "S1" and you see a column header like "QS1 - Which of the following...", match "S1" to "QS1 - Which of the following..." (the full header)
+2. If a variable is "S4_c1" and you see "QS4 - Amyotrophic Lateral Sclerosis (ALS)", match "S4_c1" to "QS4 - Amyotrophic Lateral Sclerosis (ALS)" (the full header)
+3. Always return the COMPLETE column header text as it appears in the data file, not just the prefix
+4. For grid variables, match to the specific column that contains data for that grid cell
+5. Prioritize exact prefix matches (e.g., "S1" matches columns starting with "S1" or "QS1")
+
+Your goal is to create the most accurate mapping possible, matching each variable name to the most likely column header(s).`;
+
+    // Log what we're sending to AI for debugging
+    console.log(`📤 Sending ${variableNames.length} variables to AI for mapping against ${dataHeaders.length} data headers`);
+
+    const userPrompt = `Please match the following variable names with the column headers from the data file.
+
+Variable Names (${variableNames.length} total):
+${variableNames.map((v, i) => `${i + 1}. ${v}`).join('\n')}
+
+Data Headers (from first sheet, ${dataHeaders.length} total):
+${dataHeaders.map((h, i) => `${i + 1}. ${h}`).join('\n')}
+
+${dataMapHeaders && dataMapHeaders.length > 0 ? `Data Map Headers (from data map sheet, ${dataMapHeaders.length} total):
+${dataMapHeaders.map((h, i) => `${i + 1}. ${h}`).join('\n')}` : ''}
+
+IMPORTANT MATCHING INSTRUCTIONS:
+- If variable "S1" exists and you see column "QS1 - Which of the following best describes your primary medical specialty?", map "S1" to the FULL column header: "QS1 - Which of the following best describes your primary medical specialty?"
+- If variable "S4_c1" exists and you see "QS4 - Amyotrophic Lateral Sclerosis (ALS)", map "S4_c1" to "QS4 - Amyotrophic Lateral Sclerosis (ALS)"
+- Always return the COMPLETE column header text exactly as it appears in the data headers list above
+- For grid variables (e.g., "S4_r1", "S4_c1"), find the specific column that contains data for that grid cell
+- If a variable name starts with a letter+number (e.g., "S1"), look for columns that start with that same pattern (e.g., "QS1", "S1", "Q1_S1")
+- If no clear match exists, use an empty string ""
+
+Return a JSON object with this structure:
+{
+  "mapping": {
+    "variableName1": "matchedColumnHeader1",
+    "variableName2": "matchedColumnHeader2",
+    ...
+  }
+}
+
+For each variable:
+- Match it to the most likely column header from either the data headers or data map headers
+- If a variable matches multiple columns (e.g., grid variables), match to the base column name (e.g., "C1_r1" might match "C1_r1" or "C1r1")
+- If no clear match exists, use an empty string ""
+- Be flexible with naming conventions (underscores, dashes, case differences)
+- Prioritize exact matches, then partial matches
+
+CRITICAL: JSON FORMATTING REQUIREMENTS:
+- ALL string values in the JSON MUST be properly escaped
+- If a column header contains double quotes ("), escape them as \\"
+- If a column header contains backslashes (\\), escape them as \\\\
+- If a column header contains newlines, escape them as \\n
+- Use ONLY double quotes for JSON strings
+- Ensure all strings are properly closed
+- The response MUST be valid, parseable JSON
+
+Return ONLY valid JSON. Do not include any explanatory text, markdown code blocks, or formatting outside the JSON object.`;
+
+    const response = await client.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      temperature: 0.1,
+      response_format: { type: 'json_object' },
+      max_tokens: 8192 // Increased to handle larger mappings
+    });
+
+    // Check for truncation
+    const finishReason = response.choices[0].finish_reason;
+    if (finishReason === 'length') {
+      console.error('⚠️ Column mapping response was truncated due to token limit');
+      return res.status(500).json({ error: 'Mapping response was too large. Please try with fewer variables or increase the token limit.' });
+    }
+
+    // Log cost
+    const inputTokens = response.usage?.prompt_tokens || 0;
+    const outputTokens = response.usage?.completion_tokens || 0;
+    
+    // Get projectId from user if available, or from questionnaire context
+    const projectId = req.user?.projectId || req.body.projectId;
+    if (inputTokens > 0 && outputTokens > 0 && projectId) {
+      await logCost(
+        projectId,
+        COST_CATEGORIES.QUESTIONNAIRE_PARSING,
+        'gpt-4o',
+        inputTokens,
+        outputTokens,
+        'Column mapping'
+      );
+    }
+
+    // Get and validate response content
+    const content = response.choices[0].message.content;
+    if (!content || content.trim().length === 0) {
+      console.error('⚠️ Empty response from AI for column mapping');
+      return res.status(500).json({ error: 'Empty response from AI' });
+    }
+
+    // Try to parse JSON with better error handling
+    let result;
+    try {
+      result = JSON.parse(content);
+    } catch (parseError) {
+      console.error('❌ JSON parse error in column mapping response:');
+      console.error('Error:', parseError.message);
+      console.error('Response length:', content.length);
+      console.error('Response preview (first 500 chars):', content.substring(0, 500));
+      console.error('Response preview (around error position):', content.substring(Math.max(0, 12268 - 200), Math.min(content.length, 12268 + 200)));
+      
+      // Try to extract JSON from the response if it's wrapped in markdown or has extra text
+      try {
+        // Try to find JSON object in the response
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          result = JSON.parse(jsonMatch[0]);
+          console.log('✅ Successfully extracted JSON from response');
+        } else {
+          throw new Error('No JSON object found in response');
+        }
+      } catch (recoveryError) {
+        console.error('❌ Failed to recover JSON from response:', recoveryError.message);
+        return res.status(500).json({ 
+          error: 'Failed to parse AI response as JSON. The response may contain invalid characters or be truncated.',
+          details: parseError.message
+        });
+      }
+    }
+
+    const mapping = result.mapping || {};
+    
+    // Log mapping results for debugging
+    const totalVariables = variableNames.length;
+    const mappedCount = Object.keys(mapping).filter(k => mapping[k] && mapping[k] !== '').length;
+    const unmappedCount = totalVariables - mappedCount;
+    console.log(`📥 Received mapping from AI: ${mappedCount} mapped, ${unmappedCount} unmapped out of ${totalVariables} total`);
+    
+    // Save mapping to metadata if questionnaireId is provided
+    if (questionnaireId) {
+      try {
+        const qnrDataDir = path.join(dataRoot, 'questionnaire-data', questionnaireId);
+        await fs.mkdir(qnrDataDir, { recursive: true });
+        const metadataPath = path.join(qnrDataDir, 'metadata.json');
+        
+        let metadata = {};
+        try {
+          const existingMetadata = await fs.readFile(metadataPath, 'utf-8');
+          metadata = JSON.parse(existingMetadata);
+        } catch (e) {
+          // File doesn't exist yet, that's fine
+        }
+        
+        metadata.columnMapping = mapping;
+        metadata.mappingCreatedAt = new Date().toISOString();
+        await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2));
+      } catch (saveError) {
+        console.warn('Could not save column mapping to metadata:', saveError);
+        // Continue anyway - mapping is still returned
+      }
+    }
+    
+    res.json({ mapping });
+  } catch (error) {
+    console.error('Error mapping columns:', error);
+    res.status(500).json({ error: 'Failed to map columns' });
+  }
+});
+
+// POST /api/questionnaire/upload-data-file - Upload and save data file for a questionnaire
+router.post('/upload-data-file', uploadDataFile.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+    
+    const { questionnaireId } = req.body;
+    if (!questionnaireId) {
+      // Clean up temp file
+      try {
+        await fs.unlink(req.file.path);
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+      return res.status(400).json({ error: 'Questionnaire ID is required' });
+    }
+    
+    // Create directory for this questionnaire's data files
+    const qnrDataDir = path.join(dataRoot, 'questionnaire-data', questionnaireId);
+    await fs.mkdir(qnrDataDir, { recursive: true });
+    
+    // Move file from temp location to questionnaire-specific directory
+    const timestamp = Date.now();
+    const ext = path.extname(req.file.originalname);
+    const fileName = `data_${timestamp}${ext}`;
+    const finalPath = path.join(qnrDataDir, fileName);
+    
+    await fs.rename(req.file.path, finalPath);
+    
+    // Verify file was saved correctly by checking its size
+    const stats = await fs.stat(finalPath);
+    console.log(`💾 Saved data file: ${fileName} (${(stats.size / 1024 / 1024).toFixed(2)} MB)`);
+    
+    // Save metadata about the file
+    const metadataPath = path.join(qnrDataDir, 'metadata.json');
+    let metadata = {};
+    try {
+      const existingMetadata = await fs.readFile(metadataPath, 'utf-8');
+      metadata = JSON.parse(existingMetadata);
+    } catch (e) {
+      // File doesn't exist yet, that's fine
+    }
+    
+    metadata.dataFileName = fileName;
+    metadata.originalFileName = req.file.originalname;
+    metadata.uploadedAt = new Date().toISOString();
+    await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2));
+    
+    res.json({ fileName, originalFileName: req.file.originalname, message: 'File uploaded successfully' });
+  } catch (error) {
+    console.error('Error uploading data file:', error);
+    // Clean up temp file on error
+    if (req.file && req.file.path) {
+      try {
+        await fs.unlink(req.file.path);
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+    }
+    res.status(500).json({ error: 'Failed to upload data file: ' + (error.message || String(error)) });
+  }
+});
+
+// GET /api/questionnaire/data-file/:questionnaireId - Get saved data file for a questionnaire
+router.get('/data-file/:questionnaireId', async (req, res) => {
+  try {
+    const { questionnaireId } = req.params;
+    const qnrDataDir = path.join(dataRoot, 'questionnaire-data', questionnaireId);
+    const metadataPath = path.join(qnrDataDir, 'metadata.json');
+    
+    try {
+      const metadata = JSON.parse(await fs.readFile(metadataPath, 'utf-8'));
+      const filePath = path.join(qnrDataDir, metadata.dataFileName);
+      
+      // Check if file exists
+      try {
+        await fs.access(filePath);
+      } catch (e) {
+        return res.status(404).json({ error: 'Data file not found' });
+      }
+      
+      res.sendFile(path.resolve(filePath));
+    } catch (e) {
+      res.status(404).json({ error: 'No data file found for this questionnaire' });
+    }
+  } catch (error) {
+    console.error('Error fetching data file:', error);
+    res.status(500).json({ error: 'Failed to fetch data file' });
+  }
+});
+
+// GET /api/questionnaire/data-file-info/:questionnaireId - Get metadata about saved data file
+router.get('/data-file-info/:questionnaireId', async (req, res) => {
+  try {
+    const { questionnaireId } = req.params;
+    const qnrDataDir = path.join(dataRoot, 'questionnaire-data', questionnaireId);
+    const metadataPath = path.join(qnrDataDir, 'metadata.json');
+    
+    try {
+      const metadata = JSON.parse(await fs.readFile(metadataPath, 'utf-8'));
+      
+      // If column headers are missing but we have a data file, try to parse them
+      let columnHeaders = metadata.columnHeaders || null;
+      if (!columnHeaders && metadata.dataFileName) {
+        try {
+          const filePath = path.join(qnrDataDir, metadata.dataFileName);
+          const ext = path.extname(metadata.dataFileName).toLowerCase();
+          
+          let workbook;
+          if (ext === '.csv') {
+            const fileContent = await fs.readFile(filePath, 'utf-8');
+            workbook = XLSX.read(fileContent, { type: 'string' });
+          } else {
+            const fileBuffer = await fs.readFile(filePath);
+            workbook = XLSX.read(fileBuffer, { type: 'buffer' });
+          }
+          
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          const headerRange = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
+          const headers = [];
+          
+          for (let col = headerRange.s.c; col <= headerRange.e.c; col++) {
+            const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
+            const cell = worksheet[cellAddress];
+            if (cell && cell.v !== undefined && cell.v !== null) {
+              headers.push(String(cell.v).trim());
+            }
+          }
+          
+          const filteredHeaders = headers.filter(h => h.length > 0);
+          if (filteredHeaders.length > 0) {
+            columnHeaders = filteredHeaders;
+            // Save the parsed headers to metadata for future use
+            metadata.columnHeaders = columnHeaders;
+            await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2));
+            console.log(`📋 Parsed and saved ${columnHeaders.length} column headers from existing file`);
+          }
+        } catch (parseError) {
+          console.warn('Could not parse column headers from existing file:', parseError);
+        }
+      }
+      
+      res.json({
+        fileName: metadata.dataFileName,
+        originalFileName: metadata.originalFileName,
+        uploadedAt: metadata.uploadedAt,
+        processedAt: metadata.processedAt,
+        columnMapping: metadata.columnMapping || null,
+        mappingCreatedAt: metadata.mappingCreatedAt || null,
+        columnHeaders: columnHeaders
+      });
+    } catch (e) {
+      res.status(404).json({ error: 'No data file found for this questionnaire' });
+    }
+  } catch (error) {
+    console.error('Error fetching data file info:', error);
+    res.status(500).json({ error: 'Failed to fetch data file info' });
+  }
+});
+
+// DELETE /api/questionnaire/delete-data-file/:questionnaireId - Delete data file and metadata
+router.delete('/delete-data-file/:questionnaireId', async (req, res) => {
+  try {
+    const { questionnaireId } = req.params;
+    const qnrDataDir = path.join(dataRoot, 'questionnaire-data', questionnaireId);
+    const metadataPath = path.join(qnrDataDir, 'metadata.json');
+    
+    try {
+      const metadata = JSON.parse(await fs.readFile(metadataPath, 'utf-8'));
+      
+      // Delete the data file if it exists
+      if (metadata.dataFileName) {
+        const filePath = path.join(qnrDataDir, metadata.dataFileName);
+        try {
+          await fs.unlink(filePath);
+          console.log(`🗑️ Deleted data file: ${metadata.dataFileName}`);
+        } catch (e) {
+          console.warn('Could not delete data file:', e);
+        }
+      }
+      
+      // Delete processed data file if it exists
+      const processedDataPath = path.join(qnrDataDir, 'processed-data.json');
+      try {
+        await fs.unlink(processedDataPath);
+        console.log('🗑️ Deleted processed data file');
+      } catch (e) {
+        // File doesn't exist, that's fine
+      }
+      
+      // Delete metadata file
+      await fs.unlink(metadataPath);
+      console.log('🗑️ Deleted metadata file');
+      
+      res.json({ message: 'Data file and all related data deleted successfully' });
+    } catch (e) {
+      // Metadata file doesn't exist, that's fine - return success anyway
+      res.json({ message: 'No data file found to delete' });
+    }
+  } catch (error) {
+    console.error('Error deleting data file:', error);
+    res.status(500).json({ error: 'Failed to delete data file' });
+  }
+});
+
+// GET /api/questionnaire/processed-data/:questionnaireId - Get processed data for a questionnaire
+router.get('/processed-data/:questionnaireId', async (req, res) => {
+  try {
+    const { questionnaireId } = req.params;
+    const qnrDataDir = path.join(dataRoot, 'questionnaire-data', questionnaireId);
+    const metadataPath = path.join(qnrDataDir, 'metadata.json');
+    
+    console.log(`📥 Fetching processed data for questionnaire: ${questionnaireId}`);
+    console.log(`📁 Data directory: ${qnrDataDir}`);
+    
+    try {
+      const metadata = JSON.parse(await fs.readFile(metadataPath, 'utf-8'));
+      console.log(`📋 Metadata loaded. processedAt: ${metadata.processedAt}, processedDataFile: ${metadata.processedDataFile}`);
+      
+      // Determine which file to use - check metadata first, then fallback to default
+      let dataFileName = metadata.processedDataFile;
+      
+      // If metadata doesn't have processedDataFile but has processedAt, try default filename
+      if (!dataFileName && metadata.processedAt) {
+        console.log(`⚠️ Metadata missing processedDataFile but has processedAt. Using default filename.`);
+        dataFileName = 'processed-data.json';
+        // Update metadata to include the filename for future requests
+        metadata.processedDataFile = dataFileName;
+        await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2));
+        console.log(`✅ Updated metadata with processedDataFile: ${dataFileName}`);
+      }
+      
+      if (!dataFileName) {
+        console.log(`❌ No processedDataFile in metadata and no processedAt timestamp`);
+        return res.status(404).json({ error: 'No processed data found. Please upload and process data first.' });
+      }
+      
+      const dataFilePath = path.join(qnrDataDir, dataFileName);
+      console.log(`📄 Looking for processed data file: ${dataFilePath}`);
+      
+      // Check if file exists before trying to read it
+      try {
+        await fs.access(dataFilePath);
+        console.log(`✅ Processed data file exists`);
+      } catch (accessError) {
+        // File doesn't exist
+        console.log(`❌ Processed data file not found: ${dataFilePath}`);
+        console.log(`   Error: ${accessError.message}`);
+        return res.status(404).json({ error: 'Processed data file not found. Please upload and process data first.' });
+      }
+      
+      const processedData = JSON.parse(await fs.readFile(dataFilePath, 'utf-8'));
+      console.log(`✅ Loaded processed data: ${Object.keys(processedData).length} variables`);
+      
+      res.json(processedData);
+    } catch (e) {
+      if (e.code === 'ENOENT') {
+        console.log(`❌ File not found error: ${e.message}`);
+        res.status(404).json({ error: 'No processed data found for this questionnaire' });
+      } else {
+        console.error(`❌ Error reading processed data:`, e);
+        throw e;
+      }
+    }
+  } catch (error) {
+    console.error('Error fetching processed data:', error);
+    res.status(500).json({ error: 'Failed to fetch processed data' });
+  }
+});
+
+// POST /api/questionnaire/save-column-headers - Save column headers to metadata
+router.post('/save-column-headers', async (req, res) => {
+  try {
+    const { questionnaireId, columnHeaders } = req.body;
+    
+    if (!questionnaireId || !columnHeaders || !Array.isArray(columnHeaders)) {
+      return res.status(400).json({ error: 'Questionnaire ID and column headers are required' });
+    }
+    
+    const qnrDataDir = path.join(dataRoot, 'questionnaire-data', questionnaireId);
+    await fs.mkdir(qnrDataDir, { recursive: true });
+    const metadataPath = path.join(qnrDataDir, 'metadata.json');
+    
+    let metadata = {};
+    try {
+      const existingMetadata = await fs.readFile(metadataPath, 'utf-8');
+      metadata = JSON.parse(existingMetadata);
+    } catch (e) {
+      // File doesn't exist yet, that's fine
+    }
+    
+    metadata.columnHeaders = columnHeaders;
+    await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2));
+    
+    res.json({ message: 'Column headers saved successfully' });
+  } catch (error) {
+    console.error('Error saving column headers:', error);
+    res.status(500).json({ error: 'Failed to save column headers' });
+  }
+});
+
+// POST /api/questionnaire/upload-data - Process and upload data using column mapping
+router.post('/upload-data', async (req, res) => {
+  try {
+    const { questionnaireId, columnMapping } = req.body;
+    
+    if (!questionnaireId || !columnMapping) {
+      return res.status(400).json({ error: 'Questionnaire ID and column mapping are required' });
+    }
+    
+    // Get saved data file
+    const qnrDataDir = path.join(dataRoot, 'questionnaire-data', questionnaireId);
+    const metadataPath = path.join(qnrDataDir, 'metadata.json');
+    
+    let dataFileName;
+    try {
+      const metadata = JSON.parse(await fs.readFile(metadataPath, 'utf-8'));
+      dataFileName = metadata.dataFileName;
+    } catch (e) {
+      return res.status(404).json({ error: 'No data file found. Please upload a data file first.' });
+    }
+    
+    // Load questionnaire to get question structure for code mapping
+    let questionnaire = null;
+    try {
+      const questionnairesPath = path.join(dataRoot, 'questionnaires.json');
+      const questionnairesData = JSON.parse(await fs.readFile(questionnairesPath, 'utf-8'));
+      
+      // Find the questionnaire in the nested structure
+      for (const projectId in questionnairesData) {
+        if (Array.isArray(questionnairesData[projectId])) {
+          const found = questionnairesData[projectId].find(q => q.id === questionnaireId);
+          if (found) {
+            questionnaire = found;
+            break;
+          }
+        }
+      }
+      
+      if (!questionnaire) {
+        console.warn(`Could not find questionnaire ${questionnaireId} in questionnaires.json`);
+      }
+    } catch (e) {
+      console.warn('Could not load questionnaire for code mapping:', e);
+    }
+    
+    const filePath = path.join(qnrDataDir, dataFileName);
+    
+    // Read and parse the Excel file - this reads ALL rows, not just headers
+    const workbook = XLSX.readFile(filePath);
+    const dataSheetName = workbook.SheetNames[0];
+    const dataWorksheet = workbook.Sheets[dataSheetName];
+    
+    // Convert entire sheet to JSON - this includes ALL rows of data
+    const dataJson = XLSX.utils.sheet_to_json(dataWorksheet, { defval: null });
+    
+    console.log(`📁 Reading data file: ${dataFileName}`);
+    console.log(`📊 Total rows in file: ${dataJson.length} (including header row)`);
+    
+    if (dataJson.length === 0) {
+      return res.status(400).json({ error: 'Data file is empty' });
+    }
+    
+    if (dataJson.length === 1) {
+      console.warn('⚠️ WARNING: Only header row found, no data rows!');
+      return res.status(400).json({ error: 'Data file contains only headers, no data rows' });
+    }
+    
+    console.log(`✅ Successfully loaded ${dataJson.length} rows from data file`);
+    
+    // Process data using column mapping
+    // Extract data for each variable based on the column mapping
+    const processedData = {};
+    
+    // dataJson includes ALL rows - first row is headers, rest are data
+    // XLSX.utils.sheet_to_json already converts headers to object keys, so each row is an object
+    const totalDataRows = dataJson.length;
+    console.log(`📊 Processing ${totalDataRows} rows with ${Object.keys(columnMapping).length} variable mappings`);
+    
+    // Check what columns are actually in the data file
+    const actualColumns = dataJson.length > 0 ? Object.keys(dataJson[0]) : [];
+    
+    // Verify column mappings exist in the data file
+    const allMappedColumns = Object.values(columnMapping).filter(col => col && col.trim() !== '');
+    const allFound = allMappedColumns.filter(mappedCol => {
+      return actualColumns.some(col => {
+        const colLower = col.toLowerCase().trim();
+        const mappedLower = mappedCol.toLowerCase().trim();
+        return col === mappedCol || 
+               colLower === mappedLower ||
+               colLower.startsWith(mappedLower) || 
+               mappedLower.startsWith(colLower);
+      });
+    });
+    
+    if (allFound.length < allMappedColumns.length) {
+      console.warn(`⚠️ Warning: ${allMappedColumns.length - allFound.length} mapped columns not found in data file`);
+    }
+    
+    // Process each row of data
+    dataJson.forEach((row, rowIndex) => {
+      // For each variable in the mapping, extract its value from the corresponding column
+      Object.entries(columnMapping).forEach(([variableName, columnHeader]) => {
+        if (!columnHeader || columnHeader === '') {
+          return; // Skip unmapped variables
+        }
+        
+        if (!processedData[variableName]) {
+          processedData[variableName] = [];
+        }
+        
+        // Get the value from the row using the column header
+        // The columnHeader is what the AI identified from the data file headers
+        // We need to match it against the actual keys in the row object
+        const rowKeys = Object.keys(row);
+        let value = null;
+        
+        // Try multiple matching strategies:
+        // 1. Exact match
+        if (rowKeys.includes(columnHeader)) {
+          value = row[columnHeader];
+        }
+        // 2. Case-insensitive match
+        if ((value === null || value === undefined) && columnHeader) {
+          const matchingKey = rowKeys.find(key => key.toLowerCase() === columnHeader.toLowerCase());
+          if (matchingKey) {
+            value = row[matchingKey];
+          }
+        }
+        // 3. Trimmed match (in case of extra whitespace)
+        if ((value === null || value === undefined) && columnHeader) {
+          const trimmedHeader = columnHeader.trim();
+          const matchingKey = rowKeys.find(key => key.trim().toLowerCase() === trimmedHeader.toLowerCase());
+          if (matchingKey) {
+            value = row[matchingKey];
+          }
+        }
+        // 4. Starts-with match (common case: "QS1" matches "QS1 - Question text...")
+        if ((value === null || value === undefined) && columnHeader) {
+          const matchingKey = rowKeys.find(key => {
+            const keyLower = key.toLowerCase().trim();
+            const headerLower = columnHeader.toLowerCase().trim();
+            // Check if key starts with header (e.g., "QS1 - ..." starts with "QS1")
+            // Or if header starts with key (e.g., "QS1" matches "QS1 - ...")
+            return keyLower.startsWith(headerLower) || headerLower.startsWith(keyLower);
+          });
+          if (matchingKey) {
+            value = row[matchingKey];
+          }
+        }
+        // 5. Partial match (if column header contains the key or vice versa)
+        if ((value === null || value === undefined) && columnHeader) {
+          const matchingKey = rowKeys.find(key => {
+            const keyLower = key.toLowerCase();
+            const headerLower = columnHeader.toLowerCase();
+            // More strict partial match - require at least 3 characters to match
+            if (headerLower.length >= 3 && keyLower.length >= 3) {
+              return keyLower.includes(headerLower) || headerLower.includes(keyLower);
+            }
+            return false;
+          });
+          if (matchingKey) {
+            value = row[matchingKey];
+          }
+        }
+        
+        
+        // Only push non-empty values
+        if (value !== null && value !== undefined && value !== '') {
+          processedData[variableName].push(value);
+        }
+      });
+    });
+    
+    // Count how many variables have data
+    const variablesWithDataCount = Object.entries(processedData).filter(([name, values]) => 
+      values && Array.isArray(values) && values.length > 0
+    ).length;
+    
+    console.log(`✅ Extracted data for ${variablesWithDataCount} out of ${Object.keys(processedData).length} variables`);
+    
+    if (variablesWithDataCount === 0) {
+      console.warn(`⚠️ WARNING: No data extracted for any variables! Check column mapping.`);
+    }
+    
+    // Calculate statistics for each variable
+    const variableStats = {};
+    Object.entries(processedData).forEach(([variableName, values]) => {
+      if (!values || values.length === 0) {
+        variableStats[variableName] = {
+          count: 0,
+          values: []
+        };
+        return;
+      }
+      
+      // Convert to numbers if possible
+      const numericValues = values.map(v => {
+        const num = parseFloat(v);
+        return isNaN(num) ? null : num;
+      }).filter(v => v !== null);
+      
+      const allNumeric = numericValues.length === values.length;
+      
+      if (allNumeric && numericValues.length > 0) {
+        // Calculate statistics for numeric variables
+        const sorted = [...numericValues].sort((a, b) => a - b);
+        const sum = numericValues.reduce((a, b) => a + b, 0);
+        const mean = sum / numericValues.length;
+        const median = sorted.length % 2 === 0
+          ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
+          : sorted[Math.floor(sorted.length / 2)];
+        
+        // Calculate mode
+        const frequency = {};
+        numericValues.forEach(v => {
+          frequency[v] = (frequency[v] || 0) + 1;
+        });
+        const mode = Object.entries(frequency).sort((a, b) => b[1] - a[1])[0]?.[0];
+        
+        variableStats[variableName] = {
+          count: values.length,
+          values: values,
+          numeric: true,
+          mean,
+          median,
+          mode: mode ? parseFloat(mode) : null,
+          min: sorted[0],
+          max: sorted[sorted.length - 1],
+          sum
+        };
+      } else {
+        // Count frequencies for categorical variables
+        // Try to map values to codes from questionnaire if available
+        const frequency = {};
+        
+        // Try to find the question for this variable to get code mappings
+        let codeMap = null;
+        if (questionnaire && questionnaire.questions) {
+          // Extract base variable name and determine if it's a grid variable
+          // Patterns: "S4_r1" -> baseVar="S4", suffix="_r1" (statement)
+          //          "S4_c1" -> baseVar="S4", suffix="_c1" (response)
+          //          "S4" -> baseVar="S4", no suffix (summary or non-grid)
+          const gridMatch = variableName.match(/^([A-Z0-9]+)_([rc])(\d+)$/i);
+          const baseMatch = variableName.match(/^([A-Z0-9]+)/);
+          
+          if (baseMatch) {
+            const baseVar = baseMatch[1];
+            const question = questionnaire.questions.find((q) => 
+              q.number === baseVar || q.id === baseVar
+            );
+            
+            if (question) {
+              // Determine which options to use based on variable name pattern
+              let optionsToUse = null;
+              
+              if (gridMatch) {
+                // This is a grid variable (e.g., "S4_r1" or "S4_c1")
+                const suffixType = gridMatch[2].toLowerCase(); // 'r' or 'c'
+                if (suffixType === 'r' && question.statementOptions) {
+                  // Statement variable - use statementOptions
+                  optionsToUse = question.statementOptions;
+                } else if (suffixType === 'c' && question.responseOptions) {
+                  // Response variable - use responseOptions
+                  optionsToUse = question.responseOptions;
+                }
+              } else if (question.options) {
+                // Non-grid question - use regular options
+                optionsToUse = question.options;
+              } else if (question.responseOptions) {
+                // Fallback: might be a grid question without suffix, try responseOptions
+                optionsToUse = question.responseOptions;
+              }
+              
+              if (optionsToUse) {
+                // Build code map: value -> code
+                codeMap = {};
+                optionsToUse.forEach((opt, idx) => {
+                  // Handle both string and object formats
+                  let code, value;
+                  if (typeof opt === 'string') {
+                    code = String(idx + 1);
+                    value = opt;
+                  } else {
+                    // Object format: {code: "c1", text: "Option 1"} or {code: "r1", text: "Statement 1"}
+                    code = opt.code || String(idx + 1);
+                    value = opt.text || opt.value || String(idx + 1);
+                  }
+                  
+                  // Normalize value for matching (trim whitespace, lowercase for comparison)
+                  const normalizedValue = String(value).trim().toLowerCase();
+                  
+                  // Map multiple representations to the code
+                  // 1. Exact text match (case-sensitive)
+                  codeMap[String(value)] = code;
+                  codeMap[value] = code;
+                  
+                  // 2. Normalized text match (case-insensitive, trimmed)
+                  codeMap[normalizedValue] = code;
+                  
+                  // 3. Numeric index
+                  codeMap[String(idx + 1)] = code;
+                  
+                  // 4. The code itself (in case data already has codes)
+                  codeMap[code] = code;
+                  
+                  // 5. Numeric representations
+                  if (!isNaN(parseInt(value))) {
+                    codeMap[String(parseInt(value))] = code;
+                  }
+                  
+                  // 6. Map just the number part if code has prefix (e.g., "c1" -> map "1" to "c1")
+                  const codeNumMatch = code.match(/(\d+)$/);
+                  if (codeNumMatch) {
+                    codeMap[codeNumMatch[1]] = code;
+                  }
+                  
+                  // 7. Partial text matching - map common variations
+                  // If value contains parentheses, also map the text before parentheses
+                  const parenMatch = String(value).match(/^([^(]+)/);
+                  if (parenMatch) {
+                    const beforeParen = parenMatch[1].trim();
+                    codeMap[beforeParen.toLowerCase()] = code;
+                    codeMap[beforeParen] = code;
+                  }
+                });
+              }
+            }
+          }
+        }
+        
+        values.forEach(v => {
+          const rawValue = String(v).trim();
+          const normalizedValue = rawValue.toLowerCase();
+          
+          // Try to find matching code using multiple strategies
+          let code = null;
+          let matchType = 'none';
+          
+          if (codeMap) {
+            // 1. Try exact match (case-sensitive)
+            if (codeMap[rawValue]) {
+              code = codeMap[rawValue];
+              matchType = 'exact';
+            }
+            // 2. Try normalized match (case-insensitive)
+            else if (codeMap[normalizedValue]) {
+              code = codeMap[normalizedValue];
+              matchType = 'normalized';
+            }
+            // 3. Try partial match - find keys that contain the value or vice versa
+            else {
+              // First, try to find a key where the value is contained in the key
+              // This handles cases like "Adult Neurology" matching "Adult Neurology (AN)"
+              const containingKey = Object.keys(codeMap).find(key => {
+                const keyLower = key.toLowerCase();
+                const valueLower = normalizedValue;
+                // Check if key contains the full value (most specific match)
+                if (keyLower.includes(valueLower) && valueLower.length > 3) {
+                  return true;
+                }
+                // Also check if value contains key (for abbreviations)
+                if (valueLower.includes(keyLower) && keyLower.length > 3) {
+                  return true;
+                }
+                return false;
+              });
+              
+              if (containingKey) {
+                code = codeMap[containingKey];
+                matchType = 'partial';
+              }
+              // 4. Try word-by-word matching for multi-word values
+              else if (normalizedValue.includes(' ')) {
+                const valueWords = normalizedValue.split(/\s+/).filter(w => w.length > 2);
+                const matchingKey = Object.keys(codeMap).find(key => {
+                  const keyLower = key.toLowerCase();
+                  // Check if all significant words from value appear in key
+                  const allWordsMatch = valueWords.every(word => keyLower.includes(word));
+                  if (allWordsMatch) {
+                    return true;
+                  }
+                  // Also check reverse - if key words appear in value
+                  const keyWords = keyLower.split(/\s+/).filter(w => w.length > 2);
+                  return keyWords.every(word => normalizedValue.includes(word));
+                });
+                if (matchingKey) {
+                  code = codeMap[matchingKey];
+                  matchType = 'word-match';
+                }
+              }
+            }
+          }
+          
+          // If no match found, use raw value as code
+          if (!code) {
+            code = rawValue;
+            matchType = 'no-match';
+          }
+          
+          frequency[code] = (frequency[code] || 0) + 1;
+        });
+        
+        variableStats[variableName] = {
+          count: values.length,
+          values: values,
+          numeric: false,
+          frequencies: frequency
+        };
+      }
+    });
+    
+    // Save processed data to file
+    const dataFilePath = path.join(qnrDataDir, 'processed-data.json');
+    await fs.writeFile(dataFilePath, JSON.stringify(variableStats, null, 2));
+    console.log(`💾 Saved processed data to: ${dataFilePath}`);
+    
+    // Verify file was written
+    try {
+      await fs.access(dataFilePath);
+      const stats = await fs.stat(dataFilePath);
+      console.log(`✅ Verified processed data file exists (${stats.size} bytes)`);
+    } catch (verifyError) {
+      console.error(`❌ ERROR: Processed data file was not created! ${verifyError.message}`);
+    }
+    
+    // Also update metadata
+    const metadata = JSON.parse(await fs.readFile(metadataPath, 'utf-8'));
+    metadata.processedDataFile = 'processed-data.json';
+    metadata.processedAt = new Date().toISOString();
+    metadata.rowsProcessed = dataJson.length;
+    await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2));
+    console.log(`💾 Updated metadata with processedDataFile and processedAt`);
+    
+    console.log(`✅ Processed data for ${Object.keys(variableStats).length} variables`);
+    console.log(`📊 Sample variable stats:`, Object.keys(variableStats).slice(0, 3).map(v => ({
+      variable: v,
+      count: variableStats[v].count,
+      hasFrequencies: !!variableStats[v].frequencies,
+      isNumeric: variableStats[v].numeric
+    })));
+    
+    res.json({ 
+      message: 'Data uploaded and processed successfully',
+      rowsProcessed: dataJson.length,
+      variablesProcessed: Object.keys(variableStats).length,
+      variablesWithData: variablesWithDataCount,
+      data: variableStats
+    });
+  } catch (error) {
+    console.error('Error uploading data:', error);
+    res.status(500).json({ error: 'Failed to upload data' });
   }
 });
 

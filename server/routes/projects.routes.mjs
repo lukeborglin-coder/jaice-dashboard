@@ -121,9 +121,6 @@ router.put('/:projectId', (req, res) => {
       return res.status(400).json({ error: 'User ID and project data are required' });
     }
 
-    console.log('🔍 [PUT] Received project update for:', projectId);
-    console.log('🔍 [PUT] Requesting user:', userId);
-    console.log('🔍 [PUT] Team members received:', JSON.stringify(project.teamMembers, null, 2));
 
     const projectsData = readProjectsData();
 
@@ -144,16 +141,9 @@ router.put('/:projectId', (req, res) => {
       return res.status(404).json({ error: 'Project not found' });
     }
 
-    console.log('🔍 [PUT] Found project owned by user:', projectOwnerId);
 
     // Update the project under the owner's userId
     projectsData[projectOwnerId][projectIndex] = project;
-    console.log('🔍 [PUT] Project updated in memory, team members:', JSON.stringify(projectsData[projectOwnerId][projectIndex].teamMembers, null, 2));
-
-    // Debug: Check what we have
-    console.log('🔍 [PUT] Debug - project.teamMembers:', project.teamMembers);
-    console.log('🔍 [PUT] Debug - project.teamMembers length:', project.teamMembers?.length);
-    console.log('🔍 [PUT] Debug - project.tasks:', project.tasks?.length || 'no tasks');
 
     // Note: Automatic task assignment is handled by the frontend during project creation
     // The frontend already handles role-based task assignment correctly
@@ -392,15 +382,11 @@ router.delete('/:projectId', (req, res) => {
     const { userId } = req.body;
     const { projectId } = req.params;
 
-    console.log('DELETE DEBUG - Received:', { projectId, userId, userIdType: typeof userId });
-
     if (!userId) {
       return res.status(400).json({ error: 'User ID is required' });
     }
 
     const projectsData = readProjectsData();
-    console.log('DELETE DEBUG - Available project data keys:', Object.keys(projectsData));
-    console.log('DELETE DEBUG - Looking for userId key:', userId, 'Exists:', !!projectsData[userId]);
 
     // First check active projects
     if (projectsData[userId]) {

@@ -12,6 +12,10 @@ interface CrossTabDisplayProps {
   hideZeroBase: boolean;
   getVariableBase: (variableName: string) => number;
   hideInCrosstabs: Record<string, boolean>;
+  sortOptions?: Record<string, 'qnr' | 'asc' | 'desc'>;
+  hideZeroFrequencies?: Record<string, boolean>;
+  allBannerGroups?: BannerGroup[];
+  currentBannerGroupIndex?: number;
   onEdit?: () => void;
   onDelete?: () => void;
 }
@@ -25,6 +29,10 @@ const CrossTabDisplay: React.FC<CrossTabDisplayProps> = ({
   hideZeroBase,
   getVariableBase,
   hideInCrosstabs,
+  sortOptions = {},
+  hideZeroFrequencies = {},
+  allBannerGroups = [],
+  currentBannerGroupIndex = 0,
   onEdit,
   onDelete
 }) => {
@@ -104,7 +112,10 @@ const CrossTabDisplay: React.FC<CrossTabDisplayProps> = ({
         const cutIds: string[] = [];
         subGroup.cuts.forEach(cut => {
           const variable = parsedFile.variables.find(v => v.name === cut.variableName);
-          if (!variable) return;
+          if (!variable) {
+            console.warn(`[Banner] Variable "${cut.variableName}" not found in parsed file`);
+            return;
+          }
 
           columns.push({
             id: cut.id,
@@ -115,7 +126,29 @@ const CrossTabDisplay: React.FC<CrossTabDisplayProps> = ({
             filterFn: (row: Record<string, any>) => {
               const value = row[cut.variableName];
               if (value === null || value === undefined || value === '') return false;
-              return cut.codes.includes(String(value));
+              
+              const valueStr = String(value).trim();
+              
+              // Check if value matches stored codes directly (codes are stored as strings like "1", "2")
+              const codeStr = cut.codes.map(c => String(c).trim());
+              if (codeStr.includes(valueStr)) {
+                return true;
+              }
+              
+              // If value doesn't match codes, it might be a label (like "Pediatric", "Adult")
+              // Check if the value matches any of the labels for the stored codes
+              const variable = parsedFile.variables.find(v => v.name === cut.variableName);
+              if (variable && variable.codes) {
+                // Check if value matches the label for any of our stored codes
+                for (const code of cut.codes) {
+                  const codeLabel = variable.codes[String(code)] || variable.codes[code];
+                  if (codeLabel && String(codeLabel).trim() === valueStr) {
+                    return true;
+                  }
+                }
+              }
+              
+              return false;
             }
           });
           cutIds.push(cut.id);
@@ -126,18 +159,43 @@ const CrossTabDisplay: React.FC<CrossTabDisplayProps> = ({
       // Old structure: cuts directly (for backward compatibility)
       (bannerGroup as any).cuts.forEach((cut: any) => {
         const variable = parsedFile.variables.find(v => v.name === cut.variableName);
-        if (!variable) return;
+        if (!variable) {
+          console.warn(`[Banner] Variable "${cut.variableName}" not found in parsed file`);
+          return;
+        }
 
         columns.push({
           id: cut.id,
           title: cut.title,
           cutTitle: cut.title,
           isTotal: false,
-          filterFn: (row: Record<string, any>) => {
-            const value = row[cut.variableName];
-            if (value === null || value === undefined || value === '') return false;
-            return cut.codes.includes(String(value));
-          }
+            filterFn: (row: Record<string, any>) => {
+              const value = row[cut.variableName];
+              if (value === null || value === undefined || value === '') return false;
+              
+              const valueStr = String(value).trim();
+              
+              // Check if value matches stored codes directly (codes are stored as strings like "1", "2")
+              const codeStr = cut.codes.map((c: any) => String(c).trim());
+              if (codeStr.includes(valueStr)) {
+                return true;
+              }
+              
+              // If value doesn't match codes, it might be a label (like "Pediatric", "Adult")
+              // Check if the value matches any of the labels for the stored codes
+              const variable = parsedFile.variables.find(v => v.name === cut.variableName);
+              if (variable && variable.codes) {
+                // Check if value matches the label for any of our stored codes
+                for (const code of cut.codes) {
+                  const codeLabel = variable.codes[String(code)] || variable.codes[code];
+                  if (codeLabel && String(codeLabel).trim() === valueStr) {
+                    return true;
+                  }
+                }
+              }
+              
+              return false;
+            }
         });
       });
       // For old structure, treat each cut as its own group
@@ -181,8 +239,20 @@ const CrossTabDisplay: React.FC<CrossTabDisplayProps> = ({
           // Check if stub variable value matches this stub code
           const stubValue = dataRow[selectedStubVariable];
           if (stubValue !== null && stubValue !== undefined && stubValue !== '') {
-            if (String(stubValue) === stubCode) {
+            const stubValueStr = String(stubValue).trim();
+            
+            // Check if value matches the code directly
+            if (stubValueStr === stubCode) {
               count++;
+            } else {
+              // Check if value matches the label for this code
+              const stubVariable = parsedFile.variables.find(v => v.name === selectedStubVariable);
+              if (stubVariable && stubVariable.codes) {
+                const codeLabel = stubVariable.codes[stubCode];
+                if (codeLabel && String(codeLabel).trim() === stubValueStr) {
+                  count++;
+                }
+              }
             }
           }
         });
@@ -202,26 +272,104 @@ const CrossTabDisplay: React.FC<CrossTabDisplayProps> = ({
     });
   }, [parsedFile, selectedStubVariable, stubRows, columnData]);
 
+  // Apply sorting and hide zeros to crossTabData
+  const processedCrossTabData = useMemo(() => {
+    if (!selectedStubVariable) return crossTabData;
+    
+    let processed = [...crossTabData];
+    
+    // Filter out rows with 0 counts if hideZeroFrequencies is enabled for this variable
+    if (hideZeroFrequencies[selectedStubVariable]) {
+      // Check if any column has a non-zero count
+      processed = processed.filter(row => {
+        return columnData.some(column => {
+          const cell = row[column.id];
+          return cell && cell.count > 0;
+        });
+      });
+    }
+    
+    // Apply sorting
+    const sortOption = sortOptions[selectedStubVariable] || 'qnr';
+    const variable = parsedFile.variables.find(v => v.name === selectedStubVariable);
+    const codeOrder = variable && (variable.type === 'categorical' || variable.type === 'multi-select' || 
+                                   variable.type === 'grid' || variable.type === 'grid-single-select' || 
+                                   variable.type === 'grid-multi-select')
+      ? Object.keys(variable.codes)
+      : [];
+    
+    processed.sort((a, b) => {
+      if (sortOption === 'qnr') {
+        // QNR: sort by original order from the data file (code definition order)
+        const aIndex = codeOrder.indexOf(a.code);
+        const bIndex = codeOrder.indexOf(b.code);
+        // If code not found in order, put it at the end
+        if (aIndex === -1 && bIndex === -1) return 0;
+        if (aIndex === -1) return 1;
+        if (bIndex === -1) return -1;
+        return aIndex - bIndex;
+      } else if (sortOption === 'asc') {
+        // Ascending: sort by percentage in the Total column (ascending)
+        const aTotal = a['total']?.percentage || 0;
+        const bTotal = b['total']?.percentage || 0;
+        return aTotal - bTotal;
+      } else if (sortOption === 'desc') {
+        // Descending: sort by percentage in the Total column (descending)
+        const aTotal = a['total']?.percentage || 0;
+        const bTotal = b['total']?.percentage || 0;
+        return bTotal - aTotal;
+      }
+      return 0;
+    });
+    
+    return processed;
+  }, [crossTabData, selectedStubVariable, sortOptions, hideZeroFrequencies, parsedFile, columnData]);
+
   const stubVariable = parsedFile.variables.find(v => v.name === selectedStubVariable);
   const totalBase = parsedFile.rowCount;
 
-  // Generate stat testing letters (A, B, C, etc.) for columns within the same group
+  // Calculate starting letter index based on all previous banner groups
+  const startingLetterIndex = useMemo(() => {
+    let index = 0;
+    
+    // Count all non-total columns from previous banner groups
+    for (let i = 0; i < currentBannerGroupIndex && i < allBannerGroups.length; i++) {
+      const prevGroup = allBannerGroups[i];
+      if (prevGroup.groups && prevGroup.groups.length > 0) {
+        // New structure: groups with cuts
+        prevGroup.groups.forEach(subGroup => {
+          subGroup.cuts.forEach(() => {
+            index++; // Each cut gets a letter
+          });
+        });
+      } else if ((prevGroup as any).cuts && (prevGroup as any).cuts.length > 0) {
+        // Old structure: cuts directly
+        (prevGroup as any).cuts.forEach(() => {
+          index++; // Each cut gets a letter
+        });
+      }
+    }
+    
+    return index;
+  }, [allBannerGroups, currentBannerGroupIndex]);
+
+  // Generate stat testing letters (A, B, C, etc.) for columns
+  // Letters continue across all banner groups
   const getStatLetter = (columnIndex: number): string | null => {
     if (columnIndex === 0) return null; // Total doesn't get a letter
     
     const column = columnData[columnIndex];
     if (!column || column.isTotal) return null;
     
-    // Find all columns in the same group (excluding Total)
-    const sameGroupColumns = columnData.filter((col, idx) => 
-      idx > 0 && !col.isTotal && col.groupTitle === column.groupTitle
-    );
+    // Count all columns before this one (excluding Total) across all banner groups
+    let letterIndex = startingLetterIndex;
+    for (let i = 1; i < columnIndex; i++) {
+      if (!columnData[i].isTotal) {
+        letterIndex++;
+      }
+    }
     
-    // Get the index within the group
-    const groupIndex = sameGroupColumns.findIndex(col => col.id === column.id);
-    if (groupIndex === -1) return null;
-    
-    return String.fromCharCode(65 + groupIndex); // A=65, B=66, etc.
+    return String.fromCharCode(65 + letterIndex); // A=65, B=66, etc.
   };
 
   // Statistical testing: two-proportion Z-test
@@ -257,25 +405,25 @@ const CrossTabDisplay: React.FC<CrossTabDisplayProps> = ({
     const results: Record<number, Record<number, string[]>> = {};
     
     // Helper function to get stat letter for a column index
+    // Uses the same logic as getStatLetter to ensure consistency
     const getLetterForColumn = (colIdx: number): string | null => {
       if (colIdx === 0) return null; // Total doesn't get a letter
       
       const column = columnData[colIdx];
       if (!column || column.isTotal) return null;
       
-      // Find all columns in the same group (excluding Total)
-      const sameGroupColumns = columnData.filter((col, idx) => 
-        idx > 0 && !col.isTotal && col.groupTitle === column.groupTitle
-      );
+      // Count all columns before this one (excluding Total) across all banner groups
+      let letterIndex = startingLetterIndex;
+      for (let i = 1; i < colIdx; i++) {
+        if (!columnData[i].isTotal) {
+          letterIndex++;
+        }
+      }
       
-      // Get the index within the group
-      const groupIndex = sameGroupColumns.findIndex(col => col.id === column.id);
-      if (groupIndex === -1) return null;
-      
-      return String.fromCharCode(65 + groupIndex); // A=65, B=66, etc.
+      return String.fromCharCode(65 + letterIndex); // A=65, B=66, etc.
     };
     
-    crossTabData.forEach((row, rowIdx) => {
+    processedCrossTabData.forEach((row, rowIdx) => {
       results[rowIdx] = {};
       
       // Compare each non-total column to other non-total columns in the same group
@@ -307,7 +455,7 @@ const CrossTabDisplay: React.FC<CrossTabDisplayProps> = ({
     });
     
     return results;
-  }, [crossTabData, columnData, confidenceLevel]);
+  }, [processedCrossTabData, columnData, confidenceLevel, startingLetterIndex]);
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -331,9 +479,9 @@ const CrossTabDisplay: React.FC<CrossTabDisplayProps> = ({
       return count;
     } else {
       // Single variable view shows 1 table if there's data
-      return selectedStubVariable && crossTabData.length > 0 ? 1 : 0;
+      return selectedStubVariable && processedCrossTabData.length > 0 ? 1 : 0;
     }
-  }, [showAll, categoricalVariables, selectedStubVariable, crossTabData.length, parsedFile]);
+  }, [showAll, categoricalVariables, selectedStubVariable, processedCrossTabData.length, parsedFile]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -383,8 +531,19 @@ const CrossTabDisplay: React.FC<CrossTabDisplayProps> = ({
           
           const stubValue = dataRow[variableName];
           if (stubValue !== null && stubValue !== undefined && stubValue !== '') {
-            if (String(stubValue) === stubCode) {
+            const stubValueStr = String(stubValue).trim();
+            
+            // Check if value matches the code directly
+            if (stubValueStr === stubCode) {
               count++;
+            } else {
+              // Check if value matches the label for this code
+              if (variable && variable.codes) {
+                const codeLabel = variable.codes[stubCode];
+                if (codeLabel && String(codeLabel).trim() === stubValueStr) {
+                  count++;
+                }
+              }
             }
           }
         });
@@ -399,7 +558,48 @@ const CrossTabDisplay: React.FC<CrossTabDisplayProps> = ({
       data.push(row as any);
     });
 
-    return data;
+    // Apply sorting and hide zeros
+    let processed = [...data];
+    
+    // Filter out rows with 0 counts if hideZeroFrequencies is enabled for this variable
+    if (hideZeroFrequencies[variableName]) {
+      processed = processed.filter(row => {
+        return columnData.some(column => {
+          const cell = row[column.id] as { count: number } | undefined;
+          return cell && cell.count > 0;
+        });
+      });
+    }
+    
+    // Apply sorting
+    const sortOption = sortOptions[variableName] || 'qnr';
+    const codeOrder = Object.keys(variable.codes);
+    
+    processed.sort((a, b) => {
+      if (sortOption === 'qnr') {
+        // QNR: sort by original order from the data file (code definition order)
+        const aIndex = codeOrder.indexOf(a.code);
+        const bIndex = codeOrder.indexOf(b.code);
+        // If code not found in order, put it at the end
+        if (aIndex === -1 && bIndex === -1) return 0;
+        if (aIndex === -1) return 1;
+        if (bIndex === -1) return -1;
+        return aIndex - bIndex;
+      } else if (sortOption === 'asc') {
+        // Ascending: sort by percentage in the Total column (ascending)
+        const aTotal = (a['total'] as { percentage: number } | undefined)?.percentage || 0;
+        const bTotal = (b['total'] as { percentage: number } | undefined)?.percentage || 0;
+        return aTotal - bTotal;
+      } else if (sortOption === 'desc') {
+        // Descending: sort by percentage in the Total column (descending)
+        const aTotal = (a['total'] as { percentage: number } | undefined)?.percentage || 0;
+        const bTotal = (b['total'] as { percentage: number } | undefined)?.percentage || 0;
+        return bTotal - aTotal;
+      }
+      return 0;
+    });
+    
+    return processed;
   };
 
   return (
@@ -536,7 +736,7 @@ const CrossTabDisplay: React.FC<CrossTabDisplayProps> = ({
                           return (
                             <th
                               key={`group-${groupIdx}`}
-                              className="px-3 py-1.5 text-center text-xs font-bold text-white uppercase tracking-wider border-r border-white/20 border-b border-white/20"
+                              className="px-3 py-1.5 text-center text-xs font-bold text-white uppercase tracking-wider border-r border-white/20 border-b border-white/20 align-bottom"
                               colSpan={group.cutCount}
                             >
                               {group.title}
@@ -700,7 +900,7 @@ const CrossTabDisplay: React.FC<CrossTabDisplayProps> = ({
                   return (
                     <th
                       key={`group-${groupIdx}`}
-                      className="px-3 py-1.5 text-center text-xs font-bold text-white uppercase tracking-wider border-r border-white/20 border-b border-white/20"
+                      className="px-3 py-1.5 text-center text-xs font-bold text-white uppercase tracking-wider border-r border-white/20 border-b border-white/20 align-bottom"
                       colSpan={group.cutCount}
                     >
                       {group.title}
@@ -755,7 +955,7 @@ const CrossTabDisplay: React.FC<CrossTabDisplayProps> = ({
                   })}
                 </tr>
               </React.Fragment>
-              {crossTabData.map((row, rowIdx) => (
+              {processedCrossTabData.map((row, rowIdx) => (
                 <React.Fragment key={rowIdx}>
                   <tr 
                     className="hover:bg-gray-50"

@@ -128,11 +128,12 @@ export function extractProductNamesFromDatamap(workbook) {
 }
 
 /**
- * Categorize columns using regex patterns
+ * Categorize columns using AI mapping patterns or fallback regex patterns
  * @param {Array} columns - Array of column names
+ * @param {Object} columnMapping - AI-generated column mapping (optional)
  * @returns {Object} Categorized columns
  */
-export function categorizeColumns(columns) {
+export function categorizeColumns(columns, columnMapping = null) {
   const categorized = {
     choiceColumns: [],
     versionColumn: null,
@@ -141,19 +142,248 @@ export function categorizeColumns(columns) {
     otherColumns: []
   };
 
-  columns.forEach(col => {
-    if (/^QC1_\d+$/i.test(col) || /^QS3r\d+$/i.test(col)) {
-      categorized.choiceColumns.push(col);
-    } else if (normalizeKey(col) === 'qc1version') {
-      categorized.versionColumn = col;
-    } else if (/^QC2_\d+r\d+c\d+$/i.test(col) || /^QS[45]r\d+c\d+$/i.test(col)) {
-      categorized.marketShareColumns.push(col);
-    } else if (/^hATTR_/i.test(col)) {
-      categorized.attributeColumns.push(col);
-    } else {
-      categorized.otherColumns.push(col);
+  // If AI mapping is available, use it to categorize columns
+  if (columnMapping && columnMapping.columnMapping) {
+    const mapping = columnMapping.columnMapping;
+    
+    // Extract patterns from AI mapping
+    const choicePattern = mapping.find(m => 
+      m.designElement && m.designElement.toLowerCase().includes('choice')
+    );
+    const marketShareOriginalPattern = mapping.find(m => 
+      m.designElement && m.designElement.toLowerCase().includes('market share') && 
+      m.designElement.toLowerCase().includes('original')
+    );
+    const marketShareWithNewOptionsPattern = mapping.find(m => 
+      m.designElement && m.designElement.toLowerCase().includes('market share') && 
+      m.designElement.toLowerCase().includes('new options')
+    );
+    // Get all attribute patterns - including individual attribute mappings and general patterns
+    const attributePatterns = mapping.filter(m => 
+      m.designElement && (
+        m.designElement.toLowerCase().includes('attribute') ||
+        m.designElement.toLowerCase().startsWith('attribute')
+      ) &&
+      !m.designElement.toLowerCase().includes('extraction') &&
+      !m.designElement.toLowerCase().includes('naming convention')
+    );
+    
+    // Also look for a general attribute pattern (e.g., "Attribute Columns" or similar)
+    const generalAttributePattern = mapping.find(m => 
+      m.designElement && (
+        m.designElement.toLowerCase().includes('attribute column') ||
+        m.designElement.toLowerCase().includes('attribute pattern')
+      )
+    );
+    
+    if (generalAttributePattern) {
+      attributePatterns.push(generalAttributePattern);
     }
-  });
+    
+    console.log(`[Preprocessor] Found ${attributePatterns.length} attribute patterns from AI mapping`);
+
+    // Helper function to compile regex pattern from string
+    const compilePattern = (patternStr) => {
+      if (!patternStr) return null;
+      try {
+        // If it's already a regex pattern (starts and ends with /), try to use it directly
+        if (patternStr.startsWith('/') && patternStr.includes('/')) {
+          const parts = patternStr.split('/');
+          if (parts.length >= 3) {
+            const regexPattern = parts[1];
+            const flags = parts[2] || 'i';
+            return new RegExp(regexPattern, flags);
+          }
+        }
+        
+        // Convert pattern like "QC1_*" or "hATTR_GORE_*c*" to regex
+        // * can match any sequence, so we use .*? for non-greedy matching
+        // But for attribute patterns, we might want \d+ for numbers
+        let regexStr = patternStr
+          .replace(/\./g, '\\.') // Escape dots first
+          .replace(/\*/g, '.*?') // * becomes .*? (any characters, non-greedy)
+          .replace(/\?/g, '.')   // ? becomes . (any single character)
+          .replace(/\\\.\*\\\?/g, '\\d+'); // If we see .*? after a dot, it might be a number pattern
+        
+        // Try to be smarter about number patterns
+        // If pattern contains things like "_*c*" or "*_*", try to match numbers
+        // But be conservative - only do this for known patterns
+        if (patternStr.includes('hATTR') || patternStr.includes('ATT')) {
+          // For attribute patterns, * often represents numbers
+          regexStr = patternStr
+            .replace(/\./g, '\\.')
+            .replace(/\*/g, '\\d+') // For attribute patterns, * = one or more digits
+            .replace(/\?/g, '\\d');
+        }
+        
+        // If it doesn't start with ^, add it
+        if (!regexStr.startsWith('^')) {
+          regexStr = '^' + regexStr;
+        }
+        // If it doesn't end with $, add it
+        if (!regexStr.endsWith('$')) {
+          regexStr = regexStr + '$';
+        }
+        
+        return new RegExp(regexStr, 'i');
+      } catch (e) {
+        console.warn(`[Preprocessor] Failed to compile pattern "${patternStr}":`, e);
+        return null;
+      }
+    };
+
+    // Categorize using AI mapping patterns
+    columns.forEach(col => {
+      let matched = false;
+
+      // Check choice columns
+      if (choicePattern) {
+        const pattern = compilePattern(choicePattern.pattern);
+        const columns = choicePattern.dataFileColumns || (choicePattern.dataFileColumn ? [choicePattern.dataFileColumn] : []);
+        
+        if (pattern && pattern.test(col)) {
+          categorized.choiceColumns.push(col);
+          matched = true;
+        } else if (columns.includes(col)) {
+          categorized.choiceColumns.push(col);
+          matched = true;
+        }
+      }
+      
+      // Also check for common choice column patterns even when using AI mapping
+      // This ensures QS3r* columns are found even if AI mapping doesn't include them
+      if (!matched && (/^QC1_\d+$/i.test(col) || /^QS3r\d+$/i.test(col) || /^QC_\d+r1$/i.test(col))) {
+        categorized.choiceColumns.push(col);
+        matched = true;
+      }
+
+      // Check version column
+      if (!matched && normalizeKey(col) === 'qc1version') {
+        categorized.versionColumn = col;
+        matched = true;
+      }
+
+      // Check market share columns (original)
+      if (!matched && marketShareOriginalPattern) {
+        const pattern = compilePattern(marketShareOriginalPattern.pattern);
+        const columns = marketShareOriginalPattern.dataFileColumns || [];
+        
+        if (pattern && pattern.test(col)) {
+          categorized.marketShareColumns.push(col);
+          matched = true;
+        } else if (columns.includes(col)) {
+          categorized.marketShareColumns.push(col);
+          matched = true;
+        }
+      }
+
+      // Check market share columns (with new options)
+      if (!matched && marketShareWithNewOptionsPattern) {
+        const pattern = compilePattern(marketShareWithNewOptionsPattern.pattern);
+        const columns = marketShareWithNewOptionsPattern.dataFileColumns || [];
+        
+        if (pattern && pattern.test(col)) {
+          categorized.marketShareColumns.push(col);
+          matched = true;
+        } else if (columns.includes(col)) {
+          categorized.marketShareColumns.push(col);
+          matched = true;
+        }
+      }
+
+      // Check attribute columns
+      if (!matched) {
+        for (const attrPattern of attributePatterns) {
+          const pattern = compilePattern(attrPattern.pattern);
+          const columns = attrPattern.dataFileColumns || [];
+          
+          // First, try pattern matching (this catches all columns matching the pattern)
+          if (pattern && pattern.test(col)) {
+            categorized.attributeColumns.push(col);
+            matched = true;
+            break;
+          }
+          
+          // Also check explicit column list (in case pattern doesn't match but column is listed)
+          if (columns.includes(col)) {
+            categorized.attributeColumns.push(col);
+            matched = true;
+            break;
+          }
+          
+          // If we have example columns but no pattern, try to infer a pattern from examples
+          // For example, if we see "hATTR_GORE_1c1", "hATTR_GORE_2c1", we can infer "hATTR_GORE_*c*"
+          if (columns.length > 0 && !pattern) {
+            // Try common attribute patterns
+            const commonPatterns = [
+              /^hATTR_/i,
+              /^ATT\d+/i,
+              /^ATTRIBUTE[\s_]?\d+/i,
+              /^A\d+$/i,
+              /^ATTR\d+/i
+            ];
+            
+            // Check if any example columns match common patterns, and if current column matches same pattern
+            const exampleCol = columns[0];
+            for (const commonPattern of commonPatterns) {
+              if (commonPattern.test(exampleCol) && commonPattern.test(col)) {
+                categorized.attributeColumns.push(col);
+                matched = true;
+                break;
+              }
+            }
+            
+            if (matched) break;
+          }
+        }
+      }
+
+      // Fallback: If no match from AI patterns but column looks like an attribute column,
+      // include it anyway (this handles cases where AI mapping missed some columns)
+      if (!matched) {
+        // Check if column matches common attribute column patterns
+        const isAttributeLike = /^hATTR_/i.test(col) || 
+                                /^ATT\d+/i.test(col) || 
+                                /^ATTRIBUTE[\s_]?\d+/i.test(col) ||
+                                /^A\d+$/i.test(col) ||
+                                /^ATTR\d+/i.test(col);
+        
+        if (isAttributeLike) {
+          categorized.attributeColumns.push(col);
+          matched = true;
+          console.log(`[Preprocessor] Fallback: Added attribute column "${col}" that wasn't matched by AI mapping`);
+        }
+      }
+
+      // Fallback to other columns if no match
+      if (!matched) {
+        categorized.otherColumns.push(col);
+      }
+    });
+
+    console.log('[Preprocessor] Categorized columns using AI mapping:', {
+      choice: categorized.choiceColumns.length,
+      marketShare: categorized.marketShareColumns.length,
+      attribute: categorized.attributeColumns.length,
+      other: categorized.otherColumns.length
+    });
+  } else {
+    // Fallback to hard-coded patterns if no AI mapping
+    columns.forEach(col => {
+      // Match choice column patterns: QC1_*, QS3r*, QC_*r1 (e.g., QC_1r1, QC_2r1)
+      if (/^QC1_\d+$/i.test(col) || /^QS3r\d+$/i.test(col) || /^QC_\d+r1$/i.test(col)) {
+        categorized.choiceColumns.push(col);
+      } else if (normalizeKey(col) === 'qc1version') {
+        categorized.versionColumn = col;
+      } else if (/^QC2_\d+r\d+c\d+$/i.test(col) || /^QS[45]r\d+c\d+$/i.test(col)) {
+        categorized.marketShareColumns.push(col);
+      } else if (/^hATTR_/i.test(col)) {
+        categorized.attributeColumns.push(col);
+      } else {
+        categorized.otherColumns.push(col);
+      }
+    });
+  }
 
   // Sort choice columns numerically
   categorized.choiceColumns.sort((a, b) => {
@@ -167,12 +397,18 @@ export function categorizeColumns(columns) {
     const qs3MatchA = a.match(/QS3r(\d+)/i);
     const qs3MatchB = b.match(/QS3r(\d+)/i);
     
+    // Handle QC_*r1 pattern (e.g., QC_1r1, QC_2r1)
+    const qcMatchA = a.match(/QC_(\d+)r1/i);
+    const qcMatchB = b.match(/QC_(\d+)r1/i);
+    
     if (qc1MatchA) numA = parseInt(qc1MatchA[1]);
     else if (qs3MatchA) numA = parseInt(qs3MatchA[1]);
+    else if (qcMatchA) numA = parseInt(qcMatchA[1]);
     else numA = 0;
     
     if (qc1MatchB) numB = parseInt(qc1MatchB[1]);
     else if (qs3MatchB) numB = parseInt(qs3MatchB[1]);
+    else if (qcMatchB) numB = parseInt(qcMatchB[1]);
     else numB = 0;
     
     return numA - numB;
@@ -322,6 +558,7 @@ export function cleanAndValidateData(surveyRows, categorized) {
  * @param {string} firstSheetName - Name of the first sheet
  * @param {Object} options - Optional parameters
  * @param {boolean} options.skipProductExtraction - Skip extracting products from Datamap (use predefined products instead)
+ * @param {Object} options.columnMapping - AI-generated column mapping (optional)
  * @returns {Object} Complete preprocessing results
  */
 export function preprocessConjointData(workbook, firstSheetName, options = {}) {
@@ -342,8 +579,8 @@ export function preprocessConjointData(workbook, firstSheetName, options = {}) {
   const columns = Object.keys(surveyRows[0] || {});
   console.log(`[Preprocessor] Found ${columns.length} total columns`);
 
-  // Categorize columns
-  const categorized = categorizeColumns(columns);
+  // Categorize columns (use AI mapping if available)
+  const categorized = categorizeColumns(columns, options.columnMapping || null);
   console.log(`[Preprocessor] Categorized columns:`, {
     choice: categorized.choiceColumns.length,
     marketShare: categorized.marketShareColumns.length,

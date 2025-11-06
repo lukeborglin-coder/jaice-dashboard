@@ -52,8 +52,94 @@ async function ensureDataStore() {
 
 async function loadWorkflows() {
   await ensureDataStore();
-  const raw = await fs.readFile(WORKFLOW_STORE_PATH, 'utf8');
-  return Array.isArray(JSON.parse(raw)) ? JSON.parse(raw) : [];
+  try {
+    const raw = await fs.readFile(WORKFLOW_STORE_PATH, 'utf8');
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      // JSON is corrupted - try to recover or create backup
+      console.error('Corrupted workflows JSON file detected. Attempting recovery...');
+      try {
+        // Create a backup of the corrupted file
+        const backupPath = `${WORKFLOW_STORE_PATH}.backup.${Date.now()}`;
+        const raw = await fs.readFile(WORKFLOW_STORE_PATH, 'utf8');
+        await fs.writeFile(backupPath, raw, 'utf8');
+        console.log(`Backup created at: ${backupPath}`);
+        
+        // Try to find the last valid JSON array closing bracket
+        let lastValidIndex = -1;
+        let bracketCount = 0;
+        let inString = false;
+        let escapeNext = false;
+        
+        for (let i = 0; i < raw.length; i++) {
+          const char = raw[i];
+          
+          if (escapeNext) {
+            escapeNext = false;
+            continue;
+          }
+          
+          if (char === '\\') {
+            escapeNext = true;
+            continue;
+          }
+          
+          if (char === '"' && !escapeNext) {
+            inString = !inString;
+            continue;
+          }
+          
+          if (!inString) {
+            if (char === '[') {
+              bracketCount++;
+            } else if (char === ']') {
+              bracketCount--;
+              if (bracketCount === 0) {
+                lastValidIndex = i;
+              }
+            }
+          }
+        }
+        
+        if (lastValidIndex > 0) {
+          // Try to parse the truncated JSON
+          const truncated = raw.substring(0, lastValidIndex + 1);
+          try {
+            const parsed = JSON.parse(truncated);
+            if (Array.isArray(parsed)) {
+              console.log(`Recovered ${parsed.length} workflows from corrupted file`);
+              // Save the recovered data
+              await fs.writeFile(WORKFLOW_STORE_PATH, JSON.stringify(parsed, null, 2), 'utf8');
+              return parsed;
+            }
+          } catch (recoveryError) {
+            console.error('Recovery attempt failed:', recoveryError.message);
+          }
+        }
+        
+        // If recovery failed, reset to empty array
+        console.warn('Could not recover workflows. Resetting to empty array.');
+        await fs.writeFile(WORKFLOW_STORE_PATH, JSON.stringify([], null, 2), 'utf8');
+        return [];
+      } catch (backupError) {
+        console.error('Error during recovery:', backupError);
+        // Last resort: reset to empty array
+        await fs.writeFile(WORKFLOW_STORE_PATH, JSON.stringify([], null, 2), 'utf8');
+        return [];
+      }
+    } else {
+      // Other file read errors
+      console.error('Error reading workflows file:', error);
+      // If file doesn't exist, create it
+      if (error.code === 'ENOENT') {
+        await fs.writeFile(WORKFLOW_STORE_PATH, JSON.stringify([], null, 2), 'utf8');
+        return [];
+      }
+      throw error;
+    }
+  }
 }
 
 async function saveWorkflows(workflows) {
@@ -542,8 +628,14 @@ router.post('/workflows/:workflowId/survey', upload.single('file'), async (req, 
     // Use deterministic preprocessing for consistent column detection
     const { preprocessConjointData, groupMarketShareByScenario } = await import('../services/conjointDataPreprocessor.mjs');
     
+    // Get column mapping from workflow if available
+    const columnMapping = workflow?.survey?.summary?.columnMapping || null;
+    
     // Skip product extraction since we'll use AI-identified products instead
-    const preprocessingResult = preprocessConjointData(workbook, firstSheetName, { skipProductExtraction: true });
+    const preprocessingResult = preprocessConjointData(workbook, firstSheetName, { 
+      skipProductExtraction: true,
+      columnMapping: columnMapping
+    });
     const { categorized, productNameMap, marketShareScenarios } = preprocessingResult;
 
     console.log('[Survey Upload] Preprocessing complete:', preprocessingResult.summary);
@@ -768,7 +860,470 @@ router.post('/workflows/:workflowId/survey', upload.single('file'), async (req, 
   }
 });
 
-// AI Workflow Analysis endpoint
+// AI Workflow Analysis - Step 1: Analyze questionnaire file
+router.post('/ai-workflow/analyze-questionnaire', upload.single('questionnaire'), async (req, res) => {
+  try {
+    const { projectId } = req.body;
+
+    if (!projectId) {
+      return res.status(400).json({ detail: 'projectId is required' });
+    }
+
+    const questionnaireFile = req.file;
+
+    if (!questionnaireFile) {
+      return res.status(400).json({ detail: 'Questionnaire file is required' });
+    }
+
+    console.log('[AI Workflow Step 1] Starting questionnaire analysis for project:', projectId);
+    console.log('[AI Workflow Step 1] File received:', questionnaireFile.originalname);
+
+    // Parse Word document
+    console.log('[AI Workflow Step 1] Parsing questionnaire document...');
+    const questionnaireText = await mammoth.extractRawText({ buffer: questionnaireFile.buffer });
+    const fullText = questionnaireText.value;
+
+    // Use OpenAI to analyze questionnaire and extract conjoint information
+    console.log('[AI Workflow Step 1] Analyzing questionnaire with OpenAI...');
+    const aiPrompt = `You are analyzing a market research questionnaire to identify and extract information about a conjoint analysis exercise.
+
+Please analyze the following questionnaire and extract:
+1. The section identifier/name where the conjoint exercise appears (e.g., "Section C", "Part 3", "SMA DEMAND CONJOINT", etc.)
+2. ALL product/brand names mentioned in market share questions - look for questions asking about current market share, patient share, or usage share. These could be in tables, lists, or question text. Include ALL products mentioned, not just the first few.
+3. A brief description of what the conjoint is measuring
+4. The question identifier for market share questions (e.g., C2, Q15, S13, etc.)
+
+IMPORTANT: Look carefully for ALL products mentioned in market share questions. Don't stop at 3 products - there may be 8 or more products listed. Look for:
+- Tables with product names and percentage columns
+- Questions asking "What percentage of your patients currently use..."
+- Lists of products with share questions
+- Any mention of current market share or usage
+- "Other" options, "Other (specify)", "Other brand", "None of these", "Don't know", or similar catch-all categories
+- Generic options like "Other", "Other (please specify)", "Other brand", "None", "Not applicable"
+
+Format your response as JSON with this structure:
+{
+  "conjointSection": "the section identifier",
+  "sectionDescription": "brief description of what this section measures",
+  "products": ["product1", "product2", "product3", "product4", "product5", "product6", "product7", "product8", ...],
+  "marketShareQuestion": "the question number or identifier asking about market share"
+}
+
+Questionnaire text:
+${fullText.substring(0, 20000)}`;
+
+    const openai = getOpenAIClient();
+    const aiResponse = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: "You are an expert at analyzing market research questionnaires and extracting structured information about conjoint analysis exercises."
+        },
+        {
+          role: "user",
+          content: aiPrompt
+        }
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.3
+    });
+
+    const aiAnalysis = JSON.parse(aiResponse.choices[0].message.content);
+    console.log('[AI Workflow Step 1] AI Analysis result:', aiAnalysis);
+
+    // Return the analysis result for user review
+    res.status(200).json({
+      step: 1,
+      success: true,
+      analysis: {
+        conjointSection: aiAnalysis.conjointSection || 'Unknown',
+        sectionDescription: aiAnalysis.sectionDescription || '',
+        products: aiAnalysis.products || [],
+        marketShareQuestion: aiAnalysis.marketShareQuestion || ''
+      },
+      message: 'Questionnaire analysis complete. Please review the results and proceed to the next step.'
+    });
+  } catch (error) {
+    console.error('[AI Workflow Step 1] Error during questionnaire analysis:', error);
+    res.status(500).json({
+      detail: 'Failed to analyze questionnaire file',
+      message: error.message
+    });
+  }
+});
+
+// AI Workflow Analysis - Step 2: Analyze attribute list file
+router.post('/ai-workflow/analyze-attributes', upload.single('attributeList'), async (req, res) => {
+  try {
+    const { projectId } = req.body;
+
+    if (!projectId) {
+      return res.status(400).json({ detail: 'projectId is required' });
+    }
+
+    const attributeListFile = req.file;
+
+    if (!attributeListFile) {
+      return res.status(400).json({ detail: 'Attribute list file is required' });
+    }
+
+    console.log('[AI Workflow Step 2] Starting attribute list analysis for project:', projectId);
+    console.log('[AI Workflow Step 2] File received:', attributeListFile.originalname);
+
+    // Parse attribute list using AI
+    console.log('[AI Workflow Step 2] Parsing attribute list with AI...');
+    const attributeWorkbook = XLSX.read(attributeListFile.buffer, { type: 'buffer' });
+    // Prefer a sheet containing "attribute" in the name if available
+    let attributeSheetName = attributeWorkbook.SheetNames.find(n => /attribute/i.test(String(n))) || attributeWorkbook.SheetNames[0];
+    const attributeSheet = attributeWorkbook.Sheets[attributeSheetName];
+    const attributeData = XLSX.utils.sheet_to_json(attributeSheet, { defval: '', raw: false });
+
+    // Convert ALL attribute data to text for AI analysis
+    const attributeText = attributeData.map((row, i) => {
+      const rowText = Object.entries(row)
+        .filter(([key, value]) => value && String(value).trim())
+        .map(([key, value]) => `${key}: ${value}`)
+        .join(' | ');
+      return `Row ${i}: ${rowText}`;
+    }).join('\n');
+
+    console.log('[AI Workflow Step 2] Attribute sheet:', attributeSheetName);
+    console.log('[AI Workflow Step 2] Total attribute data rows:', attributeData.length);
+
+    // Use AI to parse the attribute structure
+    const attributePrompt = `You are analyzing an Excel file containing conjoint analysis attributes and levels. 
+
+CRITICAL: This file contains exactly 20 attributes (numbered 1-20). You must find ALL 20 attributes, not just the first few.
+
+The structure is:
+- Each attribute starts with a row where ATTRIBUTES column has a number (1, 2, 3, etc.) and __EMPTY column has the attribute name
+- The following rows have empty ATTRIBUTES column but LEVEL column has numbers (1, 2, 3, etc.) and __EMPTY_1 column has the level descriptions
+- This pattern repeats for each of the 20 attributes
+
+Example pattern:
+Row 0: ATTRIBUTES: 1 | __EMPTY: Attribute Name | LEVEL: 1 | __EMPTY_1: Level 1 description
+Row 1: ATTRIBUTES: | __EMPTY: | LEVEL: 2 | __EMPTY_1: Level 2 description
+Row 2: ATTRIBUTES: | __EMPTY: | LEVEL: 3 | __EMPTY_1: Level 3 description
+Row 5: ATTRIBUTES: 2 | __EMPTY: Next Attribute Name | LEVEL: 1 | __EMPTY_1: Level 1 description
+
+You must scan through ALL rows to find attributes 1 through 20. Do not stop after finding just a few attributes.
+
+Format your response as JSON with this structure:
+{
+  "attributes": [
+    {
+      "attributeNo": "1",
+      "attributeText": "Attribute Name",
+      "levels": [
+        {
+          "levelNo": "1", 
+          "levelText": "Level Description",
+          "code": "optional code if available"
+        }
+      ]
+    }
+  ]
+}
+
+Data to analyze (scan ALL rows to find all 20 attributes):
+${attributeText}`;
+
+    const openai = getOpenAIClient();
+    const attributeAIResponse = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: "You are an expert at parsing conjoint analysis attribute files and extracting structured attribute/level information from various Excel formats."
+        },
+        {
+          role: "user",
+          content: attributePrompt
+        }
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.3
+    });
+
+    const aiAttributeAnalysis = JSON.parse(attributeAIResponse.choices[0].message.content);
+    console.log('[AI Workflow Step 2] AI Attribute Analysis result:', aiAttributeAnalysis);
+
+    // Convert AI analysis to normalized format
+    const normalizedAttributes = [];
+    if (aiAttributeAnalysis.attributes && Array.isArray(aiAttributeAnalysis.attributes)) {
+      aiAttributeAnalysis.attributes.forEach(attr => {
+        if (attr.levels && Array.isArray(attr.levels)) {
+          attr.levels.forEach(level => {
+            normalizedAttributes.push({
+              code: level.code || level.levelNo || '',
+              attributeNo: attr.attributeNo || '',
+              attributeText: attr.attributeText || '',
+              levelNo: level.levelNo || '',
+              levelText: level.levelText || ''
+            });
+          });
+        }
+      });
+    }
+
+    console.log('[AI Workflow Step 2] Found', normalizedAttributes.length, 'attribute levels via AI parsing');
+
+    // Group attributes by attribute number for display
+    const attributeGroups = new Map();
+    normalizedAttributes.forEach(attr => {
+      const key = String(attr.attributeNo || '').trim();
+      if (!key) return;
+      if (!attributeGroups.has(key)) {
+        attributeGroups.set(key, {
+          attributeNo: key,
+          attributeText: attr.attributeText,
+          levels: []
+        });
+      }
+      attributeGroups.get(key).levels.push({
+        code: attr.code,
+        levelNo: attr.levelNo,
+        levelText: attr.levelText
+      });
+    });
+
+    const groupedAttributes = Array.from(attributeGroups.values());
+
+    // Return the analysis result for user review
+    res.status(200).json({
+      step: 2,
+      success: true,
+      analysis: {
+        attributes: groupedAttributes,
+        totalAttributeLevels: normalizedAttributes.length,
+        normalizedAttributes: normalizedAttributes // Include for design matrix analysis
+      },
+      message: 'Attribute list analysis complete. Please review the results and proceed to the next step.'
+    });
+  } catch (error) {
+    console.error('[AI Workflow Step 2] Error during attribute analysis:', error);
+    res.status(500).json({
+      detail: 'Failed to analyze attribute list file',
+      message: error.message
+    });
+  }
+});
+
+// AI Workflow Analysis - Step 3: Analyze design matrix file and create workflow
+router.post('/ai-workflow/analyze-design', upload.single('designFile'), async (req, res) => {
+  try {
+    const { projectId, questionnaireAnalysis, attributeAnalysis } = req.body;
+
+    if (!projectId) {
+      return res.status(400).json({ detail: 'projectId is required' });
+    }
+
+    const designFile = req.file;
+
+    if (!designFile) {
+      return res.status(400).json({ detail: 'Design file is required' });
+    }
+
+    // Parse questionnaire and attribute analysis from previous steps
+    let questionnaireData = null;
+    let normalizedAttributes = [];
+    let attributeAnalysisData = null;
+    
+    try {
+      if (questionnaireAnalysis) {
+        questionnaireData = typeof questionnaireAnalysis === 'string' 
+          ? JSON.parse(questionnaireAnalysis) 
+          : questionnaireAnalysis;
+        console.log('[AI Workflow Step 3] Parsed questionnaire data:', questionnaireData);
+      }
+      if (attributeAnalysis) {
+        attributeAnalysisData = typeof attributeAnalysis === 'string' 
+          ? JSON.parse(attributeAnalysis) 
+          : attributeAnalysis;
+        console.log('[AI Workflow Step 3] Raw attributeAnalysis:', typeof attributeAnalysis === 'string' ? 'string' : 'object');
+        console.log('[AI Workflow Step 3] Parsed attribute analysis data:', attributeAnalysisData);
+        console.log('[AI Workflow Step 3] attributeAnalysisData keys:', attributeAnalysisData ? Object.keys(attributeAnalysisData) : 'null');
+        console.log('[AI Workflow Step 3] attributeAnalysisData.attributes:', attributeAnalysisData?.attributes);
+        console.log('[AI Workflow Step 3] attributeAnalysisData.attributes length:', Array.isArray(attributeAnalysisData?.attributes) ? attributeAnalysisData.attributes.length : 'not array');
+        console.log('[AI Workflow Step 3] attributeAnalysisData.normalizedAttributes:', attributeAnalysisData?.normalizedAttributes);
+        console.log('[AI Workflow Step 3] attributeAnalysisData.normalizedAttributes length:', Array.isArray(attributeAnalysisData?.normalizedAttributes) ? attributeAnalysisData.normalizedAttributes.length : 'not array');
+        
+        // The attributeAnalysis is the analysis result directly, which contains normalizedAttributes
+        normalizedAttributes = attributeAnalysisData.normalizedAttributes || [];
+        console.log('[AI Workflow Step 3] Extracted normalizedAttributes:', normalizedAttributes.length);
+      } else {
+        console.warn('[AI Workflow Step 3] No attributeAnalysis provided in request body');
+      }
+    } catch (parseError) {
+      console.warn('[AI Workflow Step 3] Error parsing previous step data:', parseError);
+      console.warn('[AI Workflow Step 3] Parse error details:', parseError.message);
+    }
+
+    console.log('[AI Workflow Step 3] Starting design matrix analysis for project:', projectId);
+    console.log('[AI Workflow Step 3] File received:', designFile.originalname);
+
+    // Parse design file
+    console.log('[AI Workflow Step 3] Parsing design file...');
+    const designWorkbook = XLSX.read(designFile.buffer, { type: 'buffer' });
+    console.log('[AI Workflow Step 3] Design file has sheets:', designWorkbook.SheetNames);
+    
+    // Use second sheet if available (experimental design with Task/Concept/Attribute columns)
+    // Otherwise use first sheet
+    let designSheetName;
+    let designSheet;
+    if (designWorkbook.SheetNames.length >= 2) {
+      designSheetName = designWorkbook.SheetNames[1];
+      designSheet = designWorkbook.Sheets[designSheetName];
+      console.log('[AI Workflow Step 3] Using second sheet for design matrix:', designSheetName);
+    } else {
+      designSheetName = designWorkbook.SheetNames[0];
+      designSheet = designWorkbook.Sheets[designSheetName];
+      console.log('[AI Workflow Step 3] Only one sheet found, using first sheet:', designSheetName);
+    }
+    
+    const designMatrix = XLSX.utils.sheet_to_json(designSheet, { defval: '', raw: false });
+    
+    // Log sample columns to understand structure
+    if (designMatrix.length > 0) {
+      const sampleCols = Object.keys(designMatrix[0]);
+      console.log('[AI Workflow Step 3] Design matrix columns (sample):', sampleCols.slice(0, 10));
+    }
+
+    console.log('[AI Workflow Step 3] Design matrix has', designMatrix.length, 'rows');
+
+    // Calculate design summary
+    const designSummary = calculateDesignSummary(designMatrix, normalizedAttributes);
+
+    // Combine questionnaire and attribute analysis
+    // questionnaireData is { analysis: { ... } } from Step 1
+    // attributeAnalysisData is the analysis result directly from Step 2: { attributes: [...], normalizedAttributes: [...] }
+    // Step 2 response structure: { step: 2, success: true, analysis: { attributes: [...], normalizedAttributes: [...] } }
+    // But when passed from frontend, step2Result is just the analysis object
+    
+    // Ensure we get the grouped attributes from Step 2
+    const groupedAttributes = attributeAnalysisData?.attributes || [];
+    
+    console.log('[AI Workflow Step 3] Preparing completeAiAnalysis:', {
+      hasQuestionnaireData: !!questionnaireData,
+      hasAttributeAnalysisData: !!attributeAnalysisData,
+      groupedAttributesCount: groupedAttributes.length,
+      normalizedAttributesCount: normalizedAttributes.length
+    });
+    
+    const completeAiAnalysis = {
+      ...(questionnaireData?.analysis || {}),
+      attributes: groupedAttributes  // Use the grouped attributes from Step 2
+    };
+    
+    console.log('[AI Workflow Step 3] Complete AI analysis:', {
+      conjointSection: completeAiAnalysis.conjointSection,
+      products: completeAiAnalysis.products?.length || 0,
+      attributes: completeAiAnalysis.attributes?.length || 0
+    });
+    console.log('[AI Workflow Step 3] Normalized attributes count:', normalizedAttributes.length);
+    console.log('[AI Workflow Step 3] Attribute analysis data sample:', {
+      hasAttributeAnalysisData: !!attributeAnalysisData,
+      hasAttributes: !!attributeAnalysisData?.attributes,
+      attributesCount: attributeAnalysisData?.attributes?.length || 0,
+      hasNormalizedAttributes: !!attributeAnalysisData?.normalizedAttributes,
+      normalizedAttributesCount: attributeAnalysisData?.normalizedAttributes?.length || 0
+    });
+
+    // Store analysis data temporarily in workflow store with temp ID
+    const tempId = `temp-ai-${Date.now()}`;
+    const workflows = await loadWorkflows();
+    
+    workflows.push({
+      id: tempId,
+      projectId,
+      attributes: normalizedAttributes,
+      designMatrix,
+      designSummary,
+      warnings: [],
+      sourceFileName: designFile.originalname,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      aiGenerated: true,
+      aiAnalysis: completeAiAnalysis,
+      temporary: true  // Mark as temporary
+    });
+    await saveWorkflows(workflows);
+
+    console.log('[AI Workflow Step 3] Analysis complete, workflow created with temp ID:', tempId);
+
+    // Get sample rows for display (first 3 rows)
+    const sampleRows = designMatrix.slice(0, 3).map(row => {
+      const sampleRow = {};
+      Object.keys(row).forEach(key => {
+        sampleRow[key] = String(row[key] || '').trim();
+      });
+      return sampleRow;
+    });
+
+    // Get all column names
+    const allColumns = designMatrix.length > 0 ? Object.keys(designMatrix[0]) : [];
+    
+    // Identify Task, Concept, and Version columns
+    const taskColumn = allColumns.find(col => /task/i.test(col));
+    const conceptColumn = allColumns.find(col => /concept/i.test(col) || /alt/i.test(col));
+    const versionColumn = allColumns.find(col => /version/i.test(col));
+    
+    // Extract unique concept values from design matrix if concept column found
+    let conceptValues = [];
+    if (conceptColumn && designMatrix.length > 0) {
+      const conceptValueSet = new Set();
+      designMatrix.forEach(row => {
+        const val = row[conceptColumn];
+        if (val !== undefined && val !== null && val !== '') {
+          conceptValueSet.add(String(val).trim());
+        }
+      });
+      conceptValues = Array.from(conceptValueSet).sort((a, b) => {
+        const aNum = parseInt(a);
+        const bNum = parseInt(b);
+        if (!isNaN(aNum) && !isNaN(bNum)) return aNum - bNum;
+        return a.localeCompare(b);
+      });
+      console.log(`[AI Workflow Step 3] Found Concept column '${conceptColumn}' with ${conceptValues.length} unique values: [${conceptValues.join(', ')}]`);
+    }
+
+    // Return analysis result for user review with detailed information
+    res.status(200).json({
+      step: 3,
+      success: true,
+      tempWorkflowId: tempId,
+      analysis: {
+        designSummary: {
+          totalRows: designSummary.totalRows,
+          attColumnCount: designSummary.attColumnCount,
+          attColumns: designSummary.attColumns, // Include actual column names
+          versions: designSummary.versions,
+          attributeCoverage: designSummary.attributeCoverage,
+          allColumns: allColumns, // All columns found
+          identifiedColumns: {
+            taskColumn: taskColumn || null,
+            conceptColumn: conceptColumn || null,
+            versionColumn: versionColumn || null,
+            conceptValues: conceptValues // Add concept values for user verification
+          },
+          sampleRows: sampleRows // First 3 rows for preview
+        }
+      },
+      questionnaireAnalysis: questionnaireData?.analysis || null,
+      attributeAnalysis: attributeAnalysis?.analysis || null,
+      message: 'Design matrix analysis complete. Review all results and create workflow when ready.'
+    });
+  } catch (error) {
+    console.error('[AI Workflow Step 3] Error during design analysis:', error);
+    res.status(500).json({
+      detail: 'Failed to analyze design file',
+      message: error.message
+    });
+  }
+});
+
+// Legacy endpoint - keep for backwards compatibility but mark as deprecated
 router.post('/ai-workflow/analyze', upload.fields([
   { name: 'questionnaire', maxCount: 1 },
   { name: 'attributeList', maxCount: 1 },
@@ -789,6 +1344,7 @@ router.post('/ai-workflow/analyze', upload.fields([
       return res.status(400).json({ detail: 'All three files are required: questionnaire, attributeList, and designFile' });
     }
 
+    console.log('[AI Workflow] [DEPRECATED] Using legacy analyze endpoint - please use step-by-step endpoints');
     console.log('[AI Workflow] Starting analysis for project:', projectId);
     console.log('[AI Workflow] Files received:', {
       questionnaire: questionnaireFile.originalname,
@@ -952,9 +1508,29 @@ ${attributeText}`;
     // Step 4: Parse design file
     console.log('[AI Workflow] Parsing design file...');
     const designWorkbook = XLSX.read(designFile.buffer, { type: 'buffer' });
-    const designSheetName = designWorkbook.SheetNames[0];
-    const designSheet = designWorkbook.Sheets[designSheetName];
+    console.log('[AI Workflow] Design file has sheets:', designWorkbook.SheetNames);
+    
+    // Use second sheet if available (experimental design with Task/Concept/Attribute columns)
+    // Otherwise use first sheet
+    let designSheetName;
+    let designSheet;
+    if (designWorkbook.SheetNames.length >= 2) {
+      designSheetName = designWorkbook.SheetNames[1];
+      designSheet = designWorkbook.Sheets[designSheetName];
+      console.log('[AI Workflow] Using second sheet for design matrix:', designSheetName);
+    } else {
+      designSheetName = designWorkbook.SheetNames[0];
+      designSheet = designWorkbook.Sheets[designSheetName];
+      console.log('[AI Workflow] Only one sheet found, using first sheet:', designSheetName);
+    }
+    
     const designMatrix = XLSX.utils.sheet_to_json(designSheet, { defval: '', raw: false });
+    
+    // Log sample columns to understand structure
+    if (designMatrix.length > 0) {
+      const sampleCols = Object.keys(designMatrix[0]);
+      console.log('[AI Workflow] Design matrix columns (sample):', sampleCols.slice(0, 10));
+    }
 
     console.log('[AI Workflow] Design matrix has', designMatrix.length, 'rows');
 
@@ -1074,8 +1650,15 @@ router.post('/ai-workflow/process-data', upload.single('file'), async (req, res)
     // Use deterministic preprocessing instead of AI
     const { preprocessConjointData, getDetailedColumnBreakdown } = await import('../services/conjointDataPreprocessor.mjs');
     
+    // Get existing column mapping from workflow if available (may be null on first upload)
+    const existingColumnMapping = workflow?.survey?.summary?.columnMapping || null;
+    
     // Skip product extraction since we'll use AI-identified products instead
-    const preprocessingResult = preprocessConjointData(workbook, dataSheetName, { skipProductExtraction: true });
+    // Pass column mapping if available (will be used after AI analysis completes)
+    const preprocessingResult = preprocessConjointData(workbook, dataSheetName, { 
+      skipProductExtraction: true,
+      columnMapping: existingColumnMapping
+    });
     let columnBreakdown = getDetailedColumnBreakdown(preprocessingResult);
 
     console.log('[Data Processing] Preprocessing complete:', preprocessingResult.summary);
@@ -1390,6 +1973,11 @@ router.post('/ai-workflow/process-data', upload.single('file'), async (req, res)
       ...columnBreakdown.marketShareScenarios.withNewOptions
     ];
 
+    // Get attribute columns from columnBreakdown (which contains the actual column names)
+    const attributeColumnsArray = columnBreakdown.attributeColumns.map(col => 
+      typeof col === 'string' ? col : col.columnName
+    ).filter(Boolean);
+
     // Update workflow with processed data
     const updatedWorkflow = {
       ...workflow,
@@ -1411,7 +1999,7 @@ router.post('/ai-workflow/process-data', upload.single('file'), async (req, res)
             relevantColumnCount: allRelevantColumns.length,
             choiceColumns: preprocessingResult.summary.relevantColumns.choice,
             marketShareColumns: preprocessingResult.summary.relevantColumns.marketShare,
-            attributeColumns: preprocessingResult.summary.relevantColumns.attributes
+            attributeColumns: attributeColumnsArray  // Store actual array of column names, not count
           }
         }
       },
@@ -1425,7 +2013,416 @@ router.post('/ai-workflow/process-data', upload.single('file'), async (req, res)
 
     console.log('[AI Data Processing] Data processing complete for workflow:', workflowId);
 
+    // Perform AI analysis to map design matrix to data file columns
+    console.log('[AI Data Processing] Starting AI column mapping analysis...');
+    let columnMapping = null;
+    try {
+      // Read the second sheet (column definitions) if available
+      const secondSheetName = workbook.SheetNames.length > 1 ? workbook.SheetNames[1] : null;
+      let columnDefinitionsSheet = null;
+      if (secondSheetName) {
+        columnDefinitionsSheet = workbook.Sheets[secondSheetName];
+      }
+
+      // Get ONLY column headers from the data file (no data values)
+      const allColumnNames = [];
+      if (workbook.Sheets[dataSheetName]) {
+        // Read just the header row to get column names
+        const headerRange = XLSX.utils.decode_range(workbook.Sheets[dataSheetName]['!ref'] || 'A1');
+        // Get header row (first row)
+        for (let col = headerRange.s.c; col <= headerRange.e.c; col++) {
+          const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
+          const cell = workbook.Sheets[dataSheetName][cellAddress];
+          if (cell && cell.v) {
+            allColumnNames.push(String(cell.v).trim());
+          }
+        }
+      }
+      
+      // Get column definitions from second tab if available (this is metadata about columns)
+      let columnDefinitionsText = '';
+      if (columnDefinitionsSheet) {
+        const defRows = XLSX.utils.sheet_to_json(columnDefinitionsSheet, { defval: '', raw: false });
+        columnDefinitionsText = defRows.slice(0, 50).map((row, i) => {
+          const rowText = Object.entries(row)
+            .filter(([key, value]) => value && String(value).trim())
+            .map(([key, value]) => `${key}: ${value}`)
+            .join(' | ');
+          return `Row ${i}: ${rowText}`;
+        }).join('\n');
+      }
+
+      // Prepare design matrix info for AI (column structure only)
+      const designMatrixInfo = workflow.designMatrix ? 
+        workflow.designMatrix.slice(0, 20).map((row, i) => {
+          const rowText = Object.entries(row)
+            .filter(([key, value]) => value && String(value).trim())
+            .map(([key, value]) => `${key}: ${value}`)
+            .join(' | ');
+          return `Row ${i}: ${rowText}`;
+        }).join('\n') : '';
+
+      // Prepare attribute info
+      const attributeInfo = workflow.attributes ? 
+        workflow.attributes.map(attr => 
+          `Attribute ${attr.attributeNo}: ${attr.attributeText} (Levels: ${attr.levelText || 'N/A'})`
+        ).join('\n') : '';
+
+      // Prepare ALL column headers from data file (sorted for easier analysis)
+      const sortedColumnNames = [...allColumnNames].sort();
+      const columnHeadersList = sortedColumnNames.map((col, idx) => `${idx + 1}. ${col}`).join('\n');
+
+      // Create AI prompt for column mapping - ONLY using column headers
+      const openai = getOpenAIClient();
+      const mappingPrompt = `You are analyzing a conjoint analysis data file to map the experimental design to the actual data column HEADERS (column names only - no data values).
+
+**DESIGN MATRIX (from Step 3):**
+This shows the experimental design structure with Task, Concept/Alt, and attribute columns (e.g., hATTR_1, ATT1, etc.):
+${designMatrixInfo || 'No design matrix available'}
+
+**ATTRIBUTES (from Step 2):**
+${attributeInfo || 'No attributes available'}
+
+**COLUMN DEFINITIONS (from second tab of data file, if available - this explains what the columns mean):**
+${columnDefinitionsText || 'No column definitions sheet found'}
+
+**ALL COLUMN HEADERS FROM DATA FILE (first tab - these are the actual column names to map):**
+${columnHeadersList || 'No columns found'}
+
+**QUESTIONNAIRE INFO:**
+- Products: ${workflow?.aiAnalysis?.products?.join(', ') || 'N/A'}
+- Market Share Question: ${workflow?.aiAnalysis?.marketShareQuestion || 'N/A'}
+
+**TASK:**
+Analyze ONLY the column headers (column names) from the data file and map them to the design matrix elements. DO NOT use data values - only use the column names themselves.
+
+For each design element, identify:
+1. Which column headers in the data file represent that element
+2. How the column naming convention works (e.g., hATTR_GORE_1c1 means task 1, concept 1)
+3. How choice columns are named (e.g., QC1_1, QC1_2, QS3r1, QS3r2)
+4. How market share columns are named (e.g., QC2_1r1c1, QC2_1r1c2)
+
+Return a JSON mapping with this structure:
+{
+  "columnMapping": [
+    {
+      "designElement": "Task Column",
+      "dataFileColumn": "column name or pattern",
+      "description": "explanation of the mapping",
+      "pattern": "regex pattern if applicable"
+    },
+    {
+      "designElement": "Concept/Product Column", 
+      "dataFileColumn": "column name or pattern",
+      "description": "explanation"
+    },
+    {
+      "designElement": "Attribute 1 - [Attribute Name]",
+      "dataFileColumns": ["hATTR_GORE_1c1", "hATTR_GORE_2c1", ...],
+      "description": "how attribute 1 is represented across tasks/concepts",
+      "pattern": "hATTR_GORE_*c*"
+    },
+    {
+      "designElement": "Choice Columns",
+      "dataFileColumns": ["QC1_1", "QC1_2", ...],
+      "description": "how choice responses are stored",
+      "pattern": "QC1_* or QS3r*"
+    },
+    {
+      "designElement": "Market Share Columns - Original",
+      "dataFileColumns": ["QC2_1r1c1", "QC2_1r2c1", ...],
+      "description": "how original market shares are stored",
+      "pattern": "QC2_*r*c1"
+    },
+    {
+      "designElement": "Market Share Columns - With New Options",
+      "dataFileColumns": ["QC2_1r1c2", "QC2_1r2c2", ...],
+      "description": "how market shares with new options are stored",
+      "pattern": "QC2_*r*c2"
+    }
+  ],
+  "columnNamingConvention": {
+    "taskExtraction": "how task number is extracted from column names",
+    "conceptExtraction": "how concept/product number is extracted",
+    "attributeExtraction": "how attribute number is extracted",
+    "examples": ["example1", "example2"]
+  },
+  "summary": {
+    "totalAttributesMapped": 20,
+    "totalChoiceColumns": 15,
+    "totalMarketShareColumns": 75,
+    "mappingConfidence": "high/medium/low"
+  }
+}`;
+
+      const mappingAIResponse = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: "You are an expert at analyzing conjoint analysis data files and mapping experimental design elements to actual data column names and patterns."
+          },
+          {
+            role: "user",
+            content: mappingPrompt
+          }
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.2
+      });
+
+      columnMapping = JSON.parse(mappingAIResponse.choices[0].message.content);
+      console.log('[AI Data Processing] Column mapping analysis complete:', columnMapping);
+      
+      // Build detailed task/concept/attribute -> column mapping from header columns
+      // This will be used during scenario matching to quickly find the right columns
+      const attributeColumnMapping = {};
+      
+      // Get first row of data to read header column values
+      const surveySheet = workbook.Sheets[dataSheetName];
+      const surveyRows = XLSX.utils.sheet_to_json(surveySheet, { defval: '', raw: false });
+      const firstRow = surveyRows[0] || {};
+      
+      // Get ALL column names from the workbook (not just from columnBreakdown)
+      // This ensures we have all hATTR columns even if they weren't categorized yet
+      const allColumnNamesForMapping = [];
+      if (workbook.Sheets[dataSheetName]) {
+        const range = XLSX.utils.decode_range(workbook.Sheets[dataSheetName]['!ref'] || 'A1');
+        for (let col = range.s.c; col <= range.e.c; col++) {
+          const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
+          const cell = workbook.Sheets[dataSheetName][cellAddress];
+          if (cell && cell.v) {
+            allColumnNamesForMapping.push(String(cell.v).trim());
+          }
+        }
+      }
+      
+      // Find all hATTR columns (both from columnBreakdown and from all columns)
+      const hattrColumnsFromBreakdown = columnBreakdown.attributeColumns
+        .filter(col => {
+          const colName = typeof col === 'string' ? col : col.columnName;
+          return /^hATTR_/i.test(colName);
+        })
+        .map(col => typeof col === 'string' ? col : col.columnName);
+      
+      const hattrColumnsFromAll = allColumnNamesForMapping.filter(col => /^hATTR_/i.test(col));
+      
+      // Combine and deduplicate
+      const hattrColumns = [...new Set([...hattrColumnsFromBreakdown, ...hattrColumnsFromAll])];
+      
+      console.log(`[AI Data Processing] Found ${hattrColumns.length} hATTR columns (${hattrColumnsFromBreakdown.length} from breakdown, ${hattrColumnsFromAll.length} from all columns)`);
+      
+      // Group columns by task/concept pattern
+      // Pattern: hATTR_<BRAND>_<TASK>c<CONCEPT> or hATTR_<BRAND>_H_<TASK>c<CONCEPT>
+      const taskConceptGroups = {};
+      hattrColumns.forEach(colName => {
+        // Try pattern with _H in the middle: hATTR_GORE_H_10c4
+        let match = colName.match(/^hATTR_([A-Z0-9_]+?)_H_(\d+)c(\d+)$/i);
+        let isHeader = false;
+        
+        if (!match) {
+          // Try pattern without _H: hATTR_GORE_10c4
+          match = colName.match(/^hATTR_([A-Z0-9_]+?)_(\d+)c(\d+)$/i);
+          isHeader = false;
+        } else {
+          isHeader = true;
+        }
+        
+        if (match) {
+          const brand = match[1];
+          const task = match[2];
+          const concept = match[3];
+          const key = `${task}_${concept}`;
+          
+          if (!taskConceptGroups[key]) {
+            taskConceptGroups[key] = {
+              task,
+              concept,
+              headerColumns: {},
+              valueColumns: {}
+            };
+          }
+          
+          if (isHeader) {
+            taskConceptGroups[key].headerColumns[brand] = colName;
+          } else {
+            taskConceptGroups[key].valueColumns[brand] = colName;
+          }
+        }
+      });
+      
+      console.log(`[AI Data Processing] Grouped into ${Object.keys(taskConceptGroups).length} task/concept combinations`);
+      
+      // Extract unique concept numbers from task/concept groups
+      const detectedConcepts = new Set();
+      const detectedTasks = new Set();
+      Object.values(taskConceptGroups).forEach(group => {
+        detectedConcepts.add(group.concept);
+        detectedTasks.add(group.task);
+      });
+      const sortedConcepts = Array.from(detectedConcepts).sort((a, b) => parseInt(a) - parseInt(b));
+      const sortedTasks = Array.from(detectedTasks).sort((a, b) => parseInt(a) - parseInt(b));
+      
+      console.log(`[AI Data Processing] Detected ${sortedConcepts.length} unique concept numbers: [${sortedConcepts.join(', ')}]`);
+      console.log(`[AI Data Processing] Detected ${sortedTasks.length} unique task numbers: [${sortedTasks.slice(0, 10).join(', ')}${sortedTasks.length > 10 ? '...' : ''}]`);
+      
+      // Also check for Concept column in design matrix if available
+      let designMatrixConceptColumn = null;
+      let designMatrixConceptValues = [];
+      try {
+        if (designWorkbook && designWorkbook.SheetNames.length > 0) {
+          const designSheetName = designWorkbook.SheetNames[0];
+          const designSheet = designWorkbook.Sheets[designSheetName];
+          const designData = XLSX.utils.sheet_to_json(designSheet, { header: 1 });
+          
+          if (designData.length > 0) {
+            const designHeaders = designData[0].map(h => String(h || '').trim().toLowerCase());
+            const conceptColIndex = designHeaders.findIndex(h => 
+              h === 'concept' || h === 'alt' || h === 'alternative' || h === 'product'
+            );
+            
+            if (conceptColIndex !== -1) {
+              designMatrixConceptColumn = designData[0][conceptColIndex];
+              // Extract unique concept values from design matrix
+              const conceptValues = new Set();
+              for (let i = 1; i < designData.length; i++) {
+                const val = designData[i][conceptColIndex];
+                if (val !== undefined && val !== null && val !== '') {
+                  conceptValues.add(String(val).trim());
+                }
+              }
+              designMatrixConceptValues = Array.from(conceptValues).sort((a, b) => {
+                const aNum = parseInt(a);
+                const bNum = parseInt(b);
+                if (!isNaN(aNum) && !isNaN(bNum)) return aNum - bNum;
+                return a.localeCompare(b);
+              });
+              console.log(`[AI Data Processing] Found Concept column '${designMatrixConceptColumn}' in design matrix with values: [${designMatrixConceptValues.join(', ')}]`);
+            }
+          }
+        }
+      } catch (designError) {
+        console.warn('[AI Data Processing] Could not check design matrix for Concept column:', designError.message);
+      }
+      
+      // Build mapping: task/concept/attribute -> column
+      Object.values(taskConceptGroups).forEach(group => {
+        const { task, concept, headerColumns, valueColumns } = group;
+        
+        // For each brand, check what attribute number is in the header column
+        Object.keys(valueColumns).forEach(brand => {
+          // Try to find matching header column (could be brand or brand_H)
+          let headerCol = headerColumns[brand];
+          if (!headerCol) {
+            // Try with _H suffix
+            headerCol = headerColumns[`${brand}_H`];
+          }
+          if (!headerCol) {
+            // Try without _H suffix
+            headerCol = headerColumns[brand.replace('_H', '')];
+          }
+          
+          const valueCol = valueColumns[brand];
+          
+          if (headerCol && valueCol && firstRow[headerCol]) {
+            const attrNo = String(firstRow[headerCol]).trim();
+            if (attrNo) {
+              const mappingKey = `${task}_${concept}_${attrNo}`;
+              if (!attributeColumnMapping[mappingKey]) {
+                attributeColumnMapping[mappingKey] = [];
+              }
+              attributeColumnMapping[mappingKey].push({
+                brand,
+                headerColumn: headerCol,
+                valueColumn: valueCol,
+                attributeNumber: attrNo
+              });
+            }
+          }
+        });
+      });
+      
+      console.log(`[AI Data Processing] Built attribute column mapping with ${Object.keys(attributeColumnMapping).length} task/concept/attribute combinations`);
+      
+      // Log sample mappings for debugging
+      if (Object.keys(attributeColumnMapping).length > 0) {
+        const sampleKeys = Object.keys(attributeColumnMapping).slice(0, 5);
+        console.log(`[AI Data Processing] Sample mapping keys: ${sampleKeys.join(', ')}`);
+        sampleKeys.forEach(key => {
+          console.log(`[AI Data Processing]   ${key}: ${JSON.stringify(attributeColumnMapping[key])}`);
+        });
+      } else {
+        console.warn(`[AI Data Processing] No mappings built! Check taskConceptGroups:`, Object.keys(taskConceptGroups).slice(0, 5));
+        if (Object.keys(taskConceptGroups).length > 0) {
+          const sampleGroup = Object.values(taskConceptGroups)[0];
+          console.log(`[AI Data Processing] Sample group:`, JSON.stringify(sampleGroup, null, 2));
+          console.log(`[AI Data Processing] Sample firstRow keys containing hATTR:`, Object.keys(firstRow).filter(k => /hATTR/i.test(k)).slice(0, 10));
+        }
+      }
+      
+      // Store the detailed mapping in columnMapping
+      if (!columnMapping.attributeColumnMapping) {
+        columnMapping.attributeColumnMapping = {};
+      }
+      columnMapping.attributeColumnMapping = attributeColumnMapping;
+      
+      // Store concept detection info in columnMapping for easy access
+      columnMapping.conceptDetection = {
+        conceptsFromHattrColumns: sortedConcepts || [],
+        conceptsFromDesignMatrix: designMatrixConceptValues || [],
+        designMatrixConceptColumn: designMatrixConceptColumn || null,
+        totalUniqueConcepts: sortedConcepts?.length || 0,
+        totalUniqueTasks: sortedTasks?.length || 0,
+        recommendedConcepts: designMatrixConceptValues.length > 0 ? designMatrixConceptValues : (sortedConcepts || [])
+      };
+
+      // Store column mapping in workflow
+      updatedWorkflow.survey.summary.columnMapping = columnMapping;
+      
+      // Re-run preprocessing with the new column mapping to get accurate categorization
+      console.log('[AI Data Processing] Re-running preprocessing with AI column mapping...');
+      const preprocessingResultWithMapping = preprocessConjointData(workbook, dataSheetName, { 
+        skipProductExtraction: true,
+        columnMapping: columnMapping
+      });
+      
+      // Update with properly categorized columns
+      const columnBreakdownWithMapping = getDetailedColumnBreakdown(preprocessingResultWithMapping);
+      const attributeColumnsArrayWithMapping = columnBreakdownWithMapping.attributeColumns.map(col => 
+        typeof col === 'string' ? col : col.columnName
+      ).filter(Boolean);
+      
+      // Update the workflow with corrected categorization
+      updatedWorkflow.survey.summary.dataSummary.attributeColumns = attributeColumnsArrayWithMapping;
+      updatedWorkflow.survey.summary.relevantColumns = [
+        ...columnBreakdownWithMapping.choiceColumns,
+        ...(columnBreakdownWithMapping.versionColumn ? [columnBreakdownWithMapping.versionColumn] : []),
+        ...columnBreakdownWithMapping.attributeColumns.map(c => typeof c === 'string' ? c : c.columnName),
+        ...columnBreakdownWithMapping.marketShareScenarios.original,
+        ...columnBreakdownWithMapping.marketShareScenarios.withNewOptions
+      ];
+      
+      // Update workflow in storage with mapping and corrected categorization
+      workflows[workflowIndex] = updatedWorkflow;
+      await saveWorkflows(workflows);
+    } catch (mappingError) {
+      console.error('[AI Data Processing] Column mapping analysis failed:', mappingError);
+      // Don't fail the entire upload if mapping fails
+    }
+
     const aiDataAnalysis = updatedWorkflow.aiAnalysis || workflow?.aiAnalysis || null;
+    
+    // Extract concept detection info from columnMapping if available
+    const conceptDetectionInfo = columnMapping?.conceptDetection || {
+      conceptsFromHattrColumns: [],
+      conceptsFromDesignMatrix: [],
+      designMatrixConceptColumn: null,
+      totalUniqueConcepts: 0,
+      totalUniqueTasks: 0,
+      recommendedConcepts: []
+    };
+    
+    console.log(`[AI Data Processing] Returning concept detection info:`, JSON.stringify(conceptDetectionInfo, null, 2));
 
     res.json({
       success: true,
@@ -1434,15 +2431,19 @@ router.post('/ai-workflow/process-data', upload.single('file'), async (req, res)
         totalRows: preprocessingResult.summary.cleanedRows,
         relevantColumns: allRelevantColumns.length,
         marketShareProducts: marketShareProducts.length,
-        aiAnalysis: aiDataAnalysis
+        aiAnalysis: aiDataAnalysis,
+        columnMapping: columnMapping,
+        conceptDetection: conceptDetectionInfo
       }
     });
 
   } catch (error) {
     console.error('[AI Data Processing] Error:', error);
+    console.error('[AI Data Processing] Error stack:', error.stack);
     res.status(500).json({
       detail: 'Failed to process data with AI',
-      message: error.message
+      message: error.message || 'Unknown error occurred',
+      error: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });
@@ -1464,6 +2465,13 @@ router.post('/ai-workflow/finalize', async (req, res) => {
 
     const tempWorkflow = workflows[tempIndex];
     
+    // Verify aiAnalysis exists and has attributes
+    console.log('[AI Workflow Finalize] Temp workflow aiAnalysis:', {
+      hasAiAnalysis: !!tempWorkflow.aiAnalysis,
+      hasAttributes: !!tempWorkflow.aiAnalysis?.attributes,
+      attributesCount: tempWorkflow.aiAnalysis?.attributes?.length || 0
+    });
+    
     // Create final workflow
     const finalWorkflow = {
       ...tempWorkflow,
@@ -1473,11 +2481,21 @@ router.post('/ai-workflow/finalize', async (req, res) => {
       finalizedAt: new Date().toISOString()
     };
 
+    // Ensure aiAnalysis is preserved
+    if (!finalWorkflow.aiAnalysis && tempWorkflow.aiAnalysis) {
+      finalWorkflow.aiAnalysis = tempWorkflow.aiAnalysis;
+    }
+
     // Replace temporary workflow with final one
     workflows[tempIndex] = finalWorkflow;
     await saveWorkflows(workflows);
 
     console.log('[AI Workflow] Finalized workflow:', finalWorkflow.id);
+    console.log('[AI Workflow] Final workflow aiAnalysis:', {
+      hasAiAnalysis: !!finalWorkflow.aiAnalysis,
+      hasAttributes: !!finalWorkflow.aiAnalysis?.attributes,
+      attributesCount: finalWorkflow.aiAnalysis?.attributes?.length || 0
+    });
 
     res.json({
       success: true,
@@ -1607,10 +2625,177 @@ router.post('/workflows/:workflowId/estimate', async (req, res) => {
       console.log(`  ... and ${attributesGrouped.length - 5} more`);
     }
 
-    // Create form data to forward to Python backend
+    // Extract ONLY relevant columns for conjoint analysis
+    // Use the workflow's identified columns from survey summary
+    const relevantColumns = new Set();
+    
+    // Add respondent ID column (needed for data structure)
+    relevantColumns.add('record');
+    relevantColumns.add('uuid');
+    
+    // Add choice columns (from workflow survey summary)
+    if (workflow.survey?.summary?.dataSummary?.choiceColumns) {
+      const choiceCols = workflow.survey.summary.dataSummary.choiceColumns;
+      if (Array.isArray(choiceCols)) {
+        choiceCols.forEach(col => relevantColumns.add(col));
+      }
+    }
+    
+    // Add attribute columns (hATTR_*)
+    if (workflow.survey?.summary?.dataSummary?.attributeColumns) {
+      const attrCols = workflow.survey.summary.dataSummary.attributeColumns;
+      if (Array.isArray(attrCols)) {
+        attrCols.forEach(col => relevantColumns.add(col));
+      }
+    }
+    
+    // Add market share columns (QC_* and QC2_*)
+    if (workflow.survey?.summary?.marketShareScenarios) {
+      const original = workflow.survey.summary.marketShareScenarios.original || [];
+      const withNewOptions = workflow.survey.summary.marketShareScenarios.withNewOptions || [];
+      
+      [original, withNewOptions].forEach(colArray => {
+        if (Array.isArray(colArray)) {
+          colArray.forEach(colInfo => {
+            if (typeof colInfo === 'string') {
+              relevantColumns.add(colInfo);
+            } else if (colInfo?.columnName) {
+              relevantColumns.add(colInfo.columnName);
+            }
+          });
+        }
+      });
+    }
+    
+    // Also add version column if it exists
+    if (workflow.survey?.summary?.versionColumn) {
+      const versionCol = workflow.survey.summary.versionColumn;
+      if (typeof versionCol === 'string') {
+        relevantColumns.add(versionCol);
+      } else if (versionCol?.[0]?.columnName) {
+        relevantColumns.add(versionCol[0].columnName);
+      }
+    }
+    
+    // ALWAYS use preprocessing to identify columns (more reliable than relying on stored summary)
+    // This ensures we get the latest column detection logic
+    console.log('[Estimation] Using preprocessing to identify relevant columns...');
+    const { preprocessConjointData } = await import('../services/conjointDataPreprocessor.mjs');
+    
+    // Get column mapping from workflow if available
+    const columnMapping = workflow?.survey?.summary?.columnMapping || null;
+    
+    const preprocessingResult = preprocessConjointData(workbook, firstSheetName, { 
+      skipProductExtraction: true,
+      columnMapping: columnMapping
+    });
+    const { categorized } = preprocessingResult;
+    
+    // Add all identified columns (preprocessing is the source of truth)
+    categorized.choiceColumns.forEach(col => relevantColumns.add(col));
+    categorized.attributeColumns.forEach(col => relevantColumns.add(col));
+    categorized.marketShareColumns.forEach(col => relevantColumns.add(col));
+    if (categorized.versionColumn) {
+      relevantColumns.add(categorized.versionColumn);
+    }
+    
+    console.log(`[Estimation] Preprocessing identified:`, {
+      choiceColumns: categorized.choiceColumns.length,
+      attributeColumns: categorized.attributeColumns.length,
+      marketShareColumns: categorized.marketShareColumns.length,
+      versionColumn: categorized.versionColumn ? 1 : 0
+    });
+    console.log(`[Estimation] Sample choice columns:`, categorized.choiceColumns.slice(0, 10));
+    console.log(`[Estimation] Sample attribute columns:`, categorized.attributeColumns.slice(0, 10));
+    console.log(`[Estimation] Total relevant columns for filtering: ${relevantColumns.size} (out of ${columns.length} total columns)`);
+    
+    // Filter the data to only include relevant columns
+    // Ensure we preserve column order and include all columns that exist in the data
+    const relevantColumnsArray = Array.from(relevantColumns).filter(col => columns.includes(col));
+    
+    // Verify attribute columns are included
+    const attributeColumnsInFiltered = relevantColumnsArray.filter(col => 
+      categorized.attributeColumns.includes(col)
+    );
+    console.log(`[Estimation] Attribute columns in filtered data: ${attributeColumnsInFiltered.length} out of ${categorized.attributeColumns.length} identified`);
+    if (attributeColumnsInFiltered.length < categorized.attributeColumns.length) {
+      const missing = categorized.attributeColumns.filter(col => !relevantColumnsArray.includes(col));
+      console.warn(`[Estimation] WARNING: ${missing.length} attribute columns missing from filtered data:`, missing.slice(0, 10));
+    }
+    
+    console.log(`[Estimation] Filtering to ${relevantColumnsArray.length} columns that exist in the data`);
+    console.log(`[Estimation] Sample filtered columns:`, relevantColumnsArray.slice(0, 20));
+    
+    let filteredRows = surveyRows.map(row => {
+      const filteredRow = {};
+      relevantColumnsArray.forEach(col => {
+        // Include column even if value is undefined/null (preserve structure)
+        filteredRow[col] = col in row ? row[col] : '';
+      });
+      return filteredRow;
+    });
+    
+    // Verify we have choice columns in the filtered data
+    // Match patterns: QC1_*, QS3r*, QC_*r1 (e.g., QC_1r1, QC_2r1)
+    const choiceColumnsInFiltered = relevantColumnsArray.filter(col => 
+      /^QC1_\d+$/i.test(col) || 
+      /^QS3r\d+$/i.test(col) || 
+      /^QC_\d+r1$/i.test(col)
+    );
+    console.log(`[Estimation] Choice columns in filtered data: ${choiceColumnsInFiltered.length}`);
+    console.log(`[Estimation] Sample choice columns:`, choiceColumnsInFiltered.slice(0, 10));
+    
+    if (choiceColumnsInFiltered.length === 0) {
+      console.error(`[Estimation] ERROR: No choice columns found in filtered data!`);
+      console.error(`[Estimation] Preprocessing found ${categorized.choiceColumns.length} choice columns:`, categorized.choiceColumns.slice(0, 10));
+      console.error(`[Estimation] Relevant columns array (first 50):`, relevantColumnsArray.slice(0, 50));
+      
+      // If no choice columns, add them explicitly from preprocessing
+      categorized.choiceColumns.forEach(col => {
+        if (!relevantColumnsArray.includes(col)) {
+          relevantColumnsArray.push(col);
+          console.log(`[Estimation] Added missing choice column: ${col}`);
+        }
+      });
+      
+      // Re-filter rows with updated columns
+      filteredRows = surveyRows.map(row => {
+        const filteredRow = {};
+        relevantColumnsArray.forEach(col => {
+          filteredRow[col] = col in row ? row[col] : '';
+        });
+        return filteredRow;
+      });
+      
+      console.log(`[Estimation] After adding missing columns: ${relevantColumnsArray.length} total columns, ${categorized.choiceColumns.filter(c => relevantColumnsArray.includes(c)).length} choice columns`);
+    }
+    
+    // Create a new Excel workbook with only relevant columns
+    const filteredWorkbook = XLSX.utils.book_new();
+    const filteredWorksheet = XLSX.utils.json_to_sheet(filteredRows, { 
+      header: relevantColumnsArray 
+    });
+    XLSX.utils.book_append_sheet(filteredWorkbook, filteredWorksheet, firstSheetName);
+    
+    // Convert to buffer
+    const filteredBuffer = XLSX.write(filteredWorkbook, { type: 'buffer', bookType: 'xlsx' });
+    
+    // Final verification: check what columns are actually in the filtered Excel
+    const verifyWorkbook = XLSX.read(filteredBuffer, { type: 'buffer' });
+    const verifySheet = verifyWorkbook.Sheets[firstSheetName];
+    const verifyRows = XLSX.utils.sheet_to_json(verifySheet, { defval: '', raw: false, header: 1 });
+    const verifyColumns = verifyRows.length > 0 ? verifyRows[0] : [];
+    const verifyChoiceCols = verifyColumns.filter((col) => 
+      /^QC1_\d+$/i.test(String(col)) || /^QS3r\d+$/i.test(String(col))
+    );
+    
+    console.log(`[Estimation] Created filtered Excel file with ${filteredRows.length} rows and ${relevantColumnsArray.length} columns`);
+    console.log(`[Estimation] Verification: Excel file contains ${verifyChoiceCols.length} choice columns:`, verifyChoiceCols.slice(0, 10));
+
+    // Create form data to forward to Python backend with filtered file
     const formData = new FormData();
-    formData.append('file', surveyBuffer, {
-      filename: workflow.survey.originalFileName || 'survey.xlsx',
+    formData.append('file', filteredBuffer, {
+      filename: 'filtered_survey.xlsx',
       contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     });
 
@@ -1766,6 +2951,65 @@ router.post('/workflows/:workflowId/scenario-analysis', async (req, res) => {
     // Prepare data for Python backend
     const originalMarketShares = workflow.survey.summary.marketShareProducts || [];
     
+    // Get the "withNewOptions" market share scenario data from the survey
+    // This contains respondent-level data about how shares change when new products are shown
+    // withNewOptions is a nested structure: {task: {rowNumber: {columnName, productName, rowNumber}}}
+    // We need to flatten it into an array for the Python backend
+    const withNewOptionsRaw = workflow.survey.summary.marketShareScenarios?.withNewOptions || {};
+    const withNewOptionsColumns = [];
+    
+    // Flatten the nested structure
+    if (typeof withNewOptionsRaw === 'object' && !Array.isArray(withNewOptionsRaw)) {
+      // It's a nested object by task
+      Object.entries(withNewOptionsRaw).forEach(([task, products]) => {
+        if (typeof products === 'object' && !Array.isArray(products)) {
+          // products is {rowNumber: {columnName, productName, rowNumber}}
+          Object.values(products).forEach(product => {
+            withNewOptionsColumns.push({
+              columnName: product.columnName,
+              productName: product.productName,
+              taskNumber: parseInt(task),
+              rowNumber: product.rowNumber
+            });
+          });
+        } else if (Array.isArray(products)) {
+          // Already an array (shouldn't happen but handle it)
+          products.forEach(product => {
+            withNewOptionsColumns.push({
+              ...product,
+              taskNumber: typeof product.taskNumber !== 'undefined' ? product.taskNumber : parseInt(task)
+            });
+          });
+        }
+      });
+    } else if (Array.isArray(withNewOptionsRaw)) {
+      // Already an array
+      withNewOptionsColumns.push(...withNewOptionsRaw);
+    }
+    
+    console.log(`[Scenario Analysis] Flattened ${withNewOptionsColumns.length} withNewOptions columns from nested structure`);
+    
+    // Validate withNewOptionsColumns structure
+    if (withNewOptionsColumns.length > 0) {
+      const firstColumn = withNewOptionsColumns[0];
+      console.log('[Scenario Analysis] Sample withNewOptions column structure:', {
+        hasColumnName: !!firstColumn.columnName,
+        hasProductName: !!firstColumn.productName,
+        hasTaskNumber: typeof firstColumn.taskNumber !== 'undefined',
+        columnName: firstColumn.columnName,
+        productName: firstColumn.productName,
+        taskNumber: firstColumn.taskNumber
+      });
+      
+      // Verify required fields
+      const hasRequiredFields = withNewOptionsColumns.every(col => 
+        col.columnName && col.productName && typeof col.taskNumber !== 'undefined'
+      );
+      if (!hasRequiredFields) {
+        console.warn('[Scenario Analysis] Some withNewOptions columns are missing required fields (columnName, productName, or taskNumber)');
+      }
+    }
+    
     // Extract utilities from workflow estimation (same as AverageUtilitiesView)
     // Check for estimation data - prefer estimationResult (which is mapped from estimation),
     // but fall back to estimation directly if estimationResult isn't available
@@ -1790,9 +3034,131 @@ router.post('/workflows/:workflowId/scenario-analysis', async (req, res) => {
       utilityAttributeCount: Object.keys(utilities).length,
       utilityAttributes: Object.keys(utilities),
       schemaAttributeCount: schemaAttributes.length,
-      newScenariosCount: newScenarios.length
+      newScenariosCount: newScenarios.length,
+      withNewOptionsColumnsCount: withNewOptionsColumns.length,
+      hasSurveyData: !!(workflow.survey?.storedFileName)
     });
 
+    // Load the actual survey data file to access respondent-level "withNewOptions" data
+    // We need to match the new scenario to the choice tasks and aggregate the data
+    let surveyDataRows = null;
+    if (workflow.survey?.storedFileName) {
+      try {
+        const XLSX = (await import('xlsx')).default;
+        const fs = await import('fs/promises');
+        const path = await import('path');
+        
+        const surveyFilePath = path.join(WORKFLOW_UPLOAD_ROOT, workflowId, workflow.survey.storedFileName);
+        const fileBuffer = await fs.readFile(surveyFilePath);
+        const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
+        const firstSheetName = workbook.SheetNames[0];
+        const surveySheet = workbook.Sheets[firstSheetName];
+        surveyDataRows = XLSX.utils.sheet_to_json(surveySheet, { defval: '', raw: false });
+        console.log(`[Scenario Analysis] Loaded ${surveyDataRows.length} survey rows from ${firstSheetName}`);
+        
+        // Verify that we can access the withNewOptions columns in the data
+        if (surveyDataRows.length > 0 && withNewOptionsColumns.length > 0) {
+          const firstRow = surveyDataRows[0];
+          const sampleColumns = withNewOptionsColumns.slice(0, 3);
+          const accessibleColumns = sampleColumns.filter(col => col.columnName in firstRow);
+          console.log(`[Scenario Analysis] Sample columns accessibility: ${accessibleColumns.length}/${sampleColumns.length} columns accessible in first row`);
+          if (accessibleColumns.length < sampleColumns.length) {
+            const missing = sampleColumns.filter(col => !(col.columnName in firstRow));
+            console.warn(`[Scenario Analysis] Some withNewOptions columns not found in survey data:`, missing.map(col => col.columnName));
+          }
+        }
+      } catch (error) {
+        console.warn('[Scenario Analysis] Could not load survey file for withNewOptions data:', error.message);
+        // Continue without it - will fall back to projection method
+      }
+    } else {
+      console.warn('[Scenario Analysis] No stored survey file name found in workflow. Cannot load survey data for withNewOptions analysis.');
+    }
+
+    // Include design matrix for task-to-scenario matching
+    const designMatrix = workflow.designMatrix || [];
+    
+    // Extract attribute columns - handle both old format (number) and new format (array)
+    let attributeColumns = [];
+    const attributeColumnsData = workflow.survey?.summary?.dataSummary?.attributeColumns;
+    
+    console.log('[Scenario Analysis] attributeColumnsData type:', typeof attributeColumnsData, 'value:', attributeColumnsData);
+    
+    if (Array.isArray(attributeColumnsData) && attributeColumnsData.length > 0) {
+      // New format: already an array
+      attributeColumns = attributeColumnsData;
+      console.log(`[Scenario Analysis] Using existing attributeColumns array: ${attributeColumns.length} columns`);
+    } else if (surveyDataRows && surveyDataRows.length > 0) {
+      // Extract from survey data if not already an array or if it's a number
+      if (typeof attributeColumnsData === 'number') {
+        console.log(`[Scenario Analysis] attributeColumns is a number (${attributeColumnsData}), extracting column names from survey data...`);
+      } else {
+        console.log('[Scenario Analysis] attributeColumns is not an array, extracting column names from survey data...');
+      }
+      const XLSX = (await import('xlsx')).default;
+      const fs = await import('fs/promises');
+      const path = await import('path');
+      
+      try {
+        const surveyFilePath = path.join(WORKFLOW_UPLOAD_ROOT, workflowId, workflow.survey.storedFileName);
+        const fileBuffer = await fs.readFile(surveyFilePath);
+        const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
+        const firstSheetName = workbook.SheetNames[0];
+        const surveySheet = workbook.Sheets[firstSheetName];
+        
+        // Get all column names from the first row
+        // XLSX.utils.sheet_to_json already gives us column names in the objects
+        // But we need to get them from the sheet directly
+        const range = XLSX.utils.decode_range(surveySheet['!ref'] || 'A1');
+        const allColumns = [];
+        for (let col = 0; col <= range.e.c; col++) {
+          const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
+          const cell = surveySheet[cellAddress];
+          if (cell && cell.v) {
+            allColumns.push(String(cell.v).trim());
+          }
+        }
+        
+        // Also try to get column names from the first row of data if available
+        if (surveyDataRows && surveyDataRows.length > 0) {
+          const firstDataRow = surveyDataRows[0];
+          const dataColumns = Object.keys(firstDataRow);
+          // Merge with header columns
+          const combinedColumns = [...new Set([...allColumns, ...dataColumns])];
+          
+          // Filter for hATTR_* columns
+          attributeColumns = combinedColumns.filter(col => /^hATTR_/i.test(col));
+          console.log(`[Scenario Analysis] Extracted ${attributeColumns.length} attribute columns from survey file (checked ${combinedColumns.length} total columns)`);
+          
+          // Log sample columns for debugging
+          if (attributeColumns.length === 0) {
+            const sampleCols = combinedColumns.slice(0, 20);
+            console.log(`[Scenario Analysis] No hATTR_ columns found. Sample columns: ${sampleCols.join(', ')}`);
+            console.log(`[Scenario Analysis] Looking for columns matching pattern: hATTR_*`);
+          }
+        } else {
+          // Filter for hATTR_* columns from header row only
+          attributeColumns = allColumns.filter(col => /^hATTR_/i.test(col));
+          console.log(`[Scenario Analysis] Extracted ${attributeColumns.length} attribute columns from survey file header row`);
+        }
+        
+        // Update workflow with the extracted columns (for future use)
+        if (attributeColumns.length > 0) {
+          const workflowIndex = workflows.findIndex(w => w.id === workflowId);
+          if (workflowIndex >= 0) {
+            workflows[workflowIndex].survey.summary.dataSummary.attributeColumns = attributeColumns;
+            await saveWorkflows(workflows);
+            console.log('[Scenario Analysis] Updated workflow with extracted attributeColumns array');
+          }
+        }
+      } catch (error) {
+        console.warn('[Scenario Analysis] Failed to extract attribute columns from survey file:', error.message);
+      }
+    }
+
+    // Get column mapping from workflow for Python backend
+    const columnMapping = workflow?.survey?.summary?.columnMapping || null;
+    
     // Call Python backend scenario analysis endpoint
     const pythonPayload = {
       intercept: intercept,
@@ -1800,14 +3166,25 @@ router.post('/workflows/:workflowId/scenario-analysis', async (req, res) => {
       original_market_shares: originalMarketShares,
       new_scenarios: newScenarios,
       rule: choiceRule,
-      schema: estimationData.schema || null
+      ...(estimationData.schema ? { schema: estimationData.schema } : {}),
+      ...(withNewOptionsColumns && withNewOptionsColumns.length > 0 ? { with_new_options_columns: withNewOptionsColumns } : {}),
+      ...(surveyDataRows && surveyDataRows.length > 0 ? { survey_data_rows: surveyDataRows } : {}),
+      ...(attributeColumns && attributeColumns.length > 0 ? { attribute_columns: attributeColumns } : {}),
+      ...(designMatrix && designMatrix.length > 0 ? { design_matrix: designMatrix } : {}),
+      ...(columnMapping ? { column_mapping: columnMapping } : {})
     };
 
     console.log('[Scenario Analysis] Calling Python backend with payload:', {
       intercept: pythonPayload.intercept,
       utilitiesKeys: Object.keys(pythonPayload.utilities),
       scenarioCount: pythonPayload.new_scenarios.length,
-      firstScenario: pythonPayload.new_scenarios[0] || null
+      firstScenario: pythonPayload.new_scenarios[0] || null,
+      withNewOptionsColumnsCount: pythonPayload.with_new_options_columns?.length || 0,
+      surveyDataRowsCount: pythonPayload.survey_data_rows?.length || 0,
+      attributeColumnsCount: pythonPayload.attribute_columns?.length || 0,
+      attributeColumnsSample: pythonPayload.attribute_columns?.slice(0, 5) || [],
+      designMatrixRows: pythonPayload.design_matrix?.length || 0,
+      hasSchema: !!pythonPayload.schema
     });
     
     const pythonResponse = await axios.post(`${PYTHON_API_URL}/analyze_scenarios`, pythonPayload, {
@@ -1843,9 +3220,11 @@ router.post('/workflows/:workflowId/scenario-analysis', async (req, res) => {
     
     if (error.response) {
       // Python backend error
+      const errorDetail = error.response.data?.detail || error.response.data?.message || error.message;
+      console.error('[Scenario Analysis] Python backend error detail:', errorDetail);
       return res.status(error.response.status).json({
         detail: 'Python backend error',
-        message: error.response.data?.detail || error.message
+        message: errorDetail
       });
     } else if (error.code === 'ECONNREFUSED') {
       return res.status(503).json({

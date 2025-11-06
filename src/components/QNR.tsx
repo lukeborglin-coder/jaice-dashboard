@@ -1,0 +1,1045 @@
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import {
+  DocumentArrowUpIcon,
+  DocumentTextIcon,
+  ArrowLeftIcon,
+  PlusIcon,
+  TrashIcon,
+  XMarkIcon,
+  CloudArrowUpIcon,
+  EyeIcon,
+  MagnifyingGlassIcon,
+  ArrowPathIcon
+} from '@heroicons/react/24/outline';
+import { IconCheckbox } from '@tabler/icons-react';
+import { API_BASE_URL } from '../config';
+import { useAuth } from '../contexts/AuthContext';
+
+const BRAND_ORANGE = '#D14A2D';
+const BRAND_BG = '#F7F7F8';
+const BRAND_GRAY = '#5D5F62';
+
+interface Question {
+  id: string;
+  number: string;
+  text: string;
+  type: string;
+  options: Array<string | { code: string; text: string; tags?: string[] }>;
+  tags: string[];
+  needsReview: boolean;
+  logic?: string;
+  showLogic?: string;
+  statementOptions?: Array<{ code: string; text: string }>;
+  responseOptions?: Array<{ code: string; text: string }>;
+  terminateLogic?: string | object;
+  validation?: object;
+}
+
+interface Questionnaire {
+  id: string;
+  name: string;
+  questions: Question[];
+  createdAt: string;
+  projectId: string;
+}
+
+interface QNRProps {
+  projects?: any[];
+  onNavigateToProject?: (project: any) => void;
+}
+
+export default function QNR({ projects = [], onNavigateToProject }: QNRProps) {
+  const { user } = useAuth();
+  const [viewMode, setViewMode] = useState<'home' | 'project' | 'qnr'>('home');
+  const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
+  const [showMyProjectsOnly, setShowMyProjectsOnly] = useState(true);
+  const [selectedProject, setSelectedProject] = useState<any | null>(null);
+  const [questionnaires, setQuestionnaires] = useState<Questionnaire[]>([]);
+  const [selectedQuestionnaire, setSelectedQuestionnaire] = useState<Questionnaire | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [archivedProjects, setArchivedProjects] = useState<any[]>([]);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [uploadedQuestionnaire, setUploadedQuestionnaire] = useState<Questionnaire | null>(null);
+  const [questionnaireName, setQuestionnaireName] = useState('');
+  const [allQuestionnaires, setAllQuestionnaires] = useState<Questionnaire[]>([]);
+  const [selectedQuestionTypes, setSelectedQuestionTypes] = useState<Set<string>>(new Set());
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const pendingSyncRef = React.useRef<{ qnrId: string; projectId: string } | null>(null);
+
+  // Load questionnaires for a project
+  const loadQuestionnaires = useCallback(async (projectId: string) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/questionnaire/${projectId}`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setQuestionnaires(data || []);
+      }
+    } catch (error) {
+      console.error('Error loading questionnaires:', error);
+      setQuestionnaires([]);
+    }
+  }, []);
+
+  // Load all questionnaires to get counts
+  useEffect(() => {
+    const loadAllQuestionnaires = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/questionnaire/all`, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setAllQuestionnaires(data || []);
+        }
+      } catch (error) {
+        console.error('Error loading all questionnaires:', error);
+      }
+    };
+    loadAllQuestionnaires();
+  }, []);
+
+  // Get QNR count for a project
+  const getQNRCount = useCallback((projectId: string) => {
+    return allQuestionnaires.filter(q => q.projectId === projectId).length;
+  }, [allQuestionnaires]);
+
+  // Load archived projects
+  useEffect(() => {
+    const loadArchived = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/projects`, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
+        });
+        if (response.ok) {
+          const allProjects = await response.json();
+          const archived = allProjects[`${user?.id}_archived`] || [];
+          setArchivedProjects(archived);
+        }
+      } catch (error) {
+        console.error('Error loading archived projects:', error);
+      }
+    };
+    loadArchived();
+  }, [user?.id]);
+
+  // Check for sync request from Tabs component
+  useEffect(() => {
+    const syncQnrId = sessionStorage.getItem('cognitive_dash_tabs_sync_qnr_id');
+    const syncProjectId = sessionStorage.getItem('cognitive_dash_tabs_sync_project_id');
+    
+    if (syncQnrId && syncProjectId && projects.length > 0) {
+      // Store in ref and clear sessionStorage
+      pendingSyncRef.current = { qnrId: syncQnrId, projectId: syncProjectId };
+      sessionStorage.removeItem('cognitive_dash_tabs_sync_qnr_id');
+      sessionStorage.removeItem('cognitive_dash_tabs_sync_project_id');
+      
+      // Find the project
+      const project = projects.find(p => p.id === syncProjectId);
+      if (project) {
+        setSelectedProject(project);
+        setViewMode('project');
+        // Load questionnaires for the project
+        loadQuestionnaires(project.id);
+      }
+    }
+  }, [projects, loadQuestionnaires]);
+
+  // When questionnaires are loaded and we have a sync request, select the QNR
+  useEffect(() => {
+    if (pendingSyncRef.current && questionnaires.length > 0 && selectedProject) {
+      const { qnrId } = pendingSyncRef.current;
+      const targetQnr = questionnaires.find(q => q.id === qnrId);
+      if (targetQnr) {
+        setSelectedQuestionnaire(targetQnr);
+        setViewMode('qnr');
+        // Clear the sync ref
+        pendingSyncRef.current = null;
+      }
+    }
+  }, [questionnaires, selectedProject]);
+
+  // Filter for quantitative projects
+  const isQuantitative = (project: any) => {
+    const methodology = project?.methodologyType?.toLowerCase();
+    if (!methodology) {
+      return false;
+    }
+    
+    return methodology.includes('quant') ||
+           methodology.includes('survey') ||
+           methodology.includes('quantitative') ||
+           (!methodology.includes('qual') && 
+            !methodology.includes('interview') && 
+            !methodology.includes('focus group'));
+  };
+
+  const quantActiveProjects = useMemo(
+    () => projects.filter(isQuantitative),
+    [projects]
+  );
+
+  const quantArchivedProjects = useMemo(
+    () => archivedProjects.filter(isQuantitative),
+    [archivedProjects]
+  );
+
+  const filterProjectsByUser = useCallback(
+    (list: any[]) => {
+      if (!showMyProjectsOnly || !user) return list;
+
+      const uid = String((user as any)?.id || '').toLowerCase();
+      const uemail = String((user as any)?.email || '').toLowerCase();
+      const uname = String((user as any)?.name || '').toLowerCase();
+
+      return list.filter(project => {
+        const createdBy = String((project as any)?.createdBy || '').toLowerCase();
+        const createdByMe = !!createdBy && (createdBy === uid || createdBy === uemail);
+
+        const teamMembers = Array.isArray((project as any)?.teamMembers)
+          ? (project as any).teamMembers
+          : [];
+
+        const inTeam = teamMembers.some((member: any) => {
+          const mid = String(member?.id || '').toLowerCase();
+          const memail = String(member?.email || '').toLowerCase();
+          const mname = String(member?.name || '').toLowerCase();
+          return (uid && mid === uid) || (uemail && memail === uemail) || (uname && mname === uname);
+        });
+
+        return createdByMe || inTeam;
+      });
+    },
+    [showMyProjectsOnly, user]
+  );
+
+  const filteredActiveProjects = useMemo(
+    () => filterProjectsByUser(quantActiveProjects),
+    [filterProjectsByUser, quantActiveProjects]
+  );
+
+  const filteredArchivedProjects = useMemo(
+    () => filterProjectsByUser(quantArchivedProjects),
+    [filterProjectsByUser, quantArchivedProjects]
+  );
+
+  const displayProjects = activeTab === 'active' ? filteredActiveProjects : filteredArchivedProjects;
+
+  // Calculate question type counts for selected questionnaire
+  const questionTypeCounts = useMemo(() => {
+    if (!selectedQuestionnaire?.questions) return {};
+    const counts: Record<string, number> = {};
+    selectedQuestionnaire.questions.forEach((q) => {
+      const type = q.type || 'other';
+      counts[type] = (counts[type] || 0) + 1;
+    });
+    return counts;
+  }, [selectedQuestionnaire?.questions]);
+
+  // Get all unique question types
+  const allQuestionTypes = useMemo(() => {
+    if (!selectedQuestionnaire?.questions) return [];
+    const types = new Set<string>();
+    selectedQuestionnaire.questions.forEach((q) => {
+      types.add(q.type || 'other');
+    });
+    return Array.from(types).sort();
+  }, [selectedQuestionnaire?.questions]);
+
+  // Filter questions based on selected types
+  const filteredQuestions = useMemo(() => {
+    if (!selectedQuestionnaire?.questions) return [];
+    if (selectedQuestionTypes.size === 0) {
+      return selectedQuestionnaire.questions;
+    }
+    return selectedQuestionnaire.questions.filter((q) => 
+      selectedQuestionTypes.has(q.type || 'other')
+    );
+  }, [selectedQuestionnaire?.questions, selectedQuestionTypes]);
+
+  // Toggle question type filter
+  const toggleQuestionType = useCallback((type: string) => {
+    setSelectedQuestionTypes((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(type)) {
+        newSet.delete(type);
+      } else {
+        newSet.add(type);
+      }
+      return newSet;
+    });
+  }, []);
+
+  // Handle project selection
+  const handleProjectClick = (project: any) => {
+    setSelectedProject(project);
+    setViewMode('project');
+    loadQuestionnaires(project.id);
+  };
+
+  // Handle QNR upload
+  const handleUpload = async () => {
+    const file = fileInputRef.current?.files?.[0];
+    if (!file) {
+      alert('Please select a file first');
+      return;
+    }
+    if (!questionnaireName.trim()) {
+      alert('Please enter a questionnaire name');
+      return;
+    }
+    if (!selectedProject) {
+      alert('Please select a project');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('projectId', selectedProject.id);
+      formData.append('name', questionnaireName);
+
+      const response = await fetch(`${API_BASE_URL}/api/questionnaire/upload`, {
+        method: 'POST',
+        body: formData,
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        // Reload all questionnaires to update counts
+        const allResponse = await fetch(`${API_BASE_URL}/api/questionnaire/all`, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
+        });
+        if (allResponse.ok) {
+          const allData = await allResponse.json();
+          setAllQuestionnaires(allData || []);
+        }
+        await loadQuestionnaires(selectedProject.id);
+        // Set success state instead of closing modal
+        setUploadSuccess(true);
+        setUploadedQuestionnaire(result);
+      } else {
+        const error = await response.json();
+        setUploading(false);
+        alert(`Upload failed: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      setUploading(false);
+      alert('Upload failed - please try again');
+    }
+  };
+
+  // Handle QNR deletion
+  const handleDeleteQNR = async (qnrId: string) => {
+    if (!confirm('Are you sure you want to delete this QNR? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/questionnaire/${qnrId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
+        }
+      });
+
+      if (response.ok) {
+        // Reload all questionnaires to update counts
+        const allResponse = await fetch(`${API_BASE_URL}/api/questionnaire/all`, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
+        });
+        if (allResponse.ok) {
+          const allData = await allResponse.json();
+          setAllQuestionnaires(allData || []);
+        }
+        await loadQuestionnaires(selectedProject!.id);
+        if (selectedQuestionnaire?.id === qnrId) {
+          setSelectedQuestionnaire(null);
+          setViewMode('project');
+        }
+        alert('QNR deleted successfully!');
+      } else {
+        const error = await response.json();
+        alert(`Failed to delete QNR: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Error deleting QNR:', error);
+      alert('Failed to delete QNR - please try again');
+    }
+  };
+
+  return (
+    <div className="flex-1 p-6 space-y-4 max-w-full overflow-y-auto" style={{ height: 'calc(100vh - 80px)', marginTop: '80px' }}>
+      {viewMode === 'home' && (
+        <>
+          <div>
+            <div className="flex items-center justify-between">
+              <nav className="-mb-px flex space-x-8 items-center">
+                <button
+                  onClick={() => setActiveTab('active')}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'active'
+                      ? 'text-white'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                  style={activeTab === 'active' ? { borderBottomColor: BRAND_ORANGE, color: BRAND_ORANGE } : {}}
+                >
+                  Active Projects ({filteredActiveProjects.length})
+                </button>
+                <button
+                  onClick={() => setActiveTab('archived')}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'archived'
+                      ? 'text-white'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                  style={activeTab === 'archived' ? { borderBottomColor: BRAND_ORANGE, color: BRAND_ORANGE } : {}}
+                >
+                  Archived Projects ({filteredArchivedProjects.length})
+                </button>
+              </nav>
+              <div className="flex items-center gap-3">
+                {user?.role !== 'oversight' && (
+                  <button
+                    onClick={() => setShowMyProjectsOnly(!showMyProjectsOnly)}
+                    className={`px-3 py-1 text-xs rounded-lg shadow-sm transition-colors ${
+                      showMyProjectsOnly
+                        ? 'bg-white border border-gray-300 hover:bg-gray-50'
+                        : 'text-white hover:opacity-90'
+                    }`}
+                    style={showMyProjectsOnly ? {} : { backgroundColor: BRAND_ORANGE }}
+                  >
+                    {showMyProjectsOnly ? 'Only My Projects' : 'All Projects'}
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="border-b border-gray-200"></div>
+          </div>
+
+          <div className="bg-white shadow-sm border border-gray-200 rounded-lg overflow-hidden">
+            {displayProjects.length === 0 ? (
+              <div className="p-12 text-center">
+                <IconCheckbox className="mx-auto mb-4 h-16 w-16 text-gray-300" />
+                <h3 className="text-lg font-semibold text-gray-900">
+                  {activeTab === 'archived' ? 'No archived quantitative projects' : 'No active quantitative projects'}
+                </h3>
+                <p className="mt-2 text-gray-500">
+                  {activeTab === 'archived'
+                    ? 'Archived quantitative projects will appear here.'
+                    : 'Create a quantitative project to start managing QNRs.'}
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Project
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Client
+                      </th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        QNRs
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {displayProjects.map(project => (
+                      <tr
+                        key={project.id}
+                        className="hover:bg-gray-50 cursor-pointer transition-colors"
+                        onClick={() => handleProjectClick(project)}
+                      >
+                        <td className="px-6 py-4">
+                          <div className="text-sm font-medium text-gray-900">{project.name}</div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {project.methodologyType || 'Quantitative'}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-sm text-gray-900">{project.client || '-'}</div>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <div className="flex items-center justify-center gap-1 text-sm text-gray-900">
+                            <IconCheckbox className="h-4 w-4 text-gray-400" />
+                            <span>{getQNRCount(project.id)}</span>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {viewMode === 'project' && selectedProject && (
+        <>
+          <div className="bg-white shadow-sm border border-gray-200 rounded-lg overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => {
+                    setViewMode('home');
+                    setSelectedProject(null);
+                    setQuestionnaires([]);
+                  }}
+                  className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 px-3 py-1 rounded-lg transition-colors"
+                >
+                  <ArrowLeftIcon className="h-4 w-4" />
+                  Back to Projects
+                </button>
+                <button
+                  onClick={() => setShowUploadModal(true)}
+                  className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:opacity-90"
+                  style={{ backgroundColor: BRAND_ORANGE }}
+                >
+                  <CloudArrowUpIcon className="w-5 h-5" />
+                  Upload QNR
+                </button>
+              </div>
+            </div>
+
+            <div className="px-6 py-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">{selectedProject.name}</h2>
+              
+              {questionnaires.length === 0 ? (
+                <div className="text-center py-12">
+                  <IconCheckbox className="mx-auto mb-4 h-16 w-16 text-gray-300" />
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No QNRs found</h3>
+                  <p className="text-gray-500 mb-4">Upload a QNR to get started.</p>
+                  <button
+                    onClick={() => setShowUploadModal(true)}
+                    className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:opacity-90"
+                    style={{ backgroundColor: BRAND_ORANGE }}
+                  >
+                    <CloudArrowUpIcon className="w-5 h-5" />
+                    Upload QNR
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {questionnaires.map((qnr) => (
+                    <div
+                      key={qnr.id}
+                      className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-colors"
+                      onClick={() => {
+                        setSelectedQuestionnaire(qnr);
+                        setViewMode('qnr');
+                      }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="text-lg font-medium text-gray-900">{qnr.name}</h3>
+                          <p className="text-sm text-gray-500 mt-1">
+                            {qnr.questions?.length || 0} questions • Created {new Date(qnr.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedQuestionnaire(qnr);
+                              setViewMode('qnr');
+                            }}
+                            className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                            title="View QNR"
+                          >
+                            <EyeIcon className="w-5 h-5" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteQNR(qnr.id);
+                            }}
+                            className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Delete QNR"
+                          >
+                            <TrashIcon className="w-5 h-5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
+      {viewMode === 'qnr' && selectedQuestionnaire && (
+        <>
+          <div className="bg-white shadow-sm border border-gray-200 rounded-lg overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => {
+                    setViewMode('project');
+                    setSelectedQuestionnaire(null);
+                    setSelectedQuestionTypes(new Set());
+                  }}
+                  className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 px-3 py-1 rounded-lg transition-colors"
+                >
+                  <ArrowLeftIcon className="h-4 w-4" />
+                  Back to QNRs
+                </button>
+                <h2 className="text-xl font-semibold text-gray-900">{selectedQuestionnaire.name}</h2>
+                <div className="text-sm text-gray-500">
+                  {filteredQuestions.length} of {selectedQuestionnaire.questions?.length || 0} questions
+                </div>
+              </div>
+            </div>
+
+            {/* Question Type Filters */}
+            {allQuestionTypes.length > 0 && (
+              <div className="px-6 py-4 border-b border-gray-200 bg-white">
+                <div className="flex flex-wrap gap-2">
+                  {allQuestionTypes.map((type) => {
+                    const isSelected = selectedQuestionTypes.has(type);
+                    const count = questionTypeCounts[type] || 0;
+                    return (
+                      <button
+                        key={type}
+                        onClick={() => toggleQuestionType(type)}
+                        className={`px-4 py-2 rounded-lg border-2 transition-all ${
+                          isSelected
+                            ? 'border-orange-500 text-white shadow-sm'
+                            : 'border-gray-300 text-gray-700 hover:border-gray-400 hover:bg-gray-50'
+                        }`}
+                        style={isSelected ? { backgroundColor: BRAND_ORANGE } : {}}
+                      >
+                        <span className="text-sm font-medium">{type}</span>
+                        <span className={`ml-2 text-xs ${isSelected ? 'text-white' : 'text-gray-500'}`}>
+                          ({count})
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div className="px-6 py-6 space-y-4">
+              {filteredQuestions.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-gray-500">No questions match the selected filters.</p>
+                  <button
+                    onClick={() => setSelectedQuestionTypes(new Set())}
+                    className="mt-4 text-sm text-orange-600 hover:text-orange-700 underline"
+                  >
+                    Clear filters
+                  </button>
+                </div>
+              ) : (
+                filteredQuestions.map((question, index) => (
+                  <QuestionBox 
+                    key={question.id || index} 
+                    question={question} 
+                    index={index}
+                    onUpdateQuestion={(updatedQuestion) => {
+                      // Update the question in the selected questionnaire
+                      const updatedQuestions = selectedQuestionnaire.questions.map(q => 
+                        q.id === updatedQuestion.id ? updatedQuestion : q
+                      );
+                      setSelectedQuestionnaire({
+                        ...selectedQuestionnaire,
+                        questions: updatedQuestions
+                      });
+                      return updatedQuestions;
+                    }}
+                    questionnaireId={selectedQuestionnaire.id}
+                  />
+                ))
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Upload Modal */}
+      {showUploadModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style={{ margin: 0, padding: 0, top: 0, left: 0, right: 0, bottom: 0 }}>
+          <div className="bg-white rounded-lg p-6 w-96 max-w-full mx-4">
+            {uploading && !uploadSuccess ? (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 mx-auto mb-4">
+                  <svg className="animate-spin w-16 h-16" fill="none" viewBox="0 0 24 24" style={{ color: BRAND_ORANGE }}>
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Parsing QNR</h3>
+              </div>
+            ) : uploadSuccess ? (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center rounded-full" style={{ backgroundColor: '#dcfce7' }}>
+                  <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" style={{ color: '#16a34a' }}>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" stroke="currentColor" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Upload Complete!</h3>
+                <p className="text-sm text-gray-600 mb-6">Questionnaire uploaded and parsed successfully.</p>
+                <button
+                  onClick={() => {
+                    setShowUploadModal(false);
+                    setUploadSuccess(false);
+                    setUploading(false);
+                    setQuestionnaireName('');
+                    if (fileInputRef.current) {
+                      fileInputRef.current.value = '';
+                    }
+                    // Open the newly uploaded QNR
+                    if (uploadedQuestionnaire) {
+                      setSelectedQuestionnaire(uploadedQuestionnaire);
+                      setViewMode('qnr');
+                    }
+                    setUploadedQuestionnaire(null);
+                  }}
+                  className="px-6 py-2 text-white rounded-md hover:opacity-90 transition-opacity"
+                  style={{ backgroundColor: BRAND_ORANGE }}
+                >
+                  Close
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold">Upload QNR</h3>
+                  <button
+                    onClick={() => {
+                      setShowUploadModal(false);
+                      setUploadSuccess(false);
+                      setUploading(false);
+                      setQuestionnaireName('');
+                      if (fileInputRef.current) {
+                        fileInputRef.current.value = '';
+                      }
+                    }}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <XMarkIcon className="w-6 h-6" />
+                  </button>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      QNR Name
+                    </label>
+                    <input
+                      type="text"
+                      value={questionnaireName}
+                      onChange={(e) => setQuestionnaireName(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      placeholder="e.g., US ATU W3 QNR"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Upload .docx File
+                    </label>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".docx"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      disabled={uploading}
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-3 mt-6">
+                  <button
+                    onClick={() => {
+                      setShowUploadModal(false);
+                      setUploadSuccess(false);
+                      setUploading(false);
+                      setQuestionnaireName('');
+                      if (fileInputRef.current) {
+                        fileInputRef.current.value = '';
+                      }
+                    }}
+                    className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                    disabled={uploading}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleUpload}
+                    className="px-4 py-2 text-white rounded-md hover:opacity-90"
+                    style={{ backgroundColor: BRAND_ORANGE }}
+                    disabled={uploading}
+                  >
+                    Upload
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Question Box Component
+function QuestionBox({ 
+  question, 
+  index, 
+  onUpdateQuestion,
+  questionnaireId
+}: { 
+  question: Question; 
+  index: number;
+  onUpdateQuestion?: (question: Question) => Question[];
+  questionnaireId?: string;
+}) {
+  const [isFlipping, setIsFlipping] = useState(false);
+  
+  // Check if question has both statementOptions and responseOptions (can be flipped)
+  const canFlip = question.statementOptions && question.statementOptions.length > 0 && 
+                  question.responseOptions && question.responseOptions.length > 0;
+
+  const handleFlipOptions = async () => {
+    if (!canFlip || !onUpdateQuestion || !questionnaireId) return;
+
+    setIsFlipping(true);
+    const originalQuestion = question;
+    let updatedQuestions: Question[] = [];
+
+    try {
+      // Create updated question with flipped options
+      const updatedQuestion: Question = {
+        ...question,
+        statementOptions: question.responseOptions?.map((opt, idx) => ({
+          code: `r${idx + 1}`,
+          text: opt.text
+        })),
+        responseOptions: question.statementOptions?.map((opt, idx) => ({
+          code: `c${idx + 1}`,
+          text: opt.text
+        }))
+      };
+
+      // Update locally first for immediate feedback
+      updatedQuestions = onUpdateQuestion(updatedQuestion);
+
+      // Save to backend with all questions
+      const response = await fetch(`${API_BASE_URL}/api/questionnaire/${questionnaireId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
+        },
+        body: JSON.stringify({
+          questions: updatedQuestions
+        })
+      });
+
+      if (!response.ok) {
+        // Revert on error
+        onUpdateQuestion(originalQuestion);
+        alert('Failed to save changes. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error flipping options:', error);
+      // Revert on error
+      if (onUpdateQuestion) {
+        onUpdateQuestion(originalQuestion);
+      }
+      alert('Failed to save changes. Please try again.');
+    } finally {
+      setIsFlipping(false);
+    }
+  };
+
+  return (
+    <div className="border border-gray-200 rounded-lg p-4 bg-white">
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-sm font-semibold text-gray-900">{question.number || `Q${index + 1}`}</span>
+          <span className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded">{question.type || 'other'}</span>
+          {/* Display metadata tags (Scale, %, Number) as pills */}
+          {question.tags && question.tags.filter(tag => 
+            tag === 'Scale' || tag === '%' || tag === 'Number'
+          ).map((tag, tagIndex) => (
+            <span
+              key={tagIndex}
+              className="text-xs px-2 py-1 rounded"
+              style={{ 
+                backgroundColor: BRAND_ORANGE, 
+                color: 'white' 
+              }}
+            >
+              {tag}
+            </span>
+          ))}
+          {question.needsReview && (
+            <span className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded">Needs Review</span>
+          )}
+        </div>
+        {canFlip && (
+          <button
+            onClick={handleFlipOptions}
+            disabled={isFlipping}
+            className="flex items-center gap-1 px-3 py-1 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Flip statement options and response options"
+          >
+            <ArrowPathIcon className={`w-4 h-4 ${isFlipping ? 'animate-spin' : ''}`} />
+            Flip Options
+          </button>
+        )}
+      </div>
+
+      <div className="mb-3">
+        <p className="text-sm text-gray-900">{question.text}</p>
+      </div>
+
+      {/* Response Options */}
+      {question.options && question.options.length > 0 && (
+        <div className="mb-3">
+          <h4 className="text-xs font-medium text-gray-700 mb-2">Response Options:</h4>
+          <div className="space-y-1">
+            {question.options.map((option, optIndex) => {
+              const opt = typeof option === 'string' 
+                ? { code: String(optIndex + 1), text: option } 
+                : option;
+              return (
+                <div key={optIndex} className="flex items-center gap-2 text-sm text-gray-700">
+                  <span className="font-mono text-xs text-gray-500 w-8">{opt.code}:</span>
+                  <span>{opt.text}</span>
+                  {opt.tags && opt.tags.length > 0 && (
+                    <div className="flex gap-1 ml-2">
+                      {opt.tags.map((tag, tagIdx) => (
+                        <span
+                          key={tagIdx}
+                          className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Statement Options (for grid questions - rows) */}
+      {question.statementOptions && question.statementOptions.length > 0 && (
+        <div className="mb-3">
+          <h4 className="text-xs font-medium text-gray-700 mb-2">Statement Options (Rows):</h4>
+          <div className="space-y-1">
+            {question.statementOptions.map((stmt, stmtIndex) => {
+              const isNumericGrid = question.type?.toLowerCase().includes('numeric grid');
+              // For numeric grids, use c1, c2, etc. For other grids, use r1, r2, etc. or existing code
+              const defaultCode = isNumericGrid ? `c${stmtIndex + 1}` : `r${stmtIndex + 1}`;
+              const stmtOpt = typeof stmt === 'string' 
+                ? { code: defaultCode, text: stmt } 
+                : { 
+                    code: isNumericGrid ? `c${stmtIndex + 1}` : (stmt.code || defaultCode), 
+                    text: stmt.text 
+                  };
+              return (
+                <div key={stmtIndex} className="flex items-center gap-2 text-sm text-gray-700">
+                  <span className="font-mono text-xs text-gray-500 w-8">{stmtOpt.code}:</span>
+                  <span>{stmtOpt.text}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Response Options (for grid questions - column headers/scale) */}
+      {/* Don't show response options for numeric grids since they're open-ended */}
+      {question.responseOptions && question.responseOptions.length > 0 && 
+       !question.type?.toLowerCase().includes('numeric grid') && (
+        <div className="mb-3">
+          <h4 className="text-xs font-medium text-gray-700 mb-2">Response Options (Column Headers/Scale):</h4>
+          <div className="space-y-1">
+            {question.responseOptions.map((resp, respIndex) => {
+              const respOpt = typeof resp === 'string' 
+                ? { code: String(respIndex + 1), text: resp } 
+                : resp;
+              return (
+                <div key={respIndex} className="flex items-center gap-2 text-sm text-gray-700">
+                  <span className="font-mono text-xs text-gray-500 w-8">{respOpt.code}:</span>
+                  <span>{respOpt.text}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Logic/Show Logic */}
+      {(question.showLogic || question.logic) && (
+        <div className="mb-3">
+          <h4 className="text-xs font-medium text-gray-700 mb-1">Logic:</h4>
+          <p className="text-xs text-gray-600 font-mono bg-gray-50 p-2 rounded">
+            {typeof (question.showLogic || question.logic) === 'string' 
+              ? (question.showLogic || question.logic) 
+              : JSON.stringify(question.showLogic || question.logic)}
+          </p>
+        </div>
+      )}
+
+      {/* Terminate Logic */}
+      {question.terminateLogic && (
+        <div className="mb-3">
+          <h4 className="text-xs font-medium text-gray-700 mb-1">Terminate Logic:</h4>
+          <p className="text-xs text-gray-600 font-mono bg-gray-50 p-2 rounded">
+            {typeof question.terminateLogic === 'string' 
+              ? question.terminateLogic 
+              : JSON.stringify(question.terminateLogic)}
+          </p>
+        </div>
+      )}
+
+      {/* Validation */}
+      {question.validation && (
+        <div className="mb-3">
+          <h4 className="text-xs font-medium text-gray-700 mb-1">Validation:</h4>
+          <p className="text-xs text-gray-600 font-mono bg-gray-50 p-2 rounded">
+            {typeof question.validation === 'string' 
+              ? question.validation 
+              : JSON.stringify(question.validation)}
+          </p>
+        </div>
+      )}
+
+      {/* Other Tags (excluding metadata tags that are shown as pills) */}
+      {question.tags && question.tags.filter(tag => 
+        tag !== 'Scale' && tag !== '%' && tag !== 'Number'
+      ).length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          <span className="text-xs font-medium text-gray-700">Other Tags: </span>
+          {question.tags.filter(tag => 
+            tag !== 'Scale' && tag !== '%' && tag !== 'Number'
+          ).map((tag, tagIndex) => (
+            <span
+              key={tagIndex}
+              className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded"
+            >
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+

@@ -3,427 +3,455 @@
 [notice] To update, run: python.exe -m pip install --upgrade pip
 INFO:     Will watch for changes in these directories: ['C:\\Users\\LukeBorglin\\Desktop\\Apps\\jaice-dashboard\\conjoint-backend']
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     Started reloader process [33140] using WatchFiles
+INFO:     Started reloader process [12200] using WatchFiles
 C:\Users\LukeBorglin\Desktop\Apps\jaice-dashboard\conjoint-backend\.venv\Lib\site-packages\pydantic\_internal\_fields.py:172: UserWarning: Field name "schema" in "EstimateResponse" shadows an attribute in parent "BaseModel"
   warnings.warn(
-INFO:     Started server process [30196]
-INFO:     Waiting for application startup.
-2025-11-03 14:22:40,838 - app - INFO - ============================================================
-2025-11-03 14:22:40,838 - app - INFO - Conjoint Analysis API starting up
-2025-11-03 14:22:40,838 - app - INFO - Version: 0.4.0
-2025-11-03 14:22:40,839 - app - INFO - Max file size: 50MB
-2025-11-03 14:22:40,839 - app - INFO - Allowed origins: ['http://localhost:3000', 'http://localhost:3005', 'http://localhost:5173', 'http://localhost:5174', 'http://127.0.0.1:3000', 'http://127.0.0.1:3005', 'http://127.0.0.1:5173', 'http://127.0.0.1:5174']
-2025-11-03 14:22:40,840 - app - INFO - ============================================================
-INFO:     Application startup complete.
-2025-11-03 14:23:52,499 - app - INFO - Survey export estimation request: survey.xlsx
-2025-11-03 14:23:52,500 - app - INFO - File size: 548.1KB
-2025-11-03 14:23:54,112 - app - INFO - Read survey data: 80 rows × 1122 columns
-2025-11-03 14:23:54,113 - app - INFO - Using attribute definitions from design: 20 attributes
-2025-11-03 14:23:54,113 - app - INFO - First attribute: name='ON_TABLE_CLOSURE_RATE', levels=5
-2025-11-03 14:23:54,113 - app - INFO - Parsing survey export data...
-2025-11-03 14:23:54,114 - app - INFO - Built code mapping for 20 attributes from design
-2025-11-03 14:23:54,115 - app - INFO - Found 15 choice tasks: ['QC1_1', 'QC1_2', 'QC1_3', 'QC1_4', 'QC1_5', 'QC1_6', 'QC1_7', 'QC1_8', 'QC1_9', 'QC1_10', 'QC1_11', 'QC1_12', 'QC1_13', 'QC1_14', 'QC1_15']
-2025-11-03 14:23:54,118 - app - INFO - Detected 2 branded alternatives: ['GORE', 'PFO']
-2025-11-03 14:23:54,533 - app - INFO - Converted to long format: 3598 rows and 24 columns
-2025-11-03 14:23:54,533 - app - INFO - Attribute columns in long format (20): ['RATE_OF_ANY_ATRIAL_ARRHYTHMIA_REQUIRING_PROCEDURAL_INTERVENTION_POST_IMPLANT', 'ATRIAL_ARRHYTHMIA_REQUIRING_SHORT_TERM_MEDICAL_MANAGEMENT', 'DEVICE_FRAME_RELATED_CARDIAC_INJURY_RATE_EROSION_OR_PERFORATION_POST_IMPLANT', 'TIME_TO_COMPLETE_ENDOTHELIALIZATION', 'LEAVE_LESS_BEHIND_BIOABSORBABLE_LESS_METAL', 'PROCEDURE_TIME', 'DEVICE_PREP_TIME', 'DELIVERY_SYSTEM_REFRESHER', 'AVERAGE_NUMBER_OF_DEVICE_REPOSITIONS', 'IMAGING_VISABILITY_UNDER_IMAGING']...
-2025-11-03 14:23:54,545 - app - INFO -   Column 'RATE_OF_ANY_ATRIAL_ARRHYTHMIA_REQUIRING_PROCEDURAL_INTERVENTION_POST_IMPLANT': 5 unique values, sample: ['45', '44', '42', '41', '43']
-2025-11-03 14:23:54,547 - app - INFO -   Column 'ATRIAL_ARRHYTHMIA_REQUIRING_SHORT_TERM_MEDICAL_MANAGEMENT': 5 unique values, sample: ['52', '53', '55', '54', '51']
-2025-11-03 14:23:54,549 - app - INFO -   Column 'DEVICE_FRAME_RELATED_CARDIAC_INJURY_RATE_EROSION_OR_PERFORATION_POST_IMPLANT': 5 unique values, sample: ['63', '65', '64', '61', '62']
-2025-11-03 14:23:54,551 - app - INFO -   Column 'TIME_TO_COMPLETE_ENDOTHELIALIZATION': 5 unique values, sample: ['71', '72', '75', '73', '74']
-2025-11-03 14:23:54,553 - app - INFO -   Column 'LEAVE_LESS_BEHIND_BIOABSORBABLE_LESS_METAL': 3 unique values, sample: ['93', '92', '91']
-2025-11-03 14:23:54,726 - app - INFO - Design matrix: 3598 rows × 67 columns
-2025-11-03 14:23:55,139 - app - INFO - Design matrix rank: 1 (columns: 67)
-2025-11-03 14:23:55,140 - app - WARNING - Design matrix is rank-deficient: rank 1 < 67 columns. This will cause singularity issues.
-2025-11-03 14:23:55,564 - app - INFO - Fitting model with Newton-Raphson...
-2025-11-03 14:23:56,169 - app - WARNING - Newton method failed (Singular matrix), trying BFGS...
-C:\Users\LukeBorglin\Desktop\Apps\jaice-dashboard\conjoint-backend\.venv\Lib\site-packages\statsmodels\base\model.py:595: HessianInversionWarning: Inverting hessian failed, no bse or cov_params available
-  warnings.warn('Inverting hessian failed, no bse or cov_params '
-2025-11-03 14:23:56,226 - app - INFO - Model estimated successfully. Log-likelihood: -2290.64
-INFO:     127.0.0.1:65155 - "POST /estimate_from_survey_export HTTP/1.1" 200 OK
-WARNING:  WatchFiles detected changes in 'app.py'. Reloading...
-INFO:     Shutting down
-INFO:     Waiting for application shutdown.
-2025-11-03 14:24:51,753 - app - INFO - Conjoint Analysis API shutting down
-INFO:     Application shutdown complete.
-INFO:     Finished server process [30196]
-WARNING:  WatchFiles detected changes in 'app.py'. Reloading...
-Process SpawnProcess-2:
-Traceback (most recent call last):
-  File "C:\Users\LukeBorglin\AppData\Local\Programs\Python\Python313\Lib\multiprocessing\process.py", line 313, in _bootstrap
-    self.run()
-    ~~~~~~~~^^
-  File "C:\Users\LukeBorglin\AppData\Local\Programs\Python\Python313\Lib\multiprocessing\process.py", line 108, in run
-    self._target(*self._args, **self._kwargs)
-    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\LukeBorglin\Desktop\Apps\jaice-dashboard\conjoint-backend\.venv\Lib\site-packages\uvicorn\_subprocess.py", line 73, in subprocess_started
-    sys.stdin = os.fdopen(stdin_fileno)  # pragma: full coverage
-                ~~~~~~~~~^^^^^^^^^^^^^^
-  File "<frozen os>", line 1069, in fdopen
-  File "<frozen codecs>", line 312, in __init__
-KeyboardInterrupt
-C:\Users\LukeBorglin\Desktop\Apps\jaice-dashboard\conjoint-backend\.venv\Lib\site-packages\pydantic\_internal\_fields.py:172: UserWarning: Field name "schema" in "EstimateResponse" shadows an attribute in parent "BaseModel"
+C:\Users\LukeBorglin\Desktop\Apps\jaice-dashboard\conjoint-backend\.venv\Lib\site-packages\pydantic\_internal\_fields.py:172: UserWarning: Field name "schema" in "ScenarioAnalysisRequest" shadows an attribute in parent "BaseModel"
   warnings.warn(
-INFO:     Started server process [29000]
+INFO:     Started server process [37772]
 INFO:     Waiting for application startup.
-2025-11-03 14:24:55,691 - app - INFO - ============================================================
-2025-11-03 14:24:55,691 - app - INFO - Conjoint Analysis API starting up
-2025-11-03 14:24:55,691 - app - INFO - Version: 0.4.0
-2025-11-03 14:24:55,692 - app - INFO - Max file size: 50MB
-2025-11-03 14:24:55,692 - app - INFO - Allowed origins: ['http://localhost:3000', 'http://localhost:3005', 'http://localhost:5173', 'http://localhost:5174', 'http://127.0.0.1:3000', 'http://127.0.0.1:3005', 'http://127.0.0.1:5173', 'http://127.0.0.1:5174']
-2025-11-03 14:24:55,692 - app - INFO - ============================================================
+2025-11-04 17:32:07,396 - app - INFO - ============================================================
+2025-11-04 17:32:07,396 - app - INFO - Conjoint Analysis API starting up
+2025-11-04 17:32:07,396 - app - INFO - Version: 0.4.0
+2025-11-04 17:32:07,397 - app - INFO - Max file size: 50MB
+2025-11-04 17:32:07,397 - app - INFO - Allowed origins: ['http://localhost:3000', 'http://localhost:3005', 'http://localhost:5173', 'http://localhost:5174', 'http://127.0.0.1:3000', 'http://127.0.0.1:3005', 'http://127.0.0.1:5173', 'http://127.0.0.1:5174']
+2025-11-04 17:32:07,397 - app - INFO - ============================================================
 INFO:     Application startup complete.
-2025-11-03 14:25:12,755 - app - INFO - Survey export estimation request: survey.xlsx
-2025-11-03 14:25:12,757 - app - INFO - File size: 548.1KB
-2025-11-03 14:25:14,136 - app - INFO - Read survey data: 80 rows × 1122 columns
-2025-11-03 14:25:14,137 - app - INFO - Using attribute definitions from design: 20 attributes
-2025-11-03 14:25:14,137 - app - INFO - First attribute: name='ON_TABLE_CLOSURE_RATE', levels=5
-2025-11-03 14:25:14,137 - app - INFO - Parsing survey export data...
-2025-11-03 14:25:14,137 - app - INFO - Built code mapping for 20 attributes from design
-2025-11-03 14:25:14,139 - app - INFO - Found 15 choice tasks: ['QC1_1', 'QC1_2', 'QC1_3', 'QC1_4', 'QC1_5', 'QC1_6', 'QC1_7', 'QC1_8', 'QC1_9', 'QC1_10', 'QC1_11', 'QC1_12', 'QC1_13', 'QC1_14', 'QC1_15']
-2025-11-03 14:25:14,141 - app - INFO - Detected 2 branded alternatives: ['GORE', 'PFO']
-2025-11-03 14:25:14,144 - app - WARNING - Code '45' not found in code_map for attr_no=4, schema_name=RATE_OF_ANY_ATRIAL_ARRHYTHMIA_REQUIRING_PROCEDURAL_INTERVENTION_POST_IMPLANT. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:25:14,144 - app - WARNING - Code '52' not found in code_map for attr_no=5, schema_name=ATRIAL_ARRHYTHMIA_REQUIRING_SHORT_TERM_MEDICAL_MANAGEMENT. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:25:14,145 - app - WARNING - Code '63' not found in code_map for attr_no=6, schema_name=DEVICE_FRAME_RELATED_CARDIAC_INJURY_RATE_EROSION_OR_PERFORATION_POST_IMPLANT. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:25:14,145 - app - WARNING - Code '71' not found in code_map for attr_no=7, schema_name=TIME_TO_COMPLETE_ENDOTHELIALIZATION. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:25:14,145 - app - WARNING - Code '93' not found in code_map for attr_no=9, schema_name=LEAVE_LESS_BEHIND_BIOABSORBABLE_LESS_METAL. Available codes: ['1', '2', '3']
-2025-11-03 14:25:14,145 - app - WARNING - Code '121' not found in code_map for attr_no=12, schema_name=PROCEDURE_TIME. Available codes: ['1', '2', '3']
-2025-11-03 14:25:14,145 - app - WARNING - Code '132' not found in code_map for attr_no=13, schema_name=DEVICE_PREP_TIME. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:25:14,146 - app - WARNING - Code '141' not found in code_map for attr_no=14, schema_name=DELIVERY_SYSTEM_REFRESHER. Available codes: ['1', '2', '3']
-2025-11-03 14:25:14,146 - app - WARNING - Code '153' not found in code_map for attr_no=15, schema_name=AVERAGE_NUMBER_OF_DEVICE_REPOSITIONS. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:25:14,146 - app - WARNING - Code '161' not found in code_map for attr_no=16, schema_name=IMAGING_VISABILITY_UNDER_IMAGING. Available codes: ['1', '2', '3']
-2025-11-03 14:25:14,146 - app - WARNING - Code '44' not found in code_map for attr_no=4, schema_name=RATE_OF_ANY_ATRIAL_ARRHYTHMIA_REQUIRING_PROCEDURAL_INTERVENTION_POST_IMPLANT. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:25:14,147 - app - WARNING - Code '53' not found in code_map for attr_no=5, schema_name=ATRIAL_ARRHYTHMIA_REQUIRING_SHORT_TERM_MEDICAL_MANAGEMENT. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:25:14,147 - app - WARNING - Code '65' not found in code_map for attr_no=6, schema_name=DEVICE_FRAME_RELATED_CARDIAC_INJURY_RATE_EROSION_OR_PERFORATION_POST_IMPLANT. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:25:14,148 - app - WARNING - Code '72' not found in code_map for attr_no=7, schema_name=TIME_TO_COMPLETE_ENDOTHELIALIZATION. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:25:14,148 - app - WARNING - Code '92' not found in code_map for attr_no=9, schema_name=LEAVE_LESS_BEHIND_BIOABSORBABLE_LESS_METAL. Available codes: ['1', '2', '3']
-2025-11-03 14:25:14,148 - app - WARNING - Code '122' not found in code_map for attr_no=12, schema_name=PROCEDURE_TIME. Available codes: ['1', '2', '3']
-2025-11-03 14:25:14,148 - app - WARNING - Code '131' not found in code_map for attr_no=13, schema_name=DEVICE_PREP_TIME. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:25:14,149 - app - WARNING - Code '142' not found in code_map for attr_no=14, schema_name=DELIVERY_SYSTEM_REFRESHER. Available codes: ['1', '2', '3']
-2025-11-03 14:25:14,149 - app - WARNING - Code '152' not found in code_map for attr_no=15, schema_name=AVERAGE_NUMBER_OF_DEVICE_REPOSITIONS. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:25:14,149 - app - WARNING - Code '162' not found in code_map for attr_no=16, schema_name=IMAGING_VISABILITY_UNDER_IMAGING. Available codes: ['1', '2', '3']
-2025-11-03 14:25:14,149 - app - WARNING - Code '13' not found in code_map for attr_no=1, schema_name=ON_TABLE_CLOSURE_RATE. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:25:14,150 - app - WARNING - Code '35' not found in code_map for attr_no=3, schema_name=DEVICE_EMBOLIZATION_RATE_DEVICE_DISLODGES. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:25:14,150 - app - WARNING - Code '44' not found in code_map for attr_no=4, schema_name=RATE_OF_ANY_ATRIAL_ARRHYTHMIA_REQUIRING_PROCEDURAL_INTERVENTION_POST_IMPLANT. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:25:14,150 - app - WARNING - Code '64' not found in code_map for attr_no=6, schema_name=DEVICE_FRAME_RELATED_CARDIAC_INJURY_RATE_EROSION_OR_PERFORATION_POST_IMPLANT. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:25:14,150 - app - WARNING - Code '104' not found in code_map for attr_no=10, schema_name=DEVICE_CROSSABILITY. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:25:14,151 - app - WARNING - Code '143' not found in code_map for attr_no=14, schema_name=DELIVERY_SYSTEM_REFRESHER. Available codes: ['1', '2', '3']
-2025-11-03 14:25:14,151 - app - WARNING - Code '152' not found in code_map for attr_no=15, schema_name=AVERAGE_NUMBER_OF_DEVICE_REPOSITIONS. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:25:14,151 - app - WARNING - Code '171' not found in code_map for attr_no=17, schema_name=DELIVERY_PROFILE. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:25:14,151 - app - WARNING - Code '184' not found in code_map for attr_no=18, schema_name=DEVICE_SIZE. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:25:14,152 - app - WARNING - Code '193' not found in code_map for attr_no=19, schema_name=PROCEDURAL_SUCCESS_RATE. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:25:14,152 - app - WARNING - Code '14' not found in code_map for attr_no=1, schema_name=ON_TABLE_CLOSURE_RATE. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:25:14,152 - app - WARNING - Code '36' not found in code_map for attr_no=3, schema_name=DEVICE_EMBOLIZATION_RATE_DEVICE_DISLODGES. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:25:14,152 - app - WARNING - Code '42' not found in code_map for attr_no=4, schema_name=RATE_OF_ANY_ATRIAL_ARRHYTHMIA_REQUIRING_PROCEDURAL_INTERVENTION_POST_IMPLANT. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:25:14,153 - app - WARNING - Code '65' not found in code_map for attr_no=6, schema_name=DEVICE_FRAME_RELATED_CARDIAC_INJURY_RATE_EROSION_OR_PERFORATION_POST_IMPLANT. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:25:14,153 - app - WARNING - Code '103' not found in code_map for attr_no=10, schema_name=DEVICE_CROSSABILITY. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:25:14,153 - app - WARNING - Code '142' not found in code_map for attr_no=14, schema_name=DELIVERY_SYSTEM_REFRESHER. Available codes: ['1', '2', '3']
-2025-11-03 14:25:14,153 - app - WARNING - Code '151' not found in code_map for attr_no=15, schema_name=AVERAGE_NUMBER_OF_DEVICE_REPOSITIONS. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:25:14,153 - app - WARNING - Code '174' not found in code_map for attr_no=17, schema_name=DELIVERY_PROFILE. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:25:14,154 - app - WARNING - Code '183' not found in code_map for attr_no=18, schema_name=DEVICE_SIZE. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:25:14,154 - app - WARNING - Code '192' not found in code_map for attr_no=19, schema_name=PROCEDURAL_SUCCESS_RATE. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:25:14,154 - app - WARNING - Code '11' not found in code_map for attr_no=1, schema_name=ON_TABLE_CLOSURE_RATE. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:25:14,154 - app - WARNING - Code '21' not found in code_map for attr_no=2, schema_name=DEVICE_CLOSURE_RATE_6_MONTHS_AFTER_SURGERY. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:25:14,154 - app - WARNING - Code '55' not found in code_map for attr_no=5, schema_name=ATRIAL_ARRHYTHMIA_REQUIRING_SHORT_TERM_MEDICAL_MANAGEMENT. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:25:14,155 - app - WARNING - Code '84' not found in code_map for attr_no=8, schema_name=DEVICE_RELATED_THROMBUS_RATE_6_MONTHS_AFTER_PROCEDURE. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:25:14,155 - app - WARNING - Code '92' not found in code_map for attr_no=9, schema_name=LEAVE_LESS_BEHIND_BIOABSORBABLE_LESS_METAL. Available codes: ['1', '2', '3']
-2025-11-03 14:25:14,155 - app - WARNING - Code '114' not found in code_map for attr_no=11, schema_name=WIRE_FRAME_FRACTURE_RATE_WITHOUT_CLINICAL_SEQUELAE. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:25:14,155 - app - WARNING - Code '123' not found in code_map for attr_no=12, schema_name=PROCEDURE_TIME. Available codes: ['1', '2', '3']
-2025-11-03 14:25:14,155 - app - WARNING - Code '131' not found in code_map for attr_no=13, schema_name=DEVICE_PREP_TIME. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:25:14,156 - app - WARNING - Code '162' not found in code_map for attr_no=16, schema_name=IMAGING_VISABILITY_UNDER_IMAGING. Available codes: ['1', '2', '3']
-2025-11-03 14:25:14,156 - app - WARNING - Code '201' not found in code_map for attr_no=20, schema_name=STROKE_RATE_REDUCTION. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:25:14,156 - app - WARNING - Code '15' not found in code_map for attr_no=1, schema_name=ON_TABLE_CLOSURE_RATE. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:25:14,156 - app - WARNING - Code '24' not found in code_map for attr_no=2, schema_name=DEVICE_CLOSURE_RATE_6_MONTHS_AFTER_SURGERY. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:25:14,156 - app - WARNING - Code '54' not found in code_map for attr_no=5, schema_name=ATRIAL_ARRHYTHMIA_REQUIRING_SHORT_TERM_MEDICAL_MANAGEMENT. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:25:14,157 - app - WARNING - Code '81' not found in code_map for attr_no=8, schema_name=DEVICE_RELATED_THROMBUS_RATE_6_MONTHS_AFTER_PROCEDURE. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:25:14,157 - app - WARNING - Code '91' not found in code_map for attr_no=9, schema_name=LEAVE_LESS_BEHIND_BIOABSORBABLE_LESS_METAL. Available codes: ['1', '2', '3']
-2025-11-03 14:25:14,158 - app - WARNING - Code '113' not found in code_map for attr_no=11, schema_name=WIRE_FRAME_FRACTURE_RATE_WITHOUT_CLINICAL_SEQUELAE. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:25:14,158 - app - WARNING - Code '122' not found in code_map for attr_no=12, schema_name=PROCEDURE_TIME. Available codes: ['1', '2', '3']
-2025-11-03 14:25:14,158 - app - WARNING - Code '134' not found in code_map for attr_no=13, schema_name=DEVICE_PREP_TIME. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:25:14,158 - app - WARNING - Code '163' not found in code_map for attr_no=16, schema_name=IMAGING_VISABILITY_UNDER_IMAGING. Available codes: ['1', '2', '3']
-2025-11-03 14:25:14,158 - app - WARNING - Code '202' not found in code_map for attr_no=20, schema_name=STROKE_RATE_REDUCTION. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:25:14,159 - app - WARNING - Code '24' not found in code_map for attr_no=2, schema_name=DEVICE_CLOSURE_RATE_6_MONTHS_AFTER_SURGERY. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:25:14,159 - app - WARNING - Code '35' not found in code_map for attr_no=3, schema_name=DEVICE_EMBOLIZATION_RATE_DEVICE_DISLODGES. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:25:14,159 - app - WARNING - Code '83' not found in code_map for attr_no=8, schema_name=DEVICE_RELATED_THROMBUS_RATE_6_MONTHS_AFTER_PROCEDURE. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:25:14,160 - app - WARNING - Code '91' not found in code_map for attr_no=9, schema_name=LEAVE_LESS_BEHIND_BIOABSORBABLE_LESS_METAL. Available codes: ['1', '2', '3']
-2025-11-03 14:25:14,160 - app - WARNING - Code '123' not found in code_map for attr_no=12, schema_name=PROCEDURE_TIME. Available codes: ['1', '2', '3']
-2025-11-03 14:25:14,160 - app - WARNING - Code '141' not found in code_map for attr_no=14, schema_name=DELIVERY_SYSTEM_REFRESHER. Available codes: ['1', '2', '3']
-2025-11-03 14:25:14,161 - app - WARNING - Code '161' not found in code_map for attr_no=16, schema_name=IMAGING_VISABILITY_UNDER_IMAGING. Available codes: ['1', '2', '3']
-2025-11-03 14:25:14,161 - app - WARNING - Code '173' not found in code_map for attr_no=17, schema_name=DELIVERY_PROFILE. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:25:14,162 - app - WARNING - Code '191' not found in code_map for attr_no=19, schema_name=PROCEDURAL_SUCCESS_RATE. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:25:14,162 - app - WARNING - Code '203' not found in code_map for attr_no=20, schema_name=STROKE_RATE_REDUCTION. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:25:14,163 - app - WARNING - Code '23' not found in code_map for attr_no=2, schema_name=DEVICE_CLOSURE_RATE_6_MONTHS_AFTER_SURGERY. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:25:14,163 - app - WARNING - Code '31' not found in code_map for attr_no=3, schema_name=DEVICE_EMBOLIZATION_RATE_DEVICE_DISLODGES. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:25:14,163 - app - WARNING - Code '82' not found in code_map for attr_no=8, schema_name=DEVICE_RELATED_THROMBUS_RATE_6_MONTHS_AFTER_PROCEDURE. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:25:14,164 - app - WARNING - Code '93' not found in code_map for attr_no=9, schema_name=LEAVE_LESS_BEHIND_BIOABSORBABLE_LESS_METAL. Available codes: ['1', '2', '3']
-2025-11-03 14:25:14,164 - app - WARNING - Code '121' not found in code_map for attr_no=12, schema_name=PROCEDURE_TIME. Available codes: ['1', '2', '3']
-2025-11-03 14:25:14,164 - app - WARNING - Code '143' not found in code_map for attr_no=14, schema_name=DELIVERY_SYSTEM_REFRESHER. Available codes: ['1', '2', '3']
-2025-11-03 14:25:14,165 - app - WARNING - Code '162' not found in code_map for attr_no=16, schema_name=IMAGING_VISABILITY_UNDER_IMAGING. Available codes: ['1', '2', '3']
-2025-11-03 14:25:14,165 - app - WARNING - Code '172' not found in code_map for attr_no=17, schema_name=DELIVERY_PROFILE. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:25:14,166 - app - WARNING - Code '194' not found in code_map for attr_no=19, schema_name=PROCEDURAL_SUCCESS_RATE. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:25:14,166 - app - WARNING - Code '204' not found in code_map for attr_no=20, schema_name=STROKE_RATE_REDUCTION. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:25:14,592 - app - INFO - Converted to long format: 3598 rows and 24 columns
-2025-11-03 14:25:14,593 - app - INFO - Attribute columns in long format (20): ['RATE_OF_ANY_ATRIAL_ARRHYTHMIA_REQUIRING_PROCEDURAL_INTERVENTION_POST_IMPLANT', 'ATRIAL_ARRHYTHMIA_REQUIRING_SHORT_TERM_MEDICAL_MANAGEMENT', 'DEVICE_FRAME_RELATED_CARDIAC_INJURY_RATE_EROSION_OR_PERFORATION_POST_IMPLANT', 'TIME_TO_COMPLETE_ENDOTHELIALIZATION', 'LEAVE_LESS_BEHIND_BIOABSORBABLE_LESS_METAL', 'PROCEDURE_TIME', 'DEVICE_PREP_TIME', 'DELIVERY_SYSTEM_REFRESHER', 'AVERAGE_NUMBER_OF_DEVICE_REPOSITIONS', 'IMAGING_VISABILITY_UNDER_IMAGING']...
-2025-11-03 14:25:14,595 - app - INFO -   Column 'RATE_OF_ANY_ATRIAL_ARRHYTHMIA_REQUIRING_PROCEDURAL_INTERVENTION_POST_IMPLANT': 5 unique values, sample: ['45', '44', '42', '41', '43']
-2025-11-03 14:25:14,596 - app - INFO -   Column 'ATRIAL_ARRHYTHMIA_REQUIRING_SHORT_TERM_MEDICAL_MANAGEMENT': 5 unique values, sample: ['52', '53', '55', '54', '51']
-2025-11-03 14:25:14,598 - app - INFO -   Column 'DEVICE_FRAME_RELATED_CARDIAC_INJURY_RATE_EROSION_OR_PERFORATION_POST_IMPLANT': 5 unique values, sample: ['63', '65', '64', '61', '62']
-2025-11-03 14:25:14,599 - app - INFO -   Column 'TIME_TO_COMPLETE_ENDOTHELIALIZATION': 5 unique values, sample: ['71', '72', '75', '73', '74']
-2025-11-03 14:25:14,601 - app - INFO -   Column 'LEAVE_LESS_BEHIND_BIOABSORBABLE_LESS_METAL': 3 unique values, sample: ['93', '92', '91']
-2025-11-03 14:25:14,602 - app - INFO - Using levels from data for 'ON_TABLE_CLOSURE_RATE': 5 levels
-2025-11-03 14:25:14,603 - app - INFO - Using levels from data for 'DEVICE_CLOSURE_RATE_6_MONTHS_AFTER_SURGERY': 4 levels
-2025-11-03 14:25:14,604 - app - INFO - Using levels from data for 'DEVICE_EMBOLIZATION_RATE_DEVICE_DISLODGES': 6 levels
-2025-11-03 14:25:14,605 - app - INFO - Using levels from data for 'RATE_OF_ANY_ATRIAL_ARRHYTHMIA_REQUIRING_PROCEDURAL_INTERVENTION_POST_IMPLANT': 5 levels
-2025-11-03 14:25:14,606 - app - INFO - Using levels from data for 'ATRIAL_ARRHYTHMIA_REQUIRING_SHORT_TERM_MEDICAL_MANAGEMENT': 5 levels
-2025-11-03 14:25:14,607 - app - INFO - Using levels from data for 'DEVICE_FRAME_RELATED_CARDIAC_INJURY_RATE_EROSION_OR_PERFORATION_POST_IMPLANT': 5 levels
-2025-11-03 14:25:14,608 - app - INFO - Using levels from data for 'TIME_TO_COMPLETE_ENDOTHELIALIZATION': 5 levels
-2025-11-03 14:25:14,609 - app - INFO - Using levels from data for 'DEVICE_RELATED_THROMBUS_RATE_6_MONTHS_AFTER_PROCEDURE': 5 levels
-2025-11-03 14:25:14,610 - app - INFO - Using levels from data for 'LEAVE_LESS_BEHIND_BIOABSORBABLE_LESS_METAL': 3 levels
-2025-11-03 14:25:14,611 - app - INFO - Using levels from data for 'DEVICE_CROSSABILITY': 4 levels
-2025-11-03 14:25:14,612 - app - INFO - Using levels from data for 'WIRE_FRAME_FRACTURE_RATE_WITHOUT_CLINICAL_SEQUELAE':6 levels
-2025-11-03 14:25:14,613 - app - INFO - Using levels from data for 'PROCEDURE_TIME': 3 levels
-2025-11-03 14:25:14,614 - app - INFO - Using levels from data for 'DEVICE_PREP_TIME': 4 levels
-2025-11-03 14:25:14,615 - app - INFO - Using levels from data for 'DELIVERY_SYSTEM_REFRESHER': 3 levels
-2025-11-03 14:25:14,616 - app - INFO - Using levels from data for 'AVERAGE_NUMBER_OF_DEVICE_REPOSITIONS': 4 levels
-2025-11-03 14:25:14,618 - app - INFO - Using levels from data for 'IMAGING_VISABILITY_UNDER_IMAGING': 3 levels
-2025-11-03 14:25:14,619 - app - INFO - Using levels from data for 'DELIVERY_PROFILE': 4 levels
-2025-11-03 14:25:14,620 - app - INFO - Using levels from data for 'DEVICE_SIZE': 4 levels
-2025-11-03 14:25:14,621 - app - INFO - Using levels from data for 'PROCEDURAL_SUCCESS_RATE': 4 levels
-2025-11-03 14:25:14,622 - app - INFO - Using levels from data for 'STROKE_RATE_REDUCTION': 4 levels
-2025-11-03 14:25:14,846 - app - INFO - Design matrix: 3598 rows × 87 columns
-2025-11-03 14:25:14,875 - app - INFO - Design matrix rank: 87 (columns: 87)
-2025-11-03 14:25:14,915 - app - INFO - Fitting model with Newton-Raphson...
-2025-11-03 14:25:15,006 - app - INFO - Model estimated successfully. Log-likelihood: -2187.92
-INFO:     127.0.0.1:58345 - "POST /estimate_from_survey_export HTTP/1.1" 200 OK
-WARNING:  WatchFiles detected changes in 'app.py'. Reloading...
-INFO:     Shutting down
-INFO:     Waiting for application shutdown.
-2025-11-03 14:27:23,121 - app - INFO - Conjoint Analysis API shutting down
-INFO:     Application shutdown complete.
-INFO:     Finished server process [29000]
-WARNING:  WatchFiles detected changes in 'app.py'. Reloading...
-Process SpawnProcess-4:
-Traceback (most recent call last):
-  File "C:\Users\LukeBorglin\AppData\Local\Programs\Python\Python313\Lib\multiprocessing\process.py", line 313, in _bootstrap
-    self.run()
-    ~~~~~~~~^^
-  File "C:\Users\LukeBorglin\AppData\Local\Programs\Python\Python313\Lib\multiprocessing\process.py", line 108, in run
-    self._target(*self._args, **self._kwargs)
-    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\LukeBorglin\Desktop\Apps\jaice-dashboard\conjoint-backend\.venv\Lib\site-packages\uvicorn\_subprocess.py", line 73, in subprocess_started
-    sys.stdin = os.fdopen(stdin_fileno)  # pragma: full coverage
-                ~~~~~~~~~^^^^^^^^^^^^^^
-  File "<frozen os>", line 1069, in fdopen
-  File "<frozen codecs>", line 312, in __init__
-KeyboardInterrupt
-C:\Users\LukeBorglin\Desktop\Apps\jaice-dashboard\conjoint-backend\.venv\Lib\site-packages\pydantic\_internal\_fields.py:172: UserWarning: Field name "schema" in "EstimateResponse" shadows an attribute in parent "BaseModel"
-  warnings.warn(
-INFO:     Started server process [25244]
-INFO:     Waiting for application startup.
-2025-11-03 14:27:26,244 - app - INFO - ============================================================
-2025-11-03 14:27:26,244 - app - INFO - Conjoint Analysis API starting up
-2025-11-03 14:27:26,245 - app - INFO - Version: 0.4.0
-2025-11-03 14:27:26,245 - app - INFO - Max file size: 50MB
-2025-11-03 14:27:26,245 - app - INFO - Allowed origins: ['http://localhost:3000', 'http://localhost:3005', 'http://localhost:5173', 'http://localhost:5174', 'http://127.0.0.1:3000', 'http://127.0.0.1:3005', 'http://127.0.0.1:5173', 'http://127.0.0.1:5174']
-2025-11-03 14:27:26,245 - app - INFO - ============================================================
-INFO:     Application startup complete.
-2025-11-03 14:28:40,301 - app - INFO - Survey export estimation request: survey.xlsx
-2025-11-03 14:28:40,305 - app - INFO - File size: 548.1KB
-2025-11-03 14:28:41,620 - app - INFO - Read survey data: 80 rows × 1122 columns
-2025-11-03 14:28:41,620 - app - INFO - Using attribute definitions from design: 20 attributes
-2025-11-03 14:28:41,621 - app - INFO - First attribute: name='ON_TABLE_CLOSURE_RATE', levels=5
-2025-11-03 14:28:41,621 - app - INFO - Parsing survey export data...
-2025-11-03 14:28:41,622 - app - INFO - Built code mapping for 20 attributes from design
-2025-11-03 14:28:41,622 - app - INFO - Sample code_map for attribute 1 (ON_TABLE_CLOSURE_RATE): {'1': '70% On-table closure rate during procedure', '2': '80% On-table closure rate during procedure', '3': '90% On-table closure rate during procedure', '4': '99% On-table closure rate during procedure', '5': 'On-table closure rate is unavailable'}
-2025-11-03 14:28:41,624 - app - INFO - Found 15 choice tasks: ['QC1_1', 'QC1_2', 'QC1_3', 'QC1_4', 'QC1_5', 'QC1_6', 'QC1_7', 'QC1_8', 'QC1_9', 'QC1_10', 'QC1_11', 'QC1_12', 'QC1_13', 'QC1_14', 'QC1_15']
-2025-11-03 14:28:41,626 - app - INFO - Detected 2 branded alternatives: ['GORE', 'PFO']
-2025-11-03 14:28:41,630 - app - WARNING - Code '45' not found in code_map for attr_no=4, schema_name=RATE_OF_ANY_ATRIAL_ARRHYTHMIA_REQUIRING_PROCEDURAL_INTERVENTION_POST_IMPLANT. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:28:41,630 - app - WARNING - Code_map contents: {'1': 'Rate of any atrial arrhythmia requiring procedural intervention post-implant: 5% of cases', '2': 'Rate of any atrial arrhythmia requiring procedural intervention post-implant: 10% of cases', '3': 'Rate of any atrial arrhythmia requiring procedural intervention post-implant: 20% of cases', '4': 'Rate of any atrial arrhythmia requiring procedural intervention post-implant: 30% of cases', '5': 'Rate of any atrial arrhythmia requiring procedural intervention post-implant is unavailable'}
-2025-11-03 14:28:41,630 - app - WARNING - Code '52' not found in code_map for attr_no=5, schema_name=ATRIAL_ARRHYTHMIA_REQUIRING_SHORT_TERM_MEDICAL_MANAGEMENT. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:28:41,631 - app - WARNING - Code_map contents: {'1': 'Rate of atrial arrhythmia requiring short-term medical management: 5% of cases', '2': 'Rate of atrial arrhythmia requiring short-term medical management: 3% of cases', '3': 'Rate of atrial arrhythmia requiring short-term medical management: 1% of cases', '4': 'Rate of atrial arrhythmia requiring short-term medical management: 0.5% of cases', '5': 'Rate of atrial arrhythmia requiring short-term medical management is unavailable'}
-2025-11-03 14:28:41,631 - app - WARNING - Code '63' not found in code_map for attr_no=6, schema_name=DEVICE_FRAME_RELATED_CARDIAC_INJURY_RATE_EROSION_OR_PERFORATION_POST_IMPLANT. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:28:41,632 - app - WARNING - Code_map contents: {'1': 'Device Frame-Related Cardiac Injury Rate (Erosion or Perforation) Post-Implant: 1 in 1,000 cases', '2': 'Device Frame-Related Cardiac Injury Rate (Erosion or Perforation) Post-Implant: 1 in 10,000 cases', '3': 'Device Frame-Related Cardiac Injury Rate (Erosion or Perforation) Post-Implant: 1 in 100,000 cases', '4': 'Device Frame-Related Cardiac Injury Rate (Erosion or Perforation) Post-Implant: 1 in 150,000 cases', '5': 'Device Frame-Related Cardiac Injury Rate (Erosion or Perforation) Post-Implant is unavailable'}
-2025-11-03 14:28:41,632 - app - WARNING - Code '71' not found in code_map for attr_no=7, schema_name=TIME_TO_COMPLETE_ENDOTHELIALIZATION. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:28:41,633 - app - WARNING - Code_map contents: {'1': 'Time to Complete Endothelialization: 1 month', '2':'Time to Complete Endothelialization: 6 months', '3': 'Time to Complete Endothelialization: 12 months', '4': 'Time to Complete Endothelialization: 18 months', '5': 'Time to Complete Endothelialization is pending'}
-2025-11-03 14:28:41,633 - app - WARNING - Code '93' not found in code_map for attr_no=9, schema_name=LEAVE_LESS_BEHIND_BIOABSORBABLE_LESS_METAL. Available codes: ['1', '2', '3']
-2025-11-03 14:28:41,633 - app - WARNING - Code_map contents: {'1': 'Leave Less Behind (bioabsorbable/less metal): Standard nitinol-based', '2': 'Leave Less Behind (bioabsorbable/less metal): 50% absorbable', '3': 'Leave Less Behind (bioabsorbable/less metal): Fully absorbable'}
-2025-11-03 14:28:41,634 - app - WARNING - Code '121' not found in code_map for attr_no=12, schema_name=PROCEDURE_TIME. Available codes: ['1', '2', '3']
-2025-11-03 14:28:41,634 - app - WARNING - Code_map contents: {'1': 'Slower than average procedure time', '2': 'Average procedure time', '3': 'Quicker than average procedure time'}
-2025-11-03 14:28:41,634 - app - WARNING - Code '132' not found in code_map for attr_no=13, schema_name=DEVICE_PREP_TIME. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:28:41,635 - app - WARNING - Code_map contents: {'1': 'Device prep time in 30 seconds', '2': 'Device prep time in 1 min', '3': 'Device prep time in 3 mins', '4': 'Device prep time in 6 mins'}
-2025-11-03 14:28:41,635 - app - WARNING - Code '141' not found in code_map for attr_no=14, schema_name=DELIVERY_SYSTEM_REFRESHER. Available codes: ['1', '2', '3']
-2025-11-03 14:28:41,636 - app - WARNING - Code_map contents: {'1': 'Requires refresher on delivery system steps each time', '2': 'Requires brief refresher on delivery system steps', '3': 'No delivery system refresher needed, intuitive delivery system steps'}
-2025-11-03 14:28:41,636 - app - WARNING - Code '153' not found in code_map for attr_no=15, schema_name=AVERAGE_NUMBER_OF_DEVICE_REPOSITIONS. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:28:41,636 - app - WARNING - Code_map contents: {'1': 'On average 5 device repositions are needed', '2': 'On average 3 device repositions are needed', '3': 'On average 1 device reposition is needed', '4': 'No device repositioning needed'}
-2025-11-03 14:28:41,637 - app - WARNING - Code '161' not found in code_map for attr_no=16, schema_name=IMAGING_VISABILITY_UNDER_IMAGING. Available codes: ['1', '2', '3']
-2025-11-03 14:28:41,637 - app - WARNING - Code_map contents: {'1': 'Difficult to visualize under imaging', '2': 'Moderate visability under imaging', '3': 'Clearly visible under imaging'}
-2025-11-03 14:28:41,637 - app - WARNING - Code '44' not found in code_map for attr_no=4, schema_name=RATE_OF_ANY_ATRIAL_ARRHYTHMIA_REQUIRING_PROCEDURAL_INTERVENTION_POST_IMPLANT. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:28:41,638 - app - WARNING - Code_map contents: {'1': 'Rate of any atrial arrhythmia requiring procedural intervention post-implant: 5% of cases', '2': 'Rate of any atrial arrhythmia requiring procedural intervention post-implant: 10% of cases', '3': 'Rate of any atrial arrhythmia requiring procedural intervention post-implant: 20% of cases', '4': 'Rate of any atrial arrhythmia requiring procedural intervention post-implant: 30% of cases', '5': 'Rate of any atrial arrhythmia requiring procedural intervention post-implant is unavailable'}
-2025-11-03 14:28:41,638 - app - WARNING - Code '53' not found in code_map for attr_no=5, schema_name=ATRIAL_ARRHYTHMIA_REQUIRING_SHORT_TERM_MEDICAL_MANAGEMENT. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:28:41,638 - app - WARNING - Code_map contents: {'1': 'Rate of atrial arrhythmia requiring short-term medical management: 5% of cases', '2': 'Rate of atrial arrhythmia requiring short-term medical management: 3% of cases', '3': 'Rate of atrial arrhythmia requiring short-term medical management: 1% of cases', '4': 'Rate of atrial arrhythmia requiring short-term medical management: 0.5% of cases', '5': 'Rate of atrial arrhythmia requiring short-term medical management is unavailable'}
-2025-11-03 14:28:41,639 - app - WARNING - Code '65' not found in code_map for attr_no=6, schema_name=DEVICE_FRAME_RELATED_CARDIAC_INJURY_RATE_EROSION_OR_PERFORATION_POST_IMPLANT. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:28:41,639 - app - WARNING - Code_map contents: {'1': 'Device Frame-Related Cardiac Injury Rate (Erosion or Perforation) Post-Implant: 1 in 1,000 cases', '2': 'Device Frame-Related Cardiac Injury Rate (Erosion or Perforation) Post-Implant: 1 in 10,000 cases', '3': 'Device Frame-Related Cardiac Injury Rate (Erosion or Perforation) Post-Implant: 1 in 100,000 cases', '4': 'Device Frame-Related Cardiac Injury Rate (Erosion or Perforation) Post-Implant: 1 in 150,000 cases', '5': 'Device Frame-Related Cardiac Injury Rate (Erosion or Perforation) Post-Implant is unavailable'}
-2025-11-03 14:28:41,639 - app - WARNING - Code '72' not found in code_map for attr_no=7, schema_name=TIME_TO_COMPLETE_ENDOTHELIALIZATION. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:28:41,640 - app - WARNING - Code_map contents: {'1': 'Time to Complete Endothelialization: 1 month', '2':'Time to Complete Endothelialization: 6 months', '3': 'Time to Complete Endothelialization: 12 months', '4': 'Time to Complete Endothelialization: 18 months', '5': 'Time to Complete Endothelialization is pending'}
-2025-11-03 14:28:41,640 - app - WARNING - Code '92' not found in code_map for attr_no=9, schema_name=LEAVE_LESS_BEHIND_BIOABSORBABLE_LESS_METAL. Available codes: ['1', '2', '3']
-2025-11-03 14:28:41,640 - app - WARNING - Code_map contents: {'1': 'Leave Less Behind (bioabsorbable/less metal): Standard nitinol-based', '2': 'Leave Less Behind (bioabsorbable/less metal): 50% absorbable', '3': 'Leave Less Behind (bioabsorbable/less metal): Fully absorbable'}
-2025-11-03 14:28:41,641 - app - WARNING - Code '122' not found in code_map for attr_no=12, schema_name=PROCEDURE_TIME. Available codes: ['1', '2', '3']
-2025-11-03 14:28:41,641 - app - WARNING - Code_map contents: {'1': 'Slower than average procedure time', '2': 'Average procedure time', '3': 'Quicker than average procedure time'}
-2025-11-03 14:28:41,641 - app - WARNING - Code '131' not found in code_map for attr_no=13, schema_name=DEVICE_PREP_TIME. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:28:41,641 - app - WARNING - Code_map contents: {'1': 'Device prep time in 30 seconds', '2': 'Device prep time in 1 min', '3': 'Device prep time in 3 mins', '4': 'Device prep time in 6 mins'}
-2025-11-03 14:28:41,642 - app - WARNING - Code '142' not found in code_map for attr_no=14, schema_name=DELIVERY_SYSTEM_REFRESHER. Available codes: ['1', '2', '3']
-2025-11-03 14:28:41,642 - app - WARNING - Code_map contents: {'1': 'Requires refresher on delivery system steps each time', '2': 'Requires brief refresher on delivery system steps', '3': 'No delivery system refresher needed, intuitive delivery system steps'}
-2025-11-03 14:28:41,643 - app - WARNING - Code '152' not found in code_map for attr_no=15, schema_name=AVERAGE_NUMBER_OF_DEVICE_REPOSITIONS. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:28:41,643 - app - WARNING - Code_map contents: {'1': 'On average 5 device repositions are needed', '2': 'On average 3 device repositions are needed', '3': 'On average 1 device reposition is needed', '4': 'No device repositioning needed'}
-2025-11-03 14:28:41,643 - app - WARNING - Code '162' not found in code_map for attr_no=16, schema_name=IMAGING_VISABILITY_UNDER_IMAGING. Available codes: ['1', '2', '3']
-2025-11-03 14:28:41,644 - app - WARNING - Code_map contents: {'1': 'Difficult to visualize under imaging', '2': 'Moderate visability under imaging', '3': 'Clearly visible under imaging'}
-2025-11-03 14:28:41,644 - app - WARNING - Code '13' not found in code_map for attr_no=1, schema_name=ON_TABLE_CLOSURE_RATE. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:28:41,644 - app - WARNING - Code_map contents: {'1': '70% On-table closure rate during procedure', '2': '80% On-table closure rate during procedure', '3': '90% On-table closure rate during procedure', '4': '99% On-table closure rate during procedure', '5': 'On-table closure rate is unavailable'}
-2025-11-03 14:28:41,644 - app - WARNING - Code '35' not found in code_map for attr_no=3, schema_name=DEVICE_EMBOLIZATION_RATE_DEVICE_DISLODGES. Available codes: ['1', '2', '3', '4', '5', '6']
-2025-11-03 14:28:41,645 - app - WARNING - Code_map contents: {'1': 'Device Embolization Rate (Device Dislodges): 1 in 100 cases', '2': 'Device Embolization Rate (Device Dislodges): 1 in 250 cases', '3': 'Device Embolization Rate (Device Dislodges): 1 in 500 cases', '4': 'Device Embolization Rate (Device Dislodges): 1 in 1,000 cases', '5': 'Device Embolization Rate (Device Dislodges): 1 in 1,250 cases'}
-2025-11-03 14:28:41,645 - app - WARNING - Code '44' not found in code_map for attr_no=4, schema_name=RATE_OF_ANY_ATRIAL_ARRHYTHMIA_REQUIRING_PROCEDURAL_INTERVENTION_POST_IMPLANT. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:28:41,645 - app - WARNING - Code_map contents: {'1': 'Rate of any atrial arrhythmia requiring procedural intervention post-implant: 5% of cases', '2': 'Rate of any atrial arrhythmia requiring procedural intervention post-implant: 10% of cases', '3': 'Rate of any atrial arrhythmia requiring procedural intervention post-implant: 20% of cases', '4': 'Rate of any atrial arrhythmia requiring procedural intervention post-implant: 30% of cases', '5': 'Rate of any atrial arrhythmia requiring procedural intervention post-implant is unavailable'}
-2025-11-03 14:28:41,645 - app - WARNING - Code '64' not found in code_map for attr_no=6, schema_name=DEVICE_FRAME_RELATED_CARDIAC_INJURY_RATE_EROSION_OR_PERFORATION_POST_IMPLANT. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:28:41,646 - app - WARNING - Code_map contents: {'1': 'Device Frame-Related Cardiac Injury Rate (Erosion or Perforation) Post-Implant: 1 in 1,000 cases', '2': 'Device Frame-Related Cardiac Injury Rate (Erosion or Perforation) Post-Implant: 1 in 10,000 cases', '3': 'Device Frame-Related Cardiac Injury Rate (Erosion or Perforation) Post-Implant: 1 in 100,000 cases', '4': 'Device Frame-Related Cardiac Injury Rate (Erosion or Perforation) Post-Implant: 1 in 150,000 cases', '5': 'Device Frame-Related Cardiac Injury Rate (Erosion or Perforation) Post-Implant is unavailable'}
-2025-11-03 14:28:41,646 - app - WARNING - Code '104' not found in code_map for attr_no=10, schema_name=DEVICE_CROSSABILITY. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:28:41,646 - app - WARNING - Code_map contents: {'1': 'Device is not crossable', '2': 'Device can be crossed, but with significant effort', '3': 'Device can be crossed, but with moderate effort', '4': 'Device can be crossed easily'}
-2025-11-03 14:28:41,647 - app - WARNING - Code '143' not found in code_map for attr_no=14, schema_name=DELIVERY_SYSTEM_REFRESHER. Available codes: ['1', '2', '3']
-2025-11-03 14:28:41,647 - app - WARNING - Code_map contents: {'1': 'Requires refresher on delivery system steps each time', '2': 'Requires brief refresher on delivery system steps', '3': 'No delivery system refresher needed, intuitive delivery system steps'}
-2025-11-03 14:28:41,647 - app - WARNING - Code '152' not found in code_map for attr_no=15, schema_name=AVERAGE_NUMBER_OF_DEVICE_REPOSITIONS. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:28:41,648 - app - WARNING - Code_map contents: {'1': 'On average 5 device repositions are needed', '2': 'On average 3 device repositions are needed', '3': 'On average 1 device reposition is needed', '4': 'No device repositioning needed'}
-2025-11-03 14:28:41,648 - app - WARNING - Code '171' not found in code_map for attr_no=17, schema_name=DELIVERY_PROFILE. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:28:41,648 - app - WARNING - Code_map contents: {'1': 'Delivery Profile: 5 French', '2': 'Delivery Profile: 9 French', '3': 'Delivery Profile: 12 French', '4': 'Delivery Profile: 15 French'}
-2025-11-03 14:28:41,648 - app - WARNING - Code '184' not found in code_map for attr_no=18, schema_name=DEVICE_SIZE. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:28:41,648 - app - WARNING - Code_map contents: {'1': 'Device size: up to 25mm', '2': 'Device size: up to 30mm', '3': 'Device size: up to 35mm', '4': 'Device size: up to 40mm'}
-2025-11-03 14:28:41,649 - app - WARNING - Code '193' not found in code_map for attr_no=19, schema_name=PROCEDURAL_SUCCESS_RATE. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:28:41,649 - app - WARNING - Code_map contents: {'1': 'Procedural Success Rate: 90%', '2': 'Procedural Success Rate: 95%', '3': 'Procedural Success Rate: 99%', '4': 'Procedural Success Rate is unknown'}
-2025-11-03 14:28:41,649 - app - WARNING - Code '14' not found in code_map for attr_no=1, schema_name=ON_TABLE_CLOSURE_RATE. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:28:41,650 - app - WARNING - Code_map contents: {'1': '70% On-table closure rate during procedure', '2': '80% On-table closure rate during procedure', '3': '90% On-table closure rate during procedure', '4': '99% On-table closure rate during procedure', '5': 'On-table closure rate is unavailable'}
-2025-11-03 14:28:41,650 - app - WARNING - Code '36' not found in code_map for attr_no=3, schema_name=DEVICE_EMBOLIZATION_RATE_DEVICE_DISLODGES. Available codes: ['1', '2', '3', '4', '5', '6']
-2025-11-03 14:28:41,650 - app - WARNING - Code_map contents: {'1': 'Device Embolization Rate (Device Dislodges): 1 in 100 cases', '2': 'Device Embolization Rate (Device Dislodges): 1 in 250 cases', '3': 'Device Embolization Rate (Device Dislodges): 1 in 500 cases', '4': 'Device Embolization Rate (Device Dislodges): 1 in 1,000 cases', '5': 'Device Embolization Rate (Device Dislodges): 1 in 1,250 cases'}
-2025-11-03 14:28:41,651 - app - WARNING - Code '42' not found in code_map for attr_no=4, schema_name=RATE_OF_ANY_ATRIAL_ARRHYTHMIA_REQUIRING_PROCEDURAL_INTERVENTION_POST_IMPLANT. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:28:41,651 - app - WARNING - Code_map contents: {'1': 'Rate of any atrial arrhythmia requiring procedural intervention post-implant: 5% of cases', '2': 'Rate of any atrial arrhythmia requiring procedural intervention post-implant: 10% of cases', '3': 'Rate of any atrial arrhythmia requiring procedural intervention post-implant: 20% of cases', '4': 'Rate of any atrial arrhythmia requiring procedural intervention post-implant: 30% of cases', '5': 'Rate of any atrial arrhythmia requiring procedural intervention post-implant is unavailable'}
-2025-11-03 14:28:41,651 - app - WARNING - Code '65' not found in code_map for attr_no=6, schema_name=DEVICE_FRAME_RELATED_CARDIAC_INJURY_RATE_EROSION_OR_PERFORATION_POST_IMPLANT. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:28:41,652 - app - WARNING - Code_map contents: {'1': 'Device Frame-Related Cardiac Injury Rate (Erosion or Perforation) Post-Implant: 1 in 1,000 cases', '2': 'Device Frame-Related Cardiac Injury Rate (Erosion or Perforation) Post-Implant: 1 in 10,000 cases', '3': 'Device Frame-Related Cardiac Injury Rate (Erosion or Perforation) Post-Implant: 1 in 100,000 cases', '4': 'Device Frame-Related Cardiac Injury Rate (Erosion or Perforation) Post-Implant: 1 in 150,000 cases', '5': 'Device Frame-Related Cardiac Injury Rate (Erosion or Perforation) Post-Implant is unavailable'}
-2025-11-03 14:28:41,652 - app - WARNING - Code '103' not found in code_map for attr_no=10, schema_name=DEVICE_CROSSABILITY. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:28:41,653 - app - WARNING - Code_map contents: {'1': 'Device is not crossable', '2': 'Device can be crossed, but with significant effort', '3': 'Device can be crossed, but with moderate effort', '4': 'Device can be crossed easily'}
-2025-11-03 14:28:41,653 - app - WARNING - Code '142' not found in code_map for attr_no=14, schema_name=DELIVERY_SYSTEM_REFRESHER. Available codes: ['1', '2', '3']
-2025-11-03 14:28:41,653 - app - WARNING - Code_map contents: {'1': 'Requires refresher on delivery system steps each time', '2': 'Requires brief refresher on delivery system steps', '3': 'No delivery system refresher needed, intuitive delivery system steps'}
-2025-11-03 14:28:41,653 - app - WARNING - Code '151' not found in code_map for attr_no=15, schema_name=AVERAGE_NUMBER_OF_DEVICE_REPOSITIONS. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:28:41,654 - app - WARNING - Code_map contents: {'1': 'On average 5 device repositions are needed', '2': 'On average 3 device repositions are needed', '3': 'On average 1 device reposition is needed', '4': 'No device repositioning needed'}
-2025-11-03 14:28:41,654 - app - WARNING - Code '174' not found in code_map for attr_no=17, schema_name=DELIVERY_PROFILE. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:28:41,654 - app - WARNING - Code_map contents: {'1': 'Delivery Profile: 5 French', '2': 'Delivery Profile: 9 French', '3': 'Delivery Profile: 12 French', '4': 'Delivery Profile: 15 French'}
-2025-11-03 14:28:41,654 - app - WARNING - Code '183' not found in code_map for attr_no=18, schema_name=DEVICE_SIZE. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:28:41,654 - app - WARNING - Code_map contents: {'1': 'Device size: up to 25mm', '2': 'Device size: up to 30mm', '3': 'Device size: up to 35mm', '4': 'Device size: up to 40mm'}
-2025-11-03 14:28:41,655 - app - WARNING - Code '192' not found in code_map for attr_no=19, schema_name=PROCEDURAL_SUCCESS_RATE. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:28:41,655 - app - WARNING - Code_map contents: {'1': 'Procedural Success Rate: 90%', '2': 'Procedural Success Rate: 95%', '3': 'Procedural Success Rate: 99%', '4': 'Procedural Success Rate is unknown'}
-2025-11-03 14:28:41,655 - app - WARNING - Code '11' not found in code_map for attr_no=1, schema_name=ON_TABLE_CLOSURE_RATE. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:28:41,655 - app - WARNING - Code_map contents: {'1': '70% On-table closure rate during procedure', '2': '80% On-table closure rate during procedure', '3': '90% On-table closure rate during procedure', '4': '99% On-table closure rate during procedure', '5': 'On-table closure rate is unavailable'}
-2025-11-03 14:28:41,655 - app - WARNING - Code '21' not found in code_map for attr_no=2, schema_name=DEVICE_CLOSURE_RATE_6_MONTHS_AFTER_SURGERY. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:28:41,656 - app - WARNING - Code_map contents: {'1': '80% Device Closure Rate (6 months after surgery)', '2': '90% Device Closure Rate (6 months after surgery)', '3': '99% Device Closure Rate (6 months after surgery)', '4': 'Device Closure Rate (6 months after surgery) is unavailable'}
-2025-11-03 14:28:41,656 - app - WARNING - Code '55' not found in code_map for attr_no=5, schema_name=ATRIAL_ARRHYTHMIA_REQUIRING_SHORT_TERM_MEDICAL_MANAGEMENT. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:28:41,656 - app - WARNING - Code_map contents: {'1': 'Rate of atrial arrhythmia requiring short-term medical management: 5% of cases', '2': 'Rate of atrial arrhythmia requiring short-term medical management: 3% of cases', '3': 'Rate of atrial arrhythmia requiring short-term medical management: 1% of cases', '4': 'Rate of atrial arrhythmia requiring short-term medical management: 0.5% of cases', '5': 'Rate of atrial arrhythmia requiring short-term medical management is unavailable'}
-2025-11-03 14:28:41,656 - app - WARNING - Code '84' not found in code_map for attr_no=8, schema_name=DEVICE_RELATED_THROMBUS_RATE_6_MONTHS_AFTER_PROCEDURE. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:28:41,656 - app - WARNING - Code_map contents: {'1': 'Device-Related Thrombus Rate (6 months after procedure): 0.5% of cases', '2': 'Device-Related Thrombus Rate (6 months after procedure): 2.5% of cases', '3': 'Device-Related Thrombus Rate (6 months after procedure): 5% of cases', '4': 'Device-Related Thrombus Rate (6 months after procedure):7.5% of cases', '5': 'Device-Related Thrombus Rate (6 months after procedure) is unavailable'}
-2025-11-03 14:28:41,657 - app - WARNING - Code '92' not found in code_map for attr_no=9, schema_name=LEAVE_LESS_BEHIND_BIOABSORBABLE_LESS_METAL. Available codes: ['1', '2', '3']
-2025-11-03 14:28:41,657 - app - WARNING - Code_map contents: {'1': 'Leave Less Behind (bioabsorbable/less metal): Standard nitinol-based', '2': 'Leave Less Behind (bioabsorbable/less metal): 50% absorbable', '3': 'Leave Less Behind (bioabsorbable/less metal): Fully absorbable'}
-2025-11-03 14:28:41,657 - app - WARNING - Code '114' not found in code_map for attr_no=11, schema_name=WIRE_FRAME_FRACTURE_RATE_WITHOUT_CLINICAL_SEQUELAE. Available codes: ['1', '2', '3', '4', '5', '6']
-2025-11-03 14:28:41,658 - app - WARNING - Code_map contents: {'1': 'Wire Frame Fracture Rate without clinical sequelae:0% of cases', '2': 'Wire Frame Fracture Rate without clinical sequelae: 5% of cases', '3': 'Wire Frame Fracture Rate without clinical sequelae: 15% of cases', '4': 'Wire Frame Fracture Rate without clinical sequelae: 25% of cases', '5': 'Wire Frame Fracture Rate without clinical sequelae: 40% of cases'}
-2025-11-03 14:28:41,658 - app - WARNING - Code '123' not found in code_map for attr_no=12, schema_name=PROCEDURE_TIME. Available codes: ['1', '2', '3']
-2025-11-03 14:28:41,658 - app - WARNING - Code_map contents: {'1': 'Slower than average procedure time', '2': 'Average procedure time', '3': 'Quicker than average procedure time'}
-2025-11-03 14:28:41,658 - app - WARNING - Code '131' not found in code_map for attr_no=13, schema_name=DEVICE_PREP_TIME. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:28:41,659 - app - WARNING - Code_map contents: {'1': 'Device prep time in 30 seconds', '2': 'Device prep time in 1 min', '3': 'Device prep time in 3 mins', '4': 'Device prep time in 6 mins'}
-2025-11-03 14:28:41,659 - app - WARNING - Code '162' not found in code_map for attr_no=16, schema_name=IMAGING_VISABILITY_UNDER_IMAGING. Available codes: ['1', '2', '3']
-2025-11-03 14:28:41,659 - app - WARNING - Code_map contents: {'1': 'Difficult to visualize under imaging', '2': 'Moderate visability under imaging', '3': 'Clearly visible under imaging'}
-2025-11-03 14:28:41,660 - app - WARNING - Code '201' not found in code_map for attr_no=20, schema_name=STROKE_RATE_REDUCTION. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:28:41,660 - app - WARNING - Code_map contents: {'1': 'Stroke rate reduction: 59% relative reduction for recurrent cryptogenic stroke', '2': 'Stroke rate reduction: 79% relative reduction for recurrent cryptogenic stroke', '3': 'Stroke rate reduction: 99% relative reduction for recurrent cryptogenic stroke', '4': 'Stroke rate reduction is unknown'}
-2025-11-03 14:28:41,661 - app - WARNING - Code '15' not found in code_map for attr_no=1, schema_name=ON_TABLE_CLOSURE_RATE. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:28:41,661 - app - WARNING - Code_map contents: {'1': '70% On-table closure rate during procedure', '2': '80% On-table closure rate during procedure', '3': '90% On-table closure rate during procedure', '4': '99% On-table closure rate during procedure', '5': 'On-table closure rate is unavailable'}
-2025-11-03 14:28:41,661 - app - WARNING - Code '24' not found in code_map for attr_no=2, schema_name=DEVICE_CLOSURE_RATE_6_MONTHS_AFTER_SURGERY. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:28:41,661 - app - WARNING - Code_map contents: {'1': '80% Device Closure Rate (6 months after surgery)', '2': '90% Device Closure Rate (6 months after surgery)', '3': '99% Device Closure Rate (6 months after surgery)', '4': 'Device Closure Rate (6 months after surgery) is unavailable'}
-2025-11-03 14:28:41,662 - app - WARNING - Code '54' not found in code_map for attr_no=5, schema_name=ATRIAL_ARRHYTHMIA_REQUIRING_SHORT_TERM_MEDICAL_MANAGEMENT. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:28:41,662 - app - WARNING - Code_map contents: {'1': 'Rate of atrial arrhythmia requiring short-term medical management: 5% of cases', '2': 'Rate of atrial arrhythmia requiring short-term medical management: 3% of cases', '3': 'Rate of atrial arrhythmia requiring short-term medical management: 1% of cases', '4': 'Rate of atrial arrhythmia requiring short-term medical management: 0.5% of cases', '5': 'Rate of atrial arrhythmia requiring short-term medical management is unavailable'}
-2025-11-03 14:28:41,662 - app - WARNING - Code '81' not found in code_map for attr_no=8, schema_name=DEVICE_RELATED_THROMBUS_RATE_6_MONTHS_AFTER_PROCEDURE. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:28:41,662 - app - WARNING - Code_map contents: {'1': 'Device-Related Thrombus Rate (6 months after procedure): 0.5% of cases', '2': 'Device-Related Thrombus Rate (6 months after procedure): 2.5% of cases', '3': 'Device-Related Thrombus Rate (6 months after procedure): 5% of cases', '4': 'Device-Related Thrombus Rate (6 months after procedure):7.5% of cases', '5': 'Device-Related Thrombus Rate (6 months after procedure) is unavailable'}
-2025-11-03 14:28:41,663 - app - WARNING - Code '91' not found in code_map for attr_no=9, schema_name=LEAVE_LESS_BEHIND_BIOABSORBABLE_LESS_METAL. Available codes: ['1', '2', '3']
-2025-11-03 14:28:41,663 - app - WARNING - Code_map contents: {'1': 'Leave Less Behind (bioabsorbable/less metal): Standard nitinol-based', '2': 'Leave Less Behind (bioabsorbable/less metal): 50% absorbable', '3': 'Leave Less Behind (bioabsorbable/less metal): Fully absorbable'}
-2025-11-03 14:28:41,663 - app - WARNING - Code '113' not found in code_map for attr_no=11, schema_name=WIRE_FRAME_FRACTURE_RATE_WITHOUT_CLINICAL_SEQUELAE. Available codes: ['1', '2', '3', '4', '5', '6']
-2025-11-03 14:28:41,663 - app - WARNING - Code_map contents: {'1': 'Wire Frame Fracture Rate without clinical sequelae:0% of cases', '2': 'Wire Frame Fracture Rate without clinical sequelae: 5% of cases', '3': 'Wire Frame Fracture Rate without clinical sequelae: 15% of cases', '4': 'Wire Frame Fracture Rate without clinical sequelae: 25% of cases', '5': 'Wire Frame Fracture Rate without clinical sequelae: 40% of cases'}
-2025-11-03 14:28:41,664 - app - WARNING - Code '122' not found in code_map for attr_no=12, schema_name=PROCEDURE_TIME. Available codes: ['1', '2', '3']
-2025-11-03 14:28:41,664 - app - WARNING - Code_map contents: {'1': 'Slower than average procedure time', '2': 'Average procedure time', '3': 'Quicker than average procedure time'}
-2025-11-03 14:28:41,665 - app - WARNING - Code '134' not found in code_map for attr_no=13, schema_name=DEVICE_PREP_TIME. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:28:41,665 - app - WARNING - Code_map contents: {'1': 'Device prep time in 30 seconds', '2': 'Device prep time in 1 min', '3': 'Device prep time in 3 mins', '4': 'Device prep time in 6 mins'}
-2025-11-03 14:28:41,665 - app - WARNING - Code '163' not found in code_map for attr_no=16, schema_name=IMAGING_VISABILITY_UNDER_IMAGING. Available codes: ['1', '2', '3']
-2025-11-03 14:28:41,665 - app - WARNING - Code_map contents: {'1': 'Difficult to visualize under imaging', '2': 'Moderate visability under imaging', '3': 'Clearly visible under imaging'}
-2025-11-03 14:28:41,666 - app - WARNING - Code '202' not found in code_map for attr_no=20, schema_name=STROKE_RATE_REDUCTION. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:28:41,666 - app - WARNING - Code_map contents: {'1': 'Stroke rate reduction: 59% relative reduction for recurrent cryptogenic stroke', '2': 'Stroke rate reduction: 79% relative reduction for recurrent cryptogenic stroke', '3': 'Stroke rate reduction: 99% relative reduction for recurrent cryptogenic stroke', '4': 'Stroke rate reduction is unknown'}
-2025-11-03 14:28:41,667 - app - WARNING - Code '24' not found in code_map for attr_no=2, schema_name=DEVICE_CLOSURE_RATE_6_MONTHS_AFTER_SURGERY. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:28:41,667 - app - WARNING - Code_map contents: {'1': '80% Device Closure Rate (6 months after surgery)', '2': '90% Device Closure Rate (6 months after surgery)', '3': '99% Device Closure Rate (6 months after surgery)', '4': 'Device Closure Rate (6 months after surgery) is unavailable'}
-2025-11-03 14:28:41,667 - app - WARNING - Code '35' not found in code_map for attr_no=3, schema_name=DEVICE_EMBOLIZATION_RATE_DEVICE_DISLODGES. Available codes: ['1', '2', '3', '4', '5', '6']
-2025-11-03 14:28:41,668 - app - WARNING - Code_map contents: {'1': 'Device Embolization Rate (Device Dislodges): 1 in 100 cases', '2': 'Device Embolization Rate (Device Dislodges): 1 in 250 cases', '3': 'Device Embolization Rate (Device Dislodges): 1 in 500 cases', '4': 'Device Embolization Rate (Device Dislodges): 1 in 1,000 cases', '5': 'Device Embolization Rate (Device Dislodges): 1 in 1,250 cases'}
-2025-11-03 14:28:41,668 - app - WARNING - Code '83' not found in code_map for attr_no=8, schema_name=DEVICE_RELATED_THROMBUS_RATE_6_MONTHS_AFTER_PROCEDURE. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:28:41,668 - app - WARNING - Code_map contents: {'1': 'Device-Related Thrombus Rate (6 months after procedure): 0.5% of cases', '2': 'Device-Related Thrombus Rate (6 months after procedure): 2.5% of cases', '3': 'Device-Related Thrombus Rate (6 months after procedure): 5% of cases', '4': 'Device-Related Thrombus Rate (6 months after procedure):7.5% of cases', '5': 'Device-Related Thrombus Rate (6 months after procedure) is unavailable'}
-2025-11-03 14:28:41,668 - app - WARNING - Code '91' not found in code_map for attr_no=9, schema_name=LEAVE_LESS_BEHIND_BIOABSORBABLE_LESS_METAL. Available codes: ['1', '2', '3']
-2025-11-03 14:28:41,669 - app - WARNING - Code_map contents: {'1': 'Leave Less Behind (bioabsorbable/less metal): Standard nitinol-based', '2': 'Leave Less Behind (bioabsorbable/less metal): 50% absorbable', '3': 'Leave Less Behind (bioabsorbable/less metal): Fully absorbable'}
-2025-11-03 14:28:41,669 - app - WARNING - Code '123' not found in code_map for attr_no=12, schema_name=PROCEDURE_TIME. Available codes: ['1', '2', '3']
-2025-11-03 14:28:41,669 - app - WARNING - Code_map contents: {'1': 'Slower than average procedure time', '2': 'Average procedure time', '3': 'Quicker than average procedure time'}
-2025-11-03 14:28:41,669 - app - WARNING - Code '141' not found in code_map for attr_no=14, schema_name=DELIVERY_SYSTEM_REFRESHER. Available codes: ['1', '2', '3']
-2025-11-03 14:28:41,669 - app - WARNING - Code_map contents: {'1': 'Requires refresher on delivery system steps each time', '2': 'Requires brief refresher on delivery system steps', '3': 'No delivery system refresher needed, intuitive delivery system steps'}
-2025-11-03 14:28:41,670 - app - WARNING - Code '161' not found in code_map for attr_no=16, schema_name=IMAGING_VISABILITY_UNDER_IMAGING. Available codes: ['1', '2', '3']
-2025-11-03 14:28:41,670 - app - WARNING - Code_map contents: {'1': 'Difficult to visualize under imaging', '2': 'Moderate visability under imaging', '3': 'Clearly visible under imaging'}
-2025-11-03 14:28:41,670 - app - WARNING - Code '173' not found in code_map for attr_no=17, schema_name=DELIVERY_PROFILE. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:28:41,671 - app - WARNING - Code_map contents: {'1': 'Delivery Profile: 5 French', '2': 'Delivery Profile: 9 French', '3': 'Delivery Profile: 12 French', '4': 'Delivery Profile: 15 French'}
-2025-11-03 14:28:41,671 - app - WARNING - Code '191' not found in code_map for attr_no=19, schema_name=PROCEDURAL_SUCCESS_RATE. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:28:41,671 - app - WARNING - Code_map contents: {'1': 'Procedural Success Rate: 90%', '2': 'Procedural Success Rate: 95%', '3': 'Procedural Success Rate: 99%', '4': 'Procedural Success Rate is unknown'}
-2025-11-03 14:28:41,671 - app - WARNING - Code '203' not found in code_map for attr_no=20, schema_name=STROKE_RATE_REDUCTION. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:28:41,672 - app - WARNING - Code_map contents: {'1': 'Stroke rate reduction: 59% relative reduction for recurrent cryptogenic stroke', '2': 'Stroke rate reduction: 79% relative reduction for recurrent cryptogenic stroke', '3': 'Stroke rate reduction: 99% relative reduction for recurrent cryptogenic stroke', '4': 'Stroke rate reduction is unknown'}
-2025-11-03 14:28:41,672 - app - WARNING - Code '23' not found in code_map for attr_no=2, schema_name=DEVICE_CLOSURE_RATE_6_MONTHS_AFTER_SURGERY. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:28:41,672 - app - WARNING - Code_map contents: {'1': '80% Device Closure Rate (6 months after surgery)', '2': '90% Device Closure Rate (6 months after surgery)', '3': '99% Device Closure Rate (6 months after surgery)', '4': 'Device Closure Rate (6 months after surgery) is unavailable'}
-2025-11-03 14:28:41,673 - app - WARNING - Code '31' not found in code_map for attr_no=3, schema_name=DEVICE_EMBOLIZATION_RATE_DEVICE_DISLODGES. Available codes: ['1', '2', '3', '4', '5', '6']
-2025-11-03 14:28:41,673 - app - WARNING - Code_map contents: {'1': 'Device Embolization Rate (Device Dislodges): 1 in 100 cases', '2': 'Device Embolization Rate (Device Dislodges): 1 in 250 cases', '3': 'Device Embolization Rate (Device Dislodges): 1 in 500 cases', '4': 'Device Embolization Rate (Device Dislodges): 1 in 1,000 cases', '5': 'Device Embolization Rate (Device Dislodges): 1 in 1,250 cases'}
-2025-11-03 14:28:41,673 - app - WARNING - Code '82' not found in code_map for attr_no=8, schema_name=DEVICE_RELATED_THROMBUS_RATE_6_MONTHS_AFTER_PROCEDURE. Available codes: ['1', '2', '3', '4', '5']
-2025-11-03 14:28:41,674 - app - WARNING - Code_map contents: {'1': 'Device-Related Thrombus Rate (6 months after procedure): 0.5% of cases', '2': 'Device-Related Thrombus Rate (6 months after procedure): 2.5% of cases', '3': 'Device-Related Thrombus Rate (6 months after procedure): 5% of cases', '4': 'Device-Related Thrombus Rate (6 months after procedure):7.5% of cases', '5': 'Device-Related Thrombus Rate (6 months after procedure) is unavailable'}
-2025-11-03 14:28:41,674 - app - WARNING - Code '93' not found in code_map for attr_no=9, schema_name=LEAVE_LESS_BEHIND_BIOABSORBABLE_LESS_METAL. Available codes: ['1', '2', '3']
-2025-11-03 14:28:41,674 - app - WARNING - Code_map contents: {'1': 'Leave Less Behind (bioabsorbable/less metal): Standard nitinol-based', '2': 'Leave Less Behind (bioabsorbable/less metal): 50% absorbable', '3': 'Leave Less Behind (bioabsorbable/less metal): Fully absorbable'}
-2025-11-03 14:28:41,675 - app - WARNING - Code '121' not found in code_map for attr_no=12, schema_name=PROCEDURE_TIME. Available codes: ['1', '2', '3']
-2025-11-03 14:28:41,675 - app - WARNING - Code_map contents: {'1': 'Slower than average procedure time', '2': 'Average procedure time', '3': 'Quicker than average procedure time'}
-2025-11-03 14:28:41,675 - app - WARNING - Code '143' not found in code_map for attr_no=14, schema_name=DELIVERY_SYSTEM_REFRESHER. Available codes: ['1', '2', '3']
-2025-11-03 14:28:41,675 - app - WARNING - Code_map contents: {'1': 'Requires refresher on delivery system steps each time', '2': 'Requires brief refresher on delivery system steps', '3': 'No delivery system refresher needed, intuitive delivery system steps'}
-2025-11-03 14:28:41,676 - app - WARNING - Code '162' not found in code_map for attr_no=16, schema_name=IMAGING_VISABILITY_UNDER_IMAGING. Available codes: ['1', '2', '3']
-2025-11-03 14:28:41,676 - app - WARNING - Code_map contents: {'1': 'Difficult to visualize under imaging', '2': 'Moderate visability under imaging', '3': 'Clearly visible under imaging'}
-2025-11-03 14:28:41,676 - app - WARNING - Code '172' not found in code_map for attr_no=17, schema_name=DELIVERY_PROFILE. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:28:41,676 - app - WARNING - Code_map contents: {'1': 'Delivery Profile: 5 French', '2': 'Delivery Profile: 9 French', '3': 'Delivery Profile: 12 French', '4': 'Delivery Profile: 15 French'}
-2025-11-03 14:28:41,677 - app - WARNING - Code '194' not found in code_map for attr_no=19, schema_name=PROCEDURAL_SUCCESS_RATE. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:28:41,677 - app - WARNING - Code_map contents: {'1': 'Procedural Success Rate: 90%', '2': 'Procedural Success Rate: 95%', '3': 'Procedural Success Rate: 99%', '4': 'Procedural Success Rate is unknown'}
-2025-11-03 14:28:41,677 - app - WARNING - Code '204' not found in code_map for attr_no=20, schema_name=STROKE_RATE_REDUCTION. Available codes: ['1', '2', '3', '4']
-2025-11-03 14:28:41,677 - app - WARNING - Code_map contents: {'1': 'Stroke rate reduction: 59% relative reduction for recurrent cryptogenic stroke', '2': 'Stroke rate reduction: 79% relative reduction for recurrent cryptogenic stroke', '3': 'Stroke rate reduction: 99% relative reduction for recurrent cryptogenic stroke', '4': 'Stroke rate reduction is unknown'}
-2025-11-03 14:28:42,091 - app - INFO - Converted to long format: 3598 rows and 24 columns
-2025-11-03 14:28:42,091 - app - INFO - Attribute columns in long format (20): ['RATE_OF_ANY_ATRIAL_ARRHYTHMIA_REQUIRING_PROCEDURAL_INTERVENTION_POST_IMPLANT', 'ATRIAL_ARRHYTHMIA_REQUIRING_SHORT_TERM_MEDICAL_MANAGEMENT', 'DEVICE_FRAME_RELATED_CARDIAC_INJURY_RATE_EROSION_OR_PERFORATION_POST_IMPLANT', 'TIME_TO_COMPLETE_ENDOTHELIALIZATION', 'LEAVE_LESS_BEHIND_BIOABSORBABLE_LESS_METAL', 'PROCEDURE_TIME', 'DEVICE_PREP_TIME', 'DELIVERY_SYSTEM_REFRESHER', 'AVERAGE_NUMBER_OF_DEVICE_REPOSITIONS', 'IMAGING_VISABILITY_UNDER_IMAGING']...
-2025-11-03 14:28:42,093 - app - INFO -   Column 'RATE_OF_ANY_ATRIAL_ARRHYTHMIA_REQUIRING_PROCEDURAL_INTERVENTION_POST_IMPLANT': 5 unique values, sample: ['45', '44', '42', '41', '43']
-2025-11-03 14:28:42,095 - app - INFO -   Column 'ATRIAL_ARRHYTHMIA_REQUIRING_SHORT_TERM_MEDICAL_MANAGEMENT': 5 unique values, sample: ['52', '53', '55', '54', '51']
-2025-11-03 14:28:42,098 - app - INFO -   Column 'DEVICE_FRAME_RELATED_CARDIAC_INJURY_RATE_EROSION_OR_PERFORATION_POST_IMPLANT': 5 unique values, sample: ['63', '65', '64', '61', '62']
-2025-11-03 14:28:42,099 - app - INFO -   Column 'TIME_TO_COMPLETE_ENDOTHELIALIZATION': 5 unique values, sample: ['71', '72', '75', '73', '74']
-2025-11-03 14:28:42,101 - app - INFO -   Column 'LEAVE_LESS_BEHIND_BIOABSORBABLE_LESS_METAL': 3 unique values, sample: ['93', '92', '91']
-2025-11-03 14:28:42,103 - app - INFO - Using levels from data for 'ON_TABLE_CLOSURE_RATE': 5 levels
-2025-11-03 14:28:42,104 - app - INFO - Using levels from data for 'DEVICE_CLOSURE_RATE_6_MONTHS_AFTER_SURGERY': 4 levels
-2025-11-03 14:28:42,105 - app - INFO - Using levels from data for 'DEVICE_EMBOLIZATION_RATE_DEVICE_DISLODGES': 6 levels
-2025-11-03 14:28:42,107 - app - INFO - Using levels from data for 'RATE_OF_ANY_ATRIAL_ARRHYTHMIA_REQUIRING_PROCEDURAL_INTERVENTION_POST_IMPLANT': 5 levels
-2025-11-03 14:28:42,108 - app - INFO - Using levels from data for 'ATRIAL_ARRHYTHMIA_REQUIRING_SHORT_TERM_MEDICAL_MANAGEMENT': 5 levels
-2025-11-03 14:28:42,109 - app - INFO - Using levels from data for 'DEVICE_FRAME_RELATED_CARDIAC_INJURY_RATE_EROSION_OR_PERFORATION_POST_IMPLANT': 5 levels
-2025-11-03 14:28:42,110 - app - INFO - Using levels from data for 'TIME_TO_COMPLETE_ENDOTHELIALIZATION': 5 levels
-2025-11-03 14:28:42,111 - app - INFO - Using levels from data for 'DEVICE_RELATED_THROMBUS_RATE_6_MONTHS_AFTER_PROCEDURE': 5 levels
-2025-11-03 14:28:42,112 - app - INFO - Using levels from data for 'LEAVE_LESS_BEHIND_BIOABSORBABLE_LESS_METAL': 3 levels
-2025-11-03 14:28:42,114 - app - INFO - Using levels from data for 'DEVICE_CROSSABILITY': 4 levels
-2025-11-03 14:28:42,115 - app - INFO - Using levels from data for 'WIRE_FRAME_FRACTURE_RATE_WITHOUT_CLINICAL_SEQUELAE':6 levels
-2025-11-03 14:28:42,117 - app - INFO - Using levels from data for 'PROCEDURE_TIME': 3 levels
-2025-11-03 14:28:42,118 - app - INFO - Using levels from data for 'DEVICE_PREP_TIME': 4 levels
-2025-11-03 14:28:42,119 - app - INFO - Using levels from data for 'DELIVERY_SYSTEM_REFRESHER': 3 levels
-2025-11-03 14:28:42,121 - app - INFO - Using levels from data for 'AVERAGE_NUMBER_OF_DEVICE_REPOSITIONS': 4 levels
-2025-11-03 14:28:42,122 - app - INFO - Using levels from data for 'IMAGING_VISABILITY_UNDER_IMAGING': 3 levels
-2025-11-03 14:28:42,123 - app - INFO - Using levels from data for 'DELIVERY_PROFILE': 4 levels
-2025-11-03 14:28:42,124 - app - INFO - Using levels from data for 'DEVICE_SIZE': 4 levels
-2025-11-03 14:28:42,125 - app - INFO - Using levels from data for 'PROCEDURAL_SUCCESS_RATE': 4 levels
-2025-11-03 14:28:42,126 - app - INFO - Using levels from data for 'STROKE_RATE_REDUCTION': 4 levels
-2025-11-03 14:28:42,334 - app - INFO - Design matrix: 3598 rows × 87 columns
-2025-11-03 14:28:42,358 - app - INFO - Design matrix rank: 87 (columns: 87)
-2025-11-03 14:28:42,388 - app - INFO - Fitting model with Newton-Raphson...
-2025-11-03 14:28:42,462 - app - INFO - Model estimated successfully. Log-likelihood: -2187.92
-INFO:     127.0.0.1:54838 - "POST /estimate_from_survey_export HTTP/1.1" 200 OK
+2025-11-04 17:33:26,712 - app - INFO - Survey export estimation request: filtered_survey.xlsx
+2025-11-04 17:33:26,715 - app - INFO - File size: 2515.2KB
+2025-11-04 17:33:28,261 - app - INFO - Read survey data: 100 rows × 768 columns
+2025-11-04 17:33:28,262 - app - INFO - Sample columns from Excel file: ['record', 'uuid', 'hATTR_GORE_1c1', 'hATTR_GORE_1c2', 'hATTR_GORE_1c3', 'hATTR_GORE_1c4', 'hATTR_GORE_1c5', 'hATTR_GORE_1c6', 'hATTR_GORE_1c7', 'hATTR_GORE_1c8', 'hATTR_GORE_1c9', 'hATTR_GORE_1c10', 'hATTR_GORE_H_1c1', 'hATTR_GORE_H_1c2', 'hATTR_GORE_H_1c3', 'hATTR_GORE_H_1c4', 'hATTR_GORE_H_1c5', 'hATTR_GORE_H_1c6', 'hATTR_GORE_H_1c7', 'hATTR_GORE_H_1c8', 'hATTR_GORE_H_1c9', 'hATTR_GORE_H_1c10', 'hATTR_PFO_1c1', 'hATTR_PFO_1c2', 'hATTR_PFO_1c3', 'hATTR_PFO_1c4', 'hATTR_PFO_1c5', 'hATTR_PFO_1c6', 'hATTR_PFO_1c7', 'hATTR_PFO_1c8']
+2025-11-04 17:33:28,265 - app - INFO - Choice columns found (QC1_*): ['QC1_1', 'QC1_2', 'QC1_3', 'QC1_4', 'QC1_5', 'QC1_6', 'QC1_7', 'QC1_8', 'QC1_9', 'QC1_10'] (15 total)
+2025-11-04 17:33:28,265 - app - INFO - Choice columns found (QS3r*): [] (0 total)
+2025-11-04 17:33:28,265 - app - INFO - Total choice columns found: 15
+2025-11-04 17:33:28,266 - app - INFO - All QC1 columns (any pattern): ['QC1_1', 'QC1_2', 'QC1_3', 'QC1_4', 'QC1_5', 'QC1_6', 'QC1_7', 'QC1_8', 'QC1_9', 'QC1_10', 'QC1_11', 'QC1_12', 'QC1_13', 'QC1_14', 'QC1_15', 'QC1_Version'] (16 total)
+2025-11-04 17:33:28,266 - app - INFO - All QS3 columns (any pattern): [] (0 total)
+2025-11-04 17:33:28,267 - app - INFO - Using attribute definitions from design: 20 attributes
+2025-11-04 17:33:28,267 - app - INFO - First attribute: name='ON_TABLE_CLOSURE_RATE', levels=5
+2025-11-04 17:33:28,267 - app - INFO - Parsing survey export data...
+2025-11-04 17:33:28,268 - app - INFO - Built code mapping for 20 attributes from design
+2025-11-04 17:33:28,268 - app - INFO - Sample code_map for attribute 1 (ON_TABLE_CLOSURE_RATE): {'1': '70% On-table closure rate during procedure', '2': '80% On-table closure rate during procedure', '3': '90% On-table closure rate during procedure', '4': '99% On-table closure rate during procedure', '5': 'On-table closure rate is unavailable'}
+2025-11-04 17:33:28,271 - app - INFO - Found 15 choice tasks: ['QC1_1', 'QC1_2', 'QC1_3', 'QC1_4', 'QC1_5', 'QC1_6', 'QC1_7', 'QC1_8', 'QC1_9', 'QC1_10']...
+2025-11-04 17:33:28,273 - app - INFO - Detected 2 branded alternatives: ['GORE', 'PFO']
+2025-11-04 17:33:28,968 - app - INFO - Converted to long format: 4498 rows and 24 columns
+2025-11-04 17:33:28,969 - app - INFO - Attribute columns in long format (20): ['RATE_OF_ANY_ATRIAL_ARRHYTHMIA_REQUIRING_PROCEDURAL_INTERVENTION_POST_IMPLANT', 'ATRIAL_ARRHYTHMIA_REQUIRING_SHORT_TERM_MEDICAL_MANAGEMENT', 'DEVICE_FRAME_RELATED_CARDIAC_INJURY_RATE_EROSION_OR_PERFORATION_POST_IMPLANT', 'TIME_TO_COMPLETE_ENDOTHELIALIZATION', 'LEAVE_LESS_BEHIND_BIOABSORBABLE_LESS_METAL', 'PROCEDURE_TIME', 'DEVICE_PREP_TIME', 'DELIVERY_SYSTEM_REFRESHER', 'AVERAGE_NUMBER_OF_DEVICE_REPOSITIONS', 'IMAGING_VISABILITY_UNDER_IMAGING']...
+2025-11-04 17:33:28,973 - app - INFO -   Column 'RATE_OF_ANY_ATRIAL_ARRHYTHMIA_REQUIRING_PROCEDURAL_INTERVENTION_POST_IMPLANT': 5 unique values, sample: ['Rate of any atrial arrhythmia requiring procedural intervention post-implant is unavailable', 'Rate of any atrial arrhythmia requiring procedural intervention post-implant: 30% of cases', 'Rate of any atrial arrhythmia requiring procedural intervention post-implant: 10% of cases', 'Rate of any atrial arrhythmia requiring procedural intervention post-implant: 5% of cases', 'Rate of any atrial arrhythmia requiring procedural intervention post-implant: 20% of cases']
+2025-11-04 17:33:28,977 - app - INFO -   Column 'ATRIAL_ARRHYTHMIA_REQUIRING_SHORT_TERM_MEDICAL_MANAGEMENT': 5 unique values, sample: ['Rate of atrial arrhythmia requiring short-term medical management: 3% of cases', 'Rate of atrial arrhythmia requiring short-term medical management: 1% of cases', 'Rate of atrial arrhythmia requiring short-term medical management is unavailable', 'Rate of atrial arrhythmia requiring short-term medical management: 0.5% of cases', 'Rate of atrial arrhythmia requiring short-term medical management: 5% of cases']
+2025-11-04 17:33:28,981 - app - INFO -   Column 'DEVICE_FRAME_RELATED_CARDIAC_INJURY_RATE_EROSION_OR_PERFORATION_POST_IMPLANT': 5 unique values, sample: ['Device Frame-Related Cardiac Injury Rate (Erosion or Perforation) Post-Implant: 1 in100,000 cases', 'Device Frame-Related Cardiac Injury Rate (Erosion or Perforation) Post-Implant is unavailable', 'Device Frame-Related Cardiac Injury Rate (Erosion or Perforation) Post-Implant: 1 in 150,000 cases', 'Device Frame-Related Cardiac Injury Rate (Erosion or Perforation) Post-Implant: 1 in 1,000 cases', 'Device Frame-Related Cardiac Injury Rate (Erosion or Perforation) Post-Implant: 1 in 10,000 cases']
+2025-11-04 17:33:28,984 - app - INFO -   Column 'TIME_TO_COMPLETE_ENDOTHELIALIZATION': 5 unique values, sample: ['Time to Complete Endothelialization: 1 month', 'Time to Complete Endothelialization: 6 months', 'Time to Complete Endothelialization is pending', 'Time to Complete Endothelialization: 12 months', 'Time to Complete Endothelialization: 18 months']
+2025-11-04 17:33:28,988 - app - INFO -   Column 'LEAVE_LESS_BEHIND_BIOABSORBABLE_LESS_METAL': 3 unique values, sample: ['Leave Less Behind (bioabsorbable/less metal): Fully absorbable', 'Leave Less Behind (bioabsorbable/less metal): 50% absorbable', 'Leave Less Behind (bioabsorbable/less metal): Standard nitinol-based']
+2025-11-04 17:33:28,990 - app - INFO - Using levels from data for 'ON_TABLE_CLOSURE_RATE': 5 levels
+2025-11-04 17:33:28,994 - app - INFO - Using levels from data for 'DEVICE_CLOSURE_RATE_6_MONTHS_AFTER_SURGERY': 4 levels
+2025-11-04 17:33:28,997 - app - INFO - Using levels from data for 'DEVICE_EMBOLIZATION_RATE_DEVICE_DISLODGES': 6 levels
+2025-11-04 17:33:28,999 - app - INFO - Using levels from data for 'RATE_OF_ANY_ATRIAL_ARRHYTHMIA_REQUIRING_PROCEDURAL_INTERVENTION_POST_IMPLANT': 5 levels
+2025-11-04 17:33:29,001 - app - INFO - Using levels from data for 'ATRIAL_ARRHYTHMIA_REQUIRING_SHORT_TERM_MEDICAL_MANAGEMENT': 5 levels
+2025-11-04 17:33:29,003 - app - INFO - Using levels from data for 'DEVICE_FRAME_RELATED_CARDIAC_INJURY_RATE_EROSION_OR_PERFORATION_POST_IMPLANT': 5 levels
+2025-11-04 17:33:29,005 - app - INFO - Using levels from data for 'TIME_TO_COMPLETE_ENDOTHELIALIZATION': 5 levels
+2025-11-04 17:33:29,007 - app - INFO - Using levels from data for 'DEVICE_RELATED_THROMBUS_RATE_6_MONTHS_AFTER_PROCEDURE': 5 levels
+2025-11-04 17:33:29,009 - app - INFO - Using levels from data for 'LEAVE_LESS_BEHIND_BIOABSORBABLE_LESS_METAL': 3 levels
+2025-11-04 17:33:29,010 - app - INFO - Using levels from data for 'DEVICE_CROSSABILITY': 4 levels
+2025-11-04 17:33:29,012 - app - INFO - Using levels from data for 'WIRE_FRAME_FRACTURE_RATE_WITHOUT_CLINICAL_SEQUELAE':6 levels
+2025-11-04 17:33:29,013 - app - INFO - Using levels from data for 'PROCEDURE_TIME': 3 levels
+2025-11-04 17:33:29,015 - app - INFO - Using levels from data for 'DEVICE_PREP_TIME': 4 levels
+2025-11-04 17:33:29,016 - app - INFO - Using levels from data for 'DELIVERY_SYSTEM_REFRESHER': 3 levels
+2025-11-04 17:33:29,018 - app - INFO - Using levels from data for 'AVERAGE_NUMBER_OF_DEVICE_REPOSITIONS': 4 levels
+2025-11-04 17:33:29,019 - app - INFO - Using levels from data for 'IMAGING_VISABILITY_UNDER_IMAGING': 3 levels
+2025-11-04 17:33:29,021 - app - INFO - Using levels from data for 'DELIVERY_PROFILE': 4 levels
+2025-11-04 17:33:29,022 - app - INFO - Using levels from data for 'DEVICE_SIZE': 4 levels
+2025-11-04 17:33:29,024 - app - INFO - Using levels from data for 'PROCEDURAL_SUCCESS_RATE': 4 levels
+2025-11-04 17:33:29,027 - app - INFO - Using levels from data for 'STROKE_RATE_REDUCTION': 4 levels
+2025-11-04 17:33:29,261 - app - INFO - Design matrix: 4498 rows × 67 columns
+2025-11-04 17:33:29,286 - app - INFO - Design matrix rank: 67 (columns: 67)
+2025-11-04 17:33:29,337 - app - INFO - Fitting model with Newton-Raphson...
+2025-11-04 17:33:29,443 - app - INFO - Model estimated successfully. Log-likelihood: -2776.20
+INFO:     127.0.0.1:54747 - "POST /estimate_from_survey_export HTTP/1.1" 200 OK
+2025-11-04 17:33:41,635 - app - INFO - Scenario analysis request: 1 new scenarios, rule='logit'
+2025-11-04 17:33:41,635 - app - INFO - [analyze_scenarios] Scenario 1: has_with_new_options=True (75 columns), has_survey_rows=True (100 rows), has_attribute_columns=True (600 columns), has_design_matrix=True (600 rows)
+2025-11-04 17:33:41,636 - app - INFO - [analyze_scenarios] Design matrix columns (sample): ['__EMPTY', 'Version', 'Task', 'Concept', 'Att1', 'Att2', 'Att3', 'Att4', 'Att5', 'Att6', 'Att7', 'Att8', 'Att9', 'Att10']
+2025-11-04 17:33:41,636 - app - INFO - [analyze_scenarios] Found columns matching pattern ^ATT\d+$: ['Att1', 'Att2', 'Att3', 'Att4', 'Att5']
+2025-11-04 17:33:41,637 - app - INFO - [analyze_scenarios] Using pre-computed attribute column mapping with 150 combinations
+2025-11-04 17:33:41,637 - app - INFO - [match_scenario_to_design_task] Using survey data with 600 attribute columns formatching
+2025-11-04 17:33:41,638 - app - INFO - [match_scenario_to_survey_data] survey_data_rows type: <class 'list'>, length: 100
+2025-11-04 17:33:41,638 - app - INFO - [match_scenario_to_survey_data] First row type: <class 'dict'>, is dict: True, is str: False
+2025-11-04 17:33:41,638 - app - INFO - [match_scenario_to_survey_data] First row (dict) has 1122 keys
+2025-11-04 17:33:41,639 - app - INFO - [match_scenario_to_survey_data] Schema has 20 attributes: ['ON_TABLE_CLOSURE_RATE', 'DEVICE_CLOSURE_RATE_6_MONTHS_AFTER_SURGERY', 'DEVICE_EMBOLIZATION_RATE_DEVICE_DISLODGES', 'RATE_OF_ANY_ATRIAL_ARRHYTHMIA_REQUIRING_PROCEDURAL_INTERVENTION_POST_IMPLANT', 'ATRIAL_ARRHYTHMIA_REQUIRING_SHORT_TERM_MEDICAL_MANAGEMENT']...
+2025-11-04 17:33:41,639 - app - INFO - [match_scenario_to_survey_data] Scenario attributes: ['ON_TABLE_CLOSURE_RATE', 'DEVICE_CLOSURE_RATE_6_MONTHS_AFTER_SURGERY', 'DEVICE_EMBOLIZATION_RATE_DEVICE_DISLODGES', 'RATE_OF_ANY_ATRIAL_ARRHYTHMIA_REQUIRING_PROCEDURAL_INTERVENTION_POST_IMPLANT', 'ATRIAL_ARRHYTHMIA_REQUIRING_SHORT_TERM_MEDICAL_MANAGEMENT']...
+2025-11-04 17:33:41,639 - app - INFO - [match_scenario_to_survey_data] Using pre-computed attribute column mapping with150 task/concept/attribute combinations
+2025-11-04 17:33:41,639 - app - INFO - [match_scenario_to_survey_data] Available columns (sample): ['record', 'uuid', 'date', 'markers', 'status', 'Disposition', 'country', 'QHidLiveTrack', 'QHidStage', 'listSource', 'QS1', 'QS2', 'QS3', 'QS4', 'Region', 'QS5', 'hS5', 'QS6', 'QS7', 'QS7r98oe', 'hS7', 'QS8r1c1', 'QS8r2c1', 'QS8r3c1', 'QS8r4c1', 'QS8r5c1', 'hS8', 'QS9r1c1', 'QS9r2c1', 'QS9r3c1']
+2025-11-04 17:33:41,641 - app - INFO - [match_scenario_to_survey_data] Found Task column: 'QC1_Version' using pattern '^qc1_'
+2025-11-04 17:33:41,653 - app - INFO - [match_scenario_to_survey_data] Found QC2 columns - will extract concept from column names
+2025-11-04 17:33:41,654 - app - INFO - [match_scenario_to_survey_data] Using Task column: 'QC1_Version', Concept column: 'concept_from_qc2', 600 attribute columns
+2025-11-04 17:33:41,656 - app - INFO - [match_scenario_to_survey_data] Found 150 unique task/concept combinations from hATTR columns
+2025-11-04 17:33:41,656 - app - INFO - [match_scenario_to_survey_data] Sample row has 1122 keys. Sample: ['record', 'uuid', 'date', 'markers', 'status', 'Disposition', 'country', 'QHidLiveTrack', 'QHidStage', 'listSource']
+2025-11-04 17:33:41,656 - app - INFO - [match_scenario_to_survey_data] Checking 150 task/concept combinations. Sample: [('6', '9'), ('12', '1'), ('10', '6'), ('14', '3'), ('13', '8')]
+2025-11-04 17:33:41,657 - app - INFO - [match_scenario_to_survey_data] Scenario has 20 attributes to match
+2025-11-04 17:33:41,657 - app - INFO - [match_scenario_to_survey_data] Detected concept values in data: ['1', '10', '2', '3', '4', '5', '6', '7', '8', '9']
+2025-11-04 17:33:41,658 - app - INFO - [match_scenario_to_survey_data] Will check concepts: ['4', '5']
+2025-11-04 17:33:41,690 - app - INFO - [match_scenario_to_survey_data] Found 30 Product ['4', '5'] combinations. Top 5 by column count:
+2025-11-04 17:33:41,691 - app - INFO -   1. Task 10, Concept 5: 4 columns
+2025-11-04 17:33:41,691 - app - INFO -   2. Task 6, Concept 5: 4 columns
+2025-11-04 17:33:41,692 - app - INFO -   3. Task 12, Concept 4: 4 columns
+2025-11-04 17:33:41,692 - app - INFO -   4. Task 9, Concept 5: 4 columns
+2025-11-04 17:33:41,693 - app - INFO -   5. Task 5, Concept 4: 4 columns
+2025-11-04 17:33:41,693 - app - INFO - [match_scenario_to_survey_data] Using pre-computed mapping to match across all Product ['4', '5'] combinations
+2025-11-04 17:33:41,694 - app - INFO - [match_scenario_to_survey_data] Aggregate match across all Product ['4', '5']: 0/20 attributes matched (score: 0.00)
+2025-11-04 17:33:41,694 - app - INFO - [match_scenario_to_survey_data] Checking Task 10, Concept 5 (Product 5) in detail...
+2025-11-04 17:33:41,696 - app - INFO - [match_scenario_to_survey_data] Task 10, Concept 5: Found 4 columns. Sample: ['hATTR_GORE_10c5', 'hATTR_GORE_H_10c5', 'hATTR_PFO_10c5', 'hATTR_PFO_H_10c5']
+2025-11-04 17:33:41,696 - app - INFO - [match_scenario_to_survey_data] All columns for Task 10, Concept 5: ['hATTR_GORE_10c5', 'hATTR_GORE_H_10c5', 'hATTR_PFO_10c5', 'hATTR_PFO_H_10c5']
+2025-11-04 17:33:41,696 - app - INFO - [match_scenario_to_survey_data] Looking up mapping key '10_5_1' in pre-computed mapping. Sample keys: ['1_1_4', '1_2_5', '1_3_6', '1_4_7', '1_5_9']
+2025-11-04 17:33:41,696 - app - INFO - [match_scenario_to_survey_data] No pre-computed mapping found for key '10_5_1' (Task 10, Concept 5, Attribute 1)
+2025-11-04 17:33:41,699 - app - INFO - [match_scenario_to_survey_data] Brand 'GORE' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_GORE_10c5']
+2025-11-04 17:33:41,699 - app - INFO - [match_scenario_to_survey_data] Brand 'GORE_H' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_GORE_H_10c5']
+2025-11-04 17:33:41,699 - app - INFO - [match_scenario_to_survey_data] Brand 'PFO' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_PFO_10c5']
+2025-11-04 17:33:41,700 - app - INFO - [match_scenario_to_survey_data] Brand 'PFO_H' has 1 columns for Task 10, Concept5. Sample: ['hATTR_PFO_H_10c5']
+2025-11-04 17:33:41,700 - app - INFO - [match_scenario_to_survey_data] Header-to-attribute mapping for Task 10, Concept5: {'hATTR_GORE_H_10c5': '12', 'hATTR_PFO_H_10c5': '12'}
+2025-11-04 17:33:41,701 - app - INFO - [match_scenario_to_survey_data] Looking for attribute number: '1' (type: <class 'str'>)
+2025-11-04 17:33:41,701 - app - INFO - [match_scenario_to_survey_data] Checking header 'hATTR_GORE_H_10c5' with attr_no'12' against target '1'
+2025-11-04 17:33:41,701 - app - INFO - [match_scenario_to_survey_data] Checking header 'hATTR_PFO_H_10c5' with attr_no '12' against target '1'
+2025-11-04 17:33:41,702 - app - WARNING - [match_scenario_to_survey_data] Brand 'GORE' only has 1 columns, expected ~20attributes. All columns: ['hATTR_GORE_10c5']
+2025-11-04 17:33:41,703 - app - INFO - [match_scenario_to_survey_data] Total columns containing '10' and '5': 12. All: ['hATTR_GORE_10c5', 'hATTR_GORE_15c10', 'hATTR_GORE_5c10', 'hATTR_GORE_H_10c5', 'hATTR_GORE_H_15c10', 'hATTR_GORE_H_5c10', 'hATTR_PFO_10c5', 'hATTR_PFO_15c10', 'hATTR_PFO_5c10', 'hATTR_PFO_H_10c5', 'hATTR_PFO_H_15c10', 'hATTR_PFO_H_5c10']
+2025-11-04 17:33:41,703 - app - INFO - [match_scenario_to_survey_data] Found 2 header columns for Task 10, Concept 5: ['hATTR_GORE_H_10c5', 'hATTR_PFO_H_10c5']
+2025-11-04 17:33:41,703 - app - INFO - [match_scenario_to_survey_data] Header column 'hATTR_GORE_H_10c5' contains attribute number: 12
+2025-11-04 17:33:41,704 - app - INFO - [match_scenario_to_survey_data] Header column 'hATTR_PFO_H_10c5' contains attribute number: 12
+2025-11-04 17:33:41,704 - app - INFO - [match_scenario_to_survey_data] Sample value from first column 'hATTR_GORE_10c5': 123
+2025-11-04 17:33:41,704 - app - INFO - [match_scenario_to_survey_data] First column value type: <class 'str'>, length: 3
+2025-11-04 17:33:41,705 - app - INFO - [match_scenario_to_survey_data] Matched attribute 1 (index 0) to column hATTR_GORE_10c5 for task 10, concept 5
+2025-11-04 17:33:41,705 - app - INFO - [match_scenario_to_survey_data] About to access column hATTR_GORE_10c5. current_sample_row type: <class 'dict'>, is dict: True, has get: True
+2025-11-04 17:33:41,705 - app - INFO - [match_scenario_to_survey_data] Column hATTR_GORE_10c5 value preview: 123...
+2025-11-04 17:33:41,706 - app - INFO - [match_scenario_to_survey_data] Column hATTR_GORE_10c5 value type: <class 'str'>, length: 3
+2025-11-04 17:33:41,706 - app - INFO - [match_scenario_to_survey_data] Looking up mapping key '10_5_2' in pre-computed mapping. Sample keys: ['1_1_4', '1_2_5', '1_3_6', '1_4_7', '1_5_9']
+2025-11-04 17:33:41,706 - app - INFO - [match_scenario_to_survey_data] No pre-computed mapping found for key '10_5_2' (Task 10, Concept 5, Attribute 2)
+2025-11-04 17:33:41,707 - app - INFO - [match_scenario_to_survey_data] Brand 'GORE' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_GORE_10c5']
+2025-11-04 17:33:41,708 - app - INFO - [match_scenario_to_survey_data] Brand 'GORE_H' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_GORE_H_10c5']
+2025-11-04 17:33:41,708 - app - INFO - [match_scenario_to_survey_data] Brand 'PFO' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_PFO_10c5']
+2025-11-04 17:33:41,709 - app - INFO - [match_scenario_to_survey_data] Brand 'PFO_H' has 1 columns for Task 10, Concept5. Sample: ['hATTR_PFO_H_10c5']
+2025-11-04 17:33:41,709 - app - INFO - [match_scenario_to_survey_data] Header-to-attribute mapping for Task 10, Concept5: {'hATTR_GORE_H_10c5': '12', 'hATTR_PFO_H_10c5': '12'}
+2025-11-04 17:33:41,710 - app - INFO - [match_scenario_to_survey_data] Looking for attribute number: '2' (type: <class 'str'>)
+2025-11-04 17:33:41,710 - app - INFO - [match_scenario_to_survey_data] Checking header 'hATTR_GORE_H_10c5' with attr_no'12' against target '2'
+2025-11-04 17:33:41,711 - app - INFO - [match_scenario_to_survey_data] Checking header 'hATTR_PFO_H_10c5' with attr_no '12' against target '2'
+2025-11-04 17:33:41,711 - app - WARNING - [match_scenario_to_survey_data] Brand 'GORE' only has 1 columns, expected ~20attributes. All columns: ['hATTR_GORE_10c5']
+2025-11-04 17:33:41,712 - app - INFO - [match_scenario_to_survey_data] Total columns containing '10' and '5': 12. All: ['hATTR_GORE_10c5', 'hATTR_GORE_15c10', 'hATTR_GORE_5c10', 'hATTR_GORE_H_10c5', 'hATTR_GORE_H_15c10', 'hATTR_GORE_H_5c10', 'hATTR_PFO_10c5', 'hATTR_PFO_15c10', 'hATTR_PFO_5c10', 'hATTR_PFO_H_10c5', 'hATTR_PFO_H_15c10', 'hATTR_PFO_H_5c10']
+2025-11-04 17:33:41,712 - app - INFO - [match_scenario_to_survey_data] Found 2 header columns for Task 10, Concept 5: ['hATTR_GORE_H_10c5', 'hATTR_PFO_H_10c5']
+2025-11-04 17:33:41,712 - app - INFO - [match_scenario_to_survey_data] Header column 'hATTR_GORE_H_10c5' contains attribute number: 12
+2025-11-04 17:33:41,713 - app - INFO - [match_scenario_to_survey_data] Header column 'hATTR_PFO_H_10c5' contains attribute number: 12
+2025-11-04 17:33:41,713 - app - INFO - [match_scenario_to_survey_data] Sample value from first column 'hATTR_GORE_10c5': 123
+2025-11-04 17:33:41,713 - app - INFO - [match_scenario_to_survey_data] First column value type: <class 'str'>, length: 3
+2025-11-04 17:33:41,714 - app - WARNING - [match_scenario_to_survey_data] Attribute index 1 out of range for 1 columns (task 10, concept 5)
+2025-11-04 17:33:41,714 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 2 to column hATTR_GORE_H_10c5 by position
+2025-11-04 17:33:41,714 - app - INFO - [match_scenario_to_survey_data] About to access column hATTR_GORE_H_10c5. current_sample_row type: <class 'dict'>, is dict: True, has get: True
+2025-11-04 17:33:41,715 - app - INFO - [match_scenario_to_survey_data] Column hATTR_GORE_H_10c5 value preview: 12...
+2025-11-04 17:33:41,715 - app - INFO - [match_scenario_to_survey_data] Column hATTR_GORE_H_10c5 value type: <class 'str'>, length: 2
+2025-11-04 17:33:41,715 - app - INFO - [match_scenario_to_survey_data] Looking up mapping key '10_5_3' in pre-computed mapping. Sample keys: ['1_1_4', '1_2_5', '1_3_6', '1_4_7', '1_5_9']
+2025-11-04 17:33:41,717 - app - INFO - [match_scenario_to_survey_data] Brand 'GORE' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_GORE_10c5']
+2025-11-04 17:33:41,717 - app - INFO - [match_scenario_to_survey_data] Brand 'GORE_H' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_GORE_H_10c5']
+2025-11-04 17:33:41,718 - app - INFO - [match_scenario_to_survey_data] Brand 'PFO' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_PFO_10c5']
+2025-11-04 17:33:41,718 - app - INFO - [match_scenario_to_survey_data] Brand 'PFO_H' has 1 columns for Task 10, Concept5. Sample: ['hATTR_PFO_H_10c5']
+2025-11-04 17:33:41,718 - app - INFO - [match_scenario_to_survey_data] Header-to-attribute mapping for Task 10, Concept5: {'hATTR_GORE_H_10c5': '12', 'hATTR_PFO_H_10c5': '12'}
+2025-11-04 17:33:41,719 - app - INFO - [match_scenario_to_survey_data] Looking for attribute number: '3' (type: <class 'str'>)
+2025-11-04 17:33:41,719 - app - INFO - [match_scenario_to_survey_data] Checking header 'hATTR_GORE_H_10c5' with attr_no'12' against target '3'
+2025-11-04 17:33:41,719 - app - INFO - [match_scenario_to_survey_data] Checking header 'hATTR_PFO_H_10c5' with attr_no '12' against target '3'
+2025-11-04 17:33:41,720 - app - WARNING - [match_scenario_to_survey_data] Brand 'GORE' only has 1 columns, expected ~20attributes. All columns: ['hATTR_GORE_10c5']
+2025-11-04 17:33:41,720 - app - INFO - [match_scenario_to_survey_data] Total columns containing '10' and '5': 12. All: ['hATTR_GORE_10c5', 'hATTR_GORE_15c10', 'hATTR_GORE_5c10', 'hATTR_GORE_H_10c5', 'hATTR_GORE_H_15c10', 'hATTR_GORE_H_5c10', 'hATTR_PFO_10c5', 'hATTR_PFO_15c10', 'hATTR_PFO_5c10', 'hATTR_PFO_H_10c5', 'hATTR_PFO_H_15c10', 'hATTR_PFO_H_5c10']
+2025-11-04 17:33:41,721 - app - INFO - [match_scenario_to_survey_data] Found 2 header columns for Task 10, Concept 5: ['hATTR_GORE_H_10c5', 'hATTR_PFO_H_10c5']
+2025-11-04 17:33:41,721 - app - INFO - [match_scenario_to_survey_data] Header column 'hATTR_GORE_H_10c5' contains attribute number: 12
+2025-11-04 17:33:41,721 - app - INFO - [match_scenario_to_survey_data] Header column 'hATTR_PFO_H_10c5' contains attribute number: 12
+2025-11-04 17:33:41,721 - app - INFO - [match_scenario_to_survey_data] Sample value from first column 'hATTR_GORE_10c5': 123
+2025-11-04 17:33:41,722 - app - INFO - [match_scenario_to_survey_data] First column value type: <class 'str'>, length: 3
+2025-11-04 17:33:41,722 - app - WARNING - [match_scenario_to_survey_data] Attribute index 2 out of range for 1 columns (task 10, concept 5)
+2025-11-04 17:33:41,722 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 3 to column hATTR_PFO_10c5 by position
+2025-11-04 17:33:41,722 - app - INFO - [match_scenario_to_survey_data] About to access column hATTR_PFO_10c5. current_sample_row type: <class 'dict'>, is dict: True, has get: True
+2025-11-04 17:33:41,723 - app - INFO - [match_scenario_to_survey_data] Column hATTR_PFO_10c5 value preview: 122...
+2025-11-04 17:33:41,723 - app - INFO - [match_scenario_to_survey_data] Column hATTR_PFO_10c5 value type: <class 'str'>,length: 3
+2025-11-04 17:33:41,723 - app - INFO - [match_scenario_to_survey_data] Looking up mapping key '10_5_4' in pre-computed mapping. Sample keys: ['1_1_4', '1_2_5', '1_3_6', '1_4_7', '1_5_9']
+2025-11-04 17:33:41,724 - app - INFO - [match_scenario_to_survey_data] Brand 'GORE' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_GORE_10c5']
+2025-11-04 17:33:41,724 - app - INFO - [match_scenario_to_survey_data] Brand 'GORE_H' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_GORE_H_10c5']
+2025-11-04 17:33:41,725 - app - INFO - [match_scenario_to_survey_data] Brand 'PFO' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_PFO_10c5']
+2025-11-04 17:33:41,725 - app - INFO - [match_scenario_to_survey_data] Brand 'PFO_H' has 1 columns for Task 10, Concept5. Sample: ['hATTR_PFO_H_10c5']
+2025-11-04 17:33:41,725 - app - WARNING - [match_scenario_to_survey_data] Brand 'GORE' only has 1 columns, expected ~20attributes. All columns: ['hATTR_GORE_10c5']
+2025-11-04 17:33:41,726 - app - INFO - [match_scenario_to_survey_data] Total columns containing '10' and '5': 12. All: ['hATTR_GORE_10c5', 'hATTR_GORE_15c10', 'hATTR_GORE_5c10', 'hATTR_GORE_H_10c5', 'hATTR_GORE_H_15c10', 'hATTR_GORE_H_5c10', 'hATTR_PFO_10c5', 'hATTR_PFO_15c10', 'hATTR_PFO_5c10', 'hATTR_PFO_H_10c5', 'hATTR_PFO_H_15c10', 'hATTR_PFO_H_5c10']
+2025-11-04 17:33:41,727 - app - INFO - [match_scenario_to_survey_data] Found 2 header columns for Task 10, Concept 5: ['hATTR_GORE_H_10c5', 'hATTR_PFO_H_10c5']
+2025-11-04 17:33:41,727 - app - INFO - [match_scenario_to_survey_data] Header column 'hATTR_GORE_H_10c5' contains attribute number: 12
+2025-11-04 17:33:41,727 - app - INFO - [match_scenario_to_survey_data] Header column 'hATTR_PFO_H_10c5' contains attribute number: 12
+2025-11-04 17:33:41,727 - app - INFO - [match_scenario_to_survey_data] Sample value from first column 'hATTR_GORE_10c5': 123
+2025-11-04 17:33:41,728 - app - INFO - [match_scenario_to_survey_data] First column value type: <class 'str'>, length: 3
+2025-11-04 17:33:41,728 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 4 to column hATTR_PFO_H_10c5 by position
+2025-11-04 17:33:41,729 - app - INFO - [match_scenario_to_survey_data] Brand 'GORE' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_GORE_10c5']
+2025-11-04 17:33:41,729 - app - INFO - [match_scenario_to_survey_data] Brand 'GORE_H' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_GORE_H_10c5']
+2025-11-04 17:33:41,730 - app - INFO - [match_scenario_to_survey_data] Brand 'PFO' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_PFO_10c5']
+2025-11-04 17:33:41,730 - app - INFO - [match_scenario_to_survey_data] Brand 'PFO_H' has 1 columns for Task 10, Concept5. Sample: ['hATTR_PFO_H_10c5']
+2025-11-04 17:33:41,731 - app - WARNING - [match_scenario_to_survey_data] Brand 'GORE' only has 1 columns, expected ~20attributes. All columns: ['hATTR_GORE_10c5']
+2025-11-04 17:33:41,731 - app - INFO - [match_scenario_to_survey_data] Total columns containing '10' and '5': 12. All: ['hATTR_GORE_10c5', 'hATTR_GORE_15c10', 'hATTR_GORE_5c10', 'hATTR_GORE_H_10c5', 'hATTR_GORE_H_15c10', 'hATTR_GORE_H_5c10', 'hATTR_PFO_10c5', 'hATTR_PFO_15c10', 'hATTR_PFO_5c10', 'hATTR_PFO_H_10c5', 'hATTR_PFO_H_15c10', 'hATTR_PFO_H_5c10']
+2025-11-04 17:33:41,731 - app - INFO - [match_scenario_to_survey_data] Found 2 header columns for Task 10, Concept 5: ['hATTR_GORE_H_10c5', 'hATTR_PFO_H_10c5']
+2025-11-04 17:33:41,731 - app - INFO - [match_scenario_to_survey_data] Header column 'hATTR_GORE_H_10c5' contains attribute number: 12
+2025-11-04 17:33:41,732 - app - INFO - [match_scenario_to_survey_data] Header column 'hATTR_PFO_H_10c5' contains attribute number: 12
+2025-11-04 17:33:41,732 - app - INFO - [match_scenario_to_survey_data] Sample value from first column 'hATTR_GORE_10c5': 123
+2025-11-04 17:33:41,732 - app - INFO - [match_scenario_to_survey_data] First column value type: <class 'str'>, length: 3
+2025-11-04 17:33:41,734 - app - INFO - [match_scenario_to_survey_data] Brand 'GORE' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_GORE_10c5']
+2025-11-04 17:33:41,734 - app - INFO - [match_scenario_to_survey_data] Brand 'GORE_H' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_GORE_H_10c5']
+2025-11-04 17:33:41,734 - app - INFO - [match_scenario_to_survey_data] Brand 'PFO' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_PFO_10c5']
+2025-11-04 17:33:41,734 - app - INFO - [match_scenario_to_survey_data] Brand 'PFO_H' has 1 columns for Task 10, Concept5. Sample: ['hATTR_PFO_H_10c5']
+2025-11-04 17:33:41,735 - app - WARNING - [match_scenario_to_survey_data] Brand 'GORE' only has 1 columns, expected ~20attributes. All columns: ['hATTR_GORE_10c5']
+2025-11-04 17:33:41,735 - app - INFO - [match_scenario_to_survey_data] Total columns containing '10' and '5': 12. All: ['hATTR_GORE_10c5', 'hATTR_GORE_15c10', 'hATTR_GORE_5c10', 'hATTR_GORE_H_10c5', 'hATTR_GORE_H_15c10', 'hATTR_GORE_H_5c10', 'hATTR_PFO_10c5', 'hATTR_PFO_15c10', 'hATTR_PFO_5c10', 'hATTR_PFO_H_10c5', 'hATTR_PFO_H_15c10', 'hATTR_PFO_H_5c10']
+2025-11-04 17:33:41,735 - app - INFO - [match_scenario_to_survey_data] Found 2 header columns for Task 10, Concept 5: ['hATTR_GORE_H_10c5', 'hATTR_PFO_H_10c5']
+2025-11-04 17:33:41,736 - app - INFO - [match_scenario_to_survey_data] Header column 'hATTR_GORE_H_10c5' contains attribute number: 12
+2025-11-04 17:33:41,736 - app - INFO - [match_scenario_to_survey_data] Header column 'hATTR_PFO_H_10c5' contains attribute number: 12
+2025-11-04 17:33:41,736 - app - INFO - [match_scenario_to_survey_data] Sample value from first column 'hATTR_GORE_10c5': 123
+2025-11-04 17:33:41,736 - app - INFO - [match_scenario_to_survey_data] First column value type: <class 'str'>, length: 3
+2025-11-04 17:33:41,738 - app - INFO - [match_scenario_to_survey_data] Brand 'GORE' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_GORE_10c5']
+2025-11-04 17:33:41,738 - app - INFO - [match_scenario_to_survey_data] Brand 'GORE_H' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_GORE_H_10c5']
+2025-11-04 17:33:41,738 - app - INFO - [match_scenario_to_survey_data] Brand 'PFO' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_PFO_10c5']
+2025-11-04 17:33:41,738 - app - INFO - [match_scenario_to_survey_data] Brand 'PFO_H' has 1 columns for Task 10, Concept5. Sample: ['hATTR_PFO_H_10c5']
+2025-11-04 17:33:41,739 - app - WARNING - [match_scenario_to_survey_data] Brand 'GORE' only has 1 columns, expected ~20attributes. All columns: ['hATTR_GORE_10c5']
+2025-11-04 17:33:41,739 - app - INFO - [match_scenario_to_survey_data] Total columns containing '10' and '5': 12. All: ['hATTR_GORE_10c5', 'hATTR_GORE_15c10', 'hATTR_GORE_5c10', 'hATTR_GORE_H_10c5', 'hATTR_GORE_H_15c10', 'hATTR_GORE_H_5c10', 'hATTR_PFO_10c5', 'hATTR_PFO_15c10', 'hATTR_PFO_5c10', 'hATTR_PFO_H_10c5', 'hATTR_PFO_H_15c10', 'hATTR_PFO_H_5c10']
+2025-11-04 17:33:41,739 - app - INFO - [match_scenario_to_survey_data] Found 2 header columns for Task 10, Concept 5: ['hATTR_GORE_H_10c5', 'hATTR_PFO_H_10c5']
+2025-11-04 17:33:41,740 - app - INFO - [match_scenario_to_survey_data] Header column 'hATTR_GORE_H_10c5' contains attribute number: 12
+2025-11-04 17:33:41,740 - app - INFO - [match_scenario_to_survey_data] Header column 'hATTR_PFO_H_10c5' contains attribute number: 12
+2025-11-04 17:33:41,740 - app - INFO - [match_scenario_to_survey_data] Sample value from first column 'hATTR_GORE_10c5': 123
+2025-11-04 17:33:41,740 - app - INFO - [match_scenario_to_survey_data] First column value type: <class 'str'>, length: 3
+2025-11-04 17:33:41,742 - app - INFO - [match_scenario_to_survey_data] Brand 'GORE' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_GORE_10c5']
+2025-11-04 17:33:41,742 - app - INFO - [match_scenario_to_survey_data] Brand 'GORE_H' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_GORE_H_10c5']
+2025-11-04 17:33:41,742 - app - INFO - [match_scenario_to_survey_data] Brand 'PFO' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_PFO_10c5']
+2025-11-04 17:33:41,742 - app - INFO - [match_scenario_to_survey_data] Brand 'PFO_H' has 1 columns for Task 10, Concept5. Sample: ['hATTR_PFO_H_10c5']
+2025-11-04 17:33:41,744 - app - WARNING - [match_scenario_to_survey_data] Brand 'GORE' only has 1 columns, expected ~20attributes. All columns: ['hATTR_GORE_10c5']
+2025-11-04 17:33:41,744 - app - INFO - [match_scenario_to_survey_data] Total columns containing '10' and '5': 12. All: ['hATTR_GORE_10c5', 'hATTR_GORE_15c10', 'hATTR_GORE_5c10', 'hATTR_GORE_H_10c5', 'hATTR_GORE_H_15c10', 'hATTR_GORE_H_5c10', 'hATTR_PFO_10c5', 'hATTR_PFO_15c10', 'hATTR_PFO_5c10', 'hATTR_PFO_H_10c5', 'hATTR_PFO_H_15c10', 'hATTR_PFO_H_5c10']
+2025-11-04 17:33:41,745 - app - INFO - [match_scenario_to_survey_data] Found 2 header columns for Task 10, Concept 5: ['hATTR_GORE_H_10c5', 'hATTR_PFO_H_10c5']
+2025-11-04 17:33:41,745 - app - INFO - [match_scenario_to_survey_data] Header column 'hATTR_GORE_H_10c5' contains attribute number: 12
+2025-11-04 17:33:41,745 - app - INFO - [match_scenario_to_survey_data] Header column 'hATTR_PFO_H_10c5' contains attribute number: 12
+2025-11-04 17:33:41,746 - app - INFO - [match_scenario_to_survey_data] Sample value from first column 'hATTR_GORE_10c5': 123
+2025-11-04 17:33:41,746 - app - INFO - [match_scenario_to_survey_data] First column value type: <class 'str'>, length: 3
+2025-11-04 17:33:41,748 - app - INFO - [match_scenario_to_survey_data] Brand 'GORE' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_GORE_10c5']
+2025-11-04 17:33:41,748 - app - INFO - [match_scenario_to_survey_data] Brand 'GORE_H' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_GORE_H_10c5']
+2025-11-04 17:33:41,748 - app - INFO - [match_scenario_to_survey_data] Brand 'PFO' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_PFO_10c5']
+2025-11-04 17:33:41,749 - app - INFO - [match_scenario_to_survey_data] Brand 'PFO_H' has 1 columns for Task 10, Concept5. Sample: ['hATTR_PFO_H_10c5']
+2025-11-04 17:33:41,749 - app - WARNING - [match_scenario_to_survey_data] Brand 'GORE' only has 1 columns, expected ~20attributes. All columns: ['hATTR_GORE_10c5']
+2025-11-04 17:33:41,750 - app - INFO - [match_scenario_to_survey_data] Total columns containing '10' and '5': 12. All: ['hATTR_GORE_10c5', 'hATTR_GORE_15c10', 'hATTR_GORE_5c10', 'hATTR_GORE_H_10c5', 'hATTR_GORE_H_15c10', 'hATTR_GORE_H_5c10', 'hATTR_PFO_10c5', 'hATTR_PFO_15c10', 'hATTR_PFO_5c10', 'hATTR_PFO_H_10c5', 'hATTR_PFO_H_15c10', 'hATTR_PFO_H_5c10']
+2025-11-04 17:33:41,750 - app - INFO - [match_scenario_to_survey_data] Found 2 header columns for Task 10, Concept 5: ['hATTR_GORE_H_10c5', 'hATTR_PFO_H_10c5']
+2025-11-04 17:33:41,750 - app - INFO - [match_scenario_to_survey_data] Header column 'hATTR_GORE_H_10c5' contains attribute number: 12
+2025-11-04 17:33:41,751 - app - INFO - [match_scenario_to_survey_data] Header column 'hATTR_PFO_H_10c5' contains attribute number: 12
+2025-11-04 17:33:41,751 - app - INFO - [match_scenario_to_survey_data] Sample value from first column 'hATTR_GORE_10c5': 123
+2025-11-04 17:33:41,751 - app - INFO - [match_scenario_to_survey_data] First column value type: <class 'str'>, length: 3
+2025-11-04 17:33:41,753 - app - INFO - [match_scenario_to_survey_data] Brand 'GORE' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_GORE_10c5']
+2025-11-04 17:33:41,753 - app - INFO - [match_scenario_to_survey_data] Brand 'GORE_H' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_GORE_H_10c5']
+2025-11-04 17:33:41,753 - app - INFO - [match_scenario_to_survey_data] Brand 'PFO' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_PFO_10c5']
+2025-11-04 17:33:41,754 - app - INFO - [match_scenario_to_survey_data] Brand 'PFO_H' has 1 columns for Task 10, Concept5. Sample: ['hATTR_PFO_H_10c5']
+2025-11-04 17:33:41,755 - app - INFO - [match_scenario_to_survey_data] Brand 'GORE' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_GORE_10c5']
+2025-11-04 17:33:41,755 - app - INFO - [match_scenario_to_survey_data] Brand 'GORE_H' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_GORE_H_10c5']
+2025-11-04 17:33:41,756 - app - INFO - [match_scenario_to_survey_data] Brand 'PFO' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_PFO_10c5']
+2025-11-04 17:33:41,756 - app - INFO - [match_scenario_to_survey_data] Brand 'PFO_H' has 1 columns for Task 10, Concept5. Sample: ['hATTR_PFO_H_10c5']
+2025-11-04 17:33:41,756 - app - WARNING - [match_scenario_to_survey_data] Brand 'GORE' only has 1 columns, expected ~20attributes. All columns: ['hATTR_GORE_10c5']
+2025-11-04 17:33:41,757 - app - INFO - [match_scenario_to_survey_data] Total columns containing '10' and '5': 12. All: ['hATTR_GORE_10c5', 'hATTR_GORE_15c10', 'hATTR_GORE_5c10', 'hATTR_GORE_H_10c5', 'hATTR_GORE_H_15c10', 'hATTR_GORE_H_5c10', 'hATTR_PFO_10c5', 'hATTR_PFO_15c10', 'hATTR_PFO_5c10', 'hATTR_PFO_H_10c5', 'hATTR_PFO_H_15c10', 'hATTR_PFO_H_5c10']
+2025-11-04 17:33:41,757 - app - INFO - [match_scenario_to_survey_data] Found 2 header columns for Task 10, Concept 5: ['hATTR_GORE_H_10c5', 'hATTR_PFO_H_10c5']
+2025-11-04 17:33:41,757 - app - INFO - [match_scenario_to_survey_data] Header column 'hATTR_GORE_H_10c5' contains attribute number: 12
+2025-11-04 17:33:41,758 - app - INFO - [match_scenario_to_survey_data] Header column 'hATTR_PFO_H_10c5' contains attribute number: 12
+2025-11-04 17:33:41,758 - app - INFO - [match_scenario_to_survey_data] Sample value from first column 'hATTR_GORE_10c5': 123
+2025-11-04 17:33:41,758 - app - INFO - [match_scenario_to_survey_data] First column value type: <class 'str'>, length: 3
+2025-11-04 17:33:41,758 - app - INFO - [match_scenario_to_survey_data] ✓ Using pre-computed mapping for attribute 12: hATTR_GORE_10c5
+2025-11-04 17:33:41,760 - app - INFO - [match_scenario_to_survey_data] Brand 'GORE' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_GORE_10c5']
+2025-11-04 17:33:41,760 - app - INFO - [match_scenario_to_survey_data] Brand 'GORE_H' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_GORE_H_10c5']
+2025-11-04 17:33:41,760 - app - INFO - [match_scenario_to_survey_data] Brand 'PFO' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_PFO_10c5']
+2025-11-04 17:33:41,761 - app - INFO - [match_scenario_to_survey_data] Brand 'PFO_H' has 1 columns for Task 10, Concept5. Sample: ['hATTR_PFO_H_10c5']
+2025-11-04 17:33:41,761 - app - WARNING - [match_scenario_to_survey_data] Brand 'GORE' only has 1 columns, expected ~20attributes. All columns: ['hATTR_GORE_10c5']
+2025-11-04 17:33:41,762 - app - INFO - [match_scenario_to_survey_data] Total columns containing '10' and '5': 12. All: ['hATTR_GORE_10c5', 'hATTR_GORE_15c10', 'hATTR_GORE_5c10', 'hATTR_GORE_H_10c5', 'hATTR_GORE_H_15c10', 'hATTR_GORE_H_5c10', 'hATTR_PFO_10c5', 'hATTR_PFO_15c10', 'hATTR_PFO_5c10', 'hATTR_PFO_H_10c5', 'hATTR_PFO_H_15c10', 'hATTR_PFO_H_5c10']
+2025-11-04 17:33:41,762 - app - INFO - [match_scenario_to_survey_data] Found 2 header columns for Task 10, Concept 5: ['hATTR_GORE_H_10c5', 'hATTR_PFO_H_10c5']
+2025-11-04 17:33:41,762 - app - INFO - [match_scenario_to_survey_data] Header column 'hATTR_GORE_H_10c5' contains attribute number: 12
+2025-11-04 17:33:41,763 - app - INFO - [match_scenario_to_survey_data] Header column 'hATTR_PFO_H_10c5' contains attribute number: 12
+2025-11-04 17:33:41,763 - app - INFO - [match_scenario_to_survey_data] Sample value from first column 'hATTR_GORE_10c5': 123
+2025-11-04 17:33:41,763 - app - INFO - [match_scenario_to_survey_data] First column value type: <class 'str'>, length: 3
+2025-11-04 17:33:41,764 - app - INFO - [match_scenario_to_survey_data] Brand 'GORE' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_GORE_10c5']
+2025-11-04 17:33:41,764 - app - INFO - [match_scenario_to_survey_data] Brand 'GORE_H' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_GORE_H_10c5']
+2025-11-04 17:33:41,765 - app - INFO - [match_scenario_to_survey_data] Brand 'PFO' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_PFO_10c5']
+2025-11-04 17:33:41,765 - app - INFO - [match_scenario_to_survey_data] Brand 'PFO_H' has 1 columns for Task 10, Concept5. Sample: ['hATTR_PFO_H_10c5']
+2025-11-04 17:33:41,765 - app - WARNING - [match_scenario_to_survey_data] Brand 'GORE' only has 1 columns, expected ~20attributes. All columns: ['hATTR_GORE_10c5']
+2025-11-04 17:33:41,766 - app - INFO - [match_scenario_to_survey_data] Total columns containing '10' and '5': 12. All: ['hATTR_GORE_10c5', 'hATTR_GORE_15c10', 'hATTR_GORE_5c10', 'hATTR_GORE_H_10c5', 'hATTR_GORE_H_15c10', 'hATTR_GORE_H_5c10', 'hATTR_PFO_10c5', 'hATTR_PFO_15c10', 'hATTR_PFO_5c10', 'hATTR_PFO_H_10c5', 'hATTR_PFO_H_15c10', 'hATTR_PFO_H_5c10']
+2025-11-04 17:33:41,766 - app - INFO - [match_scenario_to_survey_data] Found 2 header columns for Task 10, Concept 5: ['hATTR_GORE_H_10c5', 'hATTR_PFO_H_10c5']
+2025-11-04 17:33:41,766 - app - INFO - [match_scenario_to_survey_data] Header column 'hATTR_GORE_H_10c5' contains attribute number: 12
+2025-11-04 17:33:41,766 - app - INFO - [match_scenario_to_survey_data] Header column 'hATTR_PFO_H_10c5' contains attribute number: 12
+2025-11-04 17:33:41,767 - app - INFO - [match_scenario_to_survey_data] Sample value from first column 'hATTR_GORE_10c5': 123
+2025-11-04 17:33:41,767 - app - INFO - [match_scenario_to_survey_data] First column value type: <class 'str'>, length: 3
+2025-11-04 17:33:41,768 - app - INFO - [match_scenario_to_survey_data] Brand 'GORE' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_GORE_10c5']
+2025-11-04 17:33:41,769 - app - INFO - [match_scenario_to_survey_data] Brand 'GORE_H' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_GORE_H_10c5']
+2025-11-04 17:33:41,769 - app - INFO - [match_scenario_to_survey_data] Brand 'PFO' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_PFO_10c5']
+2025-11-04 17:33:41,769 - app - INFO - [match_scenario_to_survey_data] Brand 'PFO_H' has 1 columns for Task 10, Concept5. Sample: ['hATTR_PFO_H_10c5']
+2025-11-04 17:33:41,770 - app - WARNING - [match_scenario_to_survey_data] Brand 'GORE' only has 1 columns, expected ~20attributes. All columns: ['hATTR_GORE_10c5']
+2025-11-04 17:33:41,770 - app - INFO - [match_scenario_to_survey_data] Total columns containing '10' and '5': 12. All: ['hATTR_GORE_10c5', 'hATTR_GORE_15c10', 'hATTR_GORE_5c10', 'hATTR_GORE_H_10c5', 'hATTR_GORE_H_15c10', 'hATTR_GORE_H_5c10', 'hATTR_PFO_10c5', 'hATTR_PFO_15c10', 'hATTR_PFO_5c10', 'hATTR_PFO_H_10c5', 'hATTR_PFO_H_15c10', 'hATTR_PFO_H_5c10']
+2025-11-04 17:33:41,770 - app - INFO - [match_scenario_to_survey_data] Found 2 header columns for Task 10, Concept 5: ['hATTR_GORE_H_10c5', 'hATTR_PFO_H_10c5']
+2025-11-04 17:33:41,770 - app - INFO - [match_scenario_to_survey_data] Header column 'hATTR_GORE_H_10c5' contains attribute number: 12
+2025-11-04 17:33:41,771 - app - INFO - [match_scenario_to_survey_data] Header column 'hATTR_PFO_H_10c5' contains attribute number: 12
+2025-11-04 17:33:41,771 - app - INFO - [match_scenario_to_survey_data] Sample value from first column 'hATTR_GORE_10c5': 123
+2025-11-04 17:33:41,771 - app - INFO - [match_scenario_to_survey_data] First column value type: <class 'str'>, length: 3
+2025-11-04 17:33:41,772 - app - INFO - [match_scenario_to_survey_data] Brand 'GORE' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_GORE_10c5']
+2025-11-04 17:33:41,772 - app - INFO - [match_scenario_to_survey_data] Brand 'GORE_H' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_GORE_H_10c5']
+2025-11-04 17:33:41,773 - app - INFO - [match_scenario_to_survey_data] Brand 'PFO' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_PFO_10c5']
+2025-11-04 17:33:41,773 - app - INFO - [match_scenario_to_survey_data] Brand 'PFO_H' has 1 columns for Task 10, Concept5. Sample: ['hATTR_PFO_H_10c5']
+2025-11-04 17:33:41,774 - app - WARNING - [match_scenario_to_survey_data] Brand 'GORE' only has 1 columns, expected ~20attributes. All columns: ['hATTR_GORE_10c5']
+2025-11-04 17:33:41,774 - app - INFO - [match_scenario_to_survey_data] Total columns containing '10' and '5': 12. All: ['hATTR_GORE_10c5', 'hATTR_GORE_15c10', 'hATTR_GORE_5c10', 'hATTR_GORE_H_10c5', 'hATTR_GORE_H_15c10', 'hATTR_GORE_H_5c10', 'hATTR_PFO_10c5', 'hATTR_PFO_15c10', 'hATTR_PFO_5c10', 'hATTR_PFO_H_10c5', 'hATTR_PFO_H_15c10', 'hATTR_PFO_H_5c10']
+2025-11-04 17:33:41,774 - app - INFO - [match_scenario_to_survey_data] Found 2 header columns for Task 10, Concept 5: ['hATTR_GORE_H_10c5', 'hATTR_PFO_H_10c5']
+2025-11-04 17:33:41,775 - app - INFO - [match_scenario_to_survey_data] Header column 'hATTR_GORE_H_10c5' contains attribute number: 12
+2025-11-04 17:33:41,775 - app - INFO - [match_scenario_to_survey_data] Header column 'hATTR_PFO_H_10c5' contains attribute number: 12
+2025-11-04 17:33:41,775 - app - INFO - [match_scenario_to_survey_data] Sample value from first column 'hATTR_GORE_10c5': 123
+2025-11-04 17:33:41,775 - app - INFO - [match_scenario_to_survey_data] First column value type: <class 'str'>, length: 3
+2025-11-04 17:33:41,777 - app - INFO - [match_scenario_to_survey_data] Brand 'GORE' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_GORE_10c5']
+2025-11-04 17:33:41,777 - app - INFO - [match_scenario_to_survey_data] Brand 'GORE_H' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_GORE_H_10c5']
+2025-11-04 17:33:41,778 - app - INFO - [match_scenario_to_survey_data] Brand 'PFO' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_PFO_10c5']
+2025-11-04 17:33:41,778 - app - INFO - [match_scenario_to_survey_data] Brand 'PFO_H' has 1 columns for Task 10, Concept5. Sample: ['hATTR_PFO_H_10c5']
+2025-11-04 17:33:41,778 - app - WARNING - [match_scenario_to_survey_data] Brand 'GORE' only has 1 columns, expected ~20attributes. All columns: ['hATTR_GORE_10c5']
+2025-11-04 17:33:41,779 - app - INFO - [match_scenario_to_survey_data] Total columns containing '10' and '5': 12. All: ['hATTR_GORE_10c5', 'hATTR_GORE_15c10', 'hATTR_GORE_5c10', 'hATTR_GORE_H_10c5', 'hATTR_GORE_H_15c10', 'hATTR_GORE_H_5c10', 'hATTR_PFO_10c5', 'hATTR_PFO_15c10', 'hATTR_PFO_5c10', 'hATTR_PFO_H_10c5', 'hATTR_PFO_H_15c10', 'hATTR_PFO_H_5c10']
+2025-11-04 17:33:41,779 - app - INFO - [match_scenario_to_survey_data] Found 2 header columns for Task 10, Concept 5: ['hATTR_GORE_H_10c5', 'hATTR_PFO_H_10c5']
+2025-11-04 17:33:41,780 - app - INFO - [match_scenario_to_survey_data] Header column 'hATTR_GORE_H_10c5' contains attribute number: 12
+2025-11-04 17:33:41,780 - app - INFO - [match_scenario_to_survey_data] Header column 'hATTR_PFO_H_10c5' contains attribute number: 12
+2025-11-04 17:33:41,780 - app - INFO - [match_scenario_to_survey_data] Sample value from first column 'hATTR_GORE_10c5': 123
+2025-11-04 17:33:41,781 - app - INFO - [match_scenario_to_survey_data] First column value type: <class 'str'>, length: 3
+2025-11-04 17:33:41,782 - app - INFO - [match_scenario_to_survey_data] Brand 'GORE' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_GORE_10c5']
+2025-11-04 17:33:41,783 - app - INFO - [match_scenario_to_survey_data] Brand 'GORE_H' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_GORE_H_10c5']
+2025-11-04 17:33:41,783 - app - INFO - [match_scenario_to_survey_data] Brand 'PFO' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_PFO_10c5']
+2025-11-04 17:33:41,783 - app - INFO - [match_scenario_to_survey_data] Brand 'PFO_H' has 1 columns for Task 10, Concept5. Sample: ['hATTR_PFO_H_10c5']
+2025-11-04 17:33:41,784 - app - WARNING - [match_scenario_to_survey_data] Brand 'GORE' only has 1 columns, expected ~20attributes. All columns: ['hATTR_GORE_10c5']
+2025-11-04 17:33:41,785 - app - INFO - [match_scenario_to_survey_data] Total columns containing '10' and '5': 12. All: ['hATTR_GORE_10c5', 'hATTR_GORE_15c10', 'hATTR_GORE_5c10', 'hATTR_GORE_H_10c5', 'hATTR_GORE_H_15c10', 'hATTR_GORE_H_5c10', 'hATTR_PFO_10c5', 'hATTR_PFO_15c10', 'hATTR_PFO_5c10', 'hATTR_PFO_H_10c5', 'hATTR_PFO_H_15c10', 'hATTR_PFO_H_5c10']
+2025-11-04 17:33:41,785 - app - INFO - [match_scenario_to_survey_data] Found 2 header columns for Task 10, Concept 5: ['hATTR_GORE_H_10c5', 'hATTR_PFO_H_10c5']
+2025-11-04 17:33:41,785 - app - INFO - [match_scenario_to_survey_data] Header column 'hATTR_GORE_H_10c5' contains attribute number: 12
+2025-11-04 17:33:41,786 - app - INFO - [match_scenario_to_survey_data] Header column 'hATTR_PFO_H_10c5' contains attribute number: 12
+2025-11-04 17:33:41,786 - app - INFO - [match_scenario_to_survey_data] Sample value from first column 'hATTR_GORE_10c5': 123
+2025-11-04 17:33:41,786 - app - INFO - [match_scenario_to_survey_data] First column value type: <class 'str'>, length: 3
+2025-11-04 17:33:41,788 - app - INFO - [match_scenario_to_survey_data] Brand 'GORE' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_GORE_10c5']
+2025-11-04 17:33:41,788 - app - INFO - [match_scenario_to_survey_data] Brand 'GORE_H' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_GORE_H_10c5']
+2025-11-04 17:33:41,788 - app - INFO - [match_scenario_to_survey_data] Brand 'PFO' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_PFO_10c5']
+2025-11-04 17:33:41,789 - app - INFO - [match_scenario_to_survey_data] Brand 'PFO_H' has 1 columns for Task 10, Concept5. Sample: ['hATTR_PFO_H_10c5']
+2025-11-04 17:33:41,789 - app - WARNING - [match_scenario_to_survey_data] Brand 'GORE' only has 1 columns, expected ~20attributes. All columns: ['hATTR_GORE_10c5']
+2025-11-04 17:33:41,790 - app - INFO - [match_scenario_to_survey_data] Total columns containing '10' and '5': 12. All: ['hATTR_GORE_10c5', 'hATTR_GORE_15c10', 'hATTR_GORE_5c10', 'hATTR_GORE_H_10c5', 'hATTR_GORE_H_15c10', 'hATTR_GORE_H_5c10', 'hATTR_PFO_10c5', 'hATTR_PFO_15c10', 'hATTR_PFO_5c10', 'hATTR_PFO_H_10c5', 'hATTR_PFO_H_15c10', 'hATTR_PFO_H_5c10']
+2025-11-04 17:33:41,790 - app - INFO - [match_scenario_to_survey_data] Found 2 header columns for Task 10, Concept 5: ['hATTR_GORE_H_10c5', 'hATTR_PFO_H_10c5']
+2025-11-04 17:33:41,790 - app - INFO - [match_scenario_to_survey_data] Header column 'hATTR_GORE_H_10c5' contains attribute number: 12
+2025-11-04 17:33:41,791 - app - INFO - [match_scenario_to_survey_data] Header column 'hATTR_PFO_H_10c5' contains attribute number: 12
+2025-11-04 17:33:41,791 - app - INFO - [match_scenario_to_survey_data] Sample value from first column 'hATTR_GORE_10c5': 123
+2025-11-04 17:33:41,791 - app - INFO - [match_scenario_to_survey_data] First column value type: <class 'str'>, length: 3
+2025-11-04 17:33:41,793 - app - INFO - [match_scenario_to_survey_data] Brand 'GORE' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_GORE_10c5']
+2025-11-04 17:33:41,794 - app - INFO - [match_scenario_to_survey_data] Brand 'GORE_H' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_GORE_H_10c5']
+2025-11-04 17:33:41,794 - app - INFO - [match_scenario_to_survey_data] Brand 'PFO' has 1 columns for Task 10, Concept 5. Sample: ['hATTR_PFO_10c5']
+2025-11-04 17:33:41,794 - app - INFO - [match_scenario_to_survey_data] Brand 'PFO_H' has 1 columns for Task 10, Concept5. Sample: ['hATTR_PFO_H_10c5']
+2025-11-04 17:33:41,795 - app - WARNING - [match_scenario_to_survey_data] Brand 'GORE' only has 1 columns, expected ~20attributes. All columns: ['hATTR_GORE_10c5']
+2025-11-04 17:33:41,796 - app - INFO - [match_scenario_to_survey_data] Total columns containing '10' and '5': 12. All: ['hATTR_GORE_10c5', 'hATTR_GORE_15c10', 'hATTR_GORE_5c10', 'hATTR_GORE_H_10c5', 'hATTR_GORE_H_15c10', 'hATTR_GORE_H_5c10', 'hATTR_PFO_10c5', 'hATTR_PFO_15c10', 'hATTR_PFO_5c10', 'hATTR_PFO_H_10c5', 'hATTR_PFO_H_15c10', 'hATTR_PFO_H_5c10']
+2025-11-04 17:33:41,796 - app - INFO - [match_scenario_to_survey_data] Found 2 header columns for Task 10, Concept 5: ['hATTR_GORE_H_10c5', 'hATTR_PFO_H_10c5']
+2025-11-04 17:33:41,797 - app - INFO - [match_scenario_to_survey_data] Header column 'hATTR_GORE_H_10c5' contains attribute number: 12
+2025-11-04 17:33:41,797 - app - INFO - [match_scenario_to_survey_data] Header column 'hATTR_PFO_H_10c5' contains attribute number: 12
+2025-11-04 17:33:41,797 - app - INFO - [match_scenario_to_survey_data] Sample value from first column 'hATTR_GORE_10c5': 123
+2025-11-04 17:33:41,798 - app - INFO - [match_scenario_to_survey_data] First column value type: <class 'str'>, length: 3
+2025-11-04 17:33:41,798 - app - INFO - [match_scenario_to_survey_data] Processed 20 attributes for Task 10, Concept 5 (out of 20 total)
+2025-11-04 17:33:41,798 - app - INFO - [match_scenario_to_survey_data] Skipped breakdown: 0 (no schema), 14 (no column), 0 (no value)
+2025-11-04 17:33:41,799 - app - WARNING - [match_scenario_to_survey_data] Task 10, Concept 5: 6/20 attributes matched (score: 0.30)
+2025-11-04 17:33:41,801 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 2 to column hATTR_GORE_H_6c5 by position
+2025-11-04 17:33:41,803 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 3 to column hATTR_PFO_6c5 by position
+2025-11-04 17:33:41,805 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 4 to column hATTR_PFO_H_6c5 by position
+2025-11-04 17:33:41,809 - app - INFO - [match_scenario_to_survey_data] ✓ Using pre-computed mapping for attribute 8: hATTR_GORE_6c5
+2025-11-04 17:33:41,829 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 2 to column hATTR_GORE_H_12c4 by position
+2025-11-04 17:33:41,831 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 3 to column hATTR_PFO_12c4 by position
+2025-11-04 17:33:41,832 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 4 to column hATTR_PFO_H_12c4 by position
+2025-11-04 17:33:41,840 - app - INFO - [match_scenario_to_survey_data] ✓ Using pre-computed mapping for attribute 11: hATTR_GORE_12c4
+2025-11-04 17:33:41,854 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 2 to column hATTR_GORE_H_9c5 by position
+2025-11-04 17:33:41,856 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 3 to column hATTR_PFO_9c5 by position
+2025-11-04 17:33:41,857 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 4 to column hATTR_PFO_H_9c5 by position
+2025-11-04 17:33:41,864 - app - INFO - [match_scenario_to_survey_data] ✓ Using pre-computed mapping for attribute 10: hATTR_GORE_9c5
+2025-11-04 17:33:41,880 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 2 to column hATTR_GORE_H_5c4 by position
+2025-11-04 17:33:41,882 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 3 to column hATTR_PFO_5c4 by position
+2025-11-04 17:33:41,883 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 4 to column hATTR_PFO_H_5c4 by position
+2025-11-04 17:33:41,887 - app - INFO - [match_scenario_to_survey_data] ✓ Using pre-computed mapping for attribute 7: hATTR_GORE_5c4
+2025-11-04 17:33:41,905 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 2 to column hATTR_GORE_H_4c5 by position
+2025-11-04 17:33:41,907 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 3 to column hATTR_PFO_4c5 by position
+2025-11-04 17:33:41,917 - app - INFO - [match_scenario_to_survey_data] ✓ Using pre-computed mapping for attribute 12: hATTR_GORE_4c5
+2025-11-04 17:33:41,929 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 2 to column hATTR_GORE_H_7c5 by position
+2025-11-04 17:33:41,930 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 3 to column hATTR_PFO_7c5 by position
+2025-11-04 17:33:41,932 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 4 to column hATTR_PFO_H_7c5 by position
+2025-11-04 17:33:41,937 - app - INFO - [match_scenario_to_survey_data] ✓ Using pre-computed mapping for attribute 8: hATTR_GORE_7c5
+2025-11-04 17:33:41,957 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 3 to column hATTR_PFO_2c5 by position
+2025-11-04 17:33:41,959 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 4 to column hATTR_PFO_H_2c5 by position
+2025-11-04 17:33:41,966 - app - INFO - [match_scenario_to_survey_data] ✓ Using pre-computed mapping for attribute 10: hATTR_GORE_2c5
+2025-11-04 17:33:41,981 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 2 to column hATTR_GORE_H_15c5 by position
+2025-11-04 17:33:41,983 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 3 to column hATTR_PFO_15c5 by position
+2025-11-04 17:33:41,984 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 4 to column hATTR_PFO_H_15c5 by position
+2025-11-04 17:33:41,990 - app - INFO - [match_scenario_to_survey_data] ✓ Using pre-computed mapping for attribute 10: hATTR_GORE_15c5
+2025-11-04 17:33:42,005 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 2 to column hATTR_GORE_H_11c5 by position
+2025-11-04 17:33:42,006 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 3 to column hATTR_PFO_11c5 by position
+2025-11-04 17:33:42,008 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 4 to column hATTR_PFO_H_11c5 by position
+2025-11-04 17:33:42,010 - app - INFO - [match_scenario_to_survey_data] ✓ Using pre-computed mapping for attribute 6: hATTR_GORE_11c5
+2025-11-04 17:33:42,029 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 2 to column hATTR_GORE_H_3c4 by position
+2025-11-04 17:33:42,032 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 4 to column hATTR_PFO_H_3c4 by position
+2025-11-04 17:33:42,036 - app - INFO - [match_scenario_to_survey_data] ✓ Using pre-computed mapping for attribute 8: hATTR_GORE_3c4
+2025-11-04 17:33:42,054 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 2 to column hATTR_GORE_H_1c4 by position
+2025-11-04 17:33:42,056 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 3 to column hATTR_PFO_1c4 by position
+2025-11-04 17:33:42,058 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 4 to column hATTR_PFO_H_1c4 by position
+2025-11-04 17:33:42,061 - app - INFO - [match_scenario_to_survey_data] ✓ Using pre-computed mapping for attribute 7: hATTR_GORE_1c4
+2025-11-04 17:33:42,082 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 2 to column hATTR_GORE_H_14c4 by position
+2025-11-04 17:33:42,084 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 3 to column hATTR_PFO_14c4 by position
+2025-11-04 17:33:42,086 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 4 to column hATTR_PFO_H_14c4 by position
+2025-11-04 17:33:42,089 - app - INFO - [match_scenario_to_survey_data] ✓ Using pre-computed mapping for attribute 7: hATTR_GORE_14c4
+2025-11-04 17:33:42,108 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 2 to column hATTR_GORE_H_10c4 by position
+2025-11-04 17:33:42,110 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 3 to column hATTR_PFO_10c4 by position
+2025-11-04 17:33:42,111 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 4 to column hATTR_PFO_H_10c4 by position
+2025-11-04 17:33:42,119 - app - INFO - [match_scenario_to_survey_data] ✓ Using pre-computed mapping for attribute 11: hATTR_GORE_10c4
+2025-11-04 17:33:42,132 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 2 to column hATTR_GORE_H_8c4 by position
+2025-11-04 17:33:42,134 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 3 to column hATTR_PFO_8c4 by position
+2025-11-04 17:33:42,136 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 4 to column hATTR_PFO_H_8c4 by position
+2025-11-04 17:33:42,137 - app - INFO - [match_scenario_to_survey_data] ✓ Using pre-computed mapping for attribute 5: hATTR_GORE_8c4
+2025-11-04 17:33:42,157 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 2 to column hATTR_GORE_H_13c4 by position
+2025-11-04 17:33:42,158 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 3 to column hATTR_PFO_13c4 by position
+2025-11-04 17:33:42,160 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 4 to column hATTR_PFO_H_13c4 by position
+2025-11-04 17:33:42,162 - app - INFO - [match_scenario_to_survey_data] ✓ Using pre-computed mapping for attribute 6: hATTR_GORE_13c4
+2025-11-04 17:33:42,181 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 2 to column hATTR_GORE_H_9c4 by position
+2025-11-04 17:33:42,183 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 3 to column hATTR_PFO_9c4 by position
+2025-11-04 17:33:42,184 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 4 to column hATTR_PFO_H_9c4 by position
+2025-11-04 17:33:42,190 - app - INFO - [match_scenario_to_survey_data] ✓ Using pre-computed mapping for attribute 9: hATTR_GORE_9c4
+2025-11-04 17:33:42,207 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 2 to column hATTR_GORE_H_1c5 by position
+2025-11-04 17:33:42,209 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 3 to column hATTR_PFO_1c5 by position
+2025-11-04 17:33:42,211 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 4 to column hATTR_PFO_H_1c5 by position
+2025-11-04 17:33:42,217 - app - INFO - [match_scenario_to_survey_data] ✓ Using pre-computed mapping for attribute 9: hATTR_GORE_1c5
+2025-11-04 17:33:42,234 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 2 to column hATTR_GORE_H_4c4 by position
+2025-11-04 17:33:42,235 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 3 to column hATTR_PFO_4c4 by position
+2025-11-04 17:33:42,241 - app - INFO - [match_scenario_to_survey_data] ✓ Using pre-computed mapping for attribute 9: hATTR_GORE_4c4
+2025-11-04 17:33:42,257 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 2 to column hATTR_GORE_H_12c5 by position
+2025-11-04 17:33:42,259 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 3 to column hATTR_PFO_12c5 by position
+2025-11-04 17:33:42,261 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 4 to column hATTR_PFO_H_12c5 by position
+2025-11-04 17:33:42,270 - app - INFO - [match_scenario_to_survey_data] ✓ Using pre-computed mapping for attribute 13: hATTR_GORE_12c5
+2025-11-04 17:33:42,284 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 3 to column hATTR_PFO_2c4 by position
+2025-11-04 17:33:42,285 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 4 to column hATTR_PFO_H_2c4 by position
+2025-11-04 17:33:42,287 - app - INFO - [match_scenario_to_survey_data] ✓ Using pre-computed mapping for attribute 6: hATTR_GORE_2c4
+2025-11-04 17:33:42,306 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 2 to column hATTR_GORE_H_15c4 by position
+2025-11-04 17:33:42,308 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 3 to column hATTR_PFO_15c4 by position
+2025-11-04 17:33:42,310 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 4 to column hATTR_PFO_H_15c4 by position
+2025-11-04 17:33:42,315 - app - INFO - [match_scenario_to_survey_data] ✓ Using pre-computed mapping for attribute 8: hATTR_GORE_15c4
+2025-11-04 17:33:42,336 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 2 to column hATTR_GORE_H_11c4 by position
+2025-11-04 17:33:42,337 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 3 to column hATTR_PFO_11c4 by position
+2025-11-04 17:33:42,339 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 4 to column hATTR_PFO_H_11c4 by position
+2025-11-04 17:33:42,340 - app - INFO - [match_scenario_to_survey_data] ✓ Using pre-computed mapping for attribute 5: hATTR_GORE_11c4
+2025-11-04 17:33:42,361 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 2 to column hATTR_GORE_H_14c5 by position
+2025-11-04 17:33:42,362 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 3 to column hATTR_PFO_14c5 by position
+2025-11-04 17:33:42,364 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 4 to column hATTR_PFO_H_14c5 by position
+2025-11-04 17:33:42,370 - app - INFO - [match_scenario_to_survey_data] ✓ Using pre-computed mapping for attribute 9: hATTR_GORE_14c5
+2025-11-04 17:33:42,386 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 2 to column hATTR_GORE_H_6c4 by position
+2025-11-04 17:33:42,388 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 3 to column hATTR_PFO_6c4 by position
+2025-11-04 17:33:42,389 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 4 to column hATTR_PFO_H_6c4 by position
+2025-11-04 17:33:42,390 - app - INFO - [match_scenario_to_survey_data] ✓ Using pre-computed mapping for attribute 6: hATTR_GORE_6c4
+2025-11-04 17:33:42,409 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 2 to column hATTR_GORE_H_5c5 by position
+2025-11-04 17:33:42,411 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 3 to column hATTR_PFO_5c5 by position
+2025-11-04 17:33:42,413 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 4 to column hATTR_PFO_H_5c5 by position
+2025-11-04 17:33:42,419 - app - INFO - [match_scenario_to_survey_data] ✓ Using pre-computed mapping for attribute 10: hATTR_GORE_5c5
+2025-11-04 17:33:42,435 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 2 to column hATTR_GORE_H_8c5 by position
+2025-11-04 17:33:42,437 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 3 to column hATTR_PFO_8c5 by position
+2025-11-04 17:33:42,439 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 4 to column hATTR_PFO_H_8c5 by position
+2025-11-04 17:33:42,449 - app - INFO - [match_scenario_to_survey_data] ✓ Using pre-computed mapping for attribute 12: hATTR_GORE_8c5
+2025-11-04 17:33:42,462 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 2 to column hATTR_GORE_H_3c5 by position
+2025-11-04 17:33:42,466 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 4 to column hATTR_PFO_H_3c5 by position
+2025-11-04 17:33:42,471 - app - INFO - [match_scenario_to_survey_data] ✓ Using pre-computed mapping for attribute 9: hATTR_GORE_3c5
+2025-11-04 17:33:42,488 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 2 to column hATTR_GORE_H_13c5 by position
+2025-11-04 17:33:42,490 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 3 to column hATTR_PFO_13c5 by position
+2025-11-04 17:33:42,492 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 4 to column hATTR_PFO_H_13c5 by position
+2025-11-04 17:33:42,495 - app - INFO - [match_scenario_to_survey_data] ✓ Using pre-computed mapping for attribute 7: hATTR_GORE_13c5
+2025-11-04 17:33:42,512 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 2 to column hATTR_GORE_H_7c4 by position
+2025-11-04 17:33:42,514 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 3 to column hATTR_PFO_7c4 by position
+2025-11-04 17:33:42,516 - app - INFO - [match_scenario_to_survey_data] Fallback: Matched attribute 4 to column hATTR_PFO_H_7c4 by position
+2025-11-04 17:33:42,519 - app - INFO - [match_scenario_to_survey_data] ✓ Using pre-computed mapping for attribute 7: hATTR_GORE_7c4
+2025-11-04 17:33:42,534 - app - WARNING - [match_scenario_to_survey_data] No match found (best score: 0.30, threshold: 0.80)
+2025-11-04 17:33:42,535 - app - WARNING - [match_scenario_to_survey_data] Best candidate was Task 10, Concept 5, Product 5 with 30.0% match
+2025-11-04 17:33:42,535 - app - INFO - [analyze_scenarios] Using projection method (logit/utilities) for scenario 1 to get scenario-specific results
+2025-11-04 17:33:42,536 - app - INFO - [analyze_scenarios] Scenario 1 attributes: ['ON_TABLE_CLOSURE_RATE', 'DEVICE_CLOSURE_RATE_6_MONTHS_AFTER_SURGERY', 'DEVICE_EMBOLIZATION_RATE_DEVICE_DISLODGES', 'RATE_OF_ANY_ATRIAL_ARRHYTHMIA_REQUIRING_PROCEDURAL_INTERVENTION_POST_IMPLANT', 'ATRIAL_ARRHYTHMIA_REQUIRING_SHORT_TERM_MEDICAL_MANAGEMENT', 'DEVICE_FRAME_RELATED_CARDIAC_INJURY_RATE_EROSION_OR_PERFORATION_POST_IMPLANT', 'TIME_TO_COMPLETE_ENDOTHELIALIZATION', 'DEVICE_RELATED_THROMBUS_RATE_6_MONTHS_AFTER_PROCEDURE', 'LEAVE_LESS_BEHIND_BIOABSORBABLE_LESS_METAL', 'DEVICE_CROSSABILITY', 'WIRE_FRAME_FRACTURE_RATE_WITHOUT_CLINICAL_SEQUELAE', 'PROCEDURE_TIME', 'DEVICE_PREP_TIME', 'DELIVERY_SYSTEM_REFRESHER', 'AVERAGE_NUMBER_OF_DEVICE_REPOSITIONS', 'IMAGING_VISABILITY_UNDER_IMAGING', 'DELIVERY_PROFILE', 'DEVICE_SIZE', 'PROCEDURAL_SUCCESS_RATE', 'STROKE_RATE_REDUCTION']
+2025-11-04 17:33:42,536 - app - INFO - [analyze_scenarios] Scenario 1 new product utility: -1.1859
+2025-11-04 17:33:42,538 - app - INFO - [analyze_scenarios] Scenario 1 projected shares: ['0.6152', '0.3337', '0.0110', '0.0401']
+2025-11-04 17:33:42,538 - app - INFO - Scenario analysis complete: 1 scenarios analyzed
+INFO:     127.0.0.1:63827 - "POST /analyze_scenarios HTTP/1.1" 200 OK

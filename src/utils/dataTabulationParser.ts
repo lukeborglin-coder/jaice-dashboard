@@ -3,7 +3,7 @@ import * as XLSX from 'xlsx';
 export interface VariableDefinition {
   name: string;
   description: string;
-  type: 'categorical' | 'open-numeric' | 'open-text' | 'multi-select' | 'grid';
+  type: 'categorical' | 'open-numeric' | 'open-text' | 'multi-select' | 'grid' | 'grid-numeric' | 'grid-verbatim' | 'grid-single-select' | 'grid-multi-select';
   codes: Record<string, string>; // {code: label} - for grid, these are the response options
   statements?: Record<string, string>; // For grid questions: {statementCode: statementText}
   isMultiSelectOption?: boolean; // True if this is a sub-variable of a multi-select (e.g., QS3r1)
@@ -59,43 +59,105 @@ function parseDatamapSheet(worksheet: XLSX.WorkSheet): VariableDefinition[] {
 
       if (nextFirstCell.includes('Values:')) {
         // Extract the range to determine question type
-        if (nextFirstCell.includes('0-1')) {
-          // This is a multi-select question (Values: 0-1 = Unchecked/Checked)
-          currentVar = {
-            name: varName,
-            description: description,
-            type: 'multi-select',
-            codes: {} // Will be populated from sub-variables
-          };
-          collectingCodes = false;
-          collectingMultiSelectOptions = true;
-          multiSelectOptions = [];
+        // Check for "0-1" but make sure it's not part of a larger range like "0-100"
+        const valuesMatch = nextFirstCell.match(/Values:\s*(\d+)(?:\s*-\s*(\d+))?/i);
+        const isZeroToOne = valuesMatch && valuesMatch[1] === '0' && valuesMatch[2] === '1';
+        
+        if (isZeroToOne) {
+          // Check if this is a multi-select question or multi-select grid
+          // Look further ahead to see if there are statements (indicates grid)
+          let isGrid = false;
+          if (i + 2 < data.length) {
+            const secondNextRow = data[i + 2] as string[];
+            const secondNextFirstCell = secondNextRow && secondNextRow[0] ? secondNextRow[0].toString().trim() : '';
+            // Check if next rows have statement references like [QSXr1]
+            if (secondNextFirstCell.includes('[') || (secondNextRow && secondNextRow[1] && String(secondNextRow[1]).match(/^\[.+\]$/))) {
+              isGrid = true;
+            }
+          }
+          
+          if (isGrid) {
+            // Multi-select grid - has statements and response codes, but values are 0-1
+            currentVar = {
+              name: varName,
+              description: description,
+              type: 'grid-multi-select',
+              codes: {}, // Will be populated with response options
+              statements: {} // Will be populated with grid statements
+            };
+            collectingCodes = true; // First collect the response codes
+          } else {
+            // This is a regular multi-select question (Values: 0-1 = Unchecked/Checked)
+            currentVar = {
+              name: varName,
+              description: description,
+              type: 'multi-select',
+              codes: {} // Will be populated from sub-variables
+            };
+            collectingCodes = false;
+            collectingMultiSelectOptions = true;
+            multiSelectOptions = [];
+          }
+          collectingGridStatements = false;
+          gridStatements = [];
           continue;
         } else {
-          // This is a grid question (Values: 1-X where X > 1)
-          // Grid has response codes (1-X) that apply to each statement
-          currentVar = {
-            name: varName,
-            description: description,
-            type: 'grid',
-            codes: {}, // Will be populated with response options (1-3, etc.)
-            statements: {} // Will be populated with grid statements
-          };
-          collectingCodes = true; // First collect the response codes
+          // This is a grid question (Values: 1-X where X > 1, or other range)
+          // Could be single-select grid (has statements AND response codes) or numeric grid (has statements but NO response codes)
+          // Check if it's a numeric range (e.g., 0-100, 0-10, or any range > 10)
+          const valuesMatch = nextFirstCell.match(/Values:\s*(\d+)(?:\s*-\s*(\d+))?/i);
+          let isNumericRange = false;
+          
+          if (valuesMatch) {
+            const startValue = parseInt(valuesMatch[1]);
+            const endValue = valuesMatch[2] ? parseInt(valuesMatch[2]) : startValue;
+            // If the range is large (e.g., 0-100) or starts at 0, it's likely a numeric range, not response codes
+            if (startValue === 0 || (endValue - startValue) > 10) {
+              isNumericRange = true;
+            }
+          }
+          
+          if (isNumericRange) {
+            // Numeric grid - has statements but no response codes, values are numeric
+            currentVar = {
+              name: varName,
+              description: description,
+              type: 'grid-numeric',
+              codes: {}, // No response codes for numeric grids
+              statements: {} // Will be populated with grid statements
+            };
+            collectingCodes = false; // Don't collect codes for numeric grids
+            collectingGridStatements = true; // Start collecting statements directly
+          } else {
+            // Single-select grid - has statements AND response codes
+            currentVar = {
+              name: varName,
+              description: description,
+              type: 'grid', // Will be refined in post-processing based on whether codes are found
+              codes: {}, // Will be populated with response options (1-3, etc.) if it's a single-select grid
+              statements: {} // Will be populated with grid statements
+            };
+            collectingCodes = true; // First collect the response codes
+          }
           collectingGridStatements = false;
           gridStatements = [];
           continue;
         }
       } else {
-        // Not a multi-select or grid, just a regular question
+        // Could be a grid with open-ended responses (numeric or verbatim)
+        // Check if next rows indicate it's a grid (has statements)
+        // For now, create as grid type - will be refined when we see statements or "Open numeric/text"
         currentVar = {
           name: varName,
           description: description,
-          type: 'open-text',
-          codes: {}
+          type: 'grid', // Will be refined to grid-numeric or grid-verbatim based on response type
+          codes: {},
+          statements: {}
         };
         collectingCodes = false;
         collectingMultiSelectOptions = false;
+        collectingGridStatements = false;
+        gridStatements = [];
         continue;
       }
     }
@@ -197,8 +259,34 @@ function parseDatamapSheet(worksheet: XLSX.WorkSheet): VariableDefinition[] {
 
       // Check for response type
       if (firstCell.includes('Values:')) {
+        // Extract the value range from "Values: X-Y" or "Values: X"
+        const valuesMatch = firstCell.match(/Values:\s*(\d+)(?:\s*-\s*(\d+))?/i);
+        let isNumericRange = false;
+        
+        if (valuesMatch) {
+          const startValue = parseInt(valuesMatch[1]);
+          const endValue = valuesMatch[2] ? parseInt(valuesMatch[2]) : startValue;
+          // If the range is large (e.g., 0-100) or starts at 0, it's likely a numeric range, not response codes
+          // Response codes are typically small ranges like 1-4, 1-5, etc.
+          // Numeric ranges are typically 0-100, 0-10, etc. or any range > 10
+          if (startValue === 0 || (endValue - startValue) > 10) {
+            isNumericRange = true;
+          }
+        }
+        
+        // For grid questions with numeric ranges, set to grid-numeric
+        if ((currentVar.type === 'grid' || currentVar.type === 'grid-single-select') && isNumericRange) {
+          currentVar.type = 'grid-numeric';
+          collectingCodes = false; // Don't collect codes for numeric grids
+          collectingGridStatements = true; // Start collecting statements for numeric grids
+          continue;
+        }
+        
         // Skip "Values:" rows for grid questions - we've already set the type
-        if (currentVar.type === 'grid') {
+        // But don't skip if we're already collecting statements (for numeric/verbatim grids)
+        if ((currentVar.type === 'grid' || currentVar.type === 'grid-single-select' || 
+            currentVar.type === 'grid-multi-select' || currentVar.type === 'grid-numeric' || 
+            currentVar.type === 'grid-verbatim') && !collectingGridStatements) {
           continue;
         }
 
@@ -212,13 +300,29 @@ function parseDatamapSheet(worksheet: XLSX.WorkSheet): VariableDefinition[] {
           continue;
         }
 
-        currentVar.type = 'categorical';
-        collectingCodes = true; // Start collecting codes after "Values:"
+        // For numeric ranges, don't treat as categorical with codes
+        if (isNumericRange && currentVar.type === 'grid') {
+          currentVar.type = 'grid-numeric';
+          collectingCodes = false;
+        } else {
+          currentVar.type = 'categorical';
+          collectingCodes = true; // Start collecting codes after "Values:"
+        }
       } else if (firstCell.includes('Open numeric')) {
-        currentVar.type = 'open-numeric';
+        // Check if this is a grid with open numeric responses (numeric grid)
+        if (currentVar.type === 'grid' && currentVar.statements && Object.keys(currentVar.statements).length > 0) {
+          currentVar.type = 'grid-numeric';
+        } else {
+          currentVar.type = 'open-numeric';
+        }
         collectingCodes = false; // Stop collecting codes
       } else if (firstCell.includes('Open text')) {
-        currentVar.type = 'open-text';
+        // Check if this is a grid with open text responses (verbatim grid)
+        if (currentVar.type === 'grid' && currentVar.statements && Object.keys(currentVar.statements).length > 0) {
+          currentVar.type = 'grid-verbatim';
+        } else {
+          currentVar.type = 'open-text';
+        }
         collectingCodes = false; // Stop collecting codes
       }
       
@@ -263,7 +367,27 @@ function parseDatamapSheet(worksheet: XLSX.WorkSheet): VariableDefinition[] {
       }
 
       // Collect codes and statements for grid questions
-      if (currentVar && currentVar.type === 'grid') {
+      if (currentVar && (currentVar.type === 'grid' || currentVar.type === 'grid-single-select' || 
+                         currentVar.type === 'grid-multi-select' || currentVar.type === 'grid-numeric' || 
+                         currentVar.type === 'grid-verbatim')) {
+        // For numeric and verbatim grids, skip code collection and go straight to statements
+        if ((currentVar.type === 'grid-numeric' || currentVar.type === 'grid-verbatim') && !collectingGridStatements) {
+          // Start collecting statements directly for numeric/verbatim grids
+          // Look for statement references like [QA1r1c1]
+          if (!firstCell && secondCell && secondCell.match(/^\[.+\]$/)) {
+            collectingGridStatements = true;
+            const subVarMatch = secondCell.match(/\[([^\]]+)\]/);
+            if (subVarMatch && thirdCell) {
+              const statementCode = subVarMatch[1];
+              gridStatements.push({
+                name: statementCode,
+                description: thirdCell
+              });
+            }
+            continue;
+          }
+        }
+        
         // First collect response codes
         if (collectingCodes && !collectingGridStatements) {
           if (!firstCell && secondCell && secondCell.match(/^\d+$/)) {
@@ -373,6 +497,58 @@ function parseDatamapSheet(worksheet: XLSX.WorkSheet): VariableDefinition[] {
     variables.push(currentVar);
   }
   
+  // Post-process: Refine grid question types based on their structure
+  variables.forEach(v => {
+    // Skip if already correctly classified as grid-numeric or grid-multi-select
+    if (v.type === 'grid-numeric' || v.type === 'grid-multi-select') {
+      // Verify grid-numeric is correct (has statements, no codes)
+      if (v.type === 'grid-numeric') {
+        const hasStatements = v.statements && Object.keys(v.statements).length > 0;
+        const hasResponseCodes = v.codes && Object.keys(v.codes).length > 0;
+        // If it somehow has codes, it shouldn't be numeric grid
+        if (hasResponseCodes) {
+          // This shouldn't happen, but if it does, it might be misclassified
+          console.warn(`Warning: ${v.name} is marked as grid-numeric but has response codes. Reclassifying...`);
+          v.type = 'grid-single-select';
+        }
+      }
+      // Verify grid-multi-select is correct (should only be set for Values: 0-1)
+      if (v.type === 'grid-multi-select') {
+        const hasStatements = v.statements && Object.keys(v.statements).length > 0;
+        const hasResponseCodes = v.codes && Object.keys(v.codes).length > 0;
+        // Multi-select grids should have both statements and codes
+        // If it has statements but no codes, it's actually a numeric grid
+        if (hasStatements && !hasResponseCodes) {
+          console.warn(`Warning: ${v.name} is marked as grid-multi-select but has no response codes. Reclassifying as grid-numeric.`);
+          v.type = 'grid-numeric';
+        }
+      }
+      return;
+    }
+    
+    if (v.type === 'grid' || v.type === 'grid-single-select') {
+      const hasStatements = v.statements && Object.keys(v.statements).length > 0;
+      const hasResponseCodes = v.codes && Object.keys(v.codes).length > 0;
+      
+      if (hasStatements && !hasResponseCodes) {
+        // Numeric or Verbatim Grid - has statements but no response codes
+        // Will be refined later when we have access to data to distinguish numeric vs verbatim
+        v.type = 'grid-numeric';
+      } else if (hasStatements && hasResponseCodes) {
+        // Has both statements AND response codes - this is a single-select or multi-select grid
+        // Multi-select grids are detected earlier by checking for "Values: 0-1"
+        // If we got here and it's not already set to grid-multi-select, it's single-select
+        if (v.type !== 'grid-multi-select') {
+          v.type = 'grid-single-select';
+        }
+      } else if (!hasStatements && hasResponseCodes) {
+        // Has response codes but no statements - this shouldn't be a grid, but keep it as single-select for now
+        // This case shouldn't normally happen
+        v.type = 'grid-single-select';
+      }
+    }
+  });
+  
   // Post-process: Detect and group multi-select questions
   // Pattern: Variables like QS3r1, QS3r2, etc. indicate QS3 is a multi-select
   const processedVariables: VariableDefinition[] = [];
@@ -431,8 +607,21 @@ function parseDatamapSheet(worksheet: XLSX.WorkSheet): VariableDefinition[] {
         const optionNumber = numMatch ? numMatch[1] : String(subVars.indexOf(subVar) + 1);
         // Use the sub-variable's description as the response option label
         // This is typically the state name, option text, etc.
-        parentVar.codes[optionNumber] = subVar.description || subVar.name.replace(/^.+?r/i, '');
+        let label = subVar.description;
+        
+        // If description is missing or looks like just a number, try to extract from name
+        if (!label || label.trim() === '' || /^\d+$/.test(label.trim())) {
+          // Try to extract meaningful label from the name pattern
+          // For now, use the option number as fallback, but log a warning
+          console.warn(`[Multi-select ${baseName}] Sub-variable ${subVar.name} has no valid description. Using number as fallback.`);
+          label = optionNumber;
+        }
+        
+        parentVar.codes[optionNumber] = label;
       });
+      
+      // Debug logging for multi-select codes
+      console.log(`[Multi-select ${baseName}] Built codes:`, parentVar.codes);
       
       // Replace the regular variable with multi-select version
       const index = processedVariables.findIndex(v => v.name === baseName);
@@ -468,8 +657,21 @@ function parseDatamapSheet(worksheet: XLSX.WorkSheet): VariableDefinition[] {
         const numMatch = subVar.name.match(/r(\d+)$/i);
         const optionNumber = numMatch ? numMatch[1] : String(subVars.indexOf(subVar) + 1);
         // Use the sub-variable's description as the response option label
-        parentVar.codes[optionNumber] = subVar.description || subVar.name.replace(/^.+?r/i, '');
+        let label = subVar.description;
+        
+        // If description is missing or looks like just a number, try to extract from name
+        if (!label || label.trim() === '' || /^\d+$/.test(label.trim())) {
+          // Try to extract meaningful label from the name pattern
+          // For now, use the option number as fallback, but log a warning
+          console.warn(`[Multi-select ${baseName}] Sub-variable ${subVar.name} has no valid description. Using number as fallback.`);
+          label = optionNumber;
+        }
+        
+        parentVar.codes[optionNumber] = label;
       });
+      
+      // Debug logging for multi-select codes
+      console.log(`[Multi-select ${baseName}] Built codes:`, parentVar.codes);
       
       processedVariables.push(parentVar);
     }
@@ -534,6 +736,102 @@ export async function parseDataFile(file: File): Promise<ParsedDataFile> {
         // Parse data sheet
         const dataJson = XLSX.utils.sheet_to_json(dataWorksheet, { defval: null }) as Record<string, any>[];
         console.log(`Parsed ${dataJson.length} rows from data sheet`);
+        
+        // Refine grid types based on actual data values
+        if (dataJson.length > 0) {
+          const firstRow = dataJson[0];
+          variables.forEach(v => {
+            if (v.type === 'grid-numeric') {
+              // Check if values are numeric or text to determine numeric vs verbatim
+              const prefix = `${v.name} - `;
+              const matchingColumns = Object.keys(firstRow).filter(colName => 
+                colName.startsWith(prefix) || colName === v.name
+              );
+              
+              if (matchingColumns.length > 0) {
+                // Sample a few values to determine type
+                let numericCount = 0;
+                let textCount = 0;
+                let sampled = 0;
+                
+                for (const colName of matchingColumns.slice(0, 10)) { // Sample first 10 columns
+                  const value = firstRow[colName];
+                  if (value !== null && value !== undefined && value !== '') {
+                    sampled++;
+                    if (typeof value === 'number' || (typeof value === 'string' && !isNaN(parseFloat(value)) && isFinite(parseFloat(value)))) {
+                      numericCount++;
+                    } else {
+                      textCount++;
+                    }
+                  }
+                }
+                
+                // If we find text values, it's a verbatim grid
+                if (sampled > 0 && textCount > numericCount) {
+                  v.type = 'grid-verbatim';
+                }
+              }
+            } else if (v.type === 'grid-single-select') {
+              // Check if a grid-single-select actually has numeric data (should be grid-numeric)
+              // This can happen if response codes are defined in datamap but data values are numeric
+              const prefix = `${v.name} - `;
+              const matchingColumns = Object.keys(firstRow).filter(colName => 
+                colName.startsWith(prefix) || colName === v.name
+              );
+              
+              if (matchingColumns.length > 0 && v.codes && Object.keys(v.codes).length > 0) {
+                // Sample values from multiple columns and rows to check if they match response codes
+                let numericValueCount = 0;
+                let codeMatchCount = 0;
+                let sampled = 0;
+                
+                // Get all response code values (normalized)
+                const responseCodes = new Set(Object.keys(v.codes));
+                const responseCodeLabels = new Set(Object.values(v.codes).map(l => String(l).trim().toLowerCase()));
+                
+                // Sample from multiple columns and rows
+                for (const colName of matchingColumns.slice(0, 5)) { // Sample first 5 columns
+                  for (let rowIdx = 0; rowIdx < Math.min(10, dataJson.length); rowIdx++) {
+                    const value = dataJson[rowIdx][colName];
+                    if (value !== null && value !== undefined && value !== '') {
+                      sampled++;
+                      const valueStr = String(value);
+                      const valueNum = typeof value === 'number' ? value : parseFloat(valueStr);
+                      
+                      // Check if value is numeric
+                      if (typeof value === 'number' || (!isNaN(valueNum) && isFinite(valueNum))) {
+                        // Check if it matches a response code
+                        if (responseCodes.has(valueStr) || (Number.isInteger(valueNum) && valueNum >= 1 && valueNum <= responseCodes.size)) {
+                          // Small integer that could be a code - check if it matches
+                          codeMatchCount++;
+                        } else {
+                          // Large number or decimal - likely numeric grid
+                          numericValueCount++;
+                        }
+                      } else {
+                        // Text value - check if it matches a code label
+                        const normalizedValue = valueStr.trim().toLowerCase();
+                        if (responseCodeLabels.has(normalizedValue)) {
+                          codeMatchCount++;
+                        } else {
+                          // Text that doesn't match codes - count as numeric grid indicator
+                          numericValueCount++;
+                        }
+                      }
+                    }
+                  }
+                }
+                
+                // If most values are numeric and don't match response codes, it's likely a numeric grid
+                if (sampled > 0 && numericValueCount > codeMatchCount * 2) {
+                  // Reclassify as numeric grid
+                  v.type = 'grid-numeric';
+                  console.log(`Reclassified ${v.name} from grid-single-select to grid-numeric based on data values (${numericValueCount} numeric vs ${codeMatchCount} code matches)`);
+                }
+              }
+            }
+          });
+        }
         
         // Create a mapping from variable names to actual column names (handles case-insensitive and whitespace differences)
         const variableToColumnMap: Record<string, string> = {};
@@ -651,11 +949,18 @@ export function getCodeLabel(variables: VariableDefinition[], varName: string, c
   }
   
   const varDef = getVariableDefinition(variables, varName);
-  if (!varDef || varDef.type !== 'categorical') {
+  if (!varDef) {
     return String(codeValue);
   }
   
-  const codeStr = String(codeValue);
-  return varDef.codes[codeStr] || codeStr;
+  // Handle categorical, multi-select, and grid types (all have codes)
+  if (varDef.type === 'categorical' || varDef.type === 'multi-select' || 
+      varDef.type === 'grid' || varDef.type === 'grid-single-select' || 
+      varDef.type === 'grid-multi-select') {
+    const codeStr = String(codeValue);
+    return varDef.codes[codeStr] || codeStr;
+  }
+  
+  return String(codeValue);
 }
 

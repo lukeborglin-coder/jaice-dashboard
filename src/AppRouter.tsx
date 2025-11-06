@@ -15,7 +15,7 @@ export default function AppRouter() {
 			<Route path="/stat-testing" element={<App />} />
 			<Route path="/open-end-coding" element={<App />} />
 			<Route path="/data-tabulation/*" element={<App />} />
-			<Route path="/tab-testing" element={<App />} />
+			<Route path="/tabs/*" element={<App />} />
 			<Route path="/conjoint-simulator/*" element={<App />} />
 			<Route path="/admin-center/*" element={<App />} />
 			<Route path="/feedback/*" element={<App />} />

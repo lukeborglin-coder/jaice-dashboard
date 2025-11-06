@@ -1,0 +1,1749 @@
+🚀 JAICE Dashboard Server running on http://localhost:3005
+📊 Content Analysis API available at http://localhost:3005 /api/ca
+✅ OpenAI API key configured - AI generation enabled
+🔗 Frontend should connect to: http://localhost:3005
+Loaded 1 saved data tabulations
+🔍 ContentAnalysisX route hit: GET /saved
+🔍 ContentAnalysisX route hit: GET /saved
+🔍 ContentAnalysisX route hit: GET /saved
+🔍 [PUT] Received project update for: P-1761242973652
+🔍 [PUT] Requesting user: 3
+🔍 [PUT] Team members received: [
+  {
+    "id": "3",
+    "name": "Luke Borglin",
+    "role": "Project Manager",
+    "roles": [
+      "Project Manager"
+    ]
+  },
+  {
+    "id": "12",
+    "name": " Ciara Mcevoy-Benisti",
+    "role": "Recruit Coordinator",
+    "roles": [
+      "Recruit Coordinator"
+    ]
+  }
+]
+🔍 [PUT] Found project owned by user: 3
+🔍 [PUT] Project updated in memory, team members: [
+  {
+    "id": "3",
+    "name": "Luke Borglin",
+    "role": "Project Manager",
+    "roles": [
+      "Project Manager"
+    ]
+  },
+  {
+    "id": "12",
+    "name": " Ciara Mcevoy-Benisti",
+    "role": "Recruit Coordinator",
+    "roles": [
+      "Recruit Coordinator"
+    ]
+  }
+]
+🔍 [PUT] Debug - project.teamMembers: [
+  {
+    id: '3',
+    name: 'Luke Borglin',
+    role: 'Project Manager',
+    roles: [ 'Project Manager' ]
+  },
+  {
+    id: '12',
+    name: ' Ciara Mcevoy-Benisti',
+    role: 'Recruit Coordinator',
+    roles: [ 'Recruit Coordinator' ]
+  }
+]
+🔍 [PUT] Debug - project.teamMembers length: 2
+🔍 [PUT] Debug - project.tasks: 60
+🔍 [PUT] Received project update for: P-1761243049041
+🔍 [PUT] Requesting user: 3
+🔍 [PUT] Team members received: [
+  {
+    "id": "3",
+    "name": "Luke Borglin",
+    "role": "Project Manager",
+    "roles": [
+      "Project Manager",
+      "Logistics"
+    ]
+  },
+  {
+    "id": "12",
+    "name": " Ciara Mcevoy-Benisti",
+    "role": "Project Manager",
+    "roles": [
+      "Project Manager"
+    ]
+  },
+  {
+    "id": "13",
+    "name": "Nikki",
+    "role": "Team Member",
+    "roles": [],
+    "email": "nikki.panagiota@cognitiveconsulting.com"
+  }
+]
+🔍 [PUT] Found project owned by user: 3
+🔍 [PUT] Project updated in memory, team members: [
+  {
+    "id": "3",
+    "name": "Luke Borglin",
+    "role": "Project Manager",
+    "roles": [
+      "Project Manager",
+      "Logistics"
+    ]
+  },
+  {
+    "id": "12",
+    "name": " Ciara Mcevoy-Benisti",
+    "role": "Project Manager",
+    "roles": [
+      "Project Manager"
+    ]
+  },
+  {
+    "id": "13",
+    "name": "Nikki",
+    "role": "Team Member",
+    "roles": [],
+    "email": "nikki.panagiota@cognitiveconsulting.com"
+  }
+]
+🔍 [PUT] Debug - project.teamMembers: [
+  {
+    id: '3',
+    name: 'Luke Borglin',
+    role: 'Project Manager',
+    roles: [ 'Project Manager', 'Logistics' ]
+  },
+  {
+    id: '12',
+    name: ' Ciara Mcevoy-Benisti',
+    role: 'Project Manager',
+    roles: [ 'Project Manager' ]
+  },
+  {
+    id: '13',
+    name: 'Nikki',
+    role: 'Team Member',
+    roles: [],
+    email: 'nikki.panagiota@cognitiveconsulting.com'
+  }
+]
+🔍 [PUT] Debug - project.teamMembers length: 3
+🔍 [PUT] Debug - project.tasks: 53
+🔍 [PUT] Received project update for: P-1761768313209
+🔍 [PUT] Requesting user: 3
+🔍 [PUT] Team members received: [
+  {
+    "id": "3",
+    "name": "Luke Borglin",
+    "role": "Project Manager",
+    "roles": [
+      "Project Manager",
+      "AE Manager",
+      "Logistics",
+      "Recruit Coordinator"
+    ]
+  }
+]
+🔍 [PUT] Found project owned by user: 3
+🔍 [PUT] Project updated in memory, team members: [
+  {
+    "id": "3",
+    "name": "Luke Borglin",
+    "role": "Project Manager",
+    "roles": [
+      "Project Manager",
+      "AE Manager",
+      "Logistics",
+      "Recruit Coordinator"
+    ]
+  }
+]
+🔍 [PUT] Debug - project.teamMembers: [
+  {
+    id: '3',
+    name: 'Luke Borglin',
+    role: 'Project Manager',
+    roles: [
+      'Project Manager',
+      'AE Manager',
+      'Logistics',
+      'Recruit Coordinator'
+    ]
+  }
+]
+🔍 [PUT] Debug - project.teamMembers length: 1
+🔍 [PUT] Debug - project.tasks: 53
+🔍 [PUT] Received project update for: P-1761522000342
+🔍 [PUT] Requesting user: 3
+🔍 [PUT] Team members received: [
+  {
+    "id": "17",
+    "name": "oversight",
+    "role": "AE Manager",
+    "roles": [
+      "AE Manager"
+    ]
+  },
+  {
+    "id": "3",
+    "name": "Luke Borglin",
+    "role": "Project Manager",
+    "roles": [
+      "Project Manager"
+    ]
+  },
+  {
+    "id": "12",
+    "name": " Ciara Mcevoy-Benisti",
+    "role": "Recruit Coordinator",
+    "roles": [
+      "Recruit Coordinator"
+    ]
+  }
+]
+🔍 [PUT] Found project owned by user: 17
+🔍 [PUT] Project updated in memory, team members: [
+  {
+    "id": "17",
+    "name": "oversight",
+    "role": "AE Manager",
+    "roles": [
+      "AE Manager"
+    ]
+  },
+  {
+    "id": "3",
+    "name": "Luke Borglin",
+    "role": "Project Manager",
+    "roles": [
+      "Project Manager"
+    ]
+  },
+  {
+    "id": "12",
+    "name": " Ciara Mcevoy-Benisti",
+    "role": "Recruit Coordinator",
+    "roles": [
+      "Recruit Coordinator"
+    ]
+  }
+]
+🔍 [PUT] Debug - project.teamMembers: [
+  {
+    id: '17',
+    name: 'oversight',
+    role: 'AE Manager',
+    roles: [ 'AE Manager' ]
+  },
+  {
+    id: '3',
+    name: 'Luke Borglin',
+    role: 'Project Manager',
+    roles: [ 'Project Manager' ]
+  },
+  {
+    id: '12',
+    name: ' Ciara Mcevoy-Benisti',
+    role: 'Recruit Coordinator',
+    roles: [ 'Recruit Coordinator' ]
+  }
+]
+🔍 [PUT] Debug - project.teamMembers length: 3
+🔍 [PUT] Debug - project.tasks: 60
+🔍 [PUT] Received project update for: P-1761586804791
+🔍 [PUT] Requesting user: 3
+🔍 [PUT] Team members received: [
+  {
+    "id": "17",
+    "name": "oversight",
+    "role": "Recruit Coordinator",
+    "roles": [
+      "Recruit Coordinator",
+      "Project Manager"
+    ]
+  }
+]
+🔍 [PUT] Found project owned by user: 17
+🔍 [PUT] Project updated in memory, team members: [
+  {
+    "id": "17",
+    "name": "oversight",
+    "role": "Recruit Coordinator",
+    "roles": [
+      "Recruit Coordinator",
+      "Project Manager"
+    ]
+  }
+]
+🔍 [PUT] Debug - project.teamMembers: [
+  {
+    id: '17',
+    name: 'oversight',
+    role: 'Recruit Coordinator',
+    roles: [ 'Recruit Coordinator', 'Project Manager' ]
+  }
+]
+🔍 [PUT] Debug - project.teamMembers length: 1
+🔍 [PUT] Debug - project.tasks: 60
+🔍 [PUT] Received project update for: P-1761587164310
+🔍 [PUT] Requesting user: 3
+🔍 [PUT] Team members received: [
+  {
+    "id": "17",
+    "name": "oversight",
+    "role": "Project Manager",
+    "roles": [
+      "Project Manager",
+      "Recruit Coordinator"
+    ]
+  }
+]
+🔍 [PUT] Found project owned by user: 17
+🔍 [PUT] Project updated in memory, team members: [
+  {
+    "id": "17",
+    "name": "oversight",
+    "role": "Project Manager",
+    "roles": [
+      "Project Manager",
+      "Recruit Coordinator"
+    ]
+  }
+]
+🔍 [PUT] Debug - project.teamMembers: [
+  {
+    id: '17',
+    name: 'oversight',
+    role: 'Project Manager',
+    roles: [ 'Project Manager', 'Recruit Coordinator' ]
+  }
+]
+🔍 [PUT] Debug - project.teamMembers length: 1
+🔍 [PUT] Debug - project.tasks: 58
+🔍 [PUT] Received project update for: P-1761587291769
+🔍 [PUT] Requesting user: 3
+🔍 [PUT] Team members received: [
+  {
+    "id": "17",
+    "name": "oversight",
+    "role": "",
+    "roles": []
+  }
+]
+🔍 [PUT] Found project owned by user: 17
+🔍 [PUT] Project updated in memory, team members: [
+  {
+    "id": "17",
+    "name": "oversight",
+    "role": "",
+    "roles": []
+  }
+]
+🔍 [PUT] Debug - project.teamMembers: [ { id: '17', name: 'oversight', role: '', roles: [] } ]
+🔍 [PUT] Debug - project.teamMembers length: 1
+🔍 [PUT] Debug - project.tasks: 58
+🔍 [PUT] Received project update for: P-1761587443521
+🔍 [PUT] Requesting user: 3
+🔍 [PUT] Team members received: [
+  {
+    "id": "17",
+    "name": "oversight",
+    "role": "",
+    "roles": []
+  }
+]
+🔍 [PUT] Found project owned by user: 17
+🔍 [PUT] Project updated in memory, team members: [
+  {
+    "id": "17",
+    "name": "oversight",
+    "role": "",
+    "roles": []
+  }
+]
+🔍 [PUT] Debug - project.teamMembers: [ { id: '17', name: 'oversight', role: '', roles: [] } ]
+🔍 [PUT] Debug - project.teamMembers length: 1
+🔍 [PUT] Debug - project.tasks: 58
+🔍 [PUT] Received project update for: P-1761587638538
+🔍 [PUT] Requesting user: 3
+🔍 [PUT] Team members received: [
+  {
+    "id": "17",
+    "name": "oversight",
+    "role": "Project Manager",
+    "roles": [
+      "Project Manager",
+      "Recruit Coordinator"
+    ]
+  }
+]
+🔍 [PUT] Found project owned by user: 17
+🔍 [PUT] Project updated in memory, team members: [
+  {
+    "id": "17",
+    "name": "oversight",
+    "role": "Project Manager",
+    "roles": [
+      "Project Manager",
+      "Recruit Coordinator"
+    ]
+  }
+]
+🔍 [PUT] Debug - project.teamMembers: [
+  {
+    id: '17',
+    name: 'oversight',
+    role: 'Project Manager',
+    roles: [ 'Project Manager', 'Recruit Coordinator' ]
+  }
+]
+🔍 [PUT] Debug - project.teamMembers length: 1
+🔍 [PUT] Debug - project.tasks: 53
+📁 Reading data file: data_1762458255475.xlsx
+📊 Total rows in file: 50 (including header row)
+📋 First row (headers): [
+  'record',
+  'uuid',
+  'date',
+  'markers',
+  'status - Participant status',
+  'Disposition - Disposition Tracker',
+  'country - Hidden Question: FOR TESTING ONLY: Please select the country/language to be tested. This will be autopunched from "cnt" value in URL.',
+  'QHidLiveTrack - Hidden question to track live changes.',
+  'QHidStage - Hidden question for testing purpose.',
+  'listSource - Hidden variable to store List vs Off List'
+]
+📋 Sample data row: [
+  [ 'record', 4 ],
+  [ 'uuid', '03akt0q1bgh2xvcq' ],
+  [ 'date', '10/15/2025 20:58' ],
+  [
+    'markers',
+    'qualified,/qta_EVRYSDI/hEVRYSDIr1,/qta_QC8_EVRYSDI_SPINRAZA/hC8r3,/qta_SPINRAZA/hSPINRAZAr1,incScreen,20241210_08:16_v2,incMain,/qta_SPECIALTY/hSPECIALTYr1,surveyComplete,/qta_NEUROLOGIST/hNEUROLOGISTr2,/qta_Total/total,total,/qta_hTABLET/hTABLETr1,/qta_Region/Region_r4,/qta_hQS8/hQS8_r2'
+  ],
+  [ 'status - Participant status', 'Qualified' ]
+]
+✅ Successfully loaded 50 rows from data file
+📊 Processing 50 rows of data (all rows from file)
+🗺️ Column mapping has 312 variables
+📝 Sample mappings: [
+  [
+    'S1',
+    'QS1 - Which of the following best describes your primary medical specialty?'
+  ],
+  [
+    'S2',
+    'QS2 - Are you board certified or board eligible in your medical specialty?'
+  ],
+  [ 'S3', '' ],
+  [ 'S4', '' ],
+  [ 'S4_r1', 'QS4 - Amyotrophic Lateral Sclerosis (ALS)' ]
+]
+📋 Actual columns in data file (first 20): [
+  'record',
+  'uuid',
+  'date',
+  'markers',
+  'status - Participant status',
+  'Disposition - Disposition Tracker',
+  'country - Hidden Question: FOR TESTING ONLY: Please select the country/language to be tested. This will be autopunched from "cnt" value in URL.',
+  'QHidLiveTrack - Hidden question to track live changes.',
+  'QHidStage - Hidden question for testing purpose.',
+  'listSource - Hidden variable to store List vs Off List',
+  'QS1 - Which of the following best describes your primary medical specialty?',
+  'QS1r98oe',
+  'hQS1 - Hidden question for medical specialty Quota',
+  'QS2 - Are you board certified or board eligible in your medical specialty?',
+  'QS3 - ALABAMA',
+  'QS3 - ALASKA',
+  'QS3 - ARIZONA',
+  'QS3 - ARKANSAS',
+  'QS3 - CALIFORNIA',
+  'QS3 - COLORADO'
+]
+📋 Total columns in data file: 1200
+   ✅ "S1" -> "QS1 - Which of the following best describes your primary medical specialty?" matches "QS1 - Which of thefollowing best describes your primary medical specialty?"
+   ✅ "S2" -> "QS2 - Are you board certified or board eligible in your medical specialty?" matches "QS2 - Are you boardcertified or board eligible in your medical specialty?"
+   ✅ "S4_r1" -> "QS4 - Amyotrophic Lateral Sclerosis (ALS)" matches "QS4 - Amyotrophic Lateral Sclerosis (ALS)"
+   ✅ "S4_r2" -> "QS4 - Cerebral Palsy" matches "QS4 - Cerebral Palsy"
+   ✅ "S4_r3" -> "QS4 - Duchenne Muscular Dystrophy (DMD)" matches "QS4 - Duchenne Muscular Dystrophy (DMD)"
+   ✅ "S4_r4" -> "QS4 - Epilepsy" matches "QS4 - Epilepsy"
+   ✅ "S4_r5" -> "QS4 - Spinal muscular atrophy (SMA)" matches "QS4 - Spinal muscular atrophy (SMA)"
+📊 Column matching summary: 7 found, 0 not found (out of 10 sampled)
+📊 Overall: 224 / 225 mapped columns found in data file
+🔍 Row 0, Variable: S1, Looking for column: "QS1 - Which of the following best describes your primary medical specialty?"
+   Available row keys (first 10): [
+  'record',
+  'uuid',
+  'date',
+  'markers',
+  'status - Participant status',
+  'Disposition - Disposition Tracker',
+  'country - Hidden Question: FOR TESTING ONLY: Please select the country/language to be tested. This will be autopunched from "cnt" value in URL.',
+  'QHidLiveTrack - Hidden question to track live changes.',
+  'QHidStage - Hidden question for testing purpose.',
+  'listSource - Hidden variable to store List vs Off List'
+]
+   Value found: Adult Neurology
+🔍 Row 1, Variable: S1, Looking for column: "QS1 - Which of the following best describes your primary medical specialty?"
+   Available row keys (first 10): [
+  'record',
+  'uuid',
+  'date',
+  'markers',
+  'status - Participant status',
+  'Disposition - Disposition Tracker',
+  'country - Hidden Question: FOR TESTING ONLY: Please select the country/language to be tested. This will be autopunched from "cnt" value in URL.',
+  'QHidLiveTrack - Hidden question to track live changes.',
+  'QHidStage - Hidden question for testing purpose.',
+  'listSource - Hidden variable to store List vs Off List'
+]
+   Value found: Adult Neurology
+🔍 Row 2, Variable: S1, Looking for column: "QS1 - Which of the following best describes your primary medical specialty?"
+   Available row keys (first 10): [
+  'record',
+  'uuid',
+  'date',
+  'markers',
+  'status - Participant status',
+  'Disposition - Disposition Tracker',
+  'country - Hidden Question: FOR TESTING ONLY: Please select the country/language to be tested. This will be autopunched from "cnt" value in URL.',
+  'QHidLiveTrack - Hidden question to track live changes.',
+  'QHidStage - Hidden question for testing purpose.',
+  'listSource - Hidden variable to store List vs Off List'
+]
+   Value found: Adult Neurology
+✅ Extracted data for 225 variables
+📊 Processed 50 total rows from the data file (ALL rows, not just headers)
+📊 Variables with data: 173 out of 225
+📈 Value counts for variables with data: [
+  { variable: 'S1', valueCount: 50 },
+  { variable: 'S2', valueCount: 50 },
+  { variable: 'S4_r1', valueCount: 50 },
+  { variable: 'S4_r2', valueCount: 50 },
+  { variable: 'S4_r3', valueCount: 50 }
+]
+📊 Sample processed data: [
+  {
+    variable: 'S1',
+    valueCount: 50,
+    sampleValues: [ 'Adult Neurology', 'Adult Neurology', 'Adult Neurology' ]
+  },
+  {
+    variable: 'S2',
+    valueCount: 50,
+    sampleValues: [ 'Board certified', 'Board certified', 'Board certified' ]
+  },
+  { variable: 'S4_r1', valueCount: 50, sampleValues: [ 12, 30, 35 ] }
+]
+  📝 Value "Adult Neurology" -> Code "5" (exact)
+  📝 Value "Adult Neurology" -> Code "5" (exact)
+  📝 Value "Adult Neurology" -> Code "5" (exact)
+  📝 Value "Adult Neurology" -> Code "5" (exact)
+  📝 Value "Adult Neurology" -> Code "5" (exact)
+  📝 Value "Adult Neurology" -> Code "5" (exact)
+  📝 Value "Adult Neurology" -> Code "5" (exact)
+  📝 Value "Adult Neurology" -> Code "5" (exact)
+  📝 Value "Adult Neurology" -> Code "5" (exact)
+  📝 Value "Adult Neurology" -> Code "5" (exact)
+  📝 Value "Adult Neurology" -> Code "5" (exact)
+  📝 Value "Adult Neurology" -> Code "5" (exact)
+  📝 Value "Adult Neurology" -> Code "5" (exact)
+  📝 Value "Adult Neurology" -> Code "5" (exact)
+  📝 Value "Adult Neurology" -> Code "5" (exact)
+  📝 Value "Adult Neurology" -> Code "5" (exact)
+  📝 Value "Adult Neurology" -> Code "5" (exact)
+  📝 Value "Adult Neurology" -> Code "5" (exact)
+  📝 Value "Adult Neurology" -> Code "5" (exact)
+  📝 Value "Adult Neurology" -> Code "5" (exact)
+  📝 Value "Adult Neurology" -> Code "5" (exact)
+  📝 Value "Adult Neurology" -> Code "5" (exact)
+  📝 Value "Adult Neurology" -> Code "5" (exact)
+  📝 Value "Adult Neurology" -> Code "5" (exact)
+  📝 Value "Adult Neurology" -> Code "5" (exact)
+  📝 Value "Adult Neurology" -> Code "5" (exact)
+  📝 Value "Adult Neurology" -> Code "5" (exact)
+  📝 Value "Adult Neurology" -> Code "5" (exact)
+  📝 Value "Adult Neurology" -> Code "5" (exact)
+  📝 Value "Adult Neurology" -> Code "5" (exact)
+  📝 Value "Adult Neurology" -> Code "5" (exact)
+  📝 Value "Adult Neurology" -> Code "5" (exact)
+  📝 Value "Adult Neurology" -> Code "5" (exact)
+  📝 Value "Adult Neurology" -> Code "5" (exact)
+  📝 Value "Adult Neurology" -> Code "5" (exact)
+  📝 Value "Adult Neurology" -> Code "5" (exact)
+  📝 Value "Adult Neurology" -> Code "5" (exact)
+  📝 Value "Adult Neurology" -> Code "5" (exact)
+  📝 Value "Adult Neurology" -> Code "5" (exact)
+  📝 Value "Adult Neurology" -> Code "5" (exact)
+  📝 Value "Adult Neurology" -> Code "5" (exact)
+  📝 Value "Adult Neurology" -> Code "5" (exact)
+🔍 Code mapping for "S1": {
+  hasCodeMap: true,
+  codeMapSize: 27,
+  codeMapSample: [
+    '"1" -> "1"',
+    '"2" -> "2"',
+    '"3" -> "3"',
+    '"4" -> "4"',
+    '"5" -> "5"',
+    '"6" -> "6"',
+    '"7" -> "7"',
+    '"Family Practice / General Practice (FP/GP)" -> "1"',
+    '"family practice / general practice (fp/gp)" -> "1"',
+    '"family practice / general practice" -> "1"',
+    '"Family Practice / General Practice" -> "1"',
+    '"Internal Medicine (IM)" -> "2"',
+    '"internal medicine (im)" -> "2"',
+    '"internal medicine" -> "2"',
+    '"Internal Medicine" -> "2"'
+  ],
+  uniqueValues: [ 'Adult Neurology', 'Pediatric Neurology' ],
+  frequencyKeys: [ '5', '6' ],
+  sampleFrequencies: [ '"5": 42', '"6": 8' ],
+  totalFrequencyCount: 50
+}
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+  📝 Value "Board certified" -> Code "1" (exact)
+🔍 Code mapping for "S2": {
+  hasCodeMap: true,
+  codeMapSize: 9,
+  codeMapSample: [
+    '"1" -> "1"',
+    '"2" -> "2"',
+    '"3" -> "3"',
+    '"Board certified" -> "1"',
+    '"board certified" -> "1"',
+    '"Board eligible" -> "2"',
+    '"board eligible" -> "2"',
+    '"Neither" -> "3"',
+    '"neither" -> "3"'
+  ],
+  uniqueValues: [ 'Board certified' ],
+  frequencyKeys: [ '1' ],
+  sampleFrequencies: [ '"1": 50' ],
+  totalFrequencyCount: 50
+}
+  📝 Value "Yes" -> Code "1" (exact)
+  📝 Value "Don't Know" -> Code "1" (word-match)
+  📝 Value "Yes" -> Code "1" (exact)
+  📝 Value "Yes" -> Code "1" (exact)
+  📝 Value "Yes" -> Code "1" (exact)
+  📝 Value "Yes" -> Code "1" (exact)
+  📝 Value "Yes" -> Code "1" (exact)
+  📝 Value "Yes" -> Code "1" (exact)
+  📝 Value "Yes" -> Code "1" (exact)
+  📝 Value "Yes" -> Code "1" (exact)
+  📝 Value "Don't Know" -> Code "1" (word-match)
+  📝 Value "Yes" -> Code "1" (exact)
+  📝 Value "Yes" -> Code "1" (exact)
+  📝 Value "Yes" -> Code "1" (exact)
+  📝 Value "Yes" -> Code "1" (exact)
+  📝 Value "Yes" -> Code "1" (exact)
+  📝 Value "Yes" -> Code "1" (exact)
+  📝 Value "Yes" -> Code "1" (exact)
+  📝 Value "Yes" -> Code "1" (exact)
+  📝 Value "Yes" -> Code "1" (exact)
+  📝 Value "Don't Know" -> Code "1" (word-match)
+  📝 Value "Don't Know" -> Code "1" (word-match)
+  📝 Value "Yes" -> Code "1" (exact)
+  📝 Value "Yes" -> Code "1" (exact)
+  📝 Value "Yes" -> Code "1" (exact)
+  📝 Value "Yes" -> Code "1" (exact)
+  📝 Value "University of California, Los Angeles (UCLA): Los Angeles, CA" -> Code "17" (exact)
+  📝 Value "Boston Children's Hospital: Boston, MA" -> Code "1" (word-match)
+  📝 Value "Northwestern University: Evanston, IL" -> Code "12" (exact)
+  📝 Value "Major Academic Hospital" -> Code "1" (exact)
+  📝 Value "Group, Single-Specialty Practice" -> Code "7" (exact)
+  📝 Value "Major Academic Hospital" -> Code "1" (exact)
+  📝 Value "Major Academic Hospital" -> Code "1" (exact)
+  📝 Value "Major Academic Hospital" -> Code "1" (exact)
+  📝 Value "Major Academic Hospital" -> Code "1" (exact)
+  📝 Value "Group, Single-Specialty Practice" -> Code "7" (exact)
+  📝 Value "Major Academic Hospital" -> Code "1" (exact)
+  📝 Value "Spinraza" -> Code "Spinraza" (no-match)
+  📝 Value "Spinraza" -> Code "Spinraza" (no-match)
+  📝 Value "Risdiplam" -> Code "Risdiplam" (no-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "Very Knowledgeable and Familiar with Product" -> Code "r1" (word-match)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "No" -> Code "2" (exact)
+  📝 Value "Extremely Comfortable7" -> Code "1" (word-match)
+  📝 Value "6" -> Code "6" (exact)
+  📝 Value "6" -> Code "6" (exact)
+  📝 Value "6" -> Code "6" (exact)
+  📝 Value "Extremely Comfortable7" -> Code "1" (word-match)
+  📝 Value "Extremely Comfortable7" -> Code "1" (word-match)
+  📝 Value "6" -> Code "6" (exact)
+  📝 Value "Extremely Comfortable7" -> Code "1" (word-match)
+  📝 Value "6" -> Code "6" (exact)
+  📝 Value "6" -> Code "6" (exact)
+  📝 Value "Extremely Comfortable7" -> Code "1" (word-match)
+  📝 Value "Extremely Comfortable7" -> Code "1" (word-match)
+  📝 Value "6" -> Code "6" (exact)
+  📝 Value "6" -> Code "6" (exact)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "No" -> Code "No" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "Yes" -> Code "Yes" (no-match)
+  📝 Value "Extremely Positive7" -> Code "r1" (word-match)
+  📝 Value "4" -> Code "r4" (exact)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "Extremely Positive7" -> Code "r1" (word-match)
+  📝 Value "4" -> Code "r4" (exact)
+  📝 Value "5" -> Code "5" (no-match)
+  📝 Value "Extremely Positive7" -> Code "r1" (word-match)
+  📝 Value "5" -> Code "5" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "5" -> Code "5" (no-match)
+  📝 Value "5" -> Code "5" (no-match)
+  📝 Value "Extremely Positive7" -> Code "r1" (word-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "5" -> Code "5" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "5" -> Code "5" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "5" -> Code "5" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "5" -> Code "5" (no-match)
+  📝 Value "5" -> Code "5" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "Extremely Satisfied7" -> Code "r1" (word-match)
+  📝 Value "4" -> Code "4" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "4" -> Code "4" (no-match)
+  📝 Value "0" -> Code "0" (no-match)
+  📝 Value "0" -> Code "0" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "0" -> Code "0" (no-match)
+  📝 Value "0" -> Code "0" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "0" -> Code "0" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "4" -> Code "4" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "4" -> Code "4" (no-match)
+  📝 Value "5" -> Code "5" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "0" -> Code "0" (no-match)
+  📝 Value "3" -> Code "r3" (exact)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "0" -> Code "0" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "Extremely Satisfied7" -> Code "r1" (word-match)
+  📝 Value "5" -> Code "5" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "5" -> Code "5" (no-match)
+  📝 Value "5" -> Code "5" (no-match)
+  📝 Value "Extremely Satisfied7" -> Code "r1" (word-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "5" -> Code "5" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "5" -> Code "5" (no-match)
+  📝 Value "Extremely Satisfied7" -> Code "r1" (word-match)
+  📝 Value "5" -> Code "5" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "5" -> Code "5" (no-match)
+  📝 Value "5" -> Code "5" (no-match)
+  📝 Value "Extremely Satisfied7" -> Code "r1" (word-match)
+  📝 Value "Extremely Satisfied7" -> Code "r1" (word-match)
+  📝 Value "0" -> Code "0" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "0" -> Code "0" (no-match)
+  📝 Value "0" -> Code "0" (no-match)
+  📝 Value "Extremely Satisfied7" -> Code "r1" (word-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "0" -> Code "0" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "0" -> Code "0" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "0" -> Code "0" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "0" -> Code "0" (no-match)
+  📝 Value "6" -> Code "6" (exact)
+  📝 Value "6" -> Code "6" (exact)
+  📝 Value "5" -> Code "5" (exact)
+  📝 Value "6" -> Code "6" (exact)
+  📝 Value "5" -> Code "5" (exact)
+  📝 Value "6" -> Code "6" (exact)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "4" -> Code "r4" (exact)
+  📝 Value "4" -> Code "r4" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "4" -> Code "r4" (exact)
+  📝 Value "4" -> Code "r4" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "4" -> Code "r4" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "4" -> Code "r4" (exact)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "Extremely Important7" -> Code "r1" (word-match)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "Highly Associated7" -> Code "r1" (word-match)
+  📝 Value "4" -> Code "r4" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "4" -> Code "r4" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "Highly Associated7" -> Code "r1" (word-match)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "Highly Associated7" -> Code "r1" (word-match)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "Highly Associated7" -> Code "r1" (word-match)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "Highly Associated7" -> Code "r1" (word-match)
+  📝 Value "Highly Associated7" -> Code "r1" (word-match)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "Highly Associated7" -> Code "r1" (word-match)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "Highly Associated7" -> Code "r1" (word-match)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "Highly Associated7" -> Code "r1" (word-match)
+  📝 Value "Highly Associated7" -> Code "r1" (word-match)
+  📝 Value "Highly Associated7" -> Code "r1" (word-match)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "Highly Associated7" -> Code "r1" (word-match)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "Highly Associated7" -> Code "r1" (word-match)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "Highly Associated7" -> Code "r1" (word-match)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "Highly Associated7" -> Code "r1" (word-match)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "Highly Associated7" -> Code "r1" (word-match)
+  📝 Value "4" -> Code "r4" (exact)
+  📝 Value "4" -> Code "r4" (exact)
+  📝 Value "Highly Associated7" -> Code "r1" (word-match)
+  📝 Value "Highly Associated7" -> Code "r1" (word-match)
+  📝 Value "Highly Associated7" -> Code "r1" (word-match)
+  📝 Value "4" -> Code "r4" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "Highly Associated7" -> Code "r1" (word-match)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "Highly Associated7" -> Code "r1" (word-match)
+  📝 Value "Highly Associated7" -> Code "r1" (word-match)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "Highly Associated7" -> Code "r1" (word-match)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "Highly Associated7" -> Code "r1" (word-match)
+  📝 Value "3" -> Code "r3" (exact)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "Highly Associated7" -> Code "r1" (word-match)
+  📝 Value "Highly Associated7" -> Code "r1" (word-match)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "Highly Associated7" -> Code "r1" (word-match)
+  📝 Value "Highly Associated7" -> Code "r1" (word-match)
+  📝 Value "6" -> Code "r6" (exact)
+  📝 Value "Highly Associated7" -> Code "r1" (word-match)
+  📝 Value "Highly Associated7" -> Code "r1" (word-match)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "Highly Associated7" -> Code "r1" (word-match)
+  📝 Value "Highly Associated7" -> Code "r1" (word-match)
+  📝 Value "Highly Associated7" -> Code "r1" (word-match)
+  📝 Value "Highly Associated7" -> Code "r1" (word-match)
+  📝 Value "Highly Associated7" -> Code "r1" (word-match)
+  📝 Value "5" -> Code "r5" (exact)
+  📝 Value "Highly Associated7" -> Code "r1" (word-match)
+  📝 Value "Extremely Likely10" -> Code "r1" (word-match)
+  📝 Value "7" -> Code "7" (no-match)
+  📝 Value "9" -> Code "9" (no-match)
+  📝 Value "Extremely Likely10" -> Code "r1" (word-match)
+  📝 Value "7" -> Code "7" (no-match)
+  📝 Value "9" -> Code "9" (no-match)
+  📝 Value "7" -> Code "7" (no-match)
+  📝 Value "Extremely Likely10" -> Code "r1" (word-match)
+  📝 Value "Extremely Likely10" -> Code "r1" (word-match)
+  📝 Value "Extremely Likely10" -> Code "r1" (word-match)
+  📝 Value "8" -> Code "8" (no-match)
+  📝 Value "7" -> Code "7" (no-match)
+  📝 Value "Extremely Likely10" -> Code "r1" (word-match)
+  📝 Value "9" -> Code "9" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "Extremely Familiar7" -> Code "r1" (word-match)
+  📝 Value "5" -> Code "5" (no-match)
+  📝 Value "3" -> Code "r3" (exact)
+  📝 Value "Extremely Familiar7" -> Code "r1" (word-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "4" -> Code "4" (no-match)
+  📝 Value "Mixed results" -> Code "Mixed results" (no-match)
+  📝 Value "It is more effective than standard dose." -> Code "It is more effective than standard dose." (no-match)
+  📝 Value "Better efficiency" -> Code "Better efficiency" (no-match)
+  📝 Value "Mixed results and unsure" -> Code "Mixed results and unsure" (no-match)
+  📝 Value "Efficacious for slowing disease progression across age group." -> Code "Efficacious for slowing disease progression across age group." (no-match)
+  📝 Value "It’s being studied" -> Code "It’s being studied" (no-match)
+  📝 Value "Mixed results and also unsure" -> Code "Mixed results and also unsure" (no-match)
+  📝 Value "Can be used as a bridge for transitioning patients before moving to wheelchair" -> Code "Can be used as a bridge for transitioning patients before moving to wheelchair" (no-match)
+  📝 Value "Preserve muscle mass and strength" -> Code "Preserve muscle mass and strength" (no-match)
+  📝 Value "Extremely Excited7" -> Code "r1" (word-match)
+  📝 Value "4" -> Code "4" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "5" -> Code "5" (no-match)
+  📝 Value "5" -> Code "5" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "5" -> Code "5" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "High Impact7" -> Code "r1" (word-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "5" -> Code "5" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "High Impact7" -> Code "r1" (word-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "High Impact7" -> Code "r1" (word-match)
+  📝 Value "High Impact7" -> Code "r1" (word-match)
+  📝 Value "5" -> Code "5" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "High Impact7" -> Code "r1" (word-match)
+  📝 Value "5" -> Code "5" (no-match)
+  📝 Value "High Impact7" -> Code "r1" (word-match)
+  📝 Value "High Impact7" -> Code "r1" (word-match)
+  📝 Value "Cost" -> Code "Cost" (no-match)
+  📝 Value "Change of heart" -> Code "Change of heart" (no-match)
+  📝 Value "Cost" -> Code "Cost" (no-match)
+  📝 Value "Company change" -> Code "Company change" (no-match)
+  📝 Value "No firm diagnosis" -> Code "No firm diagnosis" (no-match)
+  📝 Value "Insurance problems" -> Code "Insurance problems" (no-match)
+  📝 Value "Cost was absorbed" -> Code "Cost was absorbed" (no-match)
+  📝 Value "Not applicable" -> Code "Not applicable" (no-match)
+  📝 Value "Always appeal" -> Code "Always appeal" (no-match)
+  📝 Value "easier approval" -> Code "easier approval" (no-match)
+  📝 Value "Fewer denials, less need to complete letter of medical necessity," -> Code "Fewer denials, less need to complete letter of medical necessity," (no-match)
+  📝 Value "Better coverage overall" -> Code "Better coverage overall" (no-match)
+  📝 Value "Extremely Impactful7" -> Code "r1" (word-match)
+  📝 Value "5" -> Code "5" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "5" -> Code "5" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "Extremely Impactful7" -> Code "r1" (word-match)
+  📝 Value "Extremely Impactful7" -> Code "r1" (word-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "2" -> Code "r2" (exact)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "6" -> Code "6" (no-match)
+  📝 Value "Extremely Impactful7" -> Code "r1" (word-match)
+✅ Processed data for 225 variables
+📊 Sample variable stats: [
+  { variable: 'S1', count: 50, hasFrequencies: true, isNumeric: false },
+  { variable: 'S2', count: 50, hasFrequencies: true, isNumeric: false },
+  {
+    variable: 'S4_r1',
+    count: 50,
+    hasFrequencies: false,
+    isNumeric: true
+  }
+]

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { 
   ArrowUpTrayIcon, 
   DocumentArrowDownIcon,
@@ -11,7 +11,9 @@ import {
   FunnelIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  PlusCircleIcon
+  PlusCircleIcon,
+  Cog6ToothIcon,
+  InformationCircleIcon
 } from '@heroicons/react/24/outline';
 import { IconTable } from '@tabler/icons-react';
 import { parseDataFile, getCodeLabel, type VariableDefinition, type ParsedDataFile } from '../utils/dataTabulationParser';
@@ -37,6 +39,7 @@ interface FrequencyTable {
   variable: string;
   base: number;
   rows: FrequencyTableRow[];
+  statementTables?: Array<{ statementNumber: string; statementLabel: string; variable: string; base: number; rows: FrequencyTableRow[] }>;
 }
 
 interface NetDefinition {
@@ -86,6 +89,8 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
   const [currentTabulation, setCurrentTabulation] = useState<SavedTabulation | null>(null);
   const [selectedVariable, setSelectedVariable] = useState<string>('');
   const [frequencyTable, setFrequencyTable] = useState<FrequencyTable | null>(null);
+  const [isGeneratingTable, setIsGeneratingTable] = useState(false);
+  const baseCacheRef = useRef<Record<string, number>>({});
   const [variableFilter, setVariableFilter] = useState('');
   const [nets, setNets] = useState<NetDefinition[]>([]);
   const [showNetBuilder, setShowNetBuilder] = useState(false);
@@ -102,6 +107,9 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
   const [editingBannerGroup, setEditingBannerGroup] = useState<BannerGroup | null>(null);
   const [selectedBannerGroupId, setSelectedBannerGroupId] = useState<string | null>(null);
   const [selectedStubVariables, setSelectedStubVariables] = useState<Record<string, string>>({}); // groupId -> variableName (empty string = 'Show all')
+  const [debugVariable, setDebugVariable] = useState<VariableDefinition | null>(null);
+  const [showDebugModal, setShowDebugModal] = useState(false);
+  const [debugVariableName, setDebugVariableName] = useState<string>(''); // Track the actual variable name being debugged (e.g., QS13_1)
 
   // Close filter dropdown when clicking outside
   useEffect(() => {
@@ -407,18 +415,46 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
   };
 
   // Generate frequency table
-  const generateFrequencyTable = useCallback(() => {
+  const generateFrequencyTable = useCallback(async () => {
     if (!parsedFile || !selectedVariable) {
       setFrequencyTable(null);
+      setIsGeneratingTable(false);
       return;
+    }
+    
+    // Loading state should already be set by the useEffect
+    // Record start time to ensure minimum loading time of 1 second
+    const startTime = Date.now();
+    
+    // Use setTimeout to allow UI to update before heavy computation
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    interface MatchResult {
+      code: string;
+      similarity: number;
     }
 
     const counts: Record<string, number> = {};
     let base = 0;
 
-    // Get the variable definition to access all codes
-    const variableDef = parsedFile.variables.find(v => v.name === selectedVariable);
-    const allCodes = variableDef && (variableDef.type === 'categorical' || variableDef.type === 'multi-select' || variableDef.type === 'grid')
+    // Check if this is a statement variable (e.g., QS13_1)
+    const statementMatch = selectedVariable.match(/^(.+)_(\d+)$/);
+    let variableDef: VariableDefinition | undefined;
+    let parentVarName: string | undefined;
+    let statementNum: string | undefined;
+    
+    if (statementMatch) {
+      // This is a statement variable - get the parent variable
+      [, parentVarName, statementNum] = statementMatch;
+      variableDef = parsedFile.variables.find(v => v.name === parentVarName);
+    } else {
+      // Regular variable
+      variableDef = parsedFile.variables.find(v => v.name === selectedVariable);
+    }
+
+    const allCodes = variableDef && (variableDef.type === 'categorical' || variableDef.type === 'multi-select' || 
+                                    variableDef.type === 'grid' || variableDef.type === 'grid-single-select' || 
+                                    variableDef.type === 'grid-multi-select')
       ? Object.keys(variableDef.codes)
       : [];
 
@@ -430,14 +466,32 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
     }
 
     // Build a reverse lookup map: label -> code (for faster matching)
+    // For multi-select, also create a map from column name patterns to codes
     const labelToCodeMap = new Map<string, string>();
-    if (variableDef && (variableDef.type === 'categorical' || variableDef.type === 'multi-select' || variableDef.type === 'grid')) {
+    const columnLabelToCodeMap = new Map<string, string>(); // For multi-select: column label -> code
+    
+    if (variableDef && (variableDef.type === 'categorical' || variableDef.type === 'multi-select' || 
+                       variableDef.type === 'grid' || variableDef.type === 'grid-single-select' || 
+                       variableDef.type === 'grid-multi-select')) {
       Object.keys(variableDef.codes).forEach(code => {
         const label = variableDef.codes[code];
         if (label) {
           // Store normalized label as key, code as value
           const normalizedLabel = label.trim().toLowerCase();
           labelToCodeMap.set(normalizedLabel, code);
+          
+          // For multi-select, also store variations (all caps, title case, etc.)
+          if (variableDef.type === 'multi-select') {
+            // Store all variations for better matching
+            columnLabelToCodeMap.set(normalizedLabel, code);
+            columnLabelToCodeMap.set(label.trim().toUpperCase(), code); // All caps
+            columnLabelToCodeMap.set(label.trim(), code); // Original case
+            // Also try title case
+            const titleCase = label.trim().split(/\s+/).map(word => 
+              word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+            ).join(' ');
+            columnLabelToCodeMap.set(titleCase.toLowerCase(), code);
+          }
         }
       });
       
@@ -449,7 +503,294 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
 
     // Count occurrences in data
     // Handle different question types differently
-    if (variableDef?.type === 'multi-select') {
+    // IMPORTANT: Check for statement variables FIRST, before grid type checks
+    // This is because statement variables (e.g., QS13_1) need special handling
+    if (statementMatch && variableDef && statementNum) {
+      // Check if this is a grid type that supports statements with response codes
+      const gridType = variableDef.type as string;
+      const isSingleSelectGrid = gridType === 'grid-single-select' || gridType === 'grid';
+      const isMultiSelectGrid = gridType === 'grid-multi-select';
+      
+      if (isSingleSelectGrid) {
+      // Handle statement variables (e.g., QS13_1) for single-select grids
+      const statementLabel = (variableDef as any).statements?.[statementNum];
+      if (statementLabel && parentVarName) {
+        // Find the column that matches this statement
+        const prefix = `${parentVarName} - `;
+        const normalizedStatementLabel = String(statementLabel).toLowerCase();
+        
+        // Find matching column once (outside loop)
+        let matchingColumn: string | null = null;
+        if (parsedFile.data.length > 0) {
+          const firstRow = parsedFile.data[0];
+          
+          // First try exact match
+          matchingColumn = Object.keys(firstRow).find(colName => {
+            if (colName.startsWith(prefix)) {
+              let colLabel = colName.substring(prefix.length).trim();
+              
+              // Handle format: "Statement(sample: ResponseLabel)" or "Statement - ResponseLabel"
+              // Extract just the statement part before "(sample:" or before " - "
+              const parenMatch = colLabel.match(/^(.+?)\s*\(sample:/i);
+              if (parenMatch) {
+                colLabel = parenMatch[1].trim();
+              } else {
+                // Check for format with dashes (might be "Statement - ResponseLabel")
+                // But we only want to split if there's a response code/label after
+                // For now, try to match the full label first
+                const dashParts = colLabel.split(' - ');
+                // If it looks like "Statement - Response", try matching just the statement part
+                // But be careful - the statement itself might contain " - "
+                // So we'll try to match the longest possible statement match
+                if (dashParts.length > 1) {
+                  // Try matching with each possible statement part
+                  for (let i = 1; i <= dashParts.length; i++) {
+                    const potentialStatement = dashParts.slice(0, i).join(' - ').trim();
+                    if (potentialStatement.toLowerCase() === normalizedStatementLabel) {
+                      colLabel = potentialStatement;
+                      break;
+                    }
+                  }
+                }
+              }
+              
+              // Column should match the statement (case-insensitive)
+              return colLabel.toLowerCase() === normalizedStatementLabel;
+            }
+            return false;
+          }) || null;
+          
+          // If exact match failed, try fuzzy matching (contains check)
+          if (!matchingColumn) {
+            matchingColumn = Object.keys(firstRow).find(colName => {
+              if (colName.startsWith(prefix)) {
+                let colLabel = colName.substring(prefix.length).trim();
+                
+                // Extract statement part
+                const parenMatch = colLabel.match(/^(.+?)\s*\(sample:/i);
+                if (parenMatch) {
+                  colLabel = parenMatch[1].trim();
+                }
+                
+                // Check if statement label is contained in column label or vice versa
+                const normalizedColLabel = colLabel.toLowerCase();
+                return normalizedColLabel.includes(normalizedStatementLabel) || 
+                       normalizedStatementLabel.includes(normalizedColLabel);
+              }
+              return false;
+            }) || null;
+          }
+          
+          console.log(`[${selectedVariable}] Looking for statement "${statementLabel}" (normalized: "${normalizedStatementLabel}")`);
+          console.log(`[${selectedVariable}] Available columns starting with "${prefix}":`, 
+            Object.keys(firstRow).filter(col => col.startsWith(prefix)));
+        }
+        
+        if (!matchingColumn) {
+          console.warn(`[${selectedVariable}] No matching column found for statement "${statementLabel}"`);
+        }
+        
+        if (matchingColumn) {
+          console.log(`[${selectedVariable}] Found matching column: "${matchingColumn}" for statement "${statementLabel}"`);
+          
+          // Count responses for this statement
+          let rowCount = 0;
+          parsedFile.data.forEach(row => {
+            const value = row[matchingColumn!];
+            if (value !== null && value !== undefined && value !== '') {
+              base++;
+              const codeStr = String(value);
+              // Log first 5 rows for debugging
+              if (rowCount < 5) {
+                console.log(`[${selectedVariable}] Row ${rowCount + 1} value: "${codeStr}"`);
+              }
+              rowCount++;
+              
+              // The value might be a label or a code - try to match it
+              // First try exact code match
+              if (counts.hasOwnProperty(codeStr)) {
+                counts[codeStr] = (counts[codeStr] || 0) + 1;
+              } else {
+                // Try matching as a label
+                const normalizedValue = codeStr.trim().toLowerCase();
+                if (labelToCodeMap.has(normalizedValue)) {
+                  const matchedCode = labelToCodeMap.get(normalizedValue)!;
+                  counts[matchedCode] = (counts[matchedCode] || 0) + 1;
+                  console.log(`[${selectedVariable}] Mapped label "${codeStr}" to code "${matchedCode}"`);
+                } else {
+                  // Try fuzzy matching
+                  let bestMatch: MatchResult | null = null;
+                  labelToCodeMap.forEach((code, normalizedLabel) => {
+                    if (normalizedValue.includes(normalizedLabel) || normalizedLabel.includes(normalizedValue)) {
+                      const similarity = Math.min(normalizedValue.length, normalizedLabel.length) / Math.max(normalizedValue.length, normalizedLabel.length);
+                      if (!bestMatch || similarity > bestMatch.similarity) {
+                        bestMatch = { code, similarity };
+                      }
+                    } else {
+                      // Check word overlap
+                      const valueWords = normalizedValue.split(/\s+/);
+                      const labelWords = normalizedLabel.split(/\s+/);
+                      const commonWords = valueWords.filter(w => labelWords.includes(w));
+                      if (commonWords.length > 0) {
+                        const maxWords = Math.max(valueWords.length, labelWords.length);
+                        const similarity = commonWords.length / maxWords;
+                        if (!bestMatch || similarity > bestMatch.similarity) {
+                          bestMatch = { code, similarity };
+                        }
+                      }
+                    }
+                  });
+                  
+                  if (bestMatch !== null) {
+                    const match = bestMatch as MatchResult;
+                    if (match.similarity > 0.5) {
+                      counts[match.code] = (counts[match.code] || 0) + 1;
+                      console.log(`[${selectedVariable}] Fuzzy matched "${codeStr}" to code "${match.code}" (similarity: ${(match.similarity * 100).toFixed(1)}%)`);
+                    }
+                  } else {
+                    // If no match, count as-is (might be a code we don't recognize)
+                    counts[codeStr] = (counts[codeStr] || 0) + 1;
+                    console.warn(`[${selectedVariable}] No match found for "${codeStr}" in column "${matchingColumn}"`);
+                  }
+                }
+              }
+            }
+          });
+          
+          console.log(`[${selectedVariable}] Processed ${rowCount} rows with values. Base: ${base}. Counts:`, counts);
+        } else {
+          console.warn(`[${selectedVariable}] Cannot process data - no matching column found`);
+        }
+      } else if (isMultiSelectGrid) {
+        // Handle statement variables (e.g., QS5_1) for multi-select grids
+        const statementLabel = (variableDef as any).statements?.[statementNum];
+        if (statementLabel && parentVarName) {
+          // For multi-select grids, find all columns that match this statement
+          // Format: "QS5 - Statement - ResponseOption" with values 0 or 1
+          const prefix = `${parentVarName} - `;
+          const normalizedStatementLabel = String(statementLabel).toLowerCase();
+          
+          // Find all columns for this statement
+          const multiSelectColumns: Array<{ columnName: string; optionLabel: string }> = [];
+          if (parsedFile.data.length > 0) {
+            const firstRow = parsedFile.data[0];
+            
+            Object.keys(firstRow).forEach(colName => {
+              if (colName.startsWith(prefix)) {
+                // Extract the statement and option from column name
+                // Format: "QS5 - Statement - Option" or "QS5 - Statement (sample: Option)"
+                let colLabel = colName.substring(prefix.length).trim();
+                
+                // Check for format with parentheses: "Statement (sample: Option)"
+                let statementPart = colLabel;
+                let optionPart: string | null = null;
+                
+                const parenMatch = colLabel.match(/^(.+?)\s*\(sample:\s*(.+?)\)$/i);
+                if (parenMatch) {
+                  statementPart = parenMatch[1].trim();
+                  optionPart = parenMatch[2].trim();
+                } else {
+                  // Check for format with dashes: "Statement - Option"
+                  const dashParts = colLabel.split(' - ');
+                  if (dashParts.length >= 2) {
+                    // Try to match the statement part
+                    // The statement might be the first part or multiple parts
+                    // We need to find where the statement ends and the option begins
+                    for (let i = 1; i <= dashParts.length; i++) {
+                      const potentialStatement = dashParts.slice(0, i).join(' - ').trim();
+                      if (potentialStatement.toLowerCase() === normalizedStatementLabel) {
+                        statementPart = potentialStatement;
+                        optionPart = dashParts.slice(i).join(' - ').trim();
+                        break;
+                      }
+                    }
+                  }
+                }
+                
+                // Check if this column matches the statement
+                if (statementPart.toLowerCase() === normalizedStatementLabel && optionPart) {
+                  multiSelectColumns.push({
+                    columnName: colName,
+                    optionLabel: optionPart
+                  });
+                }
+              }
+            });
+          }
+          
+          console.log(`[${selectedVariable}] Found ${multiSelectColumns.length} columns for statement "${statementLabel}"`);
+          console.log(`[${selectedVariable}] Columns:`, multiSelectColumns.map(c => c.columnName));
+          
+          // Count base (respondents who saw this question)
+          base = parsedFile.data.length;
+          
+          // Count how many checked each option
+          parsedFile.data.forEach(row => {
+            multiSelectColumns.forEach(({ columnName, optionLabel }) => {
+              const value = row[columnName];
+              if (value === 1 || value === '1') {
+                // Match the option label to the code definitions
+                // Try multiple normalization strategies for better matching
+                const normalizedLabel = optionLabel.trim().toLowerCase();
+                const upperLabel = optionLabel.trim().toUpperCase();
+                const titleLabel = optionLabel.trim().split(/\s+/).map(word => 
+                  word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+                ).join(' ').toLowerCase();
+                
+                // Try exact match first (case-insensitive)
+                let matchingCode = labelToCodeMap.get(normalizedLabel) || 
+                                  columnLabelToCodeMap.get(normalizedLabel) ||
+                                  columnLabelToCodeMap.get(upperLabel) ||
+                                  columnLabelToCodeMap.get(titleLabel);
+                
+                // If exact match fails, try fuzzy matching
+                if (!matchingCode) {
+                  let bestMatch: MatchResult | null = null as MatchResult | null;
+                  
+                  labelToCodeMap.forEach((code, normalizedCodeLabel) => {
+                    // Check if one contains the other (case-insensitive)
+                    if (normalizedCodeLabel.includes(normalizedLabel) || normalizedLabel.includes(normalizedCodeLabel)) {
+                      const similarity = Math.min(normalizedLabel.length, normalizedCodeLabel.length) / Math.max(normalizedLabel.length, normalizedCodeLabel.length);
+                      if (!bestMatch || similarity > bestMatch.similarity) {
+                        bestMatch = { code, similarity };
+                      }
+                    } else {
+                      // Also check for word overlap
+                      const labelWords = normalizedLabel.split(/\s+/).filter(w => w.length > 0);
+                      const codeWords = normalizedCodeLabel.split(/\s+/).filter(w => w.length > 0);
+                      const commonWords = labelWords.filter(w => codeWords.includes(w));
+                      if (commonWords.length > 0) {
+                        const maxWords = Math.max(labelWords.length, codeWords.length);
+                        const similarity = commonWords.length / maxWords;
+                        if (!bestMatch || similarity > bestMatch.similarity) {
+                          bestMatch = { code, similarity };
+                        }
+                      }
+                    }
+                  });
+                  
+                  if (bestMatch && bestMatch.similarity > 0.5) {
+                    const match = bestMatch as MatchResult;
+                    matchingCode = match.code;
+                    console.log(`[${selectedVariable}] Fuzzy matched "${optionLabel}" to code "${matchingCode}" (similarity: ${(match.similarity * 100).toFixed(1)}%)`);
+                  }
+                }
+                
+                if (matchingCode) {
+                  counts[matchingCode] = (counts[matchingCode] || 0) + 1;
+                } else {
+                  // Log when we can't match - this helps debug issues
+                  console.warn(`[${selectedVariable}] Could not match multi-select option label "${optionLabel}" from column "${columnName}" to any code definition. Available codes:`, Array.from(labelToCodeMap.entries()));
+                }
+              }
+            });
+          });
+          
+          console.log(`[${selectedVariable}] Processed multi-select grid statement. Base: ${base}. Counts:`, counts);
+        }
+      }
+      }
+    } else if (variableDef?.type === 'multi-select') {
       // For multi-select: find all columns that start with "variableName - "
       // Each column represents one option, values are 0 (unchecked) or 1 (checked)
       const multiSelectColumns: Array<{ columnName: string; optionLabel: string }> = [];
@@ -475,12 +816,22 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
           const value = row[columnName];
           if (value === 1 || value === '1') {
             // Match the option label to the code definitions
+            // Try multiple normalization strategies for better matching
             const normalizedLabel = optionLabel.trim().toLowerCase();
-            let matchingCode = labelToCodeMap.get(normalizedLabel);
+            const upperLabel = optionLabel.trim().toUpperCase();
+            const titleLabel = optionLabel.trim().split(/\s+/).map(word => 
+              word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+            ).join(' ').toLowerCase();
+            
+            // Try exact match first (case-insensitive)
+            let matchingCode = labelToCodeMap.get(normalizedLabel) || 
+                              columnLabelToCodeMap.get(normalizedLabel) ||
+                              columnLabelToCodeMap.get(upperLabel) ||
+                              columnLabelToCodeMap.get(titleLabel);
             
             // If exact match fails, try fuzzy matching
             if (!matchingCode) {
-              let bestMatch: { code: string; similarity: number } | null = null;
+              let bestMatch: MatchResult | null = null as MatchResult | null;
               
               labelToCodeMap.forEach((code, normalizedCodeLabel) => {
                 // Check if one contains the other (case-insensitive)
@@ -491,8 +842,8 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
                   }
                 } else {
                   // Also check for word overlap
-                  const labelWords = normalizedLabel.split(/\s+/);
-                  const codeWords = normalizedCodeLabel.split(/\s+/);
+                  const labelWords = normalizedLabel.split(/\s+/).filter(w => w.length > 0);
+                  const codeWords = normalizedCodeLabel.split(/\s+/).filter(w => w.length > 0);
                   const commonWords = labelWords.filter(w => codeWords.includes(w));
                   if (commonWords.length > 0) {
                     const maxWords = Math.max(labelWords.length, codeWords.length);
@@ -505,8 +856,9 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
               });
               
               if (bestMatch && bestMatch.similarity > 0.5) {
-                matchingCode = bestMatch.code;
-                console.log(`[${selectedVariable}] Fuzzy matched "${optionLabel}" to code "${matchingCode}" (similarity: ${(bestMatch.similarity * 100).toFixed(1)}%)`);
+                const match = bestMatch as MatchResult;
+                matchingCode = match.code;
+                console.log(`[${selectedVariable}] Fuzzy matched "${optionLabel}" to code "${matchingCode}" (similarity: ${(match.similarity * 100).toFixed(1)}%)`);
               }
             }
             
@@ -515,14 +867,26 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
             } else {
               // Log when we can't match - this helps debug issues
               console.warn(`[${selectedVariable}] Could not match multi-select option label "${optionLabel}" from column "${columnName}" to any code definition. Available codes:`, Array.from(labelToCodeMap.entries()));
+              console.warn(`[${selectedVariable}] Code definitions:`, variableDef?.codes);
             }
           }
         });
       });
-    } else if (variableDef?.type === 'grid') {
+    } else if (variableDef?.type === 'grid' || variableDef?.type === 'grid-numeric' || variableDef?.type === 'grid-verbatim' || 
+               variableDef?.type === 'grid-single-select' || variableDef?.type === 'grid-multi-select') {
       // For grid: find all columns that start with "variableName - "
-      // Each column represents one statement, values are response codes (1, 2, 3, etc.)
-      const gridColumns: string[] = [];
+      // Grid can have multiple types:
+      // 1. Numeric grid: Each column is a statement, values are numeric counts/amounts
+      // 2. Verbatim grid: Each column is a statement, values are text
+      // 3. Single Select Grid: Each column is a statement, values are response codes (1, 2, 3, etc.), one per statement
+      // 4. Multi-Select Grid: Each column is a statement-row combination, values are 0-1 (checked/unchecked)
+      
+      const gridColumns: Array<{ columnName: string; statementLabel: string; responseCode?: string; responseLabel?: string }> = [];
+      const hasResponseCodes = variableDef.codes && Object.keys(variableDef.codes).length > 0;
+      const isNumericGrid = variableDef.type === 'grid-numeric';
+      const isVerbatimGrid = variableDef.type === 'grid-verbatim';
+      const isSingleSelectGrid = variableDef.type === 'grid-single-select';
+      const isMultiSelectGrid = variableDef.type === 'grid-multi-select';
 
       // Find all columns for this grid question
       if (parsedFile.data.length > 0) {
@@ -530,26 +894,299 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
         const prefix = `${selectedVariable} - `;
         Object.keys(firstRow).forEach(colName => {
           if (colName.startsWith(prefix)) {
-            gridColumns.push(colName);
+            // For single-select grids, columns may have format:
+            // "QS13 - Statement - ResponseLabel" or "QS13 - Statement (sample: ResponseLabel)"
+            // For numeric/verbatim grids, columns are just "QS4 - Statement" or "QS4 - Statement (sample: 65)"
+            let statementLabel = colName.substring(prefix.length).trim();
+            let responseCode: string | null = null;
+            let responseLabel: string | null = null;
+            
+            // For numeric/verbatim grids, strip out "(sample: ...)" if present
+            if (isNumericGrid || isVerbatimGrid) {
+              const sampleMatch = statementLabel.match(/^(.+?)\s*\(sample:\s*.+?\)$/i);
+              if (sampleMatch) {
+                statementLabel = sampleMatch[1].trim();
+              }
+            }
+            
+            if (isSingleSelectGrid || isMultiSelectGrid) {
+              // For single-select and multi-select grids, parse the response part
+              // Check for format with parentheses: "Statement (sample: ResponseLabel)"
+              const parenMatch = statementLabel.match(/^(.+?)\s*\(sample:\s*(.+?)\)$/i);
+              if (parenMatch) {
+                statementLabel = parenMatch[1].trim();
+                responseLabel = parenMatch[2].trim();
+                // Try to match response label to a code
+                if (variableDef.codes) {
+                                    const matchedCode = Object.entries(variableDef.codes).find(
+                                      ([code, label]) => responseLabel && String(label).trim().toLowerCase() === responseLabel.toLowerCase()
+                                    );
+                  if (matchedCode) {
+                    responseCode = matchedCode[0];
+                  }
+                }
+              } else {
+                // Check for format with dashes: "Statement - ResponseLabel" or "Statement - ResponseCode"
+                const parts = statementLabel.split(' - ');
+                if (parts.length >= 2) {
+                  // Last part might be response code or label
+                  const lastPart = parts[parts.length - 1].trim();
+                  statementLabel = parts.slice(0, -1).join(' - ').trim();
+                  
+                  // Check if last part is a numeric code
+                  if (/^\d+$/.test(lastPart)) {
+                    responseCode = lastPart;
+                    responseLabel = variableDef.codes?.[lastPart] || null;
+                  } else {
+                    // Last part is likely a label
+                    responseLabel = lastPart;
+                    // Try to match to a code
+                    if (variableDef.codes) {
+                      const matchedCode = Object.entries(variableDef.codes).find(
+                        ([code, label]) => String(label).trim().toLowerCase() === lastPart.toLowerCase()
+                      );
+                      if (matchedCode) {
+                        responseCode = matchedCode[0];
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            
+            // Try to match to defined statements if available
+            let matchedStatement = statementLabel;
+            if (variableDef.statements) {
+              // Try to find matching statement by comparing labels
+              const statementEntries = Object.entries(variableDef.statements);
+              const matchingStatement = statementEntries.find(([num, stmt]) => {
+                const normalizedStmt = String(stmt).trim().toLowerCase();
+                const normalizedLabel = statementLabel.trim().toLowerCase();
+                return normalizedStmt === normalizedLabel || 
+                       normalizedLabel.includes(normalizedStmt) || 
+                       normalizedStmt.includes(normalizedLabel);
+              });
+              if (matchingStatement) {
+                matchedStatement = matchingStatement[1];
+              }
+            }
+            
+            gridColumns.push({ 
+              columnName: colName, 
+              statementLabel: matchedStatement,
+              responseCode: responseCode || undefined,
+              responseLabel: responseLabel || undefined
+            });
           }
         });
       }
 
-      // Count base (total number of responses across all statements)
-      base = parsedFile.data.length * gridColumns.length;
-
-      // Count response codes across all grid statements
+      if (isSingleSelectGrid && hasResponseCodes) {
+        // Single Select Grid: Create a separate frequency table for each statement
+        // Each statement gets its own table showing response code frequencies
+        // We'll generate statement tables separately below in the post-processing section
+        base = parsedFile.data.length;
+      } else if (isMultiSelectGrid && hasResponseCodes) {
+        // Multi-Select Grid: Similar to regular multi-select but with statements
+        // Each statement can have multiple responses checked (0-1 values)
+        base = parsedFile.data.length;
+        
       parsedFile.data.forEach(row => {
-        gridColumns.forEach(colName => {
-          const value = row[colName];
-          if (value !== null && value !== undefined && value !== '') {
-            const codeStr = String(value);
-            if (counts.hasOwnProperty(codeStr)) {
-              counts[codeStr] = (counts[codeStr] || 0) + 1;
+          gridColumns.forEach(({ columnName, statementLabel }) => {
+            const value = row[columnName];
+            if (value === 1 || value === '1') {
+              // Find which response code this column represents
+              // Multi-select grids might have columns like "QS5 - Statement 1 - Option 1"
+              // For now, we'll need to parse the column name structure
+              // This is more complex and may need refinement based on actual data structure
+              const columnParts = columnName.split(' - ');
+              if (columnParts.length >= 3) {
+                // Format: "QS5 - Statement - Option"
+                const optionLabel = columnParts.slice(2).join(' - ');
+                // Match to response codes
+                Object.entries(variableDef.codes).forEach(([code, label]) => {
+                  if (label.toLowerCase() === optionLabel.toLowerCase()) {
+                    counts[code] = (counts[code] || 0) + 1;
+                  }
+                });
+              }
             }
+          });
+        });
+      } else if (isNumericGrid) {
+        // Numeric grid: Show statements with aggregated statistics
+        // Each statement becomes a row showing sum, mean, etc.
+        
+        // Use the gridColumns array which has already matched statements from column names
+        // This handles cases where datamap statements (e.g., "[QA2r1c1]") don't match column names (e.g., "QA2 - Unable to walk at all")
+        // The gridColumns parsing already extracts statement labels from column names and matches them to datamap statements
+        const allStatementColumns = new Map<string, string>();
+        
+        // Build a map from matched statement text (from datamap) to column names
+        // gridColumns already has the matchedStatement which is the datamap statement text
+        gridColumns.forEach(({ columnName, statementLabel }) => {
+          // statementLabel here is the matched statement from the datamap (after fuzzy matching)
+          if (statementLabel) {
+            allStatementColumns.set(statementLabel, columnName);
           }
         });
-      });
+        
+        // Also create a reverse map: datamap statement text -> column name
+        // This ensures we can look up columns by the statement text from variableDef.statements
+        const datamapStatementToColumn = new Map<string, string>();
+        gridColumns.forEach(({ columnName, statementLabel }) => {
+          if (statementLabel) {
+            datamapStatementToColumn.set(statementLabel, columnName);
+          }
+        });
+        
+        // Collect values for each statement, but only count rows where all statements have values
+        // This ensures means sum to 100% for percentage grids
+        if (variableDef.statements) {
+          const statementValuesMap = new Map<string, number[]>();
+          Object.entries(variableDef.statements).forEach(([statementNum, statementText]) => {
+            const statementLabel = String(statementText);
+            statementValuesMap.set(statementLabel, []);
+          });
+          
+          // Count rows with complete data for base calculation
+          // Base = respondents who saw the question (have at least one statement with data)
+          let rowsWithAnyData = 0;
+          let completeDataRows = 0;
+          
+          // Process data: only include rows where all statements have valid values for statistics
+          // But check if respondent saw the question (has at least one value)
+          parsedFile.data.forEach(row => {
+            // First check if respondent saw the question (has at least one statement with data)
+            let hasAnyData = false;
+            let hasCompleteData = true;
+            const rowValues = new Map<string, number>();
+            
+            for (const [statementLabel, columnName] of allStatementColumns.entries()) {
+              const value = row[columnName];
+          if (value !== null && value !== undefined && value !== '') {
+                const numValue = typeof value === 'number' ? value : parseFloat(String(value));
+                if (!isNaN(numValue)) {
+                  hasAnyData = true; // Respondent saw the question
+                  rowValues.set(statementLabel, numValue);
+                } else {
+                  hasCompleteData = false;
+                }
+              } else {
+                hasCompleteData = false;
+              }
+            }
+            
+            // Count in base if respondent saw the question (has at least one value)
+            if (hasAnyData) {
+              rowsWithAnyData++;
+            }
+            
+            // Only add values to statistics if row has complete data for all statements
+            if (hasCompleteData) {
+              completeDataRows++;
+              for (const [statementLabel, value] of rowValues.entries()) {
+                statementValuesMap.get(statementLabel)?.push(value);
+              }
+            }
+          });
+          
+          // Update base to only count rows where respondent saw the question (has at least one value)
+          base = rowsWithAnyData;
+          
+          // Now create rows for each statement
+          Object.entries(variableDef.statements).forEach(([statementNum, statementText]) => {
+            const statementLabel = String(statementText);
+            const statementValues = statementValuesMap.get(statementLabel) || [];
+            
+            // Always create a row for each statement, even if no data
+            // Use statement label as the "code" for display purposes
+            const statementKey = statementLabel;
+            counts[statementKey] = statementValues.length;
+            
+            // Store additional stats in a special format for display
+            // We'll use a special prefix to indicate this is a statement row
+            const sum = statementValues.reduce((a, b) => a + b, 0);
+            const mean = statementValues.length > 0 ? sum / statementValues.length : 0;
+            const max = statementValues.length > 0 ? Math.max(...statementValues) : 0;
+            const min = statementValues.length > 0 ? Math.min(...statementValues) : 0;
+            
+            // Store stats in a way we can access later
+            (counts as any)[`__STATS_${statementKey}`] = {
+              sum,
+              mean,
+              max,
+              min,
+              count: statementValues.length
+            };
+          });
+        } else {
+          // Fallback: if no statements defined, use columns found (old behavior)
+          gridColumns.forEach(({ columnName, statementLabel }) => {
+            const statementValues: number[] = [];
+            
+            parsedFile.data.forEach(row => {
+              const value = row[columnName];
+              if (value !== null && value !== undefined && value !== '') {
+                const numValue = typeof value === 'number' ? value : parseFloat(String(value));
+                if (!isNaN(numValue)) {
+                  statementValues.push(numValue);
+                }
+              }
+            });
+            
+            if (statementValues.length > 0) {
+              // Use statement label as the "code" for display purposes
+              const statementKey = statementLabel;
+              counts[statementKey] = statementValues.length;
+              
+              // Store additional stats in a special format for display
+              // We'll use a special prefix to indicate this is a statement row
+              const sum = statementValues.reduce((a, b) => a + b, 0);
+              const mean = sum / statementValues.length;
+              const max = Math.max(...statementValues);
+              const min = Math.min(...statementValues);
+              
+              // Store stats in a way we can access later
+              (counts as any)[`__STATS_${statementKey}`] = {
+                sum,
+                mean,
+                max,
+                min,
+                count: statementValues.length
+              };
+            }
+          });
+        }
+      } else if (isVerbatimGrid) {
+        // Verbatim grid: Show statements with response counts (text responses)
+        // Each statement becomes a row showing response count
+        base = parsedFile.data.length;
+        
+        gridColumns.forEach(({ columnName, statementLabel }) => {
+          let responseCount = 0;
+          
+          parsedFile.data.forEach(row => {
+            const value = row[columnName];
+            if (value !== null && value !== undefined && value !== '') {
+              const strValue = String(value).trim();
+              if (strValue.length > 0) {
+                responseCount++;
+              }
+            }
+          });
+          
+          if (responseCount > 0) {
+            const statementKey = statementLabel;
+            counts[statementKey] = responseCount;
+            
+            // Store count for verbatim grids
+            (counts as any)[`__STATS_${statementKey}`] = {
+              count: responseCount
+            };
+          }
+        });
+      }
     } else {
       // For categorical/single-select: original logic
       parsedFile.data.forEach(row => {
@@ -584,7 +1221,7 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
               console.log(`[${selectedVariable}] Mapped label "${codeStr}" to code "${matchedCode}"`);
             } else {
               // Try fuzzy/partial matching - check if the value contains or is contained in any label
-              let bestMatch: { code: string; similarity: number } | null = null;
+              let bestMatch: MatchResult | null = null as MatchResult | null;
 
               labelToCodeMap.forEach((code, normalizedLabel) => {
                 const value = normalizedValue;
@@ -614,8 +1251,9 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
 
               if (bestMatch && bestMatch.similarity > 0.5) {
                 // If we found a reasonable match (at least 50% similarity), use it
-                counts[bestMatch.code] = (counts[bestMatch.code] || 0) + 1;
-                console.log(`[${selectedVariable}] Fuzzy matched "${codeStr}" to code "${bestMatch.code}" (similarity: ${(bestMatch.similarity * 100).toFixed(1)}%)`);
+                const match = bestMatch as MatchResult;
+                counts[match.code] = (counts[match.code] || 0) + 1;
+                console.log(`[${selectedVariable}] Fuzzy matched "${codeStr}" to code "${match.code}" (similarity: ${(match.similarity * 100).toFixed(1)}%)`);
               } else {
                 // If no match found, it's an unexpected value - still count it as-is
                 counts[codeStr] = (counts[codeStr] || 0) + 1;
@@ -635,7 +1273,9 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
     
     // Build set of label strings that correspond to defined codes
     const labelStrings = new Set<string>();
-    if (variableDef && (variableDef.type === 'categorical' || variableDef.type === 'multi-select' || variableDef.type === 'grid')) {
+    if (variableDef && (variableDef.type === 'categorical' || variableDef.type === 'multi-select' || 
+                       variableDef.type === 'grid' || variableDef.type === 'grid-single-select' || 
+                       variableDef.type === 'grid-multi-select')) {
       Object.values(variableDef.codes).forEach(label => {
         if (label) {
           labelStrings.add(label.trim().toLowerCase());
@@ -656,7 +1296,9 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
       // - String values that match defined labels (already mapped, so skip)
       // - For non-categorical or undefined variables, include everything
       
-      if (variableDef && (variableDef.type === 'categorical' || variableDef.type === 'multi-select' || variableDef.type === 'grid') && allCodes.length > 0) {
+      if (variableDef && (variableDef.type === 'categorical' || variableDef.type === 'multi-select' || 
+                         variableDef.type === 'grid' || variableDef.type === 'grid-single-select' || 
+                         variableDef.type === 'grid-multi-select') && allCodes.length > 0) {
         // For categorical with defined codes, only show defined codes
         // Don't add unmatched string values
         if (!allCodeKeys.includes(key) && !isLabelString) {
@@ -677,12 +1319,66 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
       }
     });
 
-    let rows: FrequencyTableRow[] = allCodeKeys.map(code => ({
+    // Check if this is a numeric or verbatim grid (no response codes, but has statements)
+    const isNumericGrid = variableDef?.type === 'grid-numeric';
+    const isVerbatimGrid = variableDef?.type === 'grid-verbatim';
+    const isSingleSelectGrid = variableDef?.type === 'grid-single-select';
+    const isOpenEndedGrid = isNumericGrid || isVerbatimGrid;
+    
+    let rows: FrequencyTableRow[] = [];
+    
+    if (isOpenEndedGrid) {
+      // For numeric and verbatim grids, show statements with statistics or counts
+      const statementKeys = Object.keys(counts).filter(key => !key.startsWith('__STATS_'));
+      
+      statementKeys.forEach(statementKey => {
+        const stats = (counts as any)[`__STATS_${statementKey}`];
+        if (stats) {
+          if (isVerbatimGrid) {
+            // Verbatim grid: show response count
+            rows.push({
+              code: statementKey,
+              label: statementKey, // Statement label is the "label"
+              count: stats.count, // Show response count
+              percentage: base > 0 ? (stats.count / base) * 100 : 0 // Show response rate as percentage
+            });
+          } else {
+            // Numeric grid: show sum as count
+            rows.push({
+              code: statementKey,
+              label: statementKey, // Statement label is the "label"
+              count: stats.sum, // Show sum as the "count"
+              percentage: base > 0 ? (stats.count / base) * 100 : 0 // Show response rate as percentage
+            });
+          }
+        }
+      });
+      
+      // Sort by statement number if available, otherwise alphabetically
+      if (variableDef && variableDef.statements) {
+        const statementOrder = Object.entries(variableDef.statements)
+          .sort(([a], [b]) => parseInt(a) - parseInt(b))
+          .map(([num, stmt]) => String(stmt));
+        
+        rows.sort((a, b) => {
+          const aIndex = statementOrder.indexOf(a.label);
+          const bIndex = statementOrder.indexOf(b.label);
+          if (aIndex >= 0 && bIndex >= 0) return aIndex - bIndex;
+          if (aIndex >= 0) return -1;
+          if (bIndex >= 0) return 1;
+          return a.label.localeCompare(b.label);
+        });
+      }
+    } else {
+      // Standard categorical display
+      const varNameForCodeLabel = statementMatch && parentVarName ? parentVarName : selectedVariable;
+      rows = allCodeKeys.map(code => ({
       code,
-      label: getCodeLabel(parsedFile.variables, selectedVariable, code),
+        label: getCodeLabel(parsedFile.variables, varNameForCodeLabel, code),
       count: counts[code] || 0,
       percentage: base > 0 ? ((counts[code] || 0) / base) * 100 : 0
     }));
+    }
 
     // Filter out 0% frequencies if option is enabled for this variable
     if (hideZeroFrequencies[selectedVariable]) {
@@ -693,7 +1389,9 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
     const sortOption = sortOptions[selectedVariable] || 'qnr';
     
     // Get code order for sorting (already have variableDef from above)
-    const codeOrder = variableDef && (variableDef.type === 'categorical' || variableDef.type === 'multi-select' || variableDef.type === 'grid')
+    const codeOrder = variableDef && (variableDef.type === 'categorical' || variableDef.type === 'multi-select' || 
+                                     variableDef.type === 'grid' || variableDef.type === 'grid-single-select' || 
+                                     variableDef.type === 'grid-multi-select')
       ? Object.keys(variableDef.codes)
       : [];
     
@@ -718,17 +1416,61 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
       return 0;
     });
 
-    setFrequencyTable({
+    // Store statement stats for numeric grids
+    const statementStats: Record<string, { sum: number; mean: number; max: number; min: number; count: number }> = {};
+    if (isNumericGrid) {
+      const statementKeys = Object.keys(counts).filter(key => !key.startsWith('__STATS_'));
+      statementKeys.forEach(key => {
+        const stats = (counts as any)[`__STATS_${key}`];
+        if (stats) {
+          statementStats[key] = stats;
+        }
+      });
+    }
+
+
+    const tableData = {
       variable: selectedVariable,
       base,
-      rows
-    });
+      rows,
+      ...(isNumericGrid && { statementStats })
+    } as FrequencyTable & { 
+      statementStats?: Record<string, { sum: number; mean: number; max: number; min: number; count: number }>;
+    };
+    
+    // Calculate elapsed time and ensure minimum 1 second loading time
+    const elapsedTime = Date.now() - startTime;
+    const minLoadingTime = 1000; // 1 second minimum
+    const remainingTime = Math.max(0, minLoadingTime - elapsedTime);
+    
+    // Wait for remaining time if needed, then set the table and hide loading
+    await new Promise(resolve => setTimeout(resolve, remainingTime));
+    
+    setFrequencyTable(tableData);
+    setIsGeneratingTable(false);
   }, [parsedFile, selectedVariable, sortOptions, hideZeroFrequencies]);
 
-  // Auto-generate frequency table when variable is selected or sort changes
+  // Clear cache when parsed file changes
+  useEffect(() => {
+    baseCacheRef.current = {};
+  }, [parsedFile]);
+
+  // Auto-generate frequency table when variable is selected or sort changes (lazy loading)
   useEffect(() => {
     if (viewMode === 'viewer' && selectedVariable && parsedFile) {
+      // Clear previous table and set loading state immediately
+      setFrequencyTable(null);
+      setIsGeneratingTable(true);
+      
+      // Use a small delay to ensure UI updates before heavy computation
+      const timer = setTimeout(() => {
       generateFrequencyTable();
+      }, 10);
+      
+      return () => clearTimeout(timer);
+    } else {
+      setFrequencyTable(null);
+      setIsGeneratingTable(false);
     }
   }, [selectedVariable, parsedFile, viewMode, sortOptions, generateFrequencyTable]);
 
@@ -759,10 +1501,69 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
     XLSX.writeFile(wb, `frequency_table_${frequencyTable.variable}_${Date.now()}.xlsx`);
   };
 
-  // Calculate base for each variable
-  const getVariableBase = useCallback((variableName: string) => {
+  // Calculate base for each variable (with caching using ref to avoid re-renders)
+  const getVariableBase = useCallback((variableName: string, useCache = true) => {
     if (!parsedFile) return 0;
+    
+    // Check cache first (using ref)
+    if (useCache && baseCacheRef.current[variableName] !== undefined) {
+      return baseCacheRef.current[variableName];
+    }
+    
     let base = 0;
+    
+    // Check if this is a statement variable (e.g., QS13_1)
+    const statementMatch = variableName.match(/^(.+)_(\d+)$/);
+    if (statementMatch) {
+      const [, parentVarName, statementNum] = statementMatch;
+      const parentVar = parsedFile.variables.find(v => v.name === parentVarName);
+      
+      if (parentVar && (parentVar.type === 'grid-single-select' || parentVar.type === 'grid-multi-select') && parentVar.statements) {
+        const statementLabel = parentVar.statements[statementNum];
+        if (statementLabel) {
+          // For multi-select grids, base is total number of rows (all respondents)
+          if (parentVar.type === 'grid-multi-select') {
+            base = parsedFile.data.length;
+            if (useCache) {
+              baseCacheRef.current[variableName] = base;
+            }
+            return base;
+          }
+          
+          // For single-select grids, count rows that have data for this statement
+          // Find the column that matches this statement
+          const prefix = `${parentVarName} - `;
+          const normalizedStatementLabel = String(statementLabel).toLowerCase();
+          
+          // Find matching column once (outside loop)
+          let matchingColumn: string | null = null;
+          if (parsedFile.data.length > 0) {
+            const firstRow = parsedFile.data[0];
+            matchingColumn = Object.keys(firstRow).find(colName => {
+              if (colName.startsWith(prefix)) {
+                const colLabel = colName.substring(prefix.length).trim();
+                // Check if column matches statement (remove response part if present)
+                const cleanColLabel = colLabel.replace(/\s*\(sample:.*?\)$/i, '').trim();
+                const parts = cleanColLabel.split(' - ');
+                const statementPart = parts[0].trim();
+                return statementPart.toLowerCase() === normalizedStatementLabel;
+              }
+              return false;
+            }) || null;
+          }
+          
+          if (matchingColumn) {
+            parsedFile.data.forEach(row => {
+              const value = row[matchingColumn!];
+              if (value !== null && value !== undefined && value !== '') {
+                base++;
+              }
+            });
+          }
+        }
+      }
+    } else {
+      // Regular variable lookup
     parsedFile.data.forEach(row => {
       // Try exact match first
       let value = row[variableName];
@@ -780,13 +1581,22 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
         base++;
       }
     });
+    }
+    
+    // Cache the result in ref (doesn't cause re-render)
+    if (useCache) {
+      baseCacheRef.current[variableName] = base;
+    }
+    
     return base;
   }, [parsedFile]);
 
   const filteredVariables = useMemo(() => {
     if (!parsedFile) return [];
     
-    return parsedFile.variables.filter(v => {
+    const expandedVariables: VariableDefinition[] = [];
+    
+    parsedFile.variables.forEach(v => {
       // Exclude system variables
       const excludeList = [
         'disposition', 'status', 'record', 'uuid', 'date', 'markers',
@@ -799,33 +1609,124 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
         'pmassist1', 'pmassist2', 'pmassist3', 'pmassist4', 'pmassist5'
       ];
       if (excludeList.includes(v.name.toLowerCase())) {
-        return false;
+        return;
       }
       // Hide variables with "Term" in the name
       if (v.name.toLowerCase().includes('term')) {
-        return false;
+        return;
       }
       // Apply filter options
       if (hideOpenEnds && v.type === 'open-text') {
-        return false;
+        return;
       }
       
+      // For single-select grids, expand into statement-level variables
+      if (v.type === 'grid-single-select' && v.statements && Object.keys(v.statements).length > 0) {
+        // Create a virtual variable for each statement
+        Object.entries(v.statements).forEach(([statementNum, statementLabel]) => {
+          const statementVarName = `${v.name}_${statementNum}`;
+          
+          // Apply search filter
+          const matchesFilter = statementVarName.toLowerCase().includes(variableFilter.toLowerCase()) ||
+                                String(statementLabel).toLowerCase().includes(variableFilter.toLowerCase()) ||
+                                v.description.toLowerCase().includes(variableFilter.toLowerCase());
+          
+          if (!matchesFilter) {
+            return;
+          }
+          
+          // Check base if needed (lazy - only when hideZeroBase is enabled)
       if (hideZeroBase) {
-        const base = getVariableBase(v.name);
+            // For statement variables, base is the number of rows with data for that statement
+            const base = getVariableBase(statementVarName, true);
         if (base === 0) {
-          return false;
-        }
-      }
+              return;
+            }
+          }
+          
+          // Create virtual variable definition for this statement
+          expandedVariables.push({
+            name: statementVarName,
+            description: String(statementLabel),
+            type: 'categorical', // Treat each statement as a categorical variable
+            codes: v.codes || {}, // Use the parent grid's response codes
+            parentGrid: v.name, // Keep reference to parent
+            statementNumber: statementNum
+          } as VariableDefinition & { parentGrid?: string; statementNumber?: string });
+        });
+      } else if (v.type === 'grid-multi-select' && v.statements && Object.keys(v.statements).length > 0) {
+        // For multi-select grids, expand into statement-level variables
+        Object.entries(v.statements).forEach(([statementNum, statementLabel]) => {
+          const statementVarName = `${v.name}_${statementNum}`;
       
       // Apply search filter
-      return v.name.toLowerCase().includes(variableFilter.toLowerCase()) ||
+          const matchesFilter = statementVarName.toLowerCase().includes(variableFilter.toLowerCase()) ||
+                                String(statementLabel).toLowerCase().includes(variableFilter.toLowerCase()) ||
              v.description.toLowerCase().includes(variableFilter.toLowerCase());
+          
+          if (!matchesFilter) {
+            return;
+          }
+          
+          // Check base if needed (lazy - only when hideZeroBase is enabled)
+          if (hideZeroBase) {
+            // For statement variables, base is the number of rows with data for that statement
+            const base = getVariableBase(statementVarName, true);
+            if (base === 0) {
+              return;
+            }
+          }
+          
+          // Create virtual variable definition for this statement
+          expandedVariables.push({
+            name: statementVarName,
+            description: String(statementLabel),
+            type: 'multi-select', // Treat each statement as a multi-select variable
+            codes: v.codes || {}, // Use the parent grid's response codes
+            parentGrid: v.name, // Keep reference to parent
+            statementNumber: statementNum
+          } as VariableDefinition & { parentGrid?: string; statementNumber?: string });
+        });
+      } else {
+        // Regular variable - apply filters
+        if (hideZeroBase) {
+          const base = getVariableBase(v.name, true);
+          if (base === 0) {
+            return;
+          }
+        }
+        
+        // Apply search filter
+        const matchesFilter = v.name.toLowerCase().includes(variableFilter.toLowerCase()) ||
+                             v.description.toLowerCase().includes(variableFilter.toLowerCase());
+        
+        if (!matchesFilter) {
+          return;
+        }
+        
+        expandedVariables.push(v);
+      }
     });
+    
+    return expandedVariables;
   }, [parsedFile, hideOpenEnds, hideZeroBase, variableFilter, getVariableBase]);
 
+  // Auto-select first variable when switching to tables tab if none is selected or current selection is invalid
+  useEffect(() => {
+    if (activeSubTab === 'tables' && parsedFile && filteredVariables.length > 0) {
+      // If no variable is selected, or the selected variable is not in the filtered list, select the first one
+      if (!selectedVariable || !filteredVariables.some(v => v.name === selectedVariable)) {
+        const firstVariable = filteredVariables.find(v => v.type !== 'open-text');
+        if (firstVariable) {
+          setSelectedVariable(firstVariable.name);
+        }
+      }
+    }
+  }, [activeSubTab, parsedFile, filteredVariables, selectedVariable]);
+
   return (
-    <div className="flex-1 overflow-y-auto" style={{ backgroundColor: BRAND_BG, minHeight: 'calc(100vh - 80px)', marginTop: '80px' }}>
-      <div className={`max-w-7xl mx-auto ${viewMode === 'viewer' ? 'flex flex-col p-6' : 'p-6 space-y-6'}`} style={viewMode === 'viewer' ? { height: 'calc(100vh - 128px)', minHeight: 'calc(100vh - 128px)' } : {}}>
+    <div className={`flex-1 ${viewMode === 'viewer' && activeSubTab === 'tables' ? 'overflow-hidden' : 'overflow-y-auto'}`} style={{ backgroundColor: BRAND_BG, minHeight: 'calc(100vh - 80px)', marginTop: '80px', display: 'flex', flexDirection: 'column', height: viewMode === 'viewer' && activeSubTab === 'tables' ? 'calc(100vh - 80px)' : 'auto', maxHeight: viewMode === 'viewer' && activeSubTab === 'banners' ? 'calc(100vh - 80px)' : 'auto' }}>
+      <div className={`${viewMode === 'viewer' ? 'flex flex-col w-full' : viewMode === 'home' || viewMode === 'project' ? 'flex-1 p-6 space-y-6 max-w-full' : 'max-w-7xl mx-auto p-6 space-y-6'}`} style={viewMode === 'viewer' ? { padding: '24px 0 0 0', display: 'flex', flexDirection: 'column', width: '100%' } : {}}>
         {/* Home View - Project List */}
         {viewMode === 'home' && (
           <div>
@@ -1187,149 +2088,145 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
 
         {/* Viewer Mode - Tabulation Interface */}
         {viewMode === 'viewer' && currentTabulation && parsedFile && (
-          <div className="flex flex-col flex-1" style={{ minHeight: 0 }}>
-            {/* Back Button and Export Button - Only show when not viewing a specific banner */}
-            {!selectedBannerGroupId && (
-              <div className="flex-shrink-0 mb-4">
-                <div className="flex items-center justify-between">
+          <div className="flex flex-col overflow-hidden" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+            {/* Sticky Header: Back Button and Tabs */}
+            <div className="sticky top-0 z-10 bg-white pb-4 pt-2 flex-shrink-0 px-6" style={{ backgroundColor: BRAND_BG }}>
+              {/* Back Button and Export Button - Only show when not viewing a specific banner */}
+              {!selectedBannerGroupId && (
+                <div className="flex-shrink-0 mb-4">
+                  <div className="flex items-center justify-between">
+                    <button
+                      onClick={() => {
+                        setViewMode('project');
+                        setCurrentTabulation(null);
+                        setParsedFile(null);
+                        setFrequencyTable(null);
+                        setSelectedVariable('');
+                        // Update header back to project name
+                        if (onHeaderChange && selectedProject) {
+                          onHeaderChange(selectedProject.name);
+                        }
+                      }}
+                      className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 px-3 py-1 rounded-lg transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                      </svg>
+                      Back to {currentTabulation.projectName}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Back Button for Banner View - Above Subtabs */}
+              {selectedBannerGroupId && (
+                <div className="flex-shrink-0 mb-4">
                   <button
-                    onClick={() => {
-                      setViewMode('project');
-                      setCurrentTabulation(null);
-                      setParsedFile(null);
-                      setFrequencyTable(null);
-                      setSelectedVariable('');
-                      // Update header back to project name
-                      if (onHeaderChange && selectedProject) {
-                        onHeaderChange(selectedProject.name);
-                      }
-                    }}
+                    onClick={() => setSelectedBannerGroupId(null)}
                     className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 px-3 py-1 rounded-lg transition-colors"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                     </svg>
-                    Back to {currentTabulation.projectName}
+                    Back to Banner Groups
                   </button>
-                  {frequencyTable && (
-                    <button
-                      onClick={exportToExcel}
-                      className="flex items-center gap-2 px-3 py-2 text-sm text-white rounded-md hover:opacity-90 transition-opacity"
-                      style={{ backgroundColor: BRAND_ORANGE }}
-                    >
-                      <DocumentArrowDownIcon className="h-4 w-4" />
-                      Export to Excel
-                    </button>
-                  )}
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Back Button for Banner View - Above Subtabs */}
-            {selectedBannerGroupId && (
-              <div className="flex-shrink-0 mb-4">
-                <button
-                  onClick={() => setSelectedBannerGroupId(null)}
-                  className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 px-3 py-1 rounded-lg transition-colors"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                  Back to Banner Groups
-                </button>
+              {/* Sub-tabs */}
+              <div className="flex-shrink-0">
+                <nav className="flex space-x-3">
+                  <button
+                    onClick={() => {
+                      setActiveSubTab('tables');
+                      setSelectedBannerGroupId(null);
+                    }}
+                    className={`px-4 py-2 font-medium text-sm border border-gray-300 rounded transition-colors ${
+                      activeSubTab === 'tables'
+                        ? 'text-white'
+                        : 'bg-white text-gray-700 hover:bg-gray-50'
+                    }`}
+                    style={activeSubTab === 'tables' ? { backgroundColor: BRAND_ORANGE, borderColor: BRAND_ORANGE } : {}}
+                  >
+                    Tables
+                  </button>
+                  <button
+                    onClick={() => {
+                      setActiveSubTab('banners');
+                      setSelectedBannerGroupId(null);
+                    }}
+                    className={`px-4 py-2 font-medium text-sm border border-gray-300 rounded transition-colors ${
+                      activeSubTab === 'banners'
+                        ? 'text-white'
+                        : 'bg-white text-gray-700 hover:bg-gray-50'
+                    }`}
+                    style={activeSubTab === 'banners' ? { backgroundColor: BRAND_ORANGE, borderColor: BRAND_ORANGE } : {}}
+                  >
+                    Banners
+                  </button>
+                </nav>
               </div>
-            )}
-
-            {/* Sub-tabs */}
-            <div className="flex-shrink-0 mb-4">
-              <nav className="flex space-x-3">
-                <button
-                  onClick={() => {
-                    setActiveSubTab('tables');
-                    setSelectedBannerGroupId(null);
-                  }}
-                  className={`px-4 py-2 font-medium text-sm border border-gray-300 rounded transition-colors ${
-                    activeSubTab === 'tables'
-                      ? 'text-white'
-                      : 'bg-white text-gray-700 hover:bg-gray-50'
-                  }`}
-                  style={activeSubTab === 'tables' ? { backgroundColor: BRAND_ORANGE, borderColor: BRAND_ORANGE } : {}}
-                >
-                  Tables
-                </button>
-                <button
-                  onClick={() => {
-                    setActiveSubTab('banners');
-                    setSelectedBannerGroupId(null);
-                  }}
-                  className={`px-4 py-2 font-medium text-sm border border-gray-300 rounded transition-colors ${
-                    activeSubTab === 'banners'
-                      ? 'text-white'
-                      : 'bg-white text-gray-700 hover:bg-gray-50'
-                  }`}
-                  style={activeSubTab === 'banners' ? { backgroundColor: BRAND_ORANGE, borderColor: BRAND_ORANGE } : {}}
-                >
-                  Banners
-                </button>
-              </nav>
             </div>
 
             {/* Main Content Area Box - Sidebar + Frequency Table */}
+            <div className={`flex-1 ${activeSubTab === 'tables' ? 'overflow-hidden' : 'overflow-y-auto'}`} style={{ minHeight: 0, flex: '1 1 0%', display: 'flex', flexDirection: 'column', height: activeSubTab === 'tables' ? 'calc(100vh - 200px)' : 'auto', maxHeight: activeSubTab === 'tables' ? 'calc(100vh - 200px)' : 'none' }}>
             {activeSubTab === 'tables' && (
-            <div className="bg-white shadow-sm border border-gray-200 rounded-lg flex-1 flex flex-col overflow-hidden" style={{ minHeight: 0 }}>
-              <div className="flex flex-1 overflow-hidden" style={{ minHeight: 0 }}>
-              {/* Variables Sidebar - 1/4 width */}
-              <div className="w-1/4 border-r border-gray-200 flex flex-col">
-                <div className="p-4 border-b border-gray-200">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-sm font-semibold text-gray-900">Variables</h3>
-                    <div className="relative" data-filter-dropdown>
-                      <button
-                        onClick={() => setShowFilterDropdown(!showFilterDropdown)}
-                        className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
-                        title="Filter variables"
-                      >
-                        <FunnelIcon className="h-4 w-4 text-gray-600" />
-                      </button>
-                      {showFilterDropdown && (
-                        <div className="absolute right-0 top-full mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-10 p-3">
-                          <label className="flex items-center space-x-2 cursor-pointer mb-3">
-                            <input
-                              type="checkbox"
-                              checked={hideOpenEnds}
-                              onChange={(e) => setHideOpenEnds(e.target.checked)}
-                              className="rounded border-gray-300"
-                            />
-                            <span className="text-sm text-gray-700">Hide open ends</span>
-                          </label>
-                          <label className="flex items-center space-x-2 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={hideZeroBase}
-                              onChange={(e) => setHideZeroBase(e.target.checked)}
-                              className="rounded border-gray-300"
-                            />
-                            <span className="text-sm text-gray-700">Hide n=0 base questions</span>
-                          </label>
-                        </div>
-                      )}
+            <div className="bg-white shadow-sm flex flex-row flex-1" style={{ minHeight: 0, borderRadius: 0, position: 'relative', alignItems: 'flex-start', height: '100%', overflow: 'hidden' }}>
+              {/* Variables Sidebar - 1/4 width, fixed height and scrollable */}
+              <div className="w-1/4 border-r border-gray-200 flex flex-col flex-shrink-0 bg-white" style={{ height: '100%', overflow: 'hidden' }}>
+                <div className="border-b border-gray-200 flex-shrink-0" style={{ marginLeft: '-24px', marginRight: 0, width: 'calc(100% + 24px)' }}>
+                  <div className="py-4 px-2" style={{ paddingLeft: '56px' }}>
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-sm font-semibold text-gray-900">Variables ({filteredVariables.length})</h3>
+                      <div className="relative" data-filter-dropdown>
+                        <button
+                          onClick={() => setShowFilterDropdown(!showFilterDropdown)}
+                          className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
+                          title="Filter variables"
+                        >
+                          <FunnelIcon className="h-4 w-4 text-gray-600" />
+                        </button>
+                        {showFilterDropdown && (
+                          <div className="absolute right-0 top-full mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-10 p-3">
+                            <label className="flex items-center space-x-2 cursor-pointer mb-3">
+                              <input
+                                type="checkbox"
+                                checked={hideOpenEnds}
+                                onChange={(e) => setHideOpenEnds(e.target.checked)}
+                                className="rounded border-gray-300"
+                              />
+                              <span className="text-sm text-gray-700">Hide open ends</span>
+                            </label>
+                            <label className="flex items-center space-x-2 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={hideZeroBase}
+                                onChange={(e) => setHideZeroBase(e.target.checked)}
+                                className="rounded border-gray-300"
+                              />
+                              <span className="text-sm text-gray-700">Hide n=0 base questions</span>
+                            </label>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  <div className="relative">
-                    <MagnifyingGlassIcon className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <input
-                      type="text"
-                      placeholder="Search..."
-                      value={variableFilter}
-                      onChange={(e) => setVariableFilter(e.target.value)}
-                      className="pl-8 pr-3 py-1.5 w-full border border-gray-300 rounded-md text-sm"
-                    />
+                    <div className="relative">
+                      <MagnifyingGlassIcon className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <input
+                        type="text"
+                        placeholder="Search..."
+                        value={variableFilter}
+                        onChange={(e) => setVariableFilter(e.target.value)}
+                        className="pl-8 pr-3 py-1.5 w-full border border-gray-300 rounded-md text-sm"
+                      />
+                    </div>
                   </div>
                 </div>
                 
-                <div className="flex-1 overflow-y-auto p-2">
+                <div className="flex-1 overflow-y-auto p-2 pl-6" style={{ minHeight: 0 }}>
                   {filteredVariables.map(variable => {
-                    const base = getVariableBase(variable.name);
+                    // Only calculate base from cache if available, otherwise skip (lazy loading)
+                    const base = baseCacheRef.current[variable.name];
                     const hasNoData = base === 0;
                     const isOpenText = variable.type === 'open-text';
                     // Only disable open-text variables (they can't be tabulated)
@@ -1368,12 +2265,17 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
                             <span className={`text-xs px-1.5 py-0.5 rounded flex-shrink-0 ml-2 ${
                               isDisabled ? 'bg-gray-100 text-gray-400' :
                               variable.type === 'multi-select' ? 'bg-purple-100 text-purple-800' :
-                              variable.type === 'grid' ? 'bg-orange-100 text-orange-800' :
+                              variable.type === 'grid' || variable.type === 'grid-numeric' || variable.type === 'grid-verbatim' || 
+                              variable.type === 'grid-single-select' || variable.type === 'grid-multi-select' ? 'bg-orange-100 text-orange-800' :
                               variable.type === 'categorical' ? 'bg-blue-100 text-blue-800' :
                               variable.type === 'open-numeric' ? 'bg-green-100 text-green-800' :
                               'bg-gray-100 text-gray-800'
                             }`}>
                               {variable.type === 'multi-select' ? 'Multi-Select' :
+                               variable.type === 'grid-numeric' ? 'Numeric Grid' :
+                               variable.type === 'grid-verbatim' ? 'Verbatim Grid' :
+                               variable.type === 'grid-single-select' ? 'Single Select Grid' :
+                               variable.type === 'grid-multi-select' ? 'Multi-Select Grid' :
                                variable.type === 'grid' ? 'Grid' :
                                variable.type === 'categorical' ? 'Single Select' :
                                variable.type === 'open-numeric' ? 'Numeric' :
@@ -1382,7 +2284,25 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
                             </span>
                           </div>
                           <p className={`text-xs line-clamp-2 ${isDisabled ? 'text-gray-400' : 'text-gray-600'}`}>
-                            {variable.description}
+                            {(() => {
+                              // For statement variables, show both parent question and statement
+                              const statementMatch = variable.name.match(/^(.+)_(\d+)$/);
+                              if (statementMatch) {
+                                const [, parentVarName] = statementMatch;
+                                const parentVar = parsedFile.variables.find(v => v.name === parentVarName);
+                                if (parentVar) {
+                                  return (
+                                    <>
+                                      <span className="font-medium">{variable.description}</span>
+                                      {parentVar.description && (
+                                        <span className="block mt-1 text-gray-500">{parentVar.description}</span>
+                                      )}
+                                    </>
+                                  );
+                                }
+                              }
+                              return variable.description;
+                            })()}
                           </p>
                           {hasNoData && (
                             <div className="mt-1">
@@ -1397,30 +2317,85 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
               </div>
 
               {/* Frequency Table Area - 3/4 width */}
-              <div className="flex-1 flex flex-col relative">
+              <div className="flex-1 flex flex-col relative min-w-0 overflow-hidden pr-6" style={{ height: '100%' }}>
                 {selectedVariable ? (
-                  frequencyTable ? (
-                    <div className="flex-1 flex flex-col p-6 overflow-y-auto relative">
-                      <div className="mb-4">
+                  (isGeneratingTable || !frequencyTable || frequencyTable.variable !== selectedVariable) ? (
+                    <div className="flex-1 flex items-center justify-center h-full">
+                      <div className="text-center">
+                        <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-[#D14A2D]"></div>
+                        <p className="text-sm text-gray-500">Generating frequency table...</p>
+                      </div>
+                    </div>
+                  ) : frequencyTable ? (
+                    <div className="flex flex-col h-full overflow-hidden">
+                      <div className="p-6 pb-4 flex-shrink-0">
                         {/* Header row with variable name and options toggle */}
                         <div className="flex items-center justify-between mb-2">
                           <h3 className="text-lg font-semibold text-gray-900">{selectedVariable}</h3>
-                          <button
-                            onClick={() => setShowVariableOptions(!showVariableOptions)}
-                            className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
-                          >
-                            <span>Options</span>
-                            {showVariableOptions ? (
-                              <ChevronLeftIcon className="h-4 w-4" />
-                            ) : (
-                              <ChevronRightIcon className="h-4 w-4" />
-                            )}
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => {
+                                // Always use the selectedVariable (e.g., QS13_1) for debug
+                                // We'll handle statement-specific filtering in the modal
+                                const statementMatch = selectedVariable.match(/^(.+)_(\d+)$/);
+                                let varDef;
+                                if (statementMatch) {
+                                  const [, parentVarName] = statementMatch;
+                                  varDef = parsedFile.variables.find(v => v.name === parentVarName);
+                                } else {
+                                  varDef = parsedFile.variables.find(v => v.name === selectedVariable);
+                                }
+                                if (varDef) {
+                                  setDebugVariable(varDef);
+                                  setDebugVariableName(selectedVariable); // Store the actual variable name being debugged
+                                  setShowDebugModal(true);
+                                }
+                              }}
+                              className="flex items-center justify-center p-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                              title="Debug Info"
+                            >
+                              <InformationCircleIcon className="h-5 w-5" />
+                            </button>
+                            <button
+                              onClick={exportToExcel}
+                              className="flex items-center justify-center p-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                              title="Export to Excel"
+                            >
+                              <DocumentArrowDownIcon className="h-5 w-5" />
+                            </button>
+                            <button
+                              onClick={() => setShowVariableOptions(!showVariableOptions)}
+                              className="flex items-center justify-center p-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                              title="Options"
+                            >
+                              <Cog6ToothIcon className="h-5 w-5" />
+                            </button>
+                          </div>
                         </div>
                         {/* Question text and base - full width */}
                         <div className="w-full">
                           <p className="text-sm text-gray-600">
-                            {parsedFile.variables.find(v => v.name === selectedVariable)?.description}
+                            {(() => {
+                              // Check if this is a statement variable (e.g., QS13_1)
+                              const statementMatch = selectedVariable.match(/^(.+)_(\d+)$/);
+                              if (statementMatch) {
+                                const [, parentVarName] = statementMatch;
+                                const parentVar = parsedFile.variables.find(v => v.name === parentVarName);
+                                const varDef = filteredVariables.find(v => v.name === selectedVariable);
+                                // Show parent question text and statement label
+                                return (
+                                  <>
+                                    {parentVar?.description && (
+                                      <span>{parentVar.description}</span>
+                                    )}
+                                    {varDef?.description && (
+                                      <span className="block mt-1 font-medium">{varDef.description}</span>
+                                    )}
+                                  </>
+                                );
+                              }
+                              return parsedFile.variables.find(v => v.name === selectedVariable)?.description;
+                            })()}
                           </p>
                           <p className="text-sm text-gray-500 mt-2">
                             Base: {frequencyTable.base}
@@ -1431,31 +2406,146 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
                         </div>
                       </div>
                       
-                      <div className="flex-1 overflow-auto border border-gray-200 rounded-lg">
+                      <div className="flex-1 overflow-y-auto border border-gray-200 rounded-lg m-6 mt-0" style={{ minHeight: 0 }}>
+                        {(() => {
+                          const varDef = parsedFile.variables.find(v => v.name === selectedVariable);
+                          const isNumericGrid = varDef?.type === 'grid-numeric';
+                          const isVerbatimGrid = varDef?.type === 'grid-verbatim';
+                          const isOpenEndedGrid = isNumericGrid || isVerbatimGrid;
+                          
+                          if (isOpenEndedGrid) {
+                            // For numeric and verbatim grids, show a different table format
+                            if (isVerbatimGrid) {
+                              // Verbatim grid: Show statements with response counts
+                              return (
                         <table className="min-w-full divide-y divide-gray-200">
                           <thead className="bg-gray-50 sticky top-0">
                             <tr>
-                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
+                                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">Code</th>
+                                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statement</th>
+                                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">Responses</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="bg-white divide-y divide-gray-200">
+                                    {frequencyTable.rows.map((row, idx) => {
+                                      // Find the statement number from the variable definition
+                                      const statementNumber = varDef?.statements 
+                                        ? Object.entries(varDef.statements).find(([num, stmt]) => String(stmt) === row.label)?.[0]
+                                        : null;
+                                      return (
+                                        <tr key={idx} className="hover:bg-gray-50">
+                                          <td className="px-4 py-3 text-sm text-gray-900 w-20">{statementNumber || row.code}</td>
+                                          <td className="px-4 py-3 text-sm text-gray-900">{row.label || '(no label)'}</td>
+                                          <td className="px-4 py-3 text-sm text-gray-900 text-center w-24">{row.count.toLocaleString()}</td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              );
+                            } else {
+                              // Numeric grid: Show statements with statistics
+                              // Calculate totals and averages for the sum and average rows
+                              let totalSum = 0;
+                              let totalMeanSum = 0;
+                              let rowCount = 0;
+                              
+                              frequencyTable.rows.forEach((row) => {
+                                const stats = (frequencyTable as any).statementStats?.[row.label];
+                                if (stats) {
+                                  totalSum += stats.sum || 0; // Sum of all totals
+                                  totalMeanSum += stats.mean || 0; // Sum of all means
+                                  rowCount++;
+                                }
+                              });
+                              
+                              const avgTotal = rowCount > 0 ? totalSum / rowCount : 0;
+                              const avgMean = rowCount > 0 ? totalMeanSum / rowCount : 0;
+                              
+                              return (
+                                <table className="min-w-full divide-y divide-gray-200">
+                                  <thead className="bg-gray-50 sticky top-0">
+                                    <tr>
+                                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">Code</th>
+                                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statement</th>
+                                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">Total</th>
+                                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-20">Mean</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="bg-white divide-y divide-gray-200">
+                                    {frequencyTable.rows.map((row, idx) => {
+                                      // Get stats from the counts object
+                                      const stats = (frequencyTable as any).statementStats?.[row.label];
+                                      // Find the statement number from the variable definition
+                                      const statementNumber = varDef?.statements 
+                                        ? Object.entries(varDef.statements).find(([num, stmt]) => String(stmt) === row.label)?.[0]
+                                        : null;
+                                      
+                                      return (
+                                        <tr key={idx} className="hover:bg-gray-50">
+                                          <td className="px-4 py-3 text-sm text-gray-900 w-20">{statementNumber || row.code}</td>
+                                          <td className="px-4 py-3 text-sm text-gray-900">{row.label || '(no label)'}</td>
+                                          <td className="px-4 py-3 text-sm text-gray-900 text-center w-24">{(stats?.sum || 0).toLocaleString()}</td>
+                                          <td className="px-4 py-3 text-sm text-gray-900 text-center w-20">
+                                            {stats?.mean ? stats.mean.toFixed(1) : '-'}
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                    {/* Sum row */}
+                                    <tr className="bg-gray-50 font-semibold border-t-2 border-gray-300">
+                                      <td className="px-4 py-3 text-sm text-gray-900 w-20"></td>
+                                      <td className="px-4 py-3 text-sm text-gray-900">Sum</td>
+                                      <td className="px-4 py-3 text-sm text-gray-900 text-center w-24">{totalSum.toLocaleString()}</td>
+                                      <td className="px-4 py-3 text-sm text-gray-900 text-center w-20">
+                                        {totalMeanSum > 0 ? totalMeanSum.toFixed(1) : '-'}
+                                      </td>
+                                    </tr>
+                                    {/* Average row */}
+                                    <tr className="bg-gray-50 font-semibold border-t border-gray-300">
+                                      <td className="px-4 py-3 text-sm text-gray-900 w-20"></td>
+                                      <td className="px-4 py-3 text-sm text-gray-900">Average</td>
+                                      <td className="px-4 py-3 text-sm text-gray-900 text-center w-24">
+                                        {avgTotal > 0 ? avgTotal.toFixed(1) : '-'}
+                                      </td>
+                                      <td className="px-4 py-3 text-sm text-gray-900 text-center w-20">
+                                        {avgMean > 0 ? avgMean.toFixed(1) : '-'}
+                                      </td>
+                                    </tr>
+                                  </tbody>
+                                </table>
+                              );
+                            }
+                          } else {
+                            // Standard categorical display
+                            return (
+                              <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50 sticky top-0">
+                                  <tr>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">Code</th>
                               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Label</th>
-                              <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Count</th>
-                              <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Percentage</th>
+                                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">Count</th>
+                                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-28">Percentage</th>
                             </tr>
                           </thead>
                           <tbody className="bg-white divide-y divide-gray-200">
                             {frequencyTable.rows.map((row, idx) => (
                               <tr key={idx} className="hover:bg-gray-50">
-                                <td className="px-4 py-3 text-sm text-gray-900">{row.code}</td>
+                                      <td className="px-4 py-3 text-sm text-gray-900 w-20">{row.code}</td>
                                 <td className="px-4 py-3 text-sm text-gray-900">{row.label || '(no label)'}</td>
-                                <td className="px-4 py-3 text-sm text-gray-900 text-center">{row.count}</td>
-                                <td className="px-4 py-3 text-sm text-gray-900 text-center">{row.percentage.toFixed(1)}%</td>
+                                      <td className="px-4 py-3 text-sm text-gray-900 text-center w-24">{row.count}</td>
+                                      <td className="px-4 py-3 text-sm text-gray-900 text-center w-28">{row.percentage.toFixed(1)}%</td>
                               </tr>
                             ))}
                           </tbody>
                         </table>
+                            );
+                          }
+                        })()}
                       </div>
                     </div>
                   ) : (
-                    <div className="flex-1 flex items-center justify-center">
+                    <div className="flex-1 flex items-center justify-center h-full">
                       <div className="text-center">
                         <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-[#D14A2D]"></div>
                         <p className="text-sm text-gray-500">Generating frequency table...</p>
@@ -1463,7 +2553,7 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
                     </div>
                   )
                 ) : (
-                  <div className="flex-1 flex items-center justify-center">
+                  <div className="flex-1 flex items-center justify-center h-full">
                     <div className="text-center">
                       <IconTable className="h-16 w-16 text-gray-300 mx-auto mb-4" />
                       <h3 className="text-lg font-medium text-gray-900 mb-2">Select a Variable</h3>
@@ -1543,12 +2633,11 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
                   )}
                 </div>
               </div>
-            </div>
             )}
 
             {/* Banners Tab Content */}
             {activeSubTab === 'banners' && (
-              <div className="bg-white shadow-sm border border-gray-200 rounded-lg flex-1 flex flex-col">
+              <div className="bg-white shadow-sm rounded-lg flex flex-col" style={{ minHeight: 0, borderRadius: 0 }}>
                 {showBannerBuilder ? (
                   <BannerBuilder
                     parsedFile={parsedFile}
@@ -1592,6 +2681,10 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
                             hideZeroBase={hideZeroBase}
                             getVariableBase={getVariableBase}
                             hideInCrosstabs={hideInCrosstabs}
+                            sortOptions={sortOptions}
+                            hideZeroFrequencies={hideZeroFrequencies}
+                            allBannerGroups={bannerGroups}
+                            currentBannerGroupIndex={bannerGroups.findIndex(g => g.id === selectedBannerGroupId)}
                             onEdit={() => {
                               setEditingBannerGroup(selectedGroup);
                               setShowBannerBuilder(true);
@@ -1700,6 +2793,421 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
                 )}
               </div>
             )}
+            </div>
+          </div>
+        )}
+
+        {/* Debug Modal */}
+        {showDebugModal && debugVariable && parsedFile && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+              <div className="flex items-center justify-between p-6 border-b border-gray-200 flex-shrink-0">
+                <h2 className="text-xl font-semibold text-gray-900">
+                  Debug Information: {debugVariableName || debugVariable.name}
+                </h2>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={async (e) => {
+                      const button = e.currentTarget;
+                      const originalText = button.textContent || 'Copy Debug Info';
+                      
+                      try {
+                        // Build comprehensive debug info
+                        const firstRow = parsedFile.data.length > 0 ? parsedFile.data[0] : {};
+                        
+                        // Check if this is a statement variable
+                        const statementMatch = debugVariableName.match(/^(.+)_(\d+)$/);
+                        let matchingColumns: string[] = [];
+                        let statementNum: string | undefined;
+                        let statementLabel: string | undefined;
+                        
+                        if (statementMatch) {
+                          const [, parentVarName, stmtNum] = statementMatch;
+                          statementNum = stmtNum;
+                          statementLabel = debugVariable.statements?.[stmtNum];
+                          
+                          // Find columns that match this specific statement
+                          const prefix = `${parentVarName} - `;
+                          const normalizedStatementLabel = String(statementLabel).toLowerCase();
+                          
+                          matchingColumns = Object.keys(firstRow).filter(colName => {
+                            if (colName.startsWith(prefix)) {
+                              const colLabel = colName.substring(prefix.length).trim();
+                              // Column should match the statement exactly
+                              return colLabel.toLowerCase() === normalizedStatementLabel;
+                            }
+                            return false;
+                          });
+                        } else {
+                          // Regular variable - get all matching columns
+                          const prefix = `${debugVariable.name} - `;
+                          matchingColumns = Object.keys(firstRow).filter(colName => 
+                            colName.startsWith(prefix) || colName === debugVariable.name
+                          );
+                        }
+                        
+                        const debugInfo = {
+                          question: {
+                            number: debugVariableName || debugVariable.name,
+                            type: statementMatch ? 'categorical' : debugVariable.type,
+                            description: statementLabel || debugVariable.description,
+                            base: getVariableBase(debugVariableName || debugVariable.name),
+                            isMultiSelectOption: debugVariable.isMultiSelectOption,
+                            parentMultiSelect: debugVariable.parentMultiSelect,
+                            ...(statementMatch && {
+                              parentGrid: debugVariable.name,
+                              statementNumber: statementNum
+                            })
+                          },
+                          responseCodes: debugVariable.codes ? Object.entries(debugVariable.codes).map(([code, label]) => ({
+                            code,
+                            label
+                          })) : [],
+                          gridStatements: (() => {
+                            // For statement variables, only show the specific statement
+                            if (statementMatch && statementNum && debugVariable.statements) {
+                              return [{
+                                number: statementNum,
+                                statement: debugVariable.statements[statementNum]
+                              }];
+                            }
+                            // For parent grid variables, show all statements
+                            return (debugVariable.type === 'grid' || debugVariable.type === 'grid-numeric' || 
+                                    debugVariable.type === 'grid-verbatim' || debugVariable.type === 'grid-single-select' || 
+                                    debugVariable.type === 'grid-multi-select') && debugVariable.statements 
+                              ? Object.entries(debugVariable.statements).map(([num, statement]) => ({
+                                  number: num,
+                                  statement
+                                }))
+                              : [];
+                          })(),
+                          dataColumns: matchingColumns.map(colName => {
+                            // For single-select grids, parse the column name to extract statement and response
+                            // Remove "(sample: ...)" from column names for cleaner display
+                            let cleanColumnName = colName.replace(/\s*\(sample:\s*[^)]+\)/gi, '');
+                            let displayColumnName = cleanColumnName;
+                            let parsedCode: string | undefined;
+                            let parsedStatement: string | undefined;
+                            
+                            if (debugVariable.type === 'grid-single-select' || debugVariable.type === 'grid-multi-select') {
+                              const prefix = `${debugVariable.name} - `;
+                              if (cleanColumnName.startsWith(prefix)) {
+                                let statementLabel = cleanColumnName.substring(prefix.length).trim();
+                                
+                                // Check for format with parentheses: "Statement (sample: ResponseLabel)"
+                                const parenMatch = statementLabel.match(/^(.+?)\s*\(sample:\s*(.+?)\)$/i);
+                                if (parenMatch) {
+                                  parsedStatement = parenMatch[1].trim();
+                                  const responseLabel = parenMatch[2].trim();
+                                  // Try to match response label to a code
+                                  if (debugVariable.codes) {
+                                    const matchedCode = Object.entries(debugVariable.codes).find(
+                                      ([code, label]) => String(label).trim().toLowerCase() === responseLabel.toLowerCase()
+                                    );
+                                    if (matchedCode) {
+                                      parsedCode = matchedCode[0];
+                                      displayColumnName = `${parsedStatement} (Code: ${parsedCode})`;
+                                    }
+                                  }
+                                } else {
+                                  // Check for format with dashes: "Statement - ResponseLabel"
+                                  const parts = statementLabel.split(' - ');
+                                  if (parts.length >= 2) {
+                                    parsedStatement = parts.slice(0, -1).join(' - ').trim();
+                                    const lastPart = parts[parts.length - 1].trim();
+                                    
+                                    // Check if last part is a numeric code
+                                    if (/^\d+$/.test(lastPart)) {
+                                      parsedCode = lastPart;
+                                      displayColumnName = `${parsedStatement} (Code: ${parsedCode})`;
+                                    } else {
+                                      // Last part is likely a label
+                                      if (debugVariable.codes) {
+                                        const matchedCode = Object.entries(debugVariable.codes).find(
+                                          ([code, label]) => String(label).trim().toLowerCase() === lastPart.toLowerCase()
+                                        );
+                                        if (matchedCode) {
+                                          parsedCode = matchedCode[0];
+                                          displayColumnName = `${parsedStatement} (Code: ${parsedCode})`;
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                            
+                            return {
+                              columnName: displayColumnName,
+                              statement: parsedStatement,
+                              code: parsedCode,
+                              sampleValue: firstRow[colName] !== null && firstRow[colName] !== undefined 
+                                ? String(firstRow[colName]) 
+                                : 'null'
+                            };
+                          }),
+                          rawVariableDefinition: debugVariable
+                        };
+                        
+                        const debugText = JSON.stringify(debugInfo, null, 2);
+                        await navigator.clipboard.writeText(debugText);
+                        
+                        // Show temporary success feedback
+                        if (button.textContent !== null) {
+                          button.textContent = 'Copied!';
+                        }
+                        button.classList.add('bg-green-100', 'text-green-800');
+                        setTimeout(() => {
+                          if (button.textContent !== null) {
+                            button.textContent = originalText;
+                          }
+                          button.classList.remove('bg-green-100', 'text-green-800');
+                        }, 2000);
+                      } catch (err) {
+                        console.error('Failed to copy:', err);
+                        alert('Failed to copy debug information. Please try again.');
+                        // Reset button state on error
+                        if (button.textContent !== null) {
+                          button.textContent = originalText;
+                        }
+                        button.classList.remove('bg-green-100', 'text-green-800');
+                      }
+                    }}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                  >
+                    Copy Debug Info
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowDebugModal(false);
+                      setDebugVariable(null);
+                    }}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <XMarkIcon className="h-6 w-6" />
+                  </button>
+      </div>
+    </div>
+              
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                {/* Basic Info */}
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3">Basic Information</h3>
+                  <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                    <div className="flex">
+                      <span className="font-medium text-gray-700 w-32">Question #:</span>
+                      <span className="text-gray-900">{debugVariableName || debugVariable.name}</span>
+                    </div>
+                    {(() => {
+                      const statementMatch = debugVariableName.match(/^(.+)_(\d+)$/);
+                      if (statementMatch) {
+                        const [, parentVarName] = statementMatch;
+                        const statementNum = statementMatch[2];
+                        const statementLabel = debugVariable.statements?.[statementNum];
+                        return (
+                          <>
+                            <div className="flex">
+                              <span className="font-medium text-gray-700 w-32">Parent Grid:</span>
+                              <span className="text-gray-900">{parentVarName}</span>
+                            </div>
+                            <div className="flex">
+                              <span className="font-medium text-gray-700 w-32">Statement #:</span>
+                              <span className="text-gray-900">{statementNum}</span>
+                            </div>
+                            <div className="flex">
+                              <span className="font-medium text-gray-700 w-32">Question Type:</span>
+                              <span className="text-gray-900">categorical (from grid-single-select)</span>
+                            </div>
+                            <div className="flex">
+                              <span className="font-medium text-gray-700 w-32">Statement Text:</span>
+                              <span className="text-gray-900 flex-1">{statementLabel || '(no statement)'}</span>
+                            </div>
+                            <div className="flex">
+                              <span className="font-medium text-gray-700 w-32">Parent Question:</span>
+                              <span className="text-gray-900 flex-1">{debugVariable.description || '(no description)'}</span>
+                            </div>
+                          </>
+                        );
+                      }
+                      return (
+                        <>
+                          <div className="flex">
+                            <span className="font-medium text-gray-700 w-32">Question Type:</span>
+                            <span className="text-gray-900">{debugVariable.type}</span>
+                          </div>
+                          <div className="flex">
+                            <span className="font-medium text-gray-700 w-32">Question Text:</span>
+                            <span className="text-gray-900 flex-1">{debugVariable.description || '(no description)'}</span>
+                          </div>
+                        </>
+                      );
+                    })()}
+                    <div className="flex">
+                      <span className="font-medium text-gray-700 w-32">Base:</span>
+                      <span className="text-gray-900">{getVariableBase(debugVariableName || debugVariable.name)}</span>
+                    </div>
+                    {debugVariable.isMultiSelectOption && (
+                      <div className="flex">
+                        <span className="font-medium text-gray-700 w-32">Parent:</span>
+                        <span className="text-gray-900">{debugVariable.parentMultiSelect || 'N/A'}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Grid Statements */}
+                {(() => {
+                  // Check if this is a statement variable
+                  const statementMatch = debugVariableName.match(/^(.+)_(\d+)$/);
+                  let statementsToShow: Array<[string, string]> = [];
+                  
+                  if (statementMatch && debugVariable.statements) {
+                    // For statement variables, only show the specific statement
+                    const statementNum = statementMatch[2];
+                    const statementLabel = debugVariable.statements[statementNum];
+                    if (statementLabel) {
+                      statementsToShow = [[statementNum, statementLabel]];
+                    }
+                  } else if ((debugVariable.type === 'grid' || debugVariable.type === 'grid-numeric' || 
+                             debugVariable.type === 'grid-verbatim' || debugVariable.type === 'grid-single-select' || 
+                             debugVariable.type === 'grid-multi-select') && debugVariable.statements) {
+                    // For parent grid variables, show all statements
+                    statementsToShow = Object.entries(debugVariable.statements);
+                  }
+                  
+                  return statementsToShow.length > 0 ? (
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-700 mb-3">
+                        {statementMatch ? 'Grid Statement' : `Grid Statements (${statementsToShow.length})`}
+                      </h3>
+                      <div className="bg-gray-50 rounded-lg overflow-hidden">
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-gray-100">
+                            <tr>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase">Code</th>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase">Label</th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {statementsToShow.map(([num, statement]) => (
+                              <tr key={num}>
+                                <td className="px-4 py-2 text-sm text-gray-900 font-mono">{num}</td>
+                                <td className="px-4 py-2 text-sm text-gray-900">{statement || '(no label)'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ) : null;
+                })()}
+
+                {/* Response Codes */}
+                {debugVariable.codes && Object.keys(debugVariable.codes).length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-700 mb-3">
+                      Response Codes ({Object.keys(debugVariable.codes).length})
+                    </h3>
+                    <div className="bg-gray-50 rounded-lg overflow-hidden">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-100">
+                          <tr>
+                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase">Code</th>
+                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase">Label</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {Object.entries(debugVariable.codes).map(([code, label]) => (
+                            <tr key={code}>
+                              <td className="px-4 py-2 text-sm text-gray-900 font-mono">{code}</td>
+                              <td className="px-4 py-2 text-sm text-gray-900">{label || '(no label)'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* Data Columns */}
+                {parsedFile.data.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-700 mb-3">Data Columns</h3>
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      {(() => {
+                        const firstRow = parsedFile.data[0];
+                        
+                        // Check if this is a statement variable
+                        const statementMatch = debugVariableName.match(/^(.+)_(\d+)$/);
+                        let matchingColumns: string[] = [];
+                        let prefixToShow = '';
+                        
+                        if (statementMatch) {
+                          const [, parentVarName] = statementMatch;
+                          const statementNum = statementMatch[2];
+                          const statementLabel = debugVariable.statements?.[statementNum];
+                          
+                          // Find columns that match this specific statement
+                          const prefix = `${parentVarName} - `;
+                          const normalizedStatementLabel = String(statementLabel).toLowerCase();
+                          prefixToShow = `${prefix}${statementLabel}`;
+                          
+                          matchingColumns = Object.keys(firstRow).filter(colName => {
+                            if (colName.startsWith(prefix)) {
+                              const colLabel = colName.substring(prefix.length).trim();
+                              // Column should match the statement exactly
+                              return colLabel.toLowerCase() === normalizedStatementLabel;
+                            }
+                            return false;
+                          });
+                        } else {
+                          // Regular variable - get all matching columns
+                          const prefix = `${debugVariable.name} - `;
+                          prefixToShow = prefix;
+                          matchingColumns = Object.keys(firstRow).filter(colName => 
+                            colName.startsWith(prefix) || colName === debugVariable.name
+                          );
+                        }
+                        
+                        if (matchingColumns.length === 0) {
+                          return (
+                            <p className="text-sm text-gray-500 italic">
+                              No matching columns found in data. Tried: "{debugVariableName || debugVariable.name}" and "{prefixToShow}*"
+                            </p>
+                          );
+                        }
+                        
+                        return (
+                          <div className="space-y-1 max-h-60 overflow-y-auto">
+                            {matchingColumns.map(colName => {
+                              const sampleValue = firstRow[colName];
+                              return (
+                                <div key={colName} className="text-sm">
+                                  <span className="font-mono text-gray-900">{colName}</span>
+                                  <span className="text-gray-500 ml-2">
+                                    (sample: {sampleValue !== null && sampleValue !== undefined ? String(sampleValue) : 'null'})
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                )}
+
+                {/* Raw Variable Definition */}
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3">Raw Variable Definition (JSON)</h3>
+                  <div className="bg-gray-50 rounded-lg p-4 overflow-auto max-h-60">
+                    <pre className="text-xs text-gray-800 whitespace-pre-wrap">
+                      {JSON.stringify(debugVariable, null, 2)}
+                    </pre>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>

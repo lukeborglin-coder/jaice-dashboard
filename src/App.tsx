@@ -51,7 +51,7 @@ import {
   RocketLaunchIcon as RocketLaunchIconSolid,
   PlayIcon as PlayIconSolid
 } from "@heroicons/react/24/solid";
-import { IconCalendarShare, IconCalendarWeek, IconBallAmericanFootball, IconRocket, IconFileAnalyticsFilled, IconLayoutSidebarFilled, IconTable, IconCheckbox, IconDatabaseExclamation, IconBook2, IconScript, IconChartBar, IconCode, IconChartDots } from "@tabler/icons-react";
+import { IconCalendarShare, IconCalendarWeek, IconBallAmericanFootball, IconRocket, IconFileAnalyticsFilled, IconLayoutSidebarFilled, IconTable, IconCheckbox, IconDatabaseExclamation, IconBook2, IconScript, IconChartBar, IconCode, IconChartDots, IconServer } from "@tabler/icons-react";
 import ContentAnalysisX from "./components/ContentAnalysisX";
 import Transcripts from "./components/Transcripts";
 import Storytelling from "./components/Storytelling";
@@ -60,7 +60,8 @@ import StatTesting from "./components/StatTesting";
 import OpenEndCoding from "./components/OpenEndCoding";
 import ConjointProjects from "./components/ConjointProjects";
 import DataTabulation from "./components/DataTabulation";
-import TabTesting from "./components/TabTesting";
+import QNR from "./components/QNR";
+import Tabs from "./components/Tabs";
 import AuthWrapper from "./components/AuthWrapper";
 import TopBar from "./components/TopBar";
 import Feedback from "./components/Feedback";
@@ -2634,7 +2635,7 @@ function VendorLibrary({ projects }: { projects: any[] }) {
 // Admin Center Component
 function AdminCenter({ onProjectUpdate }: { onProjectUpdate?: () => void }) {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'users' | 'cost-tracker' | 'feature-requests' | 'bug-reports' | 'settings'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'cost-tracker' | 'feature-requests' | 'bug-reports' | 'settings' | 'storage'>('users');
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateUser, setShowCreateUser] = useState(false);
@@ -2661,6 +2662,12 @@ function AdminCenter({ onProjectUpdate }: { onProjectUpdate?: () => void }) {
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [isResettingTasks, setIsResettingTasks] = useState(false);
   const [isResettingAllTasks, setIsResettingAllTasks] = useState(false);
+
+  // Storage monitoring state
+  const [storageData, setStorageData] = useState<any>(null);
+  const [loadingStorage, setLoadingStorage] = useState(false);
+  const [expandedStorageProject, setExpandedStorageProject] = useState<string | null>(null);
+  const [storageFilter, setStorageFilter] = useState<'all' | 'active' | 'archived'>('all');
   const loadCostData = useCallback(async () => {
     try {
       const headers: any = { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` };
@@ -2869,6 +2876,26 @@ function AdminCenter({ onProjectUpdate }: { onProjectUpdate?: () => void }) {
     loadUsers();
   }, [loadUsers]);
 
+  const loadStorageData = useCallback(async () => {
+    setLoadingStorage(true);
+    try {
+      const headers: any = { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` };
+      const resp = await fetch(`${API_BASE_URL}/api/storage/projects`, { headers });
+      if (resp.ok) {
+        const data = await resp.json();
+        setStorageData(data);
+      } else {
+        console.error('Failed to load storage data:', resp.status);
+        setStorageData(null);
+      }
+    } catch (e) {
+      console.error('Error loading storage data:', e);
+      setStorageData(null);
+    } finally {
+      setLoadingStorage(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (activeTab === 'cost-tracker') {
       loadCostData();
@@ -2876,8 +2903,10 @@ function AdminCenter({ onProjectUpdate }: { onProjectUpdate?: () => void }) {
       loadAdminFeedback();
     } else if (activeTab === 'settings') {
       loadProjects();
+    } else if (activeTab === 'storage') {
+      loadStorageData();
     }
-  }, [activeTab, loadCostData, loadAdminFeedback, loadProjects]);
+  }, [activeTab, loadCostData, loadAdminFeedback, loadProjects, loadStorageData]);
 
   // Create new user
   const handleCreateUser = async (e: React.FormEvent) => {
@@ -3106,25 +3135,6 @@ function AdminCenter({ onProjectUpdate }: { onProjectUpdate?: () => void }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Admin Center</h1>
-          <p className="text-gray-600">Manage user accounts, feature requests, and bug reports</p>
-        </div>
-        {activeTab === 'users' && (
-          <button
-            onClick={() => setShowCreateUser(true)}
-            className="flex items-center gap-2 px-4 py-2 text-white rounded-lg transition-colors"
-            style={{ backgroundColor: '#D14A2D' }}
-            onMouseEnter={(e) => (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#B74227'}
-            onMouseLeave={(e) => (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#D14A2D'}
-          >
-            <UserPlusIcon className="h-5 w-5" />
-            Create User
-          </button>
-        )}
-      </div>
-
       {/* Tab Navigation */}
       <div className="border-b border-gray-200">
         <nav className="-mb-px flex space-x-8">
@@ -3196,6 +3206,20 @@ function AdminCenter({ onProjectUpdate }: { onProjectUpdate?: () => void }) {
             <div className="flex items-center gap-2">
               <Cog6ToothIcon className="w-5 h-5" />
               Settings
+            </div>
+          </button>
+          <button
+            onClick={() => setActiveTab('storage')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'storage'
+                ? 'text-gray-900'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+            style={activeTab === 'storage' ? { borderBottomColor: '#D14A2D', color: '#D14A2D' } : {}}
+          >
+            <div className="flex items-center gap-2">
+              <IconServer className="w-5 h-5" />
+              Storage Monitor
             </div>
           </button>
         </nav>
@@ -3294,8 +3318,18 @@ function AdminCenter({ onProjectUpdate }: { onProjectUpdate?: () => void }) {
       {activeTab === 'users' && (
         /* Users List */
         <div className="bg-white rounded-lg shadow">
-          <div className="px-6 py-4 border-b border-gray-200">
+          <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
             <h3 className="text-lg font-medium text-gray-900">All Users ({users.length})</h3>
+            <button
+              onClick={() => setShowCreateUser(true)}
+              className="flex items-center gap-2 px-4 py-2 text-white rounded-lg transition-colors"
+              style={{ backgroundColor: '#D14A2D' }}
+              onMouseEnter={(e) => (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#B74227'}
+              onMouseLeave={(e) => (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#D14A2D'}
+            >
+              <UserPlusIcon className="h-5 w-5" />
+              Create User
+            </button>
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
@@ -3821,6 +3855,230 @@ function AdminCenter({ onProjectUpdate }: { onProjectUpdate?: () => void }) {
         </div>
       )}
 
+      {activeTab === 'storage' && (
+        <div className="bg-white shadow-sm rounded-lg border border-gray-200 p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-semibold text-gray-900">Storage Monitor</h3>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={loadStorageData}
+                disabled={loadingStorage}
+                className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                {loadingStorage ? 'Refreshing...' : 'Refresh'}
+              </button>
+              <select
+                value={storageFilter}
+                onChange={(e) => setStorageFilter(e.target.value as 'all' | 'active' | 'archived')}
+                className="text-sm border border-gray-300 rounded px-3 py-1.5 focus:ring-2 focus:border-gray-300"
+                style={{ '--tw-ring-color': '#D14A2D' } as React.CSSProperties}
+              >
+                <option value="all">All Projects</option>
+                <option value="active">Active Projects</option>
+                <option value="archived">Archived Projects</option>
+              </select>
+            </div>
+          </div>
+
+          {loadingStorage ? (
+            <div className="text-center py-12">
+              <div className="w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                <svg className="animate-spin" width="48" height="48" viewBox="0 0 48 48">
+                  <circle cx="24" cy="24" r="20" fill="none" stroke="#D14A2D" strokeWidth="4" strokeDasharray="50 75.4" strokeDashoffset="0" />
+                </svg>
+              </div>
+              <p className="text-gray-500">Calculating storage usage...</p>
+            </div>
+          ) : !storageData ? (
+            <div className="text-center py-12">
+              <IconServer className="mx-auto h-12 w-12 text-gray-400" />
+              <h3 className="mt-2 text-sm font-medium text-gray-900">No storage data available</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Click refresh to calculate storage usage for all projects.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Summary Stats */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="text-sm text-gray-600">Total Projects</div>
+                  <div className="text-2xl font-bold text-gray-900">
+                    {storageData.projects?.filter((p: any) => 
+                      storageFilter === 'all' || 
+                      (storageFilter === 'active' && !p.archived) || 
+                      (storageFilter === 'archived' && p.archived)
+                    ).length || 0}
+                  </div>
+                </div>
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="text-sm text-gray-600">Total Storage</div>
+                  <div className="text-2xl font-bold" style={{ color: '#D14A2D' }}>
+                    {storageData.summary?.totalStorageFormatted || '0 B'}
+                  </div>
+                </div>
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="text-sm text-gray-600">System Storage</div>
+                  <div className="text-2xl font-bold text-gray-900">
+                    {storageData.summary?.systemStorageFormatted?.totalDataDir || '0 B'}
+                  </div>
+                </div>
+              </div>
+
+              {/* System Storage Breakdown */}
+              {storageData.summary?.systemStorageFormatted && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                  <h4 className="text-sm font-semibold text-blue-900 mb-3">System Storage Breakdown</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+                    <div>
+                      <span className="text-blue-700">Uploads:</span>
+                      <span className="ml-2 font-medium text-blue-900">{storageData.summary.systemStorageFormatted.uploadsDir}</span>
+                    </div>
+                    <div>
+                      <span className="text-blue-700">Questionnaires:</span>
+                      <span className="ml-2 font-medium text-blue-900">{storageData.summary.systemStorageFormatted.questionnaireDataDir}</span>
+                    </div>
+                    <div>
+                      <span className="text-blue-700">Discussion Guides:</span>
+                      <span className="ml-2 font-medium text-blue-900">{storageData.summary.systemStorageFormatted.discussionGuidesDir}</span>
+                    </div>
+                    <div>
+                      <span className="text-blue-700">Conjoint Workflows:</span>
+                      <span className="ml-2 font-medium text-blue-900">{storageData.summary.systemStorageFormatted.conjointWorkflowsDir}</span>
+                    </div>
+                    <div>
+                      <span className="text-blue-700">Data Tabulations:</span>
+                      <span className="ml-2 font-medium text-blue-900">{storageData.summary.systemStorageFormatted.dataTabulationsDir}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Projects List */}
+              <div className="space-y-3">
+                {storageData.projects
+                  ?.filter((project: any) => {
+                    if (storageFilter === 'active') return !project.archived;
+                    if (storageFilter === 'archived') return project.archived;
+                    return true;
+                  })
+                  .map((project: any) => {
+                    const formatBytes = (bytes: number) => {
+                      if (bytes === 0) return '0 B';
+                      const k = 1024;
+                      const sizes = ['B', 'KB', 'MB', 'GB'];
+                      const i = Math.floor(Math.log(bytes) / Math.log(k));
+                      return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
+                    };
+
+                    return (
+                      <div key={project.projectId} className="border rounded-lg overflow-hidden">
+                        <div
+                          className="p-4 hover:bg-gray-50 cursor-pointer transition-colors"
+                          onClick={() => setExpandedStorageProject(expandedStorageProject === project.projectId ? null : project.projectId)}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <h4 className="text-base font-medium text-gray-900">{project.projectName}</h4>
+                                {project.archived && (
+                                  <span className="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded">Archived</span>
+                                )}
+                              </div>
+                              <div className="text-sm text-gray-500 mt-1">
+                                {Object.values(project.breakdown).reduce((sum: number, cat: any) => sum + (cat.count || 0), 0)} items across {Object.values(project.breakdown).filter((cat: any) => (cat.count || 0) > 0).length} categories
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-4">
+                              <div className="text-right">
+                                <div className="text-lg font-bold" style={{ color: '#D14A2D' }}>
+                                  {formatBytes(project.totalSize)}
+                                </div>
+                              </div>
+                              <ChevronDownIcon
+                                className={`w-5 h-5 text-gray-400 transition-transform ${
+                                  expandedStorageProject === project.projectId ? 'transform rotate-180' : ''
+                                }`}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Expanded Details */}
+                        {expandedStorageProject === project.projectId && (
+                          <div className="border-t bg-gray-50 p-4">
+                            <h5 className="text-sm font-semibold text-gray-700 mb-3">Storage Breakdown</h5>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                              {Object.entries(project.breakdown).map(([category, data]: [string, any]) => {
+                                if (!data || (data.size === 0 && data.count === 0)) return null;
+                                
+                                const categoryNames: Record<string, string> = {
+                                  transcripts: 'Transcripts',
+                                  questionnaires: 'Questionnaires',
+                                  contentAnalysis: 'Content Analysis',
+                                  storytelling: 'Storytelling',
+                                  dataTabulation: 'Data Tabulation',
+                                  conjoint: 'Conjoint',
+                                  other: 'Other'
+                                };
+
+                                return (
+                                  <div key={category} className="bg-white p-3 rounded border border-gray-200">
+                                    <div className="text-xs text-gray-600 mb-1">{categoryNames[category] || category}</div>
+                                    <div className="text-lg font-semibold text-gray-900">{formatBytes(data.size || 0)}</div>
+                                    <div className="text-xs text-gray-500 mt-1">{data.count || 0} {data.count === 1 ? 'item' : 'items'}</div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+
+                            {/* Detailed file list for transcripts */}
+                            {project.breakdown.transcripts?.files?.length > 0 && (
+                              <div className="mt-4 bg-white rounded border border-gray-200 overflow-x-auto">
+                                <h6 className="text-xs font-semibold text-gray-700 p-2 border-b">Transcript Files</h6>
+                                <div className="max-h-48 overflow-y-auto">
+                                  <table className="min-w-full text-xs">
+                                    <thead className="bg-gray-50">
+                                      <tr>
+                                        <th className="px-3 py-2 text-left text-gray-600 font-medium">File Name</th>
+                                        <th className="px-3 py-2 text-left text-gray-600 font-medium">Type</th>
+                                        <th className="px-3 py-2 text-right text-gray-600 font-medium">Size</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {project.breakdown.transcripts.files.map((file: any, idx: number) => (
+                                        <tr key={idx} className="border-t">
+                                          <td className="px-3 py-2">{file.name}</td>
+                                          <td className="px-3 py-2 capitalize">{file.type}</td>
+                                          <td className="px-3 py-2 text-right">{formatBytes(file.size)}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+              </div>
+
+              {(!storageData.projects || storageData.projects.filter((p: any) => 
+                storageFilter === 'all' || 
+                (storageFilter === 'active' && !p.archived) || 
+                (storageFilter === 'archived' && p.archived)
+              ).length === 0) && (
+                <div className="text-center py-8">
+                  <p className="text-sm text-gray-500">No projects match the selected filter</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Full Details Modal */}
       {selectedItem && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center overflow-y-auto py-8 z-[9999]" onClick={() => setSelectedItem(null)}>
@@ -4241,7 +4499,7 @@ export default function App() {
     '/stat-testing': 'Stat Testing',
     '/open-end-coding': 'Open-End Coding',
     '/data-tabulation': 'Data Tabulation',
-    '/tab-testing': 'Tab Testing',
+    '/tabs': 'Tabs',
     '/conjoint-simulator': 'Conjoint Simulator',
     '/admin-center': 'Admin Center',
     '/feedback': 'Feedback',
@@ -4259,7 +4517,7 @@ export default function App() {
     'Stat Testing': '/stat-testing',
     'Open-End Coding': '/open-end-coding',
     'Data Tabulation': '/data-tabulation',
-    'Tab Testing': '/tab-testing',
+    'Tabs': '/tabs',
     'Conjoint Simulator': '/conjoint-simulator',
     'Admin Center': '/admin-center',
     'Feedback': '/feedback',
@@ -5118,15 +5376,15 @@ export default function App() {
       const tools = [
         { name: "Stat Testing", icon: IconChartBar },
         { name: "Open-End Coding", icon: IconCode },
-        { name: "QNR (Coming Soon)", icon: IconCheckbox, disabled: true },
+        { name: "QNR", icon: IconCheckbox },
         { name: "Data QA (Coming Soon)", icon: IconDatabaseExclamation, disabled: true },
       ];
 
-      // Only show Data Tabulation, Conjoint Simulator and Tab Testing to admins
+      // Only show Tabs, Data Tabulation and Conjoint Simulator to admins
       if (user?.role === 'admin') {
-        tools.splice(2, 0, { name: "Data Tabulation", icon: IconTable });
-        tools.splice(3, 0, { name: "Conjoint Simulator", icon: IconChartDots });
-        tools.splice(4, 0, { name: "Tab Testing", icon: IconTable });
+        tools.splice(3, 0, { name: "Tabs", icon: IconTable });
+        tools.splice(4, 0, { name: "Data Tabulation", icon: IconTable });
+        tools.splice(5, 0, { name: "Conjoint Simulator", icon: IconChartDots });
       }
 
       return tools;
@@ -5216,6 +5474,11 @@ export default function App() {
                 <h1 className="text-2xl font-bold" style={{ color: BRAND.gray }}>Statistical Testing</h1>
               </div>
             )}
+            {route === "QNR" && (
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-bold" style={{ color: BRAND.gray }}>QNR</h1>
+              </div>
+            )}
             {route === "Open-End Coding" && (
               <div className="flex items-center gap-3">
                 <h1 className="text-2xl font-bold" style={{ color: BRAND.gray }}>Open-End Coding</h1>
@@ -5230,9 +5493,9 @@ export default function App() {
                 )}
               </div>
             )}
-            {route === "Tab Testing" && (
+            {route === "Tabs" && (
               <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-bold" style={{ color: BRAND.gray }}>Tab Testing</h1>
+                <h1 className="text-2xl font-bold" style={{ color: BRAND.gray }}>Tabs</h1>
               </div>
             )}
             {route === "Conjoint Simulator" && (
@@ -5240,9 +5503,14 @@ export default function App() {
                 <h1 className="text-2xl font-bold" style={{ color: BRAND.gray }}>Conjoint Simulator</h1>
               </div>
             )}
+            {route === "Admin Center" && (
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-bold" style={{ color: BRAND.gray }}>Admin Center</h1>
+              </div>
+            )}
             
             {/* Spacer for non-Home pages to push icon to the right */}
-            {route !== "Home" && route !== "Project Hub" && route !== "Vendor Library" && route !== "Transcripts" && route !== "Content Analysis" && route !== "Storytelling" && route !== "Stat Testing" && <div className="flex-grow"></div>}
+            {route !== "Home" && route !== "Project Hub" && route !== "Vendor Library" && route !== "Transcripts" && route !== "Content Analysis" && route !== "Storytelling" && route !== "Stat Testing" && route !== "Tabs" && route !== "Admin Center" && <div className="flex-grow"></div>}
             
             {/* Right side elements grouped together */}
             <div className="flex items-center gap-2">
@@ -5522,14 +5790,14 @@ export default function App() {
             </div>
           </div>
         )
-      ) : route === "Tab Testing" ? (
+      ) : route === "Tabs" ? (
         user?.role === 'admin' ? (
-          <TabTesting />
+          <Tabs projects={projects} onNavigateToProject={handleProjectView} />
         ) : (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center p-8">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-2">Access Restricted</h2>
-              <p className="text-gray-600">Tab Testing is only available to administrators.</p>
+          <div className="flex-1 p-6 flex items-center justify-center">
+            <div className="text-center">
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h1>
+              <p className="text-gray-600">You need admin privileges to access this page.</p>
             </div>
           </div>
         )
@@ -5549,7 +5817,7 @@ export default function App() {
           </div>
         )
       ) : route === "QNR" || route === "qnr" ? (
-        <QuestionnaireParser />
+        <QNR projects={projects} onNavigateToProject={handleProjectView} />
       ) : (
         <main className="flex-1 overflow-visible min-w-0" style={{ background: BRAND.bg, marginTop: '80px' }}>
           {/* Mobile menu button - only visible on very small screens */}
@@ -5584,7 +5852,6 @@ export default function App() {
             )}
             {route === "Vendor Library" && <VendorLibrary projects={projects} />}
             {route === "Admin Center" && <AdminCenter onProjectUpdate={loadProjects} />}
-            {route === "QNR" && <QuestionnaireParser projects={projects} />}
             {route !== "Home" && route !== "Project Hub" && route !== "Content Analysis" && route !== "Vendor Library" && route !== "Admin Center" && route !== "Feedback" && route !== "QNR" && <Placeholder name={route} />}
           </div>
         </main>
