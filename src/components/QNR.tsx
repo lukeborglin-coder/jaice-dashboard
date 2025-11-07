@@ -937,8 +937,68 @@ function QuestionBox({
         </div>
       )}
 
-      {/* Statement Options (for grid questions - rows) */}
-      {question.statementOptions && question.statementOptions.length > 0 && (
+      {/* Grid table for numeric grids with both statements and response options */}
+      {question.type?.toLowerCase().includes('numeric grid') && 
+       question.statementOptions && question.statementOptions.length > 0 && 
+       question.responseOptions && question.responseOptions.length > 0 && (
+        <div className="mb-3">
+          <h4 className="text-xs font-medium text-gray-700 mb-2">Grid Structure:</h4>
+          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th colSpan={2} className="px-4 py-2 text-left text-xs font-semibold text-gray-900">Statements (Rows)</th>
+                    {question.responseOptions.map((resp, respIndex) => {
+                      // Note: responseOptions in numeric grids are also labeled as "Statements (Rows)" in the QNR
+                      const respOpt = typeof resp === 'string' 
+                        ? { code: `c${respIndex + 1}`, text: resp } 
+                        : resp;
+                      const displayCode = respOpt.code?.replace(/^[rc]/i, '') || String(respIndex + 1);
+                      return (
+                        <th key={respIndex} className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style={{ width: '8rem' }}>
+                          {respOpt.text} ({displayCode})
+                        </th>
+                      );
+                    })}
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {question.statementOptions.map((stmt, stmtIndex) => {
+                    const stmtOpt = typeof stmt === 'string' 
+                      ? { code: `r${stmtIndex + 1}`, text: stmt } 
+                      : { 
+                          code: stmt.code || `r${stmtIndex + 1}`, 
+                          text: stmt.text 
+                        };
+                    const displayStmtCode = stmtOpt.code?.replace(/^[rc]/i, '') || String(stmtIndex + 1);
+                    return (
+                      <tr key={stmtIndex}>
+                        <td className="px-2 py-2 text-xs font-mono text-gray-700 text-center" style={{ width: '2.5rem' }}>{displayStmtCode}</td>
+                        <td className="px-4 py-2 text-xs text-gray-900">{stmtOpt.text}</td>
+                        {question.responseOptions.map((resp, respIndex) => {
+                          const respOpt = typeof resp === 'string' 
+                            ? { code: `c${respIndex + 1}`, text: resp } 
+                            : resp;
+                          return (
+                            <td key={respIndex} className="px-4 py-2 text-xs text-gray-500 text-center" style={{ width: '8rem' }}>
+                              —
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Statement Options (for grid questions - rows) - only show if not already shown in grid table */}
+      {question.statementOptions && question.statementOptions.length > 0 && 
+       !(question.type?.toLowerCase().includes('numeric grid') && question.responseOptions && question.responseOptions.length > 0) && (
         <div className="mb-3">
           <h4 className="text-xs font-medium text-gray-700 mb-2">Statement Options (Rows):</h4>
           <div className="space-y-1">
@@ -963,16 +1023,15 @@ function QuestionBox({
         </div>
       )}
 
-      {/* Response Options (for grid questions - column headers/scale) */}
-      {/* Don't show response options for numeric grids since they're open-ended */}
+      {/* Response Options (for grid questions - column headers/scale) - only show if not already shown in grid table */}
       {question.responseOptions && question.responseOptions.length > 0 && 
-       !question.type?.toLowerCase().includes('numeric grid') && (
+       !(question.type?.toLowerCase().includes('numeric grid') && question.statementOptions && question.statementOptions.length > 0) && (
         <div className="mb-3">
-          <h4 className="text-xs font-medium text-gray-700 mb-2">Response Options (Column Headers/Scale):</h4>
+          <h4 className="text-xs font-medium text-gray-700 mb-2">Statements (Rows):</h4>
           <div className="space-y-1">
             {question.responseOptions.map((resp, respIndex) => {
               const respOpt = typeof resp === 'string' 
-                ? { code: String(respIndex + 1), text: resp } 
+                ? { code: `c${respIndex + 1}`, text: resp } 
                 : resp;
               return (
                 <div key={respIndex} className="flex items-center gap-2 text-sm text-gray-700">

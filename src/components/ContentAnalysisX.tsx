@@ -631,6 +631,29 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
 
   const displayProjects = activeTab === 'active' ? filteredActiveProjects : filteredArchivedProjects;
 
+  // Check for project navigation from Project Hub
+  useEffect(() => {
+    try {
+      const storedProjectId = sessionStorage.getItem('cognitive_dash_content_analysis_focus_project');
+      const storedViewMode = sessionStorage.getItem('cognitive_dash_content_analysis_view_mode');
+      
+      if (storedProjectId && projects.length > 0 && !selectedProject) {
+        const project = [...filteredActiveProjects, ...filteredArchivedProjects].find(p => p.id === storedProjectId);
+        if (project) {
+          setSelectedProject(project);
+          if (storedViewMode === 'project') {
+            setViewMode('project');
+          }
+          // Clear sessionStorage after using it
+          sessionStorage.removeItem('cognitive_dash_content_analysis_focus_project');
+          sessionStorage.removeItem('cognitive_dash_content_analysis_view_mode');
+        }
+      }
+    } catch (error) {
+      console.warn('Unable to read content analysis navigation target', error);
+    }
+  }, [projects, filteredActiveProjects, filteredArchivedProjects, selectedProject]);
+
   const currentProjectName = useMemo(() => {
     if (currentAnalysis?.projectName) return currentAnalysis.projectName;
     if (currentAnalysis?.projectId && Array.isArray(projects)) {

@@ -51,7 +51,7 @@ import {
   RocketLaunchIcon as RocketLaunchIconSolid,
   PlayIcon as PlayIconSolid
 } from "@heroicons/react/24/solid";
-import { IconCalendarShare, IconCalendarWeek, IconBallAmericanFootball, IconRocket, IconFileAnalyticsFilled, IconLayoutSidebarFilled, IconTable, IconCheckbox, IconDatabaseExclamation, IconBook2, IconScript, IconChartBar, IconCode, IconChartDots, IconServer } from "@tabler/icons-react";
+import { IconCalendarShare, IconCalendarWeek, IconBallAmericanFootball, IconRocket, IconFileAnalyticsFilled, IconLayoutSidebarFilled, IconTable, IconCheckbox, IconDatabaseExclamation, IconBook2, IconScript, IconChartBar, IconCode, IconChartDots, IconServer, IconChartDonut2 } from "@tabler/icons-react";
 import ContentAnalysisX from "./components/ContentAnalysisX";
 import Transcripts from "./components/Transcripts";
 import Storytelling from "./components/Storytelling";
@@ -4560,6 +4560,7 @@ export default function App() {
   const [currentSelectedProject, setCurrentSelectedProject] = useState<Project | null>(null);
   const [isViewingProjectDetails, setIsViewingProjectDetails] = useState(false);
   const [dataTabulationHeader, setDataTabulationHeader] = useState<string | null>(null);
+  const [tabsHeader, setTabsHeader] = useState<string | null>(null);
 
   // One-time migration: normalize project.moderator to store moderator ID
   useEffect(() => {
@@ -5382,7 +5383,7 @@ export default function App() {
 
       // Only show Tabs, Data Tabulation and Conjoint Simulator to admins
       if (user?.role === 'admin') {
-        tools.splice(3, 0, { name: "Tabs", icon: IconTable });
+        tools.splice(3, 0, { name: "Tabs", icon: IconChartDonut2 });
         tools.splice(4, 0, { name: "Data Tabulation", icon: IconTable });
         tools.splice(5, 0, { name: "Conjoint Simulator", icon: IconChartDots });
       }
@@ -5495,7 +5496,11 @@ export default function App() {
             )}
             {route === "Tabs" && (
               <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-bold" style={{ color: BRAND.gray }}>Tabs</h1>
+                {tabsHeader ? (
+                  <h1 className="text-2xl font-bold" style={{ color: BRAND.gray }}>{tabsHeader}</h1>
+                ) : (
+                  <h1 className="text-2xl font-bold" style={{ color: BRAND.gray }}>Tabs</h1>
+                )}
               </div>
             )}
             {route === "Conjoint Simulator" && (
@@ -5792,7 +5797,7 @@ export default function App() {
         )
       ) : route === "Tabs" ? (
         user?.role === 'admin' ? (
-          <Tabs projects={projects} onNavigateToProject={handleProjectView} />
+          <Tabs projects={projects} onNavigateToProject={handleProjectView} onHeaderChange={setTabsHeader} />
         ) : (
           <div className="flex-1 p-6 flex items-center justify-center">
             <div className="text-center">
@@ -5831,14 +5836,17 @@ export default function App() {
           </div>
           <div className="p-5 overflow-y-auto w-full min-w-0" style={{ height: 'calc(100vh - 80px)' }}>
             {isNavigatingToProject || isLoadingProjectFile ? (
-              <div className="flex items-center justify-center h-screen">
+              <div 
+                className="fixed flex items-center justify-center" 
+                style={{ 
+                  top: '80px',
+                  left: sidebarOpen ? '256px' : '80px',
+                  right: '0',
+                  bottom: '0'
+                }}
+              >
                 <div className="text-center">
-                  <div className="w-16 h-16 flex items-center justify-center mx-auto mb-4">
-                    <svg className="animate-spin" width="48" height="48" viewBox="0 0 48 48">
-                      <circle cx="24" cy="24" r="20" fill="none" stroke="#D14A2D" strokeWidth="4" strokeDasharray="50 75.4" strokeDashoffset="0" />
-                      <circle cx="24" cy="24" r="20" fill="none" stroke="#5D5F62" strokeWidth="4" strokeDasharray="50 75.4" strokeDashoffset="-62.7" />
-                    </svg>
-                  </div>
+                  <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-200 mx-auto mb-4" style={{ borderTopColor: BRAND.orange }}></div>
                   <p className="text-gray-500">{isNavigatingToProject ? 'Loading project...' : 'Loading content...'}</p>
                 </div>
               </div>
@@ -5847,7 +5855,7 @@ export default function App() {
                 {route === "Home" && user?.role === 'oversight' && <OversightDashboard projects={projects} loading={loadingProjects} onProjectCreated={handleProjectCreated} onNavigateToProject={handleProjectView} setRoute={navigateToRoute} />}
                 {route === "Home" && user?.role !== 'oversight' && <Dashboard projects={projects} loading={loadingProjects} onProjectCreated={handleProjectCreated} onNavigateToProject={handleProjectView} setRoute={navigateToRoute} />}
                 {route === "Feedback" && <Feedback defaultType={(new URLSearchParams(window.location.search).get('type') as any) || 'bug'} />}
-                {route === "Project Hub" && <ProjectHub projects={projects} onProjectCreated={handleProjectCreated} onArchive={handleArchiveProject} setProjects={setProjects} savedContentAnalyses={savedContentAnalyses} setRoute={navigateToRoute} setAnalysisToLoad={setAnalysisToLoad} setIsLoadingProjectFile={setIsLoadingProjectFile} initialProject={projectToNavigate} setCurrentSelectedProject={setCurrentSelectedProject} setIsViewingProjectDetails={setIsViewingProjectDetails} />}
+                {route === "Project Hub" && <ProjectHub projects={projects} onProjectCreated={handleProjectCreated} onArchive={handleArchiveProject} setProjects={setProjects} savedContentAnalyses={savedContentAnalyses} setRoute={navigateToRoute} setAnalysisToLoad={setAnalysisToLoad} setIsLoadingProjectFile={setIsLoadingProjectFile} initialProject={projectToNavigate} setCurrentSelectedProject={setCurrentSelectedProject} setIsViewingProjectDetails={setIsViewingProjectDetails} sidebarOpen={sidebarOpen} />}
               </>
             )}
             {route === "Vendor Library" && <VendorLibrary projects={projects} />}
@@ -9559,6 +9567,78 @@ function ProjectPhaseTimeline({ project }: { project: Project }) {
     return new Date(Date.UTC(currentMonday.getUTCFullYear(), currentMonday.getUTCMonth(), currentMonday.getUTCDate() + offset * 7));
   };
 
+  // Get final report date
+  const getFinalReportDate = () => {
+    // Try to get from keyDeadlines first
+    const finalReportDeadline = project.keyDeadlines?.find(kd => 
+      kd.label.toLowerCase().includes('final report')
+    );
+    if (finalReportDeadline?.date) {
+      try {
+        const date = new Date(finalReportDeadline.date);
+        if (!isNaN(date.getTime())) {
+          return date;
+        }
+      } catch (e) {
+        // Invalid date, continue to fallback
+      }
+    }
+    // Fallback to last segment's endDate
+    if (project.segments && project.segments.length > 0) {
+      const lastSegment = project.segments[project.segments.length - 1];
+      if (lastSegment.endDate) {
+        try {
+          const [year, month, day] = lastSegment.endDate.split('-');
+          const date = new Date(Date.UTC(parseInt(year), parseInt(month) - 1, parseInt(day)));
+          if (!isNaN(date.getTime())) {
+            return date;
+          }
+        } catch (e) {
+          // Invalid date
+        }
+      }
+    }
+    return null;
+  };
+
+  const finalReportDate = getFinalReportDate();
+
+  // Calculate maximum week offset (don't allow weeks that extend beyond final report date)
+  const getMaxWeekOffset = () => {
+    if (!finalReportDate) return Infinity; // No limit if no final report date
+    
+    const today = new Date();
+    const currentDay = today.getUTCDay();
+    const daysToMonday = currentDay === 0 ? -6 : 1 - currentDay;
+    const currentMonday = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() + daysToMonday));
+    
+    // Find the maximum week offset where the last visible week's Friday is at or before final report date
+    // Each week shows Mon-Fri, so we need to check if the Friday of the last visible week is before final report
+    let maxOffset = -Infinity;
+    for (let offset = -10; offset < 100; offset++) {
+      // Calculate the last visible week's Friday
+      const lastVisibleWeekStart = new Date(Date.UTC(currentMonday.getUTCFullYear(), currentMonday.getUTCMonth(), currentMonday.getUTCDate() + (offset + visibleWeeks - 1) * 7));
+      const lastVisibleWeekFriday = new Date(Date.UTC(lastVisibleWeekStart.getUTCFullYear(), lastVisibleWeekStart.getUTCMonth(), lastVisibleWeekStart.getUTCDate() + 4));
+      
+      // Check if the last visible week's Friday is at or before final report date
+      if (lastVisibleWeekFriday <= finalReportDate) {
+        maxOffset = offset;
+      } else {
+        break;
+      }
+    }
+    return maxOffset === -Infinity ? 0 : maxOffset;
+  };
+
+  const maxWeekOffset = getMaxWeekOffset();
+
+  // Clamp weekOffset to not exceed maxWeekOffset
+  useEffect(() => {
+    if (finalReportDate && weekOffset > maxWeekOffset) {
+      setWeekOffset(maxWeekOffset);
+    }
+  }, [finalReportDate, maxWeekOffset, weekOffset]);
+
   const weeks = Array.from({ length: visibleWeeks }, (_, i) => {
     const start = getWeekStart(weekOffset + i);
     const end = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate() + 4));
@@ -9594,16 +9674,34 @@ function ProjectPhaseTimeline({ project }: { project: Project }) {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <button onClick={() => setWeekOffset(o => o - 1)} className="p-2 text-gray-500 hover:text-gray-700"><ChevronLeftIcon className="w-5 h-5" /></button>
-        <div className="text-sm font-medium text-gray-700">Week of</div>
-        <button onClick={() => setWeekOffset(o => o + 1)} className="p-2 text-gray-500 hover:text-gray-700"><ChevronRightIcon className="w-5 h-5" /></button>
-      </div>
-
       <div ref={timelineRef} className="border border-gray-200 rounded-lg overflow-hidden">
         {/* Header */}
-        <div className="flex border-b" style={{ backgroundColor: '#B43C22' }}>
-          <div className="w-40 text-white text-sm font-semibold px-4 py-3">Week of</div>
+        <div className="flex border-b" style={{ backgroundColor: BRAND.orange }}>
+          <div className="w-40 text-white text-sm font-semibold px-4 py-3 border-r border-white/30 flex items-center justify-between">
+            <span>Week of</span>
+            <div className="flex items-center gap-1">
+              <button 
+                onClick={() => setWeekOffset(o => o - 1)} 
+                className="p-1 text-white hover:bg-white/20 rounded"
+              >
+                <ChevronLeftIcon className="w-4 h-4" />
+              </button>
+              <button 
+                onClick={() => setWeekOffset(o => {
+                  const newOffset = o + 1;
+                  // Prevent advancing beyond final report date
+                  if (finalReportDate && newOffset > maxWeekOffset) {
+                    return o; // Don't change offset
+                  }
+                  return newOffset;
+                })} 
+                className={`p-1 rounded ${finalReportDate && weekOffset >= maxWeekOffset ? 'text-white/50 cursor-not-allowed' : 'text-white hover:bg-white/20'}`}
+                disabled={finalReportDate && weekOffset >= maxWeekOffset}
+              >
+                <ChevronRightIcon className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
           <div className="flex-1 flex">
             {weeks.map((w, i) => (
               <div key={i} className="flex-1 text-center text-white text-sm font-semibold py-3 border-l border-white/30">
@@ -9614,16 +9712,25 @@ function ProjectPhaseTimeline({ project }: { project: Project }) {
         </div>
 
         {/* Rows */}
-        {phases.map((ph, rowIdx) => (
+        {phases.map((ph, rowIdx) => {
+          const seg = (project.segments || []).find(s => s.phase === ph);
+          const dateRange = seg ? `${formatDateForDisplay(seg.startDate)} - ${formatDateForDisplay(seg.endDate)}` : null;
+          
+          return (
           <div key={ph} className="flex items-stretch border-b last:border-b-0 bg-white">
-            <div className="w-40 px-4 py-3 text-sm text-gray-800">{getPhaseDisplayName(ph)}</div>
-            <div className="flex-1 relative" style={{ height: 48 }}>
+            <div className="w-40 px-4 py-3 text-sm text-gray-800 border-r border-gray-200">
+              <div>{getPhaseDisplayName(ph)}</div>
+              {dateRange && (
+                <div className="text-xs italic text-gray-500 mt-1">{dateRange}</div>
+              )}
+            </div>
+            <div className="flex-1 relative min-h-[48px]">
               {/* Grid */}
-              <div className="absolute inset-0 flex">
+              <div className="absolute inset-0 flex h-full">
                 {weeks.map((w, wi) => (
-                  <div key={wi} className="flex-1 flex">
+                  <div key={wi} className="flex-1 flex h-full">
                     {w.days.map((_, di) => (
-                      <div key={di} className={`border-r border-gray-200 ${di===4?'':'bg-transparent'}`} style={{ width: `${100/5}%` }} />
+                      <div key={di} className={`border-r border-gray-200 h-full ${di===4?'':'bg-transparent'}`} style={{ width: `${100/5}%` }} />
                     ))}
                   </div>
                 ))}
@@ -9641,7 +9748,8 @@ function ProjectPhaseTimeline({ project }: { project: Project }) {
               })()}
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -11298,9 +11406,10 @@ interface ProjectHubProps {
   initialProject?: Project | null;
   setCurrentSelectedProject?: (project: Project | null) => void;
   setIsViewingProjectDetails?: (viewing: boolean) => void;
+  sidebarOpen?: boolean;
 }
 
-function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedContentAnalyses = [], setRoute, setAnalysisToLoad, setIsLoadingProjectFile, initialProject = null, setCurrentSelectedProject, setIsViewingProjectDetails }: ProjectHubProps) {
+function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedContentAnalyses = [], setRoute, setAnalysisToLoad, setIsLoadingProjectFile, initialProject = null, setCurrentSelectedProject, setIsViewingProjectDetails, sidebarOpen = true }: ProjectHubProps) {
   const { user } = useAuth();
   
   // Function to get current phase based on today's date
@@ -11377,6 +11486,9 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
   const [showDashboard, setShowDashboard] = useState(false);
   const [activeProjectTab, setActiveProjectTab] = useState<'dashboard' | 'files' | 'timeline' | 'details'>('dashboard');
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [savedTabulations, setSavedTabulations] = useState<any[]>([]);
+  const [allQuestionnaires, setAllQuestionnaires] = useState<any[]>([]);
+  const [storytellingData, setStorytellingData] = useState<Record<string, any>>({});
   const [showAddTeamMember, setShowAddTeamMember] = useState(false);
   const [showAddRoleDropdown, setShowAddRoleDropdown] = useState<string | null>(null);
   const [localTeamMembers, setLocalTeamMembers] = useState<Array<{ id: string; name: string; role: string; email?: string }>>([]);
@@ -11449,6 +11561,94 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
       setLoadingArchived(false);
     }
   };
+
+  // Load saved tabulations
+  useEffect(() => {
+    const loadSavedTabulations = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/dataTabulation/saved`, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setSavedTabulations(Array.isArray(data) ? data : []);
+        }
+      } catch (error) {
+        console.error('Error loading saved tabulations:', error);
+      }
+    };
+    loadSavedTabulations();
+  }, []);
+
+  // Load all questionnaires
+  useEffect(() => {
+    const loadAllQuestionnaires = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/questionnaire/all`, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setAllQuestionnaires(Array.isArray(data) ? data : []);
+        }
+      } catch (error) {
+        console.error('Error loading questionnaires:', error);
+      }
+    };
+    loadAllQuestionnaires();
+  }, []);
+
+  // Load storytelling data
+  useEffect(() => {
+    const loadStorytellingData = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/storytelling/projects`, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          // Storytelling data is keyed by projectId or projectId-analysisId
+          setStorytellingData(data || {});
+        }
+      } catch (error) {
+        console.error('Error loading storytelling data:', error);
+      }
+    };
+    loadStorytellingData();
+  }, []);
+
+  // Helper function to navigate to a route
+  const navigateToRoute = useCallback((routeName: string) => {
+    if (setRoute) {
+      setRoute(routeName);
+    }
+  }, [setRoute]);
+
+  // Helper functions to determine project type
+  const isQualitative = useCallback((project: Project) => {
+    const methodology = project?.methodologyType?.toLowerCase();
+    if (!methodology) {
+      return true; // Default to qualitative for backward compatibility
+    }
+    return methodology.includes('qual') ||
+           methodology.includes('interview') ||
+           methodology.includes('focus group') ||
+           methodology.includes('ethnography') ||
+           methodology.includes('observation');
+  }, []);
+
+  const isQuantitative = useCallback((project: Project) => {
+    const methodology = project?.methodologyType?.toLowerCase();
+    if (!methodology) {
+      return false;
+    }
+    return methodology.includes('quant') ||
+           methodology.includes('survey') ||
+           methodology.includes('quantitative') ||
+           (!methodology.includes('qual') && 
+            !methodology.includes('interview') && 
+            !methodology.includes('focus group'));
+  }, []);
 
   // Load archived projects count on mount
   useEffect(() => {
@@ -12710,14 +12910,17 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
     <div className="relative">
       {/* Loading Screen */}
       {isTransitioning && (
-        <div className="flex items-center justify-center h-screen">
+        <div 
+          className="fixed flex items-center justify-center z-50" 
+          style={{ 
+            top: '80px',
+            left: sidebarOpen ? '256px' : '80px',
+            right: '0',
+            bottom: '0'
+          }}
+        >
           <div className="text-center">
-            <div className="w-16 h-16 flex items-center justify-center mx-auto mb-4">
-              <svg className="animate-spin" width="48" height="48" viewBox="0 0 48 48">
-                <circle cx="24" cy="24" r="20" fill="none" stroke="#D14A2D" strokeWidth="4" strokeDasharray="50 75.4" strokeDashoffset="0" />
-                <circle cx="24" cy="24" r="20" fill="none" stroke="#5D5F62" strokeWidth="4" strokeDasharray="50 75.4" strokeDashoffset="-62.7" />
-              </svg>
-            </div>
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-200 mx-auto mb-4" style={{ borderTopColor: BRAND.orange }}></div>
             <p className="text-gray-500">Loading project...</p>
           </div>
         </div>
@@ -12971,99 +13174,214 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
           {activeProjectTab === 'files' && (
             <div className="space-y-4">
               {/* Folder list per tool */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="border rounded-lg bg-white">
-                  <div className="px-4 py-3 border-b font-medium">Transcripts</div>
-                  <div className="p-4 text-sm text-gray-600">Open transcripts for this project in the Transcripts tool.</div>
-                  <div className="px-4 pb-4">
-                    <button onClick={() => navigateToRoute('Transcripts')} className="text-sm text-orange-700 hover:underline">Open Transcripts</button>
-                  </div>
-                </div>
-                <div className="border rounded-lg bg-white">
-                  <div className="px-4 py-3 border-b font-medium">Content Analysis</div>
-                  <div className="p-4">
-                    {(savedContentAnalyses || []).filter(ca => ca.projectId === selectedProject.id).length === 0 && (
-                      <div className="text-sm text-gray-600">No saved analyses yet.</div>
-                    )}
-                    {(savedContentAnalyses || []).filter(ca => ca.projectId === selectedProject.id).map((ca) => (
-                      <div key={ca.id} className="flex items-center justify-between py-2 border-b last:border-b-0">
-                        <div>
-                          <div className="text-sm font-medium">{ca.name || 'Saved analysis'}</div>
-                          <div className="text-xs text-gray-500">{ca.savedDate}</div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {(() => {
+                  const projectIsQual = isQualitative(selectedProject);
+                  const projectIsQuant = isQuantitative(selectedProject);
+                  
+                  // Calculate counts
+                  const transcriptsCount = selectedProject.transcripts?.length || 0;
+                  const contentAnalysisCount = (savedContentAnalyses || []).filter(ca => ca.projectId === selectedProject.id).length;
+                  const qnrCount = (allQuestionnaires || []).filter(q => q.projectId === selectedProject.id).length;
+                  
+                  // Count storytelling entries for this project
+                  const storytellingCount = Object.keys(storytellingData || {}).filter(key => {
+                    // Keys can be projectId or projectId-analysisId
+                    return key === selectedProject.id || key.startsWith(`${selectedProject.id}-`);
+                  }).length;
+                  
+                  const boxes = [];
+                  
+                  // Qualitative projects: Content Analysis, Transcripts, Storytelling
+                  if (projectIsQual) {
+                    boxes.push(
+                      <div 
+                        key="content-analysis"
+                        onClick={() => {
+                          try {
+                            sessionStorage.setItem('cognitive_dash_content_analysis_focus_project', selectedProject.id);
+                            sessionStorage.setItem('cognitive_dash_content_analysis_view_mode', 'project');
+                          } catch (e) {
+                            console.warn('Unable to store content analysis navigation info', e);
+                          }
+                          navigateToRoute('Content Analysis');
+                        }}
+                        className="bg-white rounded-xl cursor-pointer hover:shadow-lg transition-all overflow-hidden flex flex-col relative"
+                        style={{ boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}
+                      >
+                        <div className="h-20" style={{ backgroundColor: BRAND.orange }}></div>
+                        <div className="flex-1 px-6 pb-6 pt-0 flex flex-col items-center text-center">
+                          <div className="relative -mt-10 mb-4">
+                            <div className="w-20 h-20 rounded-full bg-white flex items-center justify-center border-4 border-white" style={{ boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}>
+                              <IconTable className="w-10 h-10" style={{ color: BRAND.orange }} />
+                            </div>
+                          </div>
+                          <div className="font-semibold text-2xl mb-1" style={{ color: BRAND.orange }}>Content Analysis</div>
+                          <div className="text-sm text-gray-500 mb-6">View content analyses</div>
+                          <div className="w-full flex justify-around pt-4 border-t border-gray-200">
+                            <div className="text-center">
+                              <div className="text-xl font-bold text-gray-900">{contentAnalysisCount}</div>
+                              <div className="text-xs mt-1" style={{ color: BRAND.orange }}>Saved</div>
+                            </div>
+                          </div>
                         </div>
-                        <button
+                      </div>,
+                      <div 
+                        key="transcripts"
+                        onClick={() => {
+                          try {
+                            sessionStorage.setItem('cognitive_dash_transcripts_focus_project', selectedProject.id);
+                            sessionStorage.setItem('cognitive_dash_transcripts_view_mode', 'project');
+                          } catch (e) {
+                            console.warn('Unable to store transcripts navigation info', e);
+                          }
+                          navigateToRoute('Transcripts');
+                        }}
+                        className="bg-white rounded-xl cursor-pointer hover:shadow-lg transition-all overflow-hidden flex flex-col relative"
+                        style={{ boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}
+                      >
+                        <div className="h-20" style={{ backgroundColor: BRAND.orange }}></div>
+                        <div className="flex-1 px-6 pb-6 pt-0 flex flex-col items-center text-center">
+                          <div className="relative -mt-10 mb-4">
+                            <div className="w-20 h-20 rounded-full bg-white flex items-center justify-center border-4 border-white" style={{ boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}>
+                              <IconScript className="w-10 h-10" style={{ color: BRAND.orange }} />
+                            </div>
+                          </div>
+                          <div className="font-semibold text-2xl mb-1" style={{ color: BRAND.orange }}>Transcripts</div>
+                          <div className="text-sm text-gray-500 mb-6">View transcripts</div>
+                          <div className="w-full flex justify-around pt-4 border-t border-gray-200">
+                            <div className="text-center">
+                              <div className="text-xl font-bold text-gray-900">{transcriptsCount}</div>
+                              <div className="text-xs mt-1" style={{ color: BRAND.orange }}>Uploaded</div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>,
+                      <div 
+                        key="storytelling"
+                        onClick={() => {
+                          try {
+                            sessionStorage.setItem('cognitive_dash_storytelling_focus_project', selectedProject.id);
+                            sessionStorage.setItem('cognitive_dash_storytelling_view_mode', 'project');
+                          } catch (e) {
+                            console.warn('Unable to store storytelling navigation info', e);
+                          }
+                          navigateToRoute('Storytelling');
+                        }}
+                        className="bg-white rounded-xl cursor-pointer hover:shadow-lg transition-all overflow-hidden flex flex-col relative"
+                        style={{ boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}
+                      >
+                        <div className="h-20" style={{ backgroundColor: BRAND.orange }}></div>
+                        <div className="flex-1 px-6 pb-6 pt-0 flex flex-col items-center text-center">
+                          <div className="relative -mt-10 mb-4">
+                            <div className="w-20 h-20 rounded-full bg-white flex items-center justify-center border-4 border-white" style={{ boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}>
+                              <IconBook2 className="w-10 h-10" style={{ color: BRAND.orange }} />
+                            </div>
+                          </div>
+                          <div className="font-semibold text-2xl mb-1" style={{ color: BRAND.orange }}>Storytelling</div>
+                          <div className="text-sm text-gray-500 mb-6">View storytelling</div>
+                          <div className="w-full flex justify-around pt-4 border-t border-gray-200">
+                            <div className="text-center">
+                              <div className="text-xl font-bold text-gray-900">{storytellingCount}</div>
+                              <div className="text-xs mt-1" style={{ color: BRAND.orange }}>Saved</div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+                  
+                  // Quantitative projects: QNR and Tabs (if admin)
+                  if (projectIsQuant) {
+                    boxes.push(
+                      <div 
+                        key="qnr"
+                        onClick={() => {
+                          try {
+                            sessionStorage.setItem('cognitive_dash_qnr_focus_project', selectedProject.id);
+                            sessionStorage.setItem('cognitive_dash_qnr_view_mode', 'project');
+                          } catch (e) {
+                            console.warn('Unable to store QNR navigation info', e);
+                          }
+                          navigateToRoute('QNR');
+                        }}
+                        className="bg-white rounded-xl cursor-pointer hover:shadow-lg transition-all overflow-hidden flex flex-col relative"
+                        style={{ boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}
+                      >
+                        <div className="h-20" style={{ backgroundColor: BRAND.orange }}></div>
+                        <div className="flex-1 px-6 pb-6 pt-0 flex flex-col items-center text-center">
+                          <div className="relative -mt-10 mb-4">
+                            <div className="w-20 h-20 rounded-full bg-white flex items-center justify-center border-4 border-white" style={{ boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}>
+                              <IconCheckbox className="w-10 h-10" style={{ color: BRAND.orange }} />
+                            </div>
+                          </div>
+                          <div className="font-semibold text-2xl mb-1" style={{ color: BRAND.orange }}>QNR</div>
+                          <div className="text-sm text-gray-500 mb-6">View questionnaires</div>
+                          <div className="w-full flex justify-around pt-4 border-t border-gray-200">
+                            <div className="text-center">
+                              <div className="text-xl font-bold text-gray-900">{qnrCount}</div>
+                              <div className="text-xs mt-1" style={{ color: BRAND.orange }}>Saved</div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                    
+                    // Only show Tabs for admin users
+                    if (user?.role === 'admin') {
+                      boxes.push(
+                        <div 
+                          key="tabs"
                           onClick={() => {
-                            navigateToRoute('Content Analysis');
-                            if (setAnalysisToLoad) setAnalysisToLoad(ca.id);
+                            try {
+                              sessionStorage.setItem('cognitive_dash_tabs_focus_project', selectedProject.id);
+                              sessionStorage.setItem('cognitive_dash_tabs_view_mode', 'project');
+                            } catch (e) {
+                              console.warn('Unable to store Tabs navigation info', e);
+                            }
+                            navigateToRoute('Tabs');
                           }}
-                          className="text-sm text-orange-700 hover:underline"
+                          className="bg-white rounded-xl cursor-pointer hover:shadow-lg transition-all overflow-hidden flex flex-col relative"
+                          style={{ boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}
                         >
-                          Open
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="border rounded-lg bg-white">
-                  <div className="px-4 py-3 border-b font-medium">Data Tabulation</div>
-                  <div className="p-4 text-sm text-gray-600">Go to Data Tabulation for saved tables.</div>
-                  <div className="px-4 pb-4">
-                    <button 
-                      onClick={() => navigateToRoute('Data Tabulation')} 
-                      className="text-sm text-orange-700 hover:underline"
-                    >
-                      Open Data Tabulation
-                    </button>
-                  </div>
-                </div>
-                <div className="border rounded-lg bg-white">
-                  <div className="px-4 py-3 border-b font-medium">Other Files</div>
-                  <div className="p-4">
-                    {(selectedProject.files || []).length === 0 && (
-                      <div className="text-sm text-gray-600">No files uploaded yet.</div>
-                    )}
-                    {(selectedProject.files || []).map(file => (
-                      <div key={file.id} className="py-2 border-b last:border-b-0">
-                        <a href={file.url} target="_blank" rel="noreferrer" className="text-sm text-orange-700 hover:underline">{file.name}</a>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                          <div className="h-20" style={{ backgroundColor: BRAND.orange }}></div>
+                          <div className="flex-1 px-6 pb-6 pt-0 flex flex-col items-center text-center">
+                            <div className="relative -mt-10 mb-4">
+                              <div className="w-20 h-20 rounded-full bg-white flex items-center justify-center border-4 border-white" style={{ boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}>
+                                <IconChartDonut2 className="w-10 h-10" style={{ color: BRAND.orange }} />
+                              </div>
+                            </div>
+                            <div className="font-semibold text-2xl mb-1" style={{ color: BRAND.orange }}>Tabs</div>
+                            <div className="text-sm text-gray-500 mb-6">View tabs</div>
+                            <div className="w-full flex justify-around pt-4 border-t border-gray-200">
+                              <div className="text-center">
+                                <div className="text-xl font-bold text-gray-900">{qnrCount}</div>
+                                <div className="text-xs mt-1" style={{ color: BRAND.orange }}>Saved</div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+                  }
+                  
+                  return boxes;
+                })()}
               </div>
             </div>
           )}
 
           {activeProjectTab === 'timeline' && (
-            <div className="bg-white rounded-lg border">
-              <div className="px-4 py-3 border-b font-medium">Project Timeline</div>
-              <div className="p-4 space-y-4">
-                {/* Phase timeline (wizard-style) */}
-                <ProjectPhaseTimeline project={selectedProject} />
-
-                {/* Dates box (existing) */}
-                <div className="text-sm text-gray-700">
-                {/* Simple phase timeline summary */}
-                {(selectedProject.segments || []).length === 0 ? (
-                  <div className="text-gray-600">No timeline segments set.</div>
-                ) : (
-                  <div className="space-y-2">
-                    {selectedProject.segments.map((seg, i) => (
-                      <div key={`${seg.phase}-${i}`} className="flex items-center justify-between">
-                        <div className="font-medium">{seg.phase}</div>
-                        <div className="text-gray-500">{formatDateForDisplay(seg.startDate)} - {formatDateForDisplay(seg.endDate)}</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                </div>
-              </div>
+            <div className="space-y-4">
+              {/* Phase timeline (wizard-style) */}
+              <ProjectPhaseTimeline project={selectedProject} />
             </div>
           )}
 
           {activeProjectTab === 'details' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-white border rounded-lg">
-                <div className="px-4 py-3 border-b font-medium">Project Details</div>
+                <div className="px-4 py-3 border-b font-medium text-white" style={{ backgroundColor: BRAND.orange }}>Project Details</div>
                 <div className="p-4 text-sm">
                   <div className="flex justify-between py-2 border-b"><span className="text-gray-500">Client</span><span>{selectedProject.client || '-'}</span></div>
                   <div className="flex justify-between py-2 border-b"><span className="text-gray-500">Methodology</span><span>{selectedProject.methodology || '-'}</span></div>
@@ -13072,7 +13390,7 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                 </div>
               </div>
               <div className="bg-white border rounded-lg">
-                <div className="px-4 py-3 border-b font-medium">Key Dates</div>
+                <div className="px-4 py-3 border-b font-medium text-white" style={{ backgroundColor: BRAND.orange }}>Key Dates</div>
                 <div className="p-4 text-sm">
                   {(selectedProject.keyDeadlines || []).length === 0 ? (
                     <div className="text-gray-600">No key dates set.</div>
@@ -17289,7 +17607,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
 
             return (
               <div className="mb-6">
-                <Card className="!p-0 overflow-hidden rounded-none h-64">
+                <Card className="!p-0 overflow-hidden rounded-none max-h-64">
                   <div className="px-3 py-2 flex items-center gap-2 bg-red-100">
                     <div className="flex-shrink-0">
                       <ExclamationTriangleIcon className="w-6 h-6 text-red-500" />
@@ -17300,8 +17618,8 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                   </div>
                   <div className="border-b border-red-200"></div>
                   
-                  <div className="px-3 pb-3 pt-2 h-52 overflow-hidden relative">
-                    <div className="h-full overflow-y-auto">
+                  <div className="px-3 pb-3 pt-2 overflow-hidden relative">
+                    <div className="overflow-y-auto" style={{ maxHeight: '208px' }}>
                       <div className="space-y-1">
                         {overdueTasks.map(task => {
                           const isAssignedToMe = isAssignedToCurrentUser(task);
@@ -17347,7 +17665,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
           {/* Top Row: Today + Ongoing Tasks */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Today Box */}
-            <Card className="!p-0 overflow-hidden rounded-none h-64">
+            <Card className="!p-0 overflow-hidden rounded-none max-h-64">
           <div className="px-3 py-2 flex items-center justify-between" style={{ backgroundColor: BRAND.orange }}>
             <h3 className="text-base font-semibold text-red-200 uppercase">Today</h3>
             <span className="text-xs font-normal italic text-red-200">
@@ -17357,8 +17675,8 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
           <div className="border-b border-gray-200"></div>
 
           {/* Tasks Due Today - Single List */}
-          <div className="px-3 pb-3 pt-2 h-52 overflow-hidden relative">
-            <div className="h-full overflow-y-auto">
+          <div className="px-3 pb-3 pt-2 overflow-hidden relative">
+            <div className="overflow-y-auto" style={{ maxHeight: '208px' }}>
               {(() => {
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
@@ -17461,15 +17779,15 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
         </Card>
 
             {/* Ongoing Tasks Box */}
-            <Card className="!p-0 overflow-hidden rounded-none h-64">
+            <Card className="!p-0 overflow-hidden rounded-none max-h-64">
           <div className="px-3 py-2" style={{ backgroundColor: '#1E40AF' }}>
             <h3 className="text-base font-semibold text-blue-200 uppercase">Ongoing</h3>
           </div>
           <div className="border-b border-gray-200"></div>
 
           {/* Ongoing Tasks - Single List */}
-          <div className="px-3 pb-3 pt-2 h-52 overflow-hidden relative">
-            <div className="h-full overflow-y-auto">
+          <div className="px-3 pb-3 pt-2 overflow-hidden relative">
+            <div className="overflow-y-auto" style={{ maxHeight: '208px' }}>
               {(() => {
                 // Get ongoing tasks for the current phase
                 const ongoingTasks = projectTasks.filter(task => {
@@ -17567,71 +17885,81 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Tasks Section (container without white card) */}
             <div className="flex flex-col">
-            {/* Phase Tabs */}
-            <div className="mb-0">
-              <div className="flex flex-wrap items-stretch w-full" style={{ marginRight: "-14px" }}>
+            {/* Phase Circles */}
+            <div className="mb-0 py-4 relative">
+              {/* Full-width horizontal line */}
+              <div 
+                className="absolute top-1/2 left-0 right-0 h-0.5 transform -translate-y-1/2"
+                style={{ backgroundColor: '#E5E7EB', zIndex: 0 }}
+              />
+              {/* Evenly distributed circles */}
+              <div className="relative flex justify-between items-center w-full px-4" style={{ zIndex: 1 }}>
                 {PHASES.map((phase, index) => {
                   const phaseColor = PHASE_COLORS[phase as Phase];
                   const isActive = activePhase === phase;
                   return (
-                    <button
-                      key={phase}
-                      className={`flex-1 px-3 py-1 text-xs font-medium transition-colors relative min-h-[32px] flex items-center justify-center ${
-                        isActive
-                          ? 'text-gray-900 z-10'
-                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                      }`}
-                      onClick={() => {
-                        setActivePhase(phase as Phase);
-                      }}
-                      style={{
-                          backgroundColor: isActive ? ((PHASE_COLORS[activePhase] || '#d1d5db') + '1A') : 'transparent',
-                          borderTopLeftRadius: '6px',
-                          borderTopRightRadius: '6px',
-                          marginRight: '0',
-                          marginLeft: index === 0 ? '0' : '-1px',
-                          border: `1px solid ${isActive ? phaseColor : '#d1d5db'}`,
-                          borderBottom: isActive ? 'none' : `1px solid ${PHASE_COLORS[activePhase] || '#d1d5db'}`,
-                          position: 'relative',
-                          zIndex: isActive ? 10 : 1,
-                          minHeight: isActive ? '36px' : '32px',
-                          paddingTop: isActive ? '6px' : '4px',
-                          paddingBottom: isActive ? '6px' : '4px'
-                      }}
-                      >
-                        {getPhaseDisplayName(phase)}
-                      </button>
+                    <div key={phase} className="relative flex-shrink-0" style={{ width: '28px', height: '28px' }}>
+                      {/* White background circle for non-active circles */}
+                      {!isActive && (
+                        <div
+                          className="absolute rounded-full"
+                          style={{
+                            width: '28px',
+                            height: '28px',
+                            backgroundColor: 'white',
+                            top: '50%',
+                            left: '50%',
+                            transform: 'translate(-50%, -50%) scale(0.8)',
+                            zIndex: 4,
+                          }}
+                        />
+                      )}
+                      <button
+                        onClick={() => {
+                          setActivePhase(phase as Phase);
+                        }}
+                        className="relative transition-all hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 rounded-full w-full h-full"
+                        style={{
+                          width: '28px',
+                          height: '28px',
+                          backgroundColor: phaseColor,
+                          border: isActive ? '3px solid white' : '2px solid white',
+                          boxShadow: isActive ? `0 0 0 2px ${phaseColor}, 0 2px 4px rgba(0,0,0,0.2)` : '0 1px 2px rgba(0,0,0,0.1)',
+                          transform: isActive ? 'scale(1)' : 'scale(0.8)',
+                          opacity: isActive ? 1 : 0.5,
+                          zIndex: isActive ? 10 : 5,
+                          transition: 'transform 0.2s ease, box-shadow 0.2s ease, border 0.2s ease, opacity 0.2s ease',
+                        }}
+                        title={getPhaseDisplayName(phase)}
+                      />
+                    </div>
                   );
                 })}
               </div>
             </div>
 
             {/* Tasks for Active Phase */}
-            <div className="flex-1 flex flex-col min-h-0 border border-gray-200 border-t-0 rounded-b-lg bg-white" style={{ borderColor: PHASE_COLORS[activePhase] || '#d1d5db', overflow: 'visible' }}>
+            <div className="flex-1 flex flex-col min-h-0" style={{ overflow: 'visible', borderBottom: '0.5px solid #D1D5DB' }}>
               {/* Column Headers (outside scroll) */}
               <div
-                className="task-grid header-pad py-2"
-                style={{ backgroundColor: ((PHASE_COLORS[activePhase] || '#d1d5db') + '24'), borderBottom: '0.5px solid #D1D5DB' }}
+                className="py-2 px-3 flex items-center justify-between"
+                style={{ borderBottom: '0.5px solid #D1D5DB' }}
               >
-                <div></div>
-                <div className="min-w-0 flex items-center gap-2 -ml-1">
-                  <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Task</span>
-                  {!showAddTask && (
-                    <button
-                      onClick={() => setShowAddTask(true)}
-                      className="text-[11px] font-medium flex items-center gap-1 px-1 py-0.5 rounded"
-                      title="Add task"
-                      style={{ color: BRAND.orange, background: 'transparent' }}
-                    >
-                      + Add
-                    </button>
-                  )}
-                </div>
-                <div></div>
+                <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">{getPhaseDisplayName(activePhase)} Tasks</span>
+                {!showAddTask && (
+                  <button
+                    onClick={() => setShowAddTask(true)}
+                    className="w-5 h-5 flex items-center justify-center border rounded bg-gray-50 text-base font-medium hover:bg-gray-100 transition-colors p-0"
+                    title="Add task"
+                    style={{ color: BRAND.orange, borderColor: BRAND.orange, lineHeight: '1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <span style={{ lineHeight: '1', display: 'inline-block' }}>+</span>
+                  </button>
+                )}
               </div>
 
               {/* Scrollable Task List (starts under headers) */}
-              <div ref={taskContainerRef} className="h-96 overflow-y-auto thin-scrollbar px-3 pt-2 pb-3">
+              <div ref={taskContainerRef} className="h-96 overflow-y-auto thin-scrollbar pr-3 pl-0 pt-2 pb-0">
                 {/* Add Task Form at top */}
                 {showAddTask && (
                   <div className="mb-3 p-3 border rounded-lg bg-gray-50">
@@ -17722,7 +18050,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                 })
                 .map((task) => {
                   return (
-                    <div key={task.id} className={`task-grid px-3 py-2 border rounded-lg ${isTaskOverdue(task) ? 'bg-red-50 hover:bg-red-100' : 'bg-gray-100 hover:bg-gray-50'}`}>
+                    <div key={task.id} className={`task-grid px-3 py-3 border rounded-lg ${isTaskOverdue(task) ? 'bg-white hover:bg-red-50' : 'bg-white hover:bg-gray-50'}`}>
                       {/* Task Status Checkbox */}
                       <button
                         className={`w-3 h-3 rounded border-2 flex items-center justify-center text-[10px] ${
@@ -20532,7 +20860,7 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
                   })
                   .map((task) => {
                     return (
-                      <div key={task.id} className="task-grid px-3 py-2 border rounded-lg bg-gray-100 hover:bg-gray-50">
+                      <div key={task.id} className="task-grid px-3 py-3 border rounded-lg bg-white hover:bg-gray-50">
                         {/* Task Status Checkbox */}
                         <button
                           className={`w-4 h-4 rounded border-2 flex items-center justify-center text-xs ${
@@ -21261,6 +21589,7 @@ function ProjectDetailView({ project, onClose, onEdit, onArchive }: { project: P
     </div>
   );
 }
+
 
 
 

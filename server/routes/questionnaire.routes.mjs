@@ -230,7 +230,9 @@ Return a JSON object with this structure:
 }
 
 CRITICAL STRUCTURE RULES:
-- For NUMERIC GRID: Use statementOptions (rows) only. DO NOT include responseOptions.
+- For NUMERIC GRID: 
+  - If the grid has ONLY rows with numeric input (no column headers/categories) → Use statementOptions (rows) only. DO NOT include responseOptions.
+  - If the grid has BOTH rows (statements) AND columns (categories like age groups, time periods, etc.) where numeric values are entered → Use BOTH statementOptions (rows) AND responseOptions (columns). Examples: "How many patients by age group" (rows = treatments, columns = age groups), "Enter numbers for each category" (rows = items, columns = categories).
 - For SINGLE SELECT GRID: Use BOTH statementOptions (rows) AND responseOptions (column headers/scale like 1-7, Yes/No, etc.)
 - For MULTI-SELECT GRID: Use BOTH statementOptions (rows) AND responseOptions (columns)
 - For regular questions (non-grid): Use "options" field (not statementOptions/responseOptions)
@@ -275,12 +277,12 @@ Questions should include tags in the "tags" array to provide additional context:
    - When in doubt, ask yourself: "Is this asking the respondent to rate/evaluate something?" If no, don't add the Scale tag
 
 2. NUMERIC TYPE TAGS:
-   - For Numeric questions or Numeric Grid questions:
+   - For Numeric questions, Numeric Grid questions, or Numeric List questions:
      - If the question text mentions "percent", "percentage", "%", or asks for a percentage → add "%" tag
      - If the question asks for a number, count, amount, or quantity (not a percentage) → add "Number" tag
-   - Examples: "What percentage of..." → add "%" tag
-   - Examples: "How many patients..." → add "Number" tag
-   - Examples: "Enter a number from 0-100..." → determine from context (if asking for percentage, add "%", otherwise "Number")
+     - Examples: "What percentage of..." → add "%" tag
+     - Examples: "How many patients..." → add "Number" tag
+     - Examples: "Enter a number from 0-100..." → determine from context (if asking for percentage, add "%", otherwise "Number")
 
 3. BUTTON RATING CLASSIFICATION:
    - Button Rating questions should be classified as "Single Select" type
@@ -367,12 +369,22 @@ CRITICAL PARSING RULES:
    Grid questions are matrix-style questions with rows and columns. CRITICAL DISTINCTIONS:
    
    NUMERIC GRID:
-   - Has row labels (statements) but NO column headers (response codes)
-   - Respondents enter numeric values (numbers, counts, percentages, etc.)
-   - If the question asks for numbers, counts, percentages, or amounts for each row → it's a numeric grid
-   - Examples: "How many patients..." (numeric grid), "Enter a number from 0-100..." (numeric grid)
+   - Respondents enter numeric values (numbers, counts, percentages, etc.) in cells
+   - MUST have BOTH row labels (statements) AND column headers (categories like age groups, time periods, etc.)
+   - Respondents enter numbers for each row-column combination
+   - Structure: BOTH statementOptions (rows) AND responseOptions (columns)
+   - Examples: "How many patients by age group?" (rows = treatments, columns = age groups), "Enter numbers for each category" (rows = items, columns = categories)
    - Type: "Numeric Grid"
-   - Structure: statementOptions only (rows), NO responseOptions (columns)
+   - Key indicator: Look for multiple columns with headers that represent categories (age groups, time periods, etc.) where numeric values are entered, AND rows that represent statements/items
+   
+   NUMERIC LIST:
+   - Respondents enter numeric values (numbers, counts, percentages, etc.)
+   - Has ONLY response options (a list of items), NO row labels/statements
+   - Each response option gets a single numeric input
+   - Structure: responseOptions only (or "options" field), NO statementOptions
+   - Examples: "How many patients for each treatment?" (list of treatments, each with one number), "Enter a number for each option" (list of options, each with one number)
+   - Type: "Numeric List"
+   - Key indicator: Multiple items/options listed, each requiring a single numeric value (not a grid with rows and columns)
    
    SINGLE SELECT GRID:
    - Has row labels (statements) AND column headers (response codes/options)
@@ -392,11 +404,15 @@ CRITICAL PARSING RULES:
    DETECTION PATTERNS:
    - Multiple columns with headers → check if numeric input or selection
    - Row labels on the left → these are statementOptions
-   - Codes like "r1c2" (row 1, column 2)
-   - "AUTOFILL SUM OF..." → autofill calculation
-   - "DO NOT SHOW COLUMN" → hidden column for calculations
-   - If asking for numbers/amounts → numeric grid
-   - If asking to select/rate from options → single-select or multi-select grid
+   - Codes like "r1c2" (row 1, column 2) → indicates grid with both rows and columns
+   - "AUTOFILL SUM OF..." → autofill calculation (often indicates numeric grid with columns)
+   - "DO NOT SHOW COLUMN" → hidden column for calculations (often indicates numeric grid with columns)
+   - "SUM OF COLUMNS X-Y MUST = COLUMN Z" → validation rule indicating numeric grid with multiple columns
+   - If asking for numbers/amounts:
+     - Has BOTH rows (statements) AND columns (categories) → NUMERIC GRID (with statementOptions AND responseOptions)
+     - Has ONLY a list of options (no rows, no columns) → NUMERIC LIST (use "options" field)
+     - Single input field → NUMERIC
+   - If asking to select/rate from options (not entering numbers) → single-select or multi-select grid
 
 3. SPECIAL TAGS (IN BRACKETS):
    - [ANCHOR] → anchor option to bottom
@@ -424,7 +440,8 @@ Basic Question Types:
 - Button Single Select: Mobile-friendly button-based single selection
 - Single Select Grid: Matrix-style grid with one column selection per row. Has statementOptions (rows) and responseOptions (column headers/scale)
 - Button Single Select Grid: Touch-friendly grid with button selections
-- Numeric Grid: Grid where respondents enter numeric values for each row. Has statementOptions (rows) but NO responseOptions. Use when asking for numbers, counts, percentages, or amounts
+- Numeric Grid: Grid where respondents enter numeric values. MUST have BOTH statementOptions (rows) AND responseOptions (columns) representing categories like age groups, time periods, etc. Use when asking for numbers in a grid format with both rows and columns.
+- Numeric List: List where respondents enter numeric values. Has ONLY response options (use "options" field), NO statementOptions. Each option gets a single numeric input. Use when asking for numbers for a list of items (no grid structure with rows and columns).
 - Multi-Select Grid: Grid allowing multiple selections per row/cell. Has statementOptions (rows) and responseOptions (columns). Typically has "Values: 0-1"
 - Button Multi-Select/Grid: Button-based multi-select including grid variants
 - Open End: Freeform alphanumeric text input
@@ -499,7 +516,9 @@ Return a JSON object with this structure:
 }
 
 CRITICAL STRUCTURE RULES:
-- For NUMERIC GRID: Use statementOptions (rows) only. DO NOT include responseOptions.
+- For NUMERIC GRID: 
+  - If the grid has ONLY rows with numeric input (no column headers/categories) → Use statementOptions (rows) only. DO NOT include responseOptions.
+  - If the grid has BOTH rows (statements) AND columns (categories like age groups, time periods, etc.) where numeric values are entered → Use BOTH statementOptions (rows) AND responseOptions (columns). Examples: "How many patients by age group" (rows = treatments, columns = age groups), "Enter numbers for each category" (rows = items, columns = categories).
 - For SINGLE SELECT GRID: Use BOTH statementOptions (rows) AND responseOptions (column headers/scale like 1-7, Yes/No, etc.)
 - For MULTI-SELECT GRID: Use BOTH statementOptions (rows) AND responseOptions (columns)
 - For regular questions (non-grid): Use "options" field (not statementOptions/responseOptions)
@@ -544,12 +563,12 @@ Questions should include tags in the "tags" array to provide additional context:
    - When in doubt, ask yourself: "Is this asking the respondent to rate/evaluate something?" If no, don't add the Scale tag
 
 2. NUMERIC TYPE TAGS:
-   - For Numeric questions or Numeric Grid questions:
+   - For Numeric questions, Numeric Grid questions, or Numeric List questions:
      - If the question text mentions "percent", "percentage", "%", or asks for a percentage → add "%" tag
      - If the question asks for a number, count, amount, or quantity (not a percentage) → add "Number" tag
-   - Examples: "What percentage of..." → add "%" tag
-   - Examples: "How many patients..." → add "Number" tag
-   - Examples: "Enter a number from 0-100..." → determine from context (if asking for percentage, add "%", otherwise "Number")
+     - Examples: "What percentage of..." → add "%" tag
+     - Examples: "How many patients..." → add "Number" tag
+     - Examples: "Enter a number from 0-100..." → determine from context (if asking for percentage, add "%", otherwise "Number")
 
 3. BUTTON RATING CLASSIFICATION:
    - Button Rating questions should be classified as "Single Select" type
@@ -1038,6 +1057,87 @@ router.post('/xml', async (req, res) => {
   }
 });
 
+// POST /api/questionnaire/:questionnaireId/reparse - Re-parse questionnaire with updated classification
+router.post('/:questionnaireId/reparse', async (req, res) => {
+  try {
+    const { questionnaireId } = req.params;
+    
+    // Load questionnaires
+    const questionnairesPath = path.join(dataRoot, 'questionnaires.json');
+    let questionnaires = {};
+    
+    try {
+      const data = await fs.readFile(questionnairesPath, 'utf8');
+      questionnaires = JSON.parse(data);
+    } catch (error) {
+      return res.status(404).json({ error: 'Questionnaires file not found' });
+    }
+    
+    // Find the questionnaire
+    let questionnaire = null;
+    let projectId = null;
+    
+    for (const pid in questionnaires) {
+      if (Array.isArray(questionnaires[pid])) {
+        const found = questionnaires[pid].find(q => q.id === questionnaireId);
+        if (found) {
+          questionnaire = found;
+          projectId = pid;
+          break;
+        }
+      }
+    }
+    
+    if (!questionnaire) {
+      return res.status(404).json({ error: 'Questionnaire not found' });
+    }
+    
+    // Check if original file still exists
+    if (!questionnaire.filePath) {
+      return res.status(404).json({ error: 'Original questionnaire file path not found. Please re-upload the file.' });
+    }
+    
+    try {
+      await fs.access(questionnaire.filePath);
+    } catch (error) {
+      return res.status(404).json({ error: 'Original questionnaire file not found. Please re-upload the file.' });
+    }
+    
+    // Re-parse the questionnaire with updated prompt
+    const questions = await parseQuestionnaire(questionnaire.filePath, projectId);
+    
+    // Update the questionnaire in the array
+    for (const pid in questionnaires) {
+      if (Array.isArray(questionnaires[pid])) {
+        const index = questionnaires[pid].findIndex(q => q.id === questionnaireId);
+        if (index !== -1) {
+          questionnaires[pid][index] = {
+            ...questionnaires[pid][index],
+            questions: questions,
+            updatedAt: new Date().toISOString(),
+            reparsedAt: new Date().toISOString()
+          };
+          questionnaire = questionnaires[pid][index];
+          break;
+        }
+      }
+    }
+    
+    // Save updated questionnaire
+    await fs.writeFile(questionnairesPath, JSON.stringify(questionnaires, null, 2));
+    
+    console.log(`✅ Re-parsed questionnaire ${questionnaireId} with updated classification`);
+    
+    res.json({ 
+      message: 'Questionnaire re-parsed successfully',
+      questionnaire: questionnaire
+    });
+  } catch (error) {
+    console.error('Error re-parsing questionnaire:', error);
+    res.status(500).json({ error: 'Failed to re-parse questionnaire', details: error.message });
+  }
+});
+
 // PUT /api/questionnaire/:questionnaireId - Update questionnaire
 router.put('/:questionnaireId', async (req, res) => {
   try {
@@ -1138,7 +1238,8 @@ Basic Question Types:
 - Button Single Select: Mobile-friendly button-based single selection
 - Single Select Grid: Matrix-style grid with one column selection per row. Has statementOptions (rows) and responseOptions (column headers/scale)
 - Button Single Select Grid: Touch-friendly grid with button selections
-- Numeric Grid: Grid where respondents enter numeric values for each row. Has statementOptions (rows) but NO responseOptions. Use when asking for numbers, counts, percentages, or amounts
+- Numeric Grid: Grid where respondents enter numeric values. MUST have BOTH statementOptions (rows) AND responseOptions (columns) representing categories like age groups, time periods, etc. Use when asking for numbers in a grid format with both rows and columns.
+- Numeric List: List where respondents enter numeric values. Has ONLY response options (use "options" field), NO statementOptions. Each option gets a single numeric input. Use when asking for numbers for a list of items (no grid structure with rows and columns).
 - Multi-Select Grid: Grid allowing multiple selections per row/cell. Has statementOptions (rows) and responseOptions (columns). Typically has "Values: 0-1"
 - Button Multi-Select/Grid: Button-based multi-select including grid variants
 - Open End: Freeform alphanumeric text input
@@ -1346,7 +1447,8 @@ Basic Question Types:
 - Button Single Select: Mobile-friendly button-based single selection
 - Single Select Grid: Matrix-style grid with one column selection per row. Has statementOptions (rows) and responseOptions (column headers/scale)
 - Button Single Select Grid: Touch-friendly grid with button selections
-- Numeric Grid: Grid where respondents enter numeric values for each row. Has statementOptions (rows) but NO responseOptions. Use when asking for numbers, counts, percentages, or amounts
+- Numeric Grid: Grid where respondents enter numeric values. MUST have BOTH statementOptions (rows) AND responseOptions (columns) representing categories like age groups, time periods, etc. Use when asking for numbers in a grid format with both rows and columns.
+- Numeric List: List where respondents enter numeric values. Has ONLY response options (use "options" field), NO statementOptions. Each option gets a single numeric input. Use when asking for numbers for a list of items (no grid structure with rows and columns).
 - Multi-Select Grid: Grid allowing multiple selections per row/cell. Has statementOptions (rows) and responseOptions (columns). Typically has "Values: 0-1"
 - Button Multi-Select/Grid: Button-based multi-select including grid variants
 - Open End: Freeform alphanumeric text input
@@ -2050,17 +2152,20 @@ router.post('/upload-data', async (req, res) => {
         // We need to match it against the actual keys in the row object
         const rowKeys = Object.keys(row);
         let value = null;
+        let matchedKey = null;
         
         // Try multiple matching strategies:
         // 1. Exact match
         if (rowKeys.includes(columnHeader)) {
           value = row[columnHeader];
+          matchedKey = columnHeader;
         }
         // 2. Case-insensitive match
         if ((value === null || value === undefined) && columnHeader) {
           const matchingKey = rowKeys.find(key => key.toLowerCase() === columnHeader.toLowerCase());
           if (matchingKey) {
             value = row[matchingKey];
+            matchedKey = matchingKey;
           }
         }
         // 3. Trimmed match (in case of extra whitespace)
@@ -2069,6 +2174,7 @@ router.post('/upload-data', async (req, res) => {
           const matchingKey = rowKeys.find(key => key.trim().toLowerCase() === trimmedHeader.toLowerCase());
           if (matchingKey) {
             value = row[matchingKey];
+            matchedKey = matchingKey;
           }
         }
         // 4. Starts-with match (common case: "QS1" matches "QS1 - Question text...")
@@ -2082,6 +2188,7 @@ router.post('/upload-data', async (req, res) => {
           });
           if (matchingKey) {
             value = row[matchingKey];
+            matchedKey = matchingKey;
           }
         }
         // 5. Partial match (if column header contains the key or vice versa)
@@ -2097,9 +2204,24 @@ router.post('/upload-data', async (req, res) => {
           });
           if (matchingKey) {
             value = row[matchingKey];
+            matchedKey = matchingKey;
           }
         }
         
+        // Log warnings for variables that should have data but aren't matching
+        if (rowIndex === 0 && !matchedKey && columnHeader) {
+          // Only log once per variable (on first row) to avoid spam
+          const potentialMatches = rowKeys.filter(key => {
+            const keyLower = key.toLowerCase();
+            const headerLower = columnHeader.toLowerCase();
+            // Check if there's any similarity
+            return keyLower.includes('qs11') && headerLower.includes('qs11') ||
+                   (keyLower.includes('s11') && headerLower.includes('s11'));
+          });
+          if (potentialMatches.length > 0 && variableName.startsWith('S11')) {
+            console.warn(`⚠️ Variable ${variableName} mapped to "${columnHeader}" but no exact match found. Potential matches: ${potentialMatches.slice(0, 3).join(', ')}`);
+          }
+        }
         
         // Only push non-empty values
         if (value !== null && value !== undefined && value !== '') {
@@ -2154,6 +2276,22 @@ router.post('/upload-data', async (req, res) => {
         });
         const mode = Object.entries(frequency).sort((a, b) => b[1] - a[1])[0]?.[0];
         
+        // Calculate standard deviation
+        const variance = numericValues.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / numericValues.length;
+        const stdDev = Math.sqrt(variance);
+        
+        // Calculate mean with outliers removed (outliers = values outside 2 standard deviations from mean)
+        const valuesWithoutOutliers = numericValues.filter(val => {
+          return Math.abs(val - mean) <= 2 * stdDev;
+        });
+        
+        let meanNoOutliers = null;
+        let sumNoOutliers = null;
+        if (valuesWithoutOutliers.length > 0) {
+          sumNoOutliers = valuesWithoutOutliers.reduce((a, b) => a + b, 0);
+          meanNoOutliers = sumNoOutliers / valuesWithoutOutliers.length;
+        }
+        
         variableStats[variableName] = {
           count: values.length,
           values: values,
@@ -2163,7 +2301,10 @@ router.post('/upload-data', async (req, res) => {
           mode: mode ? parseFloat(mode) : null,
           min: sorted[0],
           max: sorted[sorted.length - 1],
-          sum
+          sum,
+          stdDev,
+          meanNoOutliers,
+          sumNoOutliers
         };
       } else {
         // Count frequencies for categorical variables

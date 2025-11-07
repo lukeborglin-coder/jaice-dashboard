@@ -19,7 +19,7 @@
       "usePreloadedTasks": true,
       "customTasks": [],
       "id": "P-1761242973652",
-      "phase": "Post-Field Analysis",
+      "phase": "Complete",
       "methodologyDisplay": "Quantitative - Conjoint Analysis",
       "phaseTimeline": {
         "Kickoff": {
@@ -858,7 +858,7 @@
           "data": {}
         }
       ],
-      "phaseColor": "#F97316",
+      "phaseColor": "#10B981",
       "fieldworkRange": "10/6/25",
       "reportDeadline": "11/7/25",
       "teamMembersText": "Luke Borglin,  Ciara Mcevoy-Benisti",
@@ -961,7 +961,7 @@
             "3",
             "12"
           ],
-          "status": "pending",
+          "status": "completed",
           "phase": "Kickoff",
           "dueDate": "2025-09-26",
           "isOngoing": false,
@@ -976,7 +976,7 @@
             "3",
             "12"
           ],
-          "status": "pending",
+          "status": "completed",
           "phase": "Kickoff",
           "dueDate": "2025-09-26",
           "isOngoing": false,
@@ -988,7 +988,7 @@
           "id": "task-066",
           "description": "Bid project out to vendors/moderators",
           "assignedTo": [],
-          "status": "pending",
+          "status": "completed",
           "phase": "Kickoff",
           "isOngoing": false,
           "dateNotes": "",
@@ -999,7 +999,7 @@
           "id": "task-067",
           "description": "Get moderator availability",
           "assignedTo": [],
-          "status": "pending",
+          "status": "completed",
           "phase": "Kickoff",
           "isOngoing": false,
           "dateNotes": "",
@@ -1012,7 +1012,7 @@
           "assignedTo": [
             "3"
           ],
-          "status": "pending",
+          "status": "completed",
           "phase": "Kickoff",
           "isOngoing": false,
           "dateNotes": "",
@@ -1023,7 +1023,7 @@
           "id": "task-069",
           "description": "Save vendors' bids to job folder",
           "assignedTo": [],
-          "status": "pending",
+          "status": "completed",
           "phase": "Kickoff",
           "isOngoing": false,
           "dateNotes": "",
@@ -1034,7 +1034,7 @@
           "id": "task-070",
           "description": "Ensure any new vendors have signed the NDA",
           "assignedTo": [],
-          "status": "pending",
+          "status": "completed",
           "phase": "Kickoff",
           "isOngoing": false,
           "dateNotes": "",
@@ -1047,7 +1047,7 @@
           "assignedTo": [
             "3"
           ],
-          "status": "pending",
+          "status": "completed",
           "phase": "Kickoff",
           "isOngoing": false,
           "dateNotes": "",
@@ -1060,7 +1060,7 @@
           "assignedTo": [
             "3"
           ],
-          "status": "pending",
+          "status": "completed",
           "phase": "Kickoff",
           "isOngoing": false,
           "dateNotes": "",
@@ -1073,7 +1073,7 @@
           "assignedTo": [
             "3"
           ],
-          "status": "pending",
+          "status": "completed",
           "phase": "Kickoff",
           "isOngoing": false,
           "dateNotes": "",
@@ -1084,7 +1084,7 @@
           "id": "task-074",
           "description": "Add AE submission forms & contact info to job folder",
           "assignedTo": [],
-          "status": "pending",
+          "status": "completed",
           "phase": "Kickoff",
           "isOngoing": false,
           "dateNotes": "",
@@ -1097,7 +1097,7 @@
           "assignedTo": [
             "3"
           ],
-          "status": "pending",
+          "status": "completed",
           "phase": "Kickoff",
           "isOngoing": false,
           "dateNotes": "",
@@ -1108,7 +1108,7 @@
           "id": "task-076",
           "description": "Alert recruiter and moderator that project is moving forward",
           "assignedTo": [],
-          "status": "pending",
+          "status": "completed",
           "phase": "Kickoff",
           "isOngoing": false,
           "dateNotes": "",
@@ -1119,7 +1119,7 @@
           "id": "task-077",
           "description": "Draft screener",
           "assignedTo": [],
-          "status": "pending",
+          "status": "completed",
           "phase": "Kickoff",
           "dueDate": "2025-09-26",
           "isOngoing": false,
@@ -1131,7 +1131,7 @@
           "id": "task-078",
           "description": "Draft discussion guide",
           "assignedTo": [],
-          "status": "pending",
+          "status": "completed",
           "phase": "Kickoff",
           "dueDate": "2025-10-03",
           "isOngoing": false,
@@ -1143,7 +1143,7 @@
           "id": "task-079",
           "description": "Start Discuss.io project",
           "assignedTo": [],
-          "status": "pending",
+          "status": "completed",
           "phase": "Kickoff",
           "dueDate": "2025-10-03",
           "isOngoing": false,
@@ -1158,7 +1158,7 @@
             "3",
             "12"
           ],
-          "status": "pending",
+          "status": "completed",
           "phase": "Kickoff",
           "isOngoing": false,
           "dateNotes": "",
@@ -1172,7 +1172,7 @@
             "3",
             "12"
           ],
-          "status": "pending",
+          "status": "completed",
           "phase": "Kickoff",
           "dueDate": "2025-10-03",
           "isOngoing": false,
@@ -1184,7 +1184,7 @@
           "id": "task-082",
           "description": "Schedule KO with moderator",
           "assignedTo": [],
-          "status": "pending",
+          "status": "completed",
           "phase": "Kickoff",
           "dueDate": "2025-10-03",
           "isOngoing": false,
@@ -1196,7 +1196,7 @@
           "id": "task-083",
           "description": "Create respondent grid for recruiters",
           "assignedTo": [],
-          "status": "pending",
+          "status": "completed",
           "phase": "Pre-Field",
           "dueDate": "2025-10-03",
           "isOngoing": false,
@@ -1208,7 +1208,7 @@
           "id": "task-084",
           "description": "Create shared/client respondent grid",
           "assignedTo": [],
-          "status": "pending",
+          "status": "completed",
           "phase": "Pre-Field",
           "dueDate": "2025-10-03",
           "isOngoing": false,
@@ -1316,7 +1316,7 @@
             "3",
             "12"
           ],
-          "status": "pending",
+          "status": "completed",
           "phase": "Pre-Field",
           "dueDate": "2025-10-09",
           "isOngoing": false,
@@ -1328,7 +1328,7 @@
           "id": "task-093",
           "description": "Monitor recruits and update quotas",
           "assignedTo": [],
-          "status": "pending",
+          "status": "completed",
           "phase": "Pre-Field",
           "isOngoing": true,
           "dateNotes": "ongoing",
@@ -1352,7 +1352,7 @@
           "assignedTo": [
             "3"
           ],
-          "status": "pending",
+          "status": "completed",
           "phase": "Pre-Field",
           "dueDate": "2025-10-09",
           "isOngoing": false,
@@ -1364,7 +1364,7 @@
           "id": "task-096",
           "description": "Send Outlook invites with respondent details and observer login info",
           "assignedTo": [],
-          "status": "pending",
+          "status": "completed",
           "phase": "Pre-Field",
           "isOngoing": true,
           "dateNotes": "ongoing",
@@ -1386,7 +1386,7 @@
           "id": "task-098",
           "description": "Send final stimuli/workbooks/guide to moderator",
           "assignedTo": [],
-          "status": "pending",
+          "status": "completed",
           "phase": "Pre-Field",
           "dueDate": "2025-10-09",
           "isOngoing": false,
@@ -1413,7 +1413,7 @@
           "id": "task-100",
           "description": "Create report shell based on discussion guide and objectives",
           "assignedTo": [],
-          "status": "pending",
+          "status": "completed",
           "phase": "Fielding",
           "isOngoing": false,
           "dateNotes": "",
@@ -1489,7 +1489,7 @@
           "id": "task-106",
           "description": "Populate report shell with key fidings",
           "assignedTo": [],
-          "status": "pending",
+          "status": "completed",
           "phase": "Reporting",
           "isOngoing": false,
           "dateNotes": "",
@@ -1500,7 +1500,7 @@
           "id": "task-107",
           "description": "Clean and finalize report",
           "assignedTo": [],
-          "status": "pending",
+          "status": "completed",
           "phase": "Reporting",
           "isOngoing": false,
           "dateNotes": "",
@@ -1511,7 +1511,7 @@
           "id": "task-108",
           "description": "Have report proofed",
           "assignedTo": [],
-          "status": "pending",
+          "status": "completed",
           "phase": "Reporting",
           "dueDate": "2025-10-30",
           "isOngoing": false,
@@ -1523,7 +1523,7 @@
           "id": "task-109",
           "description": "Final review of report",
           "assignedTo": [],
-          "status": "pending",
+          "status": "completed",
           "phase": "Reporting",
           "dueDate": "2025-10-31",
           "isOngoing": false,
@@ -1538,7 +1538,7 @@
             "3",
             "12"
           ],
-          "status": "pending",
+          "status": "completed",
           "phase": "Reporting",
           "dueDate": "2025-10-31",
           "isOngoing": false,
@@ -1553,7 +1553,7 @@
             "3",
             "12"
           ],
-          "status": "pending",
+          "status": "completed",
           "phase": "Reporting",
           "isOngoing": false,
           "dateNotes": "",
@@ -1564,7 +1564,7 @@
           "id": "task-112",
           "description": "Save vendor invoices and submit to accounting",
           "assignedTo": [],
-          "status": "pending",
+          "status": "completed",
           "phase": "Reporting",
           "isOngoing": false,
           "dateNotes": "",
@@ -1578,7 +1578,7 @@
             "3",
             "12"
           ],
-          "status": "pending",
+          "status": "completed",
           "phase": "Reporting",
           "isOngoing": false,
           "dateNotes": "",
@@ -1591,7 +1591,7 @@
           "assignedTo": [
             "3"
           ],
-          "status": "pending",
+          "status": "completed",
           "phase": "Reporting",
           "isOngoing": false,
           "dateNotes": "",
@@ -1706,7 +1706,7 @@
       "usePreloadedTasks": true,
       "customTasks": [],
       "id": "P-1761768313209",
-      "phase": "Fielding",
+      "phase": "Reporting",
       "methodologyDisplay": "Qualitative - In-Depth Interviews",
       "phaseTimeline": {
         "Kickoff": {
@@ -2519,7 +2519,7 @@
       "usePreloadedTasks": true,
       "customTasks": [],
       "id": "P-1761522000342",
-      "phase": "Kickoff",
+      "phase": "Reporting",
       "methodologyDisplay": "Quantitative - Market Segmentation",
       "phaseTimeline": {
         "Kickoff": {
@@ -3314,7 +3314,7 @@
       "usePreloadedTasks": true,
       "customTasks": [],
       "id": "P-1761586804791",
-      "phase": "Kickoff",
+      "phase": "Reporting",
       "methodologyDisplay": "Quantitative - ATU (Awareness, Trial, Usage)",
       "phaseTimeline": {
         "Kickoff": {
@@ -4094,7 +4094,7 @@
       "usePreloadedTasks": true,
       "customTasks": [],
       "id": "P-1761587164310",
-      "phase": "Fielding",
+      "phase": "Reporting",
       "methodologyDisplay": "Quantitative - Message Testing",
       "phaseTimeline": {
         "Kickoff": {
@@ -4917,7 +4917,7 @@
       "usePreloadedTasks": true,
       "customTasks": [],
       "id": "P-1761587291769",
-      "phase": "Kickoff",
+      "phase": "Reporting",
       "methodologyDisplay": "Quantitative - ATU (Awareness, Trial, Usage)",
       "phaseTimeline": {
         "Kickoff": {

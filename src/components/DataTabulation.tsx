@@ -240,6 +240,33 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
 
   const displayProjects = activeTab === 'active' ? filteredActiveProjects : filteredArchivedProjects;
 
+  // Check for project navigation from Project Hub
+  useEffect(() => {
+    try {
+      const storedProjectId = sessionStorage.getItem('cognitive_dash_data_tabulation_focus_project');
+      const storedViewMode = sessionStorage.getItem('cognitive_dash_data_tabulation_view_mode');
+      
+      if (storedProjectId && projects.length > 0 && !selectedProject) {
+        const project = [...filteredActiveProjects, ...filteredArchivedProjects].find(p => p.id === storedProjectId);
+        if (project) {
+          setSelectedProject(project);
+          if (storedViewMode === 'project') {
+            setViewMode('project');
+            // Update header to project name
+            if (onHeaderChange) {
+              onHeaderChange(project.name);
+            }
+          }
+          // Clear sessionStorage after using it
+          sessionStorage.removeItem('cognitive_dash_data_tabulation_focus_project');
+          sessionStorage.removeItem('cognitive_dash_data_tabulation_view_mode');
+        }
+      }
+    } catch (error) {
+      console.warn('Unable to read data tabulation navigation target', error);
+    }
+  }, [projects, filteredActiveProjects, filteredArchivedProjects, selectedProject, onHeaderChange]);
+
   // Handle file upload
   const handleFileUpload = useCallback(async (file: File | null) => {
     if (!file) {
