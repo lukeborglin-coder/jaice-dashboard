@@ -8,6 +8,7 @@ interface CrossTabDisplayProps {
   bannerGroup: BannerGroup;
   selectedStubVariable: string;
   onStubVariableChange: (variableName: string) => void;
+  hideStubVariableDropdown?: boolean;
   hideOpenEnds: boolean;
   hideZeroBase: boolean;
   getVariableBase: (variableName: string) => number;
@@ -25,6 +26,7 @@ const CrossTabDisplay: React.FC<CrossTabDisplayProps> = ({
   bannerGroup,
   selectedStubVariable,
   onStubVariableChange,
+  hideStubVariableDropdown = false,
   hideOpenEnds,
   hideZeroBase,
   getVariableBase,
@@ -614,73 +616,75 @@ const CrossTabDisplay: React.FC<CrossTabDisplayProps> = ({
             )}
           </h3>
           <div className="flex items-start gap-4">
-            <div className="relative flex-shrink-0" style={{ minWidth: '300px', maxWidth: '400px' }} ref={dropdownRef}>
-              <button
-                type="button"
-                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm text-left bg-white flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-orange-500"
-              >
-                <span className="truncate">
-                  {showAll ? (
-                    <span className="font-semibold">Show all</span>
-                  ) : selectedVariable ? (
-                    <>
-                      <span className="font-semibold">{selectedVariable.name}</span>
-                      {selectedVariable.description && (
-                        <span className="text-gray-600"> - {selectedVariable.description}</span>
-                      )}
-                    </>
-                  ) : (
-                    <span className="text-gray-500">Select a variable...</span>
-                  )}
-                </span>
-                <ChevronDownIcon className={`h-4 w-4 text-gray-400 flex-shrink-0 ml-2 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
-              </button>
-              {isDropdownOpen && (
-                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-96 overflow-y-auto">
-                  {categoricalVariables.length === 0 ? (
-                    <div className="px-4 py-3 text-sm text-gray-500">No variables available</div>
-                  ) : (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          onStubVariableChange('');
-                          setIsDropdownOpen(false);
-                        }}
-                        className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors border-b border-gray-100 ${
-                          showAll ? 'bg-orange-50' : ''
-                        }`}
-                      >
-                        <div className="truncate">
-                          <span className="font-semibold text-gray-900">Show all</span>
-                        </div>
-                      </button>
-                      {categoricalVariables.map(variable => (
+            {!hideStubVariableDropdown && (
+              <div className="relative flex-shrink-0" style={{ minWidth: '300px', maxWidth: '400px' }} ref={dropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm text-left bg-white flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-orange-500"
+                >
+                  <span className="truncate">
+                    {showAll ? (
+                      <span className="font-semibold">Show all</span>
+                    ) : selectedVariable ? (
+                      <>
+                        <span className="font-bold">{selectedVariable.name}</span>
+                        {selectedVariable.description && (
+                          <span className="text-gray-600"> - {selectedVariable.description}</span>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-gray-500">Select a variable...</span>
+                    )}
+                  </span>
+                  <ChevronDownIcon className={`h-4 w-4 text-gray-400 flex-shrink-0 ml-2 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {isDropdownOpen && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-96 overflow-y-auto">
+                    {categoricalVariables.length === 0 ? (
+                      <div className="px-4 py-3 text-sm text-gray-500">No variables available</div>
+                    ) : (
+                      <>
                         <button
-                          key={variable.name}
                           type="button"
                           onClick={() => {
-                            onStubVariableChange(variable.name);
+                            onStubVariableChange('');
                             setIsDropdownOpen(false);
                           }}
-                          className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0 ${
-                            selectedStubVariable === variable.name ? 'bg-orange-50' : ''
+                          className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors border-b border-gray-100 ${
+                            showAll ? 'bg-orange-50' : ''
                           }`}
                         >
                           <div className="truncate">
-                            <span className="font-semibold text-gray-900">{variable.name}</span>
-                            {variable.description && (
-                              <span className="text-gray-600"> - {variable.description}</span>
-                            )}
+                            <span className="font-semibold text-gray-900">Show all</span>
                           </div>
                         </button>
-                      ))}
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
+                        {categoricalVariables.map(variable => (
+                          <button
+                            key={variable.name}
+                            type="button"
+                            onClick={() => {
+                              onStubVariableChange(variable.name);
+                              setIsDropdownOpen(false);
+                            }}
+                            className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0 ${
+                              selectedStubVariable === variable.name ? 'bg-orange-50' : ''
+                            }`}
+                          >
+                            <div className="truncate">
+                              <span className="font-bold text-gray-900">{variable.name}</span>
+                              {variable.description && (
+                                <span className="text-gray-600"> - {variable.description}</span>
+                              )}
+                            </div>
+                          </button>
+                        ))}
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
             {onEdit && (
               <div className="flex items-center gap-2">
                 <button
@@ -705,7 +709,7 @@ const CrossTabDisplay: React.FC<CrossTabDisplayProps> = ({
 
             return (
               <div key={variable.name} className="space-y-1">
-                  <h4 className="text-sm font-semibold text-gray-900">{variable.name}</h4>
+                  <h4 className="text-sm font-bold text-gray-900">{variable.name}</h4>
                   {variable.description && (
                     <p className="text-xs text-gray-600">{variable.description}</p>
                   )}

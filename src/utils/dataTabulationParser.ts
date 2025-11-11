@@ -869,8 +869,106 @@ export async function parseDataFile(file: File): Promise<ParsedDataFile> {
             }
           });
           
+          // For numeric grids with both columns and rows, detect cell variables from column names
+          // Pattern: {question}{row}{column} e.g., S11r1c1, S14r2c3 (row first, then column)
+          // Also handle variations: S11_r1_c1, S11r1_c1, S11_r1c1
+          // Also handle column-first format: S11c1r5, S11_c1_r5 (for backward compatibility)
+          const cellVariablePatternRowFirst = /^([A-Z0-9]+)[_\-]?r(\d+)[_\-]?c(\d+)$/i;
+          const cellVariablePatternColumnFirst = /^([A-Z0-9]+)[_\-]?c(\d+)[_\-]?r(\d+)$/i;
+          const cellVariables: Array<{ name: string; baseName: string; columnCode: string; rowCode: string; columnName: string }> = [];
+          
+          columnNames.forEach(colName => {
+            // Try row-first format first (preferred): S11r1c1
+            let match = colName.match(cellVariablePatternRowFirst);
+            let isRowFirst = true;
+            
+            // If not found, try column-first format (backward compatibility): S11c1r5
+            if (!match) {
+              match = colName.match(cellVariablePatternColumnFirst);
+              isRowFirst = false;
+            }
+            
+            if (match) {
+              const baseName = match[1];
+              let columnCode: string;
+              let rowCode: string;
+              
+              if (isRowFirst) {
+                // Row first format: S11r1c1
+                rowCode = `r${match[2]}`;
+                columnCode = `c${match[3]}`;
+              } else {
+                // Column first format: S11c1r5
+                columnCode = `c${match[2]}`;
+                rowCode = `r${match[3]}`;
+              }
+              
+              // Always use row-first format for variable name: S11r1c1
+              const cellVarName = `${baseName}${rowCode}${columnCode}`;
+              
+              // Check if this is part of a numeric grid
+              const gridVar = variables.find(v => 
+                v.name === baseName && 
+                (v.type === 'grid-numeric' || v.type === 'grid')
+              );
+              
+              if (gridVar) {
+                cellVariables.push({
+                  name: cellVarName,
+                  baseName,
+                  columnCode,
+                  rowCode,
+                  columnName: colName
+                });
+                
+                // Add to variable mapping
+                variableToColumnMap[cellVarName] = colName;
+              }
+            }
+          });
+          
+          // Create variable definitions for cell variables if they don't exist
+          if (cellVariables.length > 0) {
+            // Group by base name and column
+            const cellVarMap = new Map<string, Array<{ name: string; baseName: string; columnCode: string; rowCode: string; columnName: string }>>();
+            cellVariables.forEach(cv => {
+              const key = `${cv.baseName}_${cv.columnCode}`;
+              if (!cellVarMap.has(key)) {
+                cellVarMap.set(key, []);
+              }
+              cellVarMap.get(key)!.push(cv);
+            });
+            
+            // For each unique base+column combination, ensure we have the column variable
+            cellVarMap.forEach((cells, key) => {
+              const firstCell = cells[0];
+              const baseName = firstCell.baseName;
+              const columnCode = firstCell.columnCode;
+              const columnVarName = `${baseName}_${columnCode}`;
+              
+              // Check if column variable exists
+              let columnVar = variables.find(v => v.name === columnVarName);
+              if (!columnVar) {
+                // Find the base grid variable to get its properties
+                const gridVar = variables.find(v => v.name === baseName && (v.type === 'grid-numeric' || v.type === 'grid'));
+                if (gridVar) {
+                  // Create column variable
+                  columnVar = {
+                    name: columnVarName,
+                    description: `${gridVar.description}\nColumn ${columnCode}`,
+                    type: 'grid-numeric',
+                    codes: {},
+                    statements: gridVar.statements || {}
+                  };
+                  variables.push(columnVar);
+                }
+              }
+            });
+          }
+          
           // Debug: log mapping summary and actual columns
           console.log(`Matched ${Object.keys(variableToColumnMap).length} of ${variables.length} variables to columns`);
+          console.log(`Found ${cellVariables.length} cell variables for numeric grids`);
           console.log(`Actual data columns (${columnNames.length}):`, columnNames);
           console.log(`Variables from datamap (first 10):`, variables.slice(0, 10).map(v => v.name));
           
@@ -882,6 +980,44 @@ export async function parseDataFile(file: File): Promise<ParsedDataFile> {
               if (columnName in row) {
                 // Add variable name as an alias to the column value
                 row[varName] = row[columnName];
+              }
+            });
+            
+            // Also add cell variables directly from column names (for numeric grids)
+            // This handles cases where cell variables weren't in the datamap
+            columnNames.forEach(colName => {
+              // Try row-first format first (preferred): S11r1c1
+              let match = colName.match(cellVariablePatternRowFirst);
+              let isRowFirst = true;
+              
+              // If not found, try column-first format (backward compatibility): S11c1r5
+              if (!match) {
+                match = colName.match(cellVariablePatternColumnFirst);
+                isRowFirst = false;
+              }
+              
+              if (match) {
+                const baseName = match[1];
+                let columnCode: string;
+                let rowCode: string;
+                
+                if (isRowFirst) {
+                  // Row first format: S11r1c1
+                  rowCode = `r${match[2]}`;
+                  columnCode = `c${match[3]}`;
+                } else {
+                  // Column first format: S11c1r5
+                  columnCode = `c${match[2]}`;
+                  rowCode = `r${match[3]}`;
+                }
+                
+                // Always use row-first format for variable name: S11r1c1
+                const cellVarName = `${baseName}${rowCode}${columnCode}`;
+                
+                // Add cell variable if not already added
+                if (!(cellVarName in row) && colName in row) {
+                  row[cellVarName] = row[colName];
+                }
               }
             });
             

@@ -9,7 +9,10 @@ import {
   CloudArrowUpIcon,
   EyeIcon,
   MagnifyingGlassIcon,
-  ArrowPathIcon
+  ArrowPathIcon,
+  PencilIcon,
+  CheckIcon,
+  InformationCircleIcon
 } from '@heroicons/react/24/outline';
 import { IconCheckbox } from '@tabler/icons-react';
 import { API_BASE_URL } from '../config';
@@ -65,6 +68,7 @@ export default function QNR({ projects = [], onNavigateToProject }: QNRProps) {
   const [questionnaireName, setQuestionnaireName] = useState('');
   const [allQuestionnaires, setAllQuestionnaires] = useState<Questionnaire[]>([]);
   const [selectedQuestionTypes, setSelectedQuestionTypes] = useState<Set<string>>(new Set());
+  const [variableData, setVariableData] = useState<Record<string, any>>({});
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const pendingSyncRef = React.useRef<{ qnrId: string; projectId: string } | null>(null);
 
@@ -161,6 +165,35 @@ export default function QNR({ projects = [], onNavigateToProject }: QNRProps) {
       }
     }
   }, [questionnaires, selectedProject]);
+
+  // Load variable data when a questionnaire is selected
+  useEffect(() => {
+    const loadVariableData = async () => {
+      if (!selectedQuestionnaire) {
+        setVariableData({});
+        return;
+      }
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/questionnaire/processed-data/${selectedQuestionnaire.id}`, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data && typeof data === 'object') {
+            setVariableData(data);
+          } else {
+            setVariableData({});
+          }
+        } else {
+          setVariableData({});
+        }
+      } catch (error) {
+        console.error('Error loading variable data:', error);
+        setVariableData({});
+      }
+    };
+    loadVariableData();
+  }, [selectedQuestionnaire]);
 
   // Filter for quantitative projects
   const isQuantitative = (project: any) => {
@@ -648,6 +681,7 @@ export default function QNR({ projects = [], onNavigateToProject }: QNRProps) {
                     key={question.id || index} 
                     question={question} 
                     index={index}
+                    variableData={variableData}
                     onUpdateQuestion={(updatedQuestion) => {
                       // Update the question in the selected questionnaire
                       const updatedQuestions = selectedQuestionnaire.questions.map(q => 
@@ -796,15 +830,21 @@ export default function QNR({ projects = [], onNavigateToProject }: QNRProps) {
 function QuestionBox({ 
   question, 
   index, 
+  variableData = {},
   onUpdateQuestion,
   questionnaireId
 }: { 
   question: Question; 
   index: number;
+  variableData?: Record<string, any>;
   onUpdateQuestion?: (question: Question) => Question[];
   questionnaireId?: string;
 }) {
   const [isFlipping, setIsFlipping] = useState(false);
+  const [isEditingOptions, setIsEditingOptions] = useState(false);
+  const [editedOptions, setEditedOptions] = useState<Array<{ code: string; text: string }>>([]);
+  const [isEditingResponseOptions, setIsEditingResponseOptions] = useState(false);
+  const [editedResponseOptions, setEditedResponseOptions] = useState<Array<{ code: string; text: string }>>([]);
   
   // Check if question has both statementOptions and responseOptions (can be flipped)
   const canFlip = question.statementOptions && question.statementOptions.length > 0 && 
@@ -863,31 +903,288 @@ function QuestionBox({
     }
   };
 
+  const handleStartEditOptions = () => {
+    const options = question.options?.map((opt, idx) => 
+      typeof opt === 'string' ? { code: String(idx + 1), text: opt } : { code: opt.code || String(idx + 1), text: opt.text || '' }
+    ) || [];
+    setEditedOptions(options);
+    setIsEditingOptions(true);
+  };
+
+  const handleCancelEditOptions = () => {
+    setIsEditingOptions(false);
+    setEditedOptions([]);
+  };
+
+  const handleSaveOptions = async () => {
+    if (!onUpdateQuestion || !questionnaireId) return;
+
+    // Check for duplicate codes
+    const codes = editedOptions.map(opt => opt.code.trim().toLowerCase());
+    const duplicateCodes = codes.filter((code, index) => codes.indexOf(code) !== index);
+    if (duplicateCodes.length > 0) {
+      alert('Duplicate codes are not allowed. Please ensure each code is unique.');
+      return;
+    }
+
+    const updatedQuestion: Question = {
+      ...question,
+      options: editedOptions.map(opt => ({
+        code: opt.code,
+        text: opt.text,
+        tags: (() => {
+          // Preserve tags from original option if it exists
+          const originalOpt = question.options?.find((o, idx) => {
+            const originalOptObj = typeof o === 'string' ? { code: String(idx + 1), text: o } : o;
+            return originalOptObj.text === opt.text || originalOptObj.code === opt.code;
+          });
+          return originalOpt && typeof originalOpt !== 'string' ? originalOpt.tags : undefined;
+        })()
+      }))
+    };
+
+    try {
+      const updatedQuestions = onUpdateQuestion(updatedQuestion);
+      
+      const response = await fetch(`${API_BASE_URL}/api/questionnaire/${questionnaireId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
+        },
+        body: JSON.stringify({
+          questions: updatedQuestions
+        })
+      });
+
+      if (response.ok) {
+        setIsEditingOptions(false);
+      } else {
+        alert('Failed to save changes. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error saving options:', error);
+      alert('Failed to save changes. Please try again.');
+    }
+  };
+
+  const handleStartEditResponseOptions = () => {
+    const responseOptions = question.responseOptions?.map((opt, idx) => 
+      typeof opt === 'string' ? { code: `c${idx + 1}`, text: opt } : { code: opt.code || `c${idx + 1}`, text: opt.text || '' }
+    ) || [];
+    setEditedResponseOptions(responseOptions);
+    setIsEditingResponseOptions(true);
+  };
+
+  const handleCancelEditResponseOptions = () => {
+    setIsEditingResponseOptions(false);
+    setEditedResponseOptions([]);
+  };
+
+  const handleSaveResponseOptions = async () => {
+    if (!onUpdateQuestion || !questionnaireId) return;
+
+    // Check for duplicate codes
+    const codes = editedResponseOptions.map(opt => opt.code.trim().toLowerCase());
+    const duplicateCodes = codes.filter((code, index) => codes.indexOf(code) !== index);
+    if (duplicateCodes.length > 0) {
+      alert('Duplicate codes are not allowed. Please ensure each code is unique.');
+      return;
+    }
+
+    const updatedQuestion: Question = {
+      ...question,
+      responseOptions: editedResponseOptions
+    };
+
+    try {
+      const updatedQuestions = onUpdateQuestion(updatedQuestion);
+      
+      const response = await fetch(`${API_BASE_URL}/api/questionnaire/${questionnaireId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
+        },
+        body: JSON.stringify({
+          questions: updatedQuestions
+        })
+      });
+
+      if (response.ok) {
+        setIsEditingResponseOptions(false);
+      } else {
+        alert('Failed to save changes. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error saving response options:', error);
+      alert('Failed to save changes. Please try again.');
+    }
+  };
+
+  // Calculate hasPercentageError and hasData from variableData
+  const questionNumber = question.number || `Q${index + 1}`;
+  
+  // Find the variable that matches this question number
+  // Try exact match first, then try with various prefixes
+  let varData = variableData[questionNumber];
+  if (!varData) {
+    // Try other possible variable names
+    const possibleNames = [
+      questionNumber.replace(/^Q/i, ''),
+      `S${questionNumber.replace(/^Q/i, '')}`,
+      questionNumber.replace(/^Q/i, 'S')
+    ];
+    for (const name of possibleNames) {
+      if (variableData[name]) {
+        varData = variableData[name];
+        break;
+      }
+    }
+  }
+  
+  // Calculate hasData
+  let hasData = false;
+  if (varData) {
+    hasData = (
+      (varData.count && varData.count > 0) ||
+      (varData.frequencies && Object.keys(varData.frequencies || {}).length > 0) ||
+      (varData.values && Array.isArray(varData.values) && varData.values.length > 0)
+    );
+  }
+  
+  // Calculate hasPercentageError for single-select questions
+  let hasPercentageError = false;
+  if (hasData && varData && question.options && question.options.length > 0) {
+    // Check if this is a single-select question (has options with codes)
+    const hasCodes = question.options.some(opt => {
+      if (typeof opt === 'object' && opt.code) return true;
+      return false;
+    });
+    
+    if (hasCodes) {
+      // Extract codes from question options
+      const codes: Record<string, string> = {};
+      question.options.forEach(opt => {
+        if (typeof opt === 'object' && opt.code) {
+          codes[opt.code] = opt.text || '';
+        }
+      });
+      
+      if (Object.keys(codes).length > 0) {
+        // Use the same frequency generation logic as in Tabs.tsx
+        let frequencies = varData.frequencies;
+        if (!frequencies && varData.values && Array.isArray(varData.values)) {
+          frequencies = {};
+          varData.values.forEach((val: any) => {
+            const valStr = String(val).trim();
+            let matchedCode: string | null = null;
+            
+            if (codes[valStr]) {
+              matchedCode = valStr;
+            } else {
+              const numVal = /^\d+$/.test(valStr) ? parseInt(valStr, 10) : null;
+              if (numVal !== null) {
+                if (codes[String(numVal)]) {
+                  matchedCode = String(numVal);
+                } else if (codes[numVal]) {
+                  matchedCode = String(numVal);
+                }
+              }
+            }
+            
+            if (matchedCode) {
+              frequencies[matchedCode] = (frequencies[matchedCode] || 0) + 1;
+            } else {
+              frequencies[valStr] = (frequencies[valStr] || 0) + 1;
+            }
+          });
+        }
+        
+        if (frequencies) {
+          const total = varData.count || 0;
+          let totalPercentage = 0;
+          
+          const getCount = (code: string): number => {
+            let count = 0;
+            if (frequencies[code] !== undefined) {
+              count = frequencies[code];
+            } else {
+              const numericCode = /^\d+$/.test(code) ? parseInt(code, 10) : null;
+              if (numericCode !== null) {
+                if (frequencies[numericCode] !== undefined) {
+                  count = frequencies[numericCode];
+                } else if (frequencies[String(numericCode)] !== undefined) {
+                  count = frequencies[String(numericCode)];
+                }
+              }
+              if (count === 0) {
+                const codeWithoutPrefix = code.replace(/^[rc]/i, '');
+                if (frequencies[codeWithoutPrefix] !== undefined) {
+                  count = frequencies[codeWithoutPrefix];
+                } else if (/^\d+$/.test(codeWithoutPrefix)) {
+                  const num = parseInt(codeWithoutPrefix, 10);
+                  if (frequencies[num] !== undefined) {
+                    count = frequencies[num];
+                  }
+                }
+              }
+              if (count === 0 && !code.match(/^[rc]/i)) {
+                if (frequencies[`c${code}`] !== undefined) {
+                  count = frequencies[`c${code}`];
+                } else if (frequencies[`r${code}`] !== undefined) {
+                  count = frequencies[`r${code}`];
+                }
+              }
+            }
+            return count;
+          };
+          
+          Object.keys(codes).forEach((code) => {
+            const count = getCount(code);
+            const percentage = total > 0 ? (count / total) * 100 : 0;
+            totalPercentage += percentage;
+          });
+          
+          if (total > 0 && totalPercentage > 0 && Math.abs(totalPercentage - 100) > 0.1) {
+            hasPercentageError = true;
+          }
+        }
+      }
+    }
+  }
+
   return (
-    <div className="border border-gray-200 rounded-lg p-4 bg-white">
+    <div className="border border-gray-200 rounded-lg p-4 bg-white" data-question-number={question.number || `Q${index + 1}`}>
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm font-semibold text-gray-900">{question.number || `Q${index + 1}`}</span>
-          <span className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded">{question.type || 'other'}</span>
-          {/* Display metadata tags (Scale, %, Number) as pills */}
-          {question.tags && question.tags.filter(tag => 
-            tag === 'Scale' || tag === '%' || tag === 'Number'
-          ).map((tag, tagIndex) => (
-            <span
-              key={tagIndex}
-              className="text-xs px-2 py-1 rounded"
-              style={{ 
-                backgroundColor: BRAND_ORANGE, 
-                color: 'white' 
-              }}
-            >
-              {tag}
-            </span>
-          ))}
+          {hasPercentageError ? (
+            <InformationCircleIcon className="h-5 w-5 text-red-500 flex-shrink-0" title="Percentages don't sum to 100% - check response codes" />
+          ) : !hasData ? (
+            <InformationCircleIcon className="h-5 w-5 text-red-500 flex-shrink-0" title="No data available for this variable" />
+          ) : null}
           {question.needsReview && (
             <span className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded">Needs Review</span>
           )}
         </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Display metadata tags (Scale, %, Number) as pills - right aligned and grey */}
+          {question.tags && question.tags.filter(tag => 
+            (tag === 'Scale' || tag === '%' || tag === 'Number') &&
+            tag.toLowerCase() !== 'terminate' && tag.toLowerCase() !== 'specify'
+          ).map((tag, tagIndex) => (
+            <span
+              key={tagIndex}
+              className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded"
+            >
+              {tag}
+            </span>
+          ))}
+          {/* Question type pill - blue, right-aligned */}
+          <span className="text-xs px-2 py-1 rounded flex-shrink-0 bg-blue-100 text-blue-800" style={{ minWidth: '80px', textAlign: 'center' }}>
+            {question.type || 'other'}
+          </span>
         {canFlip && (
           <button
             onClick={handleFlipOptions}
@@ -899,6 +1196,7 @@ function QuestionBox({
             Flip Options
           </button>
         )}
+        </div>
       </div>
 
       <div className="mb-3">
@@ -908,7 +1206,107 @@ function QuestionBox({
       {/* Response Options */}
       {question.options && question.options.length > 0 && (
         <div className="mb-3">
-          <h4 className="text-xs font-medium text-gray-700 mb-2">Response Options:</h4>
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-xs font-medium text-gray-700">Response Options:</h4>
+            {!isEditingOptions && (
+              <button
+                onClick={handleStartEditOptions}
+                className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
+                title="Edit response codes"
+              >
+                <PencilIcon className="w-3 h-3" />
+                Edit
+              </button>
+            )}
+          </div>
+          {isEditingOptions ? (
+            <div className="space-y-2">
+              {(() => {
+                // Check for duplicate codes
+                const codes = editedOptions.map(opt => opt.code.trim().toLowerCase());
+                const duplicateCodes = new Set<string>();
+                codes.forEach((code, index) => {
+                  if (code && codes.indexOf(code) !== index) {
+                    duplicateCodes.add(code);
+                  }
+                });
+                
+                return (
+                  <>
+                    {editedOptions.map((opt, optIndex) => {
+                      const codeLower = opt.code.trim().toLowerCase();
+                      const isDuplicate = codeLower && duplicateCodes.has(codeLower);
+                      
+                      return (
+                        <div key={optIndex} className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={opt.code}
+                            onChange={(e) => {
+                              const updated = [...editedOptions];
+                              updated[optIndex] = { ...updated[optIndex], code: e.target.value };
+                              setEditedOptions(updated);
+                            }}
+                            className={`w-16 px-2 py-1 text-xs font-mono border rounded focus:outline-none focus:ring-2 ${
+                              isDuplicate 
+                                ? 'border-red-500 focus:ring-red-500' 
+                                : 'border-gray-300 focus:ring-orange-500'
+                            }`}
+                            placeholder="Code"
+                          />
+                          <input
+                            type="text"
+                            value={opt.text}
+                            onChange={(e) => {
+                              const updated = [...editedOptions];
+                              updated[optIndex] = { ...updated[optIndex], text: e.target.value };
+                              setEditedOptions(updated);
+                            }}
+                            className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-orange-500"
+                            placeholder="Text"
+                          />
+                        </div>
+                      );
+                    })}
+                    {duplicateCodes.size > 0 && (
+                      <p className="text-xs text-red-600 mt-1">
+                        Duplicate codes are not allowed. Please ensure each code is unique.
+                      </p>
+                    )}
+                  </>
+                );
+              })()}
+              <div className="flex items-center gap-2 mt-2">
+                {(() => {
+                  const codes = editedOptions.map(opt => opt.code.trim().toLowerCase());
+                  const duplicateCodes = codes.filter((code, index) => code && codes.indexOf(code) !== index);
+                  const hasDuplicates = duplicateCodes.length > 0;
+                  
+                  return (
+                    <button
+                      onClick={handleSaveOptions}
+                      disabled={hasDuplicates}
+                      className={`flex items-center gap-1 px-3 py-1 text-xs font-medium rounded transition-colors ${
+                        hasDuplicates
+                          ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
+                          : 'text-white bg-green-600 hover:bg-green-700'
+                      }`}
+                    >
+                      <CheckIcon className="w-3 h-3" />
+                      Save
+                    </button>
+                  );
+                })()}
+                <button
+                  onClick={handleCancelEditOptions}
+                  className="flex items-center gap-1 px-3 py-1 text-xs font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded transition-colors"
+                >
+                  <XMarkIcon className="w-3 h-3" />
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
           <div className="space-y-1">
             {question.options.map((option, optIndex) => {
               const opt = typeof option === 'string' 
@@ -934,6 +1332,7 @@ function QuestionBox({
               );
             })}
           </div>
+          )}
         </div>
       )}
 
@@ -942,7 +1341,109 @@ function QuestionBox({
        question.statementOptions && question.statementOptions.length > 0 && 
        question.responseOptions && question.responseOptions.length > 0 && (
         <div className="mb-3">
-          <h4 className="text-xs font-medium text-gray-700 mb-2">Grid Structure:</h4>
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-xs font-medium text-gray-700">Grid Structure:</h4>
+            {!isEditingResponseOptions && (
+              <button
+                onClick={handleStartEditResponseOptions}
+                className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
+                title="Edit response codes"
+              >
+                <PencilIcon className="w-3 h-3" />
+                Edit Response Codes
+              </button>
+            )}
+          </div>
+          {isEditingResponseOptions ? (
+            <div className="space-y-2 mb-3">
+              <div className="text-xs font-medium text-gray-700 mb-2">Response Options (Columns):</div>
+              {(() => {
+                // Check for duplicate codes
+                const codes = editedResponseOptions.map(opt => opt.code.trim().toLowerCase());
+                const duplicateCodes = new Set<string>();
+                codes.forEach((code, index) => {
+                  if (code && codes.indexOf(code) !== index) {
+                    duplicateCodes.add(code);
+                  }
+                });
+                
+                return (
+                  <>
+                    {editedResponseOptions.map((respOpt, respIndex) => {
+                      const codeLower = respOpt.code.trim().toLowerCase();
+                      const isDuplicate = codeLower && duplicateCodes.has(codeLower);
+                      
+                      return (
+                        <div key={respIndex} className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={respOpt.code}
+                            onChange={(e) => {
+                              const updated = [...editedResponseOptions];
+                              updated[respIndex] = { ...updated[respIndex], code: e.target.value };
+                              setEditedResponseOptions(updated);
+                            }}
+                            className={`w-16 px-2 py-1 text-xs font-mono border rounded focus:outline-none focus:ring-2 ${
+                              isDuplicate 
+                                ? 'border-red-500 focus:ring-red-500' 
+                                : 'border-gray-300 focus:ring-orange-500'
+                            }`}
+                            placeholder="Code"
+                          />
+                          <input
+                            type="text"
+                            value={respOpt.text}
+                            onChange={(e) => {
+                              const updated = [...editedResponseOptions];
+                              updated[respIndex] = { ...updated[respIndex], text: e.target.value };
+                              setEditedResponseOptions(updated);
+                            }}
+                            className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-orange-500"
+                            placeholder="Text"
+                          />
+                        </div>
+                      );
+                    })}
+                    {duplicateCodes.size > 0 && (
+                      <p className="text-xs text-red-600 mt-1">
+                        Duplicate codes are not allowed. Please ensure each code is unique.
+                      </p>
+                    )}
+                  </>
+                );
+              })()}
+              <div className="flex items-center gap-2 mt-2">
+                {(() => {
+                  const codes = editedResponseOptions.map(opt => opt.code.trim().toLowerCase());
+                  const duplicateCodes = codes.filter((code, index) => code && codes.indexOf(code) !== index);
+                  const hasDuplicates = duplicateCodes.length > 0;
+                  
+                  return (
+                    <button
+                      onClick={handleSaveResponseOptions}
+                      disabled={hasDuplicates}
+                      className={`flex items-center gap-1 px-3 py-1 text-xs font-medium rounded transition-colors ${
+                        hasDuplicates
+                          ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
+                          : 'text-white bg-green-600 hover:bg-green-700'
+                      }`}
+                    >
+                      <CheckIcon className="w-3 h-3" />
+                      Save
+                    </button>
+                  );
+                })()}
+                <button
+                  onClick={handleCancelEditResponseOptions}
+                  className="flex items-center gap-1 px-3 py-1 text-xs font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded transition-colors"
+                >
+                  <XMarkIcon className="w-3 h-3" />
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : null}
+          {!isEditingResponseOptions && (
           <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
@@ -993,6 +1494,7 @@ function QuestionBox({
               </table>
             </div>
           </div>
+          )}
         </div>
       )}
 
@@ -1027,7 +1529,107 @@ function QuestionBox({
       {question.responseOptions && question.responseOptions.length > 0 && 
        !(question.type?.toLowerCase().includes('numeric grid') && question.statementOptions && question.statementOptions.length > 0) && (
         <div className="mb-3">
-          <h4 className="text-xs font-medium text-gray-700 mb-2">Statements (Rows):</h4>
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-xs font-medium text-gray-700">Response Options (Columns):</h4>
+            {!isEditingResponseOptions && (
+              <button
+                onClick={handleStartEditResponseOptions}
+                className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
+                title="Edit response codes"
+              >
+                <PencilIcon className="w-3 h-3" />
+                Edit
+              </button>
+            )}
+          </div>
+          {isEditingResponseOptions ? (
+            <div className="space-y-2">
+              {(() => {
+                // Check for duplicate codes
+                const codes = editedResponseOptions.map(opt => opt.code.trim().toLowerCase());
+                const duplicateCodes = new Set<string>();
+                codes.forEach((code, index) => {
+                  if (code && codes.indexOf(code) !== index) {
+                    duplicateCodes.add(code);
+                  }
+                });
+                
+                return (
+                  <>
+                    {editedResponseOptions.map((respOpt, respIndex) => {
+                      const codeLower = respOpt.code.trim().toLowerCase();
+                      const isDuplicate = codeLower && duplicateCodes.has(codeLower);
+                      
+                      return (
+                        <div key={respIndex} className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={respOpt.code}
+                            onChange={(e) => {
+                              const updated = [...editedResponseOptions];
+                              updated[respIndex] = { ...updated[respIndex], code: e.target.value };
+                              setEditedResponseOptions(updated);
+                            }}
+                            className={`w-16 px-2 py-1 text-xs font-mono border rounded focus:outline-none focus:ring-2 ${
+                              isDuplicate 
+                                ? 'border-red-500 focus:ring-red-500' 
+                                : 'border-gray-300 focus:ring-orange-500'
+                            }`}
+                            placeholder="Code"
+                          />
+                          <input
+                            type="text"
+                            value={respOpt.text}
+                            onChange={(e) => {
+                              const updated = [...editedResponseOptions];
+                              updated[respIndex] = { ...updated[respIndex], text: e.target.value };
+                              setEditedResponseOptions(updated);
+                            }}
+                            className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-orange-500"
+                            placeholder="Text"
+                          />
+                        </div>
+                      );
+                    })}
+                    {duplicateCodes.size > 0 && (
+                      <p className="text-xs text-red-600 mt-1">
+                        Duplicate codes are not allowed. Please ensure each code is unique.
+                      </p>
+                    )}
+                  </>
+                );
+              })()}
+              <div className="flex items-center gap-2 mt-2">
+                {(() => {
+                  const codes = editedResponseOptions.map(opt => opt.code.trim().toLowerCase());
+                  const duplicateCodes = codes.filter((code, index) => code && codes.indexOf(code) !== index);
+                  const hasDuplicates = duplicateCodes.length > 0;
+                  
+                  return (
+                    <button
+                      onClick={handleSaveResponseOptions}
+                      disabled={hasDuplicates}
+                      className={`flex items-center gap-1 px-3 py-1 text-xs font-medium rounded transition-colors ${
+                        hasDuplicates
+                          ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
+                          : 'text-white bg-green-600 hover:bg-green-700'
+                      }`}
+                    >
+                      <CheckIcon className="w-3 h-3" />
+                      Save
+                    </button>
+                  );
+                })()}
+                <button
+                  onClick={handleCancelEditResponseOptions}
+                  className="flex items-center gap-1 px-3 py-1 text-xs font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded transition-colors"
+                >
+                  <XMarkIcon className="w-3 h-3" />
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
           <div className="space-y-1">
             {question.responseOptions.map((resp, respIndex) => {
               const respOpt = typeof resp === 'string' 
@@ -1041,6 +1643,7 @@ function QuestionBox({
               );
             })}
           </div>
+          )}
         </div>
       )}
 

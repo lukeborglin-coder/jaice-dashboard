@@ -1538,7 +1538,15 @@ Provide 3-7 relevant response options that would be appropriate for this questio
 // POST /api/questionnaire/map-columns - AI mapping of variable names to data file column headers
 router.post('/map-columns', async (req, res) => {
   try {
-    const { variableNames, dataHeaders, dataMapHeaders, questionnaireId } = req.body;
+    const { variableNames, variables, dataHeaders, dataMapHeaders, questionnaireId } = req.body;
+    
+    // Create a map of variable name to type for easy lookup
+    const variableTypeMap = {};
+    if (variables && Array.isArray(variables)) {
+      variables.forEach(v => {
+        variableTypeMap[v.name] = v.type || 'Unknown';
+      });
+    }
     
     if (!variableNames || !Array.isArray(variableNames) || variableNames.length === 0) {
       return res.status(400).json({ error: 'Variable names are required' });
@@ -1550,37 +1558,108 @@ router.post('/map-columns', async (req, res) => {
     
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     
-    const systemPrompt = `You are an expert at matching survey variable names with data file column headers. Your task is to match variable names (like S1, S2, C1_r1, etc.) with the corresponding column headers from a data file.
+    const systemPrompt = `You are an expert at matching survey variable names with data file column headers. Your task is to match variable names with the corresponding column headers from a data file.
 
-Variable naming conventions:
-- Simple variables: S1, S2, Q1, A1, etc.
-- Grid variables: C1_r1 (question C1, row 1), C1_r2 (question C1, row 2), etc.
-- Grid variables with columns: C1_r1c1, C1_r1c2 (question C1, row 1, column 1/2), etc.
-- Multi-select variables: QS3r1, QS3r2 (question QS3, option 1/2), etc.
+VARIABLE NAMING CONVENTIONS:
+1. Simple variables: S1, S2, Q1, A1, etc. (question number only)
+2. Numeric grid cell variables: S11r1c1, S11r2c1, S14r1c3 (format: {question}r{row}c{column})
+   - Example: S11r1c1 = question S11, row 1, column 1
+   - Also may appear as: S11_r1_c1, S11r1_c1, S11_r1c1, S11c1r1 (column-first format)
+3. Numeric grid column variables: S11_c1, S11_c2 (format: {question}_{column})
+4. Grid row variables: C1_r1, C1_r2 (format: {question}_r{row})
+5. Multi-select response variables: B8r1, B8r2, D1Ar1 (format: {question}r{option})
+   - Example: B8r1 = question B8, response option 1
+6. Open End variables: Freeform text responses - these should ALWAYS be mapped if a matching column exists
+   - Open ends may have column headers like "Q1", "QS1 - Question text", or just the question number
+   - These contain full text responses and should be mapped to show frequency tables
+7. Summary table variables: S11_c1_Mean Summary (these are COMPUTED - skip them, do not map)
 
-Column headers in data files may:
-- Match exactly: "S1" matches variable "S1"
-- Start with the variable name followed by question text: "QS1 - Which of the following best describes your primary medical specialty?" matches variable "QS1" or "S1"
-- Have prefixes/suffixes: "Q1_1", "Q1_2" might match "Q1" with sub-options
-- Use different formats: "S1r1", "S1_r1", "S1-r1" all match "S1_r1"
-- Be in a data map sheet with different formats
+COLUMN HEADER FORMATS IN DATA FILES:
+- Exact match: "S1" matches variable "S1"
+- With Q prefix: "QS1" or "QA7" matches "S1" or "A7"
+- With question text: "QS1 - Which of the following..." matches "S1" or "QS1"
+- With underscores/dashes: "S1_r1", "S1-r1", "S1r1" all match "S1_r1"
+- Numeric grid cells: "S11r1c1", "S11_r1_c1", "S11c1r1" all match "S11r1c1"
+- Multi-select: "B8r1", "B8_r1", "B8-1" all match "B8r1"
 
-CRITICAL MATCHING RULES:
-1. If a variable is "S1" and you see a column header like "QS1 - Which of the following...", match "S1" to "QS1 - Which of the following..." (the full header)
-2. If a variable is "S4_c1" and you see "QS4 - Amyotrophic Lateral Sclerosis (ALS)", match "S4_c1" to "QS4 - Amyotrophic Lateral Sclerosis (ALS)" (the full header)
-3. Always return the COMPLETE column header text as it appears in the data file, not just the prefix
-4. For grid variables, match to the specific column that contains data for that grid cell
-5. Prioritize exact prefix matches (e.g., "S1" matches columns starting with "S1" or "QS1")
+CRITICAL MATCHING RULES (BE AGGRESSIVE - MATCH WHENEVER POSSIBLE):
+1. For simple variables (S1, A7, etc.):
+   - Match to columns starting with the variable name OR with "Q" + variable name
+   - Example: "A7" matches "QA7", "QA7 - Question text", "A7", "A7 - Question text"
+   - Extract the FULL column header text, not just the prefix
 
-Your goal is to create the most accurate mapping possible, matching each variable name to the most likely column header(s).`;
+2. For numeric grid cell variables (S11r1c1):
+   - Match to columns with the same pattern: "S11r1c1", "S11_r1_c1", "S11c1r1", "S11_c1_r1"
+   - Handle both row-first (r1c1) and column-first (c1r1) formats
+   - Match flexibly: underscores, dashes, or no separators
+
+3. For numeric grid column variables (S11_c1):
+   - Match to columns like "QS11 - Column 1 text" or "S11_c1" or "S11c1"
+   - These represent aggregated columns for a specific response option
+
+4. For multi-select response variables (B8r1, B8r2):
+   - Match to columns like "B8r1", "B8_r1", "B8-1", "QB8r1", "QB8 - Option 1"
+   - These are binary (0/1) variables for each response option
+
+5. SKIP these variables (do not map):
+   - Variables ending with "_Mean Summary" or "Summary" (computed variables)
+   - Variables that are clearly derived/computed
+
+6. MATCHING STRATEGY:
+   - Be FLEXIBLE with separators (underscores, dashes, no separator)
+   - Be FLEXIBLE with case (case-insensitive matching)
+   - Handle Q prefix variations (QS1 = S1, QA7 = A7)
+   - For partial matches, prefer the most specific match
+   - If multiple columns match, choose the one that's most specific to the variable
+
+7. ALWAYS return the COMPLETE column header text exactly as it appears in the data headers list
+
+Your goal is to maximize matches - be aggressive and match whenever there's a reasonable connection between the variable name and column header.`;
 
     // Log what we're sending to AI for debugging
     console.log(`📤 Sending ${variableNames.length} variables to AI for mapping against ${dataHeaders.length} data headers`);
+    
+    // Get sample variable names and headers for examples
+    const sampleVariables = variableNames.slice(0, 20);
+    const sampleHeaders = dataHeaders.slice(0, 30);
+    
+    // Try to find some example matches to show the AI
+    const exampleMatches = [];
+    sampleVariables.forEach(varName => {
+      // Try to find a matching header
+      const varLower = varName.toLowerCase();
+      const matchingHeader = dataHeaders.find(h => {
+        const hLower = h.toLowerCase();
+        // Check various patterns
+        return hLower === varLower ||
+               hLower.startsWith(varLower) ||
+               hLower.startsWith('q' + varLower) ||
+               hLower.includes(varLower) ||
+               (varLower.match(/^[a-z]\d+$/) && hLower.startsWith('q' + varLower));
+      });
+      if (matchingHeader && exampleMatches.length < 5) {
+        exampleMatches.push({ variable: varName, header: matchingHeader });
+      }
+    });
+
+    // Format variables with their types for the prompt
+    const variablesWithTypes = variableNames.map((name, i) => {
+      const varType = variableTypeMap[name] || 'Unknown';
+      return `${i + 1}. ${name} (Type: ${varType})`;
+    }).join('\n');
+    
+    // Count open ends
+    const openEndCount = Object.values(variableTypeMap).filter(t => 
+      typeof t === 'string' && t.toLowerCase().includes('open end')
+    ).length;
 
     const userPrompt = `Please match the following variable names with the column headers from the data file.
 
-Variable Names (${variableNames.length} total):
-${variableNames.map((v, i) => `${i + 1}. ${v}`).join('\n')}
+${exampleMatches.length > 0 ? `EXAMPLE MATCHES (use these as a guide for matching patterns):
+${exampleMatches.map((ex, i) => `${i + 1}. Variable "${ex.variable}" → Column "${ex.header}"`).join('\n')}
+
+` : ''}Variable Names with Types (${variableNames.length} total${openEndCount > 0 ? `, ${openEndCount} Open End variables` : ''}):
+${variablesWithTypes}
 
 Data Headers (from first sheet, ${dataHeaders.length} total):
 ${dataHeaders.map((h, i) => `${i + 1}. ${h}`).join('\n')}
@@ -1588,13 +1667,48 @@ ${dataHeaders.map((h, i) => `${i + 1}. ${h}`).join('\n')}
 ${dataMapHeaders && dataMapHeaders.length > 0 ? `Data Map Headers (from data map sheet, ${dataMapHeaders.length} total):
 ${dataMapHeaders.map((h, i) => `${i + 1}. ${h}`).join('\n')}` : ''}
 
-IMPORTANT MATCHING INSTRUCTIONS:
-- If variable "S1" exists and you see column "QS1 - Which of the following best describes your primary medical specialty?", map "S1" to the FULL column header: "QS1 - Which of the following best describes your primary medical specialty?"
-- If variable "S4_c1" exists and you see "QS4 - Amyotrophic Lateral Sclerosis (ALS)", map "S4_c1" to "QS4 - Amyotrophic Lateral Sclerosis (ALS)"
-- Always return the COMPLETE column header text exactly as it appears in the data headers list above
-- For grid variables (e.g., "S4_r1", "S4_c1"), find the specific column that contains data for that grid cell
-- If a variable name starts with a letter+number (e.g., "S1"), look for columns that start with that same pattern (e.g., "QS1", "S1", "Q1_S1")
-- If no clear match exists, use an empty string ""
+IMPORTANT MATCHING INSTRUCTIONS (BE AGGRESSIVE - MATCH WHENEVER POSSIBLE):
+
+1. SIMPLE VARIABLES (S1, A7, Q1, etc.):
+   - Match to columns starting with the variable name OR "Q" + variable name
+   - Examples:
+     * Variable "A7" → Match "QA7", "QA7 - Question text", "A7", "A7 - Question text"
+     * Variable "S1" → Match "QS1", "QS1 - Question text", "S1", "S1 - Question text"
+   - Always return the COMPLETE column header text
+
+2. NUMERIC GRID CELL VARIABLES (S11r1c1, S14r2c3):
+   - Match flexibly: "S11r1c1", "S11_r1_c1", "S11r1_c1", "S11_r1c1"
+   - Also handle column-first format: "S11c1r1", "S11_c1_r1", "S11c1_r1"
+   - Match to the exact column that contains data for that specific cell
+
+3. NUMERIC GRID COLUMN VARIABLES (S11_c1, S11_c2):
+   - Match to columns like "QS11 - Column text", "S11_c1", "S11c1", "S11 - Column 1"
+   - These represent columns for a specific response option/column
+
+4. MULTI-SELECT RESPONSE VARIABLES (B8r1, B8r2, D1Ar1):
+   - Match to columns like "B8r1", "B8_r1", "B8-1", "QB8r1", "QB8 - Option 1 text"
+   - These are binary variables (0/1) for each response option
+
+5. OPEN END VARIABLES (Type: "Open End"):
+   - CRITICAL: Open End variables MUST be mapped if a matching column exists
+   - These contain freeform text responses and need to show frequency tables
+   - Match to columns like "Q1", "QS1", "QS1 - Question text", or just the question number
+   - Open ends may have simple column headers without response codes
+   - Be especially aggressive in matching Open End variables - they are important for analysis
+   - Example: Variable "Q1" (Type: Open End) → Match "Q1", "QS1", "QS1 - Please describe..."
+
+6. SKIP (do not map):
+   - Variables ending with "_Mean Summary" or containing "Summary" (computed variables)
+   - Return empty string "" for these
+
+7. MATCHING FLEXIBILITY:
+   - Ignore case differences (A7 = a7 = A7)
+   - Ignore separator differences (S11r1c1 = S11_r1_c1 = S11-r1-c1)
+   - Handle Q prefix (QS1 = S1, QA7 = A7)
+   - For partial matches, choose the most specific match
+   - If you find ANY reasonable match, use it - be aggressive!
+
+7. If NO clear match exists after trying all patterns, use an empty string ""
 
 Return a JSON object with this structure:
 {

@@ -242,65 +242,82 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ parsedFile, editingGroup,
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="flex flex-wrap gap-2">
                     {subGroup.cuts.map((cut, cutIndex) => {
                       const selectedVariable = categoricalVariables.find(v => v.name === cut.variableName);
                       const availableCodes = selectedVariable ? Object.keys(selectedVariable.codes) : [];
 
                       return (
-                        <div key={cut.id} className="border border-gray-200 rounded-lg p-2 space-y-2 bg-white">
-                          <div className="flex items-center justify-between">
-                            <h5 className="text-xs font-medium text-gray-900">Cut {cutIndex + 1}</h5>
-                            {subGroup.cuts.length > 2 && (
+                        <div key={cut.id} className="border border-gray-200 rounded-lg p-2 space-y-2 bg-white w-fit">
+                          {subGroup.cuts.length > 2 && (
+                            <div className="flex justify-end">
                               <button
                                 onClick={() => removeCut(subGroup.id, cut.id)}
                                 className="text-red-600 hover:text-red-800 p-0.5 rounded"
                               >
                                 <TrashIcon className="h-3 w-3" />
                               </button>
-                            )}
-                          </div>
+                            </div>
+                          )}
 
                           {/* Cut Title */}
                           <div>
                             <label className="block text-xs font-medium text-gray-700 mb-0.5">
-                              Cut Title <span className="text-red-500">*</span>
+                              Title <span className="text-red-500">*</span>
                             </label>
                             <input
                               type="text"
                               value={cut.title}
                               onChange={(e) => updateCut(subGroup.id, cut.id, { title: e.target.value })}
                               placeholder="Enter cut title..."
-                              className="w-full border border-gray-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-orange-500"
+                              className="border border-gray-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-orange-500"
+                              style={{ width: '250px' }}
                             />
                           </div>
 
                           {/* Variable Selection */}
-                          <div>
+                          <div className="w-full min-w-0">
                             <label className="block text-xs font-medium text-gray-700 mb-0.5">
                               Variable <span className="text-red-500">*</span>
                             </label>
                             <select
                               value={cut.variableName}
                               onChange={(e) => handleVariableChange(subGroup.id, cut.id, e.target.value)}
-                              className="w-full border border-gray-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-orange-500"
+                              className="border border-gray-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-orange-500"
+                              style={{ 
+                                width: '250px',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}
                             >
                               <option value="">Select a variable...</option>
-                              {categoricalVariables.map(variable => (
-                                <option key={variable.name} value={variable.name}>
-                                  {variable.name} - {variable.description.substring(0, 40)}...
-                                </option>
-                              ))}
+                              {categoricalVariables.map(variable => {
+                                const fullText = `${variable.name} - ${variable.description}`;
+                                // Truncate to ~30 characters to fit within 250px dropdown width
+                                const displayText = fullText.length > 30 
+                                  ? fullText.substring(0, 27) + '...' 
+                                  : fullText;
+                                return (
+                                  <option 
+                                    key={variable.name} 
+                                    value={variable.name}
+                                    title={fullText}
+                                  >
+                                    {displayText}
+                                  </option>
+                                );
+                              })}
                             </select>
                           </div>
 
                           {/* Code Selection */}
                           {selectedVariable && availableCodes.length > 0 && (
-                            <div className="max-h-32 overflow-y-auto">
+                            <div>
                               <label className="block text-xs font-medium text-gray-700 mb-0.5">
                                 Codes <span className="text-red-500">*</span>
                               </label>
-                              <div className="border border-gray-200 rounded-md p-1.5">
+                              <div className="border border-gray-200 rounded-md p-1.5 max-h-32 overflow-y-auto">
                                 <div className="space-y-0.5">
                                   {availableCodes.map(code => (
                                     <label

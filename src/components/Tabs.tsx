@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ArrowLeftIcon,
   MagnifyingGlassIcon,
@@ -7,12 +8,17 @@ import {
   TrashIcon,
   XMarkIcon,
   InformationCircleIcon,
+  PlusCircleIcon,
 } from '@heroicons/react/24/outline';
 import { IconTable } from '@tabler/icons-react';
 import { API_BASE_URL } from '../config';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
+import { type BannerGroup, type BannerCut } from '../types/dataTabulation';
+import BannerBuilder from './BannerBuilder';
+import CrossTabDisplay from './CrossTabDisplay';
+import { parseDataFile, type ParsedDataFile } from '../utils/dataTabulationParser';
 
 const BRAND_ORANGE = '#D14A2D';
 const BRAND_BG = '#F7F7F8';
@@ -96,7 +102,48 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
   const [customNetsMode, setCustomNetsMode] = useState<Record<string, boolean>>({});
   const [variableFilter, setVariableFilter] = useState('');
   const [allQuestionnaires, setAllQuestionnaires] = useState<any[]>([]);
-  const [qnrViewMode, setQnrViewMode] = useState<'variables' | 'data'>('variables');
+  const [qnrViewMode, setQnrViewMode] = useState<'variables' | 'banners' | 'data'>('variables');
+  const [bannerGroups, setBannerGroups] = useState<BannerGroup[]>([]);
+  const [showBannerBuilder, setShowBannerBuilder] = useState(false);
+  const [editingBannerGroup, setEditingBannerGroup] = useState<BannerGroup | null>(null);
+  const [selectedBannerGroupId, setSelectedBannerGroupId] = useState<string | null>(null);
+  const [selectedStubVariables, setSelectedStubVariables] = useState<Record<string, string>>({});
+  const [parsedFile, setParsedFile] = useState<ParsedDataFile | null>(null);
+
+  // Load banner groups from localStorage when questionnaire changes
+  useEffect(() => {
+    if (selectedQuestionnaire?.id) {
+      const key = `bannerGroups_${selectedQuestionnaire.id}`;
+      const stored = localStorage.getItem(key);
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          setBannerGroups(parsed.groups || []);
+          setSelectedStubVariables(parsed.selectedStubVariables || {});
+        } catch (e) {
+          console.error('Error loading banner groups:', e);
+        }
+      } else {
+        setBannerGroups([]);
+        setSelectedStubVariables({});
+      }
+    } else {
+      setBannerGroups([]);
+      setSelectedStubVariables({});
+    }
+  }, [selectedQuestionnaire?.id]);
+
+  // Save banner groups to localStorage when they change
+  useEffect(() => {
+    if (selectedQuestionnaire?.id && (bannerGroups.length > 0 || Object.keys(selectedStubVariables).length > 0)) {
+      const key = `bannerGroups_${selectedQuestionnaire.id}`;
+      const data = {
+        groups: bannerGroups,
+        selectedStubVariables: selectedStubVariables
+      };
+      localStorage.setItem(key, JSON.stringify(data));
+    }
+  }, [bannerGroups, selectedStubVariables, selectedQuestionnaire?.id]);
   const [dataFile, setDataFile] = useState<File | null>(null);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [dataUploadSuccess, setDataUploadSuccess] = useState(false);
@@ -109,7 +156,19 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
   } | null>(null);
   const [mappingVariables, setMappingVariables] = useState(false);
   const [columnMapping, setColumnMapping] = useState<Record<string, string>>({});
+  const [columnHeaderSearch, setColumnHeaderSearch] = useState('');
+  const [qnrVariableSearch, setQnrVariableSearch] = useState('');
+  const [showMappingModal, setShowMappingModal] = useState(false);
+  const [selectedColumnHeader, setSelectedColumnHeader] = useState<string | null>(null);
+  const [selectedVariableForMapping, setSelectedVariableForMapping] = useState<string>('');
   const [uploadingData, setUploadingData] = useState(false);
+  const [showQuestionModal, setShowQuestionModal] = useState(false);
+  const [showColumnHeaderModal, setShowColumnHeaderModal] = useState(false);
+  const [selectedQuestionForMapping, setSelectedQuestionForMapping] = useState<string | null>(null);
+  const [columnHeaderModalSearch, setColumnHeaderModalSearch] = useState('');
+  const [loadingQuestion, setLoadingQuestion] = useState(false);
+  const [questionData, setQuestionData] = useState<any>(null);
+  const [loadingQnrNavigation, setLoadingQnrNavigation] = useState(false);
   const [dataUploaded, setDataUploaded] = useState(false);
 
   // Parse file headers locally
@@ -240,6 +299,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
     [archivedProjects]
   );
 
+
   const filterProjectsByUser = useCallback(
     (list: any[]) => {
       if (!showMyProjectsOnly || !user) return list;
@@ -302,6 +362,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
       const questionNumber = question.number || question.id;
       const questionType = question.type || '';
       const isNumericGrid = questionType.toLowerCase().includes('numeric grid');
+      const isNumericList = questionType.toLowerCase().includes('numeric list');
       const isSingleSelectGrid = questionType.toLowerCase().includes('single select grid');
       const isMultiSelectGrid = questionType.toLowerCase().includes('multi-select grid');
       const isGrid = isNumericGrid || isSingleSelectGrid || isMultiSelectGrid;
@@ -406,7 +467,8 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
         });
       }
       
-      // For numeric grids: mean summary table first, then main grid (if has responseOptions), then individual column variables (if has columns) or statement variables (if no columns)
+      // For numeric grids: only individual column variables (if has columns) or statement variables (if no columns)
+      // Note: Mean summary table and main grid variable are not shown for numeric grids - only individual tables as variables
       if (isNumericGrid && statements && Object.keys(statements).length > 0) {
         // Debug logging for numeric grids
         if (questionNumber === 'S14' || questionNumber.includes('S14')) {
@@ -421,58 +483,48 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
           });
         }
         
-        // Mean summary table first - shows means for each statement
-        vars.push({
-          name: `${questionNumber}_Mean Summary`,
-          description: question.text || '',
-          type: questionType,
-          statements: statements,
-          tags: question.tags || [],
-          isSummaryTable: true,
-          isScaleSummary: false
-        });
-        
-        // If numeric grid has responseOptions (columns), create main grid variable to show both statements and response options
-        if (codes && Object.keys(codes).length > 0) {
-          console.log(`✅ Creating main grid variable for ${questionNumber} with both statements and codes:`, {
-            statementsCount: Object.keys(statements).length,
-            codesCount: Object.keys(codes).length,
-            statements: statements,
-            codes: codes
-          });
-          vars.push({
-            name: questionNumber,
-            description: question.text || '',
-            type: questionType,
-            statements: statements,
-            codes: codes,
-            tags: question.tags || [],
-            isSummaryTable: false,
-            isScaleSummary: false
-          });
-        } else {
-          // Debug: If no codes but we expect them for numeric grids, log it
-          console.warn(`⚠️ Numeric Grid ${questionNumber} has no responseOptions/codes. Only statements found.`, {
-            question: question,
-            statements: statements,
-            codes: codes,
-            statementOptions: question.statementOptions,
-            responseOptions: question.responseOptions,
-            options: question.options
-          });
-        }
-        
         processedQuestionNumbers.add(questionNumber);
         
-        // For numeric grids with responseOptions (columns), create individual variables for each column
+        // For numeric grids with responseOptions (columns), create individual cell variables for each row/column combination
+        // Format: {questionNumber}{rowCode}{columnCode} e.g., S11r1c1, S11r2c1, etc.
         // For numeric grids without responseOptions, create individual variables for each statement (row)
         if (codes && Object.keys(codes).length > 0) {
-          // Create individual variables for each column (response option)
+          // Create summary table variables for each column (one per column) - FIRST, before individual variables
+          Object.entries(codes).forEach(([responseCode, responseText]) => {
+            const summaryTableVarName = `${questionNumber}_${responseCode}_Summary`;
+            vars.push({
+              name: summaryTableVarName,
+              description: `${question.text || questionNumber}\n${responseText} - Summary`,
+              type: 'Numeric Grid',
+              statements: statements, // Rows (statements) for this column summary
+              tags: question.tags || [],
+              isSummaryTable: true,
+              isScaleSummary: false
+            });
+          });
+          
+          // Create cell variables for each combination of row (statement) and column (response option)
+          Object.entries(statements).forEach(([stmtCode, stmtText]) => {
+            Object.entries(codes).forEach(([responseCode, responseText]) => {
+              // Format: S11r1c1 (row first, then column)
+              const cellVarName = `${questionNumber}${stmtCode}${responseCode}`;
+              vars.push({
+                name: cellVarName,
+                description: `${question.text || questionNumber}\n${stmtText} - ${responseText}`,
+                type: 'Numeric',
+                tags: question.tags || [],
+                isSummaryTable: false,
+                isScaleSummary: false
+              });
+            });
+          });
+          
+          // Also create column variables for backward compatibility and summary tables
           Object.entries(codes).forEach(([responseCode, responseText]) => {
             const columnVarName = `${questionNumber}_${responseCode}`;
             vars.push({
               name: columnVarName,
-              description: `${question.text || questionNumber} - ${responseText}`,
+              description: `${question.text || questionNumber}\n${responseText}`,
               type: 'Numeric',
               tags: question.tags || [],
               isSummaryTable: false,
@@ -485,7 +537,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
             const statementVarName = `${questionNumber}_${stmtCode}`;
             vars.push({
               name: statementVarName,
-              description: `${question.text || questionNumber} - ${stmtText}`,
+              description: `${question.text || questionNumber}\n${stmtText}`,
               type: 'Numeric',
               tags: question.tags || [],
               isSummaryTable: false,
@@ -570,7 +622,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
           const statementVarName = `${questionNumber}_${stmtCode}`;
           vars.push({
             name: statementVarName,
-            description: `${question.text || questionNumber} - ${stmtText}`,
+            description: `${question.text || questionNumber}\n${stmtText}`,
             type: isSingleSelectGrid ? 'Single Select' : 'Multi-Select',
             codes: codes,
             tags: question.tags || [],
@@ -600,7 +652,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
           const statementVarName = `${questionNumber}_${stmtCode}`;
           vars.push({
             name: statementVarName,
-            description: `${question.text || questionNumber} - ${stmtText}`,
+            description: `${question.text || questionNumber}\n${stmtText}`,
             type: 'Single Select',
             codes: codes,
             tags: question.tags || [],
@@ -640,9 +692,62 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
             isScaleSummary: false
           });
         });
+      }
+      // For numeric list questions: create individual variables for each option
+      else if (isNumericList && codes && Object.keys(codes).length > 0) {
+        processedQuestionNumbers.add(questionNumber);
+        
+        // Create individual variables for each option
+        Object.entries(codes).forEach(([optionCode, optionText]) => {
+          const optionVarName = `${questionNumber}_${optionCode}`;
+          vars.push({
+            name: optionVarName,
+            description: `${question.text || questionNumber}\n${optionText}`,
+            type: 'Numeric',
+            tags: question.tags || [],
+            isSummaryTable: false,
+            isScaleSummary: false
+          });
+        });
       } 
       // Regular questions (non-grid)
       else {
+        const isMultiSelect = questionType.toLowerCase().includes('multi-select');
+        
+        if (isMultiSelect && codes && Object.keys(codes).length > 0) {
+          // For multiselect questions, create individual variables for each response option
+          console.log(`[Multiselect ${questionNumber}] Creating response variables:`, {
+            codes: Object.keys(codes),
+            codesObject: codes,
+            questionType
+          });
+          Object.entries(codes).forEach(([optionCode, optionText]) => {
+            // Extract the numeric part from the code (handles "1", "c1", "c01", etc.)
+            // The code number should match the response number in the variable name
+            let optionNumber = optionCode;
+            // Remove 'c' prefix if present
+            if (optionCode.toLowerCase().startsWith('c')) {
+              optionNumber = optionCode.substring(1);
+            }
+            // Remove leading zeros
+            optionNumber = String(parseInt(optionNumber, 10));
+            
+            // Use 'r' prefix for multiselect response options (e.g., B8r1, B8r2)
+            const responseVarName = `${questionNumber}r${optionNumber}`;
+            console.log(`[Multiselect ${questionNumber}] Creating variable: ${responseVarName} from code ${optionCode}`);
+            vars.push({
+              name: responseVarName,
+              description: `${question.text || questionNumber} - ${optionText}`,
+              type: 'Multi-Select',
+              codes: { '0': 'Not Selected', '1': 'Selected' }, // Binary codes for multiselect options
+              tags: question.tags || [],
+              isSummaryTable: false,
+              isScaleSummary: false
+            });
+          });
+        } else if (isMultiSelect) {
+          console.warn(`[Multiselect ${questionNumber}] No codes found, creating main variable instead. Codes:`, codes);
+          // Fallback: if no codes, create main variable
         vars.push({
                     name: questionNumber,
           description: question.text || '',
@@ -652,6 +757,18 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
           isSummaryTable: false,
           isScaleSummary: false
         });
+        } else {
+          // For non-multiselect questions, create the main variable
+          vars.push({
+            name: questionNumber,
+            description: question.text || '',
+            type: questionType,
+            codes: codes,
+            tags: question.tags || [],
+            isSummaryTable: false,
+            isScaleSummary: false
+          });
+        }
         processedQuestionNumbers.add(questionNumber);
       }
     });
@@ -665,6 +782,29 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
         const [baseVar] = varName.split('_');
         if (processedQuestionNumbers.has(baseVar)) {
           return; // Already processed as part of a grid
+        }
+      }
+      
+      // Skip if it's a multiselect response variable (already added above as broken out variables)
+      // Check for pattern like B8r1, B8r2, etc.
+      const multiselectMatch = varName.match(/^(.+?)r\d+$/i);
+      if (multiselectMatch) {
+        const baseQuestion = multiselectMatch[1];
+        if (processedQuestionNumbers.has(baseQuestion)) {
+          return; // Already processed as multiselect response variables
+        }
+      }
+      
+      // Skip if the variable name matches a processed question number (for multiselect questions)
+      // This prevents adding B8 if we've already created B8r1, B8r2, etc.
+      if (processedQuestionNumbers.has(varName)) {
+        // Check if we've created response variables for this question
+        const hasResponseVars = vars.some(v => {
+          const responseMatch = v.name.match(/^(.+?)r\d+$/i);
+          return responseMatch && responseMatch[1] === varName;
+        });
+        if (hasResponseVars) {
+          return; // Skip the main variable if we have response variables
         }
       }
       
@@ -942,17 +1082,182 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
 
   // Filter variables
   const filteredVariables = useMemo(() => {
-    if (!variableFilter) return variables;
+    // First, identify multiselect response variables and group them by base question
+    const multiselectResponseVars = new Set<string>();
+    const multiselectBaseQuestions = new Map<string, Variable>(); // baseQuestion -> first response variable (for metadata)
+    
+    variables.forEach(v => {
+      const match = v.name.match(/^(.+?)r(\d+)$/i);
+      if (match && v.type?.toLowerCase().includes('multi-select')) {
+        const baseQuestion = match[1];
+        multiselectResponseVars.add(v.name);
+        if (!multiselectBaseQuestions.has(baseQuestion)) {
+          // Store the first response variable to get metadata
+          multiselectBaseQuestions.set(baseQuestion, v);
+        }
+      }
+    });
+    
+    // Filter out multiselect response variables and add base question variables
+    let filtered = variables.filter(v => {
+      // Exclude multiselect response variables (B8r1, B8r2, etc.)
+      if (multiselectResponseVars.has(v.name)) {
+        return false;
+      }
+      return true;
+    });
+    
+    // Add synthetic base question variables for multiselect questions
+    multiselectBaseQuestions.forEach((firstRespVar, baseQuestion) => {
+      // Check if base question variable already exists (it shouldn't for multiselects)
+      const baseExists = filtered.some(v => v.name === baseQuestion);
+      if (!baseExists) {
+        // Create a synthetic variable for the base question
+        // Use the question text from the first response variable's description
+        const description = firstRespVar.description?.split(' - ')[0] || baseQuestion;
+        filtered.push({
+          name: baseQuestion,
+          description: description,
+          type: 'Multi-Select',
+          codes: { '0': 'Not Selected', '1': 'Selected' }, // Binary codes for multiselect options
+          tags: firstRespVar.tags || [],
+          isSummaryTable: false,
+          isScaleSummary: false
+        });
+      }
+    });
+    
+    // Filter out numeric grid column variables (e.g., S4_c1) if there's a mean summary table for them
+    // This prevents showing redundant column variable tables when mean summary tables exist
+    filtered = filtered.filter(v => {
+      // Check if this is a numeric grid column variable (pattern: {questionNumber}_c{number})
+      if (v.type?.toLowerCase().includes('numeric') && !v.type?.toLowerCase().includes('grid')) {
+        const columnMatch = v.name.match(/^([A-Z0-9]+)_(c\d+)$/i);
+        if (columnMatch) {
+          const baseName = columnMatch[1];
+          const columnCode = columnMatch[2]; // e.g., "c1"
+          const meanSummaryTableName = `${baseName}_${columnCode}_Summary`;
+          
+          // Check if there's a mean summary table for this column
+          const hasMeanSummaryTable = variables.some((otherV: any) => 
+            otherV.name === meanSummaryTableName && (otherV as any).isSummaryTable
+          );
+          
+          // Exclude this column variable if a mean summary table exists
+          if (hasMeanSummaryTable) {
+            return false;
+          }
+        }
+      }
+      return true;
+    });
+    
+    // Filter out individual cell variables (e.g., S4r1c1, S4r2c1) if there's a summary table for that column
+    // This prevents showing redundant individual cell tables when summary tables exist
+    filtered = filtered.filter(v => {
+      // Check if this is a numeric cell variable (pattern: {baseName}{rowCode}{columnCode} like S4r1c1)
+      if (v.type?.toLowerCase().includes('numeric') && !v.type?.toLowerCase().includes('grid')) {
+        // Try to match cell variable patterns: S4r1c1, S4_r1_c1, etc.
+        // Pattern 1: {baseName}{rowCode}{columnCode} (e.g., S4r1c1)
+        const cellMatch1 = v.name.match(/^([A-Z0-9]+)([rc]\d+)(c\d+)$/i);
+        if (cellMatch1) {
+          const baseName = cellMatch1[1];
+          const columnCode = cellMatch1[3]; // e.g., "c1"
+          const summaryTableName = `${baseName}_${columnCode}_Summary`;
+          
+          // Check if there's a summary table for this column
+          const hasSummaryTable = variables.some((otherV: any) => 
+            otherV.name === summaryTableName && (otherV as any).isSummaryTable
+          );
+          
+          // Exclude this cell variable if a summary table exists
+          if (hasSummaryTable) {
+            return false;
+          }
+        }
+        
+        // Pattern 2: {baseName}_{rowCode}_{columnCode} (e.g., S4_r1_c1)
+        const cellMatch2 = v.name.match(/^([A-Z0-9]+)_([rc]\d+)_(c\d+)$/i);
+        if (cellMatch2) {
+          const baseName = cellMatch2[1];
+          const columnCode = cellMatch2[3]; // e.g., "c1"
+          const summaryTableName = `${baseName}_${columnCode}_Summary`;
+          
+          // Check if there's a summary table for this column
+          const hasSummaryTable = variables.some((otherV: any) => 
+            otherV.name === summaryTableName && (otherV as any).isSummaryTable
+          );
+          
+          // Exclude this cell variable if a summary table exists
+          if (hasSummaryTable) {
+            return false;
+          }
+        }
+        
+        // Pattern 3: {baseName}{rowCode}_{columnCode} (e.g., S4r1_c1)
+        const cellMatch3 = v.name.match(/^([A-Z0-9]+)([rc]\d+)_(c\d+)$/i);
+        if (cellMatch3) {
+          const baseName = cellMatch3[1];
+          const columnCode = cellMatch3[3]; // e.g., "c1"
+          const summaryTableName = `${baseName}_${columnCode}_Summary`;
+          
+          // Check if there's a summary table for this column
+          const hasSummaryTable = variables.some((otherV: any) => 
+            otherV.name === summaryTableName && (otherV as any).isSummaryTable
+          );
+          
+          // Exclude this cell variable if a summary table exists
+          if (hasSummaryTable) {
+            return false;
+          }
+        }
+        
+        // Pattern 4: {baseName}_{rowCode}{columnCode} (e.g., S4_r1c1)
+        const cellMatch4 = v.name.match(/^([A-Z0-9]+)_([rc]\d+)(c\d+)$/i);
+        if (cellMatch4) {
+          const baseName = cellMatch4[1];
+          const columnCode = cellMatch4[3]; // e.g., "c1"
+          const summaryTableName = `${baseName}_${columnCode}_Summary`;
+          
+          // Check if there's a summary table for this column
+          const hasSummaryTable = variables.some((otherV: any) => 
+            otherV.name === summaryTableName && (otherV as any).isSummaryTable
+          );
+          
+          // Exclude this cell variable if a summary table exists
+          if (hasSummaryTable) {
+            return false;
+          }
+        }
+      }
+      return true;
+    });
+    
+    // Apply search filter
+    if (variableFilter) {
     const filter = variableFilter.toLowerCase();
-    return variables.filter(v => 
+      filtered = filtered.filter(v => 
       v.name.toLowerCase().includes(filter) ||
-      v.description?.toLowerCase().includes(filter)
+        (v.description && v.description.toLowerCase().includes(filter))
     );
+    }
+    
+    return filtered;
   }, [variables, variableFilter]);
 
   const variable = variables.find((v: any) => v.name === selectedVariable);
 
   return (
+    <>
+      {/* Loading screen for QNR navigation */}
+      {loadingQnrNavigation && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-8 flex flex-col items-center">
+            <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-gray-200 border-t-[#D14A2D]"></div>
+            <p className="text-sm text-gray-700">Loading QNR...</p>
+          </div>
+        </div>
+      )}
     <div className="flex-1 p-6 space-y-4 max-w-full overflow-y-auto" style={{ height: 'calc(100vh - 80px)', marginTop: '80px', backgroundColor: BRAND_BG }}>
       {viewMode === 'home' && (
         <>
@@ -1168,6 +1473,17 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                   Variables
                 </button>
                 <button
+                  onClick={() => setQnrViewMode('banners')}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                    qnrViewMode === 'banners'
+                      ? 'text-white'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                  style={qnrViewMode === 'banners' ? { borderBottomColor: BRAND_ORANGE, color: BRAND_ORANGE } : {}}
+                >
+                  Banners
+                </button>
+                <button
                   onClick={() => setQnrViewMode('data')}
                   className={`py-2 px-1 border-b-2 font-medium text-sm ${
                     qnrViewMode === 'data'
@@ -1204,8 +1520,9 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
           {qnrViewMode === 'variables' ? (
             <div className="flex h-[calc(100vh-200px)]">
               {/* Variable List Sidebar */}
-              <div className="w-80 border-r border-gray-200 overflow-y-auto">
-                <div className="p-4 border-b border-gray-200">
+              <div className="w-80 border-r border-gray-200 flex flex-col">
+                {/* Sticky header with search bar */}
+                <div className="p-4 border-b border-gray-200 bg-white sticky top-0 z-10">
                   <div className="relative">
                     <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <input
@@ -1216,8 +1533,9 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                       className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
                     />
                   </div>
-                  </div>
-                <div className="p-2">
+                </div>
+                {/* Scrollable variable list */}
+                <div className="flex-1 overflow-y-auto p-2">
                   {loading ? (
                     <div className="text-center py-8 text-gray-500">Loading variables...</div>
                   ) : filteredVariables.length === 0 ? (
@@ -1229,27 +1547,82 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                       {filteredVariables.map((v) => {
                         const varData = variableData[v.name];
                         
-                        // For summary tables (numeric grids), check if any child statement variables have data
+                        // For summary tables (numeric grids), check if the table has any data to display
                         let hasData = false;
                         if ((v as any).isSummaryTable && v.statements) {
-                          // For summary tables, extract base question number (remove "_Mean Summary" or "_Summary Tables" suffix)
-                          let baseName = v.name;
-                          if (v.name.endsWith('_Mean Summary')) {
-                            baseName = v.name.replace('_Mean Summary', '');
-                          } else if (v.name.endsWith('_Summary Tables')) {
-                            baseName = v.name.replace('_Summary Tables', '');
+                          // Check if this is a column summary table (e.g., S4_c1_Summary)
+                          const columnMatch = v.name.match(/^([A-Z0-9]+)_(c\d+)(?:_Summary)?$/i);
+                          const isNumericGridColumnSummary = columnMatch && v.type?.toLowerCase().includes('numeric');
+                          
+                          if (isNumericGridColumnSummary) {
+                            // For column summary tables, check if any rows have data (mean or sum)
+                            const baseName = columnMatch![1];
+                            const columnCode = columnMatch![2];
+                            
+                            hasData = Object.keys(v.statements).some((stmtCode) => {
+                              // Try to find data for this row in this column
+                              let hasRowData = false;
+                              
+                              // Check cell variables first
+                              const cellVarNames = [
+                                `${baseName}${stmtCode}${columnCode}`,
+                                `${baseName}_${stmtCode}_${columnCode}`,
+                                `${baseName}${stmtCode}_${columnCode}`,
+                                `${baseName}_${stmtCode}${columnCode}`,
+                              ];
+                              
+                              for (const cellVarName of cellVarNames) {
+                                const cellData = variableData[cellVarName];
+                                if (cellData && (
+                                  (cellData.count && cellData.count > 0) ||
+                                  (cellData.values && Array.isArray(cellData.values) && cellData.values.length > 0) ||
+                                  (cellData.sum !== undefined) ||
+                                  (cellData.mean !== undefined)
+                                )) {
+                                  hasRowData = true;
+                                  break;
+                                }
+                              }
+                              
+                              // Check statement variable with frequencies
+                              if (!hasRowData) {
+                                const statementVarName = `${baseName}_${stmtCode}`;
+                                const statementData = variableData[statementVarName];
+                                if (statementData) {
+                                  if (statementData.frequencies && (
+                                    statementData.frequencies[columnCode] !== undefined ||
+                                    statementData.frequencies[columnCode.replace(/^c/i, '')] !== undefined
+                                  )) {
+                                    hasRowData = true;
+                                  } else if (statementData.sum !== undefined || statementData.mean !== undefined) {
+                                    hasRowData = true;
+                                  }
+                                }
+                              }
+                              
+                              return hasRowData;
+                            });
+                          } else {
+                            // For other summary tables, check if any of the child statement variables have data
+                            // For summary tables, extract base question number (remove "_Summary" or "_Summary Tables" suffix)
+                            let baseName = v.name;
+                            if (v.name.endsWith('_Summary')) {
+                              baseName = v.name.replace('_Summary', '');
+                            } else if (v.name.endsWith('_Summary Tables')) {
+                              baseName = v.name.replace('_Summary Tables', '');
+                            }
+                            hasData = Object.keys(v.statements).some((stmtCode) => {
+                              const statementVarName = `${baseName}_${stmtCode}`;
+                              const statementData = variableData[statementVarName];
+                              return statementData && (
+                                (statementData.count && statementData.count > 0) ||
+                                (statementData.frequencies && Object.keys(statementData.frequencies || {}).length > 0) ||
+                                (statementData.values && Array.isArray(statementData.values) && statementData.values.length > 0) ||
+                                (statementData.sum !== undefined) ||
+                                (statementData.mean !== undefined)
+                              );
+                            });
                           }
-                          hasData = Object.keys(v.statements).some((stmtCode) => {
-                            const statementVarName = `${baseName}_${stmtCode}`;
-                            const statementData = variableData[statementVarName];
-                            return statementData && (
-                              (statementData.count && statementData.count > 0) ||
-                              (statementData.frequencies && Object.keys(statementData.frequencies || {}).length > 0) ||
-                              (statementData.values && Array.isArray(statementData.values) && statementData.values.length > 0) ||
-                              (statementData.sum !== undefined) ||
-                              (statementData.mean !== undefined)
-                            );
-                          });
                         } else if (v.type?.toLowerCase().includes('numeric grid') && v.statements && v.codes && 
                                    Object.keys(v.statements).length > 0 && Object.keys(v.codes).length > 0) {
                           // For numeric grids with both statements and response options, check cell variables
@@ -1266,11 +1639,117 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                             });
                           });
                         } else {
+                          // Check if this is a multiselect base question (B8) that has response variables (B8r1, B8r2, etc.)
+                          const isMultiselectBase = v.type?.toLowerCase().includes('multi-select') && 
+                                                   !v.name.match(/r\d+$/i);
+                          
+                          if (isMultiselectBase) {
+                            // Check if any response variables have data
+                            hasData = variables.some(respVar => {
+                              const match = respVar.name.match(/^(.+?)r(\d+)$/i);
+                              if (match && match[1] === v.name && respVar.type?.toLowerCase().includes('multi-select')) {
+                                const respVarData = variableData[respVar.name];
+                                return respVarData && (
+                                  (respVarData.count && respVarData.count > 0) ||
+                                  (respVarData.frequencies && Object.keys(respVarData.frequencies || {}).length > 0) ||
+                                  (respVarData.values && Array.isArray(respVarData.values) && respVarData.values.length > 0)
+                                );
+                              }
+                              return false;
+                          });
+                        } else {
                           hasData = varData && (
                             (varData.count && varData.count > 0) ||
                             (varData.frequencies && Object.keys(varData.frequencies || {}).length > 0) ||
                             (varData.values && Array.isArray(varData.values) && varData.values.length > 0)
                           );
+                          }
+                        }
+                        
+                        // Check if percentages don't sum to 100% (for single-select questions)
+                        let hasPercentageError = false;
+                        if (hasData && v.codes && Object.keys(v.codes).length > 0 && 
+                            !v.statements && !(v as any).isSummaryTable && 
+                            !v.type?.toLowerCase().includes('numeric grid')) {
+                          // Use the same frequency generation logic as in the table
+                          let frequencies = varData?.frequencies;
+                          if (!frequencies && varData?.values && Array.isArray(varData.values) && v.codes && Object.keys(v.codes).length > 0) {
+                            frequencies = {};
+                            const codes: Record<string, string> = v.codes;
+                            varData.values.forEach((val: any) => {
+                              const valStr = String(val).trim();
+                              let matchedCode: string | null = null;
+                              
+                              if (codes[valStr]) {
+                                matchedCode = valStr;
+                              } else {
+                                const numVal = /^\d+$/.test(valStr) ? parseInt(valStr, 10) : null;
+                                if (numVal !== null) {
+                                  if (codes[String(numVal)]) {
+                                    matchedCode = String(numVal);
+                                  } else if (codes[numVal]) {
+                                    matchedCode = String(numVal);
+                                  }
+                                }
+                              }
+                              
+                              if (matchedCode) {
+                                frequencies[matchedCode] = (frequencies[matchedCode] || 0) + 1;
+                              } else {
+                                frequencies[valStr] = (frequencies[valStr] || 0) + 1;
+                              }
+                            });
+                          }
+                          
+                          if (frequencies) {
+                            const total = varData?.count || 0;
+                            let totalPercentage = 0;
+                            
+                            const getCount = (code: string): number => {
+                              let count = 0;
+                              if (frequencies[code] !== undefined) {
+                                count = frequencies[code];
+                              } else {
+                                const numericCode = /^\d+$/.test(code) ? parseInt(code, 10) : null;
+                                if (numericCode !== null) {
+                                  if (frequencies[numericCode] !== undefined) {
+                                    count = frequencies[numericCode];
+                                  } else if (frequencies[String(numericCode)] !== undefined) {
+                                    count = frequencies[String(numericCode)];
+                                  }
+                                }
+                                if (count === 0) {
+                                  const codeWithoutPrefix = code.replace(/^[rc]/i, '');
+                                  if (frequencies[codeWithoutPrefix] !== undefined) {
+                                    count = frequencies[codeWithoutPrefix];
+                                  } else if (/^\d+$/.test(codeWithoutPrefix)) {
+                                    const num = parseInt(codeWithoutPrefix, 10);
+                                    if (frequencies[num] !== undefined) {
+                                      count = frequencies[num];
+                                    }
+                                  }
+                                }
+                                if (count === 0 && !code.match(/^[rc]/i)) {
+                                  if (frequencies[`c${code}`] !== undefined) {
+                                    count = frequencies[`c${code}`];
+                                  } else if (frequencies[`r${code}`] !== undefined) {
+                                    count = frequencies[`r${code}`];
+                                  }
+                                }
+                              }
+                              return count;
+                            };
+                            
+                            Object.entries(v.codes || {}).forEach(([code]) => {
+                              const count = getCount(code);
+                              const percentage = total > 0 ? (count / total) * 100 : 0;
+                              totalPercentage += percentage;
+                            });
+                            
+                            if (total > 0 && totalPercentage > 0 && Math.abs(totalPercentage - 100) > 0.1) {
+                              hasPercentageError = true;
+                            }
+                          }
                         }
                     
                     return (
@@ -1283,14 +1762,36 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                 : 'hover:bg-gray-100 text-gray-700'
                             }`}
                           >
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center justify-between gap-2 w-full">
+                              <div className="flex items-center gap-2 flex-1 min-w-0">
                               <span className="font-medium">{v.name}</span>
-                              {!hasData && (
+                              {hasPercentageError ? (
+                                <InformationCircleIcon className="h-4 w-4 text-red-500 flex-shrink-0" title="Percentages don't sum to 100% - check response codes" />
+                              ) : !hasData ? (
                                 <InformationCircleIcon className="h-4 w-4 text-red-500 flex-shrink-0" title="No data available for this variable" />
-                          )}
+                          ) : null}
+                              </div>
+                              <span className="text-xs px-2 py-0.5 rounded flex-shrink-0 bg-blue-100 text-blue-800" style={{ minWidth: '80px', textAlign: 'center' }}>
+                                {v.type || 'Unknown'}
+                              </span>
                         </div>
                             {v.description && (
-                              <div className="text-xs text-gray-500 mt-1 truncate">{v.description}</div>
+                              <div className="text-xs text-gray-500 mt-1">
+                                {(() => {
+                                  const desc = v.description;
+                                  // Check if description contains a newline (for grid individual variables)
+                                  if (desc.includes('\n')) {
+                                    const [questionText, statementText] = desc.split('\n', 2);
+                                    return (
+                                      <>
+                                        <div className="truncate">{questionText}</div>
+                                        <div className="truncate font-semibold mt-0.5">{statementText}</div>
+                                      </>
+                                    );
+                                  }
+                                  return <div className="truncate">{desc}</div>;
+                                })()}
+                              </div>
                             )}
                           </button>
                     );
@@ -1304,35 +1805,180 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
               <div className="flex-1 overflow-y-auto p-6">
               {selectedVariable ? (
                 (() => {
-                    const variable = variables.find((v: any) => v.name === selectedVariable);
+                    // Look in filteredVariables first (includes synthetic multiselect base variables),
+                    // then fall back to variables array
+                    let variable = filteredVariables.find((v: any) => v.name === selectedVariable);
+                    if (!variable) {
+                      variable = variables.find((v: any) => v.name === selectedVariable);
+                    }
                     if (!variable) {
                       return <div className="text-center py-12 text-gray-500">Variable not found</div>;
                     }
                   
                   const varData = variableData[variable.name];
                   
-                  // For summary tables (numeric grids), check if any child statement variables have data
+                  // Check if percentages don't sum to 100% (for single-select questions)
+                  let hasPercentageError = false;
+                  if (variable.codes && Object.keys(variable.codes).length > 0 && 
+                      !variable.statements && !(variable as any).isSummaryTable && 
+                      !variable.type?.toLowerCase().includes('numeric grid')) {
+                    // Use the same frequency generation logic as in the table
+                    let frequencies = varData?.frequencies;
+                    if (!frequencies && varData?.values && Array.isArray(varData.values) && variable.codes && Object.keys(variable.codes).length > 0) {
+                      frequencies = {};
+                      const codes: Record<string, string> = variable.codes;
+                      varData.values.forEach((val: any) => {
+                        const valStr = String(val).trim();
+                        let matchedCode: string | null = null;
+                        
+                        if (codes[valStr]) {
+                          matchedCode = valStr;
+                        } else {
+                          const numVal = /^\d+$/.test(valStr) ? parseInt(valStr, 10) : null;
+                          if (numVal !== null) {
+                            if (codes[String(numVal)]) {
+                              matchedCode = String(numVal);
+                            } else if (codes[numVal]) {
+                              matchedCode = String(numVal);
+                            }
+                          }
+                        }
+                        
+                        if (matchedCode) {
+                          frequencies[matchedCode] = (frequencies[matchedCode] || 0) + 1;
+                        } else {
+                          frequencies[valStr] = (frequencies[valStr] || 0) + 1;
+                        }
+                      });
+                    }
+                    
+                    if (frequencies) {
+                      const total = varData?.count || 0;
+                      let totalPercentage = 0;
+                      
+                      const getCount = (code: string): number => {
+                        let count = 0;
+                        if (frequencies[code] !== undefined) {
+                          count = frequencies[code];
+                        } else {
+                          const numericCode = /^\d+$/.test(code) ? parseInt(code, 10) : null;
+                          if (numericCode !== null) {
+                            if (frequencies[numericCode] !== undefined) {
+                              count = frequencies[numericCode];
+                            } else if (frequencies[String(numericCode)] !== undefined) {
+                              count = frequencies[String(numericCode)];
+                            }
+                          }
+                          if (count === 0) {
+                            const codeWithoutPrefix = code.replace(/^[rc]/i, '');
+                            if (frequencies[codeWithoutPrefix] !== undefined) {
+                              count = frequencies[codeWithoutPrefix];
+                            } else if (/^\d+$/.test(codeWithoutPrefix)) {
+                              const num = parseInt(codeWithoutPrefix, 10);
+                              if (frequencies[num] !== undefined) {
+                                count = frequencies[num];
+                              }
+                            }
+                          }
+                          if (count === 0 && !code.match(/^[rc]/i)) {
+                            if (frequencies[`c${code}`] !== undefined) {
+                              count = frequencies[`c${code}`];
+                            } else if (frequencies[`r${code}`] !== undefined) {
+                              count = frequencies[`r${code}`];
+                            }
+                          }
+                        }
+                        return count;
+                      };
+                      
+                      Object.entries(variable.codes || {}).forEach(([code]) => {
+                        const count = getCount(code);
+                        const percentage = total > 0 ? (count / total) * 100 : 0;
+                        totalPercentage += percentage;
+                      });
+                      
+                      if (total > 0 && totalPercentage > 0 && Math.abs(totalPercentage - 100) > 0.1) {
+                        hasPercentageError = true;
+                      }
+                    }
+                  }
+                  
+                  // For summary tables (numeric grids), check if the table has any data to display
                   let hasData = false;
                   if ((variable as any).isSummaryTable && variable.statements) {
-                    // Check if any of the child statement variables have data
-                    // For summary tables, extract base question number (remove "_Mean Summary" or "_Summary Tables" suffix)
-                    let baseName = variable.name;
-                    if (variable.name.endsWith('_Mean Summary')) {
-                      baseName = variable.name.replace('_Mean Summary', '');
-                    } else if (variable.name.endsWith('_Summary Tables')) {
-                      baseName = variable.name.replace('_Summary Tables', '');
+                    // Check if this is a column summary table (e.g., S4_c1_Summary)
+                    const columnMatch = variable.name.match(/^([A-Z0-9]+)_(c\d+)(?:_Summary)?$/i);
+                    const isNumericGridColumnSummary = columnMatch && variable.type?.toLowerCase().includes('numeric');
+                    
+                    if (isNumericGridColumnSummary) {
+                      // For column summary tables, check if any rows have data (mean or sum)
+                      const baseName = columnMatch![1];
+                      const columnCode = columnMatch![2];
+                      
+                      hasData = Object.keys(variable.statements).some((stmtCode) => {
+                        // Try to find data for this row in this column
+                        let hasRowData = false;
+                        
+                        // Check cell variables first
+                        const cellVarNames = [
+                          `${baseName}${stmtCode}${columnCode}`,
+                          `${baseName}_${stmtCode}_${columnCode}`,
+                          `${baseName}${stmtCode}_${columnCode}`,
+                          `${baseName}_${stmtCode}${columnCode}`,
+                        ];
+                        
+                        for (const cellVarName of cellVarNames) {
+                          const cellData = variableData[cellVarName];
+                          if (cellData && (
+                            (cellData.count && cellData.count > 0) ||
+                            (cellData.values && Array.isArray(cellData.values) && cellData.values.length > 0) ||
+                            (cellData.sum !== undefined) ||
+                            (cellData.mean !== undefined)
+                          )) {
+                            hasRowData = true;
+                            break;
+                          }
+                        }
+                        
+                        // Check statement variable with frequencies
+                        if (!hasRowData) {
+                          const statementVarName = `${baseName}_${stmtCode}`;
+                          const statementData = variableData[statementVarName];
+                          if (statementData) {
+                            if (statementData.frequencies && (
+                              statementData.frequencies[columnCode] !== undefined ||
+                              statementData.frequencies[columnCode.replace(/^c/i, '')] !== undefined
+                            )) {
+                              hasRowData = true;
+                            } else if (statementData.sum !== undefined || statementData.mean !== undefined) {
+                              hasRowData = true;
+                            }
+                          }
+                        }
+                        
+                        return hasRowData;
+                      });
+                    } else {
+                      // For other summary tables, check if any of the child statement variables have data
+                      // For summary tables, extract base question number (remove "_Summary" or "_Summary Tables" suffix)
+                      let baseName = variable.name;
+                      if (variable.name.endsWith('_Summary')) {
+                        baseName = variable.name.replace('_Summary', '');
+                      } else if (variable.name.endsWith('_Summary Tables')) {
+                        baseName = variable.name.replace('_Summary Tables', '');
+                      }
+                      hasData = Object.keys(variable.statements).some((stmtCode) => {
+                        const statementVarName = `${baseName}_${stmtCode}`;
+                        const statementData = variableData[statementVarName];
+                        return statementData && (
+                          (statementData.count && statementData.count > 0) ||
+                          (statementData.frequencies && Object.keys(statementData.frequencies || {}).length > 0) ||
+                          (statementData.values && Array.isArray(statementData.values) && statementData.values.length > 0) ||
+                          (statementData.sum !== undefined) ||
+                          (statementData.mean !== undefined)
+                        );
+                      });
                     }
-                    hasData = Object.keys(variable.statements).some((stmtCode) => {
-                      const statementVarName = `${baseName}_${stmtCode}`;
-                      const statementData = variableData[statementVarName];
-                      return statementData && (
-                        (statementData.count && statementData.count > 0) ||
-                        (statementData.frequencies && Object.keys(statementData.frequencies || {}).length > 0) ||
-                        (statementData.values && Array.isArray(statementData.values) && statementData.values.length > 0) ||
-                        (statementData.sum !== undefined) ||
-                        (statementData.mean !== undefined)
-                      );
-                    });
                   } else if (variable.type?.toLowerCase().includes('numeric grid') && variable.statements && variable.codes && 
                              Object.keys(variable.statements).length > 0 && Object.keys(variable.codes).length > 0) {
                     // For numeric grids with both statements and response options, check cell variables
@@ -1355,6 +2001,35 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                       const baseName = columnMatch[1];
                       const columnCode = columnMatch[2]; // This includes the "c" prefix (e.g., "c1")
                       
+                      // First, check if the column variable itself exists in variableData
+                      // This handles cases where data is stored directly under the column variable name
+                      const columnVarData = variableData[variable.name];
+                      if (columnVarData && (
+                        (columnVarData.count && columnVarData.count > 0) ||
+                        (columnVarData.frequencies && Object.keys(columnVarData.frequencies || {}).length > 0) ||
+                        (columnVarData.values && Array.isArray(columnVarData.values) && columnVarData.values.length > 0) ||
+                        (columnVarData.sum !== undefined) ||
+                        (columnVarData.mean !== undefined)
+                      )) {
+                        hasData = true;
+                      } else {
+                        // Check if there's a mapped column name (from columnMapping)
+                        const mappedColumnName = columnMapping[variable.name];
+                        if (mappedColumnName) {
+                          const mappedVarData = variableData[mappedColumnName];
+                          if (mappedVarData && (
+                            (mappedVarData.count && mappedVarData.count > 0) ||
+                            (mappedVarData.frequencies && Object.keys(mappedVarData.frequencies || {}).length > 0) ||
+                            (mappedVarData.values && Array.isArray(mappedVarData.values) && mappedVarData.values.length > 0) ||
+                            (mappedVarData.sum !== undefined) ||
+                            (mappedVarData.mean !== undefined)
+                          )) {
+                            hasData = true;
+                          }
+                        }
+                        
+                        // If still no data, check cell variables
+                        if (!hasData) {
                       // Find the main grid variable to get statements
                       const mainGridVar = variables.find((v: any) => v.name === baseName && v.type?.toLowerCase().includes('numeric grid'));
                       
@@ -1366,8 +2041,11 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                             `${baseName}_${stmtCode}_${columnCode}`,  // S11_r1_c1
                             `${baseName}${stmtCode}${columnCode}`,    // S11r1c1
                             `${baseName}_${stmtCode}${columnCode}`,   // S11_r1c1
-                            `${baseName}${stmtCode}_${columnCode}`    // S11r1_c1
-                          ];
+                                `${baseName}${stmtCode}_${columnCode}`,   // S11r1_c1
+                                // Also try with mapped column names if available
+                                mappedColumnName ? `${mappedColumnName.replace(/^Q/i, '')}_${stmtCode}_${columnCode}` : null,
+                                mappedColumnName ? `${mappedColumnName.replace(/^Q/i, '')}${stmtCode}${columnCode}` : null
+                              ].filter(Boolean) as string[];
                           
                           for (const cellVarName of cellVarNames) {
                             const cellData = variableData[cellVarName];
@@ -1389,6 +2067,8 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                           (varData.frequencies && Object.keys(varData.frequencies || {}).length > 0) ||
                           (varData.values && Array.isArray(varData.values) && varData.values.length > 0)
                         );
+                          }
+                        }
                       }
                     } else {
                       // Regular numeric variable, check direct data
@@ -1399,24 +2079,46 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                       );
                     }
                   } else {
+                    // Check if this is a multiselect base question (B8) that has response variables (B8r1, B8r2, etc.)
+                    const isMultiselectBase = variable.type?.toLowerCase().includes('multi-select') && 
+                                             !variable.name.match(/r\d+$/i);
+                    
+                    if (isMultiselectBase) {
+                      // Check if any response variables have data
+                      hasData = variables.some(v => {
+                        const match = v.name.match(/^(.+?)r(\d+)$/i);
+                        if (match && match[1] === variable.name && v.type?.toLowerCase().includes('multi-select')) {
+                          const respVarData = variableData[v.name];
+                          return respVarData && (
+                            (respVarData.count && respVarData.count > 0) ||
+                            (respVarData.frequencies && Object.keys(respVarData.frequencies || {}).length > 0) ||
+                            (respVarData.values && Array.isArray(respVarData.values) && respVarData.values.length > 0)
+                          );
+                        }
+                        return false;
+                      });
+                  } else {
                     // For regular variables, check the variable itself
                     hasData = varData && (
                       (varData.count && varData.count > 0) ||
                       (varData.frequencies && Object.keys(varData.frequencies || {}).length > 0) ||
                       (varData.values && Array.isArray(varData.values) && varData.values.length > 0)
                     );
+                    }
                   }
                   
                   return (
                       <div className="space-y-6">
                         {/* Variable Header */}
                     <div>
+                        <div className="flex items-center justify-between gap-2 flex-wrap w-full">
                         <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="text-lg font-semibold text-gray-900">{variable.name}</h3>
-                          <span className="text-xs px-2 py-1 rounded text-white" style={{ backgroundColor: BRAND_ORANGE }}>
-                          {variable.type || 'Unknown'}
-                        </span>
-                          {variable.tags && variable.tags.map((tag, idx) => (
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            {variable.tags && variable.tags
+                              .filter((tag: string) => tag.toLowerCase() !== 'terminate' && tag.toLowerCase() !== 'specify')
+                              .map((tag, idx) => (
                               <span
                               key={idx}
                               className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded"
@@ -1424,11 +2126,72 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                 {tag}
                               </span>
                             ))}
+                            <span className="text-xs px-2 py-1 rounded flex-shrink-0 bg-blue-100 text-blue-800" style={{ minWidth: '80px', textAlign: 'center' }}>
+                              {variable.type || 'Unknown'}
+                            </span>
+                            <button
+                              onClick={async () => {
+                                setLoadingQuestion(true);
+                                setShowQuestionModal(true);
+                                
+                                // Simulate loading for 1 second
+                                await new Promise(resolve => setTimeout(resolve, 1000));
+                                
+                                try {
+                                  // Fetch questionnaire data
+                                  const response = await fetch(`${API_BASE_URL}/api/questionnaire/${selectedProject?.id}`, {
+                                    headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
+                                  });
+                                  
+                                  if (response.ok) {
+                                    const questionnaires = await response.json();
+                                    // Find the question that matches this variable
+                                    // Extract base variable name (remove statement suffix if present)
+                                    const statementMatch = variable.name.match(/^(.+)_(\d+)$/);
+                                    const baseVarName = statementMatch ? statementMatch[1] : variable.name;
+                                    
+                                    // Find question in any questionnaire
+                                    let foundQuestion = null;
+                                    for (const qnr of questionnaires) {
+                                      foundQuestion = qnr.questions?.find((q: any) => 
+                                        (q.number || q.id) === baseVarName
+                                      );
+                                      if (foundQuestion) break;
+                                    }
+                                    
+                                    setQuestionData(foundQuestion);
+                                  }
+                                } catch (error) {
+                                  console.error('Error loading question:', error);
+                                  setQuestionData(null);
+                                } finally {
+                                  setLoadingQuestion(false);
+                                }
+                              }}
+                              className="flex items-center justify-center p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
+                              title="View Question from QNR"
+                            >
+                              <InformationCircleIcon className="h-5 w-5" />
+                            </button>
+                          </div>
                         </div>
                           {variable.description && (
-                            <p className="text-sm text-gray-600 mt-1">
-                              {formatDescriptionWithBrackets(variable.description)}
-                            </p>
+                            <div className="text-sm text-gray-600 mt-1">
+                              {(() => {
+                                const desc = variable.description;
+                                // Check if description contains a newline (for numeric grid individual variables)
+                                if (desc.includes('\n')) {
+                                  const [questionText, statementText] = desc.split('\n', 2);
+                                  return (
+                                    <>
+                                      <p>{formatDescriptionWithBrackets(questionText)}</p>
+                                      <p className="font-bold mt-1">{formatDescriptionWithBrackets(statementText)}</p>
+                                    </>
+                                  );
+                                }
+                                return <p>{formatDescriptionWithBrackets(desc)}</p>;
+                              })()}
+                            </div>
                         )}
                       </div>
 
@@ -1547,6 +2310,20 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                             const baseName = columnMatch[1];
                             const columnCode = columnMatch[2]; // This includes the "c" prefix (e.g., "c1")
                             
+                            // Check if there's a summary table for this column (e.g., S4_c1_Summary)
+                            // If so, skip rendering this column variable table since the summary table is already shown
+                            const meanSummaryTableName = `${baseName}_${columnCode}_Summary`;
+                            const hasMeanSummaryTable = filteredVariables.some((v: any) => 
+                              v.name === meanSummaryTableName && (v as any).isSummaryTable
+                            ) || variables.some((v: any) => 
+                              v.name === meanSummaryTableName && (v as any).isSummaryTable
+                            );
+                            
+                            if (hasMeanSummaryTable) {
+                              // Don't render the column variable table if a mean summary table exists
+                              return null;
+                            }
+                            
                             // Debug: Find all variables that match this base name
                             const allBaseVariables = Object.keys(variableData).filter(k => k.startsWith(baseName));
                             console.log(`🔍 Checking column variable ${variable.name}:`, {
@@ -1638,12 +2415,20 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                 
                                 // Strategy 2: Try cell variable formats (S11_r1_c1, etc.)
                                 if (value === undefined) {
+                                  // Get mapped column name if available
+                                  const mappedColumnName = columnMapping[variable.name];
+                                  
                                   const cellVarNames = [
                                     `${baseName}_${stmtCode}_${columnCode}`,  // S11_r1_c1
                                     `${baseName}${stmtCode}${columnCode}`,    // S11r1c1
                                     `${baseName}_${stmtCode}${columnCode}`,   // S11_r1c1
-                                    `${baseName}${stmtCode}_${columnCode}`    // S11r1_c1
-                                  ];
+                                    `${baseName}${stmtCode}_${columnCode}`,   // S11r1_c1
+                                    // Also try with mapped column names if available
+                                    mappedColumnName ? `${mappedColumnName.replace(/^Q/i, '')}_${stmtCode}_${columnCode}` : null,
+                                    mappedColumnName ? `${mappedColumnName.replace(/^Q/i, '')}${stmtCode}${columnCode}` : null,
+                                    mappedColumnName ? `${mappedColumnName}_${stmtCode}_${columnCode}` : null,
+                                    mappedColumnName ? `${mappedColumnName}${stmtCode}${columnCode}` : null
+                                  ].filter(Boolean) as string[];
                                   
                                   for (const cellVarName of cellVarNames) {
                                     const cellData = variableData[cellVarName];
@@ -1680,6 +2465,24 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                       const codeWithoutPrefix = stmtCode.replace(/^[rc]/i, '');
                                       if (columnVarData.frequencies[codeWithoutPrefix] !== undefined) {
                                         value = columnVarData.frequencies[codeWithoutPrefix];
+                                      }
+                                    }
+                                  }
+                                  
+                                  // Also check mapped column name
+                                  if (value === undefined) {
+                                    const mappedColumnName = columnMapping[variable.name];
+                                    if (mappedColumnName) {
+                                      const mappedColumnVarData = variableData[mappedColumnName];
+                                      if (mappedColumnVarData && mappedColumnVarData.frequencies) {
+                                        if (mappedColumnVarData.frequencies[stmtCode] !== undefined) {
+                                          value = mappedColumnVarData.frequencies[stmtCode];
+                                        } else {
+                                          const codeWithoutPrefix = stmtCode.replace(/^[rc]/i, '');
+                                          if (mappedColumnVarData.frequencies[codeWithoutPrefix] !== undefined) {
+                                            value = mappedColumnVarData.frequencies[codeWithoutPrefix];
+                                          }
+                                        }
                                       }
                                     }
                                   }
@@ -1753,12 +2556,14 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                         {/* Frequency table for numeric variables (both numeric grid statements and regular numeric questions) */}
                         {variable.type?.toLowerCase().includes('numeric') && !variable.type?.toLowerCase().includes('grid') && (() => {
                           // Show frequency table for:
-                          // 1. Numeric grid statement variables (name pattern: {questionNumber}_r{number}) - rows, not columns
-                          // 2. Regular numeric questions (name pattern: just {questionNumber}, no underscore)
+                          // 1. Numeric grid row variables (name pattern: {questionNumber}_r{number}) - rows
+                          // 2. Numeric grid column variables (name pattern: {questionNumber}_c{number}) - columns
+                          // 3. Regular numeric questions (name pattern: just {questionNumber}, no underscore)
                           const isNumericGridRow = /^[A-Z0-9]+_r\d+$/i.test(variable.name);
+                          const isNumericGridColumn = /^[A-Z0-9]+_c\d+$/i.test(variable.name);
                           const isRegularNumeric = /^[A-Z0-9]+$/i.test(variable.name) && !variable.name.includes('_');
                           
-                          if (!isNumericGridRow && !isRegularNumeric) return null;
+                          if (!isNumericGridRow && !isNumericGridColumn && !isRegularNumeric) return null;
                           
                           const varData = variableData[variable.name];
                           if (!varData) return null;
@@ -1793,6 +2598,21 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                           // Only show if we have data
                           if (frequencyMap.size === 0) return null;
                           
+                          // Calculate base size (sample size) - count all people who saw the question
+                          let baseSize = 0;
+                          if (varData.values && Array.isArray(varData.values)) {
+                            // Count all non-blank values
+                            baseSize = varData.values.filter((v: any) => {
+                              return v !== null && v !== undefined && v !== '' && String(v).trim() !== '';
+                            }).length;
+                          } else if (varData.count !== undefined) {
+                            baseSize = varData.count;
+                          } else if (varData.frequencies) {
+                            baseSize = Object.values(varData.frequencies).reduce((sum: number, count: any) => {
+                              return sum + (typeof count === 'number' ? count : 0);
+                            }, 0);
+                          }
+                          
                           // Calculate mean and stdDev to identify outliers
                           const mean = varData.mean;
                           const stdDev = varData.stdDev || varData.stddev || varData.standardDeviation || varData.sd;
@@ -1802,7 +2622,15 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                             .sort((a, b) => a[0] - b[0]);
                           
                           return (
-                            <div className="mt-4 bg-white border border-gray-200 rounded-lg overflow-hidden">
+                            <div className="mt-4">
+                              {/* Sample Size */}
+                              {baseSize > 0 && (
+                                <p className="mb-4 text-sm text-gray-700">
+                                  <span className="font-semibold">Sample Size:</span> <span className="font-semibold">{baseSize.toLocaleString()}</span>
+                                </p>
+                              )}
+                              
+                              <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
                               <div className="overflow-x-auto">
                                 <table className="min-w-full divide-y divide-gray-200">
                                   <thead className="bg-gray-50">
@@ -1837,6 +2665,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                   </tbody>
                                 </table>
                               </div>
+                            </div>
                             </div>
                           );
                         })()}
@@ -2005,14 +2834,19 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                 </thead>
                               <tbody className="bg-white divide-y divide-gray-200">
                                   {(() => {
+                                    // Check if this is a numeric grid column summary table
+                                    // Pattern: {baseName}_c{number}_Summary or {baseName}_c{number} with isSummaryTable
+                                    const columnMatch = variable.name.match(/^([A-Z0-9]+)_(c\d+)(?:_Summary)?$/i);
+                                    const isNumericGridColumnSummary = columnMatch && variable.type?.toLowerCase().includes('numeric');
+                                    
                                     // Calculate total sum for numeric summary tables BEFORE rendering rows
                                     const hasNumberTag = (variable as any).tags && Array.isArray((variable as any).tags) && (variable as any).tags.includes('Number');
                                     let totalSumForPercentage = 0;
                                     
                                     if ((variable as any).isSummaryTable && !(variable as any).isScaleSummary && hasNumberTag) {
-                                      // For mean summary tables, extract base question number (remove "_Mean Summary" suffix)
-                                      const baseName = variable.name.endsWith('_Mean Summary') 
-                                        ? variable.name.replace('_Mean Summary', '') 
+                                      // For summary tables, extract base question number (remove "_Summary" suffix)
+                                      const baseName = variable.name.endsWith('_Summary') 
+                                        ? variable.name.replace('_Summary', '') 
                                         : variable.name;
                                       Object.keys(variable.statements || {}).forEach((stmtCode) => {
                                         const statementVarName = `${baseName}_${stmtCode}`;
@@ -2023,6 +2857,321 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                       });
                                     }
                                     
+                                    // For numeric grid column summary tables, show mean for each response option (row) in that column
+                                    if (isNumericGridColumnSummary && !(variable as any).isScaleSummary) {
+                                      const baseName = columnMatch![1];
+                                      const columnCode = columnMatch![2]; // e.g., "c1"
+                                      
+                                      // Get the column variable data (e.g., S14_c1)
+                                      const columnVarName = `${baseName}_${columnCode}`;
+                                      const columnData = variableData[columnVarName];
+                                      
+                                      // Calculate total sum for percentage calculation
+                                      // First, try to get it from column variable
+                                      let totalSumForColumn = 0;
+                                      if (columnData && columnData.sum !== undefined) {
+                                        totalSumForColumn = columnData.sum;
+                                      } else {
+                                        // Calculate from individual row sums - try all cell variable patterns
+                                        Object.keys(variable.statements || {}).forEach((stmtCode) => {
+                                          let rowSum: number | undefined = undefined;
+                                          
+                                          // Try all cell variable name patterns (same as Strategy 2)
+                                          const cellVarNames = [
+                                            `${baseName}${stmtCode}${columnCode}`,    // S4r1c1 (row first, then column - preferred format)
+                                            `${baseName}_${stmtCode}_${columnCode}`,  // S4_r1_c1
+                                            `${baseName}${stmtCode}_${columnCode}`,   // S4r1_c1
+                                            `${baseName}_${stmtCode}${columnCode}`,   // S4_r1c1
+                                            `${baseName}${columnCode}${stmtCode}`,    // S4c1r1 (column first, then row - backward compatibility)
+                                            `${baseName}_${columnCode}_${stmtCode}`,  // S4_c1_r1
+                                            `${baseName}${columnCode}_${stmtCode}`,   // S4c1_r1
+                                            `${baseName}_${columnCode}${stmtCode}`,   // S4_c1r1
+                                          ];
+                                          
+                                          for (const cellVarName of cellVarNames) {
+                                            const cellData = variableData[cellVarName];
+                                            if (cellData && cellData.sum !== undefined) {
+                                              rowSum = cellData.sum;
+                                              break;
+                                            } else if (cellData && cellData.values && Array.isArray(cellData.values) && cellData.values.length > 0) {
+                                              // Calculate sum from values if sum is not directly available
+                                              const numericValues = cellData.values
+                                                .map((v: any) => parseFloat(v))
+                                                .filter((v: number) => !isNaN(v));
+                                              if (numericValues.length > 0) {
+                                                rowSum = numericValues.reduce((sum: number, val: number) => sum + val, 0);
+                                                break;
+                                              }
+                                            }
+                                          }
+                                          
+                                          // If cell variable not found, try statement variable with frequencies
+                                          if (rowSum === undefined) {
+                                            const statementVarName = `${baseName}_${stmtCode}`;
+                                            const statementData = variableData[statementVarName];
+                                            if (statementData) {
+                                              if (statementData.frequencies && statementData.frequencies[columnCode] !== undefined) {
+                                                rowSum = statementData.frequencies[columnCode];
+                                              } else if (statementData.frequencies) {
+                                                const colCodeWithoutPrefix = columnCode.replace(/^c/i, '');
+                                                if (statementData.frequencies[colCodeWithoutPrefix] !== undefined) {
+                                                  rowSum = statementData.frequencies[colCodeWithoutPrefix];
+                                                }
+                                              } else if (statementData.sum !== undefined) {
+                                                // Use statement sum as fallback (might be across all columns though)
+                                                // Only use this if we can't find column-specific data
+                                                // For multi-column grids, this would be wrong, so we skip it
+                                              }
+                                            }
+                                          }
+                                          
+                                          if (rowSum !== undefined) {
+                                            totalSumForColumn += rowSum;
+                                          }
+                                        });
+                                      }
+                                      
+                                      const hasPercentTag = (variable as any).tags && Array.isArray((variable as any).tags) && (variable as any).tags.includes('%');
+                                      const hasNumberTag = (variable as any).tags && Array.isArray((variable as any).tags) && (variable as any).tags.includes('Number');
+                                      
+                                      // First pass: collect all row data and calculate total sum
+                                      const rowDataArray: Array<{code: string; text: string; mean: number | undefined; sum: number | undefined}> = [];
+                                      let totalSum = 0;
+                                      let sumOfMeans = 0;
+                                      
+                                      Object.entries(variable.statements || {}).forEach(([stmtCode, stmtText]) => {
+                                        const displayCode = stmtCode.replace(/^[rc]/i, '');
+                                        
+                                        // Try multiple strategies to get the mean for this row in this column
+                                        // (Same strategies as used in the statement table for column variables)
+                                        let mean: number | undefined = undefined;
+                                        let sum: number | undefined = undefined;
+                                        
+                                        // Strategy 1: Check if statement variable exists (S14_r1) and has frequencies with column code
+                                        const statementVarName = `${baseName}_${stmtCode}`;
+                                        const statementVarData = variableData[statementVarName];
+                                        
+                                        if (statementVarData && statementVarData.frequencies) {
+                                          // Try to find the column code in frequencies
+                                          if (statementVarData.frequencies[columnCode] !== undefined) {
+                                            // This is a frequency count - use it as the value (could be sum or mean depending on data structure)
+                                            mean = statementVarData.frequencies[columnCode];
+                                            // Also try to get sum from statement variable
+                                            if (sum === undefined && statementVarData.sum !== undefined) {
+                                              sum = statementVarData.sum;
+                                            }
+                                          } else {
+                                            // Try without "c" prefix (c1 -> 1)
+                                            const colCodeWithoutPrefix = columnCode.replace(/^c/i, '');
+                                            if (statementVarData.frequencies[colCodeWithoutPrefix] !== undefined) {
+                                              mean = statementVarData.frequencies[colCodeWithoutPrefix];
+                                              // Also try to get sum from statement variable
+                                              if (sum === undefined && statementVarData.sum !== undefined) {
+                                                sum = statementVarData.sum;
+                                              }
+                                            }
+                                          }
+                                        }
+                                        
+                                        // Also try to get sum from statement variable if we haven't gotten it yet
+                                        if (sum === undefined && statementVarData && statementVarData.sum !== undefined) {
+                                          sum = statementVarData.sum;
+                                        }
+                                        
+                                        // Strategy 2: Try cell variable formats
+                                        // Format: {base}{row}{column} e.g., S11r1c1 (row first, then column - preferred format)
+                                        // Also try: {base}{column}{row} for backward compatibility
+                                        if (mean === undefined || sum === undefined) {
+                                          const cellVarNames = [
+                                            `${baseName}${stmtCode}${columnCode}`,    // S11r1c1 (row first, then column - preferred format)
+                                            `${baseName}_${stmtCode}_${columnCode}`,  // S11_r1_c1
+                                            `${baseName}${stmtCode}_${columnCode}`,   // S11r1_c1
+                                            `${baseName}_${stmtCode}${columnCode}`,   // S11_r1c1
+                                            `${baseName}${columnCode}${stmtCode}`,    // S11c1r5 (column first, then row - backward compatibility)
+                                            `${baseName}_${columnCode}_${stmtCode}`,  // S11_c1_r5
+                                            `${baseName}${columnCode}_${stmtCode}`,   // S11c1_r5
+                                            `${baseName}_${columnCode}${stmtCode}`,   // S11_c1r5
+                                          ];
+                                          
+                                          for (const cellVarName of cellVarNames) {
+                                            const cellData = variableData[cellVarName];
+                                            if (cellData) {
+                                              // Get mean if not already set
+                                              if (mean === undefined) {
+                                                if (cellData.mean !== undefined) {
+                                                  mean = cellData.mean;
+                                                } else if (cellData.sum !== undefined && cellData.count !== undefined && cellData.count > 0) {
+                                                  mean = cellData.sum / cellData.count;
+                                                } else if (cellData.values && Array.isArray(cellData.values) && cellData.values.length > 0) {
+                                                  const numericValues = cellData.values
+                                                    .map((v: any) => parseFloat(v))
+                                                    .filter((v: number) => !isNaN(v));
+                                                  if (numericValues.length > 0) {
+                                                    mean = numericValues.reduce((sum: number, val: number) => sum + val, 0) / numericValues.length;
+                                                  }
+                                                }
+                                              }
+                                              
+                                              // Get sum if not already set
+                                              if (sum === undefined && cellData.sum !== undefined) {
+                                                sum = cellData.sum;
+                                              } else if (sum === undefined && cellData.values && Array.isArray(cellData.values) && cellData.values.length > 0) {
+                                                // Calculate sum from values if sum is not directly available
+                                                const numericValues = cellData.values
+                                                  .map((v: any) => parseFloat(v))
+                                                  .filter((v: number) => !isNaN(v));
+                                                if (numericValues.length > 0) {
+                                                  sum = numericValues.reduce((sum: number, val: number) => sum + val, 0);
+                                                }
+                                              }
+                                              
+                                              // If we have both mean and sum, we can break
+                                              if (mean !== undefined && sum !== undefined) {
+                                                break;
+                                              }
+                                            }
+                                          }
+                                        }
+                                        
+                                        // Strategy 3: Check if column variable exists (S14_c1) with statement codes as keys
+                                        if (mean === undefined && columnData) {
+                                          if (columnData.frequencies) {
+                                            if (columnData.frequencies[stmtCode] !== undefined) {
+                                              mean = columnData.frequencies[stmtCode];
+                                            } else {
+                                              const codeWithoutPrefix = stmtCode.replace(/^[rc]/i, '');
+                                              if (columnData.frequencies[codeWithoutPrefix] !== undefined) {
+                                                mean = columnData.frequencies[codeWithoutPrefix];
+                                              }
+                                            }
+                                          }
+                                          // If column variable has mean, that's the overall mean for the column, not per-row
+                                          // But we can use it as a fallback if we can't find row-specific data
+                                          if (mean === undefined && columnData.mean !== undefined) {
+                                            // This is the overall column mean, not row-specific, but use as last resort
+                                            mean = columnData.mean;
+                                          }
+                                          if (sum === undefined && columnData.sum !== undefined) {
+                                            // This is the total sum for the column
+                                            // We can't easily split it per row, but we'll use it for percentage calculation
+                                          }
+                                        }
+                                        
+                                        // Strategy 4: Check column variable's values array
+                                        // If column variable has values, we can calculate mean from it
+                                        // Note: This assumes the values array contains all values for this column
+                                        if (mean === undefined && columnData && columnData.values && Array.isArray(columnData.values) && columnData.values.length > 0) {
+                                          const numericValues = columnData.values
+                                            .map((v: any) => parseFloat(v))
+                                            .filter((v: number) => !isNaN(v));
+                                          if (numericValues.length > 0) {
+                                            // This gives us the overall mean for the column
+                                            // We can't easily split it per row, but we'll use it as a fallback
+                                            mean = numericValues.reduce((sum: number, val: number) => sum + val, 0) / numericValues.length;
+                                          }
+                                        }
+                                        
+                                        // Strategy 5: Use statement variable's mean/sum as fallback (but this might be across all columns)
+                                        if (mean === undefined && statementVarData) {
+                                          if (statementVarData.mean !== undefined) {
+                                            mean = statementVarData.mean;
+                                          }
+                                          if (statementVarData.sum !== undefined) {
+                                            sum = statementVarData.sum;
+                                          }
+                                        }
+                                        
+                                        // Calculate sum if we have mean but not sum (for percentage calculation)
+                                        if (mean !== undefined && sum === undefined) {
+                                          // Try to get sum from cell data
+                                          const cellVarName = `${baseName}_${stmtCode}_${columnCode}`;
+                                          const cellData = variableData[cellVarName];
+                                          if (cellData && cellData.sum !== undefined) {
+                                            sum = cellData.sum;
+                                          } else if (statementVarData && statementVarData.sum !== undefined) {
+                                            sum = statementVarData.sum;
+                                          } else if (columnData && columnData.sum !== undefined) {
+                                            // Column sum divided by number of statements (rough estimate)
+                                            const stmtCount = Object.keys(variable.statements || {}).length;
+                                            if (stmtCount > 0) {
+                                              sum = columnData.sum / stmtCount;
+                                            }
+                                          }
+                                        }
+                                        
+                                        // Accumulate totals
+                                        if (sum !== undefined) {
+                                          totalSum += sum;
+                                        }
+                                        if (mean !== undefined) {
+                                          sumOfMeans += mean;
+                                        }
+                                        
+                                        // Store row data for second pass
+                                        rowDataArray.push({ code: stmtCode, text: stmtText, mean, sum });
+                                      });
+                                      
+                                      // Second pass: render rows with percentages calculated using total sum
+                                      const rows = rowDataArray.map(({ code: stmtCode, text: stmtText, mean, sum }) => {
+                                        const displayCode = stmtCode.replace(/^[rc]/i, '');
+                                        
+                                        // Calculate percentage: (row sum / total sum of all rows) * 100
+                                        const rowPercentage = totalSum > 0 && sum !== undefined 
+                                          ? (sum / totalSum) * 100 
+                                          : undefined;
+                                        
+                                        return (
+                                          <tr key={stmtCode}>
+                                            <td className="px-2 py-2 text-sm font-mono text-gray-700 text-center" style={{ width: '2.5rem' }}>{displayCode}</td>
+                                            <td className="px-4 py-2 text-sm text-gray-900">{stmtText}</td>
+                                            <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>
+                                              {mean !== undefined 
+                                                ? (hasPercentTag ? `${mean.toFixed(1)}%` : mean.toFixed(2))
+                                                : (hasPercentTag ? '-%' : '-')}
+                                            </td>
+                                            {hasNumberTag && (
+                                              <>
+                                                <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>
+                                                  {sum !== undefined ? sum.toFixed(0) : '-'}
+                                                </td>
+                                                <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>
+                                                  {rowPercentage !== undefined ? `${rowPercentage.toFixed(1)}%` : '-'}
+                                                </td>
+                                              </>
+                                            )}
+                                          </tr>
+                                        );
+                                      });
+                                      
+                                      // Add total row
+                                      const totalPercentage = totalSum > 0 ? 100 : undefined;
+                                      
+                                      return (
+                                        <>
+                                          {rows}
+                                          <tr className="bg-gray-50 font-semibold border-t-2 border-gray-300">
+                                            <td className="px-2 py-2 text-sm text-gray-900" colSpan={2}>Total</td>
+                                            <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>
+                                              {sumOfMeans > 0
+                                                ? (hasPercentTag ? `${sumOfMeans.toFixed(1)}%` : sumOfMeans.toFixed(2))
+                                                : (hasPercentTag ? '-%' : '-')}
+                                            </td>
+                                            {hasNumberTag && (
+                                              <>
+                                                <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>
+                                                  {totalSum > 0 ? totalSum.toFixed(0) : '-'}
+                                                </td>
+                                                <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>
+                                                  {totalPercentage !== undefined ? `${totalPercentage.toFixed(1)}%` : '-'}
+                                                </td>
+                                              </>
+                                            )}
+                                          </tr>
+                                        </>
+                                      );
+                                    }
+                                    
+                                    // For non-column summary tables, show one row per statement (original behavior)
                                     return Object.entries(variable.statements || {}).map(([code, text]) => {
                                   const displayCode = code.replace(/^[rc]/i, '');
                                   const hasNumberTag = (variable as any).tags && Array.isArray((variable as any).tags) && (variable as any).tags.includes('Number');
@@ -2033,9 +3182,9 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                           <td className="px-2 py-2 text-sm font-mono text-gray-700 text-center" style={{ width: '2.5rem' }}>{displayCode}</td>
                                       <td className="px-4 py-2 text-sm text-gray-900">{text}</td>
                                           {(variable as any).isSummaryTable && !(variable as any).isScaleSummary && (() => {
-                                            // For mean summary tables, extract base question number (remove "_Mean Summary" suffix)
-                                            const baseName = variable.name.endsWith('_Mean Summary') 
-                                              ? variable.name.replace('_Mean Summary', '') 
+                                            // For summary tables, extract base question number (remove "_Summary" suffix)
+                                            const baseName = variable.name.endsWith('_Summary') 
+                                              ? variable.name.replace('_Summary', '') 
                                               : variable.name;
                                             const statementVarName = `${baseName}_${code}`;
                                             const statementData = variableData[statementVarName];
@@ -2267,17 +3416,19 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                   );
                                 })()}
                                 {/* Total row for numeric summary tables with Number or % tag */}
+                                {/* Exclude column summary tables (e.g., S4_c1_Summary) as they have their own total row */}
                                 {(variable as any).isSummaryTable && !(variable as any).isScaleSummary &&
                                  (variable as any).tags && 
                                  Array.isArray((variable as any).tags) && 
-                                 ((variable as any).tags.includes('Number') || (variable as any).tags.includes('%')) && (() => {
+                                 ((variable as any).tags.includes('Number') || (variable as any).tags.includes('%')) &&
+                                 !(variable.name.match(/^([A-Z0-9]+)_(c\d+)(?:_Summary)?$/i) && variable.type?.toLowerCase().includes('numeric')) && (() => {
                                   const hasPercentTag = (variable as any).tags && Array.isArray((variable as any).tags) && (variable as any).tags.includes('%');
                                   const hasNumberTag = (variable as any).tags && Array.isArray((variable as any).tags) && (variable as any).tags.includes('Number');
                                   
-                                  // For summary tables, extract base question number (remove "_Mean Summary" suffix)
+                                  // For summary tables, extract base question number (remove "_Summary" suffix)
                                   let baseName = variable.name;
-                                  if (variable.name.endsWith('_Mean Summary')) {
-                                    baseName = variable.name.replace('_Mean Summary', '');
+                                  if (variable.name.endsWith('_Summary')) {
+                                    baseName = variable.name.replace('_Summary', '');
                                   }
                                   
                                   let totalSum = 0;
@@ -2326,9 +3477,9 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
 
                         {/* Summary Table with Outliers Removed for numeric grids */}
                         {(variable as any).isSummaryTable && variable.statements && !(variable as any).isScaleSummary && (() => {
-                          // For mean summary tables, extract base question number (remove "_Mean Summary" suffix)
-                          const baseName = variable.name.endsWith('_Mean Summary') 
-                            ? variable.name.replace('_Mean Summary', '') 
+                          // For summary tables, extract base question number (remove "_Summary" suffix)
+                          const baseName = variable.name.endsWith('_Summary') 
+                            ? variable.name.replace('_Summary', '') 
                             : variable.name;
                           
                           // Check if any statement variables have meanNoOutliers data
@@ -2569,12 +3720,351 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                           </div>
                         )}
 
+                        {/* Error message if percentages don't sum to 100% - separated from table */}
+                        {variable.codes && 
+                         Object.keys(variable.codes).length > 0 && 
+                         !variable.statements && 
+                         !(variable as any).isSummaryTable && 
+                         !variable.type?.toLowerCase().includes('numeric grid') && (() => {
+                            const varData = variableData[variable.name];
+                            
+                            // Use the same frequency generation logic as in the table
+                            // If variable has codes but no frequencies, try to generate frequencies from values array
+                            let frequencies = varData?.frequencies;
+                            if (!frequencies && varData?.values && Array.isArray(varData.values) && variable.codes && Object.keys(variable.codes).length > 0) {
+                              frequencies = {};
+                              const codes: Record<string, string> = variable.codes;
+                              varData.values.forEach((val: any) => {
+                                const valStr = String(val).trim();
+                                let matchedCode: string | null = null;
+                                
+                                if (codes[valStr]) {
+                                  matchedCode = valStr;
+                                } else {
+                                  const numVal = /^\d+$/.test(valStr) ? parseInt(valStr, 10) : null;
+                                  if (numVal !== null) {
+                                    if (codes[String(numVal)]) {
+                                      matchedCode = String(numVal);
+                                    } else if (codes[numVal]) {
+                                      matchedCode = String(numVal);
+                                    }
+                                  }
+                                }
+                                
+                                if (matchedCode) {
+                                  frequencies[matchedCode] = (frequencies[matchedCode] || 0) + 1;
+                                } else {
+                                  frequencies[valStr] = (frequencies[valStr] || 0) + 1;
+                                }
+                              });
+                            }
+                            
+                            const total = varData?.count || 0;
+                            let totalPercentage = 0;
+                            
+                            // Calculate total percentage (same strict logic as in the table)
+                            const getCount = (code: string, label: string): number => {
+                              let count = 0;
+                              if (frequencies) {
+                                // Try exact code match first (string)
+                                if (frequencies[code] !== undefined) {
+                                  count = frequencies[code];
+                                } else {
+                                  // Try numeric match (code might be "1" but frequency key is 1 or vice versa)
+                                  const numericCode = /^\d+$/.test(code) ? parseInt(code, 10) : null;
+                                  if (numericCode !== null) {
+                                    // Try as number
+                                    if (frequencies[numericCode] !== undefined) {
+                                      count = frequencies[numericCode];
+                                    }
+                                    // Try as string
+                                    if (count === 0 && frequencies[String(numericCode)] !== undefined) {
+                                      count = frequencies[String(numericCode)];
+                                    }
+                                  }
+                                  
+                                  // Try without prefix (c1 -> 1)
+                                  if (count === 0) {
+                                    const codeWithoutPrefix = code.replace(/^[rc]/i, '');
+                                    if (frequencies[codeWithoutPrefix] !== undefined) {
+                                      count = frequencies[codeWithoutPrefix];
+                                    } else if (/^\d+$/.test(codeWithoutPrefix)) {
+                                      const num = parseInt(codeWithoutPrefix, 10);
+                                      if (frequencies[num] !== undefined) {
+                                        count = frequencies[num];
+                                      }
+                                    }
+                                  }
+                                  
+                                  // Try with prefix (1 -> c1 or r1)
+                                  if (count === 0 && !code.match(/^[rc]/i)) {
+                                    if (frequencies[`c${code}`] !== undefined) {
+                                      count = frequencies[`c${code}`];
+                                    } else if (frequencies[`r${code}`] !== undefined) {
+                                      count = frequencies[`r${code}`];
+                                    }
+                                  }
+                                  
+                                  // Last resort: try label matching (case-insensitive, trimmed)
+                                  if (count === 0 && label) {
+                                    const normalizedLabel = label.trim().toLowerCase();
+                                    for (const [key, value] of Object.entries(frequencies)) {
+                                      if (key.toLowerCase() === normalizedLabel) {
+                                        count = value as number;
+                                        break;
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                              return count;
+                            };
+                            
+                            Object.entries(variable.codes || {}).forEach(([code, label]) => {
+                              const count = getCount(code, label);
+                              const percentage = total > 0 ? (count / total) * 100 : 0;
+                              totalPercentage += percentage;
+                            });
+                            
+                            // Use a slightly larger threshold (0.1%) to account for floating point precision issues
+                            // Also ensure we have a total > 0 and totalPercentage > 0 (not 0.0%)
+                            if (total > 0 && totalPercentage > 0 && Math.abs(totalPercentage - 100) > 0.1) {
+                              // Find the questionnaire that contains this question
+                              // Extract base variable name (e.g., "S4" from "S4_1")
+                              const baseVarName = variable.name.match(/^(.+?)_\d+$/) ? variable.name.match(/^(.+?)_\d+$/)![1] : variable.name;
+                              const matchingQnr = questionnaires.find(qnr => 
+                                qnr.questions?.some((q: any) => {
+                                  const qNumber = q.number || q.id || '';
+                                  return qNumber === baseVarName || qNumber === variable.name;
+                                })
+                              );
+                              
+                              return (
+                                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                                  <div className="flex items-start gap-2">
+                                    <InformationCircleIcon className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+                                    <p className="text-sm text-red-800">
+                                      <strong>Warning:</strong> Percentages don't sum to 100% ({totalPercentage.toFixed(1)}%). 
+                                      This may indicate a mismatch between response codes in your data and the QNR. 
+                                    {matchingQnr && selectedProject ? (
+                                      <span> Please review the response codes in the{' '}
+                                        <button
+                                          onClick={() => {
+                                            // Store project and QNR IDs in sessionStorage for QNR component to pick up
+                                            sessionStorage.setItem('cognitive_dash_tabs_sync_project_id', selectedProject.id);
+                                            sessionStorage.setItem('cognitive_dash_tabs_sync_qnr_id', matchingQnr.id);
+                                            navigate('/qnr');
+                                          }}
+                                          className="text-red-600 underline hover:text-red-800 font-medium"
+                                        >
+                                          QNR
+                                        </button>
+                                        {' '}to ensure they were parsed correctly.
+                                      </span>
+                                    ) : (
+                                      <span> Please review the response codes in the QNR to ensure they were parsed correctly.</span>
+                                    )}
+                                    </p>
+                                  </div>
+                                  <p className="text-xs text-red-700 mt-2 ml-7">
+                                    Note: Codes like 97, 98, and 99 are often the cause of this error. These can be updated in the QNR tab.
+                                  </p>
+                                </div>
+                              );
+                            }
+                            return null;
+                          })()}
+
                         {/* Response Options for categorical variables */}
                         {variable.codes && 
                          Object.keys(variable.codes).length > 0 && 
                          !variable.statements && 
                          !(variable as any).isSummaryTable && 
-                         !variable.type?.toLowerCase().includes('numeric grid') && (
+                         !variable.type?.toLowerCase().includes('numeric grid') && (() => {
+                          // Check if this is a multiselect base question (B8) or response variable (B8r1, B8r2, etc.)
+                          const multiselectMatch = variable.name.match(/^(.+?)r(\d+)$/i);
+                          const isMultiselectResponse = multiselectMatch && variable.type?.toLowerCase().includes('multi-select');
+                          const isMultiselectBase = variable.type?.toLowerCase().includes('multi-select') && !multiselectMatch;
+                          
+                          if (isMultiselectBase || isMultiselectResponse) {
+                            // Determine the base question name
+                            const baseQuestion = isMultiselectResponse ? multiselectMatch![1] : variable.name;
+                            
+                            // Find all response variables for this multiselect question
+                            const responseVariables = variables.filter(v => {
+                              const match = v.name.match(/^(.+?)r(\d+)$/i);
+                              return match && match[1] === baseQuestion && v.type?.toLowerCase().includes('multi-select');
+                            }).sort((a, b) => {
+                              const aMatch = a.name.match(/r(\d+)$/i);
+                              const bMatch = b.name.match(/r(\d+)$/i);
+                              const aNum = aMatch ? parseInt(aMatch[1], 10) : 0;
+                              const bNum = bMatch ? parseInt(bMatch[1], 10) : 0;
+                              return aNum - bNum;
+                            });
+                            
+                            // Show combined table if we have response variables
+                            if (responseVariables.length > 0) {
+                              // Calculate base size (sample size) - count all people who saw the question
+                              // Use the first response variable to determine who saw the question
+                              // Any row with 0 or 1 (not blank) means they saw the question
+                              let baseSize = 0;
+                              const firstRespVar = responseVariables[0];
+                              const firstRespVarData = variableData[firstRespVar.name];
+                              
+                              if (firstRespVarData) {
+                                if (firstRespVarData.values && Array.isArray(firstRespVarData.values)) {
+                                  // Count all non-blank values (0, 1, or any other value means they saw it)
+                                  baseSize = firstRespVarData.values.filter((v: any) => {
+                                    // Exclude null, undefined, empty string, and whitespace-only strings
+                                    return v !== null && v !== undefined && v !== '' && String(v).trim() !== '';
+                                  }).length;
+                                } else if (firstRespVarData.count !== undefined) {
+                                  // If we have a count, use it (but this might include blanks, so prefer values array)
+                                  baseSize = firstRespVarData.count;
+                                } else if (firstRespVarData.frequencies) {
+                                  // Sum all frequencies (0s and 1s)
+                                  baseSize = Object.values(firstRespVarData.frequencies).reduce((sum: number, count: any) => {
+                                    return sum + (typeof count === 'number' ? count : 0);
+                                  }, 0);
+                                }
+                              }
+                              
+                              // Build combined multiselect table
+                              const responseRows: Array<{code: string, label: string, count: number, percentage: number}> = [];
+                              let totalResponses = 0;
+                              
+                              responseVariables.forEach((respVar) => {
+                                const respVarData = variableData[respVar.name];
+                                if (!respVarData) return;
+                                
+                                // Get count for "Selected" (code "1")
+                                let count = 0;
+                                if (respVarData.frequencies) {
+                                  count = respVarData.frequencies['1'] || respVarData.frequencies[1] || 0;
+                                } else if (respVarData.values && Array.isArray(respVarData.values)) {
+                                  count = respVarData.values.filter((v: any) => v === 1 || v === '1' || String(v).trim() === '1').length;
+                                }
+                                
+                                // Get the response option label from the variable description
+                                // Format: "Question Text - Response Option Text"
+                                const description = respVar.description || '';
+                                const label = description.includes(' - ') ? description.split(' - ')[1] : respVar.name;
+                                
+                                // Extract response number from variable name (B8r1 -> 1)
+                                const respMatch = respVar.name.match(/r(\d+)$/i);
+                                const respCode = respMatch ? respMatch[1] : '';
+                                
+                                if (count > 0 || respVarData.count > 0) {
+                                  responseRows.push({
+                                    code: respCode,
+                                    label: label,
+                                    count: count,
+                                    percentage: 0 // Will calculate after we have total
+                                  });
+                                  totalResponses += count;
+                                }
+                              });
+                              
+                              // Calculate percentages based on base size (sample size), not total responses
+                              responseRows.forEach(row => {
+                                row.percentage = baseSize > 0 ? (row.count / baseSize) * 100 : 0;
+                              });
+                              
+                              responseRows.sort((a, b) => {
+                                // Sort by count descending, then by percentage descending
+                                if (b.count !== a.count) {
+                                  return b.count - a.count;
+                                }
+                                return b.percentage - a.percentage;
+                              });
+                              
+                              // Get base question info - use just the question label
+                              const baseQuestionVar = variables.find(v => v.name === baseQuestion);
+                              const questionText = baseQuestionVar?.description || baseQuestion;
+                              
+                              return (
+                                <div>
+                                  {/* Sample Size */}
+                                  {baseSize > 0 && (
+                                    <p className="mb-4 text-sm text-gray-700">
+                                      <span className="font-semibold">Sample Size:</span> <span className="font-semibold">{baseSize.toLocaleString()}</span>
+                                    </p>
+                                  )}
+                                  
+                                  <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                                    <div className="overflow-x-auto">
+                                      <table className="min-w-full divide-y divide-gray-200">
+                                        <thead className="bg-gray-50">
+                                          <tr>
+                                            <th colSpan={2} className="px-4 py-2 text-left text-sm font-semibold text-gray-900">
+                                              {questionText}
+                                            </th>
+                                            <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style={{ width: '5rem' }}>Count</th>
+                                            <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style={{ width: '5rem' }}>%</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody className="bg-white divide-y divide-gray-200">
+                                          {responseRows.map((row) => (
+                                            <tr key={row.code}>
+                                              <td className="px-2 py-2 text-sm font-mono text-gray-700 text-center" style={{ width: '2.5rem' }}>{row.code}</td>
+                                              <td className="px-4 py-2 text-sm text-gray-900">{row.label}</td>
+                                              <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>{row.count}</td>
+                                              <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>{baseSize > 0 ? `${row.percentage.toFixed(1)}%` : '-'}</td>
+                                            </tr>
+                                          ))}
+                                          {/* Total row */}
+                                          <tr className="bg-gray-50 font-semibold border-t-2 border-gray-300">
+                                            <td className="px-2 py-2 text-sm text-gray-900" colSpan={2}>Total</td>
+                                            <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>{totalResponses}</td>
+                                            <td className="px-4 py-2 text-sm text-center font-semibold text-gray-900" style={{ width: '5rem' }}>
+                                              {baseSize > 0 ? `${((totalResponses / baseSize) * 100).toFixed(1)}%` : '-'}
+                                            </td>
+                                          </tr>
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            }
+                            
+                            // For other response variables, don't show individual table
+                            return null;
+                          }
+                          
+                          // Regular categorical variable - show normal table
+                          return (
+                            <div>
+                              {(() => {
+                                // Calculate base size (sample size) - count all people who saw the question
+                                const varData = variableData[variable.name];
+                                let baseSize = 0;
+                                
+                                if (varData) {
+                                  if (varData.values && Array.isArray(varData.values)) {
+                                    // Count all non-blank values (any value means they saw it)
+                                    baseSize = varData.values.filter((v: any) => {
+                                      // Exclude null, undefined, empty string, and whitespace-only strings
+                                      return v !== null && v !== undefined && v !== '' && String(v).trim() !== '';
+                                    }).length;
+                                  } else if (varData.count !== undefined) {
+                                    // If we have a count, use it
+                                    baseSize = varData.count;
+                                  } else if (varData.frequencies) {
+                                    // Sum all frequencies
+                                    baseSize = Object.values(varData.frequencies).reduce((sum: number, count: any) => {
+                                      return sum + (typeof count === 'number' ? count : 0);
+                                    }, 0);
+                                  }
+                                }
+                                
+                                return baseSize > 0 ? (
+                                  <p className="mb-4 text-sm text-gray-700">
+                                    <span className="font-semibold">Sample Size:</span> <span className="font-semibold">{baseSize.toLocaleString()}</span>
+                                  </p>
+                                ) : null;
+                              })()}
+                              
                           <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
                             <div className="overflow-x-auto">
                             <table className="min-w-full divide-y divide-gray-200">
@@ -2588,6 +4078,44 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                               <tbody className="bg-white divide-y divide-gray-200">
                                   {(() => {
                                     const varData = variableData[variable.name];
+                                    
+                                    // If variable has codes but no frequencies, try to generate frequencies from values array
+                                    // This handles cases where backend incorrectly marked a categorical variable as numeric
+                                    let frequencies = varData?.frequencies;
+                                    if (!frequencies && varData?.values && Array.isArray(varData.values) && variable.codes && Object.keys(variable.codes).length > 0) {
+                                      console.log(`[${variable.name}] Generating frequencies from values array (marked as numeric but has codes)`);
+                                      frequencies = {};
+                                      const codes: Record<string, string> = variable.codes; // Store reference with explicit type
+                                      varData.values.forEach((val: any) => {
+                                        const valStr = String(val).trim();
+                                        // Try to match value to a code
+                                        let matchedCode: string | null = null;
+                                        
+                                        // Try exact match
+                                        if (codes[valStr]) {
+                                          matchedCode = valStr;
+                                        } else {
+                                          // Try numeric match
+                                          const numVal = /^\d+$/.test(valStr) ? parseInt(valStr, 10) : null;
+                                          if (numVal !== null) {
+                                            if (codes[String(numVal)]) {
+                                              matchedCode = String(numVal);
+                                            } else if (codes[numVal]) {
+                                              matchedCode = String(numVal);
+                                            }
+                                          }
+                                        }
+                                        
+                                        if (matchedCode) {
+                                          frequencies[matchedCode] = (frequencies[matchedCode] || 0) + 1;
+                                        } else {
+                                          // Store unmatched value as-is
+                                          frequencies[valStr] = (frequencies[valStr] || 0) + 1;
+                                        }
+                                      });
+                                      console.log(`[${variable.name}] Generated frequencies:`, frequencies);
+                                    }
+                                    
                                     const total = varData?.count || 0;
                                     
                                     // Calculate total count and sum of percentages by summing all frequencies
@@ -2595,79 +4123,84 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                     let totalPercentage = 0;
                                     
                                     // Helper function to get count for a code/label pair
+                                    // STRICT MATCHING: Only match exact codes or prefix variations
+                                    // Do NOT fall back to label matching or values array matching
+                                    // This ensures unmatched codes (like 99) don't get incorrectly assigned
                                     const getCount = (code: string, label: string): number => {
                                       let count = 0;
                                       let matchedKey: string | null = null;
                                       
-                                      if (varData?.frequencies) {
-                                        // Try exact code match first
-                                        if (varData.frequencies[code] !== undefined) {
-                                          count = varData.frequencies[code];
+                                      if (frequencies) {
+                                        // Try exact code match first (string)
+                                        if (frequencies[code] !== undefined) {
+                                          count = frequencies[code];
                                           matchedKey = code;
+                                        }
+                                        
+                                        // Try numeric match (code might be "1" but frequency key is 1 or vice versa)
+                                        if (count === 0) {
+                                          const numericCode = /^\d+$/.test(code) ? parseInt(code, 10) : null;
+                                          if (numericCode !== null) {
+                                            // Try as number
+                                            if (frequencies[numericCode] !== undefined) {
+                                              count = frequencies[numericCode];
+                                              matchedKey = String(numericCode);
+                                            }
+                                            // Try as string
+                                            if (count === 0 && frequencies[String(numericCode)] !== undefined) {
+                                              count = frequencies[String(numericCode)];
+                                              matchedKey = String(numericCode);
+                                            }
+                                          }
                                         }
                                         
                                         // If no match, try without prefix (c1 -> 1)
                                         if (count === 0) {
                                           const codeWithoutPrefix = code.replace(/^[rc]/i, '');
-                                          if (varData.frequencies[codeWithoutPrefix] !== undefined) {
-                                            count = varData.frequencies[codeWithoutPrefix];
+                                          if (frequencies[codeWithoutPrefix] !== undefined) {
+                                            count = frequencies[codeWithoutPrefix];
                                             matchedKey = codeWithoutPrefix;
+                                          }
+                                          // Also try numeric version
+                                          if (count === 0 && /^\d+$/.test(codeWithoutPrefix)) {
+                                            const num = parseInt(codeWithoutPrefix, 10);
+                                            if (frequencies[num] !== undefined) {
+                                              count = frequencies[num];
+                                              matchedKey = String(num);
+                                            }
                                           }
                                         }
                                         
                                         // If still no match, try with prefix (1 -> c1, but only if code doesn't already have prefix)
                                         if (count === 0 && !code.match(/^[rc]/i)) {
-                                          if (varData.frequencies[`c${code}`] !== undefined) {
-                                            count = varData.frequencies[`c${code}`];
+                                          if (frequencies[`c${code}`] !== undefined) {
+                                            count = frequencies[`c${code}`];
                                             matchedKey = `c${code}`;
-                                          } else if (varData.frequencies[`r${code}`] !== undefined) {
-                                            count = varData.frequencies[`r${code}`];
+                                          } else if (frequencies[`r${code}`] !== undefined) {
+                                            count = frequencies[`r${code}`];
                                             matchedKey = `r${code}`;
                                           }
                                         }
                                         
-                                        // If still no match, try matching by label text (case-insensitive, exact match only)
-                                        // Only use label matching as a last resort and be very strict about it
+                                        // Last resort: try label matching (case-insensitive, trimmed)
                                         if (count === 0 && label) {
-                                          const labelLower = String(label).toLowerCase().trim();
-                                          
-                                          // First try exact label match
-                                          if (varData.frequencies[label] !== undefined) {
-                                            count = varData.frequencies[label];
-                                            matchedKey = label;
-                                          } else {
-                                            // Try case-insensitive exact match
-                                            const exactMatchKey = Object.keys(varData.frequencies).find(key => 
-                                              String(key).toLowerCase().trim() === labelLower
-                                            );
-                                            if (exactMatchKey) {
-                                              count = varData.frequencies[exactMatchKey];
-                                              matchedKey = exactMatchKey;
+                                          const normalizedLabel = label.trim().toLowerCase();
+                                          for (const [key, value] of Object.entries(frequencies)) {
+                                            // Check if any frequency key matches the label
+                                            if (key.toLowerCase() === normalizedLabel) {
+                                              count = value as number;
+                                              matchedKey = key;
+                                              break;
                                             }
                                           }
                                         }
                                       }
                                       
-                                      // Fallback: If frequencies don't match, calculate from values array
-                                      // Only match by exact label or code, not partial matches
-                                      if (count === 0 && varData?.values && Array.isArray(varData.values) && label) {
-                                        const labelLower = String(label).toLowerCase().trim();
-                                        const codeWithoutPrefix = code.replace(/^[rc]/i, '');
-                                        
-                                        count = varData.values.filter((val: any) => {
-                                          const valStr = String(val).toLowerCase().trim();
-                                          // Try exact matches first
-                                          return valStr === labelLower || 
-                                                 valStr === codeWithoutPrefix ||
-                                                 valStr === code.toLowerCase();
-                                        }).length;
-                                      }
-                                      
-                                      // Debug logging to help identify matching issues
-                                      if (variable.name && varData?.frequencies && Object.keys(varData.frequencies).length > 0) {
-                                        console.log(`[${variable.name}] Code: "${code}", Label: "${label}", Matched Key: "${matchedKey}", Count: ${count}`);
-                                        console.log(`  Available frequency keys:`, Object.keys(varData.frequencies));
-                                        console.log(`  Frequency values:`, Object.entries(varData.frequencies).map(([k, v]) => `${k}: ${v}`).join(', '));
+                                      // Debug logging to help identify matching issues (only log if no match found)
+                                      if (count === 0 && variable.name && frequencies && Object.keys(frequencies).length > 0) {
+                                        console.warn(`[${variable.name}] No match found for Code: "${code}", Label: "${label}"`);
+                                        console.warn(`  Available frequency keys:`, Object.keys(frequencies));
+                                        console.warn(`  Frequency values:`, Object.entries(frequencies).map(([k, v]) => `${k}: ${v}`).join(', '));
                                       }
                                       
                                       return count;
@@ -2716,7 +4249,118 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                             </table>
                           </div>
                         </div>
-                      )}
+                            </div>
+                          );
+                        })()}
+
+                        {/* Frequency table for open end questions */}
+                        {variable.type?.toLowerCase().includes('open end') && 
+                         !variable.codes && 
+                         !variable.statements && 
+                         !(variable as any).isSummaryTable && (() => {
+                          const varData = variableData[variable.name];
+                          if (!varData) return null;
+                          
+                          // Build frequency map from values array or frequencies object
+                          const frequencyMap = new Map<string, number>();
+                          let totalCount = 0;
+                          
+                          // If frequencies object exists, use it (pre-aggregated)
+                          if (varData.frequencies && typeof varData.frequencies === 'object') {
+                            Object.entries(varData.frequencies).forEach(([key, count]) => {
+                              if (typeof count === 'number' && count > 0) {
+                                const keyStr = String(key).trim();
+                                if (keyStr) {
+                                  frequencyMap.set(keyStr, count);
+                                  totalCount += count;
+                                }
+                              }
+                            });
+                          } 
+                          // Otherwise, calculate from values array
+                          else if (Array.isArray(varData.values)) {
+                            varData.values.forEach((val: any) => {
+                              if (val !== null && val !== undefined && val !== '') {
+                                const valStr = String(val).trim();
+                                if (valStr) {
+                                  frequencyMap.set(valStr, (frequencyMap.get(valStr) || 0) + 1);
+                                  totalCount++;
+                                }
+                              }
+                            });
+                          }
+                          
+                          // Only show if we have data
+                          if (frequencyMap.size === 0) return null;
+                          
+                          // Calculate base size (sample size) - count all people who saw the question
+                          let baseSize = 0;
+                          if (varData.values && Array.isArray(varData.values)) {
+                            // Count all non-blank values
+                            baseSize = varData.values.filter((v: any) => {
+                              return v !== null && v !== undefined && v !== '' && String(v).trim() !== '';
+                            }).length;
+                          } else if (varData.count !== undefined) {
+                            baseSize = varData.count;
+                          } else if (varData.frequencies) {
+                            baseSize = Object.values(varData.frequencies).reduce((sum: number, count: any) => {
+                              return sum + (typeof count === 'number' ? count : 0);
+                            }, 0);
+                          }
+                          
+                          // Sort by count (descending), then alphabetically
+                          const sortedFrequencies = Array.from(frequencyMap.entries())
+                            .sort((a, b) => {
+                              if (b[1] !== a[1]) {
+                                return b[1] - a[1]; // Sort by count descending
+                              }
+                              return a[0].localeCompare(b[0]); // Then alphabetically
+                            });
+                          
+                          return (
+                            <div className="mt-4">
+                              {/* Sample Size */}
+                              {baseSize > 0 && (
+                                <p className="mb-4 text-sm text-gray-700">
+                                  <span className="font-semibold">Sample Size:</span> <span className="font-semibold">{baseSize.toLocaleString()}</span>
+                                </p>
+                              )}
+                              
+                              <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                                <div className="overflow-x-auto">
+                                  <table className="min-w-full divide-y divide-gray-200">
+                                    <thead className="bg-gray-50">
+                                      <tr>
+                                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-900">Response</th>
+                                        <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style={{ width: '5rem' }}>Count</th>
+                                        <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style={{ width: '5rem' }}>%</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-gray-200">
+                                      {sortedFrequencies.map(([response, count], index) => {
+                                        const percent = totalCount > 0 ? ((count / totalCount) * 100) : 0;
+                                        
+                                        return (
+                                          <tr key={index}>
+                                            <td className="px-4 py-2 text-sm text-gray-900 break-words max-w-md">{response}</td>
+                                            <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>{count}</td>
+                                            <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>{percent.toFixed(1)}%</td>
+                                          </tr>
+                                        );
+                                      })}
+                                      {/* Total row */}
+                                      <tr className="bg-gray-50 font-semibold border-t-2 border-gray-300">
+                                        <td className="px-4 py-2 text-sm text-gray-900">Total</td>
+                                        <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>{totalCount}</td>
+                                        <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>100.0%</td>
+                                      </tr>
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()}
                                     </div>
                                   );
                                 })()
@@ -2726,6 +4370,381 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                             </div>
                           )}
                             </div>
+                            </div>
+            ) : qnrViewMode === 'banners' ? (
+            /* Banners View */
+            <div className="bg-white shadow-sm rounded-lg flex flex-col" style={{ minHeight: 0, borderRadius: 0 }}>
+              {showBannerBuilder ? (
+                <BannerBuilder
+                  parsedFile={(() => {
+                    // Create a parsedFile from the existing variables and variableData
+                    // Convert Variable[] to VariableDefinition[] format
+                    const variableDefinitions = variables
+                      .filter(v => {
+                        // Only include categorical variables (single select, multi-select, etc.)
+                        // Exclude numeric grids, numeric lists, and summary tables
+                        const type = v.type?.toLowerCase() || '';
+                        return !type.includes('numeric') && 
+                               !(v as any).isSummaryTable && 
+                               !(v as any).isScaleSummary &&
+                               (v.codes && Object.keys(v.codes).length > 0);
+                      })
+                      .map(v => {
+                        // Determine the variable type
+                        let varType: 'categorical' | 'multi-select' | 'grid' | 'grid-single-select' | 'grid-multi-select' = 'categorical';
+                        const type = v.type?.toLowerCase() || '';
+                        
+                        if (type.includes('multi-select')) {
+                          if (v.statements && Object.keys(v.statements).length > 0) {
+                            varType = 'grid-multi-select';
+                          } else {
+                            varType = 'multi-select';
+                          }
+                        } else if (type.includes('single select grid') || type.includes('single-select grid')) {
+                          varType = 'grid-single-select';
+                        } else if (v.statements && Object.keys(v.statements).length > 0) {
+                          varType = 'grid';
+                        }
+                        
+                        return {
+                          name: v.name,
+                          description: v.description || '',
+                          type: varType,
+                          codes: v.codes || {},
+                          statements: v.statements
+                        };
+                      });
+                    
+                    return {
+                      variables: variableDefinitions,
+                      data: [], // Not needed for banner builder
+                      rowCount: 0,
+                      metadata: {
+                        fileName: '',
+                        uploadedAt: new Date(),
+                        sheetNames: []
+                      }
+                    };
+                  })()}
+                  editingGroup={editingBannerGroup}
+                  onSave={(group) => {
+                    if (editingBannerGroup) {
+                      setBannerGroups(bannerGroups.map(g => g.id === group.id ? group : g));
+                    } else {
+                      setBannerGroups([...bannerGroups, group]);
+                    }
+                    setShowBannerBuilder(false);
+                    setEditingBannerGroup(null);
+                  }}
+                  onCancel={() => {
+                    setShowBannerBuilder(false);
+                    setEditingBannerGroup(null);
+                  }}
+                />
+              ) : selectedBannerGroupId ? (
+                // Show banner group with variable sidebar
+                (() => {
+                  const selectedGroup = bannerGroups.find(g => g.id === selectedBannerGroupId);
+                  if (!selectedGroup) {
+                    setSelectedBannerGroupId(null);
+                    return null;
+                  }
+
+                  // Get categorical variables for the sidebar
+                  const categoricalVariables = variables.filter(v => {
+                    const type = v.type?.toLowerCase() || '';
+                    return !type.includes('numeric') && 
+                           !(v as any).isSummaryTable && 
+                           !(v as any).isScaleSummary &&
+                           (v.codes && Object.keys(v.codes).length > 0);
+                  });
+
+                  // Get selected stub variable for this banner group
+                  const currentStubVariable = selectedStubVariables[selectedGroup.id] || '';
+
+                  // Create parsedFile for CrossTabDisplay
+                  const createParsedFile = (): ParsedDataFile | null => {
+                    if (variables.length === 0 || Object.keys(variableData).length === 0) {
+                      return null;
+                    }
+
+                    // Convert Variable[] to VariableDefinition[] format
+                    const variableDefinitions = categoricalVariables.map(v => {
+                      let varType: 'categorical' | 'multi-select' | 'grid' | 'grid-single-select' | 'grid-multi-select' = 'categorical';
+                      const type = v.type?.toLowerCase() || '';
+                      
+                      if (type.includes('multi-select')) {
+                        if (v.statements && Object.keys(v.statements).length > 0) {
+                          varType = 'grid-multi-select';
+                        } else {
+                          varType = 'multi-select';
+                        }
+                      } else if (type.includes('single select grid') || type.includes('single-select grid')) {
+                        varType = 'grid-single-select';
+                      } else if (v.statements && Object.keys(v.statements).length > 0) {
+                        varType = 'grid';
+                      }
+                      
+                      return {
+                        name: v.name,
+                        description: v.description || '',
+                        type: varType,
+                        codes: v.codes || {},
+                        statements: v.statements
+                      };
+                    });
+
+                    // Reconstruct row data from frequencies
+                    // This is a simplified approach - we create rows based on the frequencies
+                    // For proper crosstabs, we'd need the actual raw data file
+                    const dataRows: Record<string, any>[] = [];
+                    const maxCount = Math.max(...Object.values(variableData).map((v: any) => v?.count || 0), 0);
+                    
+                    // Create rows by reconstructing from frequencies
+                    // This is a workaround - ideally we'd have the raw data file
+                    for (let i = 0; i < maxCount; i++) {
+                      const row: Record<string, any> = {};
+                      variableDefinitions.forEach(v => {
+                        const varData = variableData[v.name];
+                        if (varData?.frequencies) {
+                          // For each code, assign values based on frequency distribution
+                          const codes = Object.keys(varData.frequencies);
+                          const total = varData.count || 0;
+                          let assigned = false;
+                          for (const code of codes) {
+                            const freq = varData.frequencies[code] || 0;
+                            const ratio = total > 0 ? freq / total : 0;
+                            const expectedCount = Math.round(ratio * maxCount);
+                            const currentIndex = Math.floor(i * (codes.length / maxCount));
+                            if (currentIndex < codes.length && !assigned) {
+                              row[v.name] = codes[currentIndex];
+                              assigned = true;
+                            }
+                          }
+                          if (!assigned && codes.length > 0) {
+                            row[v.name] = codes[0];
+                          }
+                        }
+                      });
+                      if (Object.keys(row).length > 0) {
+                        dataRows.push(row);
+                      }
+                    }
+
+                    return {
+                      variables: variableDefinitions,
+                      data: dataRows,
+                      rowCount: dataRows.length,
+                      metadata: {
+                        fileName: uploadedFileInfo?.fileName || '',
+                        uploadedAt: uploadedFileInfo?.uploadedAt ? new Date(uploadedFileInfo.uploadedAt) : new Date(),
+                        sheetNames: []
+                      }
+                    };
+                  };
+
+                  const currentParsedFile = createParsedFile();
+
+                  return (
+                    <div className="flex h-[calc(100vh-200px)]">
+                      {/* Variables Sidebar */}
+                      <div className="w-80 border-r border-gray-200 flex flex-col" style={{ height: '100%', overflow: 'hidden' }}>
+                        <div className="p-4 border-b border-gray-200 flex-shrink-0">
+                          <div className="flex items-center justify-between mb-2">
+                            <button
+                              onClick={() => setSelectedBannerGroupId(null)}
+                              className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900"
+                            >
+                              <ArrowLeftIcon className="h-4 w-4" />
+                              Back
+                            </button>
+                          </div>
+                          <h3 className="text-sm font-semibold text-gray-900 mt-2">{selectedGroup.title}</h3>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-2" style={{ minHeight: 0 }}>
+                          {categoricalVariables.length === 0 ? (
+                            <div className="text-center py-8 text-gray-500 text-sm">
+                              No categorical variables available
+                            </div>
+                          ) : (
+                            <div className="space-y-1">
+                              {categoricalVariables.map((v) => {
+                                const varData = variableData[v.name];
+                                const hasData = varData && (
+                                  (varData.count && varData.count > 0) ||
+                                  (varData.frequencies && Object.keys(varData.frequencies || {}).length > 0)
+                                );
+
+                                return (
+                                  <button
+                                    key={v.name}
+                                    onClick={() => {
+                                      setSelectedStubVariables({
+                                        ...selectedStubVariables,
+                                        [selectedGroup.id]: v.name
+                                      });
+                                    }}
+                                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+                                      currentStubVariable === v.name
+                                        ? 'bg-orange-100 text-orange-900'
+                                        : 'hover:bg-gray-100 text-gray-700'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2 w-full">
+                                      <span className="font-medium">{v.name}</span>
+                                      {!hasData && (
+                                        <InformationCircleIcon className="h-4 w-4 text-red-500 flex-shrink-0" title="No data available for this variable" />
+                                      )}
+                                    </div>
+                                    {v.description && (
+                                      <div className="text-xs text-gray-500 mt-1 truncate">{v.description}</div>
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Main Content Area - Cross Tab Display */}
+                      <div className="flex-1 flex flex-col" style={{ minHeight: 0, overflow: 'hidden' }}>
+                        {currentParsedFile ? (
+                          <div className="flex-1 overflow-auto p-6">
+                            <CrossTabDisplay
+                              parsedFile={currentParsedFile}
+                              bannerGroup={selectedGroup}
+                              selectedStubVariable={currentStubVariable}
+                              onStubVariableChange={(variableName) => {
+                                setSelectedStubVariables({
+                                  ...selectedStubVariables,
+                                  [selectedGroup.id]: variableName
+                                });
+                              }}
+                              hideStubVariableDropdown={true}
+                              hideOpenEnds={true}
+                              hideZeroBase={false}
+                              getVariableBase={(variableName: string) => {
+                                const varData = variableData[variableName];
+                                return varData?.count || 0;
+                              }}
+                              hideInCrosstabs={{}}
+                              sortOptions={{}}
+                              hideZeroFrequencies={{}}
+                              allBannerGroups={bannerGroups}
+                              currentBannerGroupIndex={bannerGroups.findIndex(g => g.id === selectedBannerGroupId)}
+                              onEdit={() => {
+                                setEditingBannerGroup(selectedGroup);
+                                setShowBannerBuilder(true);
+                              }}
+                            />
+                          </div>
+                        ) : (
+                          <div className="flex-1 flex items-center justify-center">
+                            <div className="text-center">
+                              <p className="text-gray-600 mb-2">No data available</p>
+                              <p className="text-sm text-gray-500">Please upload a data file to view cross tabs</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()
+              ) : (
+                // Show list of banner groups
+                <div className="flex flex-col flex-1 p-6">
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-lg font-semibold text-gray-900">Banner Groups</h3>
+                    <button
+                      onClick={() => {
+                        setEditingBannerGroup(null);
+                        setShowBannerBuilder(true);
+                      }}
+                      className="flex items-center gap-2 px-4 py-2 text-sm text-white rounded-lg hover:opacity-90"
+                      style={{ backgroundColor: BRAND_ORANGE }}
+                    >
+                      <PlusCircleIcon className="h-5 w-5" />
+                      Create Banner Group
+                    </button>
+                  </div>
+                  {bannerGroups.length === 0 ? (
+                    <div className="flex-1 flex items-center justify-center">
+                      <div className="text-center">
+                        <IconTable className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">No Banner Groups</h3>
+                        <p className="text-gray-600 mb-4">Create banner groups to add cross tab cuts</p>
+                        <button
+                          onClick={() => {
+                            setEditingBannerGroup(null);
+                            setShowBannerBuilder(true);
+                          }}
+                          className="flex items-center gap-2 px-4 py-2 text-sm text-white rounded-lg hover:opacity-90 mx-auto"
+                          style={{ backgroundColor: BRAND_ORANGE }}
+                        >
+                          <PlusCircleIcon className="h-5 w-5" />
+                          Create Banner Group
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-4">
+                      {bannerGroups.map((group) => (
+                        <div
+                          key={group.id}
+                          className="border border-gray-200 rounded-lg p-4 hover:border-gray-300 hover:shadow-md transition-all cursor-pointer"
+                          onClick={() => setSelectedBannerGroupId(group.id)}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <h4 className="text-md font-semibold text-gray-900 mb-1">{group.title}</h4>
+                              <p className="text-sm text-gray-600">
+                                {group.groups && group.groups.length > 0 ? (
+                                  <>
+                                    {group.groups.length} {group.groups.length === 1 ? 'group' : 'groups'} • {' '}
+                                    {group.groups.reduce((sum, g) => sum + g.cuts.length, 0)} {group.groups.reduce((sum, g) => sum + g.cuts.length, 0) === 1 ? 'cut' : 'cuts'}
+                                  </>
+                                ) : (group as any).cuts ? (
+                                  <>
+                                    {(group as any).cuts.length} {(group as any).cuts.length === 1 ? 'cut' : 'cuts'}
+                                  </>
+                                ) : (
+                                  'No cuts'
+                                )}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (confirm('Are you sure you want to delete this banner group?')) {
+                                    setBannerGroups(bannerGroups.filter(g => g.id !== group.id));
+                                    if (selectedBannerGroupId === group.id) {
+                                      setSelectedBannerGroupId(null);
+                                    }
+                                  }
+                                }}
+                                className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Delete banner group"
+                              >
+                                <TrashIcon className="h-5 w-5" />
+                              </button>
+                              <svg 
+                                className="w-5 h-5 text-gray-400" 
+                                fill="none" 
+                                stroke="currentColor" 
+                                viewBox="0 0 24 24"
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                              </svg>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
                             </div>
             ) : (
             /* Data Upload View */
@@ -2762,7 +4781,30 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                     
                                     setMappingVariables(true);
                                     try {
-                                      const variableNames = variables.map(v => v.name);
+                                      // Filter out computed/summary variables that shouldn't be mapped
+                                      // Include variable type information for better AI matching
+                                      const variablesToMap = variables
+                                        .filter(v => {
+                                          // Skip summary table variables
+                                          if (v.name.includes('_Summary') || 
+                                              v.name.includes('Summary') && v.isSummaryTable) {
+                                            return false;
+                                          }
+                                          // Skip scale summary variables
+                                          if (v.isScaleSummary) {
+                                            return false;
+                                          }
+                                          return true;
+                                        })
+                                        .map(v => ({
+                                          name: v.name,
+                                          type: v.type || 'Unknown',
+                                          description: v.description || ''
+                                        }));
+                                      
+                                      const variableNames = variablesToMap.map(v => v.name);
+                                      
+                                      console.log(`📋 Filtered variables: ${variableNames.length} variables to map (from ${variables.length} total)`);
                                       
                                       const response = await fetch(`${API_BASE_URL}/api/questionnaire/map-columns`, {
                                         method: 'POST',
@@ -2773,6 +4815,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                         body: JSON.stringify({
                                           questionnaireId: selectedQuestionnaire.id,
                                           variableNames: variableNames,
+                                          variables: variablesToMap, // Include full variable info with types
                                           dataHeaders: columnHeaders
                                         })
                                       });
@@ -3065,12 +5108,241 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                       )}
                       
                   {uploadedFileInfo && (
+                    <>
+                      {/* Unmapped Questions Table */}
+                      {(() => {
+                        // Get unmapped questions
+                        const unmappedQuestions = questionnaireQuestions.filter((question) => {
+                          const questionNumber = question.number || question.id;
+                          if (!questionNumber) return false;
+                          
+                          const questionType = question.type || '';
+                          
+                          // Debug logging for specific questions
+                          const debugQuestion = questionNumber === 'A7' || questionNumber === 'S11';
+                          if (debugQuestion) {
+                            console.log(`🔍 [Unmapped Filter] Checking question ${questionNumber}:`, {
+                              questionType,
+                              columnMappingExists: questionNumber in columnMapping,
+                              mappedColumn: columnMapping[questionNumber],
+                              allMappingKeys: Object.keys(columnMapping).filter(k => k.includes(questionNumber)).slice(0, 10),
+                              allMappingEntries: Object.entries(columnMapping).filter(([k, v]) => 
+                                k.includes(questionNumber) || (typeof v === 'string' && v.includes(questionNumber))
+                              ).slice(0, 10)
+                            });
+                          }
+                          
+                          // First, check if the main variable for this question is mapped
+                          // Check exact match first
+                          let mappedColumn = columnMapping[questionNumber] || '';
+                          let isMapped = mappedColumn && mappedColumn.trim() !== '';
+                          
+                          // If not found, check for case-insensitive match
+                          if (!isMapped) {
+                            const matchingKey = Object.keys(columnMapping).find(k => 
+                              k.toLowerCase() === questionNumber.toLowerCase()
+                            );
+                            if (matchingKey) {
+                              mappedColumn = columnMapping[matchingKey] || '';
+                              isMapped = mappedColumn && mappedColumn.trim() !== '';
+                            }
+                          }
+                          
+                          // If still not found, check if any mapping value contains the question number
+                          // (e.g., if column header is "QA7 - Some text" and we're looking for A7)
+                          if (!isMapped) {
+                            const matchingEntry = Object.entries(columnMapping).find(([key, value]) => {
+                              if (typeof value === 'string') {
+                                // Check if the value (column header) starts with the question number
+                                // or if the key starts with the question number
+                                const valueNormalized = value.trim().toLowerCase();
+                                const questionNormalized = questionNumber.toLowerCase();
+                                return valueNormalized.startsWith(questionNormalized) || 
+                                       valueNormalized.startsWith(`q${questionNormalized}`) ||
+                                       key.toLowerCase() === questionNormalized;
+                              }
+                              return false;
+                            });
+                            if (matchingEntry) {
+                              mappedColumn = matchingEntry[1] as string;
+                              isMapped = mappedColumn && mappedColumn.trim() !== '';
+                            }
+                          }
+                          
+                          if (debugQuestion) {
+                            console.log(`🔍 [Unmapped Filter] ${questionNumber} - isMapped:`, isMapped, 'mappedColumn:', mappedColumn);
+                          }
+                          
+                          // If it's mapped, don't show as unmapped
+                          if (isMapped) {
+                            return false;
+                          }
+                          
+                          // For numeric grids with both rows and columns, check if cell variables are mapped
+                          // If cell variables exist and are mapped, don't show the base question as unmapped
+                          const isNumericGrid = questionType.toLowerCase().includes('numeric grid');
+                          const hasStatements = question.statementOptions && question.statementOptions.length > 0;
+                          const hasResponseOptions = question.responseOptions && question.responseOptions.length > 0;
+                          
+                          if (isNumericGrid && hasStatements && hasResponseOptions) {
+                            // Check if any cell variables are mapped (format: S11r1c1, S11r2c1, etc.)
+                            const hasMappedCellVariables = Object.keys(columnMapping).some(varName => {
+                              // Check if this variable name matches the pattern {questionNumber}r{number}c{number}
+                              const cellVarPattern = new RegExp(`^${questionNumber.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}r\\d+c\\d+$`, 'i');
+                              return cellVarPattern.test(varName) && columnMapping[varName] && columnMapping[varName].trim() !== '';
+                            });
+                            
+                            if (debugQuestion) {
+                              console.log(`🔍 [Unmapped Filter] ${questionNumber} - isNumericGrid with cell vars:`, hasMappedCellVariables);
+                            }
+                            
+                            // If cell variables are mapped, don't show the base question
+                            if (hasMappedCellVariables) {
+                              return false;
+                            }
+                          }
+                          
+                          // For multiselect questions, check if all response option variables are mapped
+                          const isMultiSelect = questionType.toLowerCase().includes('multi-select') && !questionType.toLowerCase().includes('grid');
+                          if (isMultiSelect) {
+                            // First, check if this question has been broken out into response variables
+                            // (e.g., B8 -> B8r1, B8r2, etc.)
+                            const hasResponseVariables = variables.some(v => {
+                              const responseMatch = v.name.match(/^(.+?)r\d+$/i);
+                              return responseMatch && responseMatch[1] === questionNumber;
+                            });
+                            
+                            if (hasResponseVariables) {
+                              // Question has been broken out into response variables (B8r1, B8r2, etc.)
+                              // Don't show the main question (B8) in unmapped questions table
+                              return false;
+                            }
+                            
+                            // Not broken out yet, check using response options
+                            const responseOptions = question?.responseOptions && Array.isArray(question.responseOptions) 
+                              ? question.responseOptions 
+                              : (question?.options && Array.isArray(question.options) ? question.options : []);
+                            
+                            if (responseOptions.length > 0) {
+                              // Check if all response option variables are mapped
+                              const allMapped = responseOptions.every((option: any, index: number) => {
+                                const optionNumber = index + 1;
+                                const varName1 = `${questionNumber}_${optionNumber}`;
+                                const varName2 = `${questionNumber}_${String(optionNumber).padStart(2, '0')}`;
+                                const varName3 = `${questionNumber}r${optionNumber}`;
+                                const varName4 = `${questionNumber}-${optionNumber}`;
+                                
+                                return Object.keys(columnMapping).some(varName => {
+                                  return (varName === varName1 || varName === varName2 || varName === varName3 || varName === varName4) &&
+                                         columnMapping[varName] && columnMapping[varName].trim() !== '';
+                                });
+                              });
+                              
+                              // If all response variables are mapped, don't show this question
+                              return !allMapped;
+                            }
+                          }
+                          
+                          // For grid questions (not numeric grids with cell variables - those are handled above)
+                          // If any variable starting with questionNumber_ is mapped, consider it mapped
+                          const isGridQuestion = questionType.toLowerCase().includes('grid') && !isNumericGrid;
+                          if (isGridQuestion) {
+                            const hasMappedGridVariable = Object.keys(columnMapping).some(varName => {
+                              return varName.startsWith(`${questionNumber}_`) && columnMapping[varName] && columnMapping[varName].trim() !== '';
+                            });
+                            return !hasMappedGridVariable;
+                          }
+                          
+                          // For all other questions (regular single select, etc.), show as unmapped if not mapped
+                          if (debugQuestion) {
+                            console.log(`🔍 [Unmapped Filter] ${questionNumber} - Final result: showing as unmapped`);
+                          }
+                          return true;
+                        });
+
+                        if (unmappedQuestions.length === 0) {
+                          return null;
+                        }
+
+                        return (
+                          <div className="mt-6 mb-6">
+                            <div className="flex items-center justify-between mb-3">
+                              <h4 className="text-sm font-semibold text-gray-900">
+                                Unmapped Questions ({unmappedQuestions.length})
+                              </h4>
+                            </div>
+                            <div className="border border-gray-200 rounded-lg overflow-hidden">
+                              <div className="overflow-hidden">
+                                <div style={{ maxHeight: 'calc(5 * 3.5rem + 3rem)', overflowY: 'auto', overflowX: 'hidden' }}>
+                                  <table className="w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed' }}>
+                                    <thead className="bg-gray-50 sticky top-0 z-10">
+                                      <tr>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style={{ width: '100px' }}>Question</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: 'auto' }}></th>
+                                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style={{ width: '180px' }}></th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-gray-200">
+                                      {unmappedQuestions.map((question) => {
+                                        const questionNumber = question.number || question.id;
+                                        const selectedHeader = columnMapping[questionNumber] || '';
+
+                                        return (
+                                          <tr key={questionNumber}>
+                                            <td className="px-4 py-3 text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap" style={{ width: '100px' }}>
+                                              {questionNumber}
+                                            </td>
+                                            <td className="px-4 py-3 text-xs font-medium text-gray-500 tracking-wider" style={{ width: 'auto' }}>
+                                              <div className="truncate" title={question.text || ''}>
+                                                {question.text || '-'}
+                                              </div>
+                                            </td>
+                                          <td className="px-2 py-1 text-xs font-medium text-gray-500 tracking-wider text-right whitespace-nowrap" style={{ width: '180px' }}>
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                setSelectedQuestionForMapping(questionNumber);
+                                                setColumnHeaderModalSearch('');
+                                                setShowColumnHeaderModal(true);
+                                              }}
+                                              className="px-2 py-1 text-xs font-medium text-white rounded focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-1 transition-colors hover:opacity-90 whitespace-nowrap"
+                                              style={{ backgroundColor: BRAND_ORANGE }}
+                                            >
+                                              Manually Map
+                                            </button>
+                                          </td>
+                                          </tr>
+                                        );
+                                      })}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                      
                     <div className="mt-6 grid grid-cols-2 gap-6">
                       {/* Column Headers Table */}
                       <div className="flex flex-col">
-                        <h4 className="text-sm font-semibold text-gray-900 mb-3">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="text-sm font-semibold text-gray-900">
                           Column Headers ({columnHeaders.length} total)
                         </h4>
+                        </div>
+                        <div className="mb-3">
+                          <div className="relative">
+                            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                            <input
+                              type="text"
+                              placeholder="Search column headers..."
+                              value={columnHeaderSearch}
+                              onChange={(e) => setColumnHeaderSearch(e.target.value)}
+                              className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                            />
+                          </div>
+                        </div>
                         <div className="border border-gray-200 rounded-lg overflow-hidden flex flex-col">
                           <table className="w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed' }}>
                             <thead className="bg-gray-50">
@@ -3084,12 +5356,30 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                             <table className="w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed' }}>
                               <tbody className="bg-white divide-y divide-gray-200">
                                 {columnHeaders.length > 0 ? (
-                                  columnHeaders.map((header, index) => (
-                                    <tr key={index}>
-                                      <td className="px-4 py-3 text-xs font-medium text-gray-500 tracking-wider" style={{ width: '3rem' }}>{index + 1}</td>
-                                      <td className="px-4 py-3 text-xs font-medium text-gray-500 tracking-wider truncate" style={{ width: 'calc(100% - 3rem)' }} title={header}>{header}</td>
-                                    </tr>
-                                  ))
+                                  columnHeaders
+                                    .filter((header) => {
+                                      if (!columnHeaderSearch.trim()) return true;
+                                      return header.toLowerCase().includes(columnHeaderSearch.toLowerCase());
+                                    })
+                                    .map((header, index) => {
+                                      // Find the original index for numbering
+                                      const originalIndex = columnHeaders.indexOf(header);
+                                      const isMapped = Object.values(columnMapping).includes(header);
+                                      return (
+                                        <tr 
+                                          key={index}
+                                          onClick={() => {
+                                            setSelectedColumnHeader(header);
+                                            setShowMappingModal(true);
+                                            setSelectedVariableForMapping('');
+                                          }}
+                                          className={`cursor-pointer hover:bg-gray-50 transition-colors ${isMapped ? 'bg-green-50' : ''}`}
+                                        >
+                                          <td className="px-4 py-3 text-xs font-medium text-gray-500 tracking-wider" style={{ width: '3rem' }}>{originalIndex + 1}</td>
+                                          <td className="px-4 py-3 text-xs font-medium text-gray-500 tracking-wider truncate" style={{ width: 'calc(100% - 3rem)' }} title={header}>{header}</td>
+                                        </tr>
+                                      );
+                                    })
                                 ) : (
                                   <tr>
                                     <td colSpan={2} className="px-4 py-8 text-center text-sm text-gray-500">
@@ -3105,24 +5395,68 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
 
                       {/* QNR Mapping Table */}
                       <div className="flex flex-col">
-                        <h4 className="text-sm font-semibold text-gray-900 mb-3">
-                          QNR Mapping
-                  </h4>
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="text-sm font-semibold text-gray-900">
+                            QNR Mapping
+                          </h4>
+                        </div>
+                        <div className="mb-3">
+                          <div className="relative">
+                            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                            <input
+                              type="text"
+                              placeholder="Search QNR variables..."
+                              value={qnrVariableSearch}
+                              onChange={(e) => setQnrVariableSearch(e.target.value)}
+                              className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                            />
+                          </div>
+                        </div>
                         <div className="border border-gray-200 rounded-lg overflow-hidden flex flex-col">
-                        <table className="w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed' }}>
-                          <thead className="bg-gray-50">
+                          <div className="overflow-y-auto overflow-x-hidden" style={{ maxHeight: 'calc(10 * 3rem)' }}>
+                            <table className="w-full divide-y divide-gray-200">
+                              <thead className="bg-gray-50 sticky top-0 z-10">
                             <tr>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '15%' }}>QNR Variable</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '50%' }}>Column Header Match</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '35%' }}></th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">QNR Variable</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '50%' }}>Column Header Match</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '30%' }}></th>
                             </tr>
                           </thead>
-                          </table>
-                          <div className="overflow-y-auto overflow-x-hidden" style={{ maxHeight: 'calc(10 * 3rem)' }}>
-                            <table className="w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed' }}>
                           <tbody className="bg-white divide-y divide-gray-200">
                                 {variables.length > 0 ? (
-                                  variables.map((variable) => {
+                                  variables
+                                    .filter((variable) => {
+                                      // Filter out summary table variables
+                                      if (variable.name.endsWith('_Summary Tables') || 
+                                          variable.name.endsWith('_T2B') || 
+                                          variable.name.endsWith('_B2B') || 
+                                          variable.name.endsWith('_M3B') ||
+                                          (variable as any).isSummaryTable) {
+                                        return false;
+                                      }
+                                      
+                                      // Apply search filter
+                                      if (qnrVariableSearch.trim()) {
+                                        const searchLower = qnrVariableSearch.toLowerCase();
+                                        const matchesName = variable.name.toLowerCase().includes(searchLower);
+                                        const matchesDescription = variable.description?.toLowerCase().includes(searchLower) || false;
+                                        const mappedColumn = columnMapping[variable.name] || '';
+                                        const matchesMappedColumn = mappedColumn.toLowerCase().includes(searchLower);
+                                        if (!matchesName && !matchesDescription && !matchesMappedColumn) {
+                                          return false;
+                                        }
+                                      }
+                                      
+                                      // Only show mapped variables
+                                        const mappedColumn = columnMapping[variable.name] || '';
+                                        const isMapped = mappedColumn && mappedColumn.trim() !== '';
+                                      if (!isMapped) {
+                                        return false;
+                                      }
+                                      
+                                      return true;
+                                    })
+                                    .map((variable) => {
                                     const mappedColumn = columnMapping[variable.name] || '';
                                     const isMapped = mappedColumn && mappedColumn.trim() !== '';
                                     
@@ -3132,10 +5466,10 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                     // For summary tables (numeric grids), check if any child statement variables have data
                                     let hasData = false;
                                     if ((variable as any).isSummaryTable && variable.statements) {
-                                      // For summary tables, extract base question number (remove "_Mean Summary" suffix)
+                                      // For summary tables, extract base question number (remove "_Summary" suffix)
                                       let baseName = variable.name;
-                                      if (variable.name.endsWith('_Mean Summary')) {
-                                        baseName = variable.name.replace('_Mean Summary', '');
+                                      if (variable.name.endsWith('_Summary')) {
+                                        baseName = variable.name.replace('_Summary', '');
                                       }
                                       hasData = Object.keys(variable.statements).some((stmtCode) => {
                                         const statementVarName = `${baseName}_${stmtCode}`;
@@ -3158,9 +5492,9 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                   
                                   return (
                                       <tr key={variable.name}>
-                                        <td className="px-4 py-3 text-xs font-medium text-gray-500 tracking-wider truncate whitespace-nowrap" style={{ width: '15%' }} title={variable.name}>{variable.name}</td>
+                                        <td className="px-4 py-3 text-xs font-medium text-gray-500 tracking-wider truncate whitespace-nowrap" style={{ width: 'auto' }} title={variable.name}>{variable.name}</td>
                                         <td className="px-4 py-3 text-xs font-medium text-gray-500 tracking-wider truncate" style={{ width: '50%' }} title={isMapped ? mappedColumn : '-'}>{isMapped ? mappedColumn : '-'}</td>
-                                        <td className="px-4 py-3 text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap text-right" style={{ width: '35%' }}>
+                                        <td className="px-4 py-3 text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap text-right" style={{ width: '30%' }}>
                                           <div className="inline-flex items-center gap-2">
                                             {isMapped ? (
                                               <span className="inline-block text-xs font-medium rounded bg-green-100 text-green-800 text-center" style={{ width: '80px' }}>Mapped</span>
@@ -3190,6 +5524,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                 </div>
                       </div>
                     </div>
+                    </>
                   )}
                       
               </div>
@@ -3198,9 +5533,604 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
           </div>
         </>
       )}
+
+      {/* Question Modal */}
+      {showQuestionModal && createPortal(
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style={{ top: 0, left: 0, right: 0, bottom: 0, position: 'fixed' }} onClick={() => setShowQuestionModal(false)}>
+          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+            {/* Header: Question title and type */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div className="flex items-center gap-3">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  {questionData ? `Q${questionData.number || questionData.id}` : 'Question'}
+                </h3>
+                {questionData && (
+                  <span className={`text-xs px-2 py-1 rounded ${
+                    questionData.type?.toLowerCase().includes('numeric grid') ? 'bg-orange-100 text-orange-800' :
+                    questionData.type?.toLowerCase().includes('single select grid') ? 'bg-blue-100 text-blue-800' :
+                    questionData.type?.toLowerCase().includes('multi-select') ? 'bg-purple-100 text-purple-800' :
+                    questionData.type?.toLowerCase().includes('numeric') ? 'bg-green-100 text-green-800' :
+                    'bg-gray-100 text-gray-800'
+                  }`}>
+                    {questionData.type || 'Unknown'}
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={() => {
+                  setShowQuestionModal(false);
+                  setQuestionData(null);
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <XMarkIcon className="h-6 w-6" />
+              </button>
+            </div>
+            
+            {/* Body: Question text and other content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {loadingQuestion ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="text-center">
+                    <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-[#D14A2D]"></div>
+                    <p className="text-sm text-gray-500">Loading question...</p>
+                  </div>
+                </div>
+              ) : questionData ? (
+                <div className="space-y-4">
+                  {/* Question text */}
+                  <div>
+                    <p className="text-base text-gray-900">{questionData.text}</p>
+                  </div>
+                  
+                  {questionData.options && questionData.options.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700 mb-2">Response Options:</h4>
+                      <div className="space-y-1">
+                        {questionData.options.map((option: any, idx: number) => {
+                          const opt = typeof option === 'string' 
+                            ? { code: String(idx + 1), text: option } 
+                            : option;
+                          return (
+                            <div key={idx} className="flex items-center gap-2 text-sm text-gray-700">
+                              <span className="font-mono text-xs text-gray-500 w-8">{opt.code}:</span>
+                              <span>{opt.text}</span>
     </div>
   );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {questionData.statementOptions && questionData.statementOptions.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700 mb-2">Statements (Rows):</h4>
+                      <div className="space-y-1">
+                        {questionData.statementOptions.map((stmt: any, idx: number) => {
+                          const stmtObj = typeof stmt === 'string' 
+                            ? { code: `r${idx + 1}`, text: stmt } 
+                            : stmt;
+                          return (
+                            <div key={idx} className="flex items-center gap-2 text-sm text-gray-700">
+                              <span className="font-mono text-xs text-gray-500 w-12">{stmtObj.code}:</span>
+                              <span>{stmtObj.text}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {questionData.responseOptions && questionData.responseOptions.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700 mb-2">Response Options (Columns):</h4>
+                      <div className="space-y-1">
+                        {questionData.responseOptions.map((resp: any, idx: number) => {
+                          const respObj = typeof resp === 'string' 
+                            ? { code: `c${idx + 1}`, text: resp } 
+                            : resp;
+                          return (
+                            <div key={idx} className="flex items-center gap-2 text-sm text-gray-700">
+                              <span className="font-mono text-xs text-gray-500 w-12">{respObj.code}:</span>
+                              <span>{respObj.text}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {questionData.tags && questionData.tags.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700 mb-2">Tags:</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {questionData.tags.map((tag: string, idx: number) => (
+                          <span key={idx} className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <p className="text-gray-500">Question not found in QNR</p>
+                </div>
+              )}
+            </div>
+            
+            {/* Bottom: Programming logic and actions */}
+            {questionData && (
+              <div className="border-t border-gray-200 p-6 space-y-4">
+                {/* Programming Logic */}
+                {(questionData.showLogic || questionData.logic || questionData.terminateLogic || questionData.randomize !== undefined) && (
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-semibold text-gray-900">Programming Logic:</h4>
+                    
+                    {questionData.showLogic && (
+                      <div>
+                        <h5 className="text-xs font-medium text-gray-700 mb-1">Show Logic:</h5>
+                        <p className="text-xs text-gray-600 font-mono bg-gray-50 p-2 rounded">
+                          {typeof questionData.showLogic === 'string' 
+                            ? questionData.showLogic 
+                            : JSON.stringify(questionData.showLogic, null, 2)}
+                        </p>
+                      </div>
+                    )}
+                    
+                    {questionData.logic && (
+                      <div>
+                        <h5 className="text-xs font-medium text-gray-700 mb-1">Logic:</h5>
+                        <p className="text-xs text-gray-600 font-mono bg-gray-50 p-2 rounded">
+                          {typeof questionData.logic === 'string' 
+                            ? questionData.logic 
+                            : JSON.stringify(questionData.logic, null, 2)}
+                        </p>
+                      </div>
+                    )}
+                    
+                    {questionData.terminateLogic && (
+                      <div>
+                        <h5 className="text-xs font-medium text-gray-700 mb-1">Terminate Logic:</h5>
+                        <p className="text-xs text-gray-600 font-mono bg-gray-50 p-2 rounded">
+                          {typeof questionData.terminateLogic === 'string' 
+                            ? questionData.terminateLogic 
+                            : JSON.stringify(questionData.terminateLogic, null, 2)}
+                        </p>
+                      </div>
+                    )}
+                    
+                    {questionData.randomize !== undefined && (
+                      <div>
+                        <h5 className="text-xs font-medium text-gray-700 mb-1">Randomize:</h5>
+                        <p className="text-xs text-gray-600 font-mono bg-gray-50 p-2 rounded">
+                          {questionData.randomize ? 'Yes' : 'No'}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {/* Button to navigate to QNR tab */}
+                {selectedProject && (() => {
+                  const questionNumber = questionData.number || questionData.id;
+                  // Find the questionnaire that contains this question from the already loaded questionnaires
+                  const matchingQnr = questionnaires.find((qnr: any) => 
+                    qnr.questions?.some((q: any) => 
+                      (q.number || q.id) === questionNumber
+                    )
+                  ) || allQuestionnaires.find((qnr: any) => 
+                    qnr.questions?.some((q: any) => 
+                      (q.number || q.id) === questionNumber
+                    )
+                  );
+                  
+                  return matchingQnr ? (
+                    <div>
+                      <button
+                        onClick={() => {
+                          // Store project and QNR IDs in sessionStorage for QNR component to pick up
+                          sessionStorage.setItem('cognitive_dash_tabs_sync_project_id', selectedProject.id);
+                          sessionStorage.setItem('cognitive_dash_tabs_sync_qnr_id', matchingQnr.id);
+                          setShowQuestionModal(false);
+                          navigate('/qnr');
+                        }}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white rounded-lg shadow-sm transition-colors hover:opacity-90"
+                        style={{ backgroundColor: BRAND_ORANGE }}
+                      >
+                        <span>Open in QNR Tab</span>
+                      </button>
+                    </div>
+                  ) : null;
+                })()}
+              </div>
+            )}
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Column Header Selection Modal */}
+      {showColumnHeaderModal && selectedQuestionForMapping && createPortal(
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style={{ top: 0, left: 0, right: 0, bottom: 0, position: 'fixed' }} onClick={() => {
+          setShowColumnHeaderModal(false);
+          setSelectedQuestionForMapping(null);
+          setColumnHeaderModalSearch('');
+        }}>
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Select Column Header for Question {selectedQuestionForMapping}
+              </h3>
+              <button
+                onClick={() => {
+                  setShowColumnHeaderModal(false);
+                  setSelectedQuestionForMapping(null);
+                  setColumnHeaderModalSearch('');
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <XMarkIcon className="h-6 w-6" />
+              </button>
+            </div>
+            
+            {/* Search Bar */}
+            <div className="p-4 border-b border-gray-200">
+              <div className="relative">
+                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search column headers..."
+                  value={columnHeaderModalSearch}
+                  onChange={(e) => setColumnHeaderModalSearch(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  autoFocus
+                />
+              </div>
+            </div>
+            
+            {/* Column Headers List */}
+            <div className="flex-1 overflow-y-auto p-4">
+              {(() => {
+                const filteredHeaders = columnHeaders.filter(header =>
+                  header.toLowerCase().includes(columnHeaderModalSearch.toLowerCase())
+                );
+                const currentMapping = columnMapping[selectedQuestionForMapping] || '';
+
+                if (filteredHeaders.length === 0) {
+                  return (
+                    <div className="text-center py-12">
+                      <p className="text-gray-500">No column headers found</p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="space-y-1">
+                    {filteredHeaders.map((header, index) => (
+                      <button
+                        key={header}
+                        type="button"
+                        onClick={() => {
+                          // Find the question being mapped
+                          const question = questionnaireQuestions.find(q => (q.number || q.id) === selectedQuestionForMapping);
+                          const questionType = question?.type || '';
+                          const isMultiSelect = questionType.toLowerCase().includes('multi-select') && !questionType.toLowerCase().includes('grid');
+                          
+                          if (isMultiSelect) {
+                            // Get response options from either options or responseOptions
+                            const responseOptions = question?.responseOptions && Array.isArray(question.responseOptions) 
+                              ? question.responseOptions 
+                              : (question?.options && Array.isArray(question.options) ? question.options : []);
+                            
+                            if (responseOptions.length > 0) {
+                              // For multiselect questions, map all response option variables
+                              const newMapping = { ...columnMapping };
+                              const basePattern = selectedQuestionForMapping;
+                              
+                              // Determine the pattern from the selected header
+                              // Check if the header starts with the question number and has a pattern suffix
+                              let detectedPattern: 'underscore' | 'r' | 'dash' | null = null;
+                              
+                              // Check if header starts with basePattern and has a pattern indicator
+                              if (header.startsWith(basePattern)) {
+                                const suffix = header.substring(basePattern.length);
+                                if (suffix.startsWith('_')) {
+                                  detectedPattern = 'underscore';
+                                } else if (suffix.match(/^r\d+$/i)) {
+                                  detectedPattern = 'r';
+                                } else if (suffix.startsWith('-')) {
+                                  detectedPattern = 'dash';
+                                }
+                              }
+                              
+                              // If we detected a pattern from the header, use it; otherwise try all patterns
+                              const patternsToTry = detectedPattern 
+                                ? [detectedPattern] 
+                                : ['r', 'underscore', 'dash']; // Try 'r' first as it's common
+                              
+                              let foundHeaders: string[] = [];
+                              
+                              for (const pattern of patternsToTry) {
+                                foundHeaders = [];
+                                
+                                for (let i = 1; i <= responseOptions.length; i++) {
+                                  let testHeader = '';
+                                  if (pattern === 'underscore') {
+                                    testHeader = `${basePattern}_${i}`;
+                                    if (!columnHeaders.includes(testHeader)) {
+                                      testHeader = `${basePattern}_${String(i).padStart(2, '0')}`;
+                                    }
+                                  } else if (pattern === 'r') {
+                                    testHeader = `${basePattern}r${i}`;
+                                  } else if (pattern === 'dash') {
+                                    testHeader = `${basePattern}-${i}`;
+                                  }
+                                  
+                                  if (columnHeaders.includes(testHeader)) {
+                                    foundHeaders.push(testHeader);
+                                  }
+                                }
+                                
+                                // If we found headers matching this pattern, use it
+                                if (foundHeaders.length > 0) {
+                                  break;
+                                }
+                              }
+                              
+                              // Map all found headers to their corresponding response option variables
+                              foundHeaders.forEach((foundHeader, index) => {
+                                const optionNumber = index + 1;
+                                
+                                // Determine variable name based on the header pattern
+                                let varName = '';
+                                if (foundHeader.includes('_') && !foundHeader.includes('r')) {
+                                  varName = foundHeader; // Use exact match for underscore pattern
+                                } else if (foundHeader.includes('r') && !foundHeader.includes('_')) {
+                                  varName = `${basePattern}r${optionNumber}`;
+                                } else if (foundHeader.includes('-')) {
+                                  varName = `${basePattern}-${optionNumber}`;
+                                } else {
+                                  varName = `${basePattern}_${optionNumber}`;
+                                }
+                                
+                                newMapping[varName] = foundHeader;
+                              });
+                              
+                              setColumnMapping(newMapping);
+                            } else {
+                              // No response options found, map normally
+                              setColumnMapping(prev => ({
+                                ...prev,
+                                [selectedQuestionForMapping]: header
+                              }));
+                            }
+                          } else {
+                            // For non-multiselect questions, map normally
+                            setColumnMapping(prev => ({
+                              ...prev,
+                              [selectedQuestionForMapping]: header
+                            }));
+                          }
+                          
+                          setShowColumnHeaderModal(false);
+                          setSelectedQuestionForMapping(null);
+                          setColumnHeaderModalSearch('');
+                        }}
+                        className={`w-full px-4 py-3 text-sm text-left rounded-md transition-colors ${
+                          currentMapping === header
+                            ? 'bg-orange-100 text-orange-900 border-2 border-orange-500'
+                            : 'bg-gray-50 text-gray-900 hover:bg-gray-100 border-2 border-transparent'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium">{header}</span>
+                          {currentMapping === header && (
+                            <span className="text-xs px-2 py-1 bg-orange-200 text-orange-800 rounded">
+                              Current
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Column Header Mapping Modal */}
+      {showMappingModal && selectedColumnHeader && selectedQuestionnaire && createPortal(
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowMappingModal(false);
+              setSelectedColumnHeader(null);
+              setSelectedVariableForMapping('');
+            }
+          }}
+        >
+          <div 
+            className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[80vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">Map Column Header</h3>
+              <button
+                onClick={() => {
+                  setShowMappingModal(false);
+                  setSelectedColumnHeader(null);
+                  setSelectedVariableForMapping('');
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <XMarkIcon className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="px-6 py-4 flex-1 overflow-y-auto">
+              <div className="mb-4">
+                <p className="text-sm text-gray-600 mb-2">
+                  <span className="font-medium">Column Header:</span> {selectedColumnHeader}
+                </p>
+                <p className="text-sm text-gray-500">
+                  Select a QNR variable to map this column header to:
+                </p>
+              </div>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  QNR Variable
+                </label>
+                <select
+                  value={selectedVariableForMapping}
+                  onChange={(e) => setSelectedVariableForMapping(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                >
+                  <option value="">-- Select a variable --</option>
+                  {variables
+                    .filter((variable) => {
+                      // Filter out summary table variables
+                      if (variable.name.endsWith('_Summary Tables') || 
+                          variable.name.endsWith('_T2B') || 
+                          variable.name.endsWith('_B2B') || 
+                          variable.name.endsWith('_M3B') ||
+                          (variable as any).isSummaryTable) {
+                        return false;
+                      }
+                      
+                      // Only show unmapped variables
+                      const mappedColumn = columnMapping[variable.name] || '';
+                      return !mappedColumn || mappedColumn.trim() === '';
+                    })
+                    .map((variable) => (
+                      <option key={variable.name} value={variable.name}>
+                        {variable.name} {variable.description ? `- ${variable.description.split('\n')[0]}` : ''}
+                      </option>
+                    ))}
+                </select>
+              </div>
+            </div>
+            
+            <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowMappingModal(false);
+                  setSelectedColumnHeader(null);
+                  setSelectedVariableForMapping('');
+                }}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (!selectedVariableForMapping || !selectedColumnHeader || !selectedQuestionnaire) {
+                    return;
+                  }
+                  
+                  try {
+                    // Update local state
+                    const newMapping = {
+                      ...columnMapping,
+                      [selectedVariableForMapping]: selectedColumnHeader
+                    };
+                    setColumnMapping(newMapping);
+                    
+                    // Save to backend
+                    const variableNames = variables.map(v => v.name);
+                    const response = await fetch(`${API_BASE_URL}/api/questionnaire/map-columns`, {
+                      method: 'POST',
+                      headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`,
+                        'Content-Type': 'application/json'
+                      },
+                      body: JSON.stringify({
+                        questionnaireId: selectedQuestionnaire.id,
+                        variableNames: variableNames,
+                        dataHeaders: columnHeaders,
+                        mapping: newMapping
+                      })
+                    });
+                    
+                    if (response.ok) {
+                      const result = await response.json();
+                      if (result.mapping) {
+                        setColumnMapping(result.mapping);
+                      }
+                      // Reload file info to get latest status
+                      setTimeout(() => {
+                        loadFileInfo();
+                      }, 500);
+                    } else {
+                      console.error('Failed to save mapping');
+                      // Revert local state on error
+                      setColumnMapping(columnMapping);
+                    }
+                    
+                    setShowMappingModal(false);
+                    setSelectedColumnHeader(null);
+                    setSelectedVariableForMapping('');
+                  } catch (error) {
+                    console.error('Error saving mapping:', error);
+                    // Revert local state on error
+                    setColumnMapping(columnMapping);
+                  }
+                }}
+                disabled={!selectedVariableForMapping}
+                className="px-4 py-2 text-sm font-medium text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ backgroundColor: BRAND_ORANGE }}
+              >
+                Save Mapping
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+    </div>
+    </>
+  );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

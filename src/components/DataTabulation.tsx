@@ -98,6 +98,9 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
   const [hideOpenEnds, setHideOpenEnds] = useState(true);
   const [hideZeroBase, setHideZeroBase] = useState(false);
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+  const [showQuestionModal, setShowQuestionModal] = useState(false);
+  const [loadingQuestion, setLoadingQuestion] = useState(false);
+  const [questionData, setQuestionData] = useState<any>(null);
   const [showVariableOptions, setShowVariableOptions] = useState(false);
   const [hideZeroFrequencies, setHideZeroFrequencies] = useState<Record<string, boolean>>({});
   const [hideInCrosstabs, setHideInCrosstabs] = useState<Record<string, boolean>>({});
@@ -110,6 +113,8 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
   const [debugVariable, setDebugVariable] = useState<VariableDefinition | null>(null);
   const [showDebugModal, setShowDebugModal] = useState(false);
   const [debugVariableName, setDebugVariableName] = useState<string>(''); // Track the actual variable name being debugged (e.g., QS13_1)
+  const [questionnaires, setQuestionnaires] = useState<any[]>([]);
+  const [loadingQuestionnaires, setLoadingQuestionnaires] = useState(false);
 
   // Close filter dropdown when clicking outside
   useEffect(() => {
@@ -239,6 +244,36 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
   );
 
   const displayProjects = activeTab === 'active' ? filteredActiveProjects : filteredArchivedProjects;
+
+  // Load questionnaires when project is selected
+  const loadQuestionnaires = useCallback(async (projectId: string) => {
+    setLoadingQuestionnaires(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/questionnaire/${projectId}`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setQuestionnaires(data || []);
+      } else {
+        setQuestionnaires([]);
+      }
+    } catch (error) {
+      console.error('Error loading questionnaires:', error);
+      setQuestionnaires([]);
+    } finally {
+      setLoadingQuestionnaires(false);
+    }
+  }, []);
+
+  // Load questionnaires when project is selected
+  useEffect(() => {
+    if (selectedProject?.id) {
+      loadQuestionnaires(selectedProject.id);
+    } else {
+      setQuestionnaires([]);
+    }
+  }, [selectedProject, loadQuestionnaires]);
 
   // Check for project navigation from Project Hub
   useEffect(() => {
@@ -2196,15 +2231,17 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
             </div>
 
             {/* Main Content Area Box - Sidebar + Frequency Table */}
-            <div className={`flex-1 ${activeSubTab === 'tables' ? 'overflow-hidden' : 'overflow-y-auto'}`} style={{ minHeight: 0, flex: '1 1 0%', display: 'flex', flexDirection: 'column', height: activeSubTab === 'tables' ? 'calc(100vh - 200px)' : 'auto', maxHeight: activeSubTab === 'tables' ? 'calc(100vh - 200px)' : 'none' }}>
+            <div className={`flex-1 ${activeSubTab === 'tables' ? 'overflow-hidden' : 'overflow-y-auto'}`} style={{ minHeight: 0, flex: '1 1 0%', display: 'flex', flexDirection: 'row', height: activeSubTab === 'tables' ? 'calc(100vh - 200px)' : 'auto', maxHeight: activeSubTab === 'tables' ? 'calc(100vh - 200px)' : 'none', gap: '24px', padding: '0 24px' }}>
             {activeSubTab === 'tables' && (
-            <div className="bg-white shadow-sm flex flex-row flex-1" style={{ minHeight: 0, borderRadius: 0, position: 'relative', alignItems: 'flex-start', height: '100%', overflow: 'hidden' }}>
+              <React.Fragment>
               {/* Variables Sidebar - 1/4 width, fixed height and scrollable */}
-              <div className="w-1/4 border-r border-gray-200 flex flex-col flex-shrink-0 bg-white" style={{ height: '100%', overflow: 'hidden' }}>
-                <div className="border-b border-gray-200 flex-shrink-0" style={{ marginLeft: '-24px', marginRight: 0, width: 'calc(100% + 24px)' }}>
-                  <div className="py-4 px-2" style={{ paddingLeft: '56px' }}>
+              <div className="w-1/4 flex flex-col flex-shrink-0 bg-white shadow-sm border border-gray-200 rounded-lg" style={{ height: '100%', overflow: 'hidden' }}>
+                <div className="border-b border-gray-200 flex-shrink-0">
+                  <div className="py-4 px-4">
                     <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-sm font-semibold text-gray-900">Variables ({filteredVariables.length})</h3>
+                      <h3 className="text-sm font-semibold text-gray-900">
+                        {parsedFile ? `Variables (${filteredVariables.length})` : 'QNR Questions'}
+                      </h3>
                       <div className="relative" data-filter-dropdown>
                         <button
                           onClick={() => setShowFilterDropdown(!showFilterDropdown)}
@@ -2251,7 +2288,76 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
                 </div>
                 
                 <div className="flex-1 overflow-y-auto p-2 pl-6" style={{ minHeight: 0 }}>
-                  {filteredVariables.map(variable => {
+                  {!parsedFile ? (
+                    // Show QNR questions when no data file is uploaded
+                    loadingQuestionnaires ? (
+                      <div className="flex items-center justify-center py-12">
+                        <div className="text-center">
+                          <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-[#D14A2D]"></div>
+                          <p className="text-sm text-gray-500">Loading questions...</p>
+                        </div>
+                      </div>
+                    ) : questionnaires.length > 0 ? (
+                      // Flatten all questions from all questionnaires
+                      (() => {
+                        const allQuestions: any[] = [];
+                        questionnaires.forEach(qnr => {
+                          if (qnr.questions && Array.isArray(qnr.questions)) {
+                            qnr.questions.forEach((q: any) => {
+                              allQuestions.push(q);
+                            });
+                          }
+                        });
+                        
+                        return allQuestions.length > 0 ? (
+                          allQuestions.map((question, index) => {
+                            const questionNumber = question.number || question.id || `Q${index + 1}`;
+                            const questionType = question.type || 'Unknown';
+                            
+                            return (
+                              <div
+                                key={`${questionNumber}-${index}`}
+                                className="border border-gray-200 rounded-lg p-3 mb-2"
+                              >
+                                <div className="flex flex-col">
+                                  <div className="flex items-center justify-between mb-1">
+                                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                                      <span className={`text-xs px-1.5 py-0.5 rounded flex-shrink-0 ${
+                                        questionType.toLowerCase().includes('numeric grid') ? 'bg-orange-100 text-orange-800' :
+                                        questionType.toLowerCase().includes('single select grid') ? 'bg-blue-100 text-blue-800' :
+                                        questionType.toLowerCase().includes('multi-select') ? 'bg-purple-100 text-purple-800' :
+                                        questionType.toLowerCase().includes('numeric') ? 'bg-green-100 text-green-800' :
+                                        questionType.toLowerCase().includes('categorical') || questionType.toLowerCase().includes('single select') ? 'bg-blue-100 text-blue-800' :
+                                        'bg-gray-100 text-gray-800'
+                                      }`}>
+                                        {questionType}
+                                      </span>
+                                      <h4 className="font-semibold text-sm flex-1 min-w-0 truncate text-gray-900">
+                                        {questionNumber}
+                                      </h4>
+                                    </div>
+                                  </div>
+                                  <p className="text-xs line-clamp-2 text-gray-600">
+                                    {question.text || '(No question text)'}
+                                  </p>
+                                </div>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <div className="text-center py-12 text-gray-500">
+                            <p className="text-sm">No questions found in QNR</p>
+                          </div>
+                        );
+                      })()
+                    ) : (
+                      <div className="text-center py-12 text-gray-500">
+                        <p className="text-sm">No QNR uploaded for this project</p>
+                      </div>
+                    )
+                  ) : (
+                    // Show variables when data file is uploaded
+                    filteredVariables.map(variable => {
                     // Only calculate base from cache if available, otherwise skip (lazy loading)
                     const base = baseCacheRef.current[variable.name];
                     const hasNoData = base === 0;
@@ -2285,30 +2391,30 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
                                   <span className="text-xs font-semibold text-white">H</span>
                                 </div>
                               )}
+                              <span className={`text-xs px-1.5 py-0.5 rounded flex-shrink-0 ${
+                                isDisabled ? 'bg-gray-100 text-gray-400' :
+                                variable.type === 'multi-select' ? 'bg-purple-100 text-purple-800' :
+                                variable.type === 'grid' || variable.type === 'grid-numeric' || variable.type === 'grid-verbatim' || 
+                                variable.type === 'grid-single-select' || variable.type === 'grid-multi-select' ? 'bg-orange-100 text-orange-800' :
+                                variable.type === 'categorical' ? 'bg-blue-100 text-blue-800' :
+                                variable.type === 'open-numeric' ? 'bg-green-100 text-green-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {variable.type === 'multi-select' ? 'Multi-Select' :
+                                 variable.type === 'grid-numeric' ? 'Numeric Grid' :
+                                 variable.type === 'grid-verbatim' ? 'Verbatim Grid' :
+                                 variable.type === 'grid-single-select' ? 'Single Select Grid' :
+                                 variable.type === 'grid-multi-select' ? 'Multi-Select Grid' :
+                                 variable.type === 'grid' ? 'Grid' :
+                                 variable.type === 'categorical' ? 'Single Select' :
+                                 variable.type === 'open-numeric' ? 'Numeric' :
+                                 variable.type === 'open-text' ? 'Open End' :
+                                 variable.type}
+                              </span>
                               <h4 className={`font-semibold text-sm flex-1 min-w-0 truncate ${isDisabled ? 'text-gray-400' : 'text-gray-900'}`}>
                                 {variable.name}
                               </h4>
                             </div>
-                            <span className={`text-xs px-1.5 py-0.5 rounded flex-shrink-0 ml-2 ${
-                              isDisabled ? 'bg-gray-100 text-gray-400' :
-                              variable.type === 'multi-select' ? 'bg-purple-100 text-purple-800' :
-                              variable.type === 'grid' || variable.type === 'grid-numeric' || variable.type === 'grid-verbatim' || 
-                              variable.type === 'grid-single-select' || variable.type === 'grid-multi-select' ? 'bg-orange-100 text-orange-800' :
-                              variable.type === 'categorical' ? 'bg-blue-100 text-blue-800' :
-                              variable.type === 'open-numeric' ? 'bg-green-100 text-green-800' :
-                              'bg-gray-100 text-gray-800'
-                            }`}>
-                              {variable.type === 'multi-select' ? 'Multi-Select' :
-                               variable.type === 'grid-numeric' ? 'Numeric Grid' :
-                               variable.type === 'grid-verbatim' ? 'Verbatim Grid' :
-                               variable.type === 'grid-single-select' ? 'Single Select Grid' :
-                               variable.type === 'grid-multi-select' ? 'Multi-Select Grid' :
-                               variable.type === 'grid' ? 'Grid' :
-                               variable.type === 'categorical' ? 'Single Select' :
-                               variable.type === 'open-numeric' ? 'Numeric' :
-                               variable.type === 'open-text' ? 'Open End' :
-                               variable.type}
-                            </span>
                           </div>
                           <p className={`text-xs line-clamp-2 ${isDisabled ? 'text-gray-400' : 'text-gray-600'}`}>
                             {(() => {
@@ -2339,12 +2445,13 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
                         </div>
                       </div>
                     );
-                  })}
+                  })
+                  )}
                 </div>
               </div>
 
               {/* Frequency Table Area - 3/4 width */}
-              <div className="flex-1 flex flex-col relative min-w-0 overflow-hidden pr-6" style={{ height: '100%' }}>
+              <div className="flex-1 flex flex-col relative min-w-0 overflow-hidden bg-white shadow-sm border border-gray-200 rounded-lg" style={{ height: '100%' }}>
                 {selectedVariable ? (
                   (isGeneratingTable || !frequencyTable || frequencyTable.variable !== selectedVariable) ? (
                     <div className="flex-1 flex items-center justify-center h-full">
@@ -2355,11 +2462,55 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
                     </div>
                   ) : frequencyTable ? (
                     <div className="flex flex-col h-full overflow-hidden">
-                      <div className="p-6 pb-4 flex-shrink-0">
+                      <div className="p-6 pb-4 flex-shrink-0 border-b border-gray-200">
                         {/* Header row with variable name and options toggle */}
                         <div className="flex items-center justify-between mb-2">
                           <h3 className="text-lg font-semibold text-gray-900">{selectedVariable}</h3>
                           <div className="flex items-center gap-2">
+                            <button
+                              onClick={async () => {
+                                setLoadingQuestion(true);
+                                setShowQuestionModal(true);
+                                
+                                // Simulate loading for 1 second
+                                await new Promise(resolve => setTimeout(resolve, 1000));
+                                
+                                try {
+                                  // Fetch questionnaire data
+                                  const response = await fetch(`${API_BASE_URL}/api/questionnaire/${currentTabulation?.projectId}`, {
+                                    headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
+                                  });
+                                  
+                                  if (response.ok) {
+                                    const questionnaires = await response.json();
+                                    // Find the question that matches this variable
+                                    // Extract base variable name (remove statement suffix if present)
+                                    const statementMatch = selectedVariable.match(/^(.+)_(\d+)$/);
+                                    const baseVarName = statementMatch ? statementMatch[1] : selectedVariable;
+                                    
+                                    // Find question in any questionnaire
+                                    let foundQuestion = null;
+                                    for (const qnr of questionnaires) {
+                                      foundQuestion = qnr.questions?.find((q: any) => 
+                                        (q.number || q.id) === baseVarName
+                                      );
+                                      if (foundQuestion) break;
+                                    }
+                                    
+                                    setQuestionData(foundQuestion);
+                                  }
+                                } catch (error) {
+                                  console.error('Error loading question:', error);
+                                  setQuestionData(null);
+                                } finally {
+                                  setLoadingQuestion(false);
+                                }
+                              }}
+                              className="flex items-center justify-center p-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                              title="View Question from QNR"
+                            >
+                              <InformationCircleIcon className="h-5 w-5" />
+                            </button>
                             <button
                               onClick={() => {
                                 // Always use the selectedVariable (e.g., QS13_1) for debug
@@ -2381,7 +2532,7 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
                               className="flex items-center justify-center p-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
                               title="Debug Info"
                             >
-                              <InformationCircleIcon className="h-5 w-5" />
+                              <Cog6ToothIcon className="h-5 w-5" />
                             </button>
                             <button
                               onClick={exportToExcel}
@@ -2433,7 +2584,7 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
                         </div>
                       </div>
                       
-                      <div className="flex-1 overflow-y-auto border border-gray-200 rounded-lg m-6 mt-0" style={{ minHeight: 0 }}>
+                      <div className="flex-1 overflow-y-auto m-6 mt-4" style={{ minHeight: 0 }}>
                         {(() => {
                           const varDef = parsedFile.variables.find(v => v.name === selectedVariable);
                           const isNumericGrid = varDef?.type === 'grid-numeric';
@@ -2658,6 +2809,128 @@ export default function DataTabulation({ projects = [], onHeaderChange }: DataTa
                       </div>
                     </div>
                   )}
+              </div>
+              </React.Fragment>
+            )}
+
+            {/* Question Modal */}
+            {showQuestionModal && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowQuestionModal(false)}>
+                <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                    <h3 className="text-lg font-semibold text-gray-900">Question from QNR</h3>
+                    <button
+                      onClick={() => {
+                        setShowQuestionModal(false);
+                        setQuestionData(null);
+                      }}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      <XMarkIcon className="h-6 w-6" />
+                    </button>
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-6">
+                    {loadingQuestion ? (
+                      <div className="flex items-center justify-center py-12">
+                        <div className="text-center">
+                          <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-[#D14A2D]"></div>
+                          <p className="text-sm text-gray-500">Loading question...</p>
+                        </div>
+                      </div>
+                    ) : questionData ? (
+                      <div className="space-y-4">
+                        <div>
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-sm font-semibold text-gray-700">Q{questionData.number || questionData.id}:</span>
+                            <span className={`text-xs px-2 py-1 rounded ${
+                              questionData.type?.toLowerCase().includes('numeric grid') ? 'bg-orange-100 text-orange-800' :
+                              questionData.type?.toLowerCase().includes('single select grid') ? 'bg-blue-100 text-blue-800' :
+                              questionData.type?.toLowerCase().includes('multi-select') ? 'bg-purple-100 text-purple-800' :
+                              questionData.type?.toLowerCase().includes('numeric') ? 'bg-green-100 text-green-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {questionData.type || 'Unknown'}
+                            </span>
+                          </div>
+                          <p className="text-base text-gray-900">{questionData.text}</p>
+                        </div>
+                        
+                        {questionData.options && questionData.options.length > 0 && (
+                          <div>
+                            <h4 className="text-sm font-medium text-gray-700 mb-2">Response Options:</h4>
+                            <div className="space-y-1">
+                              {questionData.options.map((option: any, idx: number) => {
+                                const opt = typeof option === 'string' 
+                                  ? { code: String(idx + 1), text: option } 
+                                  : option;
+                                return (
+                                  <div key={idx} className="flex items-center gap-2 text-sm text-gray-700">
+                                    <span className="font-mono text-xs text-gray-500 w-8">{opt.code}:</span>
+                                    <span>{opt.text}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {questionData.statementOptions && questionData.statementOptions.length > 0 && (
+                          <div>
+                            <h4 className="text-sm font-medium text-gray-700 mb-2">Statements (Rows):</h4>
+                            <div className="space-y-1">
+                              {questionData.statementOptions.map((stmt: any, idx: number) => {
+                                const stmtObj = typeof stmt === 'string' 
+                                  ? { code: `r${idx + 1}`, text: stmt } 
+                                  : stmt;
+                                return (
+                                  <div key={idx} className="flex items-center gap-2 text-sm text-gray-700">
+                                    <span className="font-mono text-xs text-gray-500 w-12">{stmtObj.code}:</span>
+                                    <span>{stmtObj.text}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {questionData.responseOptions && questionData.responseOptions.length > 0 && (
+                          <div>
+                            <h4 className="text-sm font-medium text-gray-700 mb-2">Response Options (Columns):</h4>
+                            <div className="space-y-1">
+                              {questionData.responseOptions.map((resp: any, idx: number) => {
+                                const respObj = typeof resp === 'string' 
+                                  ? { code: `c${idx + 1}`, text: resp } 
+                                  : resp;
+                                return (
+                                  <div key={idx} className="flex items-center gap-2 text-sm text-gray-700">
+                                    <span className="font-mono text-xs text-gray-500 w-12">{respObj.code}:</span>
+                                    <span>{respObj.text}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {questionData.tags && questionData.tags.length > 0 && (
+                          <div>
+                            <h4 className="text-sm font-medium text-gray-700 mb-2">Tags:</h4>
+                            <div className="flex flex-wrap gap-2">
+                              {questionData.tags.map((tag: string, idx: number) => (
+                                <span key={idx} className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-center py-12">
+                        <p className="text-gray-500">Question not found in QNR</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}

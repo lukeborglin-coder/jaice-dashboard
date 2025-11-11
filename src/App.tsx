@@ -5384,7 +5384,7 @@ export default function App() {
       // Only show Tabs, Data Tabulation and Conjoint Simulator to admins
       if (user?.role === 'admin') {
         tools.splice(3, 0, { name: "Tabs", icon: IconChartDonut2 });
-        tools.splice(4, 0, { name: "Data Tabulation", icon: IconTable });
+        tools.splice(4, 0, { name: "Data Tabulation", icon: IconTable, disabled: true });
         tools.splice(5, 0, { name: "Conjoint Simulator", icon: IconChartDots });
       }
 
@@ -5673,17 +5673,14 @@ export default function App() {
             {/* Quantitative Tools Dropdown Items */}
             {sidebarOpen && quantToolsDropdownOpen && (
               <div className="ml-4 space-y-1">
-                {quantitativeTools.map((item) => (
+                {quantitativeTools.filter(item => !item.disabled).map((item) => (
                   <button
                     key={item.name}
-                    onClick={() => !item.disabled && navigateToRoute(item.name)}
-                    disabled={item.disabled}
+                    onClick={() => navigateToRoute(item.name)}
                     className={`w-full flex items-center gap-3 rounded-xl px-3 py-2 transition ${
-                      item.disabled 
-                        ? "opacity-50 cursor-not-allowed text-gray-400" 
-                        : route === item.name ? "" : "hover:bg-gray-100"
+                      route === item.name ? "" : "hover:bg-gray-100"
                     }`}
-                    style={!item.disabled && route === item.name ? { backgroundColor: '#D14A2D', color: 'white' } : {}}
+                    style={route === item.name ? { backgroundColor: '#D14A2D', color: 'white' } : {}}
                   >
                     <item.icon className="h-4 w-4" />
                     <span className="text-sm font-medium">{item.name}</span>
@@ -12930,192 +12927,22 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
       {showDashboard && selectedProject && !isTransitioning && (
         <div>
           {/* Dashboard Header with Return Button */}
-          <div className="flex items-center justify-between mb-6">
+          <div className="mb-4">
             <div className="flex items-center gap-4">
               <button
                 onClick={handleReturnToHub}
-                className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+                className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-gray-800 transition-colors"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
                 Return to Project Hub
               </button>
             </div>
-
-            {/* Team Members Section */}
-            <div className="flex items-center gap-3 relative">
-              <span className="text-gray-500 text-sm">Team Members</span>
-              <div className="w-px h-4 bg-gray-300"></div>
-              <div className="flex items-center gap-2">
-                {selectedProject.teamMembers?.slice(0, 4).map((member, index) => {
-                  console.log('Header team member:', member, 'ID:', member.id);
-                  const initials = member.name.split(' ').map(n => n[0]).join('').toUpperCase();
-                  return (
-                    <div
-                      key={member.id || `member-${index}`}
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-medium relative group"
-                      style={{ backgroundColor: getMemberColor(member.id, selectedProject.teamMembers) }}
-                    >
-                      {initials}
-                      {/* Tooltip - Below the icon */}
-                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-0.5 sm:px-1 md:px-2 py-1 bg-gray-800 text-white text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
-                        {member.name}
-                        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-gray-800"></div>
-                      </div>
-                    </div>
-                  );
-                })}
-                <button
-                  onClick={() => setShowAddTeamMember(!showAddTeamMember)}
-                  className="team-member-button w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors"
-                  title="Manage team members"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
-                </button>
-              </div>
-
-              {/* Add Team Member Popup Dropdown */}
-              {showAddTeamMember && (
-                <>
-                  {/* Modal - positioned right below the + button, right-aligned */}
-                  <div className="team-member-dropdown absolute top-full right-0 mt-2 bg-white rounded-lg border shadow-lg z-[9999] w-80 max-h-[80vh] overflow-y-auto">
-                  <div className="p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-sm font-semibold text-gray-900">Manage Team Members</h4>
-                      <button
-                        onClick={() => setShowAddTeamMember(false)}
-                        className="text-gray-400 hover:text-gray-600"
-                      >
-                        <XMarkIcon className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                    {/* Add New Member - Moved to top */}
-                    <div className="mb-4">
-                      <h5 className="text-xs font-medium text-gray-500 mb-2">Add New Member</h5>
-                      <UserSearch
-                        onUserSelect={handleAddTeamMember}
-                        placeholder="Search for team members..."
-                        className="text-sm"
-                      />
-                    </div>
-
-                    {/* Current Team Members */}
-                    <div>
-                      <h5 className="text-xs font-medium text-gray-500 mb-2">Current Members</h5>
-                      <div className="space-y-2 max-h-48 overflow-y-auto">
-                        {localTeamMembers?.filter(member => {
-                          console.log('Filtering member:', member);
-                          return member && member.id && member.name;
-                        }).map((member, index) => (
-                          <div key={member.id || `modal-member-${index}`} className="p-2 bg-gray-50 rounded-lg relative">
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="flex items-center gap-2">
-                                <div
-                                  className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium"
-                                  style={{ backgroundColor: getMemberColor(member.id, localTeamMembers) }}
-                                >
-                                  {member.name.split(' ').map(n => n[0]).join('').toUpperCase()}
-                                </div>
-                                <span className="text-sm text-gray-900">{member.name}</span>
-                              </div>
-                              <button
-                                onClick={() => {
-                                  // Show confirmation dialog
-                                  if (window.confirm(`Are you sure you want to remove ${member.name} from this project?`)) {
-                                    handleRemoveTeamMember(member.id);
-                                  }
-                                }}
-                                className="text-gray-400 hover:text-red-600 transition-colors"
-                                title="Remove member"
-                              >
-                                <XMarkIcon className="w-4 h-4" />
-                              </button>
-                            </div>
-                            
-                            {/* Role Assignment */}
-                            <div className="ml-8">
-                              <div className="flex flex-wrap gap-1 items-center">
-                                {(member.roles || []).map((role) => (
-                                  <div
-                                    key={role}
-                                    className="flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-orange-100 text-orange-800 border border-orange-200"
-                                  >
-                                    <span>{role}</span>
-                                    <button
-                                      onClick={() => handleRoleToggle(member.id, role)}
-                                      className="text-orange-600 hover:text-orange-800 transition-colors"
-                                      title={`Remove ${role} role`}
-                                    >
-                                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                      </svg>
-                                    </button>
-                                  </div>
-                                ))}
-                                
-                                {/* Add Role Button */}
-                                <div className="relative">
-                                  <button
-                                    onClick={() => {
-                                      const currentShowAddRole = showAddRoleDropdown;
-                                      setShowAddRoleDropdown(currentShowAddRole === member.id ? null : member.id);
-                                    }}
-                                    className="add-role-button w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center text-gray-500 hover:text-gray-700 hover:border-gray-400 transition-colors"
-                                    title="Add role"
-                                  >
-                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                    </svg>
-                                  </button>
-                                  
-                                  {/* Role Dropdown */}
-                                  {showAddRoleDropdown === member.id && (
-                                    <div className="role-dropdown absolute top-full left-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-xl z-[10001] min-w-[180px] max-h-[200px] overflow-y-auto">
-                                      {['Project Manager', 'Logistics', 'Recruit Coordinator', 'AE Manager']
-                                        .filter(role => !(member.roles || []).includes(role))
-                                        .map(role => (
-                                          <button
-                                            key={role}
-                                            onClick={() => {
-                                              handleRoleToggle(member.id, role);
-                                              setShowAddRoleDropdown(null);
-                                            }}
-                                            className="w-full px-3 py-2 text-left text-xs hover:bg-gray-100 first:rounded-t-lg last:rounded-b-lg"
-                                          >
-                                            {role}
-                                          </button>
-                                        ))}
-                                      {['Project Manager', 'Logistics', 'Recruit Coordinator', 'AE Manager']
-                                        .filter(role => !(member.roles || []).includes(role)).length === 0 && (
-                                        <div className="px-3 py-2 text-xs text-gray-500">All roles assigned</div>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                                
-                                {(member.roles || []).length === 0 && (
-                                  <span className="text-xs text-gray-400 italic">No roles assigned</span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                  </div>
-                </div>
-                </>
-              )}
-            </div>
           </div>
 
           {/* Sub-tabs */}
-          <div className="border-b border-gray-200 mb-4">
+          <div className="border-b border-gray-200 mb-4 flex items-center justify-between">
             <nav className="-mb-px flex space-x-6">
               <button
                 onClick={() => setActiveProjectTab('dashboard')}
@@ -13146,6 +12973,175 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                 Project details
               </button>
             </nav>
+            
+            {/* Team Members Section */}
+            <div className="flex items-center gap-3 relative">
+              <span className="text-gray-500 text-sm">Team Members</span>
+              <div className="w-px h-4 bg-gray-300"></div>
+              <div className="flex items-center gap-2">
+                {selectedProject.teamMembers?.slice(0, 4).map((member, index) => {
+                  console.log('Header team member:', member, 'ID:', member.id);
+                  const initials = member.name.split(' ').map(n => n[0]).join('').toUpperCase();
+                  return (
+                    <div
+                      key={member.id || `member-${index}`}
+                      className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-medium relative group"
+                      style={{ backgroundColor: getMemberColor(member.id, selectedProject.teamMembers) }}
+                    >
+                      {initials}
+                      {/* Tooltip - Below the icon */}
+                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-0.5 sm:px-1 md:px-2 py-1 bg-gray-800 text-white text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
+                        {member.name}
+                        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-gray-800"></div>
+                      </div>
+                    </div>
+                  );
+                })}
+                <button
+                  onClick={() => setShowAddTeamMember(!showAddTeamMember)}
+                  className="team-member-button w-6 h-6 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors"
+                  title="Manage team members"
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                </button>
+              </div>
+              
+              {/* Add Team Member Popup Dropdown */}
+              {showAddTeamMember && (
+                <>
+                  {/* Modal - positioned right below the + button, right-aligned */}
+                  <div className="team-member-dropdown absolute top-full right-0 mt-2 bg-white rounded-lg border shadow-lg z-[9999] w-80 max-h-[80vh] overflow-y-auto">
+                    <div className="p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-sm font-semibold text-gray-900">Manage Team Members</h4>
+                        <button
+                          onClick={() => setShowAddTeamMember(false)}
+                          className="text-gray-400 hover:text-gray-600"
+                        >
+                          <XMarkIcon className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      {/* Add New Member - Moved to top */}
+                      <div className="mb-4">
+                        <h5 className="text-xs font-medium text-gray-500 mb-2">Add New Member</h5>
+                        <UserSearch
+                          onUserSelect={handleAddTeamMember}
+                          placeholder="Search for team members..."
+                          className="text-sm"
+                        />
+                      </div>
+
+                      {/* Current Team Members */}
+                      <div>
+                        <h5 className="text-xs font-medium text-gray-500 mb-2">Current Members</h5>
+                        <div className="space-y-2 max-h-48 overflow-y-auto">
+                          {localTeamMembers?.filter(member => {
+                            console.log('Filtering member:', member);
+                            return member && member.id && member.name;
+                          }).map((member, index) => (
+                            <div key={member.id || `modal-member-${index}`} className="p-2 bg-gray-50 rounded-lg relative">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                  <div
+                                    className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium"
+                                    style={{ backgroundColor: getMemberColor(member.id, localTeamMembers) }}
+                                  >
+                                    {member.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                                  </div>
+                                  <span className="text-sm text-gray-900">{member.name}</span>
+                                </div>
+                                <button
+                                  onClick={() => {
+                                    // Show confirmation dialog
+                                    if (window.confirm(`Are you sure you want to remove ${member.name} from this project?`)) {
+                                      handleRemoveTeamMember(member.id);
+                                    }
+                                  }}
+                                  className="text-gray-400 hover:text-red-600 transition-colors"
+                                  title="Remove member"
+                                >
+                                  <XMarkIcon className="w-4 h-4" />
+                                </button>
+                              </div>
+                              
+                              {/* Role Assignment */}
+                              <div className="ml-8">
+                                <div className="flex flex-wrap gap-1 items-center">
+                                  {(member.roles || []).map((role) => (
+                                    <div
+                                      key={role}
+                                      className="flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-orange-100 text-orange-800 border border-orange-200"
+                                    >
+                                      <span>{role}</span>
+                                      <button
+                                        onClick={() => handleRoleToggle(member.id, role)}
+                                        className="text-orange-600 hover:text-orange-800 transition-colors"
+                                        title={`Remove ${role} role`}
+                                      >
+                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                      </button>
+                                    </div>
+                                  ))}
+                                  
+                                  {/* Add Role Button */}
+                                  <div className="relative">
+                                    <button
+                                      onClick={() => {
+                                        const currentShowAddRole = showAddRoleDropdown;
+                                        setShowAddRoleDropdown(currentShowAddRole === member.id ? null : member.id);
+                                      }}
+                                      className="add-role-button w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center text-gray-500 hover:text-gray-700 hover:border-gray-400 transition-colors"
+                                      title="Add role"
+                                    >
+                                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                      </svg>
+                                    </button>
+                                    
+                                    {/* Role Dropdown */}
+                                    {showAddRoleDropdown === member.id && (
+                                      <div className="role-dropdown absolute top-full left-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-xl z-[10001] min-w-[180px] max-h-[200px] overflow-y-auto">
+                                        {['Project Manager', 'Logistics', 'Recruit Coordinator', 'AE Manager']
+                                          .filter(role => !(member.roles || []).includes(role))
+                                          .map(role => (
+                                            <button
+                                              key={role}
+                                              onClick={() => {
+                                                handleRoleToggle(member.id, role);
+                                                setShowAddRoleDropdown(null);
+                                              }}
+                                              className="w-full px-3 py-2 text-left text-xs hover:bg-gray-100 first:rounded-t-lg last:rounded-b-lg"
+                                            >
+                                              {role}
+                                            </button>
+                                          ))}
+                                        {['Project Manager', 'Logistics', 'Recruit Coordinator', 'AE Manager']
+                                          .filter(role => !(member.roles || []).includes(role)).length === 0 && (
+                                          <div className="px-3 py-2 text-xs text-gray-500">All roles assigned</div>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                  
+                                  {(member.roles || []).length === 0 && (
+                                    <span className="text-xs text-gray-400 italic">No roles assigned</span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
 
           {/* Tab Content */}
@@ -15288,12 +15284,37 @@ function ProjectForm({
 
 function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUpdate, savedContentAnalyses = [], setRoute, setAnalysisToLoad, setIsLoadingProjectFile }: { project: Project; onEdit: () => void; onArchive: (projectId: string) => void; setProjects?: (projects: Project[] | ((prev: Project[]) => Project[])) => void; onProjectUpdate?: (project: Project) => void; savedContentAnalyses?: any[]; setRoute?: (route: string) => void; setAnalysisToLoad?: (analysisId: string | null) => void; setIsLoadingProjectFile?: (loading: boolean) => void }) {
   const { user } = useAuth();
+  const [projectTranscripts, setProjectTranscripts] = useState<any[]>([]);
 
   // Helper function for authentication headers
   const getAuthHeaders = useCallback(() => {
     const token = localStorage.getItem('cognitive_dash_token');
     return token ? { Authorization: `Bearer ${token}` } : { Authorization: '' };
   }, []);
+
+  // Fetch transcripts for this project
+  useEffect(() => {
+    const loadProjectTranscripts = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/transcripts/${project.id}`, {
+          headers: getAuthHeaders()
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setProjectTranscripts(Array.isArray(data) ? data : []);
+        } else {
+          setProjectTranscripts([]);
+        }
+      } catch (error) {
+        console.error('Failed to load project transcripts:', error);
+        setProjectTranscripts([]);
+      }
+    };
+    
+    if (project.id) {
+      loadProjectTranscripts();
+    }
+  }, [project.id, getAuthHeaders]);
 
   // Function to get current phase based on today's date
   const getCurrentPhase = (project: Project): string => {
@@ -16874,55 +16895,144 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
     setModalNewComment("");
   };
 
+  // Helper function to adjust weekend dates to next weekday
+  const adjustWeekendDate = (dateString: string): string => {
+    const [year, month, day] = dateString.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    const dayOfWeek = date.getDay();
+    
+    // If Saturday (6), move to Monday (add 2 days)
+    if (dayOfWeek === 6) {
+      date.setDate(date.getDate() + 2);
+    }
+    // If Sunday (0), move to Monday (add 1 day)
+    else if (dayOfWeek === 0) {
+      date.setDate(date.getDate() + 1);
+    }
+    
+    return date.toISOString().split('T')[0];
+  };
+
+  // Helper function to get the next weekday from a date
+  const getNextWeekday = (dateString: string): string => {
+    const [year, month, day] = dateString.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    date.setDate(date.getDate() + 1);
+    
+    // Keep adding days until we get a weekday (Monday-Friday)
+    while (date.getDay() === 0 || date.getDay() === 6) {
+      date.setDate(date.getDate() + 1);
+    }
+    
+    return date.toISOString().split('T')[0];
+  };
+
   // Smart date update handler
   const handlePhaseDateChange = (phaseIndex: number, field: 'startDate' | 'endDate', newDate: string) => {
-    const newSegments = [...editingSegments];
+    const newSegments = editingSegments.map((seg, idx) => 
+      idx === phaseIndex ? { ...seg } : seg
+    );
     const currentPhase = newSegments[phaseIndex];
     const phaseName = currentPhase.phase;
     
     // For Kickoff phase, always set end date same as start date
     if (phaseName === 'Kickoff' && field === 'startDate') {
-      newSegments[phaseIndex].startDate = newDate;
-      newSegments[phaseIndex].endDate = newDate;
+      newSegments[phaseIndex] = {
+        ...newSegments[phaseIndex],
+        startDate: newDate,
+        endDate: newDate
+      };
     } else {
-      newSegments[phaseIndex][field] = newDate;
+      newSegments[phaseIndex] = {
+        ...newSegments[phaseIndex],
+        [field]: newDate
+      };
     }
     
-    // Smart updates based on phase relationships
-    if (field === 'endDate') {
-      // When ending a phase, update the next phase's start date
-      if (phaseIndex < newSegments.length - 1) {
-        const nextPhase = newSegments[phaseIndex + 1];
-        const endDate = new Date(newDate);
-        const nextStartDate = new Date(endDate);
-        nextStartDate.setDate(nextStartDate.getDate() + 1);
-        nextPhase.startDate = nextStartDate.toISOString().split('T')[0];
-      }
-    } else if (field === 'startDate') {
-      // When starting a phase, update the previous phase's end date
-      if (phaseIndex > 0) {
-        const prevPhase = newSegments[phaseIndex - 1];
-        const startDate = new Date(newDate);
-        const prevEndDate = new Date(startDate);
-        prevEndDate.setDate(prevEndDate.getDate() - 1);
-        prevPhase.endDate = prevEndDate.toISOString().split('T')[0];
-      }
-    }
-    
-    // Update key dates that match phase names
-    const updatedKeyDates = [...projectKeyDates];
-    updatedKeyDates.forEach(keyDate => {
-      if (keyDate.label.toLowerCase().includes(phaseName.toLowerCase())) {
-        if (field === 'startDate' && keyDate.label.toLowerCase().includes('start')) {
-          keyDate.date = newDate;
-        } else if (field === 'endDate' && keyDate.label.toLowerCase().includes('end')) {
-          keyDate.date = newDate;
+    // Only do smart updates if we have a valid date (not empty)
+    if (newDate) {
+      // Smart updates based on phase relationships
+      if (field === 'endDate') {
+        // When ending a phase, update the next phase's start date (next weekday)
+        if (phaseIndex < newSegments.length - 1) {
+          const nextStartDate = getNextWeekday(newDate);
+          newSegments[phaseIndex + 1] = {
+            ...newSegments[phaseIndex + 1],
+            startDate: nextStartDate
+          };
+        }
+      } else if (field === 'startDate') {
+        // When starting a phase, update the previous phase's end date (previous weekday)
+        if (phaseIndex > 0) {
+          const [year, month, day] = newDate.split('-').map(Number);
+          const startDate = new Date(year, month - 1, day);
+          const prevEndDate = new Date(startDate);
+          prevEndDate.setDate(prevEndDate.getDate() - 1);
+          
+          // Adjust to previous weekday if it's a weekend
+          while (prevEndDate.getDay() === 0 || prevEndDate.getDay() === 6) {
+            prevEndDate.setDate(prevEndDate.getDate() - 1);
+          }
+          
+          newSegments[phaseIndex - 1] = {
+            ...newSegments[phaseIndex - 1],
+            endDate: prevEndDate.toISOString().split('T')[0]
+          };
         }
       }
-    });
+      
+      // Update key dates that match phase names
+      const updatedKeyDates = [...projectKeyDates];
+      updatedKeyDates.forEach(keyDate => {
+        if (keyDate.label.toLowerCase().includes(phaseName.toLowerCase())) {
+          if (field === 'startDate' && keyDate.label.toLowerCase().includes('start')) {
+            keyDate.date = newDate;
+          } else if (field === 'endDate' && keyDate.label.toLowerCase().includes('end')) {
+            keyDate.date = newDate;
+          }
+        }
+      });
+      setProjectKeyDates(updatedKeyDates);
+    } else {
+      // When clearing a date, clear all subsequent dates
+      if (field === 'startDate') {
+        // Clear this phase's start date and all subsequent phases' dates
+        for (let i = phaseIndex; i < newSegments.length; i++) {
+          newSegments[i] = {
+            ...newSegments[i],
+            startDate: '',
+            endDate: ''
+          };
+        }
+      } else if (field === 'endDate') {
+        // Clear this phase's end date and all subsequent phases' dates
+        newSegments[phaseIndex] = {
+          ...newSegments[phaseIndex],
+          endDate: ''
+        };
+        for (let i = phaseIndex + 1; i < newSegments.length; i++) {
+          newSegments[i] = {
+            ...newSegments[i],
+            startDate: '',
+            endDate: ''
+          };
+        }
+      }
+      
+      // When clearing a date, also clear related key dates for this and subsequent phases
+      const updatedKeyDates = [...projectKeyDates];
+      for (let i = phaseIndex; i < newSegments.length; i++) {
+        const phaseNameToClear = newSegments[i].phase;
+        updatedKeyDates.forEach(keyDate => {
+          if (keyDate.label.toLowerCase().includes(phaseNameToClear.toLowerCase())) {
+            keyDate.date = '';
+          }
+        });
+      }
+      setProjectKeyDates(updatedKeyDates);
+    }
     
     setEditingSegments(newSegments);
-    setProjectKeyDates(updatedKeyDates);
   };
 
   const formatShortDate = (dateString: string) => {
@@ -17586,304 +17696,9 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Main Content Area */}
         <div className="lg:col-span-3 space-y-6">
-          {/* Overdue Tasks Box - Only show if there are overdue tasks */}
-          {(() => {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            
-            // Get overdue tasks for this project
-            const overdueTasks = projectTasks.filter(task => {
-              if (!task.dueDate) return false;
-              if (task.status === 'completed') return false;
-              if (task.isOngoing) return false;
-              const taskDueDate = new Date(task.dueDate + 'T00:00:00');
-              taskDueDate.setHours(0, 0, 0, 0);
-              return taskDueDate.getTime() < today.getTime();
-            });
-
-            if (overdueTasks.length === 0) {
-              return null;
-            }
-
-            return (
-              <div className="mb-6">
-                <Card className="!p-0 overflow-hidden rounded-none max-h-64">
-                  <div className="px-3 py-2 flex items-center gap-2 bg-red-100">
-                    <div className="flex-shrink-0">
-                      <ExclamationTriangleIcon className="w-6 h-6 text-red-500" />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-semibold text-red-700">Overdue Tasks ({overdueTasks.length})</h3>
-                    </div>
-                  </div>
-                  <div className="border-b border-red-200"></div>
-                  
-                  <div className="px-3 pb-3 pt-2 overflow-hidden relative">
-                    <div className="overflow-y-auto" style={{ maxHeight: '208px' }}>
-                      <div className="space-y-1">
-                        {overdueTasks.map(task => {
-                          const isAssignedToMe = isAssignedToCurrentUser(task);
-                          const assignedMembers = task.assignedTo && task.assignedTo.length > 0 
-                            ? (() => {
-                                const validMembers = task.assignedTo
-                                  .map(id => project.teamMembers.find(member => member.id === id)?.name)
-                                  .filter(name => name);
-                                return validMembers.length > 0 ? validMembers.join(', ') : 'Not Assigned';
-                              })()
-                            : 'Not Assigned';
-
-                          return (
-                            <div
-                              key={task.id}
-                              className="p-1.5 bg-red-50 border border-red-100 rounded cursor-pointer hover:bg-red-100 transition-colors flex items-center justify-between"
-                            >
-                              <div className="flex-1 min-w-0">
-                                <div className="text-xs font-medium text-red-900 truncate">
-                                  {task.description || task.content || 'Untitled task'}
-                                </div>
-                                <div className="text-[10px] text-red-600 truncate mt-0.5">
-                                  {assignedMembers}
-                                </div>
-                              </div>
-                              <div className="flex-shrink-0 ml-2 text-right">
-                                <div className="text-[10px] text-red-600 font-medium">
-                                  {formatDateForDisplay(task.dueDate)}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                    <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white to-transparent pointer-events-none"></div>
-                  </div>
-                </Card>
-              </div>
-            );
-          })()}
-
-          {/* Top Row: Today + Ongoing Tasks */}
+          {/* Layout: Phase dots/task list on left, task boxes on right */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Today Box */}
-            <Card className="!p-0 overflow-hidden rounded-none max-h-64">
-          <div className="px-3 py-2 flex items-center justify-between" style={{ backgroundColor: BRAND.orange }}>
-            <h3 className="text-base font-semibold text-red-200 uppercase">Today</h3>
-            <span className="text-xs font-normal italic text-red-200">
-              {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-            </span>
-          </div>
-          <div className="border-b border-gray-200"></div>
-
-          {/* Tasks Due Today - Single List */}
-          <div className="px-3 pb-3 pt-2 overflow-hidden relative">
-            <div className="overflow-y-auto" style={{ maxHeight: '208px' }}>
-              {(() => {
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                const todayStr = today.toISOString().split('T')[0];
-
-                // Get tasks due today only (exclude completed tasks, ongoing tasks, and overdue tasks)
-                const allTasksToday = projectTasks.filter(task => {
-                  if (!task.dueDate) return false;
-                  if (task.status === 'completed') return false; // Exclude completed tasks
-                  if (task.isOngoing) return false; // Exclude ongoing tasks
-                  const taskDueDate = new Date(task.dueDate + 'T00:00:00');
-                  taskDueDate.setHours(0, 0, 0, 0);
-                  const isDueToday = taskDueDate.getTime() === today.getTime();
-                  return isDueToday; // Only tasks due today, not overdue
-                });
-
-                // Sort with priority: assigned to me first, then others
-                const sortedTasksToday = allTasksToday.sort((a, b) => {
-                  // Assigned to me first
-                  const aAssignedToMe = isAssignedToCurrentUser(a);
-                  const bAssignedToMe = isAssignedToCurrentUser(b);
-                  if (aAssignedToMe && !bAssignedToMe) return -1;
-                  if (!aAssignedToMe && bAssignedToMe) return 1;
-                  
-                  return 0;
-                });
-
-                if (sortedTasksToday.length === 0) {
-                  return <div className="text-xs italic text-gray-500">No tasks for today</div>;
-                }
-
-                // Limit to first 8 tasks to prevent overflow
-                const maxTasks = 8;
-                const tasksToShow = sortedTasksToday.slice(0, maxTasks);
-                const remainingCount = sortedTasksToday.length - maxTasks;
-
-                return (
-                  <div className="space-y-1">
-                    {tasksToShow.map(task => {
-                      const taskDueDate = new Date(task.dueDate + 'T00:00:00');
-                      const isOverdue = task.status !== 'completed' && taskDueDate.getTime() < today.getTime();
-                      const isAssignedToMe = isAssignedToCurrentUser(task);
-                      const isBold = isOverdue || isAssignedToMe;
-                      
-                      const assignedMembers = task.assignedTo && task.assignedTo.length > 0 
-                        ? (() => {
-                            const validMembers = task.assignedTo
-                              .map(id => project.teamMembers.find(member => member.id === id)?.name)
-                              .filter(name => name); // Remove undefined/null values
-                            return validMembers.length > 0 ? validMembers.join(', ') : 'Not Assigned';
-                          })()
-                        : 'Not Assigned';
-
-                      return (
-                        <div
-                          key={task.id}
-                          className="bg-gray-50 border border-gray-100 rounded cursor-pointer hover:bg-gray-100 transition-colors px-3 py-2 flex justify-between items-start"
-                          style={{ borderLeft: `3px solid ${PHASE_COLORS[activePhase] || '#6B7280'}` }}
-                        >
-                          <div className="text-xs font-medium text-gray-900 truncate pr-2">
-                            {task.description || task.content || 'Untitled task'}
-                          </div>
-                          <div className="flex items-center gap-0.5 flex-shrink-0 ml-2">
-                            {task.assignedTo && task.assignedTo.filter(id => id && id.trim() !== '').length > 0 && (
-                              <div className="flex items-center">
-                                {task.assignedTo
-                                  .filter(id => id && id.trim() !== '')
-                                  .slice(0, 2)
-                                  .map((memberId, idx) => (
-                                    <div
-                                      key={memberId}
-                                      className={`w-5 h-5 rounded-full flex items-center justify-center text-white text-[9px] font-medium overflow-hidden border-2 border-gray-100 ${idx > 0 ? '-ml-1' : ''}`}
-                                      style={{ backgroundColor: getMemberColor(memberId, project.teamMembers), zIndex: idx === 0 ? 2 : 1 }}
-                                      title={project.teamMembers.find(m => m.id === memberId)?.name || 'Unknown'}
-                                    >
-                                      <span className="truncate leading-none">{getInitials(project.teamMembers.find(m => m.id === memberId)?.name || 'U')}</span>
-                                    </div>
-                                  ))}
-                                {task.assignedTo.filter(id => id && id.trim() !== '').length > 2 && (
-                                  <span className="text-[10px] italic text-gray-500 ml-0.5">+{task.assignedTo.filter(id => id && id.trim() !== '').length - 2}</span>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                    {remainingCount > 0 && (
-                      <div className="text-[10px] text-gray-500 italic">
-                        +{remainingCount} more tasks
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-            </div>
-            {/* Gradient overlay to indicate more content */}
-            <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white to-transparent pointer-events-none"></div>
-          </div>
-        </Card>
-
-            {/* Ongoing Tasks Box */}
-            <Card className="!p-0 overflow-hidden rounded-none max-h-64">
-          <div className="px-3 py-2" style={{ backgroundColor: '#1E40AF' }}>
-            <h3 className="text-base font-semibold text-blue-200 uppercase">Ongoing</h3>
-          </div>
-          <div className="border-b border-gray-200"></div>
-
-          {/* Ongoing Tasks - Single List */}
-          <div className="px-3 pb-3 pt-2 overflow-hidden relative">
-            <div className="overflow-y-auto" style={{ maxHeight: '208px' }}>
-              {(() => {
-                // Get ongoing tasks for the current phase
-                const ongoingTasks = projectTasks.filter(task => {
-                  return task.isOngoing === true && 
-                         task.phase === currentPhase && 
-                         task.status !== 'completed' &&
-                         task.assignedTo && task.assignedTo.length > 0;
-                });
-
-                // Sort with assigned to me first and bolded
-                const sortedOngoingTasks = ongoingTasks.sort((a, b) => {
-                  const aAssignedToMe = isAssignedToCurrentUser(a);
-                  const bAssignedToMe = isAssignedToCurrentUser(b);
-                  if (aAssignedToMe && !bAssignedToMe) return -1;
-                  if (!aAssignedToMe && bAssignedToMe) return 1;
-                  return 0;
-                });
-
-                if (sortedOngoingTasks.length === 0) {
-                  return (
-                    <div className="text-xs italic text-gray-500">
-                      No ongoing tasks assigned
-                    </div>
-                  );
-                }
-
-                // Limit to first 8 tasks to prevent overflow
-                const maxTasks = 8;
-                const tasksToShow = sortedOngoingTasks.slice(0, maxTasks);
-                const remainingCount = sortedOngoingTasks.length - maxTasks;
-
-                return (
-                  <div className="space-y-1">
-                    {tasksToShow.map(task => {
-                      const isAssignedToMe = isAssignedToCurrentUser(task);
-                      const assignedMembers = task.assignedTo && task.assignedTo.length > 0 
-                        ? (() => {
-                            const validMembers = task.assignedTo
-                              .map(id => project.teamMembers.find(member => member.id === id)?.name)
-                              .filter(name => name); // Remove undefined/null values
-                            return validMembers.length > 0 ? validMembers.join(', ') : 'Not Assigned';
-                          })()
-                        : 'Not Assigned';
-
-                      return (
-                        <div
-                          key={task.id}
-                          className="bg-gray-50 border border-gray-100 rounded cursor-pointer hover:bg-gray-100 transition-colors px-3 py-2 flex justify-between items-start"
-                          style={{ borderLeft: `3px solid ${PHASE_COLORS[activePhase] || '#6B7280'}` }}
-                        >
-                          <div className="text-xs font-medium text-gray-900 truncate pr-2">
-                            {task.description || task.content || 'Untitled task'}
-                          </div>
-                          <div className="flex items-center gap-0.5 flex-shrink-0 ml-2">
-                            {task.assignedTo && task.assignedTo.filter(id => id && id.trim() !== '').length > 0 && (
-                              <div className="flex items-center">
-                                {task.assignedTo
-                                  .filter(id => id && id.trim() !== '')
-                                  .slice(0, 2)
-                                  .map((memberId, idx) => (
-                                    <div
-                                      key={memberId}
-                                      className={`w-5 h-5 rounded-full flex items-center justify-center text-white text-[9px] font-medium overflow-hidden border-2 border-gray-100 ${idx > 0 ? '-ml-1' : ''}`}
-                                      style={{ backgroundColor: getMemberColor(memberId, project.teamMembers), zIndex: idx === 0 ? 2 : 1 }}
-                                      title={project.teamMembers.find(m => m.id === memberId)?.name || 'Unknown'}
-                                    >
-                                      <span className="truncate leading-none">{getInitials(project.teamMembers.find(m => m.id === memberId)?.name || 'U')}</span>
-                          </div>
-                                  ))}
-                                {task.assignedTo.filter(id => id && id.trim() !== '').length > 2 && (
-                                  <span className="text-[10px] italic text-gray-500 ml-0.5">+{task.assignedTo.filter(id => id && id.trim() !== '').length - 2}</span>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                    {remainingCount > 0 && (
-                      <div className="text-[10px] text-gray-500 text-center pt-1">
-                        +{remainingCount} more ongoing task{remainingCount !== 1 ? 's' : ''}
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-            </div>
-            {/* Gradient overlay to indicate more content */}
-            <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white to-transparent pointer-events-none"></div>
-          </div>
-        </Card>
-          </div>
-
-          {/* Main Content Area */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Tasks Section (container without white card) */}
+            {/* Left Side: Phase dots and task list */}
             <div className="flex flex-col">
             {/* Phase Circles */}
             <div className="mb-0 py-4 relative">
@@ -17897,6 +17712,8 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                 {PHASES.map((phase, index) => {
                   const phaseColor = PHASE_COLORS[phase as Phase];
                   const isActive = activePhase === phase;
+                  const phaseTasks = projectTasks.filter(task => task.phase === phase);
+                  const allCompleted = phaseTasks.length > 0 && phaseTasks.every(task => task.status === 'completed');
                   return (
                     <div key={phase} className="relative flex-shrink-0" style={{ width: '28px', height: '28px' }}>
                       {/* White background circle for non-active circles */}
@@ -17918,7 +17735,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                         onClick={() => {
                           setActivePhase(phase as Phase);
                         }}
-                        className="relative transition-all hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 rounded-full w-full h-full"
+                        className="relative transition-all hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 rounded-full w-full h-full flex items-center justify-center"
                         style={{
                           width: '28px',
                           height: '28px',
@@ -17931,7 +17748,13 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                           transition: 'transform 0.2s ease, box-shadow 0.2s ease, border 0.2s ease, opacity 0.2s ease',
                         }}
                         title={getPhaseDisplayName(phase)}
-                      />
+                      >
+                        {allCompleted && (
+                          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ zIndex: 11 }}>
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </button>
                     </div>
                   );
                 })}
@@ -17945,17 +17768,39 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                 className="py-2 px-3 flex items-center justify-between"
                 style={{ borderBottom: '0.5px solid #D1D5DB' }}
               >
-                <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">{getPhaseDisplayName(activePhase)} Tasks</span>
-                {!showAddTask && (
-                  <button
-                    onClick={() => setShowAddTask(true)}
+                  <div className="flex items-center gap-2">
+                    {(() => {
+                      const phaseTasks = projectTasks.filter(task => task.phase === activePhase);
+                      const allCompleted = phaseTasks.length > 0 && phaseTasks.every(task => task.status === 'completed');
+                      const phaseColor = PHASE_COLORS[activePhase] || '#6B7280';
+                      
+                      return (
+                        <div 
+                          className="w-3 h-3 rounded-full flex items-center justify-center flex-shrink-0"
+                          style={{ backgroundColor: phaseColor }}
+                        >
+                          {allCompleted ? (
+                            <svg className="w-2 h-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
+                          ) : (
+                            <div className="w-1.5 h-1.5 rounded-full bg-white"></div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                    <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">{getPhaseDisplayName(activePhase)} Tasks</span>
+                  </div>
+                  {!showAddTask && (
+                    <button
+                      onClick={() => setShowAddTask(true)}
                     className="w-5 h-5 flex items-center justify-center border rounded bg-gray-50 text-base font-medium hover:bg-gray-100 transition-colors p-0"
-                    title="Add task"
+                      title="Add task"
                     style={{ color: BRAND.orange, borderColor: BRAND.orange, lineHeight: '1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                  >
+                    >
                     <span style={{ lineHeight: '1', display: 'inline-block' }}>+</span>
-                  </button>
-                )}
+                    </button>
+                  )}
               </div>
 
               {/* Scrollable Task List (starts under headers) */}
@@ -18270,9 +18115,304 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
 
                 
               </div>
+              </div>
             </div>
             
-            {/* Post-it Notes moved back under Calendar */}
+            {/* Right Side: Task Boxes - Overdue, Today, and Ongoing stacked */}
+            <div className="flex flex-col gap-6">
+              {/* Overdue Tasks Box - Only show if there are overdue tasks */}
+              {(() => {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                
+                // Get overdue tasks for this project
+                const overdueTasks = projectTasks.filter(task => {
+                  if (!task.dueDate) return false;
+                  if (task.status === 'completed') return false;
+                  if (task.isOngoing) return false;
+                  const taskDueDate = new Date(task.dueDate + 'T00:00:00');
+                  taskDueDate.setHours(0, 0, 0, 0);
+                  return taskDueDate.getTime() < today.getTime();
+                });
+
+                if (overdueTasks.length === 0) {
+                  return null;
+                }
+
+                return (
+                  <Card className="!p-0 overflow-hidden rounded-none max-h-64">
+                    <div className="px-3 py-2 flex items-center gap-2 bg-red-100">
+                      <div className="flex-shrink-0">
+                        <ExclamationTriangleIcon className="w-6 h-6 text-red-500" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-semibold text-red-700">Overdue Tasks ({overdueTasks.length})</h3>
+                      </div>
+                    </div>
+                    <div className="border-b border-red-200"></div>
+                    
+                    <div className="px-3 pb-3 pt-2 overflow-hidden relative">
+                      <div className="overflow-y-auto" style={{ maxHeight: '208px' }}>
+                        <div className="space-y-1">
+                          {overdueTasks.slice(0, 3).map(task => {
+                            return (
+                              <div
+                                key={task.id}
+                                className="bg-gray-50 border border-gray-100 rounded cursor-pointer hover:bg-gray-100 transition-colors px-3 py-2 flex justify-between items-start"
+                                style={{ borderLeft: `3px solid ${PHASE_COLORS[activePhase] || '#6B7280'}` }}
+                              >
+                                <div className="text-xs font-medium text-gray-900 truncate pr-2">
+                                  {task.description || task.content || 'Untitled task'}
+                                </div>
+                                <div className="flex items-center gap-0.5 flex-shrink-0 ml-2">
+                                  {task.assignedTo && task.assignedTo.filter(id => id && id.trim() !== '').length > 0 && (
+                                    <div className="flex items-center">
+                                      {task.assignedTo
+                                        .filter(id => id && id.trim() !== '')
+                                        .slice(0, 2)
+                                        .map((memberId, idx) => (
+                                          <div
+                                            key={memberId}
+                                            className={`w-5 h-5 rounded-full flex items-center justify-center text-white text-[9px] font-medium overflow-hidden border-2 border-gray-100 ${idx > 0 ? '-ml-1' : ''}`}
+                                            style={{ backgroundColor: getMemberColor(memberId, project.teamMembers), zIndex: idx === 0 ? 2 : 1 }}
+                                            title={project.teamMembers.find(m => m.id === memberId)?.name || 'Unknown'}
+                                          >
+                                            <span className="truncate leading-none">{getInitials(project.teamMembers.find(m => m.id === memberId)?.name || 'U')}</span>
+                                          </div>
+                                        ))}
+                                      {task.assignedTo.filter(id => id && id.trim() !== '').length > 2 && (
+                                        <span className="text-[10px] italic text-gray-500 ml-0.5">+{task.assignedTo.filter(id => id && id.trim() !== '').length - 2}</span>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white to-transparent pointer-events-none"></div>
+                    </div>
+                  </Card>
+                );
+              })()}
+
+              {/* Today Box */}
+              <Card className="!p-0 overflow-hidden rounded-none max-h-64">
+                <div className="px-3 py-2 flex items-center justify-between" style={{ backgroundColor: BRAND.orange }}>
+                  <h3 className="text-base font-semibold text-red-200 uppercase">Today</h3>
+                  <span className="text-xs font-normal italic text-red-200">
+                    {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                  </span>
+                </div>
+                <div className="border-b border-gray-200"></div>
+
+                {/* Tasks Due Today - Single List */}
+                <div className="px-3 pb-3 pt-2 overflow-hidden relative">
+                  <div className="overflow-y-auto" style={{ maxHeight: '208px' }}>
+                    {(() => {
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      const todayStr = today.toISOString().split('T')[0];
+
+                      // Get tasks due today only (exclude completed tasks, ongoing tasks, and overdue tasks)
+                      const allTasksToday = projectTasks.filter(task => {
+                        if (!task.dueDate) return false;
+                        if (task.status === 'completed') return false; // Exclude completed tasks
+                        if (task.isOngoing) return false; // Exclude ongoing tasks
+                        const taskDueDate = new Date(task.dueDate + 'T00:00:00');
+                        taskDueDate.setHours(0, 0, 0, 0);
+                        const isDueToday = taskDueDate.getTime() === today.getTime();
+                        return isDueToday; // Only tasks due today, not overdue
+                      });
+
+                      // Sort with priority: assigned to me first, then others
+                      const sortedTasksToday = allTasksToday.sort((a, b) => {
+                        // Assigned to me first
+                        const aAssignedToMe = isAssignedToCurrentUser(a);
+                        const bAssignedToMe = isAssignedToCurrentUser(b);
+                        if (aAssignedToMe && !bAssignedToMe) return -1;
+                        if (!aAssignedToMe && bAssignedToMe) return 1;
+                        
+                        return 0;
+                      });
+
+                      if (sortedTasksToday.length === 0) {
+                        return <div className="text-xs italic text-gray-500">No tasks for today</div>;
+                      }
+
+                      // Limit to first 3 tasks
+                      const maxTasks = 3;
+                      const tasksToShow = sortedTasksToday.slice(0, maxTasks);
+                      const remainingCount = sortedTasksToday.length - maxTasks;
+
+                      return (
+                        <div className="space-y-1">
+                          {tasksToShow.map(task => {
+                            const taskDueDate = new Date(task.dueDate + 'T00:00:00');
+                            const isOverdue = task.status !== 'completed' && taskDueDate.getTime() < today.getTime();
+                            const isAssignedToMe = isAssignedToCurrentUser(task);
+                            const isBold = isOverdue || isAssignedToMe;
+                            
+                            const assignedMembers = task.assignedTo && task.assignedTo.length > 0 
+                              ? (() => {
+                                  const validMembers = task.assignedTo
+                                    .map(id => project.teamMembers.find(member => member.id === id)?.name)
+                                    .filter(name => name); // Remove undefined/null values
+                                  return validMembers.length > 0 ? validMembers.join(', ') : 'Not Assigned';
+                                })()
+                              : 'Not Assigned';
+
+                            return (
+                              <div
+                                key={task.id}
+                                className="bg-gray-50 border border-gray-100 rounded cursor-pointer hover:bg-gray-100 transition-colors px-3 py-2 flex justify-between items-start"
+                                style={{ borderLeft: `3px solid ${PHASE_COLORS[activePhase] || '#6B7280'}` }}
+                              >
+                                <div className="text-xs font-medium text-gray-900 truncate pr-2">
+                                  {task.description || task.content || 'Untitled task'}
+                                </div>
+                                <div className="flex items-center gap-0.5 flex-shrink-0 ml-2">
+                                  {task.assignedTo && task.assignedTo.filter(id => id && id.trim() !== '').length > 0 && (
+                                    <div className="flex items-center">
+                                      {task.assignedTo
+                                        .filter(id => id && id.trim() !== '')
+                                        .slice(0, 2)
+                                        .map((memberId, idx) => (
+                                          <div
+                                            key={memberId}
+                                            className={`w-5 h-5 rounded-full flex items-center justify-center text-white text-[9px] font-medium overflow-hidden border-2 border-gray-100 ${idx > 0 ? '-ml-1' : ''}`}
+                                            style={{ backgroundColor: getMemberColor(memberId, project.teamMembers), zIndex: idx === 0 ? 2 : 1 }}
+                                            title={project.teamMembers.find(m => m.id === memberId)?.name || 'Unknown'}
+                                          >
+                                            <span className="truncate leading-none">{getInitials(project.teamMembers.find(m => m.id === memberId)?.name || 'U')}</span>
+                                          </div>
+                                        ))}
+                                      {task.assignedTo.filter(id => id && id.trim() !== '').length > 2 && (
+                                        <span className="text-[10px] italic text-gray-500 ml-0.5">+{task.assignedTo.filter(id => id && id.trim() !== '').length - 2}</span>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                          {remainingCount > 0 && (
+                            <div className="text-[10px] text-gray-500 italic">
+                              +{remainingCount} more tasks
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                  {/* Gradient overlay to indicate more content */}
+                  <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white to-transparent pointer-events-none"></div>
+                </div>
+              </Card>
+
+              {/* Ongoing Tasks Box */}
+              <Card className="!p-0 overflow-hidden rounded-none max-h-64">
+          <div className="px-3 py-2" style={{ backgroundColor: '#1E40AF' }}>
+            <h3 className="text-base font-semibold text-blue-200 uppercase">Ongoing</h3>
+          </div>
+          <div className="border-b border-gray-200"></div>
+
+          {/* Ongoing Tasks - Single List */}
+          <div className="px-3 pb-3 pt-2 overflow-hidden relative">
+            <div className="overflow-y-auto" style={{ maxHeight: '208px' }}>
+              {(() => {
+                // Get ongoing tasks for the current phase
+                const ongoingTasks = projectTasks.filter(task => {
+                  return task.isOngoing === true && 
+                         task.phase === currentPhase && 
+                         task.status !== 'completed' &&
+                         task.assignedTo && task.assignedTo.length > 0;
+                });
+
+                // Sort with assigned to me first and bolded
+                const sortedOngoingTasks = ongoingTasks.sort((a, b) => {
+                  const aAssignedToMe = isAssignedToCurrentUser(a);
+                  const bAssignedToMe = isAssignedToCurrentUser(b);
+                  if (aAssignedToMe && !bAssignedToMe) return -1;
+                  if (!aAssignedToMe && bAssignedToMe) return 1;
+                  return 0;
+                });
+
+                if (sortedOngoingTasks.length === 0) {
+                  return (
+                    <div className="text-xs italic text-gray-500">
+                      No ongoing tasks assigned
+                    </div>
+                  );
+                }
+
+                // Limit to first 3 tasks
+                const maxTasks = 3;
+                const tasksToShow = sortedOngoingTasks.slice(0, maxTasks);
+                const remainingCount = sortedOngoingTasks.length - maxTasks;
+
+                return (
+                  <div className="space-y-1">
+                    {tasksToShow.map(task => {
+                      const isAssignedToMe = isAssignedToCurrentUser(task);
+                      const assignedMembers = task.assignedTo && task.assignedTo.length > 0 
+                        ? (() => {
+                            const validMembers = task.assignedTo
+                              .map(id => project.teamMembers.find(member => member.id === id)?.name)
+                              .filter(name => name); // Remove undefined/null values
+                            return validMembers.length > 0 ? validMembers.join(', ') : 'Not Assigned';
+                          })()
+                        : 'Not Assigned';
+
+                      return (
+                        <div
+                          key={task.id}
+                          className="bg-gray-50 border border-gray-100 rounded cursor-pointer hover:bg-gray-100 transition-colors px-3 py-2 flex justify-between items-start"
+                          style={{ borderLeft: `3px solid ${PHASE_COLORS[activePhase] || '#6B7280'}` }}
+                        >
+                          <div className="text-xs font-medium text-gray-900 truncate pr-2">
+                            {task.description || task.content || 'Untitled task'}
+                          </div>
+                          <div className="flex items-center gap-0.5 flex-shrink-0 ml-2">
+                            {task.assignedTo && task.assignedTo.filter(id => id && id.trim() !== '').length > 0 && (
+                              <div className="flex items-center">
+                                {task.assignedTo
+                                  .filter(id => id && id.trim() !== '')
+                                  .slice(0, 2)
+                                  .map((memberId, idx) => (
+                                    <div
+                                      key={memberId}
+                                      className={`w-5 h-5 rounded-full flex items-center justify-center text-white text-[9px] font-medium overflow-hidden border-2 border-gray-100 ${idx > 0 ? '-ml-1' : ''}`}
+                                      style={{ backgroundColor: getMemberColor(memberId, project.teamMembers), zIndex: idx === 0 ? 2 : 1 }}
+                                      title={project.teamMembers.find(m => m.id === memberId)?.name || 'Unknown'}
+                                    >
+                                      <span className="truncate leading-none">{getInitials(project.teamMembers.find(m => m.id === memberId)?.name || 'U')}</span>
+                          </div>
+                                  ))}
+                                {task.assignedTo.filter(id => id && id.trim() !== '').length > 2 && (
+                                  <span className="text-[10px] italic text-gray-500 ml-0.5">+{task.assignedTo.filter(id => id && id.trim() !== '').length - 2}</span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {remainingCount > 0 && (
+                      <div className="text-[10px] text-gray-500 text-center pt-1">
+                        +{remainingCount} more ongoing task{remainingCount !== 1 ? 's' : ''}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+            {/* Gradient overlay to indicate more content */}
+            <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white to-transparent pointer-events-none"></div>
+          </div>
+        </Card>
+            </div>
           </div>
 
             {/* Right Half - Calendar, Key Dates, Files/Notes */}
@@ -18460,7 +18600,6 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
               })()}
             </div>
         </Card>
-            </div>
           </div>
         </div>
 
@@ -18567,7 +18706,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                 </div>
                 <div className="space-y-1">
                   {/* Transcripts - Only show if project has transcripts */}
-                  {project.transcripts && project.transcripts.length > 0 && (
+                  {projectTranscripts && projectTranscripts.length > 0 && (
                     <button
                       onClick={() => {
                         // Show loading state
@@ -18575,10 +18714,10 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                         
                         setRoute?.('transcripts');
                         // Navigate directly to the first transcript for this project
-                        if (project.transcripts.length > 0) {
+                        if (projectTranscripts.length > 0) {
                           window.dispatchEvent(new CustomEvent('openTranscript', { 
                             detail: { 
-                              transcriptId: project.transcripts[0].id,
+                              transcriptId: projectTranscripts[0].id,
                               projectId: project.id 
                             } 
                           }));
@@ -18594,7 +18733,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                       <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>
-                      <span className="text-xs text-gray-700">Transcripts ({project.transcripts.length})</span>
+                      <span className="text-xs text-gray-700">Transcripts ({projectTranscripts.length})</span>
                     </button>
                   )}
                   
@@ -19643,8 +19782,10 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                               const selectedDate = new Date(year, month - 1, day);
                               const dayOfWeek = selectedDate.getDay();
                               
-                              // Prevent weekend selection
+                              // Adjust weekend dates to next weekday
                               if (dayOfWeek === 0 || dayOfWeek === 6) {
+                                const adjustedDate = adjustWeekendDate(dateString);
+                                handlePhaseDateChange(index, 'startDate', adjustedDate);
                                 return;
                               }
                               
@@ -19703,6 +19844,7 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                             <input
                               type="date"
                               value={segment.endDate}
+                              min={segment.startDate || undefined}
                               ref={(el) => {
                                 if (el) {
                                   el.style.position = 'absolute';
@@ -19721,12 +19863,24 @@ function ProjectDashboard({ project, onEdit, onArchive, setProjects, onProjectUp
                                 const selectedDate = new Date(year, month - 1, day);
                                 const dayOfWeek = selectedDate.getDay();
                                 
-                                // Prevent weekend selection
+                                // Adjust weekend dates to next weekday
+                                let finalDateString = dateString;
                                 if (dayOfWeek === 0 || dayOfWeek === 6) {
-                                  return;
+                                  finalDateString = adjustWeekendDate(dateString);
                                 }
                                 
-                                handlePhaseDateChange(index, 'endDate', dateString);
+                                // Prevent selecting end date before start date
+                                if (segment.startDate) {
+                                  const [finalYear, finalMonth, finalDay] = finalDateString.split('-').map(Number);
+                                  const finalDate = new Date(finalYear, finalMonth - 1, finalDay);
+                                  const [startYear, startMonth, startDay] = segment.startDate.split('-').map(Number);
+                                  const startDate = new Date(startYear, startMonth - 1, startDay);
+                                  if (finalDate < startDate) {
+                                    return;
+                                  }
+                                }
+                                
+                                handlePhaseDateChange(index, 'endDate', finalDateString);
                               }}
                             />
                             {segment.endDate ? (
