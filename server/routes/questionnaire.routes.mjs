@@ -1538,7 +1538,35 @@ Provide 3-7 relevant response options that would be appropriate for this questio
 // POST /api/questionnaire/map-columns - AI mapping of variable names to data file column headers
 router.post('/map-columns', async (req, res) => {
   try {
-    const { variableNames, variables, dataHeaders, dataMapHeaders, questionnaireId } = req.body;
+    const { variableNames, variables, dataHeaders, dataMapHeaders, questionnaireId, existingMapping, mapping } = req.body;
+    
+    // If a complete mapping is provided (from frontend), just save it and return
+    if (mapping && typeof mapping === 'object') {
+      if (questionnaireId) {
+        try {
+          const qnrDataDir = path.join(dataRoot, 'questionnaire-data', questionnaireId);
+          await fs.mkdir(qnrDataDir, { recursive: true });
+          const metadataPath = path.join(qnrDataDir, 'metadata.json');
+          
+          let metadata = {};
+          try {
+            const existingMetadata = await fs.readFile(metadataPath, 'utf-8');
+            metadata = JSON.parse(existingMetadata);
+          } catch (e) {
+            // File doesn't exist yet, that's fine
+          }
+          
+          metadata.columnMapping = mapping;
+          metadata.mappingCreatedAt = new Date().toISOString();
+          await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2));
+        } catch (saveError) {
+          console.warn('Could not save column mapping to metadata:', saveError);
+          // Continue anyway - mapping is still returned
+        }
+      }
+      
+      return res.json({ mapping });
+    }
     
     // Create a map of variable name to type for easy lookup
     const variableTypeMap = {};
@@ -1555,6 +1583,21 @@ router.post('/map-columns', async (req, res) => {
     if (!dataHeaders || !Array.isArray(dataHeaders) || dataHeaders.length === 0) {
       return res.status(400).json({ error: 'Data headers are required' });
     }
+    
+    // Filter out already matched variables if existingMapping is provided
+    const variablesToProcess = existingMapping 
+      ? variableNames.filter(v => !existingMapping[v] || existingMapping[v] === '')
+      : variableNames;
+    
+    if (variablesToProcess.length === 0) {
+      // All variables are already matched, return existing mapping
+      return res.json({ mapping: existingMapping || {} });
+    }
+    
+    // Filter variables array to only include unmatched ones
+    const variablesToMap = variables && Array.isArray(variables)
+      ? variables.filter(v => variablesToProcess.includes(v.name))
+      : variablesToProcess.map(name => ({ name, type: variableTypeMap[name] || 'Unknown' }));
     
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     
@@ -1616,19 +1659,25 @@ CRITICAL MATCHING RULES (BE AGGRESSIVE - MATCH WHENEVER POSSIBLE):
 
 Your goal is to maximize matches - be aggressive and match whenever there's a reasonable connection between the variable name and column header.`;
 
+    // Filter out already used headers if existingMapping is provided
+    const usedHeaders = existingMapping ? new Set(Object.values(existingMapping).filter(h => h && h !== '')) : new Set();
+    const availableHeaders = dataHeaders.filter(h => !usedHeaders.has(h));
+    
     // Log what we're sending to AI for debugging
-    console.log(`📤 Sending ${variableNames.length} variables to AI for mapping against ${dataHeaders.length} data headers`);
+    const alreadyMatchedCount = existingMapping ? Object.keys(existingMapping).filter(k => existingMapping[k] && existingMapping[k] !== '').length : 0;
+    console.log(`📤 Sending ${variablesToProcess.length} unmatched variables to AI for mapping (${alreadyMatchedCount} already matched automatically)`);
+    console.log(`📋 Available headers: ${availableHeaders.length} (${usedHeaders.size} already used)`);
     
     // Get sample variable names and headers for examples
-    const sampleVariables = variableNames.slice(0, 20);
-    const sampleHeaders = dataHeaders.slice(0, 30);
+    const sampleVariables = variablesToProcess.slice(0, 20);
+    const sampleHeaders = availableHeaders.slice(0, 30);
     
     // Try to find some example matches to show the AI
     const exampleMatches = [];
     sampleVariables.forEach(varName => {
       // Try to find a matching header
       const varLower = varName.toLowerCase();
-      const matchingHeader = dataHeaders.find(h => {
+      const matchingHeader = availableHeaders.find(h => {
         const hLower = h.toLowerCase();
         // Check various patterns
         return hLower === varLower ||
@@ -1643,7 +1692,7 @@ Your goal is to maximize matches - be aggressive and match whenever there's a re
     });
 
     // Format variables with their types for the prompt
-    const variablesWithTypes = variableNames.map((name, i) => {
+    const variablesWithTypes = variablesToProcess.map((name, i) => {
       const varType = variableTypeMap[name] || 'Unknown';
       return `${i + 1}. ${name} (Type: ${varType})`;
     }).join('\n');
@@ -1655,14 +1704,16 @@ Your goal is to maximize matches - be aggressive and match whenever there's a re
 
     const userPrompt = `Please match the following variable names with the column headers from the data file.
 
-${exampleMatches.length > 0 ? `EXAMPLE MATCHES (use these as a guide for matching patterns):
+${existingMapping && alreadyMatchedCount > 0 ? `NOTE: ${alreadyMatchedCount} variables have already been matched automatically. You only need to match the remaining ${variablesToProcess.length} variables listed below.
+
+` : ''}${exampleMatches.length > 0 ? `EXAMPLE MATCHES (use these as a guide for matching patterns):
 ${exampleMatches.map((ex, i) => `${i + 1}. Variable "${ex.variable}" → Column "${ex.header}"`).join('\n')}
 
-` : ''}Variable Names with Types (${variableNames.length} total${openEndCount > 0 ? `, ${openEndCount} Open End variables` : ''}):
+` : ''}Variable Names with Types (${variablesToProcess.length} total${openEndCount > 0 ? `, ${openEndCount} Open End variables` : ''}):
 ${variablesWithTypes}
 
-Data Headers (from first sheet, ${dataHeaders.length} total):
-${dataHeaders.map((h, i) => `${i + 1}. ${h}`).join('\n')}
+Available Data Headers (from first sheet, ${availableHeaders.length} total${usedHeaders.size > 0 ? `, ${usedHeaders.size} already matched` : ''}):
+${availableHeaders.map((h, i) => `${i + 1}. ${h}`).join('\n')}
 
 ${dataMapHeaders && dataMapHeaders.length > 0 ? `Data Map Headers (from data map sheet, ${dataMapHeaders.length} total):
 ${dataMapHeaders.map((h, i) => `${i + 1}. ${h}`).join('\n')}` : ''}
@@ -1809,15 +1860,19 @@ Return ONLY valid JSON. Do not include any explanatory text, markdown code block
       }
     }
 
-    const mapping = result.mapping || {};
+    const aiMapping = result.mapping || {};
     
     // Log mapping results for debugging
-    const totalVariables = variableNames.length;
-    const mappedCount = Object.keys(mapping).filter(k => mapping[k] && mapping[k] !== '').length;
-    const unmappedCount = totalVariables - mappedCount;
-    console.log(`📥 Received mapping from AI: ${mappedCount} mapped, ${unmappedCount} unmapped out of ${totalVariables} total`);
+    const aiMappedCount = Object.keys(aiMapping).filter(k => aiMapping[k] && aiMapping[k] !== '').length;
+    const aiUnmappedCount = variablesToProcess.length - aiMappedCount;
+    console.log(`📥 Received mapping from AI: ${aiMappedCount} mapped, ${aiUnmappedCount} unmapped out of ${variablesToProcess.length} unmatched variables`);
     
-    // Save mapping to metadata if questionnaireId is provided
+    // Merge with existing mapping for saving (but return only AI mapping to frontend)
+    const finalMapping = existingMapping 
+      ? { ...existingMapping, ...aiMapping }
+      : aiMapping;
+    
+    // Save merged mapping to metadata if questionnaireId is provided
     if (questionnaireId) {
       try {
         const qnrDataDir = path.join(dataRoot, 'questionnaire-data', questionnaireId);
@@ -1832,7 +1887,7 @@ Return ONLY valid JSON. Do not include any explanatory text, markdown code block
           // File doesn't exist yet, that's fine
         }
         
-        metadata.columnMapping = mapping;
+        metadata.columnMapping = finalMapping;
         metadata.mappingCreatedAt = new Date().toISOString();
         await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2));
       } catch (saveError) {
@@ -1841,7 +1896,8 @@ Return ONLY valid JSON. Do not include any explanatory text, markdown code block
       }
     }
     
-    res.json({ mapping });
+    // Return only AI mapping (frontend will merge with automatic mapping)
+    res.json({ mapping: aiMapping });
   } catch (error) {
     console.error('Error mapping columns:', error);
     res.status(500).json({ error: 'Failed to map columns' });

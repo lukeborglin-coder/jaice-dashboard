@@ -19,6 +19,7 @@ import { type BannerGroup, type BannerCut } from '../types/dataTabulation';
 import BannerBuilder from './BannerBuilder';
 import CrossTabDisplay from './CrossTabDisplay';
 import { parseDataFile, type ParsedDataFile } from '../utils/dataTabulationParser';
+import { autoMatchHeaders } from '../utils/headerMatcher';
 
 const BRAND_ORANGE = '#D14A2D';
 const BRAND_BG = '#F7F7F8';
@@ -109,6 +110,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
   const [selectedBannerGroupId, setSelectedBannerGroupId] = useState<string | null>(null);
   const [selectedStubVariables, setSelectedStubVariables] = useState<Record<string, string>>({});
   const [parsedFile, setParsedFile] = useState<ParsedDataFile | null>(null);
+  const [mappingFilter, setMappingFilter] = useState<'all' | 'mapped' | 'unmapped'>('all');
 
   // Load banner groups from localStorage when questionnaire changes
   useEffect(() => {
@@ -155,10 +157,12 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
     processed: boolean;
   } | null>(null);
   const [mappingVariables, setMappingVariables] = useState(false);
+  const [mappingWithAI, setMappingWithAI] = useState(false);
   const [columnMapping, setColumnMapping] = useState<Record<string, string>>({});
   const [columnHeaderSearch, setColumnHeaderSearch] = useState('');
   const [qnrVariableSearch, setQnrVariableSearch] = useState('');
   const [showMappingModal, setShowMappingModal] = useState(false);
+  const [hasAttemptedMapping, setHasAttemptedMapping] = useState(false);
   const [selectedColumnHeader, setSelectedColumnHeader] = useState<string | null>(null);
   const [selectedVariableForMapping, setSelectedVariableForMapping] = useState<string>('');
   const [uploadingData, setUploadingData] = useState(false);
@@ -167,6 +171,14 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
   const [selectedQuestionForMapping, setSelectedQuestionForMapping] = useState<string | null>(null);
   const [columnHeaderModalSearch, setColumnHeaderModalSearch] = useState('');
   const [loadingQuestion, setLoadingQuestion] = useState(false);
+  const [showUnmappedQuestionMappingModal, setShowUnmappedQuestionMappingModal] = useState(false);
+  const [selectedUnmappedQuestion, setSelectedUnmappedQuestion] = useState<{ baseNumber: string; type: string; variables: Variable[] } | null>(null);
+  const [unmappedQuestionMappingSearch, setUnmappedQuestionMappingSearch] = useState('');
+  const [showUnmappedHeaderMappingModal, setShowUnmappedHeaderMappingModal] = useState(false);
+  const [selectedUnmappedExpectedHeader, setSelectedUnmappedExpectedHeader] = useState<string | null>(null);
+  const [unmappedHeaderMappingSearch, setUnmappedHeaderMappingSearch] = useState('');
+  const [openDropdownForHeader, setOpenDropdownForHeader] = useState<string | null>(null);
+  const [dropdownSearch, setDropdownSearch] = useState<string>('');
   const [questionData, setQuestionData] = useState<any>(null);
   const [loadingQnrNavigation, setLoadingQnrNavigation] = useState(false);
   const [dataUploaded, setDataUploaded] = useState(false);
@@ -470,18 +482,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
       // For numeric grids: only individual column variables (if has columns) or statement variables (if no columns)
       // Note: Mean summary table and main grid variable are not shown for numeric grids - only individual tables as variables
       if (isNumericGrid && statements && Object.keys(statements).length > 0) {
-        // Debug logging for numeric grids
-        if (questionNumber === 'S14' || questionNumber.includes('S14')) {
-          console.log(`🔍 Numeric Grid ${questionNumber}:`, {
-            statementOptions: question.statementOptions,
-            responseOptions: question.responseOptions,
-            options: question.options,
-            statements: statements,
-            codes: codes,
-            hasStatements: !!statements && Object.keys(statements).length > 0,
-            hasCodes: !!codes && Object.keys(codes).length > 0
-          });
-        }
+        // Debug logging for numeric grids removed
         
         processedQuestionNumbers.add(questionNumber);
         
@@ -716,11 +717,6 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
         
         if (isMultiSelect && codes && Object.keys(codes).length > 0) {
           // For multiselect questions, create individual variables for each response option
-          console.log(`[Multiselect ${questionNumber}] Creating response variables:`, {
-            codes: Object.keys(codes),
-            codesObject: codes,
-            questionType
-          });
           Object.entries(codes).forEach(([optionCode, optionText]) => {
             // Extract the numeric part from the code (handles "1", "c1", "c01", etc.)
             // The code number should match the response number in the variable name
@@ -734,7 +730,6 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
             
             // Use 'r' prefix for multiselect response options (e.g., B8r1, B8r2)
             const responseVarName = `${questionNumber}r${optionNumber}`;
-            console.log(`[Multiselect ${questionNumber}] Creating variable: ${responseVarName} from code ${optionCode}`);
             vars.push({
               name: responseVarName,
               description: `${question.text || questionNumber} - ${optionText}`,
@@ -746,7 +741,6 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
             });
           });
         } else if (isMultiSelect) {
-          console.warn(`[Multiselect ${questionNumber}] No codes found, creating main variable instead. Codes:`, codes);
           // Fallback: if no codes, create main variable
         vars.push({
                     name: questionNumber,
@@ -830,16 +824,310 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
     setVariables(vars);
   }, [variableData]);
 
+  // Extract base question number from variable name
+  const getBaseQuestionNumber = useCallback((variableName: string): string => {
+    let base = variableName;
+    
+    // Remove summary suffixes first
+    base = base.replace(/_Summary Tables$/, '');
+    base = base.replace(/_Summary$/, '');
+    // Remove other suffixes like _T2B, _B2B, _M3B
+    base = base.replace(/_T2B$/, '');
+    base = base.replace(/_B2B$/, '');
+    base = base.replace(/_M3B$/, '');
+    
+    // Remove numeric list response codes with underscore (e.g., _1, _2) - must be just a number
+    // This pattern matches underscore followed by digits at the end, but not _r1 or _c1
+    base = base.replace(/_\d+$/, '');
+    
+    // Remove response codes with underscore (e.g., _r1, _r2) - this handles other numeric lists
+    base = base.replace(/_[rR]\d+$/i, '');
+    
+    // Remove column codes with underscore (e.g., _c1, _c2)
+    base = base.replace(/_[cC]\d+$/, '');
+    
+    // Remove response codes without underscore (r1, r2, etc.)
+    base = base.replace(/[rR]\d+/gi, '');
+    
+    // Remove column codes without underscore (c1, c2, etc.)
+    base = base.replace(/[cC]\d+/gi, '');
+    
+    // Remove any trailing underscores
+    base = base.replace(/_+$/, '');
+    
+    return base;
+  }, []);
+
+  // Generate expected column headers for a base question (all variables with that base)
+  const getExpectedColumnHeadersForBase = useCallback((baseQuestionNumber: string, allVariables: Variable[]): string[] => {
+    // Find all variables that belong to this base question
+    const relatedVariables = allVariables.filter(v => {
+      const base = getBaseQuestionNumber(v.name);
+      return base === baseQuestionNumber;
+    });
+
+    // Check the original question data to see if it has statements
+    const question = questionnaireQuestions.find(q => (q.number || q.id) === baseQuestionNumber);
+    const questionType = question?.type || '';
+    const isNumericList = questionType.toLowerCase().includes('numeric list');
+    const isNumericGrid = questionType.toLowerCase().includes('numeric grid');
+    const isNumericOnly = questionType.toLowerCase() === 'numeric' || (questionType.toLowerCase().includes('numeric') && !isNumericList && !isNumericGrid);
+    
+    let questionHasStatements = false;
+    let statementCodes: string[] = [];
+    
+    // For "Numeric" questions (not "Numeric List" or "Numeric Grid"), assume single statement (r1)
+    if (isNumericOnly) {
+      questionHasStatements = true;
+      statementCodes = ['r1'];
+    } else if (question && question.statementOptions && Array.isArray(question.statementOptions) && question.statementOptions.length > 0) {
+      questionHasStatements = true;
+      // Extract statement codes
+      question.statementOptions.forEach((stmt: any, idx: number) => {
+        const code = typeof stmt === 'string' ? `r${idx + 1}` : (stmt.code || `r${idx + 1}`);
+        statementCodes.push(code);
+      });
+    }
+
+    // Check if there are statement variables (variables with row codes like r1, r2, etc.)
+    // Statement variables can be in format: S5_r1 (with underscore) or S5r1 (without underscore)
+    const statementVariables = relatedVariables.filter(v => {
+      // Check if variable name has a row code pattern (r followed by digits)
+      const hasRowCode = /r\d+/i.test(v.name);
+      // Make sure it's not a numeric grid cell (which would also have column codes)
+      const hasColCode = /c\d+/i.test(v.name);
+      // Check if it's a statement variable (has r code but not c code, and is not the base)
+      return hasRowCode && !hasColCode && v.name !== baseQuestionNumber;
+    });
+    const hasStatementVariables = statementVariables.length > 0 || questionHasStatements;
+
+    // Generate expected headers for each related variable
+    const expectedHeaders: string[] = [];
+    
+    // For numeric grids, generate expected headers from question data (statements × responseOptions)
+    if (isNumericGrid && question) {
+      // Get statement codes (rows) - same logic as convertQuestionsToVariables
+      const rowCodes: string[] = [];
+      let statements: Record<string, string> | undefined = undefined;
+      
+      if (question.statementOptions && Array.isArray(question.statementOptions)) {
+        const allStatements = question.statementOptions;
+        
+        // Check if columns are mixed in with statementOptions (mis-parsed)
+        const hasColumnCodes = allStatements.some((stmt: any) => {
+          const code = typeof stmt === 'string' ? '' : (stmt.code || '');
+          return code && (code.toLowerCase().startsWith('c') || code.match(/^c\d+$/i));
+        });
+        
+        if (!question.responseOptions && hasColumnCodes) {
+          // Columns are in statementOptions - split them
+          const rowStatements: any[] = [];
+          allStatements.forEach((stmt: any) => {
+            const code = typeof stmt === 'string' ? '' : (stmt.code || '');
+            if (!code || !(code.toLowerCase().startsWith('c') || code.match(/^c\d+$/i))) {
+              rowStatements.push(stmt);
+            }
+          });
+          
+          rowStatements.forEach((stmt: any, idx: number) => {
+            const code = typeof stmt === 'string' ? `r${idx + 1}` : (stmt.code || `r${idx + 1}`);
+            rowCodes.push(code);
+          });
+        } else {
+          // Normal case: statementOptions are rows
+          allStatements.forEach((stmt: any, idx: number) => {
+            const code = typeof stmt === 'string' ? `r${idx + 1}` : (stmt.code || `r${idx + 1}`);
+            rowCodes.push(code);
+          });
+        }
+      }
+      
+      // Get response option codes (columns) - same logic as convertQuestionsToVariables
+      const colCodes: string[] = [];
+      
+      if (question.responseOptions && Array.isArray(question.responseOptions)) {
+        question.responseOptions.forEach((resp: any, idx: number) => {
+          const code = typeof resp === 'string' ? `c${idx + 1}` : (resp.code || `c${idx + 1}`);
+          colCodes.push(code);
+        });
+      } else if (question.statementOptions && Array.isArray(question.statementOptions)) {
+        // Check if columns are in statementOptions (mis-parsed case)
+        const allStatements = question.statementOptions;
+        const hasColumnCodes = allStatements.some((stmt: any) => {
+          const code = typeof stmt === 'string' ? '' : (stmt.code || '');
+          return code && (code.toLowerCase().startsWith('c') || code.match(/^c\d+$/i));
+        });
+        
+        if (hasColumnCodes) {
+          allStatements.forEach((stmt: any) => {
+            const code = typeof stmt === 'string' ? '' : (stmt.code || '');
+            if (code && (code.toLowerCase().startsWith('c') || code.match(/^c\d+$/i))) {
+              colCodes.push(code);
+            }
+          });
+        }
+      }
+      
+      // Generate all combinations: each row × each column
+      if (rowCodes.length > 0) {
+        rowCodes.forEach(rowCode => {
+          const rowNumberMatch = rowCode.match(/r?(\d+)/i);
+          const rowNum = rowNumberMatch ? rowNumberMatch[1] : rowCode.replace(/[^0-9]/g, '');
+          
+          if (colCodes.length > 0) {
+            colCodes.forEach(colCode => {
+              const colNumberMatch = colCode.match(/c?(\d+)/i);
+              const colNum = colNumberMatch ? colNumberMatch[1] : colCode.replace(/[^0-9]/g, '');
+              expectedHeaders.push(`Q${baseQuestionNumber}r${rowNum}c${colNum}`);
+            });
+          } else {
+            // If no columns found, still add row with c1 (fallback)
+            expectedHeaders.push(`Q${baseQuestionNumber}r${rowNum}c1`);
+          }
+        });
+      }
+      
+      if (expectedHeaders.length > 0) {
+        return expectedHeaders.sort();
+      }
+    }
+    
+    // If question has statements but no statement variables exist, generate expected headers from question data
+    if (questionHasStatements && statementVariables.length === 0) {
+      // Generate expected headers based on statement codes from the question
+      statementCodes.forEach(code => {
+        // Extract the number from the code (e.g., "r1" -> "1", "r2" -> "2")
+        const numberMatch = code.match(/r(\d+)/i);
+        if (numberMatch) {
+          // For numeric lists, add c1 at the end (e.g., QS5r1c1)
+          // For other questions, just use QS5r1
+          if (isNumericList) {
+            expectedHeaders.push(`Q${baseQuestionNumber}r${numberMatch[1]}c1`);
+          } else {
+            expectedHeaders.push(`Q${baseQuestionNumber}r${numberMatch[1]}`);
+          }
+        }
+      });
+      
+      return expectedHeaders.sort();
+    }
+    
+    relatedVariables.forEach(variable => {
+      // Filter out summary table variables and scale summaries
+      if (variable.name.endsWith('_Summary Tables') || 
+          variable.name.endsWith('_T2B') || 
+          variable.name.endsWith('_B2B') || 
+          variable.name.endsWith('_M3B') ||
+          (variable as any).isSummaryTable) {
+        return;
+      }
+      
+      // Filter out column summary variables for numeric grids (e.g., S4_c1)
+      // These are calculated summaries, not raw data columns
+      const columnSummaryPattern = new RegExp(`^${baseQuestionNumber}_c\\d+$`, 'i');
+      if (columnSummaryPattern.test(variable.name)) {
+        return;
+      }
+      
+      // Filter out variables ending with _Summary (e.g., S4_c1_Summary)
+      if (variable.name.endsWith('_Summary')) {
+        return;
+      }
+      
+      // For numeric questions with statements, filter out the base variable
+      // Only include statement variables (e.g., S5r1, S5r2) not the base (S5)
+      // BUT for numeric lists and numeric grids, we want to include their specific variables
+      if (hasStatementVariables && !isNumericList && !isNumericGrid) {
+        // If this is the exact base question number (no row/column codes), skip it
+        if (variable.name === baseQuestionNumber) {
+          return;
+        }
+        // Also skip if it matches the base with underscore pattern but no r code (e.g., S5_1, but not S5_r1)
+        const baseWithUnderscorePattern = new RegExp(`^${baseQuestionNumber}_\\d+$`, 'i');
+        if (baseWithUnderscorePattern.test(variable.name) && !/r\d+/i.test(variable.name)) {
+          return;
+        }
+      }
+      
+      // For numeric lists, filter out the base variable if it exists
+      if (isNumericList && variable.name === baseQuestionNumber) {
+        return;
+      }
+      
+      // For numeric grids, filter out the base variable if it exists
+      if (isNumericGrid && variable.name === baseQuestionNumber) {
+        return;
+      }
+      
+      // For numeric lists, handle both patterns:
+      // 1. {baseQuestionNumber}_r{number} (e.g., S5_r1)
+      // 2. {baseQuestionNumber}_{number} (e.g., S14B_1)
+      if (isNumericList) {
+        // Check for _r1, _r2 pattern
+        const statementWithUnderscorePattern = new RegExp(`^${baseQuestionNumber}_r(\\d+)$`, 'i');
+        const rMatch = variable.name.match(statementWithUnderscorePattern);
+        if (rMatch) {
+          // Convert S5_r1 -> QS5r1c1
+          expectedHeaders.push(`Q${baseQuestionNumber}r${rMatch[1]}c1`);
+        } else {
+          // Check for _1, _2 pattern (just a number after underscore)
+          const numericCodePattern = new RegExp(`^${baseQuestionNumber}_(\\d+)$`, 'i');
+          const numericMatch = variable.name.match(numericCodePattern);
+          if (numericMatch) {
+            // Convert S14B_1 -> QS14Br1c1
+            expectedHeaders.push(`Q${baseQuestionNumber}r${numericMatch[1]}c1`);
+          } else {
+            // Fallback: add "Q" prefix to variable name as-is
+            expectedHeaders.push(`Q${variable.name}`);
+          }
+        }
+      } else if (isNumericGrid) {
+        // For numeric grids, variables are named like S14r1c1, S14r1c2, S14r2c1, etc.
+        // We want to preserve both row and column codes: QS14r1c1, QS14r1c2, QS14r2c1, etc.
+        // Check if variable matches pattern: {baseQuestionNumber}r{rowNumber}c{colNumber}
+        const gridCellPattern = new RegExp(`^${baseQuestionNumber}r(\\d+)c(\\d+)$`, 'i');
+        const gridMatch = variable.name.match(gridCellPattern);
+        if (gridMatch) {
+          // Convert S14r1c1 -> QS14r1c1
+          expectedHeaders.push(`Q${baseQuestionNumber}r${gridMatch[1]}c${gridMatch[2]}`);
+        } else {
+          // Check for underscore pattern: {baseQuestionNumber}_r{rowNumber}_c{colNumber}
+          const gridCellUnderscorePattern = new RegExp(`^${baseQuestionNumber}_r(\\d+)_c(\\d+)$`, 'i');
+          const gridUnderscoreMatch = variable.name.match(gridCellUnderscorePattern);
+          if (gridUnderscoreMatch) {
+            // Convert S14_r1_c1 -> QS14r1c1
+            expectedHeaders.push(`Q${baseQuestionNumber}r${gridUnderscoreMatch[1]}c${gridUnderscoreMatch[2]}`);
+          } else {
+            // Fallback: add "Q" prefix to variable name as-is
+            expectedHeaders.push(`Q${variable.name}`);
+          }
+        }
+      } else {
+        // For non-numeric lists and non-numeric grids, handle statement variables with underscore pattern (e.g., S5_r1)
+        const statementWithUnderscorePattern = new RegExp(`^${baseQuestionNumber}_r(\\d+)$`, 'i');
+        const match = variable.name.match(statementWithUnderscorePattern);
+        if (match) {
+          // Convert S5_r1 -> QS5r1
+          expectedHeaders.push(`Q${baseQuestionNumber}r${match[1]}`);
+        } else {
+          // Add "Q" prefix to variable name as-is
+          expectedHeaders.push(`Q${variable.name}`);
+        }
+      }
+    });
+
+    // Sort to ensure consistent ordering
+    return expectedHeaders.sort();
+  }, [getBaseQuestionNumber, questionnaireQuestions]);
+
   // Load questionnaire details function
   const loadQuestionnaireDetails = useCallback(async () => {
     if (!selectedQuestionnaire) {
-      console.log('No questionnaire selected');
       return;
     }
     
     // First check if the questionnaire already has questions
     if (selectedQuestionnaire.questions && selectedQuestionnaire.questions.length > 0) {
-      console.log('Using questions from selected questionnaire:', selectedQuestionnaire.questions.length);
       setQuestionnaireQuestions(selectedQuestionnaire.questions);
       return;
     }
@@ -848,7 +1136,6 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
     if (allQuestionnaires.length > 0) {
       const fullQnr = allQuestionnaires.find(q => q.id === selectedQuestionnaire.id);
       if (fullQnr && fullQnr.questions && fullQnr.questions.length > 0) {
-        console.log('Found questionnaire in allQuestionnaires:', fullQnr.questions.length);
         setQuestionnaireQuestions(fullQnr.questions);
       return;
       }
@@ -858,7 +1145,6 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
     if (selectedProject) {
       setLoading(true);
       try {
-        console.log('Loading questionnaires for project:', selectedProject.id);
         const response = await fetch(`${API_BASE_URL}/api/questionnaire/${selectedProject.id}`, {
           headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
         });
@@ -866,10 +1152,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
           const projectQuestionnaires = await response.json();
           const fullQnr = projectQuestionnaires.find((q: any) => q.id === selectedQuestionnaire.id);
           if (fullQnr && fullQnr.questions && fullQnr.questions.length > 0) {
-            console.log('Found questionnaire in project questionnaires:', fullQnr.questions.length);
             setQuestionnaireQuestions(fullQnr.questions);
-          } else {
-            console.log('Questionnaire not found or has no questions');
           }
         }
       } catch (error) {
@@ -887,49 +1170,17 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
       return;
     }
     try {
-      console.log('Loading processed data for questionnaire:', selectedQuestionnaire.id);
       const response = await fetch(`${API_BASE_URL}/api/questionnaire/processed-data/${selectedQuestionnaire.id}`, {
           headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
         });
       if (response.ok) {
         const data = await response.json();
-        console.log('Processed data loaded successfully:', {
-          variableCount: Object.keys(data || {}).length,
-          sampleVariables: Object.keys(data || {}).slice(0, 5),
-          sampleData: Object.keys(data || {}).slice(0, 2).reduce((acc, key) => {
-            acc[key] = {
-              count: data[key]?.count,
-              numeric: data[key]?.numeric,
-              hasFrequencies: !!data[key]?.frequencies,
-              hasMean: data[key]?.mean !== undefined,
-              frequenciesKeys: data[key]?.frequencies ? Object.keys(data[key].frequencies).slice(0, 5) : []
-            };
-            return acc;
-          }, {} as any)
-        });
         // Always set the data, even if it's an empty object
         if (data && typeof data === 'object') {
           setVariableData(data);
-          console.log('✅ Variable data state updated with', Object.keys(data).length, 'variables');
-          // Log a sample to verify data structure
-          const sampleVar = Object.keys(data)[0];
-          if (sampleVar) {
-            console.log(`   Sample variable "${sampleVar}":`, {
-              count: data[sampleVar]?.count,
-              hasFrequencies: !!data[sampleVar]?.frequencies,
-              numeric: data[sampleVar]?.numeric
-            });
-          }
         } else {
-          console.warn('⚠️ Received invalid data format:', data);
           setVariableData({});
         }
-      } else {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-        console.log('No processed data found (HTTP', response.status, '):', errorData);
-        // Don't clear existing data on 404 - it might just not exist yet
-        // Only clear if we get a 404 and we don't have any data already
-        // This prevents clearing data during race conditions
       }
     } catch (error) {
       // It's okay if processed data doesn't exist yet
@@ -938,6 +1189,14 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
     }
   }, [selectedQuestionnaire]);
 
+  // Track loading state to prevent duplicate calls
+  const [loadingFileInfo, setLoadingFileInfo] = useState(false);
+  const loadFileInfoAbortControllerRef = React.useRef<AbortController | null>(null);
+  const loadFileInfoTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const isLoadingFileInfoRef = React.useRef<boolean>(false);
+  const lastLoadedFileInfoRef = React.useRef<{ qnrId: string | null; viewMode: string }>({ qnrId: null, viewMode: '' });
+
+
   // Load file info function
   const loadFileInfo = useCallback(async () => {
     if (!selectedQuestionnaire) {
@@ -945,67 +1204,118 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
       setColumnMapping({});
       setColumnHeaders([]);
       setDataUploaded(false);
+      setHasAttemptedMapping(false);
+      isLoadingFileInfoRef.current = false;
+      lastLoadedFileInfoRef.current = { qnrId: null, viewMode: '' };
       return;
     }
+
+    // Cancel any pending request
+    if (loadFileInfoAbortControllerRef.current) {
+      loadFileInfoAbortControllerRef.current.abort();
+    }
+
+    // Prevent duplicate calls using ref to avoid stale closure
+    if (isLoadingFileInfoRef.current) {
+      return;
+    }
+
+    isLoadingFileInfoRef.current = true;
+    setLoadingFileInfo(true);
+    const abortController = new AbortController();
+    loadFileInfoAbortControllerRef.current = abortController;
+
     try {
-      console.log('Loading file info for questionnaire:', selectedQuestionnaire.id);
       const response = await fetch(`${API_BASE_URL}/api/questionnaire/data-file-info/${selectedQuestionnaire.id}`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` },
+        signal: abortController.signal
       });
+      
+      if (abortController.signal.aborted) {
+        return;
+      }
+
       if (response.ok) {
         const data = await response.json();
-        console.log('File info loaded:', data);
         // Check if column mapping exists to determine if it's been mapped
         const isMapped = !!(data.columnMapping && Object.keys(data.columnMapping).length > 0);
         // Check if data has been processed/uploaded
         const isUploaded = !!data.processedAt;
+        
+        // Batch all state updates together to prevent multiple re-renders
         setUploadedFileInfo({
           fileName: data.originalFileName || data.fileName || 'Unknown',
           uploadedAt: data.uploadedAt || new Date().toISOString(),
           processed: isMapped
         });
         setDataUploaded(isUploaded);
+        
         // Load the column mapping if it exists
         if (data.columnMapping) {
           setColumnMapping(data.columnMapping);
-          console.log('Column mapping loaded:', Object.keys(data.columnMapping).length, 'variables');
+          // If there's a mapping, mark that mapping has been attempted
+          setHasAttemptedMapping(true);
         } else {
           setColumnMapping({});
+          setHasAttemptedMapping(false);
         }
+        
         // Load column headers if they exist in metadata
         if (data.columnHeaders && Array.isArray(data.columnHeaders) && data.columnHeaders.length > 0) {
           setColumnHeaders(data.columnHeaders);
-          console.log('Column headers loaded:', data.columnHeaders.length, 'headers');
-      } else {
+        } else {
           // If no column headers in metadata, clear them
           setColumnHeaders([]);
         }
-      } else {
-        console.log('No file info found (404)');
+      } else if (response.status === 404) {
+        // Only clear if we get a 404 (file doesn't exist)
+        // Don't clear on other errors as they might be temporary
         setUploadedFileInfo(null);
         setColumnMapping({});
         setColumnHeaders([]);
         setDataUploaded(false);
+        setHasAttemptedMapping(false);
       }
-    } catch (error) {
-      console.log('No file info found (this is normal if no file has been uploaded yet):', error);
-      setUploadedFileInfo(null);
-      setColumnMapping({});
-      setColumnHeaders([]);
-      setDataUploaded(false);
+      // For other error statuses, don't clear existing state - might be a temporary issue
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        return;
+      }
+      // Don't clear state on network errors - preserve existing data
+      // Only log the error for debugging
+      console.error('Error loading file info:', error);
+    } finally {
+      if (!abortController.signal.aborted) {
+        isLoadingFileInfoRef.current = false;
+        setLoadingFileInfo(false);
+        loadFileInfoAbortControllerRef.current = null;
+      }
     }
   }, [selectedQuestionnaire]);
+
+  // Create debounced function after loadFileInfo is defined
+  const debouncedLoadFileInfo = useCallback((delay: number = 500) => {
+    // Clear any existing timeout
+    if (loadFileInfoTimeoutRef.current) {
+      clearTimeout(loadFileInfoTimeoutRef.current);
+    }
+    
+    // Set new timeout
+    loadFileInfoTimeoutRef.current = setTimeout(() => {
+      loadFileInfo();
+    }, delay);
+  }, [loadFileInfo]);
 
   // Load questionnaire details and processed data when questionnaire is selected
   useEffect(() => {
     if (selectedQuestionnaire) {
-      console.log('Questionnaire selected, loading data...', selectedQuestionnaire.id);
       // Always load questionnaire details to get questions/variables
       loadQuestionnaireDetails();
       // Also try to load processed data if it exists - this ensures data persists when navigating back
       // This is critical for page refreshes - data must be loaded from backend
       loadProcessedData();
-      // Load file info for data view
+      // Load file info immediately to get column mapping and file info
+      // This is needed for the mapping display in the variables tab
       loadFileInfo();
     } else {
       // Only clear data when explicitly switching away from a questionnaire
@@ -1014,36 +1324,311 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
         setVariableData({});
       }
     }
-  }, [selectedQuestionnaire, loadQuestionnaireDetails, loadProcessedData, loadFileInfo, viewMode]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedQuestionnaire, viewMode]);
   
-  // Load file info when switching to data view if questionnaire is already selected
+  // Reload file info when switching to data view to ensure it's fresh
+  // The initial load happens in the effect above when questionnaire is selected
   useEffect(() => {
-    if (qnrViewMode === 'data' && selectedQuestionnaire) {
-      loadFileInfo();
-      // Don't reload processed data here - it's already loaded when questionnaire is selected
-      // This prevents unnecessary API calls and potential race conditions
+    if (qnrViewMode === 'data' && selectedQuestionnaire && !isLoadingFileInfoRef.current) {
+      // Check if we've already loaded for this questionnaire and view mode combination
+      const currentKey = `${selectedQuestionnaire.id}-${qnrViewMode}`;
+      const lastKey = `${lastLoadedFileInfoRef.current.qnrId}-${lastLoadedFileInfoRef.current.viewMode}`;
+      
+      if (currentKey !== lastKey) {
+        // Update the ref before calling to prevent duplicate calls
+        lastLoadedFileInfoRef.current = { qnrId: selectedQuestionnaire.id, viewMode: qnrViewMode };
+        // Use debounced version to prevent rapid calls
+        debouncedLoadFileInfo(200);
+      }
     }
-  }, [qnrViewMode, selectedQuestionnaire, loadFileInfo]);
+    
+    // Cleanup function to clear any pending timeouts when dependencies change
+    return () => {
+      if (loadFileInfoTimeoutRef.current) {
+        clearTimeout(loadFileInfoTimeoutRef.current);
+        loadFileInfoTimeoutRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qnrViewMode, selectedQuestionnaire]);
+
+  // Memoize data mapping computation to prevent infinite loops
+  const dataMappingMemo = useMemo(() => {
+    if (!hasAttemptedMapping || variables.length === 0) {
+      return { filteredHeaders: [], mappingStatusMap: new Map<string, { isMapped: boolean; mappedColumnHeader: string; mappedVariableName: string }>() };
+    }
+    
+    // Group variables by base question number
+    const baseQuestionMap = new Map<string, { baseNumber: string; type: string; variables: Variable[] }>();
+    
+    variables.forEach((variable) => {
+      if (variable.name.endsWith('_Summary Tables') || 
+          variable.name.endsWith('_T2B') || 
+          variable.name.endsWith('_B2B') || 
+          variable.name.endsWith('_M3B') ||
+          (variable as any).isSummaryTable) {
+        return;
+      }
+      
+      const baseNumber = getBaseQuestionNumber(variable.name);
+      if (!baseQuestionMap.has(baseNumber)) {
+        const question = questionnaireQuestions.find(q => {
+          const qNum = q.number || q.id;
+          return qNum === baseNumber || 
+                 qNum === baseNumber.replace(/^Q/, '') ||
+                 String(qNum) === String(baseNumber);
+        });
+        const questionType = question?.type || variable.type || '';
+        
+        baseQuestionMap.set(baseNumber, {
+          baseNumber,
+          type: questionType,
+          variables: []
+        });
+      }
+      baseQuestionMap.get(baseNumber)!.variables.push(variable);
+    });
+    
+    // Get expected headers in the order they appear in variables (preserve QNR order)
+    const expectedHeadersSet = new Set<string>();
+    const expectedHeadersOrdered: string[] = [];
+    baseQuestionMap.forEach((group) => {
+      const headers = getExpectedColumnHeadersForBase(group.baseNumber, group.variables);
+      headers.forEach(header => {
+        if (!expectedHeadersSet.has(header)) {
+          expectedHeadersSet.add(header);
+          expectedHeadersOrdered.push(header);
+        }
+      });
+    });
+    
+    // Apply search filter (preserving order)
+    const filtered = expectedHeadersOrdered.filter(header => {
+      if (!qnrVariableSearch.trim()) return true;
+      const searchLower = qnrVariableSearch.toLowerCase();
+      return header.toLowerCase().includes(searchLower);
+    });
+    
+    // Pre-compute mapping status
+    const statusMap = new Map<string, { isMapped: boolean; mappedColumnHeader: string; mappedVariableName: string }>();
+    
+    filtered.forEach((expectedHeader) => {
+      let isMapped = false;
+      let mappedColumnHeader = '';
+      let mappedVariableName = '';
+      
+      // Normalize expected header for comparison (case-insensitive, handle Q prefix)
+      const expectedNormalized = expectedHeader.toLowerCase().trim();
+      const expectedWithoutQ = expectedNormalized.startsWith('q') ? expectedNormalized.substring(1) : expectedNormalized;
+      const expectedWithQ = expectedNormalized.startsWith('q') ? expectedNormalized : 'q' + expectedNormalized;
+      
+      // First, check if the expected header itself is a key in the mapping
+      // The mapping now uses expected headers as keys (e.g., "QA1r1c1" -> "QA1r1c1")
+      const possibleKeys = [expectedHeader, expectedNormalized, expectedWithoutQ, expectedWithQ];
+      for (const key of possibleKeys) {
+        if (columnMapping[key] && columnMapping[key].trim() !== '') {
+          isMapped = true;
+          mappedColumnHeader = columnMapping[key];
+          mappedVariableName = key;
+          break;
+        }
+      }
+      
+      // Fallback: Also check variable names for backward compatibility
+      if (!isMapped) {
+        // Try to find the actual variable that corresponds to this expected header
+        let matchingVariable: Variable | null = null;
+        
+        for (const variable of variables) {
+          const varNameNormalized = variable.name.toLowerCase().trim();
+          const varNameWithoutQ = varNameNormalized.startsWith('q') ? varNameNormalized.substring(1) : varNameNormalized;
+          const varNameWithQ = varNameNormalized.startsWith('q') ? varNameNormalized : 'q' + varNameNormalized;
+          
+          // Check if this variable matches the expected header
+          if (varNameNormalized === expectedNormalized ||
+              varNameWithoutQ === expectedWithoutQ ||
+              varNameWithQ === expectedWithQ ||
+              varNameNormalized === expectedWithQ ||
+              varNameNormalized === expectedWithoutQ) {
+            matchingVariable = variable;
+            break;
+          }
+        }
+        
+        // If we found a matching variable, check if it has a mapping
+        if (matchingVariable) {
+          const varName = matchingVariable.name;
+          const varNameNormalized = varName.toLowerCase().trim();
+          const varNameWithoutQ = varNameNormalized.startsWith('q') ? varNameNormalized.substring(1) : varNameNormalized;
+          const varNameWithQ = varNameNormalized.startsWith('q') ? varNameNormalized : 'q' + varNameNormalized;
+          
+          // Check all possible key variations
+          const varPossibleKeys = [varName, varNameNormalized, varNameWithoutQ, varNameWithQ];
+          for (const key of varPossibleKeys) {
+            if (columnMapping[key] && columnMapping[key].trim() !== '') {
+              isMapped = true;
+              mappedColumnHeader = columnMapping[key];
+              mappedVariableName = key;
+              break;
+            }
+          }
+        }
+      }
+      
+      // If still not mapped, check if any mapped column header value matches the expected header
+      // This handles cases where the variable name key doesn't match but the column header value does
+      if (!isMapped) {
+        for (const [varName, colHeader] of Object.entries(columnMapping)) {
+          if (!colHeader || colHeader.trim() === '') continue;
+          
+          const colHeaderNormalized = colHeader.toLowerCase().trim();
+          const colHeaderWithoutQ = colHeaderNormalized.startsWith('q') ? colHeaderNormalized.substring(1) : colHeaderNormalized;
+          const colHeaderWithQ = colHeaderNormalized.startsWith('q') ? colHeaderNormalized : 'q' + colHeaderNormalized;
+          
+          // Check if the column header value matches the expected header (direct match)
+          if (colHeaderNormalized === expectedNormalized ||
+              colHeaderWithoutQ === expectedWithoutQ ||
+              colHeaderWithQ === expectedWithQ ||
+              colHeaderNormalized === expectedWithQ ||
+              colHeaderNormalized === expectedWithoutQ) {
+            // If column header matches, check if variable name also matches (to ensure it's the right mapping)
+            const varNameNormalized = varName.toLowerCase().trim();
+            const varNameWithoutQ = varNameNormalized.startsWith('q') ? varNameNormalized.substring(1) : varNameNormalized;
+            const varNameWithQ = varNameNormalized.startsWith('q') ? varNameNormalized : 'q' + varNameNormalized;
+            
+            // Check if variable name matches expected header (with Q prefix variations)
+            if (varNameNormalized === expectedNormalized ||
+                varNameWithoutQ === expectedWithoutQ ||
+                varNameWithQ === expectedWithQ ||
+                varNameNormalized === expectedWithQ ||
+                varNameNormalized === expectedWithoutQ) {
+              isMapped = true;
+              mappedColumnHeader = colHeader;
+              mappedVariableName = varName;
+              break;
+            }
+          }
+        }
+      }
+      
+      // Final fallback: if column header value matches expected header exactly, consider it mapped
+      // This handles edge cases where the variable name might not match but the column header does
+      if (!isMapped) {
+        for (const [varName, colHeader] of Object.entries(columnMapping)) {
+          if (!colHeader || colHeader.trim() === '') continue;
+          
+          const colHeaderNormalized = colHeader.toLowerCase().trim();
+          // Direct match check - if column header exactly matches expected header (with Q variations)
+          if (colHeaderNormalized === expectedNormalized ||
+              (colHeaderNormalized.startsWith('q') && colHeaderNormalized.substring(1) === expectedWithoutQ) ||
+              (!colHeaderNormalized.startsWith('q') && 'q' + colHeaderNormalized === expectedWithQ)) {
+            isMapped = true;
+            mappedColumnHeader = colHeader;
+            mappedVariableName = varName;
+            break;
+          }
+        }
+      }
+      
+      // Additional check: if expected header exactly matches any column header in the data file, consider it mapped
+      // This handles cases where the column header exists in the data but hasn't been explicitly mapped yet
+      if (!isMapped) {
+        for (const colHeader of columnHeaders) {
+          if (!colHeader || colHeader.trim() === '') continue;
+          
+          const colHeaderNormalized = colHeader.toLowerCase().trim();
+          // Exact match (case-insensitive)
+          if (colHeaderNormalized === expectedNormalized) {
+            isMapped = true;
+            mappedColumnHeader = colHeader; // Use the actual column header as it appears in the file
+            mappedVariableName = expectedHeader; // Use expected header as the variable name
+            break;
+          }
+        }
+      }
+      
+      statusMap.set(expectedHeader, { isMapped, mappedColumnHeader, mappedVariableName });
+    });
+    
+    return { filteredHeaders: filtered, mappingStatusMap: statusMap };
+  }, [hasAttemptedMapping, variables, questionnaireQuestions, qnrVariableSearch, columnMapping, columnHeaders]);
+
+  // Compute unmapped expected headers and unused column headers for AI mapping
+  const unmappedHeadersInfo = useMemo(() => {
+    if (!hasAttemptedMapping || variables.length === 0) {
+      return { unmappedExpectedHeaders: [], unusedColumnHeaders: [] };
+    }
+
+    // Get all expected headers
+    const baseQuestionMap = new Map<string, { baseNumber: string; type: string; variables: Variable[] }>();
+    variables.forEach((variable) => {
+      if (variable.name.endsWith('_Summary Tables') || 
+          variable.name.endsWith('_T2B') || 
+          variable.name.endsWith('_B2B') || 
+          variable.name.endsWith('_M3B') ||
+          (variable as any).isSummaryTable) {
+        return;
+      }
+      const baseNumber = getBaseQuestionNumber(variable.name);
+      if (!baseQuestionMap.has(baseNumber)) {
+        const question = questionnaireQuestions.find(q => {
+          const qNum = q.number || q.id;
+          return qNum === baseNumber || 
+                 qNum === baseNumber.replace(/^Q/, '') ||
+                 String(qNum) === String(baseNumber);
+        });
+        const questionType = question?.type || variable.type || '';
+        baseQuestionMap.set(baseNumber, {
+          baseNumber,
+          type: questionType,
+          variables: []
+        });
+      }
+      baseQuestionMap.get(baseNumber)!.variables.push(variable);
+    });
+
+    const allExpectedHeaders: string[] = [];
+    baseQuestionMap.forEach((group) => {
+      const headers = getExpectedColumnHeadersForBase(group.baseNumber, group.variables);
+      headers.forEach(header => {
+        if (!allExpectedHeaders.includes(header)) {
+          allExpectedHeaders.push(header);
+        }
+      });
+    });
+
+    // Find unmapped expected headers
+    const unmappedExpectedHeaders = allExpectedHeaders.filter(expectedHeader => {
+      const status = dataMappingMemo.mappingStatusMap.get(expectedHeader);
+      return !status || !status.isMapped;
+    });
+
+    // Find unused column headers (those not in the current mapping values)
+    const usedColumnHeaders = new Set<string>(
+      Object.values(columnMapping)
+        .filter(h => h && h.trim() !== '')
+        .map(h => h.toLowerCase().trim())
+    );
+    const unusedColumnHeaders = columnHeaders.filter(colHeader => {
+      if (!colHeader || colHeader.trim() === '') return false;
+      return !usedColumnHeaders.has(colHeader.toLowerCase().trim());
+    });
+
+    return { unmappedExpectedHeaders, unusedColumnHeaders };
+  }, [hasAttemptedMapping, variables, questionnaireQuestions, columnMapping, columnHeaders, dataMappingMemo, getBaseQuestionNumber, getExpectedColumnHeadersForBase]);
 
   // Convert questions to variables when both questions and variableData are available
   // This must run whenever either questions or variableData changes to ensure variables
   // are properly populated on page refresh when data loads asynchronously
   useEffect(() => {
     if (questionnaireQuestions.length > 0) {
-      console.log('Converting questions to variables:', {
-        questionCount: questionnaireQuestions.length,
-        variableDataCount: Object.keys(variableData).length,
-        hasVariableData: Object.keys(variableData).length > 0
-      });
       // Always call convertQuestionsToVariables when we have questions
       // It will use the current variableData (even if empty initially, then re-run when data loads)
       convertQuestionsToVariables(questionnaireQuestions);
     } else if (Object.keys(variableData).length > 0) {
       // If we have variableData but no questions yet, we still want to show variables
       // This handles edge cases where data exists but questions haven't loaded
-      console.log('Converting variableData to variables (no questions yet):', {
-        variableDataCount: Object.keys(variableData).length
-      });
       // Create variables directly from variableData
       const vars: Variable[] = Object.keys(variableData).map((varName) => {
         const varData = variableData[varName];
@@ -1527,6 +2112,8 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                     <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <input
                       type="text"
+                      id="variable-search"
+                      name="variable-search"
                       placeholder="Search variables..."
                       value={variableFilter}
                       onChange={(e) => setVariableFilter(e.target.value)}
@@ -1565,10 +2152,16 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                               
                               // Check cell variables first
                               const cellVarNames = [
+                                // Without Q prefix
                                 `${baseName}${stmtCode}${columnCode}`,
                                 `${baseName}_${stmtCode}_${columnCode}`,
                                 `${baseName}${stmtCode}_${columnCode}`,
                                 `${baseName}_${stmtCode}${columnCode}`,
+                                // With Q prefix (data often stored with Q prefix)
+                                `Q${baseName}${stmtCode}${columnCode}`,
+                                `Q${baseName}_${stmtCode}_${columnCode}`,
+                                `Q${baseName}${stmtCode}_${columnCode}`,
+                                `Q${baseName}_${stmtCode}${columnCode}`,
                               ];
                               
                               for (const cellVarName of cellVarNames) {
@@ -1764,7 +2357,56 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                           >
                             <div className="flex items-center justify-between gap-2 w-full">
                               <div className="flex items-center gap-2 flex-1 min-w-0">
-                              <span className="font-medium">{v.name}</span>
+                              {(() => {
+                                // Check if this is a numeric grid column summary (e.g., S11_c1_Summary)
+                                const columnSummaryMatch = v.name.match(/^([A-Z0-9]+)_(c\d+)_Summary$/i);
+                                let displayName = v.name;
+                                let titleText = v.name;
+                                
+                                if (columnSummaryMatch && (v as any).isSummaryTable) {
+                                  const baseQuestionNumber = columnSummaryMatch[1];
+                                  const columnCode = columnSummaryMatch[2]; // e.g., "c1"
+                                  
+                                  // Find the question to get response option text
+                                  const question = questionnaireQuestions.find(q => {
+                                    const qNum = q.number || q.id;
+                                    return qNum === baseQuestionNumber || 
+                                           qNum === baseQuestionNumber.replace(/^Q/, '') ||
+                                           String(qNum) === String(baseQuestionNumber);
+                                  });
+                                  
+                                  if (question && question.responseOptions && Array.isArray(question.responseOptions)) {
+                                    // Extract column number from code (e.g., "c1" -> 1)
+                                    const colNumMatch = columnCode.match(/c(\d+)/i);
+                                    if (colNumMatch) {
+                                      const colIndex = parseInt(colNumMatch[1]) - 1; // Convert to 0-based index
+                                      const responseOption = question.responseOptions[colIndex];
+                                      
+                                      if (responseOption) {
+                                        // Get the text from the response option
+                                        const optionText = typeof responseOption === 'string' 
+                                          ? responseOption 
+                                          : (responseOption.text || responseOption.label || `Column ${colIndex + 1}`);
+                                        
+                                        displayName = `${baseQuestionNumber} - ${optionText}`;
+                                        titleText = displayName;
+                                      }
+                                    }
+                                  }
+                                  
+                                  // Fallback: if we can't find the response option, just show the column code
+                                  if (displayName === v.name) {
+                                    displayName = `${baseQuestionNumber} - ${columnCode}`;
+                                    titleText = displayName;
+                                  }
+                                }
+                                
+                                return (
+                                  <span className="font-medium truncate block" title={titleText}>
+                                    {displayName}
+                                  </span>
+                                );
+                              })()}
                               {hasPercentageError ? (
                                 <InformationCircleIcon className="h-4 w-4 text-red-500 flex-shrink-0" title="Percentages don't sum to 100% - check response codes" />
                               ) : !hasData ? (
@@ -1810,6 +2452,18 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                     let variable = filteredVariables.find((v: any) => v.name === selectedVariable);
                     if (!variable) {
                       variable = variables.find((v: any) => v.name === selectedVariable);
+                    }
+                    
+                    // DEBUG: Log the selected variable
+                    if (variable) {
+                      console.log(`[Numeric Grid Debug] Selected variable:`, {
+                        name: variable.name,
+                        type: variable.type,
+                        hasNumeric: variable.type?.toLowerCase().includes('numeric'),
+                        hasGrid: variable.type?.toLowerCase().includes('grid'),
+                        matchesColumnPattern: /^([A-Z0-9]+)_(c\d+)$/i.test(variable.name),
+                        columnMatch: variable.name.match(/^([A-Z0-9]+)_(c\d+)$/i)
+                      });
                     }
                     if (!variable) {
                       return <div className="text-center py-12 text-gray-500">Variable not found</div>;
@@ -1921,10 +2575,16 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                         
                         // Check cell variables first
                         const cellVarNames = [
+                          // Without Q prefix
                           `${baseName}${stmtCode}${columnCode}`,
                           `${baseName}_${stmtCode}_${columnCode}`,
                           `${baseName}${stmtCode}_${columnCode}`,
                           `${baseName}_${stmtCode}${columnCode}`,
+                          // With Q prefix (data often stored with Q prefix)
+                          `Q${baseName}${stmtCode}${columnCode}`,
+                          `Q${baseName}_${stmtCode}_${columnCode}`,
+                          `Q${baseName}${stmtCode}_${columnCode}`,
+                          `Q${baseName}_${stmtCode}${columnCode}`,
                         ];
                         
                         for (const cellVarName of cellVarNames) {
@@ -2038,14 +2698,20 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                         // Try multiple cell variable name formats
                         hasData = Object.keys(mainGridVar.statements || {}).some((stmtCode) => {
                           const cellVarNames = [
+                            // Without Q prefix
                             `${baseName}_${stmtCode}_${columnCode}`,  // S11_r1_c1
                             `${baseName}${stmtCode}${columnCode}`,    // S11r1c1
                             `${baseName}_${stmtCode}${columnCode}`,   // S11_r1c1
-                                `${baseName}${stmtCode}_${columnCode}`,   // S11r1_c1
-                                // Also try with mapped column names if available
-                                mappedColumnName ? `${mappedColumnName.replace(/^Q/i, '')}_${stmtCode}_${columnCode}` : null,
-                                mappedColumnName ? `${mappedColumnName.replace(/^Q/i, '')}${stmtCode}${columnCode}` : null
-                              ].filter(Boolean) as string[];
+                            `${baseName}${stmtCode}_${columnCode}`,   // S11r1_c1
+                            // With Q prefix (data often stored with Q prefix)
+                            `Q${baseName}_${stmtCode}_${columnCode}`,  // QS11_r1_c1
+                            `Q${baseName}${stmtCode}${columnCode}`,    // QS11r1c1
+                            `Q${baseName}_${stmtCode}${columnCode}`,   // QS11_r1c1
+                            `Q${baseName}${stmtCode}_${columnCode}`,   // QS11r1_c1
+                            // Also try with mapped column names if available
+                            mappedColumnName ? `${mappedColumnName.replace(/^Q/i, '')}_${stmtCode}_${columnCode}` : null,
+                            mappedColumnName ? `${mappedColumnName.replace(/^Q/i, '')}${stmtCode}${columnCode}` : null
+                          ].filter(Boolean) as string[];
                           
                           for (const cellVarName of cellVarNames) {
                             const cellData = variableData[cellVarName];
@@ -2113,7 +2779,48 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                     <div>
                         <div className="flex items-center justify-between gap-2 flex-wrap w-full">
                         <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="text-lg font-semibold text-gray-900">{variable.name}</h3>
+                        <h3 className="text-lg font-semibold text-gray-900">
+                          {(() => {
+                            // Check if this is a numeric grid column summary (e.g., S11_c1_Summary)
+                            const columnSummaryMatch = variable.name.match(/^([A-Z0-9]+)_(c\d+)_Summary$/i);
+                            if (columnSummaryMatch && (variable as any).isSummaryTable) {
+                              const baseQuestionNumber = columnSummaryMatch[1];
+                              const columnCode = columnSummaryMatch[2]; // e.g., "c1"
+                              
+                              // Find the question to get response option text
+                              const question = questionnaireQuestions.find(q => {
+                                const qNum = q.number || q.id;
+                                return qNum === baseQuestionNumber || 
+                                       qNum === baseQuestionNumber.replace(/^Q/, '') ||
+                                       String(qNum) === String(baseQuestionNumber);
+                              });
+                              
+                              if (question && question.responseOptions && Array.isArray(question.responseOptions)) {
+                                // Extract column number from code (e.g., "c1" -> 1)
+                                const colNumMatch = columnCode.match(/c(\d+)/i);
+                                if (colNumMatch) {
+                                  const colIndex = parseInt(colNumMatch[1]) - 1; // Convert to 0-based index
+                                  const responseOption = question.responseOptions[colIndex];
+                                  
+                                  if (responseOption) {
+                                    // Get the text from the response option
+                                    const optionText = typeof responseOption === 'string' 
+                                      ? responseOption 
+                                      : (responseOption.text || responseOption.label || `Column ${colIndex + 1}`);
+                                    
+                                    return `${baseQuestionNumber} - ${optionText}`;
+                                  }
+                                }
+                              }
+                              
+                              // Fallback: if we can't find the response option, just show the column code
+                              return `${baseQuestionNumber} - ${columnCode}`;
+                            }
+                            
+                            // For all other variables, show the name as-is
+                            return variable.name;
+                          })()}
+                        </h3>
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
                             {variable.tags && variable.tags
@@ -2303,10 +3010,27 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                             )}
 
                         {/* Statement table for numeric grid column variables (e.g., S11_c1, S14_c1) - shows all statements (rows) for this column */}
-                        {variable.type?.toLowerCase().includes('numeric') && !variable.type?.toLowerCase().includes('grid') && (() => {
-                          // Check if this is a numeric grid column variable (pattern: {questionNumber}_c{number})
+                        {(() => {
+                          // DEBUG: Check if condition matches
+                          const hasNumeric = variable.type?.toLowerCase().includes('numeric');
+                          const hasGrid = variable.type?.toLowerCase().includes('grid');
+                          const conditionMatches = hasNumeric && !hasGrid;
                           const columnMatch = variable.name.match(/^([A-Z0-9]+)_(c\d+)$/i);
-                          if (columnMatch) {
+                          
+                          console.log(`[Numeric Grid Debug] Checking condition for "${variable.name}":`, {
+                            hasNumeric,
+                            hasGrid,
+                            conditionMatches,
+                            columnMatch: !!columnMatch,
+                            willEnter: conditionMatches && !!columnMatch
+                          });
+                          
+                          if (!conditionMatches || !columnMatch) {
+                            return null;
+                          }
+                          
+                          // Check if this is a numeric grid column variable (pattern: {questionNumber}_c{number})
+                          {
                             const baseName = columnMatch[1];
                             const columnCode = columnMatch[2]; // This includes the "c" prefix (e.g., "c1")
                             
@@ -2324,44 +3048,19 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                               return null;
                             }
                             
-                            // Debug: Find all variables that match this base name
-                            const allBaseVariables = Object.keys(variableData).filter(k => k.startsWith(baseName));
-                            console.log(`🔍 Checking column variable ${variable.name}:`, {
-                              baseName,
-                              columnCode,
-                              allBaseVariables: allBaseVariables, // Show all
-                              totalMatching: allBaseVariables.length,
-                              variableDataKeys: Object.keys(variableData).filter(k => k.includes(baseName) && k.includes(columnCode)),
-                              // Check main grid variable data
-                              mainGridData: variableData[baseName] ? {
-                                count: variableData[baseName].count,
-                                hasFrequencies: !!variableData[baseName].frequencies,
-                                frequenciesKeys: variableData[baseName].frequencies ? Object.keys(variableData[baseName].frequencies) : null,
-                                hasValues: !!variableData[baseName].values,
-                                valuesLength: variableData[baseName].values?.length
-                              } : null,
-                              // Sample of statement variable data
-                              sampleStatementData: variableData[`${baseName}_r1`] ? {
-                                count: variableData[`${baseName}_r1`].count,
-                                hasFrequencies: !!variableData[`${baseName}_r1`].frequencies,
-                                frequenciesKeys: variableData[`${baseName}_r1`].frequencies ? Object.keys(variableData[`${baseName}_r1`].frequencies) : null,
-                                hasValues: !!variableData[`${baseName}_r1`].values,
-                                valuesLength: variableData[`${baseName}_r1`].values?.length,
-                                sum: variableData[`${baseName}_r1`].sum,
-                                mean: variableData[`${baseName}_r1`].mean
-                              } : null
-                            });
-                            
                             // Find the main grid variable to get statements
                             const mainGridVar = variables.find((v: any) => v.name === baseName && v.type?.toLowerCase().includes('numeric grid'));
                             
-                            console.log(`🔍 Main grid variable for ${baseName}:`, {
-                              found: !!mainGridVar,
-                              hasStatements: mainGridVar && !!mainGridVar.statements,
-                              statements: mainGridVar && mainGridVar.statements
-                            });
-                            
                             if (mainGridVar && mainGridVar.statements) {
+                              // DEBUG: Log the variable we're processing
+                              console.log(`[Numeric Grid Debug] Processing column variable: ${variable.name}, baseName: ${baseName}, columnCode: ${columnCode}`);
+                              
+                              // DEBUG: Find all variableData keys that match this base question
+                              const matchingKeys = Object.keys(variableData).filter(key => 
+                                key.toLowerCase().includes(baseName.toLowerCase())
+                              );
+                              console.log(`[Numeric Grid Debug] Found ${matchingKeys.length} variableData keys matching baseName "${baseName}":`, matchingKeys.slice(0, 20));
+                              
                               // The data is likely stored in statement variables (S11_r1, S11_r2, etc.)
                               // Each statement variable should have frequencies keyed by column codes (c1, c2, c3)
                               // OR the data might be in cell variables (S11_r1_c1, S11_r1_c2, etc.)
@@ -2370,19 +3069,31 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                               const statementRows = Object.entries(mainGridVar.statements).map(([stmtCode, stmtText]) => {
                                 let value: number | undefined = undefined;
                                 
+                                // DEBUG: Log which row we're processing
+                                console.log(`[Numeric Grid Debug] Processing row: stmtCode=${stmtCode}, stmtText=${stmtText}`);
+                                
                                 // Strategy 1: Check if statement variable exists (S11_r1) and has frequencies with column code
                                 const statementVarName = `${baseName}_${stmtCode}`;
                                 const statementVarData = variableData[statementVarName];
+                                
+                                // DEBUG: Check Strategy 1
+                                console.log(`[Numeric Grid Debug] Strategy 1: Checking statementVarName="${statementVarName}"`, {
+                                  exists: !!statementVarData,
+                                  hasFrequencies: !!statementVarData?.frequencies,
+                                  frequencies: statementVarData?.frequencies
+                                });
                                 
                                 if (statementVarData && statementVarData.frequencies) {
                                   // Try to find the column code in frequencies
                                   if (statementVarData.frequencies[columnCode] !== undefined) {
                                     value = statementVarData.frequencies[columnCode];
+                                    console.log(`[Numeric Grid Debug] ✅ Strategy 1 found value: ${value} using columnCode="${columnCode}"`);
                                   } else {
                                     // Try without "c" prefix (c1 -> 1)
                                     const colCodeWithoutPrefix = columnCode.replace(/^c/i, '');
                                     if (statementVarData.frequencies[colCodeWithoutPrefix] !== undefined) {
                                       value = statementVarData.frequencies[colCodeWithoutPrefix];
+                                      console.log(`[Numeric Grid Debug] ✅ Strategy 1 found value: ${value} using colCodeWithoutPrefix="${colCodeWithoutPrefix}"`);
                                     }
                                   }
                                 }
@@ -2419,10 +3130,16 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                   const mappedColumnName = columnMapping[variable.name];
                                   
                                   const cellVarNames = [
+                                    // Without Q prefix
                                     `${baseName}_${stmtCode}_${columnCode}`,  // S11_r1_c1
                                     `${baseName}${stmtCode}${columnCode}`,    // S11r1c1
                                     `${baseName}_${stmtCode}${columnCode}`,   // S11_r1c1
                                     `${baseName}${stmtCode}_${columnCode}`,   // S11r1_c1
+                                    // With Q prefix (data often stored with Q prefix)
+                                    `Q${baseName}_${stmtCode}_${columnCode}`,  // QS11_r1_c1
+                                    `Q${baseName}${stmtCode}${columnCode}`,    // QS11r1c1
+                                    `Q${baseName}_${stmtCode}${columnCode}`,   // QS11_r1c1
+                                    `Q${baseName}${stmtCode}_${columnCode}`,   // QS11r1_c1
                                     // Also try with mapped column names if available
                                     mappedColumnName ? `${mappedColumnName.replace(/^Q/i, '')}_${stmtCode}_${columnCode}` : null,
                                     mappedColumnName ? `${mappedColumnName.replace(/^Q/i, '')}${stmtCode}${columnCode}` : null,
@@ -2430,9 +3147,18 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                     mappedColumnName ? `${mappedColumnName}${stmtCode}${columnCode}` : null
                                   ].filter(Boolean) as string[];
                                   
+                                  // DEBUG: Log what we're trying
+                                  console.log(`[Numeric Grid Debug] Strategy 2: Trying ${cellVarNames.length} cell variable names for row ${stmtCode}:`, cellVarNames);
+                                  
                                   for (const cellVarName of cellVarNames) {
                                     const cellData = variableData[cellVarName];
                                     if (cellData) {
+                                      console.log(`[Numeric Grid Debug] ✅ FOUND data for "${cellVarName}":`, {
+                                        sum: cellData.sum,
+                                        mean: cellData.mean,
+                                        count: cellData.count,
+                                        valuesLength: cellData.values?.length
+                                      });
                                       if (cellData.sum !== undefined) {
                                         value = cellData.sum;
                                         break;
@@ -2453,18 +3179,32 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                       }
                                     }
                                   }
+                                  
+                                  if (value === undefined) {
+                                    console.log(`[Numeric Grid Debug] ❌ No data found for row ${stmtCode} in Strategy 2`);
+                                  }
                                 }
                                 
                                 // Strategy 3: Check if column variable exists (S11_c1) with statement codes as keys
                                 if (value === undefined) {
                                   const columnVarData = variableData[variable.name];
+                                  
+                                  // DEBUG: Check Strategy 3
+                                  console.log(`[Numeric Grid Debug] Strategy 3: Checking columnVarName="${variable.name}"`, {
+                                    exists: !!columnVarData,
+                                    hasFrequencies: !!columnVarData?.frequencies,
+                                    frequencies: columnVarData?.frequencies
+                                  });
+                                  
                                   if (columnVarData && columnVarData.frequencies) {
                                     if (columnVarData.frequencies[stmtCode] !== undefined) {
                                       value = columnVarData.frequencies[stmtCode];
+                                      console.log(`[Numeric Grid Debug] ✅ Strategy 3 found value: ${value} using stmtCode="${stmtCode}"`);
                                     } else {
                                       const codeWithoutPrefix = stmtCode.replace(/^[rc]/i, '');
                                       if (columnVarData.frequencies[codeWithoutPrefix] !== undefined) {
                                         value = columnVarData.frequencies[codeWithoutPrefix];
+                                        console.log(`[Numeric Grid Debug] ✅ Strategy 3 found value: ${value} using codeWithoutPrefix="${codeWithoutPrefix}"`);
                                       }
                                     }
                                   }
@@ -2488,21 +3228,12 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                   }
                                 }
                                 
-                                console.log(`🔍 Statement ${stmtCode} for column ${variable.name}:`, {
-                                  statementVarName,
-                                  statementVarData: statementVarData ? {
-                                    count: statementVarData.count,
-                                    hasFrequencies: !!statementVarData.frequencies,
-                                    frequencies: statementVarData.frequencies,
-                                    hasValues: !!statementVarData.values,
-                                    valuesLength: statementVarData.values?.length,
-                                    sum: statementVarData.sum,
-                                    mean: statementVarData.mean,
-                                    allKeys: Object.keys(statementVarData)
-                                  } : null,
-                                  columnCode,
-                                  value: value
-                                });
+                                // DEBUG: Log final result for this row
+                                if (value !== undefined) {
+                                  console.log(`[Numeric Grid Debug] ✅ Final value for row ${stmtCode}: ${value}`);
+                                } else {
+                                  console.log(`[Numeric Grid Debug] ❌ No value found for row ${stmtCode} after all strategies`);
+                                }
                                 
                                 return {
                                   code: stmtCode,
@@ -2511,11 +3242,8 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                 };
                               });
                               
-                              console.log(`🔍 Statement rows for ${variable.name}:`, statementRows);
-                              
                               // Check if any rows have data
                               const hasData = statementRows.some(row => row.value !== undefined);
-                              console.log(`🔍 Has data for ${variable.name}:`, hasData);
                               
                               if (!hasData) return null;
                               
@@ -2548,9 +3276,9 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                 </div>
                               );
                             }
+                            
+                            return null;
                           }
-                          
-                          return null;
                         })()}
 
                         {/* Frequency table for numeric variables (both numeric grid statements and regular numeric questions) */}
@@ -2862,9 +3590,18 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                       const baseName = columnMatch![1];
                                       const columnCode = columnMatch![2]; // e.g., "c1"
                                       
+                                      // DEBUG: Log summary table processing
+                                      console.log(`[Summary Table Debug] Processing summary table: ${variable.name}, baseName: ${baseName}, columnCode: ${columnCode}`);
+                                      
                                       // Get the column variable data (e.g., S14_c1)
                                       const columnVarName = `${baseName}_${columnCode}`;
                                       const columnData = variableData[columnVarName];
+                                      
+                                      // DEBUG: Check available variableData keys
+                                      const matchingKeys = Object.keys(variableData).filter(key => 
+                                        key.toLowerCase().includes(baseName.toLowerCase())
+                                      );
+                                      console.log(`[Summary Table Debug] Found ${matchingKeys.length} variableData keys matching baseName "${baseName}":`, matchingKeys.slice(0, 30));
                                       
                                       // Calculate total sum for percentage calculation
                                       // First, try to get it from column variable
@@ -2878,29 +3615,87 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                           
                                           // Try all cell variable name patterns (same as Strategy 2)
                                           const cellVarNames = [
+                                            // Without Q prefix - row first format
                                             `${baseName}${stmtCode}${columnCode}`,    // S4r1c1 (row first, then column - preferred format)
                                             `${baseName}_${stmtCode}_${columnCode}`,  // S4_r1_c1
                                             `${baseName}${stmtCode}_${columnCode}`,   // S4r1_c1
                                             `${baseName}_${stmtCode}${columnCode}`,   // S4_r1c1
+                                            // Without Q prefix - column first format (backward compatibility)
                                             `${baseName}${columnCode}${stmtCode}`,    // S4c1r1 (column first, then row - backward compatibility)
                                             `${baseName}_${columnCode}_${stmtCode}`,  // S4_c1_r1
                                             `${baseName}${columnCode}_${stmtCode}`,   // S4c1_r1
                                             `${baseName}_${columnCode}${stmtCode}`,   // S4_c1r1
+                                            // With Q prefix - row first format
+                                            `Q${baseName}${stmtCode}${columnCode}`,    // QS4r1c1
+                                            `Q${baseName}_${stmtCode}_${columnCode}`,  // QS4_r1_c1
+                                            `Q${baseName}${stmtCode}_${columnCode}`,   // QS4r1_c1
+                                            `Q${baseName}_${stmtCode}${columnCode}`,   // QS4_r1c1
+                                            // With Q prefix - column first format
+                                            `Q${baseName}${columnCode}${stmtCode}`,    // QS4c1r1
+                                            `Q${baseName}_${columnCode}_${stmtCode}`,  // QS4_c1_r1
+                                            `Q${baseName}${columnCode}_${stmtCode}`,   // QS4c1_r1
+                                            `Q${baseName}_${columnCode}${stmtCode}`,   // QS4_c1r1
                                           ];
                                           
+                                          // First, try to get data from mapped column headers
+                                          // Note: columnMapping uses expected headers as keys (e.g., "QS11r1c1"), not variable names
                                           for (const cellVarName of cellVarNames) {
-                                            const cellData = variableData[cellVarName];
-                                            if (cellData && cellData.sum !== undefined) {
-                                              rowSum = cellData.sum;
-                                              break;
-                                            } else if (cellData && cellData.values && Array.isArray(cellData.values) && cellData.values.length > 0) {
-                                              // Calculate sum from values if sum is not directly available
-                                              const numericValues = cellData.values
-                                                .map((v: any) => parseFloat(v))
-                                                .filter((v: number) => !isNaN(v));
-                                              if (numericValues.length > 0) {
-                                                rowSum = numericValues.reduce((sum: number, val: number) => sum + val, 0);
+                                            // Try variable name directly first (for backward compatibility)
+                                            let mappedColumnHeader = columnMapping[cellVarName];
+                                            
+                                            // If not found, try generating expected header and checking that
+                                            if (!mappedColumnHeader || mappedColumnHeader.trim() === '') {
+                                              // Generate expected header: add Q prefix and normalize format
+                                              const normalized = cellVarName.replace(/[_-]/g, ''); // Remove underscores/dashes
+                                              const expectedHeader = normalized.startsWith('Q') ? normalized : `Q${normalized}`;
+                                              mappedColumnHeader = columnMapping[expectedHeader];
+                                              
+                                              // Also try with Q prefix variations
+                                              if (!mappedColumnHeader || mappedColumnHeader.trim() === '') {
+                                                // Try with Q prefix added to base
+                                                const baseMatch = normalized.match(/^([A-Z0-9]+)(r\d+)(c\d+)$/i);
+                                                if (baseMatch) {
+                                                  const [, base, row, col] = baseMatch;
+                                                  const altExpectedHeader = `Q${base}${row}${col}`;
+                                                  mappedColumnHeader = columnMapping[altExpectedHeader];
+                                                }
+                                              }
+                                            }
+                                            
+                                            if (mappedColumnHeader && mappedColumnHeader.trim() !== '') {
+                                              const cellData = variableData[mappedColumnHeader];
+                                              if (cellData && cellData.sum !== undefined) {
+                                                rowSum = cellData.sum;
                                                 break;
+                                              } else if (cellData && cellData.values && Array.isArray(cellData.values) && cellData.values.length > 0) {
+                                                // Calculate sum from values if sum is not directly available
+                                                const numericValues = cellData.values
+                                                  .map((v: any) => parseFloat(v))
+                                                  .filter((v: number) => !isNaN(v));
+                                                if (numericValues.length > 0) {
+                                                  rowSum = numericValues.reduce((sum: number, val: number) => sum + val, 0);
+                                                  break;
+                                                }
+                                              }
+                                            }
+                                          }
+                                          
+                                          // Fallback: try variable names directly if mapped column headers didn't work
+                                          if (rowSum === undefined) {
+                                            for (const cellVarName of cellVarNames) {
+                                              const cellData = variableData[cellVarName];
+                                              if (cellData && cellData.sum !== undefined) {
+                                                rowSum = cellData.sum;
+                                                break;
+                                              } else if (cellData && cellData.values && Array.isArray(cellData.values) && cellData.values.length > 0) {
+                                                // Calculate sum from values if sum is not directly available
+                                                const numericValues = cellData.values
+                                                  .map((v: any) => parseFloat(v))
+                                                  .filter((v: number) => !isNaN(v));
+                                                if (numericValues.length > 0) {
+                                                  rowSum = numericValues.reduce((sum: number, val: number) => sum + val, 0);
+                                                  break;
+                                                }
                                               }
                                             }
                                           }
@@ -2935,17 +3730,105 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                       const hasNumberTag = (variable as any).tags && Array.isArray((variable as any).tags) && (variable as any).tags.includes('Number');
                                       
                                       // First pass: collect all row data and calculate total sum
-                                      const rowDataArray: Array<{code: string; text: string; mean: number | undefined; sum: number | undefined}> = [];
+                                      const rowDataArray: Array<{code: string; text: string; mean: number | undefined; sum: number | undefined; mappedColumnHeader: string | undefined}> = [];
                                       let totalSum = 0;
                                       let sumOfMeans = 0;
                                       
                                       Object.entries(variable.statements || {}).forEach(([stmtCode, stmtText]) => {
                                         const displayCode = stmtCode.replace(/^[rc]/i, '');
                                         
+                                        // DEBUG: Log which row we're processing
+                                        console.log(`[Summary Table Debug] Processing row: stmtCode=${stmtCode}, stmtText=${stmtText}`);
+                                        
                                         // Try multiple strategies to get the mean for this row in this column
                                         // (Same strategies as used in the statement table for column variables)
                                         let mean: number | undefined = undefined;
                                         let sum: number | undefined = undefined;
+                                        let mappedColumnHeader: string | undefined = undefined;
+                                        
+                                        // Build all possible cell variable name patterns first
+                                        const cellVarNames = [
+                                          // Without Q prefix
+                                          `${baseName}${stmtCode}${columnCode}`,    // S11r1c1 (row first, then column - preferred format)
+                                          `${baseName}_${stmtCode}_${columnCode}`,  // S11_r1_c1
+                                          `${baseName}${stmtCode}_${columnCode}`,   // S11r1_c1
+                                          `${baseName}_${stmtCode}${columnCode}`,   // S11_r1c1
+                                          `${baseName}${columnCode}${stmtCode}`,    // S11c1r5 (column first, then row - backward compatibility)
+                                          `${baseName}_${columnCode}_${stmtCode}`,  // S11_c1_r5
+                                          `${baseName}${columnCode}_${stmtCode}`,   // S11c1_r5
+                                          `${baseName}_${columnCode}${stmtCode}`,   // S11_c1r5
+                                          // With Q prefix
+                                          `Q${baseName}${stmtCode}${columnCode}`,    // QS11r1c1
+                                          `Q${baseName}_${stmtCode}_${columnCode}`,  // QS11_r1_c1
+                                          `Q${baseName}${stmtCode}_${columnCode}`,   // QS11r1_c1
+                                          `Q${baseName}_${stmtCode}${columnCode}`,   // QS11_r1c1
+                                          `Q${baseName}${columnCode}${stmtCode}`,    // QS11c1r5
+                                          `Q${baseName}_${columnCode}_${stmtCode}`,  // QS11_c1_r5
+                                          `Q${baseName}${columnCode}_${stmtCode}`,   // QS11c1_r5
+                                          `Q${baseName}_${columnCode}${stmtCode}`,   // QS11_c1r5
+                                        ];
+                                        
+                                        // DEBUG: Log what we're trying
+                                        console.log(`[Summary Table Debug] Trying ${cellVarNames.length} cell variable names for row ${stmtCode}:`, cellVarNames);
+                                        
+                                        // First, find the mapped column header for this cell variable
+                                        // columnMapping uses expected headers as keys (e.g., "QS4r1c1"), and values are the actual column headers from the data file
+                                        let foundExpectedHeader: string | undefined = undefined;
+                                        for (const cellVarName of cellVarNames) {
+                                          // Generate expected header: normalize format and add Q prefix if needed
+                                          const normalized = cellVarName.replace(/[_-]/g, ''); // Remove underscores/dashes
+                                          const expectedHeader = normalized.startsWith('Q') ? normalized : `Q${normalized}`;
+                                          
+                                          // Check if this expected header has a mapping
+                                          const mappedHeader = columnMapping[expectedHeader];
+                                          if (mappedHeader && mappedHeader.trim() !== '') {
+                                            mappedColumnHeader = mappedHeader;
+                                            foundExpectedHeader = expectedHeader;
+                                            console.log(`[Summary Table Debug] Found mapping: expectedHeader="${expectedHeader}" -> mappedColumnHeader="${mappedColumnHeader}"`);
+                                            break; // Found the mapping, use this one
+                                          }
+                                        }
+                                        
+                                        // If we found a mapping, try both the expected header and mapped header to get the data
+                                        // Data might be stored under either the expected header key or the mapped header value
+                                        if (foundExpectedHeader && mappedColumnHeader) {
+                                          // Try expected header first (data is often stored under the mapping key)
+                                          let cellData = variableData[foundExpectedHeader];
+                                          if (cellData) {
+                                            console.log(`[Summary Table Debug] ✅ Found data using expectedHeader="${foundExpectedHeader}"`);
+                                          } else {
+                                            // Try mapped header (data might be stored under the actual column header)
+                                            cellData = variableData[mappedColumnHeader];
+                                            if (cellData) {
+                                              console.log(`[Summary Table Debug] ✅ Found data using mappedColumnHeader="${mappedColumnHeader}"`);
+                                            }
+                                          }
+                                          
+                                          if (cellData) {
+                                            if (mean === undefined && cellData.mean !== undefined) {
+                                              mean = cellData.mean;
+                                            }
+                                            if (sum === undefined && cellData.sum !== undefined) {
+                                              sum = cellData.sum;
+                                            }
+                                            if (mean === undefined && cellData.values && Array.isArray(cellData.values) && cellData.values.length > 0) {
+                                              const numericValues = cellData.values
+                                                .map((v: any) => parseFloat(v))
+                                                .filter((v: number) => !isNaN(v));
+                                              if (numericValues.length > 0) {
+                                                mean = numericValues.reduce((sum: number, val: number) => sum + val, 0) / numericValues.length;
+                                              }
+                                            }
+                                            if (sum === undefined && cellData.values && Array.isArray(cellData.values) && cellData.values.length > 0) {
+                                              const numericValues = cellData.values
+                                                .map((v: any) => parseFloat(v))
+                                                .filter((v: number) => !isNaN(v));
+                                              if (numericValues.length > 0) {
+                                                sum = numericValues.reduce((sum: number, val: number) => sum + val, 0);
+                                              }
+                                            }
+                                          }
+                                        }
                                         
                                         // Strategy 1: Check if statement variable exists (S14_r1) and has frequencies with column code
                                         const statementVarName = `${baseName}_${stmtCode}`;
@@ -2981,21 +3864,150 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                         // Strategy 2: Try cell variable formats
                                         // Format: {base}{row}{column} e.g., S11r1c1 (row first, then column - preferred format)
                                         // Also try: {base}{column}{row} for backward compatibility
+                                        // IMPORTANT: First check if there's a mapped column header for this cell variable
                                         if (mean === undefined || sum === undefined) {
-                                          const cellVarNames = [
-                                            `${baseName}${stmtCode}${columnCode}`,    // S11r1c1 (row first, then column - preferred format)
-                                            `${baseName}_${stmtCode}_${columnCode}`,  // S11_r1_c1
-                                            `${baseName}${stmtCode}_${columnCode}`,   // S11r1_c1
-                                            `${baseName}_${stmtCode}${columnCode}`,   // S11_r1c1
-                                            `${baseName}${columnCode}${stmtCode}`,    // S11c1r5 (column first, then row - backward compatibility)
-                                            `${baseName}_${columnCode}_${stmtCode}`,  // S11_c1_r5
-                                            `${baseName}${columnCode}_${stmtCode}`,   // S11c1_r5
-                                            `${baseName}_${columnCode}${stmtCode}`,   // S11_c1r5
-                                          ];
+                                          // First, try to get data from mapped column headers
+                                          for (const cellVarName of cellVarNames) {
+                                            // Try variable name directly first (for backward compatibility)
+                                            let mappedHeader = columnMapping[cellVarName];
+                                            let currentExpectedHeader: string | undefined = undefined;
+                                            
+                                            // If not found, try generating expected header and checking that
+                                            if (!mappedHeader || mappedHeader.trim() === '') {
+                                              // Generate expected header: add Q prefix and normalize format
+                                              const normalized = cellVarName.replace(/[_-]/g, ''); // Remove underscores/dashes
+                                              const expectedHeader = normalized.startsWith('Q') ? normalized : `Q${normalized}`;
+                                              mappedHeader = columnMapping[expectedHeader];
+                                              
+                                              if (mappedHeader && mappedHeader.trim() !== '') {
+                                                currentExpectedHeader = expectedHeader;
+                                              } else {
+                                                // Also try with Q prefix variations
+                                                // Try with Q prefix added to base
+                                                const baseMatch = normalized.match(/^([A-Z0-9]+)(r\d+)(c\d+)$/i);
+                                                if (baseMatch) {
+                                                  const [, base, row, col] = baseMatch;
+                                                  const altExpectedHeader = `Q${base}${row}${col}`;
+                                                  mappedHeader = columnMapping[altExpectedHeader];
+                                                  if (mappedHeader && mappedHeader.trim() !== '') {
+                                                    currentExpectedHeader = altExpectedHeader;
+                                                  }
+                                                }
+                                              }
+                                            } else {
+                                              currentExpectedHeader = cellVarName;
+                                            }
+                                            
+                                            // Even if there's no mappedHeader, try to generate expected header and check variableData directly
+                                            if (!currentExpectedHeader) {
+                                              const normalized = cellVarName.replace(/[_-]/g, '');
+                                              currentExpectedHeader = normalized.startsWith('Q') ? normalized : `Q${normalized}`;
+                                            }
+                                            
+                                            // Try checking variableData directly with expected header format (even without mapping)
+                                            if (currentExpectedHeader && !mean && !sum) {
+                                              const directData = variableData[currentExpectedHeader];
+                                              if (directData) {
+                                                console.log(`[Summary Table Debug] ✅ Found data directly for expectedHeader="${currentExpectedHeader}" (no mapping needed)`);
+                                                if (mean === undefined && directData.mean !== undefined) {
+                                                  mean = directData.mean;
+                                                }
+                                                if (sum === undefined && directData.sum !== undefined) {
+                                                  sum = directData.sum;
+                                                }
+                                                if ((mean !== undefined || sum !== undefined) && !mappedColumnHeader) {
+                                                  mappedColumnHeader = currentExpectedHeader;
+                                                }
+                                              }
+                                            }
+                                            
+                                            if (mappedHeader && mappedHeader.trim() !== '') {
+                                              // Track which mapped column header we're using (if not already set)
+                                              if (!mappedColumnHeader) {
+                                                mappedColumnHeader = mappedHeader;
+                                              }
+                                              
+                                              // The backend stores data under the variable name, not the column header
+                                              // When we upload, we convert expected headers to variable names
+                                              // So we need to use the variable name (cellVarName) to look up the data
+                                              // The mappedHeader tells us which column was used, but data is stored under variable name
+                                              let dataKey: string | undefined = undefined;
+                                              
+                                              // Try multiple keys in order of preference:
+                                              // 1. Cell variable name directly (e.g., "S11r1c1") - this is what backend uses
+                                              if (variableData[cellVarName]) {
+                                                console.log(`[Summary Table Debug] ✅ Found data for cellVarName="${cellVarName}"`);
+                                                dataKey = cellVarName;
+                                              }
+                                              
+                                              // 2. Expected header without Q prefix (variable name format)
+                                              if (!dataKey && currentExpectedHeader) {
+                                                const varNameFromExpected = currentExpectedHeader.startsWith('Q') ? currentExpectedHeader.substring(1) : currentExpectedHeader;
+                                                if (variableData[varNameFromExpected]) {
+                                                  dataKey = varNameFromExpected;
+                                                }
+                                              }
+                                              
+                                              // 3. Expected header itself
+                                              if (!dataKey && currentExpectedHeader && variableData[currentExpectedHeader]) {
+                                                dataKey = currentExpectedHeader;
+                                              }
+                                              
+                                              // 4. Mapped header (column header) as fallback
+                                              if (!dataKey && variableData[mappedHeader]) {
+                                                dataKey = mappedHeader;
+                                              }
+                                              
+                                              // 5. Try the expected header format directly in variableData (even if not in columnMapping)
+                                              if (!dataKey && currentExpectedHeader && variableData[currentExpectedHeader]) {
+                                                console.log(`[Summary Table Debug] ✅ Found data for expectedHeader="${currentExpectedHeader}" (not in columnMapping)`);
+                                                dataKey = currentExpectedHeader;
+                                              }
+                                              
+                                              const cellData = dataKey ? variableData[dataKey] : undefined;
+                                              if (cellData) {
+                                                // Get mean if not already set
+                                                if (mean === undefined) {
+                                                  if (cellData.mean !== undefined) {
+                                                    mean = cellData.mean;
+                                                  } else if (cellData.sum !== undefined && cellData.count !== undefined && cellData.count > 0) {
+                                                    mean = cellData.sum / cellData.count;
+                                                  } else if (cellData.values && Array.isArray(cellData.values) && cellData.values.length > 0) {
+                                                    const numericValues = cellData.values
+                                                      .map((v: any) => parseFloat(v))
+                                                      .filter((v: number) => !isNaN(v));
+                                                    if (numericValues.length > 0) {
+                                                      mean = numericValues.reduce((sum: number, val: number) => sum + val, 0) / numericValues.length;
+                                                    }
+                                                  }
+                                                }
+                                                
+                                                // Get sum if not already set
+                                                if (sum === undefined && cellData.sum !== undefined) {
+                                                  sum = cellData.sum;
+                                                } else if (sum === undefined && cellData.values && Array.isArray(cellData.values) && cellData.values.length > 0) {
+                                                  // Calculate sum from values if sum is not directly available
+                                                  const numericValues = cellData.values
+                                                    .map((v: any) => parseFloat(v))
+                                                    .filter((v: number) => !isNaN(v));
+                                                  if (numericValues.length > 0) {
+                                                    sum = numericValues.reduce((sum: number, val: number) => sum + val, 0);
+                                                  }
+                                                }
+                                                
+                                                // If we have both mean and sum, we can break
+                                                if (mean !== undefined && sum !== undefined) {
+                                                  break;
+                                                }
+                                              }
+                                            }
+                                          }
                                           
+                                          // Fallback: try variable names directly if mapped column headers didn't work
                                           for (const cellVarName of cellVarNames) {
                                             const cellData = variableData[cellVarName];
                                             if (cellData) {
+                                              console.log(`[Summary Table Debug] ✅ Found data in fallback for cellVarName="${cellVarName}"`);
                                               // Get mean if not already set
                                               if (mean === undefined) {
                                                 if (cellData.mean !== undefined) {
@@ -3083,14 +4095,25 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                         
                                         // Calculate sum if we have mean but not sum (for percentage calculation)
                                         if (mean !== undefined && sum === undefined) {
-                                          // Try to get sum from cell data
-                                          const cellVarName = `${baseName}_${stmtCode}_${columnCode}`;
-                                          const cellData = variableData[cellVarName];
-                                          if (cellData && cellData.sum !== undefined) {
-                                            sum = cellData.sum;
-                                          } else if (statementVarData && statementVarData.sum !== undefined) {
+                                          // Try to get sum from cell data - try multiple formats
+                                          const cellVarNamesToTry = [
+                                            `${baseName}_${stmtCode}_${columnCode}`,  // S4_r1_c1
+                                            `${baseName}${stmtCode}${columnCode}`,    // S4r1c1
+                                            `Q${baseName}_${stmtCode}_${columnCode}`, // QS4_r1_c1
+                                            `Q${baseName}${stmtCode}${columnCode}`,   // QS4r1c1
+                                          ];
+                                          
+                                          for (const cellVarName of cellVarNamesToTry) {
+                                            const cellData = variableData[cellVarName];
+                                            if (cellData && cellData.sum !== undefined) {
+                                              sum = cellData.sum;
+                                              break;
+                                            }
+                                          }
+                                          
+                                          if (sum === undefined && statementVarData && statementVarData.sum !== undefined) {
                                             sum = statementVarData.sum;
-                                          } else if (columnData && columnData.sum !== undefined) {
+                                          } else if (sum === undefined && columnData && columnData.sum !== undefined) {
                                             // Column sum divided by number of statements (rough estimate)
                                             const stmtCount = Object.keys(variable.statements || {}).length;
                                             if (stmtCount > 0) {
@@ -3108,11 +4131,18 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                         }
                                         
                                         // Store row data for second pass
-                                        rowDataArray.push({ code: stmtCode, text: stmtText, mean, sum });
+                                        // DEBUG: Log final result for this row
+                                        if (mean !== undefined || sum !== undefined) {
+                                          console.log(`[Summary Table Debug] ✅ Final values for row ${stmtCode}: mean=${mean}, sum=${sum}, mappedColumnHeader=${mappedColumnHeader}`);
+                                        } else {
+                                          console.log(`[Summary Table Debug] ❌ No data found for row ${stmtCode} after all strategies`);
+                                        }
+                                        
+                                        rowDataArray.push({ code: stmtCode, text: stmtText, mean, sum, mappedColumnHeader });
                                       });
                                       
                                       // Second pass: render rows with percentages calculated using total sum
-                                      const rows = rowDataArray.map(({ code: stmtCode, text: stmtText, mean, sum }) => {
+                                      const rows = rowDataArray.map(({ code: stmtCode, text: stmtText, mean, sum, mappedColumnHeader }) => {
                                         const displayCode = stmtCode.replace(/^[rc]/i, '');
                                         
                                         // Calculate percentage: (row sum / total sum of all rows) * 100
@@ -3123,7 +4153,14 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                         return (
                                           <tr key={stmtCode}>
                                             <td className="px-2 py-2 text-sm font-mono text-gray-700 text-center" style={{ width: '2.5rem' }}>{displayCode}</td>
-                                            <td className="px-4 py-2 text-sm text-gray-900">{stmtText}</td>
+                                            <td className="px-4 py-2 text-sm text-gray-900">
+                                              {stmtText}
+                                              {mappedColumnHeader ? (
+                                                <span className="text-gray-500 text-xs ml-1">({mappedColumnHeader})</span>
+                                              ) : (
+                                                <span className="text-gray-400 text-xs ml-1 italic">(no mapping)</span>
+                                              )}
+                                            </td>
                                             <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>
                                               {mean !== undefined 
                                                 ? (hasPercentTag ? `${mean.toFixed(1)}%` : mean.toFixed(2))
@@ -3635,27 +4672,6 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                         })()}
 
                         {/* Grid table for numeric grids with both statements and response options */}
-                        {(() => {
-                          // Debug logging for numeric grids
-                          if (variable.type?.toLowerCase().includes('numeric grid') && !(variable as any).isSummaryTable) {
-                            console.log(`🔍 Grid Table Check for ${variable.name}:`, {
-                              hasStatements: !!variable.statements,
-                              statementsCount: variable.statements ? Object.keys(variable.statements).length : 0,
-                              statements: variable.statements,
-                              hasCodes: !!variable.codes,
-                              codesCount: variable.codes ? Object.keys(variable.codes).length : 0,
-                              codes: variable.codes,
-                              isSummaryTable: (variable as any).isSummaryTable,
-                              willShow: variable.type?.toLowerCase().includes('numeric grid') && 
-                                       variable.statements && 
-                                       variable.codes && 
-                                       Object.keys(variable.statements).length > 0 && 
-                                       Object.keys(variable.codes).length > 0 && 
-                                       !(variable as any).isSummaryTable
-                            });
-                          }
-                          return false; // Don't render anything from this IIFE
-                        })()}
                         {variable.type?.toLowerCase().includes('numeric grid') && 
                          variable.statements && 
                          variable.codes && 
@@ -4083,7 +5099,6 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                     // This handles cases where backend incorrectly marked a categorical variable as numeric
                                     let frequencies = varData?.frequencies;
                                     if (!frequencies && varData?.values && Array.isArray(varData.values) && variable.codes && Object.keys(variable.codes).length > 0) {
-                                      console.log(`[${variable.name}] Generating frequencies from values array (marked as numeric but has codes)`);
                                       frequencies = {};
                                       const codes: Record<string, string> = variable.codes; // Store reference with explicit type
                                       varData.values.forEach((val: any) => {
@@ -4113,7 +5128,6 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                           frequencies[valStr] = (frequencies[valStr] || 0) + 1;
                                         }
                                       });
-                                      console.log(`[${variable.name}] Generated frequencies:`, frequencies);
                                     }
                                     
                                     const total = varData?.count || 0;
@@ -4194,13 +5208,6 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                             }
                                           }
                                         }
-                                      }
-                                      
-                                      // Debug logging to help identify matching issues (only log if no match found)
-                                      if (count === 0 && variable.name && frequencies && Object.keys(frequencies).length > 0) {
-                                        console.warn(`[${variable.name}] No match found for Code: "${code}", Label: "${label}"`);
-                                        console.warn(`  Available frequency keys:`, Object.keys(frequencies));
-                                        console.warn(`  Frequency values:`, Object.entries(frequencies).map(([k, v]) => `${k}: ${v}`).join(', '));
                                       }
                                       
                                       return count;
@@ -4802,11 +5809,64 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                           description: v.description || ''
                                         }));
                                       
-                                      const variableNames = variablesToMap.map(v => v.name);
+                                      // Match expected headers directly to column headers (exact matches only)
+                                      // This maps expected headers like QA1r1c1 to column headers like QA1r1c1
+                                      const expectedHeadersMapping: Record<string, string> = {};
                                       
-                                      console.log(`📋 Filtered variables: ${variableNames.length} variables to map (from ${variables.length} total)`);
+                                      // Get all expected headers for all base questions
+                                      const baseQuestionMap = new Map<string, { baseNumber: string; type: string; variables: Variable[] }>();
+                                      variables.forEach((variable) => {
+                                        if (variable.name.endsWith('_Summary Tables') || 
+                                            variable.name.endsWith('_T2B') || 
+                                            variable.name.endsWith('_B2B') || 
+                                            variable.name.endsWith('_M3B') ||
+                                            (variable as any).isSummaryTable) {
+                                          return;
+                                        }
+                                        const baseNumber = getBaseQuestionNumber(variable.name);
+                                        if (!baseQuestionMap.has(baseNumber)) {
+                                          const question = questionnaireQuestions.find(q => {
+                                            const qNum = q.number || q.id;
+                                            return qNum === baseNumber || 
+                                                   qNum === baseNumber.replace(/^Q/, '') ||
+                                                   String(qNum) === String(baseNumber);
+                                          });
+                                          const questionType = question?.type || variable.type || '';
+                                          baseQuestionMap.set(baseNumber, {
+                                            baseNumber,
+                                            type: questionType,
+                                            variables: []
+                                          });
+                                        }
+                                        baseQuestionMap.get(baseNumber)!.variables.push(variable);
+                                      });
                                       
-                                      const response = await fetch(`${API_BASE_URL}/api/questionnaire/map-columns`, {
+                                      // Generate expected headers and match them directly to column headers
+                                      const usedColumnHeaders = new Set<string>();
+                                      baseQuestionMap.forEach((group) => {
+                                        const expectedHeaders = getExpectedColumnHeadersForBase(group.baseNumber, group.variables);
+                                        expectedHeaders.forEach(expectedHeader => {
+                                          // Check if this expected header exactly matches any column header
+                                          const expectedNormalized = expectedHeader.toLowerCase().trim();
+                                          for (const colHeader of columnHeaders) {
+                                            if (usedColumnHeaders.has(colHeader)) continue; // Already used
+                                            
+                                            const colHeaderNormalized = colHeader.toLowerCase().trim();
+                                            // Exact match (case-insensitive)
+                                            if (colHeaderNormalized === expectedNormalized) {
+                                              // Map expected header to column header
+                                              expectedHeadersMapping[expectedHeader] = colHeader;
+                                              usedColumnHeaders.add(colHeader);
+                                              break;
+                                            }
+                                          }
+                                        });
+                                      });
+                                      
+                                      const finalMapping = expectedHeadersMapping;
+                                      
+                                      // Save the automatic mapping to the backend first
+                                      const saveResponse = await fetch(`${API_BASE_URL}/api/questionnaire/map-columns`, {
                                         method: 'POST',
                                         headers: {
                                           'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`,
@@ -4814,30 +5874,33 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                         },
                                         body: JSON.stringify({
                                           questionnaireId: selectedQuestionnaire.id,
-                                          variableNames: variableNames,
-                                          variables: variablesToMap, // Include full variable info with types
-                                          dataHeaders: columnHeaders
+                                          variableNames: variablesToMap.map(v => v.name),
+                                          dataHeaders: columnHeaders,
+                                          mapping: finalMapping // Save the automatic mapping
                                         })
                                       });
                                       
-                                      if (response.ok) {
-                                        const result = await response.json();
-                                        // Update the column mapping with the result
-                                        if (result.mapping) {
-                                          setColumnMapping(result.mapping);
+                                      if (saveResponse.ok) {
+                                        // Get the saved mapping from response (backend may have normalized it)
+                                        const result = await saveResponse.json();
+                                        const savedMapping = result.mapping || finalMapping;
+                                        
+                                        // Update state only after successful save to prevent double rendering
+                                        setColumnMapping(savedMapping);
+                                        setHasAttemptedMapping(true);
+                                        
+                                        // Update uploadedFileInfo to reflect that mapping is complete
+                                        if (uploadedFileInfo) {
+                                          setUploadedFileInfo({
+                                            ...uploadedFileInfo,
+                                            processed: true
+                                          });
                                         }
-                                        // Update file info to show as processed
-                                        setUploadedFileInfo({
-                                          ...uploadedFileInfo,
-                                          processed: true
-                                        });
-                                        // Reload file info to get latest status
-                                        setTimeout(() => {
-                                          loadFileInfo();
-                                        }, 500);
                                       } else {
-                                        const error = await response.json();
-                                        console.error('Failed to map variables:', error.error || 'Unknown error');
+                                        console.error('Failed to save automatic mapping');
+                                        // Still update state even if save failed (user can see the mapping)
+                                        setColumnMapping(finalMapping);
+                                        setHasAttemptedMapping(true);
                                       }
                                     } catch (error) {
                                       console.error('Error mapping variables:', error);
@@ -4851,6 +5914,87 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                 >
                                   {mappingVariables ? 'Mapping...' : 'Map Variables to QNR'}
                                                 </button>
+                              )}
+                              {hasAttemptedMapping && unmappedHeadersInfo.unmappedExpectedHeaders.length > 0 && unmappedHeadersInfo.unusedColumnHeaders.length > 0 && (
+                                <button
+                                  onClick={async () => {
+                                    if (!selectedQuestionnaire || unmappedHeadersInfo.unmappedExpectedHeaders.length === 0 || unmappedHeadersInfo.unusedColumnHeaders.length === 0) {
+                                      return;
+                                    }
+                                    
+                                    setMappingWithAI(true);
+                                    try {
+                                      // Call AI mapping endpoint with unmapped expected headers and unused column headers
+                                      const aiMappingResponse = await fetch(`${API_BASE_URL}/api/questionnaire/map-columns`, {
+                                        method: 'POST',
+                                        headers: {
+                                          'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`,
+                                          'Content-Type': 'application/json'
+                                        },
+                                        body: JSON.stringify({
+                                          questionnaireId: selectedQuestionnaire.id,
+                                          variableNames: unmappedHeadersInfo.unmappedExpectedHeaders, // Use expected headers as variable names
+                                          dataHeaders: unmappedHeadersInfo.unusedColumnHeaders, // Only unused column headers
+                                          existingMapping: columnMapping // Pass existing mapping so AI knows what's already mapped
+                                        })
+                                      });
+                                      
+                                      if (aiMappingResponse.ok) {
+                                        const result = await aiMappingResponse.json();
+                                        const aiMapping = result.mapping || {};
+                                        
+                                        // Merge AI mapping with existing mapping
+                                        const mergedMapping = { ...columnMapping, ...aiMapping };
+                                        
+                                        // Save the merged mapping
+                                        const saveResponse = await fetch(`${API_BASE_URL}/api/questionnaire/map-columns`, {
+                                          method: 'POST',
+                                          headers: {
+                                            'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`,
+                                            'Content-Type': 'application/json'
+                                          },
+                                          body: JSON.stringify({
+                                            questionnaireId: selectedQuestionnaire.id,
+                                            variableNames: unmappedHeadersInfo.unmappedExpectedHeaders,
+                                            dataHeaders: columnHeaders,
+                                            mapping: mergedMapping
+                                          })
+                                        });
+                                        
+                                        if (saveResponse.ok) {
+                                          const saveResult = await saveResponse.json();
+                                          const savedMapping = saveResult.mapping || mergedMapping;
+                                          setColumnMapping(savedMapping);
+                                          
+                                          // Update uploadedFileInfo to reflect that mapping is complete
+                                          if (uploadedFileInfo) {
+                                            setUploadedFileInfo({
+                                              ...uploadedFileInfo,
+                                              processed: true
+                                            });
+                                          }
+                                        } else {
+                                          console.error('Failed to save AI mapping');
+                                          // Still update state even if save failed
+                                          setColumnMapping(mergedMapping);
+                                        }
+                                      } else {
+                                        console.error('Failed to get AI mapping');
+                                        const errorData = await aiMappingResponse.json().catch(() => ({}));
+                                        alert(`Failed to map with AI: ${errorData.error || 'Unknown error'}`);
+                                      }
+                                    } catch (error) {
+                                      console.error('Error mapping with AI:', error);
+                                      alert('Error mapping with AI. Please try again.');
+                                    } finally {
+                                      setMappingWithAI(false);
+                                    }
+                                  }}
+                                  disabled={mappingWithAI || mappingVariables}
+                                  className="px-3 py-1.5 text-xs font-medium text-white rounded bg-blue-600 hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  {mappingWithAI ? 'Mapping with AI...' : `Map unmapped with AI (${unmappedHeadersInfo.unmappedExpectedHeaders.length} remaining)`}
+                                </button>
                               )}
                               {dataUploaded ? (
                                 <span className="inline-flex items-center gap-1 px-2 py-1.5 text-xs font-medium rounded bg-green-100 text-green-800">
@@ -4883,6 +6027,72 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                     
                                     setUploadingData(true);
                                     try {
+                                      // Convert expected header mapping to variable name mapping
+                                      // The columnMapping uses expected headers as keys (e.g., "QA1r1c1")
+                                      // But the backend expects variable names as keys (e.g., "A1_r1")
+                                      const variableNameMapping: Record<string, string> = {};
+                                      
+                                      // Group variables by base question to find which variable corresponds to each expected header
+                                      const baseQuestionMap = new Map<string, { baseNumber: string; type: string; variables: Variable[] }>();
+                                      variables.forEach((variable) => {
+                                        if (variable.name.endsWith('_Summary Tables') || 
+                                            variable.name.endsWith('_T2B') || 
+                                            variable.name.endsWith('_B2B') || 
+                                            variable.name.endsWith('_M3B') ||
+                                            (variable as any).isSummaryTable) {
+                                          return;
+                                        }
+                                        const baseNumber = getBaseQuestionNumber(variable.name);
+                                        if (!baseQuestionMap.has(baseNumber)) {
+                                          const question = questionnaireQuestions.find(q => {
+                                            const qNum = q.number || q.id;
+                                            return qNum === baseNumber || 
+                                                   qNum === baseNumber.replace(/^Q/, '') ||
+                                                   String(qNum) === String(baseNumber);
+                                          });
+                                          const questionType = question?.type || variable.type || '';
+                                          baseQuestionMap.set(baseNumber, {
+                                            baseNumber,
+                                            type: questionType,
+                                            variables: []
+                                          });
+                                        }
+                                        baseQuestionMap.get(baseNumber)!.variables.push(variable);
+                                      });
+                                      
+                                      // For each expected header in the mapping, find the corresponding variable
+                                      Object.entries(columnMapping).forEach(([expectedHeader, columnHeader]) => {
+                                        if (!columnHeader || columnHeader.trim() === '') return;
+                                        
+                                        // Try to find which variable generates this expected header
+                                        let foundVariable: Variable | null = null;
+                                        
+                                        for (const group of baseQuestionMap.values()) {
+                                          if (foundVariable) break; // Already found
+                                          
+                                          // Check each variable in this group
+                                          for (const variable of group.variables) {
+                                            if (foundVariable) break; // Already found
+                                            
+                                            // Generate expected headers for this variable
+                                            const headers = getExpectedColumnHeadersForBase(group.baseNumber, [variable]);
+                                            if (headers.includes(expectedHeader)) {
+                                              foundVariable = variable;
+                                              break;
+                                            }
+                                          }
+                                        }
+                                        
+                                        if (foundVariable !== null) {
+                                          // Use the variable name as the key
+                                          variableNameMapping[foundVariable.name] = columnHeader;
+                                        } else {
+                                          // If no variable found, use the expected header as-is (fallback)
+                                          // This handles edge cases where expected header might be used directly
+                                          variableNameMapping[expectedHeader] = columnHeader;
+                                        }
+                                      });
+                                      
                                       const response = await fetch(`${API_BASE_URL}/api/questionnaire/upload-data`, {
                                   method: 'POST',
                                   headers: {
@@ -4891,36 +6101,25 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                         },
                                         body: JSON.stringify({
                                           questionnaireId: selectedQuestionnaire.id,
-                                          columnMapping: columnMapping
+                                          columnMapping: variableNameMapping
                                         })
                                       });
                                       
                                       if (response.ok) {
                                         const result = await response.json();
-                                        console.log('Data upload response:', result);
-                                        console.log('Data from upload response:', {
-                                          variableCount: result.data ? Object.keys(result.data).length : 0,
-                                          sampleVariables: result.data ? Object.keys(result.data).slice(0, 5) : [],
-                                          sampleData: result.data ? Object.entries(result.data).slice(0, 2).map(([key, val]: [string, any]) => ({
-                                            variable: key,
-                                            count: val?.count,
-                                            hasFrequencies: !!val?.frequencies,
-                                            numeric: val?.numeric
-                                          })) : []
-                                        });
                                         
                                         // Use the data directly from the response if available
                                         if (result.data && typeof result.data === 'object') {
-                                          console.log('Setting variable data directly from upload response');
                                           setVariableData(result.data);
                                         }
                                         
                                         setDataUploaded(true);
                                         // Also reload processed data after a delay to ensure it's persisted
                                         setTimeout(() => {
-                                          console.log('Reloading processed data after upload to verify persistence...');
                                           loadProcessedData();
-                                          loadFileInfo();
+                                          if (debouncedLoadFileInfo) {
+                                            debouncedLoadFileInfo(500);
+                                          }
                                         }, 2000);
                                       } else {
                                         const error = await response.json();
@@ -4964,6 +6163,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                         setColumnMapping({});
                                         setDataUploaded(false);
                                         setDataFile(null);
+                                        setHasAttemptedMapping(false);
                                         // Clear variable data from variables view
                                         setVariableData({});
                                         // Reset file input
@@ -5026,7 +6226,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                             });
                             
                             if (response.ok) {
-                                  const result = await response.json();
+                              const result = await response.json();
                               setDataUploadSuccess(true);
                               // Set file info immediately from the response - always set processed to false for new uploads
                               setUploadedFileInfo({
@@ -5038,27 +6238,23 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                               if (parsedHeaders.length > 0 && selectedQuestionnaire) {
                                 try {
                                   const saveResponse = await fetch(`${API_BASE_URL}/api/questionnaire/save-column-headers`, {
-                              method: 'POST',
-                              headers: {
+                                    method: 'POST',
+                                    headers: {
                                       'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`,
                                       'Content-Type': 'application/json'
-                              },
-                              body: JSON.stringify({
-                                questionnaireId: selectedQuestionnaire.id,
+                                    },
+                                    body: JSON.stringify({
+                                      questionnaireId: selectedQuestionnaire.id,
                                       columnHeaders: parsedHeaders
-                              })
-                            });
-                                  if (saveResponse.ok) {
-                                    console.log('Column headers saved successfully:', parsedHeaders.length, 'headers');
-                                  } else {
+                                    })
+                                  });
+                                  if (!saveResponse.ok) {
                                     console.error('Failed to save column headers');
                                   }
                                 } catch (error) {
                                   console.error('Error saving column headers:', error);
                                   // Continue anyway - headers are already in state
                                 }
-                            } else {
-                                console.warn('No column headers to save or no questionnaire selected');
                               }
                               // Clear the selected file since it's now uploaded
                               setDataFile(null);
@@ -5066,7 +6262,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                               const fileInput = document.getElementById('data-file-upload') as HTMLInputElement;
                               if (fileInput) fileInput.value = '';
                               // Reload file info after a short delay to ensure everything is saved
-                            setTimeout(() => {
+                              setTimeout(() => {
                                 loadFileInfo();
                               }, 500);
                             } else {
@@ -5107,297 +6303,478 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                         </div>
                       )}
                       
-                  {uploadedFileInfo && (
-                    <>
-                      {/* Unmapped Questions Table */}
-                      {(() => {
-                        // Get unmapped questions
-                        const unmappedQuestions = questionnaireQuestions.filter((question) => {
-                          const questionNumber = question.number || question.id;
-                          if (!questionNumber) return false;
-                          
-                          const questionType = question.type || '';
-                          
-                          // Debug logging for specific questions
-                          const debugQuestion = questionNumber === 'A7' || questionNumber === 'S11';
-                          if (debugQuestion) {
-                            console.log(`🔍 [Unmapped Filter] Checking question ${questionNumber}:`, {
-                              questionType,
-                              columnMappingExists: questionNumber in columnMapping,
-                              mappedColumn: columnMapping[questionNumber],
-                              allMappingKeys: Object.keys(columnMapping).filter(k => k.includes(questionNumber)).slice(0, 10),
-                              allMappingEntries: Object.entries(columnMapping).filter(([k, v]) => 
-                                k.includes(questionNumber) || (typeof v === 'string' && v.includes(questionNumber))
-                              ).slice(0, 10)
-                            });
-                          }
-                          
-                          // First, check if the main variable for this question is mapped
-                          // Check exact match first
-                          let mappedColumn = columnMapping[questionNumber] || '';
-                          let isMapped = mappedColumn && mappedColumn.trim() !== '';
-                          
-                          // If not found, check for case-insensitive match
-                          if (!isMapped) {
-                            const matchingKey = Object.keys(columnMapping).find(k => 
-                              k.toLowerCase() === questionNumber.toLowerCase()
-                            );
-                            if (matchingKey) {
-                              mappedColumn = columnMapping[matchingKey] || '';
-                              isMapped = mappedColumn && mappedColumn.trim() !== '';
-                            }
-                          }
-                          
-                          // If still not found, check if any mapping value contains the question number
-                          // (e.g., if column header is "QA7 - Some text" and we're looking for A7)
-                          if (!isMapped) {
-                            const matchingEntry = Object.entries(columnMapping).find(([key, value]) => {
-                              if (typeof value === 'string') {
-                                // Check if the value (column header) starts with the question number
-                                // or if the key starts with the question number
-                                const valueNormalized = value.trim().toLowerCase();
-                                const questionNormalized = questionNumber.toLowerCase();
-                                return valueNormalized.startsWith(questionNormalized) || 
-                                       valueNormalized.startsWith(`q${questionNormalized}`) ||
-                                       key.toLowerCase() === questionNormalized;
-                              }
-                              return false;
-                            });
-                            if (matchingEntry) {
-                              mappedColumn = matchingEntry[1] as string;
-                              isMapped = mappedColumn && mappedColumn.trim() !== '';
-                            }
-                          }
-                          
-                          if (debugQuestion) {
-                            console.log(`🔍 [Unmapped Filter] ${questionNumber} - isMapped:`, isMapped, 'mappedColumn:', mappedColumn);
-                          }
-                          
-                          // If it's mapped, don't show as unmapped
-                          if (isMapped) {
-                            return false;
-                          }
-                          
-                          // For numeric grids with both rows and columns, check if cell variables are mapped
-                          // If cell variables exist and are mapped, don't show the base question as unmapped
-                          const isNumericGrid = questionType.toLowerCase().includes('numeric grid');
-                          const hasStatements = question.statementOptions && question.statementOptions.length > 0;
-                          const hasResponseOptions = question.responseOptions && question.responseOptions.length > 0;
-                          
-                          if (isNumericGrid && hasStatements && hasResponseOptions) {
-                            // Check if any cell variables are mapped (format: S11r1c1, S11r2c1, etc.)
-                            const hasMappedCellVariables = Object.keys(columnMapping).some(varName => {
-                              // Check if this variable name matches the pattern {questionNumber}r{number}c{number}
-                              const cellVarPattern = new RegExp(`^${questionNumber.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}r\\d+c\\d+$`, 'i');
-                              return cellVarPattern.test(varName) && columnMapping[varName] && columnMapping[varName].trim() !== '';
-                            });
-                            
-                            if (debugQuestion) {
-                              console.log(`🔍 [Unmapped Filter] ${questionNumber} - isNumericGrid with cell vars:`, hasMappedCellVariables);
-                            }
-                            
-                            // If cell variables are mapped, don't show the base question
-                            if (hasMappedCellVariables) {
-                              return false;
-                            }
-                          }
-                          
-                          // For multiselect questions, check if all response option variables are mapped
-                          const isMultiSelect = questionType.toLowerCase().includes('multi-select') && !questionType.toLowerCase().includes('grid');
-                          if (isMultiSelect) {
-                            // First, check if this question has been broken out into response variables
-                            // (e.g., B8 -> B8r1, B8r2, etc.)
-                            const hasResponseVariables = variables.some(v => {
-                              const responseMatch = v.name.match(/^(.+?)r\d+$/i);
-                              return responseMatch && responseMatch[1] === questionNumber;
-                            });
-                            
-                            if (hasResponseVariables) {
-                              // Question has been broken out into response variables (B8r1, B8r2, etc.)
-                              // Don't show the main question (B8) in unmapped questions table
-                              return false;
-                            }
-                            
-                            // Not broken out yet, check using response options
-                            const responseOptions = question?.responseOptions && Array.isArray(question.responseOptions) 
-                              ? question.responseOptions 
-                              : (question?.options && Array.isArray(question.options) ? question.options : []);
-                            
-                            if (responseOptions.length > 0) {
-                              // Check if all response option variables are mapped
-                              const allMapped = responseOptions.every((option: any, index: number) => {
-                                const optionNumber = index + 1;
-                                const varName1 = `${questionNumber}_${optionNumber}`;
-                                const varName2 = `${questionNumber}_${String(optionNumber).padStart(2, '0')}`;
-                                const varName3 = `${questionNumber}r${optionNumber}`;
-                                const varName4 = `${questionNumber}-${optionNumber}`;
-                                
-                                return Object.keys(columnMapping).some(varName => {
-                                  return (varName === varName1 || varName === varName2 || varName === varName3 || varName === varName4) &&
-                                         columnMapping[varName] && columnMapping[varName].trim() !== '';
+
+                  {/* Three Boxes: QNR Variables, Column Headers, Data Mapping */}
+                  <div className="mt-6">
+                    {uploadedFileInfo ? (
+                      <div className={`grid gap-6 ${Object.keys(columnMapping).length > 0 ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                        {/* QNR Variables Box */}
+                        <div className="flex flex-col">
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="text-sm font-semibold text-gray-900">
+                              QNR Variables {variables.length > 0 ? (() => {
+                                const baseQuestionMap = new Map<string, { baseNumber: string; type: string; variables: Variable[] }>();
+                                variables.forEach((variable) => {
+                                  if (variable.name.endsWith('_Summary Tables') || 
+                                      variable.name.endsWith('_T2B') || 
+                                      variable.name.endsWith('_B2B') || 
+                                      variable.name.endsWith('_M3B') ||
+                                      (variable as any).isSummaryTable) {
+                                    return;
+                                  }
+                                  const baseNumber = getBaseQuestionNumber(variable.name);
+                                  if (!baseQuestionMap.has(baseNumber)) {
+                                    // Get the question type from the original question data
+                                    const question = questionnaireQuestions.find(q => (q.number || q.id) === baseNumber);
+                                    const questionType = question?.type || variable.type || '';
+                                    
+                                    baseQuestionMap.set(baseNumber, {
+                                      baseNumber,
+                                      type: questionType,
+                                      variables: []
+                                    });
+                                  }
+                                  baseQuestionMap.get(baseNumber)!.variables.push(variable);
                                 });
-                              });
-                              
-                              // If all response variables are mapped, don't show this question
-                              return !allMapped;
-                            }
-                          }
-                          
-                          // For grid questions (not numeric grids with cell variables - those are handled above)
-                          // If any variable starting with questionNumber_ is mapped, consider it mapped
-                          const isGridQuestion = questionType.toLowerCase().includes('grid') && !isNumericGrid;
-                          if (isGridQuestion) {
-                            const hasMappedGridVariable = Object.keys(columnMapping).some(varName => {
-                              return varName.startsWith(`${questionNumber}_`) && columnMapping[varName] && columnMapping[varName].trim() !== '';
-                            });
-                            return !hasMappedGridVariable;
-                          }
-                          
-                          // For all other questions (regular single select, etc.), show as unmapped if not mapped
-                          if (debugQuestion) {
-                            console.log(`🔍 [Unmapped Filter] ${questionNumber} - Final result: showing as unmapped`);
-                          }
-                          return true;
-                        });
-
-                        if (unmappedQuestions.length === 0) {
-                          return null;
-                        }
-
-                        return (
-                          <div className="mt-6 mb-6">
-                            <div className="flex items-center justify-between mb-3">
-                              <h4 className="text-sm font-semibold text-gray-900">
-                                Unmapped Questions ({unmappedQuestions.length})
-                              </h4>
+                                return `(${baseQuestionMap.size})`;
+                              })() : ''}
+                            </h4>
+                          </div>
+                          <div className="mb-3">
+                            <div className="relative">
+                              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                              <input
+                                type="text"
+                                id="qnr-variable-search"
+                                name="qnr-variable-search"
+                                placeholder="Search QNR variables..."
+                                value={qnrVariableSearch}
+                                onChange={(e) => setQnrVariableSearch(e.target.value)}
+                                className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                              />
                             </div>
-                            <div className="border border-gray-200 rounded-lg overflow-hidden">
-                              <div className="overflow-hidden">
-                                <div style={{ maxHeight: 'calc(5 * 3.5rem + 3rem)', overflowY: 'auto', overflowX: 'hidden' }}>
-                                  <table className="w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed' }}>
-                                    <thead className="bg-gray-50 sticky top-0 z-10">
-                                      <tr>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style={{ width: '100px' }}>Question</th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: 'auto' }}></th>
-                                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style={{ width: '180px' }}></th>
-                                      </tr>
-                                    </thead>
-                                    <tbody className="bg-white divide-y divide-gray-200">
-                                      {unmappedQuestions.map((question) => {
-                                        const questionNumber = question.number || question.id;
-                                        const selectedHeader = columnMapping[questionNumber] || '';
-
-                                        return (
-                                          <tr key={questionNumber}>
-                                            <td className="px-4 py-3 text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap" style={{ width: '100px' }}>
-                                              {questionNumber}
-                                            </td>
-                                            <td className="px-4 py-3 text-xs font-medium text-gray-500 tracking-wider" style={{ width: 'auto' }}>
-                                              <div className="truncate" title={question.text || ''}>
-                                                {question.text || '-'}
-                                              </div>
-                                            </td>
-                                          <td className="px-2 py-1 text-xs font-medium text-gray-500 tracking-wider text-right whitespace-nowrap" style={{ width: '180px' }}>
-                                            <button
-                                              type="button"
-                                              onClick={() => {
-                                                setSelectedQuestionForMapping(questionNumber);
-                                                setColumnHeaderModalSearch('');
-                                                setShowColumnHeaderModal(true);
-                                              }}
-                                              className="px-2 py-1 text-xs font-medium text-white rounded focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-1 transition-colors hover:opacity-90 whitespace-nowrap"
-                                              style={{ backgroundColor: BRAND_ORANGE }}
-                                            >
-                                              Manually Map
-                                            </button>
+                          </div>
+                          <div className="border border-gray-200 rounded-lg overflow-hidden flex flex-col">
+                            <table className="w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed' }}>
+                              <thead className="bg-gray-50">
+                                <tr>
+                                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style={{ width: '80px' }}>Q#</th>
+                                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '30%' }}>Question Type</th>
+                                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expected Headers</th>
+                                </tr>
+                              </thead>
+                            </table>
+                            <div className="overflow-y-auto overflow-x-hidden" style={{ maxHeight: 'calc(10 * 3rem)' }}>
+                              <table className="w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed' }}>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                  {variables.length > 0 ? (() => {
+                                    // Group variables by base question number
+                                    const baseQuestionMap = new Map<string, { baseNumber: string; type: string; variables: Variable[] }>();
+                                    
+                                    variables.forEach((variable) => {
+                                      // Filter out summary table variables
+                                      if (variable.name.endsWith('_Summary Tables') || 
+                                          variable.name.endsWith('_T2B') || 
+                                          variable.name.endsWith('_B2B') || 
+                                          variable.name.endsWith('_M3B') ||
+                                          (variable as any).isSummaryTable) {
+                                        return;
+                                      }
+                                      
+                                      const baseNumber = getBaseQuestionNumber(variable.name);
+                                      if (!baseQuestionMap.has(baseNumber)) {
+                                        // Get the question type from the original question data
+                                        // Try multiple formats for question number matching
+                                        const question = questionnaireQuestions.find(q => {
+                                          const qNum = q.number || q.id;
+                                          return qNum === baseNumber || 
+                                                 qNum === baseNumber.replace(/^Q/, '') ||
+                                                 String(qNum) === String(baseNumber);
+                                        });
+                                        const questionType = question?.type || variable.type || '';
+                                        
+                                        baseQuestionMap.set(baseNumber, {
+                                          baseNumber,
+                                          type: questionType,
+                                          variables: []
+                                        });
+                                      }
+                                      baseQuestionMap.get(baseNumber)!.variables.push(variable);
+                                    });
+                                    
+                                    // After grouping, update types for numeric grids and numeric lists
+                                    baseQuestionMap.forEach((group) => {
+                                      // Check if any variable in the group has a grid type
+                                      const hasGridType = group.variables.some(v => 
+                                        v.type && v.type.toLowerCase().includes('grid')
+                                      );
+                                      
+                                      if (hasGridType) {
+                                        // Find the grid type
+                                        const gridVar = group.variables.find(v => 
+                                          v.type && v.type.toLowerCase().includes('grid')
+                                        );
+                                        if (gridVar) {
+                                          group.type = gridVar.type;
+                                        }
+                                      } else {
+                                        // Check if variables have the pattern of a numeric grid (both r and c codes)
+                                        const hasGridPattern = group.variables.some(v => {
+                                          const hasRowCode = /r\d+/i.test(v.name);
+                                          const hasColCode = /c\d+/i.test(v.name);
+                                          return hasRowCode && hasColCode;
+                                        });
+                                        
+                                        if (hasGridPattern && group.type === 'Numeric') {
+                                          group.type = 'Numeric Grid';
+                                        } else {
+                                          // Check if this is a numeric list pattern
+                                          // Numeric lists can have:
+                                          // 1. Variables with _r codes but no _c codes (e.g., S5_r1, S5_r2)
+                                          // 2. Variables with just numeric codes after underscore (e.g., S14B_1, S14B_2)
+                                          const hasNumericListPattern = group.variables.some(v => {
+                                            // Check for _r1, _r2 pattern
+                                            const hasUnderscoreRowCode = /_[rR]\d+/i.test(v.name);
+                                            // Check for _1, _2 pattern (just a number after underscore at the end)
+                                            const hasNumericCode = /_\d+$/.test(v.name);
+                                            const hasColCode = /[cC]\d+/i.test(v.name);
+                                            return (hasUnderscoreRowCode || hasNumericCode) && !hasColCode;
+                                          });
+                                          
+                                          // If we detect numeric list pattern, try to get the correct type from the question
+                                          if (hasNumericListPattern) {
+                                            const question = questionnaireQuestions.find(q => {
+                                              const qNum = q.number || q.id;
+                                              return qNum === group.baseNumber || qNum === group.baseNumber.replace(/^Q/, '');
+                                            });
+                                            if (question && question.type && question.type.toLowerCase().includes('numeric list')) {
+                                              group.type = question.type;
+                                            } else if (group.type === 'Numeric') {
+                                              // Fallback: if type is still 'Numeric' but pattern suggests numeric list, update it
+                                              group.type = 'Numeric List';
+                                            }
+                                          }
+                                        }
+                                      }
+                                    });
+                                    
+                                    // Convert to array and filter
+                                    let groupedQuestions = Array.from(baseQuestionMap.values());
+                                    
+                                    // Apply search filter
+                                    if (qnrVariableSearch.trim()) {
+                                      const searchLower = qnrVariableSearch.toLowerCase();
+                                      groupedQuestions = groupedQuestions.filter(group => {
+                                        const matchesBase = group.baseNumber.toLowerCase().includes(searchLower);
+                                        const matchesType = group.type.toLowerCase().includes(searchLower);
+                                        const expectedHeaders = getExpectedColumnHeadersForBase(group.baseNumber, variables);
+                                        const matchesExpected = expectedHeaders.some(h => h.toLowerCase().includes(searchLower));
+                                        return matchesBase || matchesType || matchesExpected;
+                                      });
+                                    }
+                                    
+                                    return groupedQuestions.map((group) => {
+                                      const expectedHeaders = getExpectedColumnHeadersForBase(group.baseNumber, variables);
+                                      
+                                      return (
+                                        <tr key={group.baseNumber}>
+                                          <td className="px-4 py-3 text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap" style={{ width: '80px' }} title={group.baseNumber}>{group.baseNumber}</td>
+                                          <td className="px-4 py-3 text-xs font-medium text-gray-500 tracking-wider truncate" style={{ width: '30%' }} title={group.type || '-'}>{group.type || '-'}</td>
+                                          <td className="px-4 py-3 text-xs font-medium text-gray-500 tracking-wider">
+                                            <div className="flex flex-wrap gap-1">
+                                              {expectedHeaders.map((header, idx) => (
+                                                <span key={idx} className="inline-block px-2 py-1 text-xs font-medium rounded bg-blue-50 text-blue-700 border border-blue-200">
+                                                  {header}
+                                                </span>
+                                              ))}
+                                            </div>
                                           </td>
+                                        </tr>
+                                      );
+                                    });
+                                  })() : (
+                                <tr>
+                                      <td colSpan={3} className="px-4 py-8 text-center text-sm text-gray-500">
+                                        No variables available. Sync with QNR to load variables.
+                                  </td>
+                                </tr>
+                              )}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Column Headers Box */}
+                        <div className="flex flex-col">
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="text-sm font-semibold text-gray-900">
+                              Column Headers ({columnHeaders.length} total)
+                            </h4>
+                          </div>
+                          <div className="mb-3">
+                            <div className="relative">
+                              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                              <input
+                                type="text"
+                                id="column-header-search"
+                                name="column-header-search"
+                                placeholder="Search column headers..."
+                                value={columnHeaderSearch}
+                                onChange={(e) => setColumnHeaderSearch(e.target.value)}
+                                className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                              />
+                            </div>
+                          </div>
+                          <div className="border border-gray-200 rounded-lg overflow-hidden flex flex-col">
+                            <table className="w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed' }}>
+                              <thead className="bg-gray-50">
+                                <tr>
+                                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '3rem' }}>#</th>
+                                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: 'calc(100% - 3rem)' }}>Column Name</th>
+                                </tr>
+                              </thead>
+                            </table>
+                            <div className="overflow-y-auto overflow-x-hidden" style={{ maxHeight: 'calc(10 * 3rem)' }}>
+                              <table className="w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed' }}>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                  {columnHeaders.length > 0 ? (
+                                    columnHeaders
+                                      .filter((header) => {
+                                        if (!columnHeaderSearch.trim()) return true;
+                                        return header.toLowerCase().includes(columnHeaderSearch.toLowerCase());
+                                      })
+                                      .map((header, index) => {
+                                        // Find the original index for numbering
+                                        const originalIndex = columnHeaders.indexOf(header);
+                                        const isMapped = Object.values(columnMapping).includes(header);
+                                        return (
+                                          <tr 
+                                            key={index}
+                                            className={isMapped ? 'bg-green-50' : ''}
+                                          >
+                                            <td className="px-4 py-3 text-xs font-medium text-gray-500 tracking-wider" style={{ width: '3rem' }}>{originalIndex + 1}</td>
+                                            <td className="px-4 py-3 text-xs font-medium text-gray-500 tracking-wider truncate" style={{ width: 'calc(100% - 3rem)' }} title={header}>{header}</td>
                                           </tr>
                                         );
-                                      })}
-                                    </tbody>
-                                  </table>
-                                </div>
-                              </div>
+                                      })
+                                  ) : (
+                                    <tr>
+                                      <td colSpan={2} className="px-4 py-8 text-center text-sm text-gray-500">
+                                        No column headers found. Please upload a data file.
+                                      </td>
+                                    </tr>
+                                  )}
+                                </tbody>
+                              </table>
                             </div>
                           </div>
-                        );
-                      })()}
-                      
-                    <div className="mt-6 grid grid-cols-2 gap-6">
-                      {/* Column Headers Table */}
-                      <div className="flex flex-col">
-                        <div className="flex items-center justify-between mb-3">
-                          <h4 className="text-sm font-semibold text-gray-900">
-                          Column Headers ({columnHeaders.length} total)
-                        </h4>
                         </div>
-                        <div className="mb-3">
-                          <div className="relative">
-                            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                            <input
-                              type="text"
-                              placeholder="Search column headers..."
-                              value={columnHeaderSearch}
-                              onChange={(e) => setColumnHeaderSearch(e.target.value)}
-                              className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                            />
-                          </div>
-                        </div>
-                        <div className="border border-gray-200 rounded-lg overflow-hidden flex flex-col">
-                          <table className="w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed' }}>
-                            <thead className="bg-gray-50">
-                              <tr>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '3rem' }}>#</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: 'calc(100% - 3rem)' }}>Column Name</th>
-                              </tr>
-                            </thead>
-                          </table>
-                          <div className="overflow-y-auto overflow-x-hidden" style={{ maxHeight: 'calc(10 * 3rem)' }}>
-                            <table className="w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed' }}>
-                              <tbody className="bg-white divide-y divide-gray-200">
-                                {columnHeaders.length > 0 ? (
-                                  columnHeaders
-                                    .filter((header) => {
-                                      if (!columnHeaderSearch.trim()) return true;
-                                      return header.toLowerCase().includes(columnHeaderSearch.toLowerCase());
-                                    })
-                                    .map((header, index) => {
-                                      // Find the original index for numbering
-                                      const originalIndex = columnHeaders.indexOf(header);
-                                      const isMapped = Object.values(columnMapping).includes(header);
+
+                        {/* Data Mapping Box - Show all expected headers with mapping status */}
+                        {hasAttemptedMapping && (
+                        <div className="flex flex-col">
+                          {(() => {
+                            // Calculate counts
+                            const allHeaders = dataMappingMemo.filteredHeaders;
+                            const mappedCount = allHeaders.filter(header => {
+                              const status = dataMappingMemo.mappingStatusMap.get(header);
+                              return status?.isMapped === true;
+                            }).length;
+                            const unmappedCount = allHeaders.length - mappedCount;
+                            
+                            // Filter headers based on selected filter
+                            const displayHeaders = allHeaders.filter(header => {
+                              if (mappingFilter === 'all') return true;
+                              const status = dataMappingMemo.mappingStatusMap.get(header);
+                              if (mappingFilter === 'mapped') return status?.isMapped === true;
+                              if (mappingFilter === 'unmapped') return status?.isMapped !== true;
+                              return true;
+                            });
+                            
+                            return (
+                              <>
+                                <div className="flex items-center justify-between mb-3">
+                                  <h4 className="text-sm font-semibold text-gray-900">
+                                    Data Mapping
+                                  </h4>
+                                  {/* Filter Pills */}
+                                  <div className="flex items-center gap-1.5">
+                                    <button
+                                      onClick={() => setMappingFilter('all')}
+                                      className={`px-2 py-1 text-xs font-medium rounded-full transition-colors ${
+                                        mappingFilter === 'all'
+                                          ? 'bg-orange-100 text-orange-700 border border-orange-500'
+                                          : 'bg-gray-100 text-gray-700 border border-transparent hover:bg-gray-200'
+                                      }`}
+                                    >
+                                      All ({allHeaders.length})
+                                    </button>
+                                    <button
+                                      onClick={() => setMappingFilter('mapped')}
+                                      className={`px-2 py-1 text-xs font-medium rounded-full transition-colors ${
+                                        mappingFilter === 'mapped'
+                                          ? 'bg-green-100 text-green-700 border border-green-500'
+                                          : 'bg-gray-100 text-gray-700 border border-transparent hover:bg-gray-200'
+                                      }`}
+                                    >
+                                      Mapped ({mappedCount})
+                                    </button>
+                                    <button
+                                      onClick={() => setMappingFilter('unmapped')}
+                                      className={`px-2 py-1 text-xs font-medium rounded-full transition-colors ${
+                                        mappingFilter === 'unmapped'
+                                          ? 'bg-red-100 text-red-700 border border-red-500'
+                                          : 'bg-gray-100 text-gray-700 border border-transparent hover:bg-gray-200'
+                                      }`}
+                                    >
+                                      Unmapped ({unmappedCount})
+                                    </button>
+                                  </div>
+                                </div>
+                                <div className="mb-3">
+                                  <div className="relative">
+                                    <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                    <input
+                                      type="text"
+                                      id="mapping-search"
+                                      name="mapping-search"
+                                      placeholder="Search mappings..."
+                                      value={qnrVariableSearch}
+                                      onChange={(e) => setQnrVariableSearch(e.target.value)}
+                                      className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                    />
+                                  </div>
+                                </div>
+                                <div className="border border-gray-200 rounded-lg overflow-hidden flex flex-col">
+                                  <table className="w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed' }}>
+                                    <thead className="bg-gray-50">
+                                      <tr>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Expected Header</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Match Column Header</th>
+                                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap"></th>
+                                      </tr>
+                                    </thead>
+                                  </table>
+                                  <div className="overflow-y-auto overflow-x-auto" style={{ maxHeight: 'calc(10 * 3rem)' }}>
+                                    <table className="w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed' }}>
+                                      <tbody className="bg-white divide-y divide-gray-200">
+                                        {displayHeaders.length === 0 ? (
+                                          <tr>
+                                            <td colSpan={3} className="px-4 py-8 text-center text-sm text-gray-500">
+                                              {variables.length === 0 ? 'No variables available. Sync with QNR to load variables.' : mappingFilter === 'mapped' ? 'No mapped headers found.' : mappingFilter === 'unmapped' ? 'No unmapped headers found.' : 'No expected headers found.'}
+                                            </td>
+                                          </tr>
+                                        ) : (
+                                          displayHeaders.map((expectedHeader) => {
+                                      const status = dataMappingMemo.mappingStatusMap.get(expectedHeader) || { isMapped: false, mappedColumnHeader: '', mappedVariableName: '' };
+                                      const { isMapped, mappedColumnHeader, mappedVariableName } = status;
+                                      
                                       return (
-                                        <tr 
-                                          key={index}
-                                          onClick={() => {
-                                            setSelectedColumnHeader(header);
-                                            setShowMappingModal(true);
-                                            setSelectedVariableForMapping('');
-                                          }}
-                                          className={`cursor-pointer hover:bg-gray-50 transition-colors ${isMapped ? 'bg-green-50' : ''}`}
-                                        >
-                                          <td className="px-4 py-3 text-xs font-medium text-gray-500 tracking-wider" style={{ width: '3rem' }}>{originalIndex + 1}</td>
-                                          <td className="px-4 py-3 text-xs font-medium text-gray-500 tracking-wider truncate" style={{ width: 'calc(100% - 3rem)' }} title={header}>{header}</td>
+                                        <tr key={expectedHeader}>
+                                          <td className="px-4 py-3 text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap" title={expectedHeader}>{expectedHeader}</td>
+                                          <td className="px-4 py-3 text-xs text-gray-900 whitespace-nowrap" title={mappedColumnHeader || undefined}>
+                                            {isMapped ? mappedColumnHeader : <span className="text-gray-400 italic">Not mapped</span>}
+                                          </td>
+                                          <td className="px-4 py-3 text-right whitespace-nowrap">
+                                            {isMapped ? (
+                                              <button
+                                                onClick={async (e) => {
+                                                  e.stopPropagation();
+                                                  // Remove mapping for this variable
+                                                  const newMapping = { ...columnMapping };
+                                                  delete newMapping[mappedVariableName];
+                                                  setColumnMapping(newMapping);
+                                                  
+                                                  // Save to backend
+                                                  if (selectedQuestionnaire) {
+                                                    try {
+                                                      const saveResponse = await fetch(`${API_BASE_URL}/api/questionnaire/map-columns`, {
+                                                        method: 'POST',
+                                                        headers: {
+                                                          'Content-Type': 'application/json',
+                                                        },
+                                                        body: JSON.stringify({
+                                                          questionnaireId: selectedQuestionnaire.id,
+                                                          variableNames: variables.map(v => v.name),
+                                                          dataHeaders: columnHeaders,
+                                                          mapping: newMapping
+                                                        })
+                                                      });
+                                                      if (saveResponse.ok) {
+                                                        debouncedLoadFileInfo(500);
+                                                      }
+                                                    } catch (error) {
+                                                      console.error('Error saving mapping:', error);
+                                                    }
+                                                  }
+                                                }}
+                                                className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700 hover:bg-green-200 transition-colors"
+                                                title={`Mapped to: ${mappedColumnHeader}`}
+                                              >
+                                                <span>Mapped</span>
+                                                <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                </svg>
+                                              </button>
+                                            ) : (
+                                              <button
+                                                onClick={() => {
+                                                  setSelectedUnmappedExpectedHeader(expectedHeader);
+                                                  setShowUnmappedHeaderMappingModal(true);
+                                                }}
+                                                className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700 hover:bg-red-200 transition-colors cursor-pointer"
+                                                title="Click to map this header"
+                                              >
+                                                Unmapped
+                                              </button>
+                                            )}
+                                          </td>
                                         </tr>
                                       );
                                     })
-                                ) : (
-                                  <tr>
-                                    <td colSpan={2} className="px-4 py-8 text-center text-sm text-gray-500">
-                                      No column headers found. Please upload a data file.
-                                    </td>
-                                  </tr>
-                                )}
-                              </tbody>
-                            </table>
-                                    </div>
-                                </div>
-                              </div>
-
-                      {/* QNR Mapping Table */}
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                              </>
+                            );
+                          })()}
+                        </div>
+                        )}
+                      </div>
+                    ) : (
+                      /* QNR Variables Box - Full width when no data uploaded */
                       <div className="flex flex-col">
                         <div className="flex items-center justify-between mb-3">
                           <h4 className="text-sm font-semibold text-gray-900">
-                            QNR Mapping
+                            QNR Variables {variables.length > 0 ? (() => {
+                              const baseQuestionMap = new Map<string, { baseNumber: string; type: string; variables: Variable[] }>();
+                              variables.forEach((variable) => {
+                                if (variable.name.endsWith('_Summary Tables') || 
+                                    variable.name.endsWith('_T2B') || 
+                                    variable.name.endsWith('_B2B') || 
+                                    variable.name.endsWith('_M3B') ||
+                                    (variable as any).isSummaryTable) {
+                                  return;
+                                }
+                                const baseNumber = getBaseQuestionNumber(variable.name);
+                                if (!baseQuestionMap.has(baseNumber)) {
+                                  // Get the question type from the original question data
+                                  const question = questionnaireQuestions.find(q => (q.number || q.id) === baseNumber);
+                                  const questionType = question?.type || variable.type || '';
+                                  
+                                  baseQuestionMap.set(baseNumber, {
+                                    baseNumber,
+                                    type: questionType,
+                                    variables: []
+                                  });
+                                }
+                                baseQuestionMap.get(baseNumber)!.variables.push(variable);
+                              });
+                              return `(${baseQuestionMap.size})`;
+                            })() : ''}
                           </h4>
                         </div>
                         <div className="mb-3">
@@ -5405,6 +6782,8 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                             <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                             <input
                               type="text"
+                              id="qnr-variable-search-data"
+                              name="qnr-variable-search-data"
                               placeholder="Search QNR variables..."
                               value={qnrVariableSearch}
                               onChange={(e) => setQnrVariableSearch(e.target.value)}
@@ -5413,105 +6792,132 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                           </div>
                         </div>
                         <div className="border border-gray-200 rounded-lg overflow-hidden flex flex-col">
+                          <table className="w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed' }}>
+                            <thead className="bg-gray-50">
+                              <tr>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style={{ width: '80px' }}>Q#</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '30%' }}>Question Type</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expected Headers</th>
+                              </tr>
+                            </thead>
+                          </table>
                           <div className="overflow-y-auto overflow-x-hidden" style={{ maxHeight: 'calc(10 * 3rem)' }}>
-                            <table className="w-full divide-y divide-gray-200">
-                              <thead className="bg-gray-50 sticky top-0 z-10">
-                            <tr>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">QNR Variable</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '50%' }}>Column Header Match</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '30%' }}></th>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white divide-y divide-gray-200">
-                                {variables.length > 0 ? (
-                                  variables
-                                    .filter((variable) => {
-                                      // Filter out summary table variables
-                                      if (variable.name.endsWith('_Summary Tables') || 
-                                          variable.name.endsWith('_T2B') || 
-                                          variable.name.endsWith('_B2B') || 
-                                          variable.name.endsWith('_M3B') ||
-                                          (variable as any).isSummaryTable) {
-                                        return false;
-                                      }
+                            <table className="w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed' }}>
+                              <tbody className="bg-white divide-y divide-gray-200">
+                                {variables.length > 0 ? (() => {
+                                  // Group variables by base question number
+                                  const baseQuestionMap = new Map<string, { baseNumber: string; type: string; variables: Variable[] }>();
+                                  
+                                  variables.forEach((variable) => {
+                                    // Filter out summary table variables
+                                    if (variable.name.endsWith('_Summary Tables') || 
+                                        variable.name.endsWith('_T2B') || 
+                                        variable.name.endsWith('_B2B') || 
+                                        variable.name.endsWith('_M3B') ||
+                                        (variable as any).isSummaryTable) {
+                                      return;
+                                    }
+                                    
+                                    const baseNumber = getBaseQuestionNumber(variable.name);
+                                    if (!baseQuestionMap.has(baseNumber)) {
+                                      // Get the question type from the original question data
+                                      const question = questionnaireQuestions.find(q => (q.number || q.id) === baseNumber);
+                                      const questionType = question?.type || variable.type || '';
                                       
-                                      // Apply search filter
-                                      if (qnrVariableSearch.trim()) {
-                                        const searchLower = qnrVariableSearch.toLowerCase();
-                                        const matchesName = variable.name.toLowerCase().includes(searchLower);
-                                        const matchesDescription = variable.description?.toLowerCase().includes(searchLower) || false;
-                                        const mappedColumn = columnMapping[variable.name] || '';
-                                        const matchesMappedColumn = mappedColumn.toLowerCase().includes(searchLower);
-                                        if (!matchesName && !matchesDescription && !matchesMappedColumn) {
-                                          return false;
+                                      baseQuestionMap.set(baseNumber, {
+                                        baseNumber,
+                                        type: questionType,
+                                        variables: []
+                                      });
+                                    }
+                                    baseQuestionMap.get(baseNumber)!.variables.push(variable);
+                                  });
+                                  
+                                  // After grouping, update types for numeric grids and numeric lists
+                                  baseQuestionMap.forEach((group) => {
+                                    // Check if any variable in the group has a grid type
+                                    const hasGridType = group.variables.some(v => 
+                                      v.type && v.type.toLowerCase().includes('grid')
+                                    );
+                                    
+                                    if (hasGridType) {
+                                      // Find the grid type
+                                      const gridVar = group.variables.find(v => 
+                                        v.type && v.type.toLowerCase().includes('grid')
+                                      );
+                                      if (gridVar) {
+                                        group.type = gridVar.type;
+                                      }
+                                    } else {
+                                      // Check if variables have the pattern of a numeric grid (both r and c codes)
+                                      const hasGridPattern = group.variables.some(v => {
+                                        const hasRowCode = /r\d+/i.test(v.name);
+                                        const hasColCode = /c\d+/i.test(v.name);
+                                        return hasRowCode && hasColCode;
+                                      });
+                                      
+                                      if (hasGridPattern && group.type === 'Numeric') {
+                                        group.type = 'Numeric Grid';
+                                      } else {
+                                        // Check if this is a numeric list pattern (variables with _r codes but no _c codes)
+                                        const hasNumericListPattern = group.variables.some(v => {
+                                          const hasUnderscoreRowCode = /_[rR]\d+/i.test(v.name);
+                                          const hasColCode = /[cC]\d+/i.test(v.name);
+                                          return hasUnderscoreRowCode && !hasColCode;
+                                        });
+                                        
+                                        // If we detect numeric list pattern, try to get the correct type from the question
+                                        if (hasNumericListPattern) {
+                                          const question = questionnaireQuestions.find(q => {
+                                            const qNum = q.number || q.id;
+                                            return qNum === group.baseNumber || qNum === group.baseNumber.replace(/^Q/, '');
+                                          });
+                                          if (question && question.type && question.type.toLowerCase().includes('numeric list')) {
+                                            group.type = question.type;
+                                          } else if (group.type === 'Numeric') {
+                                            // Fallback: if type is still 'Numeric' but pattern suggests numeric list, update it
+                                            group.type = 'Numeric List';
+                                          }
                                         }
                                       }
-                                      
-                                      // Only show mapped variables
-                                        const mappedColumn = columnMapping[variable.name] || '';
-                                        const isMapped = mappedColumn && mappedColumn.trim() !== '';
-                                      if (!isMapped) {
-                                        return false;
-                                      }
-                                      
-                                      return true;
-                                    })
-                                    .map((variable) => {
-                                    const mappedColumn = columnMapping[variable.name] || '';
-                                    const isMapped = mappedColumn && mappedColumn.trim() !== '';
-                                    
-                                    // Check if variable has data
-                                    const varData = variableData[variable.name];
-                                    
-                                    // For summary tables (numeric grids), check if any child statement variables have data
-                                    let hasData = false;
-                                    if ((variable as any).isSummaryTable && variable.statements) {
-                                      // For summary tables, extract base question number (remove "_Summary" suffix)
-                                      let baseName = variable.name;
-                                      if (variable.name.endsWith('_Summary')) {
-                                        baseName = variable.name.replace('_Summary', '');
-                                      }
-                                      hasData = Object.keys(variable.statements).some((stmtCode) => {
-                                        const statementVarName = `${baseName}_${stmtCode}`;
-                                        const statementData = variableData[statementVarName];
-                                        return statementData && (
-                                          (statementData.count && statementData.count > 0) ||
-                                          (statementData.frequencies && Object.keys(statementData.frequencies || {}).length > 0) ||
-                                          (statementData.values && Array.isArray(statementData.values) && statementData.values.length > 0) ||
-                                          (statementData.sum !== undefined) ||
-                                          (statementData.mean !== undefined)
-                                        );
-                                      });
-                                    } else {
-                                      hasData = varData && (
-                                        (varData.count && varData.count > 0) ||
-                                        (varData.frequencies && Object.keys(varData.frequencies || {}).length > 0) ||
-                                        (varData.values && Array.isArray(varData.values) && varData.values.length > 0)
-                                      );
                                     }
+                                  });
                                   
-                                  return (
-                                      <tr key={variable.name}>
-                                        <td className="px-4 py-3 text-xs font-medium text-gray-500 tracking-wider truncate whitespace-nowrap" style={{ width: 'auto' }} title={variable.name}>{variable.name}</td>
-                                        <td className="px-4 py-3 text-xs font-medium text-gray-500 tracking-wider truncate" style={{ width: '50%' }} title={isMapped ? mappedColumn : '-'}>{isMapped ? mappedColumn : '-'}</td>
-                                        <td className="px-4 py-3 text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap text-right" style={{ width: '30%' }}>
-                                          <div className="inline-flex items-center gap-2">
-                                            {isMapped ? (
-                                              <span className="inline-block text-xs font-medium rounded bg-green-100 text-green-800 text-center" style={{ width: '80px' }}>Mapped</span>
-                                            ) : (
-                                              <span className="inline-block text-xs font-medium rounded bg-gray-100 text-gray-600 text-center" style={{ width: '80px' }}>Unmapped</span>
-                                            )}
-                                            {hasData ? (
-                                              <span className="inline-block text-xs font-medium rounded bg-green-100 text-green-800 text-center" style={{ width: '80px' }}>Has Data</span>
-                                            ) : (
-                                              <span className="inline-block text-xs font-medium rounded bg-red-100 text-red-800 text-center" style={{ width: '80px' }}>No Data</span>
-                                            )}
+                                  // Convert to array and filter
+                                  let groupedQuestions = Array.from(baseQuestionMap.values());
+                                  
+                                  // Apply search filter
+                                  if (qnrVariableSearch.trim()) {
+                                    const searchLower = qnrVariableSearch.toLowerCase();
+                                    groupedQuestions = groupedQuestions.filter(group => {
+                                      const matchesBase = group.baseNumber.toLowerCase().includes(searchLower);
+                                      const matchesType = group.type.toLowerCase().includes(searchLower);
+                                      const expectedHeaders = getExpectedColumnHeadersForBase(group.baseNumber, variables);
+                                      const matchesExpected = expectedHeaders.some(h => h.toLowerCase().includes(searchLower));
+                                      return matchesBase || matchesType || matchesExpected;
+                                    });
+                                  }
+                                  
+                                  return groupedQuestions.map((group) => {
+                                    const expectedHeaders = getExpectedColumnHeadersForBase(group.baseNumber, variables);
+                                    
+                                    return (
+                                      <tr key={group.baseNumber}>
+                                        <td className="px-4 py-3 text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap" style={{ width: '80px' }} title={group.baseNumber}>{group.baseNumber}</td>
+                                        <td className="px-4 py-3 text-xs font-medium text-gray-500 tracking-wider truncate" style={{ width: '30%' }} title={group.type || '-'}>{group.type || '-'}</td>
+                                        <td className="px-4 py-3 text-xs font-medium text-gray-500 tracking-wider">
+                                          <div className="flex flex-wrap gap-1">
+                                            {expectedHeaders.map((header, idx) => (
+                                              <span key={idx} className="inline-block px-2 py-1 text-xs font-medium rounded bg-blue-50 text-blue-700 border border-blue-200">
+                                                {header}
+                                              </span>
+                                            ))}
                                           </div>
-                                      </td>
-                                    </tr>
-                                  );
-                                  })
-                            ) : (
+                                        </td>
+                                      </tr>
+                                    );
+                                  });
+                                })() : (
                               <tr>
                                     <td colSpan={3} className="px-4 py-8 text-center text-sm text-gray-500">
                                       No variables available. Sync with QNR to load variables.
@@ -5523,9 +6929,8 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                       </div>
                 </div>
                       </div>
-                    </div>
-                    </>
-                  )}
+                    )}
+                  </div>
                       
               </div>
             </div>
@@ -5782,6 +7187,8 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                 <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                 <input
                   type="text"
+                  id="column-header-modal-search"
+                  name="column-header-modal-search"
                   placeholder="Search column headers..."
                   value={columnHeaderModalSearch}
                   onChange={(e) => setColumnHeaderModalSearch(e.target.value)}
@@ -5944,150 +7351,368 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
         document.body
       )}
 
-      {/* Column Header Mapping Modal */}
-      {showMappingModal && selectedColumnHeader && selectedQuestionnaire && createPortal(
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setShowMappingModal(false);
-              setSelectedColumnHeader(null);
-              setSelectedVariableForMapping('');
-            }
-          }}
-        >
-          <div 
-            className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[80vh] flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">Map Column Header</h3>
+      {/* Unmapped Header Mapping Modal */}
+      {showUnmappedHeaderMappingModal && selectedUnmappedExpectedHeader && createPortal(
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style={{ top: 0, left: 0, right: 0, bottom: 0, position: 'fixed' }} onClick={() => {
+          setShowUnmappedHeaderMappingModal(false);
+          setSelectedUnmappedExpectedHeader(null);
+          setUnmappedHeaderMappingSearch('');
+        }}>
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Map Expected Header
+                </h3>
+                <p className="text-sm text-gray-500 mt-1">{selectedUnmappedExpectedHeader}</p>
+              </div>
               <button
                 onClick={() => {
-                  setShowMappingModal(false);
-                  setSelectedColumnHeader(null);
-                  setSelectedVariableForMapping('');
+                  setShowUnmappedHeaderMappingModal(false);
+                  setSelectedUnmappedExpectedHeader(null);
+                  setUnmappedHeaderMappingSearch('');
                 }}
                 className="text-gray-400 hover:text-gray-600"
               >
-                <XMarkIcon className="h-5 w-5" />
+                <XMarkIcon className="h-6 w-6" />
               </button>
             </div>
             
-            <div className="px-6 py-4 flex-1 overflow-y-auto">
+            {/* Search and Column Headers List */}
+            <div className="flex-1 overflow-y-auto p-6">
               <div className="mb-4">
-                <p className="text-sm text-gray-600 mb-2">
-                  <span className="font-medium">Column Header:</span> {selectedColumnHeader}
-                </p>
-                <p className="text-sm text-gray-500">
-                  Select a QNR variable to map this column header to:
-                </p>
+                <div className="relative">
+                  <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search unused column headers..."
+                    value={unmappedHeaderMappingSearch}
+                    onChange={(e) => setUnmappedHeaderMappingSearch(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    autoFocus
+                  />
+                </div>
               </div>
               
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  QNR Variable
-                </label>
-                <select
-                  value={selectedVariableForMapping}
-                  onChange={(e) => setSelectedVariableForMapping(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                >
-                  <option value="">-- Select a variable --</option>
-                  {variables
-                    .filter((variable) => {
-                      // Filter out summary table variables
-                      if (variable.name.endsWith('_Summary Tables') || 
-                          variable.name.endsWith('_T2B') || 
-                          variable.name.endsWith('_B2B') || 
-                          variable.name.endsWith('_M3B') ||
-                          (variable as any).isSummaryTable) {
-                        return false;
-                      }
-                      
-                      // Only show unmapped variables
-                      const mappedColumn = columnMapping[variable.name] || '';
-                      return !mappedColumn || mappedColumn.trim() === '';
-                    })
-                    .map((variable) => (
-                      <option key={variable.name} value={variable.name}>
-                        {variable.name} {variable.description ? `- ${variable.description.split('\n')[0]}` : ''}
-                      </option>
-                    ))}
-                </select>
+              {/* List of unused column headers */}
+              <div className="space-y-2">
+                {(() => {
+                  // Get unused column headers
+                  const usedColumnHeaders = new Set<string>(
+                    Object.values(columnMapping)
+                      .filter(h => h && h.trim() !== '')
+                      .map(h => h.toLowerCase().trim())
+                  );
+                  const unusedColumnHeaders = columnHeaders.filter(colHeader => {
+                    if (!colHeader || colHeader.trim() === '') return false;
+                    return !usedColumnHeaders.has(colHeader.toLowerCase().trim());
+                  });
+                  
+                  // Filter by search
+                  const filteredHeaders = unusedColumnHeaders.filter(header => {
+                    if (!unmappedHeaderMappingSearch.trim()) return true;
+                    return header.toLowerCase().includes(unmappedHeaderMappingSearch.toLowerCase());
+                  });
+                  
+                  if (filteredHeaders.length === 0) {
+                    return (
+                      <div className="text-center py-8 text-sm text-gray-500">
+                        {unmappedHeaderMappingSearch.trim() ? 'No unused column headers match your search.' : 'No unused column headers available.'}
+                      </div>
+                    );
+                  }
+                  
+                  return filteredHeaders.map((colHeader) => (
+                    <button
+                      key={colHeader}
+                      onClick={async () => {
+                        // Update the mapping
+                        const newMapping = { ...columnMapping };
+                        newMapping[selectedUnmappedExpectedHeader] = colHeader;
+                        setColumnMapping(newMapping);
+                        
+                        // Save to backend
+                        if (selectedQuestionnaire) {
+                          try {
+                            const saveResponse = await fetch(`${API_BASE_URL}/api/questionnaire/map-columns`, {
+                              method: 'POST',
+                              headers: {
+                                'Content-Type': 'application/json',
+                              },
+                              body: JSON.stringify({
+                                questionnaireId: selectedQuestionnaire.id,
+                                variableNames: variables.map(v => v.name),
+                                dataHeaders: columnHeaders,
+                                mapping: newMapping
+                              })
+                            });
+                            if (saveResponse.ok) {
+                              debouncedLoadFileInfo(500);
+                            }
+                          } catch (error) {
+                            console.error('Error saving mapping:', error);
+                          }
+                        }
+                        
+                        // Close modal
+                        setShowUnmappedHeaderMappingModal(false);
+                        setSelectedUnmappedExpectedHeader(null);
+                        setUnmappedHeaderMappingSearch('');
+                      }}
+                      className="w-full text-left px-4 py-3 text-sm border border-gray-200 rounded-md hover:bg-orange-50 hover:border-orange-300 transition-colors"
+                    >
+                      {colHeader}
+                    </button>
+                  ));
+                })()}
               </div>
             </div>
-            
-            <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-end gap-3">
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Unmapped Question Mapping Modal */}
+      {showUnmappedQuestionMappingModal && selectedUnmappedQuestion && createPortal(
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style={{ top: 0, left: 0, right: 0, bottom: 0, position: 'fixed' }} onClick={() => {
+          setShowUnmappedQuestionMappingModal(false);
+          setSelectedUnmappedQuestion(null);
+          setOpenDropdownForHeader(null);
+          setDropdownSearch('');
+        }}>
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Map Expected Headers for Question {selectedUnmappedQuestion.baseNumber}
+                </h3>
+                <p className="text-sm text-gray-500 mt-1">{selectedUnmappedQuestion.type || 'Unknown Type'}</p>
+              </div>
               <button
                 onClick={() => {
-                  setShowMappingModal(false);
-                  setSelectedColumnHeader(null);
-                  setSelectedVariableForMapping('');
+                  setShowUnmappedQuestionMappingModal(false);
+                  setSelectedUnmappedQuestion(null);
+                  setOpenDropdownForHeader(null);
+                  setDropdownSearch('');
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <XMarkIcon className="h-6 w-6" />
+              </button>
+            </div>
+            
+            {/* Expected Headers and Column Headers Mapping */}
+            <div 
+              className="flex-1 overflow-y-auto p-6"
+              onClick={() => {
+                setOpenDropdownForHeader(null);
+                setDropdownSearch('');
+              }}
+            >
+              {(() => {
+                const expectedHeaders = getExpectedColumnHeadersForBase(selectedUnmappedQuestion.baseNumber, selectedUnmappedQuestion.variables);
+                const usedHeaders = new Set(Object.values(columnMapping).filter(h => h && h !== ''));
+                
+                return (
+                  <div className="space-y-4">
+                    {expectedHeaders.map((expectedHeader, idx) => {
+                      // Find which variable this expected header corresponds to
+                      const matchingVariable = selectedUnmappedQuestion.variables.find(v => v.name === expectedHeader);
+                      const currentMapping = columnMapping[expectedHeader] || '';
+                      const isDropdownOpen = openDropdownForHeader === expectedHeader;
+                      
+                      // Filter headers based on dropdown search
+                      const filteredHeaders = columnHeaders.filter(h => 
+                        !dropdownSearch || h.toLowerCase().includes(dropdownSearch.toLowerCase())
+                      );
+                      
+                      return (
+                        <div key={idx} className="flex items-center gap-4" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center gap-2 min-w-[200px]">
+                            <span className="inline-block px-2 py-1 text-xs font-medium rounded bg-blue-50 text-blue-700 border border-blue-200">
+                              {expectedHeader}
+                            </span>
+                            {matchingVariable && (
+                              <span className="text-xs text-gray-500">
+                                ({matchingVariable.type || 'Unknown'})
+                              </span>
+                            )}
+                          </div>
+                          
+                          <div className="flex-1 relative">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (isDropdownOpen) {
+                                  setOpenDropdownForHeader(null);
+                                  setDropdownSearch('');
+                                } else {
+                                  setOpenDropdownForHeader(expectedHeader);
+                                  setDropdownSearch('');
+                                }
+                              }}
+                              className="w-full text-left px-4 py-2 text-sm border border-gray-300 rounded-md bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent flex items-center justify-between"
+                            >
+                              <span className={currentMapping ? 'text-gray-900' : 'text-gray-500'}>
+                                {currentMapping || 'Select column header...'}
+                              </span>
+                              <svg className={`h-5 w-5 text-gray-400 transition-transform ${isDropdownOpen ? 'transform rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              </svg>
+                            </button>
+                            
+                            {isDropdownOpen && (
+                              <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-hidden flex flex-col">
+                                {/* Search bar inside dropdown */}
+                                <div className="p-2 border-b border-gray-200">
+                                  <div className="relative">
+                                    <MagnifyingGlassIcon className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                    <input
+                                      type="text"
+                                      id="dropdown-column-header-search"
+                                      name="dropdown-column-header-search"
+                                      placeholder="Search column headers..."
+                                      value={dropdownSearch}
+                                      onChange={(e) => setDropdownSearch(e.target.value)}
+                                      className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                      autoFocus
+                                      onClick={(e) => e.stopPropagation()}
+                                    />
+                                  </div>
+                                </div>
+                                
+                                {/* Dropdown list */}
+                                <div className="overflow-y-auto max-h-48">
+                                  {filteredHeaders.length === 0 ? (
+                                    <div className="p-4 text-center text-sm text-gray-500">
+                                      No column headers found
+                                    </div>
+                                  ) : (
+                                    <div className="divide-y divide-gray-200">
+                                      {filteredHeaders.map((header) => {
+                                        const isUsed = usedHeaders.has(header) && header !== currentMapping;
+                                        const isSelected = currentMapping === header;
+                                        
+                                        return (
+                                          <button
+                                            key={header}
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              if (isUsed) return;
+                                              
+                                              const newMapping = {
+                                                ...columnMapping,
+                                                [expectedHeader]: header
+                                              };
+                                              
+                                              setColumnMapping(newMapping);
+                                              
+                                              // Save to backend
+                                              if (selectedQuestionnaire) {
+                                                fetch(`${API_BASE_URL}/api/questionnaire/map-columns`, {
+                                                  method: 'POST',
+                                                  headers: {
+                                                    'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`,
+                                                    'Content-Type': 'application/json'
+                                                  },
+                                                  body: JSON.stringify({
+                                                    questionnaireId: selectedQuestionnaire.id,
+                                                    variableNames: variables.map(v => v.name),
+                                                    dataHeaders: columnHeaders,
+                                                    mapping: newMapping
+                                                  })
+                                                }).then(() => {
+                                                  debouncedLoadFileInfo(500);
+                                                });
+                                              }
+                                              
+                                              setOpenDropdownForHeader(null);
+                                              setDropdownSearch('');
+                                            }}
+                                            disabled={isUsed}
+                                            className={`w-full text-left px-4 py-2 text-sm transition-colors ${
+                                              isSelected 
+                                                ? 'bg-orange-50 text-orange-700 font-medium' 
+                                                : isUsed
+                                                ? 'bg-gray-50 text-gray-400 cursor-not-allowed'
+                                                : 'hover:bg-gray-50 text-gray-700'
+                                            }`}
+                                          >
+                                            <div className="flex items-center justify-between">
+                                              <span>{header}</span>
+                                              {isSelected && (
+                                                <span className="text-xs text-orange-600">✓</span>
+                                              )}
+                                              {isUsed && header !== currentMapping && (
+                                                <span className="text-xs text-gray-400">Already mapped</span>
+                                              )}
+                                            </div>
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          
+                          {currentMapping && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newMapping = { ...columnMapping };
+                                delete newMapping[expectedHeader];
+                                
+                                setColumnMapping(newMapping);
+                                
+                                // Save to backend
+                                if (selectedQuestionnaire) {
+                                  fetch(`${API_BASE_URL}/api/questionnaire/map-columns`, {
+                                    method: 'POST',
+                                    headers: {
+                                      'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`,
+                                      'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify({
+                                      questionnaireId: selectedQuestionnaire.id,
+                                      variableNames: variables.map(v => v.name),
+                                      dataHeaders: columnHeaders,
+                                      mapping: newMapping
+                                    })
+                                  }).then(() => {
+                                    debouncedLoadFileInfo(500);
+                                  });
+                                }
+                              }}
+                              className="px-3 py-2 text-xs text-red-600 hover:text-red-700 font-medium whitespace-nowrap"
+                            >
+                              Clear
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </div>
+            
+            {/* Footer */}
+            <div className="border-t border-gray-200 p-4 flex items-center justify-end">
+              <button
+                onClick={() => {
+                  setShowUnmappedQuestionMappingModal(false);
+                  setSelectedUnmappedQuestion(null);
+                  setOpenDropdownForHeader(null);
+                  setDropdownSearch('');
                 }}
                 className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
               >
-                Cancel
-              </button>
-              <button
-                onClick={async () => {
-                  if (!selectedVariableForMapping || !selectedColumnHeader || !selectedQuestionnaire) {
-                    return;
-                  }
-                  
-                  try {
-                    // Update local state
-                    const newMapping = {
-                      ...columnMapping,
-                      [selectedVariableForMapping]: selectedColumnHeader
-                    };
-                    setColumnMapping(newMapping);
-                    
-                    // Save to backend
-                    const variableNames = variables.map(v => v.name);
-                    const response = await fetch(`${API_BASE_URL}/api/questionnaire/map-columns`, {
-                      method: 'POST',
-                      headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`,
-                        'Content-Type': 'application/json'
-                      },
-                      body: JSON.stringify({
-                        questionnaireId: selectedQuestionnaire.id,
-                        variableNames: variableNames,
-                        dataHeaders: columnHeaders,
-                        mapping: newMapping
-                      })
-                    });
-                    
-                    if (response.ok) {
-                      const result = await response.json();
-                      if (result.mapping) {
-                        setColumnMapping(result.mapping);
-                      }
-                      // Reload file info to get latest status
-                      setTimeout(() => {
-                        loadFileInfo();
-                      }, 500);
-                    } else {
-                      console.error('Failed to save mapping');
-                      // Revert local state on error
-                      setColumnMapping(columnMapping);
-                    }
-                    
-                    setShowMappingModal(false);
-                    setSelectedColumnHeader(null);
-                    setSelectedVariableForMapping('');
-                  } catch (error) {
-                    console.error('Error saving mapping:', error);
-                    // Revert local state on error
-                    setColumnMapping(columnMapping);
-                  }
-                }}
-                disabled={!selectedVariableForMapping}
-                className="px-4 py-2 text-sm font-medium text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{ backgroundColor: BRAND_ORANGE }}
-              >
-                Save Mapping
+                Close
               </button>
             </div>
           </div>
