@@ -20,6 +20,7 @@ import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import { type BannerGroup, type BannerCut } from '../types/dataTabulation';
 import BannerBuilder from './BannerBuilder';
+import OldBannerBuilder from './OldBannerBuilder';
 import CrossTabDisplay from './CrossTabDisplay';
 import { type ParsedDataFile } from '../utils/dataTabulationHelpers';
 import { autoMatchHeaders } from '../utils/headerMatcher';
@@ -106,19 +107,22 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
   const [customNetsMode, setCustomNetsMode] = useState<Record<string, boolean>>({});
   const [variableFilter, setVariableFilter] = useState('');
   const [allQuestionnaires, setAllQuestionnaires] = useState<any[]>([]);
-  const [qnrViewMode, setQnrViewMode] = useState<'variables' | 'banners' | 'data'>('variables');
+  const [qnrViewMode, setQnrViewMode] = useState<'variables' | 'banners' | 'oldbanners' | 'data'>('variables');
   const [fullRawData, setFullRawData] = useState<{ columns: string[]; rows: any[] } | null>(null);
   const [loadingFullRawData, setLoadingFullRawData] = useState(false);
   const [bannerGroups, setBannerGroups] = useState<BannerGroup[]>([]);
+  const [newBannerGroups, setNewBannerGroups] = useState<BannerGroup[]>([]);
   const [showBannerBuilder, setShowBannerBuilder] = useState(false);
   const [editingBannerGroup, setEditingBannerGroup] = useState<BannerGroup | null>(null);
   const [selectedBannerGroupId, setSelectedBannerGroupId] = useState<string | null>(null);
+  const [selectedNewBannerGroupId, setSelectedNewBannerGroupId] = useState<string | null>(null);
+  const [selectedNewBannerVariable, setSelectedNewBannerVariable] = useState<string | null>(null);
   const [selectedStubVariables, setSelectedStubVariables] = useState<Record<string, string>>({});
   const [parsedFile, setParsedFile] = useState<ParsedDataFile | null>(null);
   const [mappingFilter, setMappingFilter] = useState<'all' | 'mapped' | 'unmapped'>('all');
   const [singleSelectSort, setSingleSelectSort] = useState<Record<string, { column: 'code' | 'count' | 'percentage', direction: 'asc' | 'desc' }>>({});
 
-  // Load banner groups from localStorage when questionnaire changes
+  // Load old banner groups from localStorage when questionnaire changes
   useEffect(() => {
     if (selectedQuestionnaire?.id) {
       const key = `bannerGroups_${selectedQuestionnaire.id}`;
@@ -141,7 +145,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
     }
   }, [selectedQuestionnaire?.id]);
 
-  // Save banner groups to localStorage when they change
+  // Save old banner groups to localStorage when they change
   useEffect(() => {
     if (selectedQuestionnaire?.id && (bannerGroups.length > 0 || Object.keys(selectedStubVariables).length > 0)) {
       const key = `bannerGroups_${selectedQuestionnaire.id}`;
@@ -152,6 +156,34 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
       localStorage.setItem(key, JSON.stringify(data));
     }
   }, [bannerGroups, selectedStubVariables, selectedQuestionnaire?.id]);
+
+  // Load new banner groups from localStorage when questionnaire changes
+  useEffect(() => {
+    if (selectedQuestionnaire?.id) {
+      const key = `newBannerGroups_${selectedQuestionnaire.id}`;
+      const stored = localStorage.getItem(key);
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          setNewBannerGroups(parsed || []);
+        } catch (e) {
+          console.error('Error loading new banner groups:', e);
+        }
+      } else {
+        setNewBannerGroups([]);
+      }
+    } else {
+      setNewBannerGroups([]);
+    }
+  }, [selectedQuestionnaire?.id]);
+
+  // Save new banner groups to localStorage when they change
+  useEffect(() => {
+    if (selectedQuestionnaire?.id && newBannerGroups.length > 0) {
+      const key = `newBannerGroups_${selectedQuestionnaire.id}`;
+      localStorage.setItem(key, JSON.stringify(newBannerGroups));
+    }
+  }, [newBannerGroups, selectedQuestionnaire?.id]);
   const [dataFile, setDataFile] = useState<File | null>(null);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [dataUploadSuccess, setDataUploadSuccess] = useState(false);
@@ -2646,6 +2678,17 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                   Banners
                 </button>
                 <button
+                  onClick={() => setQnrViewMode('oldbanners')}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                    qnrViewMode === 'oldbanners'
+                      ? 'text-white'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                  style={qnrViewMode === 'oldbanners' ? { borderBottomColor: BRAND_ORANGE, color: BRAND_ORANGE } : {}}
+                >
+                  [OLD BANNER]
+                </button>
+                <button
                   onClick={() => setQnrViewMode('data')}
                   className={`py-2 px-1 border-b-2 font-medium text-sm ${
                     qnrViewMode === 'data'
@@ -2696,6 +2739,9 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
               <div className="w-80 border-r border-gray-200 flex flex-col">
                 {/* Sticky header with search bar */}
                 <div className="p-4 border-b border-gray-200 bg-white sticky top-0 z-10">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-3">
+                    Variables <span className="text-gray-500 italic font-normal">({filteredVariables.length})</span>
+                  </h3>
                   <div className="relative">
                     <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <input
@@ -5884,10 +5930,951 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                             </div>
                             </div>
             ) : qnrViewMode === 'banners' ? (
-            /* Banners View */
+            /* New Banners View - Simplified */
             <div className="bg-white shadow-sm rounded-lg flex flex-col" style={{ minHeight: 0, borderRadius: 0 }}>
               {showBannerBuilder ? (
                 <BannerBuilder
+                  variables={variables}
+                  editingGroup={editingBannerGroup}
+                  existingBannerCount={newBannerGroups.length}
+                  onSave={(group) => {
+                    if (editingBannerGroup) {
+                      setNewBannerGroups(newBannerGroups.map(g => g.id === group.id ? group : g));
+                    } else {
+                      setNewBannerGroups([...newBannerGroups, group]);
+                    }
+                    setShowBannerBuilder(false);
+                    setEditingBannerGroup(null);
+                  }}
+                  onCancel={() => {
+                    setShowBannerBuilder(false);
+                    setEditingBannerGroup(null);
+                  }}
+                />
+              ) : selectedNewBannerGroupId ? (
+                /* Banner Detail View with Variables Sidebar */
+                (() => {
+                  const selectedGroup = newBannerGroups.find(g => g.id === selectedNewBannerGroupId);
+                  if (!selectedGroup) {
+                    setSelectedNewBannerGroupId(null);
+                    return null;
+                  }
+
+                  return (
+                    <div className="flex h-[calc(100vh-200px)]">
+                      {/* Left Sidebar - Variables List */}
+                      <div className="w-80 border-r border-gray-200 flex flex-col bg-white">
+                        <div className="p-4 border-b border-gray-200">
+                          <button
+                            onClick={() => {
+                              setSelectedNewBannerGroupId(null);
+                              setSelectedNewBannerVariable(null);
+                            }}
+                            className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 mb-3"
+                          >
+                            <ArrowLeftIcon className="h-4 w-4" />
+                            Back to Banner Groups
+                          </button>
+                          <h3 className="text-lg font-semibold text-gray-900">
+                            {selectedGroup.title} <span className="font-normal text-xs italic text-gray-600">({filteredVariables.length} tables)</span>
+                          </h3>
+                        </div>
+
+                        {/* Sticky search bar - Same format as Variables tab */}
+                        <div className="p-4 bg-white sticky top-0 z-10">
+                          <div className="relative">
+                            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                            <input
+                              type="text"
+                              placeholder="Search variables..."
+                              value={variableFilter}
+                              onChange={(e) => setVariableFilter(e.target.value)}
+                              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Scrollable variable list */}
+                        <div className="flex-1 overflow-y-auto p-2">
+                          <div className="space-y-1">
+                            {filteredVariables.map((variable) => {
+                                const isSummaryTable = (variable as any).isSummaryTable && variable.statements;
+                                const hasNoResponseOptions = !isSummaryTable && (!variable.codes || Object.keys(variable.codes).length === 0);
+                                
+                                return (
+                                  <button
+                                    key={variable.name}
+                                    onClick={() => setSelectedNewBannerVariable(variable.name)}
+                                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+                                      selectedNewBannerVariable === variable.name
+                                        ? 'bg-orange-100 text-orange-900'
+                                        : 'hover:bg-gray-100 text-gray-700'
+                                    }`}
+                                  >
+                                    <div className="flex items-center justify-between gap-2 w-full">
+                                      <div className="flex items-center gap-1.5 min-w-0">
+                                        <span className="font-medium truncate">{variable.name}</span>
+                                        {hasNoResponseOptions && (
+                                          <InformationCircleIcon className="h-4 w-4 text-red-500 flex-shrink-0" title="No response options available for this variable" />
+                                        )}
+                                      </div>
+                                      {variable.type && (
+                                        <span className="text-xs text-gray-500 flex-shrink-0">
+                                          {variable.type.length > 15 ? variable.type.substring(0, 15) + '...' : variable.type}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right Content Area */}
+                      <div className="flex-1 overflow-y-auto p-6 bg-white">
+                        {selectedNewBannerVariable ? (
+                          /* Show selected variable details */
+                          (() => {
+                            const variable = variables.find(v => v.name === selectedNewBannerVariable);
+                            if (!variable) return <div className="text-center text-gray-500">Variable not found</div>;
+
+                            // Calculate banner table data
+                            const calculateBannerTableData = () => {
+                              if (!selectedGroup || !fullRawData || !fullRawData.rows || fullRawData.rows.length === 0 || !columnMapping) {
+                                // Return empty object instead of null so the table still renders
+                                return {};
+                              }
+
+                              // Get the column header for the selected variable
+                              const getColumnHeader = (varName: string): string | null => {
+                                // Try different variations of the variable name
+                                const variations = [
+                                  varName,
+                                  varName.startsWith('Q') ? varName : `Q${varName}`,
+                                  varName.startsWith('Q') ? varName.substring(1) : varName
+                                ];
+
+                                // First, try columnMapping
+                                for (const variation of variations) {
+                                  if (columnMapping[variation]) {
+                                    return columnMapping[variation];
+                                  }
+                                  // Try case-insensitive
+                                  const matchingKey = Object.keys(columnMapping).find(
+                                    key => key.toLowerCase() === variation.toLowerCase()
+                                  );
+                                  if (matchingKey) {
+                                    return columnMapping[matchingKey];
+                                  }
+                                }
+                                
+                                // If not found in columnMapping, try direct match in fullRawData.columns
+                                if (fullRawData.columns) {
+                                  for (const variation of variations) {
+                                    const directMatch = fullRawData.columns.find(
+                                      col => col.toLowerCase() === variation.toLowerCase()
+                                    );
+                                    if (directMatch) {
+                                      return directMatch;
+                                    }
+                                  }
+                                }
+                                
+                                return null;
+                              };
+
+                              // Check if this is a summary table with statements (numeric grid summary)
+                              const isSummaryTable = (variable as any).isSummaryTable && variable.statements;
+                              
+                              // Check if this is a numeric question (not a grid, not a summary table)
+                              const isNumericQuestion = variable.type?.toLowerCase().includes('numeric') && 
+                                                       !variable.type?.toLowerCase().includes('grid') && 
+                                                       !isSummaryTable;
+                              
+                              // For regular variables, we need the stub column header
+                              // For summary tables, we don't need it (we calculate from statement variables directly)
+                              const stubColumnHeader = !isSummaryTable ? getColumnHeader(selectedNewBannerVariable) : null;
+                              if (!isSummaryTable && !stubColumnHeader) {
+                                // Return empty object instead of null so the table still renders
+                                return {};
+                              }
+
+                              // Build column filters
+                              const columns: Array<{
+                                id: string;
+                                title: string;
+                                filterFn: (row: Record<string, any>) => boolean;
+                              }> = [
+                                {
+                                  id: 'total',
+                                  title: 'Total',
+                                  filterFn: () => true // Total includes all rows
+                                }
+                              ];
+
+                              // Add filters for each banner cut
+                              selectedGroup.groups?.forEach(group => {
+                                group.cuts.forEach(cut => {
+                                  const cutVariable = variables.find(v => v.name === cut.variableName);
+                                  if (!cutVariable) return;
+
+                                  const cutColumnHeader = getColumnHeader(cut.variableName);
+                                  if (!cutColumnHeader) return;
+
+                                  columns.push({
+                                    id: cut.id,
+                                    title: cut.title,
+                                    filterFn: (row: Record<string, any>) => {
+                                      const value = row[cutColumnHeader];
+                                      if (value === null || value === undefined || value === '') return false;
+                                      
+                                      const valueStr = String(value).trim();
+                                      
+                                      // Check if value matches stored codes directly
+                                      const codeStr = cut.codes.map(c => String(c).trim());
+                                      if (codeStr.includes(valueStr)) {
+                                        return true;
+                                      }
+                                      
+                                      // Check if value matches any of the labels for the stored codes
+                                      if (cutVariable.codes) {
+                                        for (const code of cut.codes) {
+                                          const codeLabel = cutVariable.codes[String(code)] || cutVariable.codes[code];
+                                          if (codeLabel && String(codeLabel).trim() === valueStr) {
+                                            return true;
+                                          }
+                                        }
+                                      }
+                                      
+                                      return false;
+                                    }
+                                  });
+                                });
+                              });
+
+                              if (isSummaryTable && variable.statements) {
+                                // For summary tables, calculate sum and mean for each statement
+                                const statementData: Record<string, Record<string, { sum: number; mean: number; base: number }>> = {};
+                                
+                                // Extract base name from summary table name (e.g., "S11_c1_Summary" -> "S11_c1")
+                                const baseName = variable.name.endsWith('_Summary') 
+                                  ? variable.name.replace('_Summary', '') 
+                                  : variable.name;
+                                
+                                Object.entries(variable.statements).forEach(([stmtCode, stmtText]) => {
+                                  statementData[stmtCode] = {};
+                                  
+                                  // Find the statement variable name (e.g., "S11r1c1" for statement "r1" in column "c1")
+                                  // The summary table name format is like "S11_c1_Summary", so we need to construct "S11r1c1"
+                                  const columnMatch = baseName.match(/^([A-Z0-9]+)_(c\d+)$/i);
+                                  let statementVarName: string;
+                                  if (columnMatch) {
+                                    const baseQNum = columnMatch[1];
+                                    const columnCode = columnMatch[2];
+                                    statementVarName = `${baseQNum}${stmtCode}${columnCode}`;
+                                  } else {
+                                    // Fallback: try to construct from baseName and stmtCode
+                                    statementVarName = `${baseName}${stmtCode}`;
+                                  }
+                                  
+                                  // Try multiple variations of the statement variable name
+                                  let statementColumnHeader = getColumnHeader(statementVarName);
+                                  if (!statementColumnHeader) {
+                                    // Try with Q prefix
+                                    statementColumnHeader = getColumnHeader(`Q${statementVarName}`);
+                                  }
+                                  if (!statementColumnHeader) {
+                                    // Try with underscore format (e.g., S11_r1_c1)
+                                    const underscoreFormat = statementVarName.replace(/([A-Z0-9]+)(r\d+)(c\d+)/i, '$1_$2_$3');
+                                    statementColumnHeader = getColumnHeader(underscoreFormat);
+                                  }
+                                  if (!statementColumnHeader) {
+                                    // Try with Q prefix and underscore format
+                                    const underscoreFormat = statementVarName.replace(/([A-Z0-9]+)(r\d+)(c\d+)/i, '$1_$2_$3');
+                                    statementColumnHeader = getColumnHeader(`Q${underscoreFormat}`);
+                                  }
+                                  
+                                  if (!statementColumnHeader) {
+                                    // Skip this statement if we can't find the column
+                                    return;
+                                  }
+                                  
+                                  columns.forEach(column => {
+                                    let base = 0;
+                                    let sum = 0;
+                                    const values: number[] = [];
+
+                                    fullRawData.rows.forEach((row: any) => {
+                                      // Check if row matches the column filter (for banner cuts)
+                                      const matchesColumn = column.filterFn(row);
+                                      if (!matchesColumn) return;
+
+                                      const value = row[statementColumnHeader];
+                                      if (value !== null && value !== undefined && value !== '') {
+                                        const numValue = parseFloat(String(value));
+                                        if (!isNaN(numValue)) {
+                                          base++;
+                                          sum += numValue;
+                                          values.push(numValue);
+                                        }
+                                      }
+                                    });
+
+                                    const mean = values.length > 0 ? sum / values.length : 0;
+
+                                    statementData[stmtCode][column.id] = {
+                                      sum,
+                                      mean,
+                                      base
+                                    };
+                                  });
+                                });
+
+                                return statementData;
+                              }
+
+                              // Handle numeric questions (collect all unique numeric responses)
+                              // For numeric questions, always collect all unique numeric values from the data
+                              if (isNumericQuestion) {
+                                // Collect all unique numeric values from the data
+                                const uniqueNumericValues = new Set<number>();
+                                
+                                fullRawData.rows.forEach((row: any) => {
+                                  const stubValue = stubColumnHeader ? row[stubColumnHeader] : null;
+                                  if (stubValue !== null && stubValue !== undefined && stubValue !== '') {
+                                    const numValue = parseFloat(String(stubValue));
+                                    if (!isNaN(numValue)) {
+                                      uniqueNumericValues.add(numValue);
+                                    }
+                                  }
+                                });
+                                
+                                // Sort numeric values from lowest to highest
+                                const sortedNumericValues = Array.from(uniqueNumericValues).sort((a, b) => a - b);
+                                
+                                // Calculate data for each numeric value
+                                const numericData: Record<string, Record<string, { count: number; percentage: number; base: number }>> = {};
+                                
+                                sortedNumericValues.forEach(numericValue => {
+                                  const valueKey = String(numericValue);
+                                  numericData[valueKey] = {};
+                                  
+                                  columns.forEach(column => {
+                                    let base = 0;
+                                    let count = 0;
+
+                                    fullRawData.rows.forEach((row: any) => {
+                                      // Check if row matches the column filter (for banner cuts)
+                                      const matchesColumn = column.filterFn(row);
+                                      if (!matchesColumn) return;
+
+                                      const stubValue = stubColumnHeader ? row[stubColumnHeader] : null;
+                                      if (stubValue !== null && stubValue !== undefined && stubValue !== '') {
+                                        base++;
+                                        
+                                        const numValue = parseFloat(String(stubValue));
+                                        if (!isNaN(numValue) && numValue === numericValue) {
+                                          count++;
+                                        }
+                                      }
+                                    });
+
+                                    numericData[valueKey][column.id] = {
+                                      count,
+                                      percentage: base > 0 ? (count / base) * 100 : 0,
+                                      base
+                                    };
+                                  });
+                                });
+                                
+                                return numericData;
+                              }
+
+                              // Calculate data for each code (regular categorical variables)
+                              const codeData: Record<string, Record<string, { count: number; percentage: number; base: number }>> = {};
+
+                              if (variable.codes) {
+                                Object.keys(variable.codes).forEach(code => {
+                                  codeData[code] = {};
+                                  
+                                  columns.forEach(column => {
+                                    let base = 0;
+                                    let count = 0;
+
+                                    fullRawData.rows.forEach((row: any) => {
+                                      // Check if row matches the column filter (for banner cuts)
+                                      const matchesColumn = column.filterFn(row);
+                                      if (!matchesColumn) return;
+
+                                      base++;
+                                      
+                                      // Check if stub variable value matches this code
+                                      const stubValue = stubColumnHeader ? row[stubColumnHeader] : null;
+                                      if (stubValue !== null && stubValue !== undefined && stubValue !== '') {
+                                        const stubValueStr = String(stubValue).trim();
+                                        
+                                        // Check if value matches the code directly (as string or number)
+                                        if (stubValueStr === code || String(stubValue) === code || Number(stubValue) === Number(code)) {
+                                          count++;
+                                        } else {
+                                          // Check if value matches the label for this code
+                                          const codeLabel = variable.codes?.[code];
+                                          if (codeLabel && String(codeLabel).trim() === stubValueStr) {
+                                            count++;
+                                          }
+                                        }
+                                      }
+                                    });
+
+                                    codeData[code][column.id] = {
+                                      count,
+                                      percentage: base > 0 ? (count / base) * 100 : 0,
+                                      base
+                                    };
+                                  });
+                                });
+                              }
+
+                              return codeData;
+                            };
+                            
+                            const bannerTableData = calculateBannerTableData();
+
+                            // Calculate sample sizes for each column (only for non-summary tables)
+                            const calculateSampleSizes = () => {
+                              const isSummaryTable = (variable as any).isSummaryTable && variable.statements;
+                              if (isSummaryTable || !selectedGroup || !fullRawData || !fullRawData.rows || fullRawData.rows.length === 0 || !columnMapping) {
+                                return null;
+                              }
+
+                              // Get the column header for the selected variable
+                              const getColumnHeader = (varName: string): string | null => {
+                                const variations = [
+                                  varName,
+                                  varName.startsWith('Q') ? varName : `Q${varName}`,
+                                  varName.startsWith('Q') ? varName.substring(1) : varName
+                                ];
+
+                                for (const variation of variations) {
+                                  if (columnMapping[variation]) {
+                                    return columnMapping[variation];
+                                  }
+                                  const matchingKey = Object.keys(columnMapping).find(
+                                    key => key.toLowerCase() === variation.toLowerCase()
+                                  );
+                                  if (matchingKey) {
+                                    return columnMapping[matchingKey];
+                                  }
+                                }
+                                
+                                if (fullRawData.columns) {
+                                  for (const variation of variations) {
+                                    const directMatch = fullRawData.columns.find(
+                                      col => col.toLowerCase() === variation.toLowerCase()
+                                    );
+                                    if (directMatch) {
+                                      return directMatch;
+                                    }
+                                  }
+                                }
+                                
+                                return null;
+                              };
+
+                              const stubColumnHeader = getColumnHeader(selectedNewBannerVariable);
+                              if (!stubColumnHeader) {
+                                return null;
+                              }
+
+                              // Build column filters (same as in calculateBannerTableData)
+                              const columns: Array<{
+                                id: string;
+                                title: string;
+                                filterFn: (row: Record<string, any>) => boolean;
+                              }> = [
+                                {
+                                  id: 'total',
+                                  title: 'Total',
+                                  filterFn: () => true
+                                }
+                              ];
+
+                              selectedGroup.groups?.forEach(group => {
+                                group.cuts.forEach(cut => {
+                                  const cutVariable = variables.find(v => v.name === cut.variableName);
+                                  if (!cutVariable) return;
+
+                                  const cutColumnHeader = getColumnHeader(cut.variableName);
+                                  if (!cutColumnHeader) return;
+
+                                  columns.push({
+                                    id: cut.id,
+                                    title: cut.title,
+                                    filterFn: (row: Record<string, any>) => {
+                                      const value = row[cutColumnHeader];
+                                      if (value === null || value === undefined || value === '') return false;
+                                      
+                                      const valueStr = String(value).trim();
+                                      
+                                      const codeStr = cut.codes.map(c => String(c).trim());
+                                      if (codeStr.includes(valueStr)) {
+                                        return true;
+                                      }
+                                      
+                                      if (cutVariable.codes) {
+                                        for (const code of cut.codes) {
+                                          const codeLabel = cutVariable.codes[String(code)] || cutVariable.codes[code];
+                                          if (codeLabel && String(codeLabel).trim() === valueStr) {
+                                            return true;
+                                          }
+                                        }
+                                      }
+                                      
+                                      return false;
+                                    }
+                                  });
+                                });
+                              });
+
+                              // Calculate sample size for each column
+                              const sampleSizes: Record<string, number> = {};
+                              
+                              columns.forEach(column => {
+                                let sampleSize = 0;
+                                
+                                fullRawData.rows.forEach((row: any) => {
+                                  // Check if row matches the column filter
+                                  const matchesColumn = column.filterFn(row);
+                                  if (!matchesColumn) return;
+                                  
+                                  // Check if the question was answered (stub value is not null/undefined/empty)
+                                  const stubValue = row[stubColumnHeader];
+                                  if (stubValue !== null && stubValue !== undefined && stubValue !== '') {
+                                    sampleSize++;
+                                  }
+                                });
+                                
+                                sampleSizes[column.id] = sampleSize;
+                              });
+
+                              return sampleSizes;
+                            };
+
+                            const sampleSizes = calculateSampleSizes();
+                            const isSummaryTable = (variable as any).isSummaryTable && variable.statements;
+                            const isNumericQuestion = variable.type?.toLowerCase().includes('numeric') && 
+                                                     !variable.type?.toLowerCase().includes('grid') && 
+                                                     !isSummaryTable;
+
+                            return (
+                              <div>
+                                <div className="mb-4">
+                                  <div className="flex items-start gap-2 flex-wrap">
+                                    <div className="flex-1 min-w-0">
+                                      <h2 className="text-lg font-bold text-gray-900">{variable.name}</h2>
+                                      {variable.description && (
+                                        <div className="text-sm text-gray-600 mt-1">
+                                          {(() => {
+                                            // For summary tables, split description by newline and display summary text on new line, bolded
+                                            if ((variable as any).isSummaryTable && variable.description.includes('\n')) {
+                                              const descParts = variable.description.split('\n');
+                                              const questionText = descParts[0];
+                                              const summaryText = descParts.slice(1).join('\n'); // Handle multiple newlines
+                                              
+                                              return (
+                                                <>
+                                                  <div>{questionText}</div>
+                                                  {summaryText && (
+                                                    <div className="font-bold mt-1">{summaryText}</div>
+                                                  )}
+                                                </>
+                                              );
+                                            }
+                                            // For regular variables, display as-is
+                                            return <div>{variable.description}</div>;
+                                          })()}
+                                        </div>
+                                      )}
+                                    </div>
+                                    {variable.type && (
+                                      <span className="text-sm italic text-gray-500 flex-shrink-0 m-0 p-0">
+                                        {variable.type}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Divider line */}
+                                <div className="border-b border-gray-200 mb-6"></div>
+
+                                {/* Show variable data with banner headers */}
+                                <div className="bg-white rounded-lg overflow-hidden border border-gray-200">
+                                  <div className="overflow-x-auto">
+                                    <table className="min-w-full">
+                                      <colgroup>
+                                        <col style={{ width: '256px' }} />
+                                        {/* Total column */}
+                                        <col style={{ width: '120px' }} />
+                                        {/* Cuts columns */}
+                                        {selectedGroup.groups?.flatMap(group =>
+                                          group.cuts.map(() => <col key={Math.random()} style={{ width: '120px' }} />)
+                                        )}
+                                      </colgroup>
+                                      <thead className="sticky top-0" style={{ backgroundColor: BRAND_ORANGE }}>
+                                        {/* Group titles row */}
+                                        <tr>
+                                          <th className="px-3 py-1.5 text-left text-xs font-bold text-white uppercase tracking-wider border-r border-white/20" rowSpan={2}>
+                                          </th>
+                                          {/* Total column header */}
+                                          <th
+                                            className="px-3 py-1.5 text-center text-xs font-bold text-white uppercase tracking-wider border-r border-white/20 align-bottom"
+                                            rowSpan={2}
+                                          >
+                                            Total
+                                          </th>
+                                          {/* Group title merged cells */}
+                                          {selectedGroup.groups?.map((group, groupIdx) => (
+                                            <th
+                                              key={`group-${groupIdx}`}
+                                              className="px-3 py-1.5 text-center text-xs font-bold text-white uppercase tracking-wider border-r border-white/20 border-b border-white/20 align-bottom"
+                                              colSpan={group.cuts.length}
+                                            >
+                                              {group.title || `Group ${groupIdx + 1}`}
+                                            </th>
+                                          ))}
+                                        </tr>
+                                        {/* Cut titles row */}
+                                        <tr>
+                                          {(() => {
+                                            let cutIndex = 0;
+                                            return selectedGroup.groups?.flatMap((group) =>
+                                              group.cuts.map((cut, cutIdx) => {
+                                                const letter = String.fromCharCode(65 + cutIndex); // A, B, C, etc.
+                                                cutIndex++;
+                                                return (
+                                                  <th
+                                                    key={cut.id}
+                                                    className="px-3 py-1.5 text-center text-xs font-bold text-white uppercase tracking-wider border-r border-white/20 last:border-r-0"
+                                                  >
+                                                    <div>{cut.title || `Cut ${cutIdx + 1}`}</div>
+                                                    <div className="text-xs font-medium mt-0.5">({letter})</div>
+                                                  </th>
+                                                );
+                                              })
+                                            );
+                                          })()}
+                                        </tr>
+                                      </thead>
+                                      <tbody className="bg-white divide-y divide-gray-200">
+                                        {/* Total respondents row - only for non-summary tables */}
+                                        {!isSummaryTable && sampleSizes && (
+                                          <tr className="bg-gray-100">
+                                            <td className="px-3 py-1 text-sm font-medium text-gray-900 border-r border-gray-300">
+                                              Total respondents
+                                            </td>
+                                            {/* Total column */}
+                                            <td className="px-3 py-1 text-xs text-gray-900 text-center border-r border-gray-300 font-medium">
+                                              {sampleSizes['total'] || 0}
+                                            </td>
+                                            {/* Cut columns */}
+                                            {selectedGroup.groups?.flatMap((group) =>
+                                              group.cuts.map((cut) => (
+                                                <td key={`${cut.id}-sample`} className="px-3 py-1 text-xs text-gray-900 text-center border-r border-gray-300 last:border-r-0 font-medium">
+                                                  {sampleSizes[cut.id] || 0}
+                                                </td>
+                                              ))
+                                            )}
+                                          </tr>
+                                        )}
+                                        {/* Summary table rows (for numeric grid summary tables with statements) */}
+                                        {((variable as any).isSummaryTable && variable.statements && Object.entries(variable.statements).length > 0) ? (
+                                          Object.entries(variable.statements).map(([stmtCode, stmtText]) => {
+                                            const cellData = bannerTableData?.[stmtCode] as any;
+                                            const totalData = cellData?.['total'] || { sum: 0, mean: 0, base: 0 };
+                                            
+                                            return (
+                                              <React.Fragment key={stmtCode}>
+                                                {/* Sum row */}
+                                                <tr className="hover:bg-gray-50 [&:hover+tr]:bg-gray-50">
+                                                  {/* Statement label - spans 2 rows */}
+                                                  <td className="px-3 py-1 text-sm text-gray-900 border-r border-gray-300" rowSpan={2}>
+                                                    {String(stmtText)}
+                                                  </td>
+                                                  {/* Total column - sum */}
+                                                  <td className="px-3 py-1 text-xs text-gray-900 text-center border-r border-gray-300">
+                                                    {bannerTableData ? totalData.sum.toFixed(0) : '-'}
+                                                  </td>
+                                                  {/* Cut columns - sum */}
+                                                  {selectedGroup.groups?.flatMap((group) =>
+                                                    group.cuts.map((cut) => {
+                                                      const cutData = cellData?.[cut.id] || { sum: 0, mean: 0, base: 0 };
+                                                      return (
+                                                        <td key={`${cut.id}-sum`} className="px-3 py-1 text-xs text-gray-900 text-center border-r border-gray-300 last:border-r-0">
+                                                          {bannerTableData ? cutData.sum.toFixed(0) : '-'}
+                                                        </td>
+                                                      );
+                                                    })
+                                                  )}
+                                                </tr>
+                                                {/* Mean row */}
+                                                <tr className="hover:bg-gray-50">
+                                                  {/* Total column - mean */}
+                                                  <td className="px-3 py-1 text-xs text-gray-900 text-center border-r border-gray-300">
+                                                    {bannerTableData ? totalData.mean.toFixed(2) : '-'}
+                                                  </td>
+                                                  {/* Cut columns - mean */}
+                                                  {selectedGroup.groups?.flatMap((group) =>
+                                                    group.cuts.map((cut) => {
+                                                      const cutData = cellData?.[cut.id] || { sum: 0, mean: 0, base: 0 };
+                                                      return (
+                                                        <td key={`${cut.id}-mean`} className="px-3 py-1 text-xs text-gray-900 text-center border-r border-gray-300 last:border-r-0">
+                                                          {bannerTableData ? cutData.mean.toFixed(2) : '-'}
+                                                        </td>
+                                                      );
+                                                    })
+                                                  )}
+                                                </tr>
+                                              </React.Fragment>
+                                            );
+                                          })
+                                        ) : (variable.type?.toLowerCase().includes('numeric') && !variable.type?.toLowerCase().includes('grid') && !isSummaryTable) ? (
+                                          /* Numeric questions - count and percentage rows for each unique numeric value */
+                                          bannerTableData && Object.keys(bannerTableData).length > 0 ? (
+                                            Object.entries(bannerTableData)
+                                              .sort(([a], [b]) => {
+                                                // Sort by numeric value (lowest to highest)
+                                                const numA = parseFloat(a);
+                                                const numB = parseFloat(b);
+                                                if (!isNaN(numA) && !isNaN(numB)) {
+                                                  return numA - numB;
+                                                }
+                                                return 0;
+                                              })
+                                              .map(([numericValue, cellData]: [string, any]) => {
+                                              const totalData = cellData?.['total'] || { count: 0, percentage: 0, base: 0 };
+                                              
+                                              return (
+                                                <React.Fragment key={numericValue}>
+                                                  {/* Count row */}
+                                                  <tr className="hover:bg-gray-50 [&:hover+tr]:bg-gray-50">
+                                                    {/* Numeric value label - spans 2 rows */}
+                                                    <td className="px-3 py-1 text-sm text-gray-900 border-r border-gray-300" rowSpan={2}>
+                                                      {numericValue}
+                                                    </td>
+                                                    {/* Total column - count */}
+                                                    <td className="px-3 py-1 text-xs text-gray-900 text-center border-r border-gray-300">
+                                                      {bannerTableData ? totalData.count : '-'}
+                                                    </td>
+                                                    {/* Cut columns - count */}
+                                                    {selectedGroup.groups?.flatMap((group) =>
+                                                      group.cuts.map((cut) => {
+                                                        const cutData = cellData?.[cut.id] || { count: 0, percentage: 0, base: 0 };
+                                                        return (
+                                                          <td key={`${cut.id}-count`} className="px-3 py-1 text-xs text-gray-900 text-center border-r border-gray-300 last:border-r-0">
+                                                            {bannerTableData ? cutData.count : '-'}
+                                                          </td>
+                                                        );
+                                                      })
+                                                    )}
+                                                  </tr>
+                                                  {/* Percentage row */}
+                                                  <tr className="hover:bg-gray-50">
+                                                    {/* Total column - percentage */}
+                                                    <td className="px-3 py-1 text-xs text-gray-900 text-center border-r border-gray-300">
+                                                      {bannerTableData ? totalData.percentage.toFixed(1) + '%' : '-'}
+                                                    </td>
+                                                    {/* Cut columns - percentage */}
+                                                    {selectedGroup.groups?.flatMap((group) =>
+                                                      group.cuts.map((cut) => {
+                                                        const cutData = cellData?.[cut.id] || { count: 0, percentage: 0, base: 0 };
+                                                        return (
+                                                          <td key={`${cut.id}-pct`} className="px-3 py-1 text-xs text-gray-900 text-center border-r border-gray-300 last:border-r-0">
+                                                            {bannerTableData ? cutData.percentage.toFixed(1) + '%' : '-'}
+                                                          </td>
+                                                        );
+                                                      })
+                                                    )}
+                                                  </tr>
+                                                </React.Fragment>
+                                              );
+                                            })
+                                          ) : (
+                                            <tr>
+                                              <td className="px-3 py-8 text-center text-gray-400 text-sm" colSpan={1 + 1 + (selectedGroup.groups?.reduce((sum, g) => sum + g.cuts.length, 0) || 0)}>
+                                                No numeric responses found for this variable
+                                              </td>
+                                            </tr>
+                                          )
+                                        ) : variable.codes && Object.entries(variable.codes).length > 0 ? (
+                                          /* Regular categorical variables - count and percentage rows */
+                                          Object.entries(variable.codes).map(([code, label], rowIdx) => {
+                                            const cellData = bannerTableData?.[code] as any;
+                                            const totalData = cellData?.['total'] || { count: 0, percentage: 0, base: 0 };
+                                            
+                                            return (
+                                              <React.Fragment key={code}>
+                                                {/* Count row */}
+                                                <tr className="hover:bg-gray-50 [&:hover+tr]:bg-gray-50">
+                                                  {/* Response option label - spans 2 rows */}
+                                                  <td className="px-3 py-1 text-sm text-gray-900 border-r border-gray-300" rowSpan={2}>
+                                                    {String(label)}
+                                                  </td>
+                                                  {/* Total column - count */}
+                                                  <td className="px-3 py-1 text-xs text-gray-900 text-center border-r border-gray-300">
+                                                    {bannerTableData ? totalData.count : '-'}
+                                                  </td>
+                                                  {/* Cut columns - count */}
+                                                  {selectedGroup.groups?.flatMap((group) =>
+                                                    group.cuts.map((cut) => {
+                                                      const cutData = cellData?.[cut.id] || { count: 0, percentage: 0, base: 0 };
+                                                      return (
+                                                        <td key={`${cut.id}-count`} className="px-3 py-1 text-xs text-gray-900 text-center border-r border-gray-300 last:border-r-0">
+                                                          {bannerTableData ? cutData.count : '-'}
+                                                        </td>
+                                                      );
+                                                    })
+                                                  )}
+                                                </tr>
+                                                {/* Percentage row */}
+                                                <tr className="hover:bg-gray-50">
+                                                  {/* Total column - percentage */}
+                                                  <td className="px-3 py-1 text-xs text-gray-900 text-center border-r border-gray-300">
+                                                    {bannerTableData ? totalData.percentage.toFixed(1) + '%' : '-'}
+                                                  </td>
+                                                  {/* Cut columns - percentage */}
+                                                  {selectedGroup.groups?.flatMap((group) =>
+                                                    group.cuts.map((cut) => {
+                                                      const cutData = cellData?.[cut.id] || { count: 0, percentage: 0, base: 0 };
+                                                      return (
+                                                        <td key={`${cut.id}-pct`} className="px-3 py-1 text-xs text-gray-900 text-center border-r border-gray-300 last:border-r-0">
+                                                          {bannerTableData ? cutData.percentage.toFixed(1) + '%' : '-'}
+                                                        </td>
+                                                      );
+                                                    })
+                                                  )}
+                                                </tr>
+                                              </React.Fragment>
+                                            );
+                                          })
+                                        ) : (
+                                          <tr>
+                                            <td className="px-3 py-8 text-center text-gray-400 text-sm" colSpan={1 + 1 + (selectedGroup.groups?.reduce((sum, g) => sum + g.cuts.length, 0) || 0)}>
+                                              No response options available for this variable
+                                            </td>
+                                          </tr>
+                                        )}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })()
+                        ) : (
+                          /* Show banner group details when no variable is selected */
+                          <div className="text-center py-12">
+                            <IconTable className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                            <h3 className="text-lg font-medium text-gray-900 mb-2">Select a Variable</h3>
+                            <p className="text-gray-600">Choose a variable from the list to view its details</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()
+              ) : (
+                /* Banner Groups List */
+                <div className="flex flex-col flex-1 p-6">
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-lg font-semibold text-gray-900">Banner Groups</h3>
+                    <button
+                      onClick={() => {
+                        setEditingBannerGroup(null);
+                        setShowBannerBuilder(true);
+                      }}
+                      className="flex items-center gap-2 px-4 py-2 text-sm text-white rounded-lg hover:opacity-90"
+                      style={{ backgroundColor: BRAND_ORANGE }}
+                    >
+                      <PlusCircleIcon className="h-5 w-5" />
+                      Create Banner Group
+                    </button>
+                  </div>
+                  {newBannerGroups.length === 0 ? (
+                    <div className="text-center py-12">
+                      <IconTable className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">No Banner Groups</h3>
+                      <p className="text-gray-600 mb-4">Create banner groups to organize your cross-tabulations</p>
+                      <button
+                        onClick={() => {
+                          setEditingBannerGroup(null);
+                          setShowBannerBuilder(true);
+                        }}
+                        className="flex items-center gap-2 px-4 py-2 text-sm text-white rounded-lg hover:opacity-90 mx-auto"
+                        style={{ backgroundColor: BRAND_ORANGE }}
+                      >
+                        <PlusCircleIcon className="h-5 w-5" />
+                        Create Banner Group
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-4">
+                      {newBannerGroups.map((group) => (
+                        <div
+                          key={group.id}
+                          onClick={() => setSelectedNewBannerGroupId(group.id)}
+                          className="border border-gray-200 rounded-lg p-4 hover:border-gray-300 hover:shadow-md transition-all cursor-pointer"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <h4 className="text-md font-semibold text-gray-900 mb-1">{group.title}</h4>
+                              <p className="text-sm text-gray-600">
+                                {group.groups && group.groups.length > 0 && (
+                                  <>
+                                    {group.groups.length} {group.groups.length === 1 ? 'sub-group' : 'sub-groups'} • {' '}
+                                    {group.groups.reduce((sum, g) => sum + g.cuts.length, 0)} {group.groups.reduce((sum, g) => sum + g.cuts.length, 0) === 1 ? 'cut' : 'cuts'}
+                                  </>
+                                )}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingBannerGroup(group);
+                                  setShowBannerBuilder(true);
+                                }}
+                                className="p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                                title="Edit banner group"
+                              >
+                                <PencilIcon className="h-5 w-5" />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (confirm('Are you sure you want to delete this banner group?')) {
+                                    setNewBannerGroups(newBannerGroups.filter(g => g.id !== group.id));
+                                  }
+                                }}
+                                className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Delete banner group"
+                              >
+                                <TrashIcon className="h-5 w-5" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            ) : qnrViewMode === 'oldbanners' ? (
+            /* Old Banners View - Keep existing implementation */
+            <div className="bg-white shadow-sm rounded-lg flex flex-col" style={{ minHeight: 0, borderRadius: 0 }}>
+              {showBannerBuilder ? (
+                <OldBannerBuilder
                   parsedFile={(() => {
                     // Create a parsedFile from the existing variables and variableData
                     // Convert Variable[] to VariableDefinition[] format
