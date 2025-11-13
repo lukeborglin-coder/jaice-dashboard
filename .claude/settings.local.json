@@ -57,7 +57,11 @@
       "Bash(.venvScriptspython.exe -m uvicorn app:app --reload --port 8000)",
       "Bash(conjoint-backend/.venv/Scripts/python.exe -m uvicorn:*)",
       "Bash(del debug-excel.js test-parse.js)",
-      "Bash(nul)"
+      "Bash(nul)",
+      "Bash(git restore:*)",
+      "Bash(del \"C:\\Users\\LukeBorglin\\Desktop\\Apps\\jaice-dashboard\\src\\components\\DataTabulation.tsx\")",
+      "Bash(\"src/components/Tabs.tsx.temp\")",
+      "Bash(git reset:*)"
     ],
     "deny": [],
     "ask": []

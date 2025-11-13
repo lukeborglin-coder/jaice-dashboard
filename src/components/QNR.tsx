@@ -845,6 +845,10 @@ function QuestionBox({
   const [editedOptions, setEditedOptions] = useState<Array<{ code: string; text: string }>>([]);
   const [isEditingResponseOptions, setIsEditingResponseOptions] = useState(false);
   const [editedResponseOptions, setEditedResponseOptions] = useState<Array<{ code: string; text: string }>>([]);
+  const [editedStatementOptions, setEditedStatementOptions] = useState<Array<{ code: string; text: string }>>([]);
+  const [isEditingStatementOptions, setIsEditingStatementOptions] = useState(false);
+  const [isEditingType, setIsEditingType] = useState(false);
+  const [editedType, setEditedType] = useState<string>('');
   
   // Check if question has both statementOptions and responseOptions (can be flipped)
   const canFlip = question.statementOptions && question.statementOptions.length > 0 && 
@@ -886,7 +890,11 @@ function QuestionBox({
         })
       });
 
-      if (!response.ok) {
+      if (response.ok) {
+        setIsFlipping(false);
+        // Notify Tabs page to reload questionnaire data
+        window.dispatchEvent(new CustomEvent('questionnaireUpdated', { detail: { questionnaireId } }));
+      } else {
         // Revert on error
         onUpdateQuestion(originalQuestion);
         alert('Failed to save changes. Please try again.');
@@ -959,6 +967,8 @@ function QuestionBox({
 
       if (response.ok) {
         setIsEditingOptions(false);
+        // Notify Tabs page to reload questionnaire data
+        window.dispatchEvent(new CustomEvent('questionnaireUpdated', { detail: { questionnaireId } }));
       } else {
         alert('Failed to save changes. Please try again.');
       }
@@ -969,9 +979,35 @@ function QuestionBox({
   };
 
   const handleStartEditResponseOptions = () => {
-    const responseOptions = question.responseOptions?.map((opt, idx) => 
-      typeof opt === 'string' ? { code: `c${idx + 1}`, text: opt } : { code: opt.code || `c${idx + 1}`, text: opt.text || '' }
-    ) || [];
+    // For numeric grids, initialize both statements and responses
+    const isNumericGrid = question.type?.toLowerCase().includes('numeric grid');
+    
+    if (isNumericGrid && question.statementOptions && question.statementOptions.length > 0) {
+      // Initialize statement options with numeric codes (without "r" prefix for editing)
+      const statementOptions = question.statementOptions.map((opt, idx) => {
+        const stmtOpt = typeof opt === 'string' ? { code: `r${idx + 1}`, text: opt } : { code: opt.code || `r${idx + 1}`, text: opt.text || '' };
+        // Extract numeric part for editing (remove "r" prefix)
+        let numericCode = stmtOpt.code.replace(/^[rc]/i, '');
+        // If code is empty after removing prefix, use index + 1
+        if (!numericCode || numericCode.trim() === '') {
+          numericCode = String(idx + 1);
+        }
+        return { code: numericCode, text: stmtOpt.text || '' };
+      });
+      setEditedStatementOptions(statementOptions);
+    }
+    
+    // Initialize response options with numeric codes (without "c" prefix for editing)
+    const responseOptions = question.responseOptions?.map((opt, idx) => {
+      const respOpt = typeof opt === 'string' ? { code: `c${idx + 1}`, text: opt } : { code: opt.code || `c${idx + 1}`, text: opt.text || '' };
+      // Extract numeric part for editing (remove "c" prefix)
+      let numericCode = respOpt.code.replace(/^[rc]/i, '');
+      // If code is empty after removing prefix, use index + 1
+      if (!numericCode || numericCode.trim() === '') {
+        numericCode = String(idx + 1);
+      }
+      return { code: numericCode, text: respOpt.text || '' };
+    }) || [];
     setEditedResponseOptions(responseOptions);
     setIsEditingResponseOptions(true);
   };
@@ -979,22 +1015,54 @@ function QuestionBox({
   const handleCancelEditResponseOptions = () => {
     setIsEditingResponseOptions(false);
     setEditedResponseOptions([]);
+    setEditedStatementOptions([]);
   };
 
   const handleSaveResponseOptions = async () => {
     if (!onUpdateQuestion || !questionnaireId) return;
 
-    // Check for duplicate codes
-    const codes = editedResponseOptions.map(opt => opt.code.trim().toLowerCase());
-    const duplicateCodes = codes.filter((code, index) => codes.indexOf(code) !== index);
-    if (duplicateCodes.length > 0) {
-      alert('Duplicate codes are not allowed. Please ensure each code is unique.');
+    const isNumericGrid = question.type?.toLowerCase().includes('numeric grid');
+    
+    // Check for duplicate codes within responses (codes must be unique within responses)
+    const responseCodes = editedResponseOptions.map(opt => opt.code.trim().toLowerCase()).filter(code => code);
+    const duplicateResponseCodes = responseCodes.filter((code, index) => responseCodes.indexOf(code) !== index);
+    
+    // Check for duplicate codes within statements (codes must be unique within statements)
+    // Note: Statements and responses CAN have the same codes, but duplicates within each group are not allowed
+    let duplicateStatementCodes: string[] = [];
+    if (isNumericGrid && editedStatementOptions.length > 0) {
+      const statementCodes = editedStatementOptions.map(opt => opt.code.trim().toLowerCase()).filter(code => code);
+      duplicateStatementCodes = statementCodes.filter((code, index) => statementCodes.indexOf(code) !== index);
+    }
+    
+    if (duplicateResponseCodes.length > 0) {
+      alert('Duplicate codes are not allowed within response options. Please ensure each response code is unique.');
       return;
+    }
+    
+    if (duplicateStatementCodes.length > 0) {
+      alert('Duplicate codes are not allowed within statements. Please ensure each statement code is unique.');
+      return;
+    }
+
+    // Add back prefixes when saving
+    const updatedResponseOptions = editedResponseOptions.map(opt => ({
+      code: `c${opt.code}`,
+      text: opt.text
+    }));
+    
+    let updatedStatementOptions = question.statementOptions;
+    if (isNumericGrid && editedStatementOptions.length > 0) {
+      updatedStatementOptions = editedStatementOptions.map(opt => ({
+        code: `r${opt.code}`,
+        text: opt.text
+      }));
     }
 
     const updatedQuestion: Question = {
       ...question,
-      responseOptions: editedResponseOptions
+      responseOptions: updatedResponseOptions,
+      ...(isNumericGrid && editedStatementOptions.length > 0 ? { statementOptions: updatedStatementOptions } : {})
     };
 
     try {
@@ -1013,6 +1081,8 @@ function QuestionBox({
 
       if (response.ok) {
         setIsEditingResponseOptions(false);
+        // Notify Tabs page to reload questionnaire data
+        window.dispatchEvent(new CustomEvent('questionnaireUpdated', { detail: { questionnaireId } }));
       } else {
         alert('Failed to save changes. Please try again.');
       }
@@ -1182,9 +1252,67 @@ function QuestionBox({
             </span>
           ))}
           {/* Question type pill - blue, right-aligned */}
-          <span className="text-xs px-2 py-1 rounded flex-shrink-0 bg-blue-100 text-blue-800" style={{ minWidth: '80px', textAlign: 'center' }}>
-            {question.type || 'other'}
-          </span>
+          {isEditingType ? (
+            <select
+              value={editedType}
+              onChange={(e) => setEditedType(e.target.value)}
+              className="text-xs px-2 py-1 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-500"
+              onBlur={async () => {
+                if (editedType !== question.type && onUpdateQuestion && questionnaireId) {
+                  const updatedQuestion: Question = {
+                    ...question,
+                    type: editedType
+                  };
+                  try {
+                    const updatedQuestions = onUpdateQuestion(updatedQuestion);
+                    const response = await fetch(`${API_BASE_URL}/api/questionnaire/${questionnaireId}`, {
+                      method: 'PUT',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
+                      },
+                      body: JSON.stringify({
+                        questions: updatedQuestions
+                      })
+                    });
+                    if (response.ok) {
+                      setIsEditingType(false);
+                      // Notify Tabs page to reload questionnaire data
+                      window.dispatchEvent(new CustomEvent('questionnaireUpdated', { detail: { questionnaireId } }));
+                    }
+                  } catch (error) {
+                    console.error('Error updating question type:', error);
+                  }
+                } else {
+                  setIsEditingType(false);
+                }
+              }}
+              autoFocus
+            >
+              <option value="">Select type...</option>
+              <option value="Single Select">Single Select</option>
+              <option value="Multi-Select">Multi-Select</option>
+              <option value="Numeric">Numeric</option>
+              <option value="Numeric Grid">Numeric Grid</option>
+              <option value="Single Select Grid">Single Select Grid</option>
+              <option value="Multi-Select Grid">Multi-Select Grid</option>
+              <option value="Open End">Open End</option>
+              <option value="Open End List">Open End List</option>
+              <option value="Numeric List">Numeric List</option>
+            </select>
+          ) : (
+            <button
+              onClick={() => {
+                setEditedType(question.type || '');
+                setIsEditingType(true);
+              }}
+              className="text-xs px-2 py-1 rounded flex-shrink-0 bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors"
+              style={{ minWidth: '80px', textAlign: 'center' }}
+              title="Click to edit question type"
+            >
+              {question.type || 'other'}
+            </button>
+          )}
         {canFlip && (
           <button
             onClick={handleFlipOptions}
@@ -1206,7 +1334,7 @@ function QuestionBox({
       {/* Response Options */}
       {question.options && question.options.length > 0 && (
         <div className="mb-3">
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2 mb-2">
             <h4 className="text-xs font-medium text-gray-700">Response Options:</h4>
             {!isEditingOptions && (
               <button
@@ -1221,6 +1349,18 @@ function QuestionBox({
           </div>
           {isEditingOptions ? (
             <div className="space-y-2">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-xs font-medium text-gray-700">Response Options:</div>
+                <button
+                  onClick={() => {
+                    const newCode = String(editedOptions.length + 1);
+                    setEditedOptions([...editedOptions, { code: newCode, text: '' }]);
+                  }}
+                  className="px-2 py-1 text-xs font-medium text-orange-600 hover:text-orange-700"
+                >
+                  + Add Option
+                </button>
+              </div>
               {(() => {
                 // Check for duplicate codes
                 const codes = editedOptions.map(opt => opt.code.trim().toLowerCase());
@@ -1265,6 +1405,17 @@ function QuestionBox({
                             className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-orange-500"
                             placeholder="Text"
                           />
+                          <button
+                            onClick={() => {
+                              const updated = [...editedOptions];
+                              updated.splice(optIndex, 1);
+                              setEditedOptions(updated);
+                            }}
+                            className="px-2 py-1 text-red-600 hover:text-red-700"
+                            title="Remove option"
+                          >
+                            <XMarkIcon className="w-4 h-4" />
+                          </button>
                         </div>
                       );
                     })}
@@ -1355,75 +1506,200 @@ function QuestionBox({
             )}
           </div>
           {isEditingResponseOptions ? (
-            <div className="space-y-2 mb-3">
-              <div className="text-xs font-medium text-gray-700 mb-2">Response Options (Columns):</div>
-              {(() => {
-                // Check for duplicate codes
-                const codes = editedResponseOptions.map(opt => opt.code.trim().toLowerCase());
-                const duplicateCodes = new Set<string>();
-                codes.forEach((code, index) => {
-                  if (code && codes.indexOf(code) !== index) {
-                    duplicateCodes.add(code);
-                  }
-                });
-                
-                return (
-                  <>
-                    {editedResponseOptions.map((respOpt, respIndex) => {
-                      const codeLower = respOpt.code.trim().toLowerCase();
-                      const isDuplicate = codeLower && duplicateCodes.has(codeLower);
-                      
-                      return (
-                        <div key={respIndex} className="flex items-center gap-2">
-                          <input
-                            type="text"
-                            value={respOpt.code}
-                            onChange={(e) => {
-                              const updated = [...editedResponseOptions];
-                              updated[respIndex] = { ...updated[respIndex], code: e.target.value };
-                              setEditedResponseOptions(updated);
-                            }}
-                            className={`w-16 px-2 py-1 text-xs font-mono border rounded focus:outline-none focus:ring-2 ${
-                              isDuplicate 
-                                ? 'border-red-500 focus:ring-red-500' 
-                                : 'border-gray-300 focus:ring-orange-500'
-                            }`}
-                            placeholder="Code"
-                          />
-                          <input
-                            type="text"
-                            value={respOpt.text}
-                            onChange={(e) => {
-                              const updated = [...editedResponseOptions];
-                              updated[respIndex] = { ...updated[respIndex], text: e.target.value };
-                              setEditedResponseOptions(updated);
-                            }}
-                            className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-orange-500"
-                            placeholder="Text"
-                          />
-                        </div>
-                      );
-                    })}
-                    {duplicateCodes.size > 0 && (
-                      <p className="text-xs text-red-600 mt-1">
-                        Duplicate codes are not allowed. Please ensure each code is unique.
-                      </p>
-                    )}
-                  </>
-                );
-              })()}
+            <div className="space-y-4 mb-3">
+              {/* Statements (Rows) - only show for numeric grids */}
+              {question.type?.toLowerCase().includes('numeric grid') && question.statementOptions && question.statementOptions.length > 0 && (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-xs font-medium text-gray-700">Statements (Rows):</div>
+                    <button
+                      onClick={() => {
+                        const newCode = String(editedStatementOptions.length + 1);
+                        setEditedStatementOptions([...editedStatementOptions, { code: newCode, text: '' }]);
+                      }}
+                      className="px-2 py-1 text-xs font-medium text-orange-600 hover:text-orange-700"
+                    >
+                      + Add Statement
+                    </button>
+                  </div>
+                  {(() => {
+                    // Check for duplicate codes within statements only
+                    const codes = editedStatementOptions.map(opt => opt.code.trim().toLowerCase()).filter(code => code);
+                    const duplicateCodes = new Set<string>();
+                    codes.forEach((code, index) => {
+                      if (codes.indexOf(code) !== index) {
+                        duplicateCodes.add(code);
+                      }
+                    });
+                    
+                    return (
+                      <>
+                        {editedStatementOptions.map((stmtOpt, stmtIndex) => {
+                          const codeLower = stmtOpt.code.trim().toLowerCase();
+                          const isDuplicate = codeLower && duplicateCodes.has(codeLower);
+                          
+                          return (
+                            <div key={stmtIndex} className="flex items-center gap-2 mb-2">
+                              <input
+                                type="text"
+                                value={stmtOpt.code}
+                                onChange={(e) => {
+                                  const updated = [...editedStatementOptions];
+                                  updated[stmtIndex] = { ...updated[stmtIndex], code: e.target.value };
+                                  setEditedStatementOptions(updated);
+                                }}
+                                className={`w-16 px-2 py-1 text-xs font-mono border rounded focus:outline-none focus:ring-2 ${
+                                  isDuplicate 
+                                    ? 'border-red-500 focus:ring-red-500' 
+                                    : 'border-gray-300 focus:ring-orange-500'
+                                }`}
+                                placeholder="Code"
+                              />
+                              <input
+                                type="text"
+                                value={stmtOpt.text}
+                                onChange={(e) => {
+                                  const updated = [...editedStatementOptions];
+                                  updated[stmtIndex] = { ...updated[stmtIndex], text: e.target.value };
+                                  setEditedStatementOptions(updated);
+                                }}
+                                className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                placeholder="Text"
+                              />
+                              <button
+                                onClick={() => {
+                                  const updated = [...editedStatementOptions];
+                                  updated.splice(stmtIndex, 1);
+                                  setEditedStatementOptions(updated);
+                                }}
+                                className="px-2 py-1 text-red-600 hover:text-red-700"
+                                title="Remove statement"
+                              >
+                                <XMarkIcon className="w-4 h-4" />
+                              </button>
+                            </div>
+                          );
+                        })}
+                        {duplicateCodes.size > 0 && (
+                          <p className="text-xs text-red-600 mt-1">
+                            Duplicate codes are not allowed. Please ensure each code is unique.
+                          </p>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+              
+              {/* Response Options (Columns) */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-xs font-medium text-gray-700">Response Options (Columns):</div>
+                  <button
+                    onClick={() => {
+                      const newCode = String(editedResponseOptions.length + 1);
+                      setEditedResponseOptions([...editedResponseOptions, { code: newCode, text: '' }]);
+                    }}
+                    className="px-2 py-1 text-xs font-medium text-orange-600 hover:text-orange-700"
+                  >
+                    + Add Response Option
+                  </button>
+                </div>
+                {(() => {
+                  // Check for duplicate codes within responses only
+                  const codes = editedResponseOptions.map(opt => opt.code.trim().toLowerCase()).filter(code => code);
+                  const duplicateCodes = new Set<string>();
+                  codes.forEach((code, index) => {
+                    if (codes.indexOf(code) !== index) {
+                      duplicateCodes.add(code);
+                    }
+                  });
+                  
+                  return (
+                    <>
+                      {editedResponseOptions.map((respOpt, respIndex) => {
+                        const codeLower = respOpt.code.trim().toLowerCase();
+                        const isDuplicate = codeLower && duplicateCodes.has(codeLower);
+                        
+                        return (
+                          <div key={respIndex} className="flex items-center gap-2 mb-2">
+                            <input
+                              type="text"
+                              value={respOpt.code}
+                              onChange={(e) => {
+                                const updated = [...editedResponseOptions];
+                                updated[respIndex] = { ...updated[respIndex], code: e.target.value };
+                                setEditedResponseOptions(updated);
+                              }}
+                              className={`w-16 px-2 py-1 text-xs font-mono border rounded focus:outline-none focus:ring-2 ${
+                                isDuplicate 
+                                  ? 'border-red-500 focus:ring-red-500' 
+                                  : 'border-gray-300 focus:ring-orange-500'
+                              }`}
+                              placeholder="Code"
+                            />
+                            <input
+                              type="text"
+                              value={respOpt.text}
+                              onChange={(e) => {
+                                const updated = [...editedResponseOptions];
+                                updated[respIndex] = { ...updated[respIndex], text: e.target.value };
+                                setEditedResponseOptions(updated);
+                              }}
+                              className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-orange-500"
+                              placeholder="Text"
+                            />
+                            <button
+                              onClick={() => {
+                                const updated = [...editedResponseOptions];
+                                updated.splice(respIndex, 1);
+                                setEditedResponseOptions(updated);
+                              }}
+                              className="px-2 py-1 text-red-600 hover:text-red-700"
+                              title="Remove response option"
+                            >
+                              <XMarkIcon className="w-4 h-4" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                      {duplicateCodes.size > 0 && (
+                        <p className="text-xs text-red-600 mt-1">
+                          Duplicate codes are not allowed. Please ensure each code is unique.
+                        </p>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+              
               <div className="flex items-center gap-2 mt-2">
                 {(() => {
-                  const codes = editedResponseOptions.map(opt => opt.code.trim().toLowerCase());
-                  const duplicateCodes = codes.filter((code, index) => code && codes.indexOf(code) !== index);
-                  const hasDuplicates = duplicateCodes.length > 0;
+                  // Check for duplicates separately within each group
+                  const responseCodes = editedResponseOptions.map(opt => opt.code.trim().toLowerCase()).filter(code => code);
+                  const statementCodes = editedStatementOptions.map(opt => opt.code.trim().toLowerCase()).filter(code => code);
+                  
+                  // Check for duplicates within responses
+                  const duplicateResponseCodes = responseCodes.filter((code, index) => responseCodes.indexOf(code) !== index);
+                  
+                  // Check for duplicates within statements
+                  const duplicateStatementCodes = statementCodes.filter((code, index) => statementCodes.indexOf(code) !== index);
+                  
+                  const hasDuplicates = duplicateResponseCodes.length > 0 || duplicateStatementCodes.length > 0;
+                  
+                  // Check that all codes are non-empty
+                  const allResponseCodesFilled = editedResponseOptions.every(opt => opt.code.trim() !== '');
+                  const allStatementCodesFilled = editedStatementOptions.length === 0 || editedStatementOptions.every(opt => opt.code.trim() !== '');
+                  const allCodesFilled = allResponseCodesFilled && allStatementCodesFilled;
+                  
+                  const canSave = !hasDuplicates && allCodesFilled;
                   
                   return (
                     <button
                       onClick={handleSaveResponseOptions}
-                      disabled={hasDuplicates}
+                      disabled={!canSave}
                       className={`flex items-center gap-1 px-3 py-1 text-xs font-medium rounded transition-colors ${
-                        hasDuplicates
+                        !canSave
                           ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
                           : 'text-white bg-green-600 hover:bg-green-700'
                       }`}
@@ -1502,7 +1778,191 @@ function QuestionBox({
       {question.statementOptions && question.statementOptions.length > 0 && 
        !(question.type?.toLowerCase().includes('numeric grid') && question.responseOptions && question.responseOptions.length > 0) && (
         <div className="mb-3">
-          <h4 className="text-xs font-medium text-gray-700 mb-2">Statement Options (Rows):</h4>
+          <div className="flex items-center gap-2 mb-2">
+            <h4 className="text-xs font-medium text-gray-700">Statement Options (Rows):</h4>
+            {!isEditingStatementOptions && (
+              <button
+                onClick={() => {
+                  const statementOptions = question.statementOptions?.map((opt, idx) => {
+                    const stmtOpt = typeof opt === 'string' ? { code: `r${idx + 1}`, text: opt } : { code: opt.code || `r${idx + 1}`, text: opt.text || '' };
+                    // Extract numeric part for editing (remove "r" prefix)
+                    let numericCode = stmtOpt.code.replace(/^[rc]/i, '');
+                    // If code is empty after removing prefix, use index + 1
+                    if (!numericCode || numericCode.trim() === '') {
+                      numericCode = String(idx + 1);
+                    }
+                    return { code: numericCode, text: stmtOpt.text || '' };
+                  }) || [];
+                  setEditedStatementOptions(statementOptions);
+                  setIsEditingStatementOptions(true);
+                }}
+                className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
+                title="Edit statement codes"
+              >
+                <PencilIcon className="w-3 h-3" />
+                Edit
+              </button>
+            )}
+          </div>
+          {isEditingStatementOptions ? (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-xs font-medium text-gray-700">Statement Options:</div>
+                <button
+                  onClick={() => {
+                    const newCode = String(editedStatementOptions.length + 1);
+                    setEditedStatementOptions([...editedStatementOptions, { code: newCode, text: '' }]);
+                  }}
+                  className="px-2 py-1 text-xs font-medium text-orange-600 hover:text-orange-700"
+                >
+                  + Add Statement
+                </button>
+              </div>
+              {(() => {
+                // Check for duplicate codes
+                const codes = editedStatementOptions.map(opt => opt.code.trim().toLowerCase());
+                const duplicateCodes = new Set<string>();
+                codes.forEach((code, index) => {
+                  if (code && codes.indexOf(code) !== index) {
+                    duplicateCodes.add(code);
+                  }
+                });
+                
+                return (
+                  <>
+                    {editedStatementOptions.map((stmtOpt, stmtIndex) => {
+                      const codeLower = stmtOpt.code.trim().toLowerCase();
+                      const isDuplicate = codeLower && duplicateCodes.has(codeLower);
+                      
+                      return (
+                        <div key={stmtIndex} className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={stmtOpt.code}
+                            onChange={(e) => {
+                              const updated = [...editedStatementOptions];
+                              updated[stmtIndex] = { ...updated[stmtIndex], code: e.target.value };
+                              setEditedStatementOptions(updated);
+                            }}
+                            className={`w-16 px-2 py-1 text-xs font-mono border rounded focus:outline-none focus:ring-2 ${
+                              isDuplicate 
+                                ? 'border-red-500 focus:ring-red-500' 
+                                : 'border-gray-300 focus:ring-orange-500'
+                            }`}
+                            placeholder="Code"
+                          />
+                          <input
+                            type="text"
+                            value={stmtOpt.text}
+                            onChange={(e) => {
+                              const updated = [...editedStatementOptions];
+                              updated[stmtIndex] = { ...updated[stmtIndex], text: e.target.value };
+                              setEditedStatementOptions(updated);
+                            }}
+                            className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-orange-500"
+                            placeholder="Text"
+                          />
+                          <button
+                            onClick={() => {
+                              const updated = [...editedStatementOptions];
+                              updated.splice(stmtIndex, 1);
+                              setEditedStatementOptions(updated);
+                            }}
+                            className="px-2 py-1 text-red-600 hover:text-red-700"
+                            title="Remove statement"
+                          >
+                            <XMarkIcon className="w-4 h-4" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                    {duplicateCodes.size > 0 && (
+                      <p className="text-xs text-red-600 mt-1">
+                        Duplicate codes are not allowed. Please ensure each code is unique.
+                      </p>
+                    )}
+                  </>
+                );
+              })()}
+              <div className="flex items-center gap-2 mt-2">
+                {(() => {
+                  const codes = editedStatementOptions.map(opt => opt.code.trim().toLowerCase());
+                  const duplicateCodes = codes.filter((code, index) => code && codes.indexOf(code) !== index);
+                  const hasDuplicates = duplicateCodes.length > 0;
+                  
+                  return (
+                    <button
+                      onClick={async () => {
+                        if (!onUpdateQuestion || !questionnaireId) return;
+
+                        // Check for duplicate codes
+                        if (hasDuplicates) {
+                          alert('Duplicate codes are not allowed within statements. Please ensure each statement code is unique.');
+                          return;
+                        }
+
+                        // Add back prefixes when saving
+                        const updatedStatementOptions = editedStatementOptions.map(opt => ({
+                          code: `r${opt.code}`,
+                          text: opt.text
+                        }));
+
+                        const updatedQuestion: Question = {
+                          ...question,
+                          statementOptions: updatedStatementOptions
+                        };
+
+                        try {
+                          const updatedQuestions = onUpdateQuestion(updatedQuestion);
+                          
+                          const response = await fetch(`${API_BASE_URL}/api/questionnaire/${questionnaireId}`, {
+                            method: 'PUT',
+                            headers: {
+                              'Content-Type': 'application/json',
+                              'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
+                            },
+                            body: JSON.stringify({
+                              questions: updatedQuestions
+                            })
+                          });
+
+                          if (response.ok) {
+                            setIsEditingStatementOptions(false);
+                            // Notify Tabs page to reload questionnaire data
+                            window.dispatchEvent(new CustomEvent('questionnaireUpdated', { detail: { questionnaireId } }));
+                          } else {
+                            alert('Failed to save changes. Please try again.');
+                          }
+                        } catch (error) {
+                          console.error('Error saving statement options:', error);
+                          alert('Failed to save changes. Please try again.');
+                        }
+                      }}
+                      disabled={hasDuplicates}
+                      className={`flex items-center gap-1 px-3 py-1 text-xs font-medium rounded transition-colors ${
+                        hasDuplicates
+                          ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
+                          : 'text-white bg-green-600 hover:bg-green-700'
+                      }`}
+                    >
+                      <CheckIcon className="w-3 h-3" />
+                      Save
+                    </button>
+                  );
+                })()}
+                <button
+                  onClick={() => {
+                    setIsEditingStatementOptions(false);
+                    setEditedStatementOptions([]);
+                  }}
+                  className="flex items-center gap-1 px-3 py-1 text-xs font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded transition-colors"
+                >
+                  <XMarkIcon className="w-3 h-3" />
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
           <div className="space-y-1">
             {question.statementOptions.map((stmt, stmtIndex) => {
               const isNumericGrid = question.type?.toLowerCase().includes('numeric grid');
@@ -1522,6 +1982,7 @@ function QuestionBox({
               );
             })}
           </div>
+          )}
         </div>
       )}
 
@@ -1529,7 +1990,7 @@ function QuestionBox({
       {question.responseOptions && question.responseOptions.length > 0 && 
        !(question.type?.toLowerCase().includes('numeric grid') && question.statementOptions && question.statementOptions.length > 0) && (
         <div className="mb-3">
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2 mb-2">
             <h4 className="text-xs font-medium text-gray-700">Response Options (Columns):</h4>
             {!isEditingResponseOptions && (
               <button
@@ -1544,6 +2005,18 @@ function QuestionBox({
           </div>
           {isEditingResponseOptions ? (
             <div className="space-y-2">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-xs font-medium text-gray-700">Response Options:</div>
+                <button
+                  onClick={() => {
+                    const newCode = String(editedResponseOptions.length + 1);
+                    setEditedResponseOptions([...editedResponseOptions, { code: newCode, text: '' }]);
+                  }}
+                  className="px-2 py-1 text-xs font-medium text-orange-600 hover:text-orange-700"
+                >
+                  + Add Option
+                </button>
+              </div>
               {(() => {
                 // Check for duplicate codes
                 const codes = editedResponseOptions.map(opt => opt.code.trim().toLowerCase());
@@ -1588,6 +2061,17 @@ function QuestionBox({
                             className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-orange-500"
                             placeholder="Text"
                           />
+                          <button
+                            onClick={() => {
+                              const updated = [...editedResponseOptions];
+                              updated.splice(respIndex, 1);
+                              setEditedResponseOptions(updated);
+                            }}
+                            className="px-2 py-1 text-red-600 hover:text-red-700"
+                            title="Remove option"
+                          >
+                            <XMarkIcon className="w-4 h-4" />
+                          </button>
                         </div>
                       );
                     })}

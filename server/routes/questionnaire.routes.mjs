@@ -2176,6 +2176,63 @@ router.get('/processed-data/:questionnaireId', async (req, res) => {
   }
 });
 
+// GET /api/questionnaire/raw-data/:questionnaireId - Get full raw data file as JSON
+router.get('/raw-data/:questionnaireId', async (req, res) => {
+  try {
+    const { questionnaireId } = req.params;
+    const qnrDataDir = path.join(dataRoot, 'questionnaire-data', questionnaireId);
+    const metadataPath = path.join(qnrDataDir, 'metadata.json');
+    
+    try {
+      const metadata = JSON.parse(await fs.readFile(metadataPath, 'utf-8'));
+      if (!metadata.dataFileName) {
+        return res.status(404).json({ error: 'No data file found. Please upload a data file first.' });
+      }
+      
+      const filePath = path.join(qnrDataDir, metadata.dataFileName);
+      
+      // Check if file exists
+      try {
+        await fs.access(filePath);
+      } catch (e) {
+        return res.status(404).json({ error: 'Data file not found' });
+      }
+      
+      // Read and parse the Excel file
+      const workbook = XLSX.readFile(filePath);
+      const dataSheetName = workbook.SheetNames[0];
+      const dataWorksheet = workbook.Sheets[dataSheetName];
+      
+      // Convert entire sheet to JSON - includes ALL rows and ALL columns
+      const dataJson = XLSX.utils.sheet_to_json(dataWorksheet, { 
+        defval: null, 
+        blankrows: false,
+        raw: false 
+      });
+      
+      // Get all column headers (from first row or all unique keys)
+      const allColumns = new Set();
+      dataJson.forEach(row => {
+        Object.keys(row).forEach(key => allColumns.add(key));
+      });
+      const columnHeaders = Array.from(allColumns);
+      
+      res.json({
+        columns: columnHeaders,
+        rows: dataJson,
+        totalRows: dataJson.length,
+        totalColumns: columnHeaders.length
+      });
+    } catch (e) {
+      console.error('Error reading raw data file:', e);
+      res.status(404).json({ error: 'No data file found for this questionnaire' });
+    }
+  } catch (error) {
+    console.error('Error fetching raw data:', error);
+    res.status(500).json({ error: 'Failed to fetch raw data' });
+  }
+});
+
 // POST /api/questionnaire/save-column-headers - Save column headers to metadata
 router.post('/save-column-headers', async (req, res) => {
   try {
@@ -2260,7 +2317,13 @@ router.post('/upload-data', async (req, res) => {
     const dataWorksheet = workbook.Sheets[dataSheetName];
     
     // Convert entire sheet to JSON - this includes ALL rows of data
-    const dataJson = XLSX.utils.sheet_to_json(dataWorksheet, { defval: null });
+    // Use defval: null to set empty cells to null, and blankrows: false to skip completely empty rows
+    // raw: false ensures we get formatted values (not raw cell values)
+    const dataJson = XLSX.utils.sheet_to_json(dataWorksheet, { 
+      defval: null, 
+      blankrows: false,
+      raw: false 
+    });
     
     console.log(`📁 Reading data file: ${dataFileName}`);
     console.log(`📊 Total rows in file: ${dataJson.length} (including header row)`);
@@ -2286,7 +2349,13 @@ router.post('/upload-data', async (req, res) => {
     console.log(`📊 Processing ${totalDataRows} rows with ${Object.keys(columnMapping).length} variable mappings`);
     
     // Check what columns are actually in the data file
-    const actualColumns = dataJson.length > 0 ? Object.keys(dataJson[0]) : [];
+    // Get all unique column names from all rows to ensure we catch all columns
+    // (some rows might not have all columns if cells are empty)
+    const allColumnNames = new Set();
+    dataJson.forEach(row => {
+      Object.keys(row).forEach(key => allColumnNames.add(key));
+    });
+    const actualColumns = Array.from(allColumnNames);
     
     // Verify column mappings exist in the data file
     const allMappedColumns = Object.values(columnMapping).filter(col => col && col.trim() !== '');
@@ -2324,58 +2393,53 @@ router.post('/upload-data', async (req, res) => {
         let value = null;
         let matchedKey = null;
         
-        // Try multiple matching strategies:
-        // 1. Exact match
-        if (rowKeys.includes(columnHeader)) {
-          value = row[columnHeader];
-          matchedKey = columnHeader;
-        }
-        // 2. Case-insensitive match
-        if ((value === null || value === undefined) && columnHeader) {
-          const matchingKey = rowKeys.find(key => key.toLowerCase() === columnHeader.toLowerCase());
-          if (matchingKey) {
-            value = row[matchingKey];
-            matchedKey = matchingKey;
+        // IMPORTANT: Check if column exists in actualColumns first
+        // If column doesn't exist in the data file at all, value should be null
+        // If column exists but not in this row (empty cell), value should also be null
+        const columnExistsInFile = actualColumns.some(col => {
+          const colLower = col.toLowerCase().trim();
+          const headerLower = columnHeader.toLowerCase().trim();
+          return col === columnHeader || 
+                 colLower === headerLower ||
+                 col.trim().toLowerCase() === headerLower;
+        });
+        
+        if (!columnExistsInFile) {
+          // Column doesn't exist in file at all - set to null
+          value = null;
+          matchedKey = null;
+        } else {
+          // Column exists in file - try to find it in this specific row
+          // Try multiple matching strategies (in order of strictness):
+          // 1. Exact match (most reliable)
+          if (rowKeys.includes(columnHeader)) {
+            value = row[columnHeader];
+            matchedKey = columnHeader;
           }
-        }
-        // 3. Trimmed match (in case of extra whitespace)
-        if ((value === null || value === undefined) && columnHeader) {
-          const trimmedHeader = columnHeader.trim();
-          const matchingKey = rowKeys.find(key => key.trim().toLowerCase() === trimmedHeader.toLowerCase());
-          if (matchingKey) {
-            value = row[matchingKey];
-            matchedKey = matchingKey;
-          }
-        }
-        // 4. Starts-with match (common case: "QS1" matches "QS1 - Question text...")
-        if ((value === null || value === undefined) && columnHeader) {
-          const matchingKey = rowKeys.find(key => {
-            const keyLower = key.toLowerCase().trim();
-            const headerLower = columnHeader.toLowerCase().trim();
-            // Check if key starts with header (e.g., "QS1 - ..." starts with "QS1")
-            // Or if header starts with key (e.g., "QS1" matches "QS1 - ...")
-            return keyLower.startsWith(headerLower) || headerLower.startsWith(keyLower);
-          });
-          if (matchingKey) {
-            value = row[matchingKey];
-            matchedKey = matchingKey;
-          }
-        }
-        // 5. Partial match (if column header contains the key or vice versa)
-        if ((value === null || value === undefined) && columnHeader) {
-          const matchingKey = rowKeys.find(key => {
-            const keyLower = key.toLowerCase();
-            const headerLower = columnHeader.toLowerCase();
-            // More strict partial match - require at least 3 characters to match
-            if (headerLower.length >= 3 && keyLower.length >= 3) {
-              return keyLower.includes(headerLower) || headerLower.includes(keyLower);
+          // 2. Case-insensitive exact match
+          else if (columnHeader) {
+            const matchingKey = rowKeys.find(key => key.toLowerCase() === columnHeader.toLowerCase());
+            if (matchingKey) {
+              value = row[matchingKey];
+              matchedKey = matchingKey;
             }
-            return false;
-          });
-          if (matchingKey) {
-            value = row[matchingKey];
-            matchedKey = matchingKey;
           }
+          // 3. Trimmed case-insensitive match (in case of extra whitespace)
+          if ((value === null || value === undefined) && columnHeader) {
+            const trimmedHeader = columnHeader.trim();
+            const matchingKey = rowKeys.find(key => key.trim().toLowerCase() === trimmedHeader.toLowerCase());
+            if (matchingKey) {
+              value = row[matchingKey];
+              matchedKey = matchingKey;
+            }
+          }
+          // Note: Removed starts-with and partial matching strategies to prevent incorrect column matching
+          // If exact matches (strategies 1-3) don't find the column, it means:
+          // - The cell is empty (column exists in file but not in this row), OR
+          // - The column header doesn't match exactly
+          // In either case, value should remain null
+          // If column exists in file but not found in this row, it means the cell is empty
+          // value remains null, which is correct
         }
         
         // Log warnings for variables that should have data but aren't matching
@@ -2393,10 +2457,34 @@ router.post('/upload-data', async (req, res) => {
           }
         }
         
-        // Only push non-empty values
-        if (value !== null && value !== undefined && value !== '') {
-          processedData[variableName].push(value);
+        // If column wasn't found, ensure value is null
+        // This handles cases where:
+        // 1. The column doesn't exist in the row (empty cell)
+        // 2. The column header doesn't match any key in the row
+        if (!matchedKey) {
+          value = null;
         }
+        
+        // Normalize empty values - Excel may return empty cells as null, undefined, empty string, whitespace, or 0
+        // Convert all empty-like values to null to maintain consistency
+        let normalizedValue = value;
+        if (value === null || value === undefined) {
+          normalizedValue = null;
+        } else if (typeof value === 'string') {
+          // Empty string or whitespace-only string should be null
+          normalizedValue = value.trim() === '' ? null : value;
+        } else if (typeof value === 'number' && isNaN(value)) {
+          // NaN should be null
+          normalizedValue = null;
+        }
+        // Note: We keep 0 as 0 (not null) because 0 is a valid data value
+        // If 0 should be treated as empty, uncomment the line below:
+        // normalizedValue = (normalizedValue === 0) ? null : normalizedValue;
+        
+        // Always push values (including null/empty) to maintain array alignment across variables
+        // Empty cells should be null, not skipped, so that row indices match across all variables
+        // This ensures that all variables have the same array length, preventing misalignment
+        processedData[variableName].push(normalizedValue);
       });
     });
     

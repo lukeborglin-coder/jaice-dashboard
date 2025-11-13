@@ -34,6 +34,7 @@ Thumbs.db
 server/data/*.json
 server/data/uploads/*
 server/data/discussionGuides/*
+server/data/questionnaire-data/*
 !server/data/.gitkeep
 
 # Misc

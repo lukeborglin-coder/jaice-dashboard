@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { ArrowUpTrayIcon } from '@heroicons/react/24/outline';
-import { parseDataFile, type VariableDefinition, type ParsedDataFile } from '../utils/dataTabulationParser';
+import { type VariableDefinition, type ParsedDataFile } from '../utils/dataTabulationHelpers';
 
 const BRAND_ORANGE = '#D14A2D';
 const BRAND_BG = '#F7F7F8';

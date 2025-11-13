@@ -59,7 +59,6 @@ import QuestionnaireParser from "./components/QuestionnaireParser";
 import StatTesting from "./components/StatTesting";
 import OpenEndCoding from "./components/OpenEndCoding";
 import ConjointProjects from "./components/ConjointProjects";
-import DataTabulation from "./components/DataTabulation";
 import QNR from "./components/QNR";
 import Tabs from "./components/Tabs";
 import AuthWrapper from "./components/AuthWrapper";
@@ -4559,7 +4558,6 @@ export default function App() {
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [currentSelectedProject, setCurrentSelectedProject] = useState<Project | null>(null);
   const [isViewingProjectDetails, setIsViewingProjectDetails] = useState(false);
-  const [dataTabulationHeader, setDataTabulationHeader] = useState<string | null>(null);
   const [tabsHeader, setTabsHeader] = useState<string | null>(null);
 
   // One-time migration: normalize project.moderator to store moderator ID
@@ -5381,11 +5379,10 @@ export default function App() {
         { name: "Data QA (Coming Soon)", icon: IconDatabaseExclamation, disabled: true },
       ];
 
-      // Only show Tabs, Data Tabulation and Conjoint Simulator to admins
+      // Only show Tabs and Conjoint Simulator to admins
       if (user?.role === 'admin') {
         tools.splice(3, 0, { name: "Tabs", icon: IconChartDonut2 });
-        tools.splice(4, 0, { name: "Data Tabulation", icon: IconTable, disabled: true });
-        tools.splice(5, 0, { name: "Conjoint Simulator", icon: IconChartDots });
+        tools.splice(4, 0, { name: "Conjoint Simulator", icon: IconChartDots });
       }
 
       return tools;
@@ -5483,15 +5480,6 @@ export default function App() {
             {route === "Open-End Coding" && (
               <div className="flex items-center gap-3">
                 <h1 className="text-2xl font-bold" style={{ color: BRAND.gray }}>Open-End Coding</h1>
-              </div>
-            )}
-            {route === "Data Tabulation" && (
-              <div className="flex items-center gap-3">
-                {dataTabulationHeader ? (
-                  <h1 className="text-2xl font-bold" style={{ color: BRAND.gray }}>{dataTabulationHeader}</h1>
-                ) : (
-                  <h1 className="text-2xl font-bold" style={{ color: BRAND.gray }}>Data Tabulation</h1>
-                )}
               </div>
             )}
             {route === "Tabs" && (
@@ -5781,17 +5769,6 @@ export default function App() {
         <StatTesting />
       ) : route === "Open-End Coding" ? (
         <OpenEndCoding />
-      ) : route === "Data Tabulation" ? (
-        user?.role === 'admin' ? (
-          <DataTabulation projects={projects} onHeaderChange={setDataTabulationHeader} />
-        ) : (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center p-8">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-2">Access Restricted</h2>
-              <p className="text-gray-600">The Data Tabulation is only available to administrators.</p>
-            </div>
-          </div>
-        )
       ) : route === "Tabs" ? (
         user?.role === 'admin' ? (
           <Tabs projects={projects} onNavigateToProject={handleProjectView} onHeaderChange={setTabsHeader} />

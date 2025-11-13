@@ -1,3 +1,7 @@
+/**
+ * Data Tabulation Type Definitions
+ */
+
 export interface BannerCut {
   id: string;
   title: string;
@@ -17,4 +21,3 @@ export interface BannerGroup {
   groups: BannerSubGroup[];
   confidenceLevel?: 95 | 90 | 80; // Stat testing confidence level, default 95
 }
-

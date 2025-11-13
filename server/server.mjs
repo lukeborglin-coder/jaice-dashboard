@@ -19,7 +19,6 @@ import migrateTranscriptsRouter from './routes/migrate-transcripts.mjs';
 import questionnaireRouter from './routes/questionnaire.routes.mjs';
 import openEndCodingRouter from './routes/openEndCoding.routes.mjs';
 import conjointRouter from './routes/conjoint.routes.mjs';
-import dataTabulationRouter from './routes/dataTabulation.routes.mjs';
 import storageRouter from './routes/storage.routes.mjs';
 
 // Load environment variables
@@ -112,7 +111,6 @@ app.use('/api/migrate', apiLimiter, migrateTranscriptsRouter);
 app.use('/api/questionnaire', apiLimiter, questionnaireRouter);
 app.use('/api/openend', apiLimiter, openEndCodingRouter);
 app.use('/api/conjoint', apiLimiter, conjointRouter);
-app.use('/api/dataTabulation', apiLimiter, dataTabulationRouter);
 app.use('/api/storage', apiLimiter, storageRouter);
 
 // Health check

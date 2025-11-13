@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
-import { type ParsedDataFile, getCodeLabel } from '../utils/dataTabulationParser';
+import { type ParsedDataFile, getCodeLabel } from '../utils/dataTabulationHelpers';
 import { type BannerGroup } from '../types/dataTabulation';
 import { ChevronDownIcon } from '@heroicons/react/24/outline';
 

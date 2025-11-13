@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { XMarkIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
-import { type ParsedDataFile, getCodeLabel } from '../utils/dataTabulationParser';
+import { type ParsedDataFile, getCodeLabel } from '../utils/dataTabulationHelpers';
 import { type BannerGroup, type BannerCut, type BannerSubGroup } from '../types/dataTabulation';
 
 interface BannerBuilderProps {

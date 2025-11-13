@@ -9,6 +9,9 @@ import {
   XMarkIcon,
   InformationCircleIcon,
   PlusCircleIcon,
+  ChevronUpIcon,
+  ChevronDownIcon,
+  PencilIcon,
 } from '@heroicons/react/24/outline';
 import { IconTable } from '@tabler/icons-react';
 import { API_BASE_URL } from '../config';
@@ -18,7 +21,7 @@ import * as XLSX from 'xlsx';
 import { type BannerGroup, type BannerCut } from '../types/dataTabulation';
 import BannerBuilder from './BannerBuilder';
 import CrossTabDisplay from './CrossTabDisplay';
-import { parseDataFile, type ParsedDataFile } from '../utils/dataTabulationParser';
+import { type ParsedDataFile } from '../utils/dataTabulationHelpers';
 import { autoMatchHeaders } from '../utils/headerMatcher';
 
 const BRAND_ORANGE = '#D14A2D';
@@ -104,6 +107,8 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
   const [variableFilter, setVariableFilter] = useState('');
   const [allQuestionnaires, setAllQuestionnaires] = useState<any[]>([]);
   const [qnrViewMode, setQnrViewMode] = useState<'variables' | 'banners' | 'data'>('variables');
+  const [fullRawData, setFullRawData] = useState<{ columns: string[]; rows: any[] } | null>(null);
+  const [loadingFullRawData, setLoadingFullRawData] = useState(false);
   const [bannerGroups, setBannerGroups] = useState<BannerGroup[]>([]);
   const [showBannerBuilder, setShowBannerBuilder] = useState(false);
   const [editingBannerGroup, setEditingBannerGroup] = useState<BannerGroup | null>(null);
@@ -111,6 +116,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
   const [selectedStubVariables, setSelectedStubVariables] = useState<Record<string, string>>({});
   const [parsedFile, setParsedFile] = useState<ParsedDataFile | null>(null);
   const [mappingFilter, setMappingFilter] = useState<'all' | 'mapped' | 'unmapped'>('all');
+  const [singleSelectSort, setSingleSelectSort] = useState<Record<string, { column: 'code' | 'count' | 'percentage', direction: 'asc' | 'desc' }>>({});
 
   // Load banner groups from localStorage when questionnaire changes
   useEffect(() => {
@@ -180,6 +186,8 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
   const [openDropdownForHeader, setOpenDropdownForHeader] = useState<string | null>(null);
   const [dropdownSearch, setDropdownSearch] = useState<string>('');
   const [questionData, setQuestionData] = useState<any>(null);
+  const [editingQuestion, setEditingQuestion] = useState<any>(null);
+  const [isEditingQuestion, setIsEditingQuestion] = useState(false);
   const [loadingQnrNavigation, setLoadingQnrNavigation] = useState(false);
   const [dataUploaded, setDataUploaded] = useState(false);
 
@@ -372,12 +380,28 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
     // Process questions in order to maintain QNR order
     questions.forEach((question) => {
       const questionNumber = question.number || question.id;
-      const questionType = question.type || '';
+      let questionType = question.type || '';
+      
+      // Auto-classify open end questions: if they have response options, they're "Open End List", otherwise "Open End"
+      const isOpenEnd = questionType.toLowerCase().includes('open end');
+      if (isOpenEnd) {
+        const hasResponseOptions = question.responseOptions && Array.isArray(question.responseOptions) && question.responseOptions.length > 0;
+        const hasOptions = question.options && Array.isArray(question.options) && question.options.length > 0;
+        if (hasResponseOptions || hasOptions) {
+          // Has response options, so it's an Open End List
+          questionType = 'Open End List';
+        } else {
+          // No response options, so it's a regular Open End
+          questionType = 'Open End';
+        }
+      }
+      
       const isNumericGrid = questionType.toLowerCase().includes('numeric grid');
       const isNumericList = questionType.toLowerCase().includes('numeric list');
       const isSingleSelectGrid = questionType.toLowerCase().includes('single select grid');
       const isMultiSelectGrid = questionType.toLowerCase().includes('multi-select grid');
       const isGrid = isNumericGrid || isSingleSelectGrid || isMultiSelectGrid;
+      const isOpenEndList = questionType.toLowerCase().includes('open end list');
       const hasScaleTag = question.tags && Array.isArray(question.tags) && question.tags.includes('Scale');
       const hasNumberTag = question.tags && Array.isArray(question.tags) && question.tags.includes('Number');
       const hasPercentTag = question.tags && Array.isArray(question.tags) && question.tags.includes('%');
@@ -602,25 +626,13 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
             isScaleSummary: true
           });
         }
-        
-        // For single select grids: summary tables variable first, then individual statement variables
-        // Summary tables variable - contains summary tables for each response option
-        vars.push({
-          name: `${questionNumber}_Summary Tables`,
-          description: question.text || '',
-          type: questionType,
-          statements: statements,
-          codes: codes,
-          tags: question.tags || [],
-          isSummaryTable: true,
-          isScaleSummary: false
-        });
-        
+
         processedQuestionNumbers.add(questionNumber);
-        
-        // Then individual statement variables
+
+        // Individual statement variables for single select grids
         Object.entries(statements).forEach(([stmtCode, stmtText]) => {
-          const statementVarName = `${questionNumber}_${stmtCode}`;
+          // Remove underscores to match expected header format (e.g., S13r1 instead of S13_r1)
+          const statementVarName = `${questionNumber}${stmtCode}`;
           vars.push({
             name: statementVarName,
             description: `${question.text || questionNumber}\n${stmtText}`,
@@ -631,26 +643,15 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
             isScaleSummary: false
           });
         });
-      } 
-      // For single select grids without scale tag: summary tables variable first, then individual statement variables
+      }
+      // For single select grids without scale tag: create individual statement variables
       else if (isSingleSelectGrid && statements && codes && Object.keys(statements).length > 0 && Object.keys(codes).length > 0) {
-        // Summary tables variable - contains summary tables for each response option
-        vars.push({
-          name: `${questionNumber}_Summary Tables`,
-          description: question.text || '',
-          type: questionType,
-          statements: statements,
-          codes: codes,
-          tags: question.tags || [],
-          isSummaryTable: true,
-          isScaleSummary: false
-        });
-        
         processedQuestionNumbers.add(questionNumber);
-        
-        // Then individual statement variables
+
+        // Individual statement variables
         Object.entries(statements).forEach(([stmtCode, stmtText]) => {
-          const statementVarName = `${questionNumber}_${stmtCode}`;
+          // Remove underscores to match expected header format (e.g., S13r1 instead of S13_r1)
+          const statementVarName = `${questionNumber}${stmtCode}`;
           vars.push({
             name: statementVarName,
             description: `${question.text || questionNumber}\n${stmtText}`,
@@ -682,7 +683,8 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
         
         // Then individual statement variables
         Object.entries(statements).forEach(([stmtCode, stmtText]) => {
-          const statementVarName = `${questionNumber}_${stmtCode}`;
+          // Remove underscores to match expected header format (e.g., S13r1 instead of S13_r1)
+          const statementVarName = `${questionNumber}${stmtCode}`;
           vars.push({
             name: statementVarName,
             description: `${question.text || questionNumber} - ${stmtText}`,
@@ -694,15 +696,38 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
           });
         });
       }
-      // For numeric list questions: create individual variables for each option
+      // For numeric list questions: create a single summary table (like numeric grids)
+      // Numeric lists have one column (c1), so create one summary table with response options as rows
       else if (isNumericList && codes && Object.keys(codes).length > 0) {
         processedQuestionNumbers.add(questionNumber);
         
-        // Create individual variables for each option
+        // Create a single summary table for the one column (c1)
+        // Use response options (codes) as the "statements" (rows) for the summary table
+        const summaryTableVarName = `${questionNumber}_c1_Summary`;
+        vars.push({
+          name: summaryTableVarName,
+          description: question.text || questionNumber,
+          type: 'Numeric List',
+          statements: codes, // Response options become the rows in the summary table
+          tags: question.tags || [],
+          isSummaryTable: true,
+          isScaleSummary: false
+        });
+        
+        // Also create individual cell variables for each response option (for data mapping)
+        // Format: {questionNumber}r{number}c1 e.g., S14Br1c1, S14Br2c1, etc.
         Object.entries(codes).forEach(([optionCode, optionText]) => {
-          const optionVarName = `${questionNumber}_${optionCode}`;
+          // Extract numeric part from option code (handles "1", "r1", "c1", etc.)
+          let optionNumber = optionCode;
+          if (optionCode.toLowerCase().startsWith('r')) {
+            optionNumber = optionCode.substring(1);
+          } else if (optionCode.toLowerCase().startsWith('c')) {
+            optionNumber = optionCode.substring(1);
+          }
+          // Format: S14Br1c1 (row code, then column code c1)
+          const cellVarName = `${questionNumber}r${optionNumber}c1`;
           vars.push({
-            name: optionVarName,
+            name: cellVarName,
             description: `${question.text || questionNumber}\n${optionText}`,
             type: 'Numeric',
             tags: question.tags || [],
@@ -710,7 +735,45 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
             isScaleSummary: false
           });
         });
-      } 
+      }
+      // Open End List questions - create individual variables for each response option
+      else if (isOpenEndList && codes && Object.keys(codes).length > 0) {
+        processedQuestionNumbers.add(questionNumber);
+        
+        // Create individual variables for each response option (r1, r2, etc.)
+        Object.entries(codes).forEach(([optionCode, optionText]) => {
+          // Extract the numeric part from the code (handles "1", "c1", "c01", etc.)
+          let optionNumber = optionCode;
+          // Remove 'c' prefix if present
+          if (optionCode.toLowerCase().startsWith('c')) {
+            optionNumber = optionCode.substring(1);
+          }
+          // Remove leading zeros
+          optionNumber = String(parseInt(optionNumber, 10));
+          
+          // Use 'r' prefix for open end list response options (e.g., S12r1, S12r2)
+          const responseVarName = `${questionNumber}r${optionNumber}`;
+          vars.push({
+            name: responseVarName,
+            description: `${question.text || questionNumber} - ${optionText}`,
+            type: 'Open End List',
+            tags: question.tags || [],
+            isSummaryTable: false,
+            isScaleSummary: false
+          });
+        });
+        
+        // Create a summary variable that combines all responses from all items
+        const summaryVarName = `${questionNumber}_Summary`;
+        vars.push({
+          name: summaryVarName,
+          description: `${question.text || questionNumber} - Summary (All Items Combined)`,
+          type: 'Open End List',
+          tags: question.tags || [],
+          isSummaryTable: true,
+          isScaleSummary: false
+        });
+      }
       // Regular questions (non-grid)
       else {
         const isMultiSelect = questionType.toLowerCase().includes('multi-select');
@@ -765,6 +828,66 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
         }
         processedQuestionNumbers.add(questionNumber);
       }
+    });
+    
+    // Ensure every question has at least one variable (fallback for questions that didn't meet conditions)
+    questions.forEach((question) => {
+      const questionNumber = question.number || question.id;
+      
+      // Skip if this question already generated variables
+      if (processedQuestionNumbers.has(questionNumber)) {
+        return;
+      }
+      
+      // Create a basic variable for this question so it shows up in the QNR variables tab
+      let questionType = question.type || '';
+      
+      // Auto-classify open end questions
+      const isOpenEnd = questionType.toLowerCase().includes('open end');
+      if (isOpenEnd) {
+        const hasResponseOptions = question.responseOptions && Array.isArray(question.responseOptions) && question.responseOptions.length > 0;
+        const hasOptions = question.options && Array.isArray(question.options) && question.options.length > 0;
+        if (hasResponseOptions || hasOptions) {
+          questionType = 'Open End List';
+        } else {
+          questionType = 'Open End';
+        }
+      }
+      
+      // Try to get codes if available
+      let codes: Record<string, string> | undefined = undefined;
+      if (question.responseOptions && Array.isArray(question.responseOptions)) {
+        codes = {};
+        question.responseOptions.forEach((resp: any, idx: number) => {
+          const code = typeof resp === 'string' ? `c${idx + 1}` : (resp.code || `c${idx + 1}`);
+          const text = typeof resp === 'string' ? resp : resp.text;
+          if (codes) {
+            codes[code] = text;
+          }
+        });
+      } else if (question.options && Array.isArray(question.options)) {
+        codes = {};
+        question.options.forEach((opt: any, idx: number) => {
+          const code = typeof opt === 'string' ? String(idx + 1) : (opt.code || String(idx + 1));
+          const text = typeof opt === 'string' ? opt : opt.text;
+          if (codes) {
+            codes[code] = text;
+          }
+        });
+      }
+      
+      // Create a basic variable for this question
+      vars.push({
+        name: questionNumber,
+        description: question.text || '',
+        type: questionType,
+        codes: codes,
+        tags: question.tags || [],
+        isSummaryTable: false,
+        isScaleSummary: false
+      });
+      
+      processedQuestionNumbers.add(questionNumber);
     });
     
     // Also add any variables from processed data that aren't already in our list
@@ -858,20 +981,294 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
     return base;
   }, []);
 
+  // Helper function to extract variable data from full raw data
+  // Uses columnMapping to find the matched column header, then extracts values from fullRawData
+  const getVariableDataFromRawData = useCallback((variableName: string): any => {
+    if (!fullRawData || !fullRawData.rows || fullRawData.rows.length === 0 || !columnMapping) {
+      return undefined;
+    }
+
+    // Convert numeric list variable names to expected header format
+    // Numeric list variables are named like S14B_1, S14B_2, etc., but expected headers are QS14Br1c1, QS14Br2c1, etc.
+    // BUT: if the variableName is already in expected header format (e.g., QS14Br1c1), don't convert it again
+    let lookupName = variableName;
+    
+    // Only convert if it's NOT already in expected header format (doesn't have r and c codes)
+    const isAlreadyExpectedFormat = /^Q?[A-Z0-9]+r\d+c\d+$/i.test(variableName);
+    
+    if (!isAlreadyExpectedFormat) {
+      // Check if this is a numeric list variable (pattern: {baseNumber}_{number})
+      const numericListPattern = /^([A-Z0-9]+)_(\d+)$/i;
+      const numericListMatch = variableName.match(numericListPattern);
+      if (numericListMatch) {
+        const baseNumber = numericListMatch[1];
+        const optionNumber = numericListMatch[2];
+        // Convert S14B_1 -> QS14Br1c1
+        lookupName = `Q${baseNumber}r${optionNumber}c1`;
+      } else {
+        // Check for _r pattern (e.g., S5_r1)
+        const underscoreRPattern = /^([A-Z0-9]+)_r(\d+)$/i;
+        const underscoreRMatch = variableName.match(underscoreRPattern);
+        if (underscoreRMatch) {
+          const baseNumber = underscoreRMatch[1];
+          const rowNumber = underscoreRMatch[2];
+          // Check if this is a numeric list question
+          const question = questionnaireQuestions.find(q => {
+            const qNum = q.number || q.id;
+            return qNum === baseNumber || qNum === baseNumber.replace(/^Q/, '');
+          });
+          const isNumericList = question?.type?.toLowerCase().includes('numeric list');
+          if (isNumericList) {
+            // Convert S5_r1 -> QS5r1c1
+            lookupName = `Q${baseNumber}r${rowNumber}c1`;
+          }
+        }
+      }
+    }
+
+    // Try to find the expected header in columnMapping (try variations)
+    let expectedHeader: string | undefined = undefined;
+    
+    // Try exact match with converted name first
+    if (columnMapping[lookupName]) {
+      expectedHeader = lookupName;
+    }
+    
+    // Try exact match with original name
+    if (!expectedHeader && columnMapping[variableName]) {
+      expectedHeader = variableName;
+    }
+    
+    // Try with Q prefix
+    if (!expectedHeader) {
+      const withQ = lookupName.startsWith('Q') ? lookupName : `Q${lookupName}`;
+      if (columnMapping[withQ]) {
+        expectedHeader = withQ;
+      }
+    }
+    
+    // Try without Q prefix
+    if (!expectedHeader && lookupName.startsWith('Q')) {
+      const withoutQ = lookupName.substring(1);
+      if (columnMapping[withoutQ]) {
+        expectedHeader = withoutQ;
+      }
+    }
+    
+    // Try case-insensitive lookup with converted name
+    if (!expectedHeader) {
+      const mappingKeys = Object.keys(columnMapping);
+      const matchingKey = mappingKeys.find(key => 
+        key.toLowerCase() === lookupName.toLowerCase() ||
+        key.toLowerCase() === (lookupName.startsWith('Q') ? lookupName : `Q${lookupName}`).toLowerCase() ||
+        (lookupName.startsWith('Q') && key.toLowerCase() === lookupName.substring(1).toLowerCase())
+      );
+      if (matchingKey) {
+        expectedHeader = matchingKey;
+      }
+    }
+    
+    // Try case-insensitive lookup with original name as fallback
+    if (!expectedHeader) {
+      const mappingKeys = Object.keys(columnMapping);
+      const matchingKey = mappingKeys.find(key => 
+        key.toLowerCase() === variableName.toLowerCase() ||
+        key.toLowerCase() === (variableName.startsWith('Q') ? variableName : `Q${variableName}`).toLowerCase() ||
+        (variableName.startsWith('Q') && key.toLowerCase() === variableName.substring(1).toLowerCase())
+      );
+      if (matchingKey) {
+        expectedHeader = matchingKey;
+      }
+    }
+    
+    if (!expectedHeader) {
+      return undefined;
+    }
+    
+    // Get the matched column header (the actual Excel column name)
+    const matchedColumnHeader = columnMapping[expectedHeader];
+    if (!matchedColumnHeader) {
+      return undefined;
+    }
+    
+    // Extract values from fullRawData rows
+    const values: any[] = [];
+    fullRawData.rows.forEach((row: any) => {
+      if (row.hasOwnProperty(matchedColumnHeader)) {
+        const value = row[matchedColumnHeader];
+        // Normalize empty values to null
+        if (value === null || value === undefined || value === '') {
+          values.push(null);
+        } else if (typeof value === 'string' && value.trim() === '') {
+          values.push(null);
+        } else {
+          values.push(value);
+        }
+      } else {
+        values.push(null);
+      }
+    });
+    
+    // Calculate statistics
+    const nonNullValues = values.filter(v => v !== null && v !== undefined);
+    const numericValues = nonNullValues.map(v => {
+      const num = parseFloat(String(v));
+      return isNaN(num) ? null : num;
+    }).filter(v => v !== null) as number[];
+    
+    const allNumeric = numericValues.length === nonNullValues.length && numericValues.length > 0;
+    
+    // Calculate frequencies for categorical data
+    const frequencies: Record<string, number> = {};
+    if (!allNumeric) {
+      nonNullValues.forEach(val => {
+        const valStr = String(val);
+        frequencies[valStr] = (frequencies[valStr] || 0) + 1;
+      });
+    }
+    
+    // Calculate numeric statistics if applicable
+    let mean: number | undefined = undefined;
+    let median: number | undefined = undefined;
+    let sum: number | undefined = undefined;
+    
+    if (allNumeric && numericValues.length > 0) {
+      const sorted = [...numericValues].sort((a, b) => a - b);
+      sum = numericValues.reduce((a, b) => a + b, 0);
+      mean = sum / numericValues.length;
+      median = sorted.length % 2 === 0
+        ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
+        : sorted[Math.floor(sorted.length / 2)];
+    }
+    
+    return {
+      values: values,
+      count: values.length,
+      numeric: allNumeric,
+      frequencies: Object.keys(frequencies).length > 0 ? frequencies : undefined,
+      mean: mean,
+      median: median,
+      sum: sum
+    };
+  }, [fullRawData, columnMapping, questionnaireQuestions]);
+
+  // Helper function to get variable data using expected header format
+  // Now uses fullRawData instead of variableData for better accuracy
+  const getVariableDataByExpectedHeader = useCallback((variableName: string): any => {
+    // Convert numeric list variable names to expected header format
+    // Numeric list variables are named like S5_1, S5_2, etc., but expected headers are QS5r1c1, QS5r2c1, etc.
+    let expectedHeaderName = variableName;
+    
+    // Check if this is a numeric list variable (pattern: {baseNumber}_{number})
+    const numericListPattern = /^([A-Z0-9]+)_(\d+)$/i;
+    const numericListMatch = variableName.match(numericListPattern);
+    if (numericListMatch) {
+      const baseNumber = numericListMatch[1];
+      const optionNumber = numericListMatch[2];
+      // Convert S14B_1 -> QS14Br1c1
+      expectedHeaderName = `Q${baseNumber}r${optionNumber}c1`;
+    } else {
+      // Check for _r pattern (e.g., S5_r1)
+      const underscoreRPattern = /^([A-Z0-9]+)_r(\d+)$/i;
+      const underscoreRMatch = variableName.match(underscoreRPattern);
+      if (underscoreRMatch) {
+        const baseNumber = underscoreRMatch[1];
+        const rowNumber = underscoreRMatch[2];
+        // Check if this is a numeric list question
+        const question = questionnaireQuestions.find(q => {
+          const qNum = q.number || q.id;
+          return qNum === baseNumber || qNum === baseNumber.replace(/^Q/, '');
+        });
+        const isNumericList = question?.type?.toLowerCase().includes('numeric list');
+        if (isNumericList) {
+          // Convert S5_r1 -> QS5r1c1
+          expectedHeaderName = `Q${baseNumber}r${rowNumber}c1`;
+        }
+      }
+    }
+
+    // First try to get data from full raw data (more accurate) using the expected header format
+    const rawData = getVariableDataFromRawData(expectedHeaderName);
+    if (rawData) {
+      return rawData;
+    }
+
+    // Also try with the original variable name (but only if conversion happened)
+    if (expectedHeaderName !== variableName) {
+      const rawDataOriginal = getVariableDataFromRawData(variableName);
+      if (rawDataOriginal) {
+        return rawDataOriginal;
+      }
+    }
+    
+    // Fallback to variableData if raw data not available (for backward compatibility)
+    // Try different variations:
+    
+    // 1. Try expected header name (for numeric lists)
+    if (expectedHeaderName !== variableName && variableData[expectedHeaderName]) {
+      return variableData[expectedHeaderName];
+    }
+    
+    // 2. Try variable name as-is
+    if (variableData[variableName]) {
+      return variableData[variableName];
+    }
+    
+    // 3. Try with Q prefix (e.g., "S14r1" -> "QS14r1")
+    const withQ = variableName.startsWith('Q') ? variableName : `Q${variableName}`;
+    if (variableData[withQ]) {
+      return variableData[withQ];
+    }
+    
+    // 4. Try without Q prefix (e.g., "QS14r1" -> "S14r1")
+    if (variableName.startsWith('Q')) {
+      const withoutQ = variableName.substring(1);
+      if (variableData[withoutQ]) {
+        return variableData[withoutQ];
+      }
+    }
+    
+    // 5. Try case-insensitive lookup
+    const variableDataKeys = Object.keys(variableData);
+    const matchingKey = variableDataKeys.find(key => 
+      key.toLowerCase() === variableName.toLowerCase() ||
+      key.toLowerCase() === withQ.toLowerCase() ||
+      key.toLowerCase() === expectedHeaderName.toLowerCase() ||
+      (variableName.startsWith('Q') && key.toLowerCase() === variableName.substring(1).toLowerCase())
+    );
+    if (matchingKey) {
+      return variableData[matchingKey];
+    }
+    
+    // Return undefined if nothing found
+    return undefined;
+  }, [getVariableDataFromRawData, variableData, questionnaireQuestions]);
+
   // Generate expected column headers for a base question (all variables with that base)
   const getExpectedColumnHeadersForBase = useCallback((baseQuestionNumber: string, allVariables: Variable[]): string[] => {
-    // Find all variables that belong to this base question
-    const relatedVariables = allVariables.filter(v => {
-      const base = getBaseQuestionNumber(v.name);
-      return base === baseQuestionNumber;
-    });
-
     // Check the original question data to see if it has statements
     const question = questionnaireQuestions.find(q => (q.number || q.id) === baseQuestionNumber);
     const questionType = question?.type || '';
     const isNumericList = questionType.toLowerCase().includes('numeric list');
     const isNumericGrid = questionType.toLowerCase().includes('numeric grid');
     const isNumericOnly = questionType.toLowerCase() === 'numeric' || (questionType.toLowerCase().includes('numeric') && !isNumericList && !isNumericGrid);
+    const isOpenEndList = questionType.toLowerCase().includes('open end list');
+    const isOpenEnd = questionType.toLowerCase().includes('open end') && !isOpenEndList;
+    const isSingleSelect = questionType.toLowerCase().includes('single select') && !questionType.toLowerCase().includes('grid');
+    const isSingleSelectGrid = questionType.toLowerCase().includes('single select grid');
+    const isMultiSelectGrid = questionType.toLowerCase().includes('multi-select grid');
+    const isGrid = isNumericGrid || isSingleSelectGrid || isMultiSelectGrid;
+    
+    // For single select questions (not grids) and open end questions (not lists), return just Q + question number
+    if ((isSingleSelect || isOpenEnd) && !isGrid) {
+      return [`Q${baseQuestionNumber}`];
+    }
+    
+    // Find all variables that belong to this base question
+    const relatedVariables = allVariables.filter(v => {
+      const base = getBaseQuestionNumber(v.name);
+      return base === baseQuestionNumber;
+    });
     
     let questionHasStatements = false;
     let statementCodes: string[] = [];
@@ -969,25 +1366,94 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
       }
       
       // Generate all combinations: each row × each column
+      // Group by column first (c1, c2, c3...), then by row within each column
       if (rowCodes.length > 0) {
-        rowCodes.forEach(rowCode => {
-          const rowNumberMatch = rowCode.match(/r?(\d+)/i);
-          const rowNum = rowNumberMatch ? rowNumberMatch[1] : rowCode.replace(/[^0-9]/g, '');
+        if (colCodes.length > 0) {
+          // Sort columns numerically
+          const sortedColCodes = [...colCodes].sort((a, b) => {
+            const aNum = parseInt(a.match(/c?(\d+)/i)?.[1] || '0', 10);
+            const bNum = parseInt(b.match(/c?(\d+)/i)?.[1] || '0', 10);
+            return aNum - bNum;
+          });
           
-          if (colCodes.length > 0) {
-            colCodes.forEach(colCode => {
-              const colNumberMatch = colCode.match(/c?(\d+)/i);
-              const colNum = colNumberMatch ? colNumberMatch[1] : colCode.replace(/[^0-9]/g, '');
+          // Generate headers grouped by column: all c1 first, then all c2, etc.
+          sortedColCodes.forEach(colCode => {
+            const colNumberMatch = colCode.match(/c?(\d+)/i);
+            const colNum = colNumberMatch ? colNumberMatch[1] : colCode.replace(/[^0-9]/g, '');
+            
+            // Sort rows numerically within each column
+            const sortedRowCodes = [...rowCodes].sort((a, b) => {
+              const aNum = parseInt(a.match(/r?(\d+)/i)?.[1] || '0', 10);
+              const bNum = parseInt(b.match(/r?(\d+)/i)?.[1] || '0', 10);
+              return aNum - bNum;
+            });
+            
+            sortedRowCodes.forEach(rowCode => {
+              const rowNumberMatch = rowCode.match(/r?(\d+)/i);
+              const rowNum = rowNumberMatch ? rowNumberMatch[1] : rowCode.replace(/[^0-9]/g, '');
               expectedHeaders.push(`Q${baseQuestionNumber}r${rowNum}c${colNum}`);
             });
-          } else {
-            // If no columns found, still add row with c1 (fallback)
+          });
+        } else {
+          // If no columns found, still add row with c1 (fallback)
+          rowCodes.forEach(rowCode => {
+            const rowNumberMatch = rowCode.match(/r?(\d+)/i);
+            const rowNum = rowNumberMatch ? rowNumberMatch[1] : rowCode.replace(/[^0-9]/g, '');
             expectedHeaders.push(`Q${baseQuestionNumber}r${rowNum}c1`);
-          }
-        });
+          });
+        }
       }
       
       if (expectedHeaders.length > 0) {
+        // Headers are already sorted by column then row, no need to sort again
+        return expectedHeaders;
+      }
+    }
+    
+    // For numeric list questions, generate expected headers from response options (r1c1, r2c1, etc.)
+    if (isNumericList && question) {
+      // Get response options from question or from related variables
+      const responseOptions = question.responseOptions || question.options || [];
+      let codesToUse: Record<string, string> | undefined = undefined;
+      
+      // Try to get codes from the question's responseOptions
+      if (responseOptions && Array.isArray(responseOptions) && responseOptions.length > 0) {
+        codesToUse = {};
+        responseOptions.forEach((resp: any, idx: number) => {
+          const code = typeof resp === 'string' ? String(idx + 1) : (resp.code || String(idx + 1));
+          const text = typeof resp === 'string' ? resp : (resp.text || resp.label || `Option ${idx + 1}`);
+          codesToUse![code] = text;
+        });
+      } else if (responseOptions && typeof responseOptions === 'object' && !Array.isArray(responseOptions)) {
+        codesToUse = responseOptions as Record<string, string>;
+      }
+      
+      // If we have codes, generate expected headers
+      if (codesToUse && Object.keys(codesToUse).length > 0) {
+        Object.keys(codesToUse).forEach((code) => {
+          // Extract numeric part from code (handles "1", "r1", "c1", etc.)
+          let rowNum = code;
+          if (code.toLowerCase().startsWith('r')) {
+            rowNum = code.substring(1);
+          } else if (code.toLowerCase().startsWith('c')) {
+            rowNum = code.substring(1);
+          }
+          // Format: QS14Br1c1, QS14Br2c1, etc.
+          expectedHeaders.push(`Q${baseQuestionNumber}r${rowNum}c1`);
+        });
+        return expectedHeaders.sort();
+      }
+    }
+    
+    // For Open End List questions, generate expected headers from response options (r1, r2, etc.)
+    if (isOpenEndList && question) {
+      const responseOptions = question.responseOptions || question.options || [];
+      if (responseOptions.length > 0) {
+        responseOptions.forEach((resp: any, idx: number) => {
+          const rowNum = idx + 1;
+          // Format: QS12r1, QS12r2, etc. (no c1 suffix)
+          expectedHeaders.push(`Q${baseQuestionNumber}r${rowNum}`);
+        });
         return expectedHeaders.sort();
       }
     }
@@ -1059,6 +1525,11 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
         return;
       }
       
+      // For open end lists, filter out the base variable if it exists
+      if (isOpenEndList && variable.name === baseQuestionNumber) {
+        return;
+      }
+      
       // For numeric lists, handle both patterns:
       // 1. {baseQuestionNumber}_r{number} (e.g., S5_r1)
       // 2. {baseQuestionNumber}_{number} (e.g., S14B_1)
@@ -1102,22 +1573,57 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
             expectedHeaders.push(`Q${variable.name}`);
           }
         }
+      } else if (isOpenEndList) {
+        // For open end lists, variables should be named like S12r1, S12r2, etc.
+        // Format: QS12r1, QS12r2, etc. (no c1 suffix)
+        const openEndListPattern = new RegExp(`^${baseQuestionNumber}r(\\d+)$`, 'i');
+        const openEndMatch = variable.name.match(openEndListPattern);
+        if (openEndMatch) {
+          // Convert S12r1 -> QS12r1
+          expectedHeaders.push(`Q${baseQuestionNumber}r${openEndMatch[1]}`);
+        } else {
+          // Check for underscore pattern: S12_r1
+          const openEndUnderscorePattern = new RegExp(`^${baseQuestionNumber}_r(\\d+)$`, 'i');
+          const openEndUnderscoreMatch = variable.name.match(openEndUnderscorePattern);
+          if (openEndUnderscoreMatch) {
+            // Convert S12_r1 -> QS12r1
+            expectedHeaders.push(`Q${baseQuestionNumber}r${openEndUnderscoreMatch[1]}`);
+          } else {
+            // Fallback: add "Q" prefix to variable name as-is
+            expectedHeaders.push(`Q${variable.name}`);
+          }
+        }
       } else {
-        // For non-numeric lists and non-numeric grids, handle statement variables with underscore pattern (e.g., S5_r1)
-        const statementWithUnderscorePattern = new RegExp(`^${baseQuestionNumber}_r(\\d+)$`, 'i');
-        const match = variable.name.match(statementWithUnderscorePattern);
+        // For non-numeric lists and non-numeric grids, handle statement variables
+        // Check for pattern without underscore first (e.g., C1r1)
+        const statementPattern = new RegExp(`^${baseQuestionNumber}r(\\d+)$`, 'i');
+        const match = variable.name.match(statementPattern);
         if (match) {
-          // Convert S5_r1 -> QS5r1
+          // Convert C1r1 -> QC1r1
           expectedHeaders.push(`Q${baseQuestionNumber}r${match[1]}`);
         } else {
-          // Add "Q" prefix to variable name as-is
-          expectedHeaders.push(`Q${variable.name}`);
+          // Check for underscore pattern (e.g., C1_r1)
+          const statementWithUnderscorePattern = new RegExp(`^${baseQuestionNumber}_r(\\d+)$`, 'i');
+          const underscoreMatch = variable.name.match(statementWithUnderscorePattern);
+          if (underscoreMatch) {
+            // Convert C1_r1 -> QC1r1
+            expectedHeaders.push(`Q${baseQuestionNumber}r${underscoreMatch[1]}`);
+          } else {
+            // Add "Q" prefix to variable name as-is
+            expectedHeaders.push(`Q${variable.name}`);
+          }
         }
       }
     });
 
+    // Normalize all expected headers to remove underscores and ensure consistent format
+    const normalizedHeaders = expectedHeaders.map(header => {
+      // Remove underscores from expected headers (e.g., QC1_r1 -> QC1r1)
+      return header.replace(/_/g, '');
+    });
+
     // Sort to ensure consistent ordering
-    return expectedHeaders.sort();
+    return normalizedHeaders.sort();
   }, [getBaseQuestionNumber, questionnaireQuestions]);
 
   // Load questionnaire details function
@@ -1188,6 +1694,59 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
       // Don't clear on error - might be a temporary network issue
     }
   }, [selectedQuestionnaire]);
+
+  // Clear full raw data when questionnaire changes
+  useEffect(() => {
+    setFullRawData(null);
+  }, [selectedQuestionnaire?.id]);
+
+  // Load full raw data function
+  const loadFullRawData = useCallback(async () => {
+    if (!selectedQuestionnaire) {
+      return;
+    }
+    setLoadingFullRawData(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/questionnaire/raw-data/${selectedQuestionnaire.id}`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setFullRawData(data);
+      } else {
+        console.error('Failed to load full raw data');
+        setFullRawData(null);
+      }
+    } catch (error) {
+      console.error('Error loading full raw data:', error);
+      setFullRawData(null);
+    } finally {
+      setLoadingFullRawData(false);
+    }
+  }, [selectedQuestionnaire]);
+
+  // Load full raw data when viewing raw data tab OR variables tab with uploaded data
+  useEffect(() => {
+    if (!selectedQuestionnaire || loadingFullRawData) {
+      return;
+    }
+
+    // Don't reload if we already have data for this questionnaire
+    if (fullRawData) {
+      return;
+    }
+
+    // Load when on raw data tab
+    if (qnrViewMode === 'rawdata') {
+      loadFullRawData();
+      return;
+    }
+
+    // Also load when on variables tab and there's uploaded data
+    if (qnrViewMode === 'variables' && uploadedFileInfo && dataUploaded) {
+      loadFullRawData();
+    }
+  }, [qnrViewMode, fullRawData, loadingFullRawData, selectedQuestionnaire, uploadedFileInfo, dataUploaded, loadFullRawData]);
 
   // Track loading state to prevent duplicate calls
   const [loadingFileInfo, setLoadingFileInfo] = useState(false);
@@ -1326,6 +1885,60 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedQuestionnaire, viewMode]);
+
+  // Listen for questionnaire updates from QNR page
+  useEffect(() => {
+    const handleQuestionnaireUpdate = async (event: CustomEvent) => {
+      const { questionnaireId } = event.detail;
+      
+      // Only reload if this is the currently selected questionnaire
+      if (selectedQuestionnaire && selectedQuestionnaire.id === questionnaireId) {
+        // Reload questionnaire details to get updated questions
+        try {
+          // Fetch fresh questionnaire data
+          if (selectedProject) {
+            const response = await fetch(`${API_BASE_URL}/api/questionnaire/${selectedProject.id}`, {
+              headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
+            });
+            if (response.ok) {
+              const projectQuestionnaires = await response.json();
+              const updatedQnr = projectQuestionnaires.find((q: any) => q.id === questionnaireId);
+              if (updatedQnr) {
+                // Update selected questionnaire
+                setSelectedQuestionnaire(updatedQnr);
+                // Update questionnaire questions
+                if (updatedQnr.questions && updatedQnr.questions.length > 0) {
+                  setQuestionnaireQuestions(updatedQnr.questions);
+                }
+                // Update questionnaires list
+                setQuestionnaires(projectQuestionnaires);
+                // Update allQuestionnaires if needed
+                const updatedAllQnrs = allQuestionnaires.map((q: any) => 
+                  q.id === questionnaireId ? updatedQnr : q
+                );
+                if (!updatedAllQnrs.find((q: any) => q.id === questionnaireId)) {
+                  updatedAllQnrs.push(updatedQnr);
+                }
+                setAllQuestionnaires(updatedAllQnrs);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error reloading questionnaire after update:', error);
+        }
+      }
+    };
+
+    const eventHandler = (event: Event) => {
+      handleQuestionnaireUpdate(event as CustomEvent);
+    };
+    
+    window.addEventListener('questionnaireUpdated', eventHandler);
+    
+    return () => {
+      window.removeEventListener('questionnaireUpdated', eventHandler);
+    };
+  }, [selectedQuestionnaire, selectedProject, allQuestionnaires]);
   
   // Reload file info when switching to data view to ensure it's fresh
   // The initial load happens in the effect above when questionnaire is selected
@@ -1355,7 +1968,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
 
   // Memoize data mapping computation to prevent infinite loops
   const dataMappingMemo = useMemo(() => {
-    if (!hasAttemptedMapping || variables.length === 0) {
+    if (variables.length === 0) {
       return { filteredHeaders: [], mappingStatusMap: new Map<string, { isMapped: boolean; mappedColumnHeader: string; mappedVariableName: string }>() };
     }
     
@@ -1394,7 +2007,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
     const expectedHeadersSet = new Set<string>();
     const expectedHeadersOrdered: string[] = [];
     baseQuestionMap.forEach((group) => {
-      const headers = getExpectedColumnHeadersForBase(group.baseNumber, group.variables);
+      const headers = getExpectedColumnHeadersForBase(group.baseNumber, variables);
       headers.forEach(header => {
         if (!expectedHeadersSet.has(header)) {
           expectedHeadersSet.add(header);
@@ -1512,47 +2125,11 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
         }
       }
       
-      // Final fallback: if column header value matches expected header exactly, consider it mapped
-      // This handles edge cases where the variable name might not match but the column header does
-      if (!isMapped) {
-        for (const [varName, colHeader] of Object.entries(columnMapping)) {
-          if (!colHeader || colHeader.trim() === '') continue;
-          
-          const colHeaderNormalized = colHeader.toLowerCase().trim();
-          // Direct match check - if column header exactly matches expected header (with Q variations)
-          if (colHeaderNormalized === expectedNormalized ||
-              (colHeaderNormalized.startsWith('q') && colHeaderNormalized.substring(1) === expectedWithoutQ) ||
-              (!colHeaderNormalized.startsWith('q') && 'q' + colHeaderNormalized === expectedWithQ)) {
-            isMapped = true;
-            mappedColumnHeader = colHeader;
-            mappedVariableName = varName;
-            break;
-          }
-        }
-      }
-      
-      // Additional check: if expected header exactly matches any column header in the data file, consider it mapped
-      // This handles cases where the column header exists in the data but hasn't been explicitly mapped yet
-      if (!isMapped) {
-        for (const colHeader of columnHeaders) {
-          if (!colHeader || colHeader.trim() === '') continue;
-          
-          const colHeaderNormalized = colHeader.toLowerCase().trim();
-          // Exact match (case-insensitive)
-          if (colHeaderNormalized === expectedNormalized) {
-            isMapped = true;
-            mappedColumnHeader = colHeader; // Use the actual column header as it appears in the file
-            mappedVariableName = expectedHeader; // Use expected header as the variable name
-            break;
-          }
-        }
-      }
-      
       statusMap.set(expectedHeader, { isMapped, mappedColumnHeader, mappedVariableName });
     });
-    
+
     return { filteredHeaders: filtered, mappingStatusMap: statusMap };
-  }, [hasAttemptedMapping, variables, questionnaireQuestions, qnrVariableSearch, columnMapping, columnHeaders]);
+  }, [variables, questionnaireQuestions, qnrVariableSearch, columnMapping, columnHeaders]);
 
   // Compute unmapped expected headers and unused column headers for AI mapping
   const unmappedHeadersInfo = useMemo(() => {
@@ -1590,7 +2167,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
 
     const allExpectedHeaders: string[] = [];
     baseQuestionMap.forEach((group) => {
-      const headers = getExpectedColumnHeadersForBase(group.baseNumber, group.variables);
+      const headers = getExpectedColumnHeadersForBase(group.baseNumber, variables);
       headers.forEach(header => {
         if (!allExpectedHeaders.includes(header)) {
           allExpectedHeaders.push(header);
@@ -2079,6 +2656,17 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                 >
                   Data
                 </button>
+                <button
+                  onClick={() => setQnrViewMode('rawdata')}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                    qnrViewMode === 'rawdata'
+                      ? 'text-white'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                  style={qnrViewMode === 'rawdata' ? { borderBottomColor: BRAND_ORANGE, color: BRAND_ORANGE } : {}}
+                >
+                  Raw Data
+                </button>
               </nav>
               <div className="flex items-center gap-3">
                 {/* Check if QNR has variables loaded - show sync button if no variables */}
@@ -2132,11 +2720,37 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                   ) : (
                     <div className="space-y-1">
                       {filteredVariables.map((v) => {
-                        const varData = variableData[v.name];
+                        const varData = getVariableDataByExpectedHeader(v.name);
                         
                         // For summary tables (numeric grids), check if the table has any data to display
                         let hasData = false;
-                        if ((v as any).isSummaryTable && v.statements) {
+                        
+                        // Special handling for open end list summary tables
+                        if (v.type?.toLowerCase().includes('open end list') && 
+                            (v as any).isSummaryTable && 
+                            v.name.endsWith('_Summary')) {
+                          // For open end list summary tables, check if any related individual variables have data
+                          const baseQuestionName = v.name.replace('_Summary', '');
+                          const relatedVariables = variables.filter((relatedV: any) => {
+                            if (!relatedV.type?.toLowerCase().includes('open end list')) return false;
+                            if ((relatedV as any).isSummaryTable) return false;
+                            const varMatch = relatedV.name.match(/^([A-Z0-9]+)r\d+$/i);
+                            return varMatch && varMatch[1] === baseQuestionName;
+                          });
+                          
+                          // Check if any related variable has data
+                          hasData = relatedVariables.some((relatedVar: any) => {
+                            const relatedVarData = getVariableDataByExpectedHeader(relatedVar.name);
+                            if (!relatedVarData) return false;
+                            
+                            const hasFrequencies = relatedVarData.frequencies && typeof relatedVarData.frequencies === 'object' && 
+                              Object.keys(relatedVarData.frequencies).length > 0 &&
+                              Object.values(relatedVarData.frequencies).some((count: any) => typeof count === 'number' && count > 0);
+                            const hasValues = Array.isArray(relatedVarData.values) && relatedVarData.values.length > 0;
+                            
+                            return hasFrequencies || hasValues;
+                          });
+                        } else if ((v as any).isSummaryTable && v.statements) {
                           // Check if this is a column summary table (e.g., S4_c1_Summary)
                           const columnMatch = v.name.match(/^([A-Z0-9]+)_(c\d+)(?:_Summary)?$/i);
                           const isNumericGridColumnSummary = columnMatch && v.type?.toLowerCase().includes('numeric');
@@ -2146,26 +2760,41 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                             const baseName = columnMatch![1];
                             const columnCode = columnMatch![2];
                             
+                            // Check if this is a numeric list
+                            const question = questionnaireQuestions.find(q => {
+                              const qNum = q.number || q.id;
+                              return qNum === baseName || 
+                                     qNum === baseName.replace(/^Q/, '') ||
+                                     String(qNum) === String(baseName);
+                            });
+                            const isNumericList = question?.type?.toLowerCase().includes('numeric list');
+                            
                             hasData = Object.keys(v.statements).some((stmtCode) => {
                               // Try to find data for this row in this column
                               let hasRowData = false;
                               
+                              // For numeric lists, normalize the code (add "r" prefix if needed)
+                              let normalizedStmtCode = stmtCode;
+                              if (isNumericList && !/^r\d+/i.test(stmtCode) && /^\d+$/.test(stmtCode)) {
+                                normalizedStmtCode = `r${stmtCode}`;
+                              }
+                              
                               // Check cell variables first
                               const cellVarNames = [
                                 // Without Q prefix
-                                `${baseName}${stmtCode}${columnCode}`,
-                                `${baseName}_${stmtCode}_${columnCode}`,
-                                `${baseName}${stmtCode}_${columnCode}`,
-                                `${baseName}_${stmtCode}${columnCode}`,
+                                `${baseName}${normalizedStmtCode}${columnCode}`,
+                                `${baseName}_${normalizedStmtCode}_${columnCode}`,
+                                `${baseName}${normalizedStmtCode}_${columnCode}`,
+                                `${baseName}_${normalizedStmtCode}${columnCode}`,
                                 // With Q prefix (data often stored with Q prefix)
-                                `Q${baseName}${stmtCode}${columnCode}`,
-                                `Q${baseName}_${stmtCode}_${columnCode}`,
-                                `Q${baseName}${stmtCode}_${columnCode}`,
-                                `Q${baseName}_${stmtCode}${columnCode}`,
+                                `Q${baseName}${normalizedStmtCode}${columnCode}`,
+                                `Q${baseName}_${normalizedStmtCode}_${columnCode}`,
+                                `Q${baseName}${normalizedStmtCode}_${columnCode}`,
+                                `Q${baseName}_${normalizedStmtCode}${columnCode}`,
                               ];
                               
                               for (const cellVarName of cellVarNames) {
-                                const cellData = variableData[cellVarName];
+                                const cellData = getVariableDataByExpectedHeader(cellVarName);
                                 if (cellData && (
                                   (cellData.count && cellData.count > 0) ||
                                   (cellData.values && Array.isArray(cellData.values) && cellData.values.length > 0) ||
@@ -2179,8 +2808,9 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                               
                               // Check statement variable with frequencies
                               if (!hasRowData) {
-                                const statementVarName = `${baseName}_${stmtCode}`;
-                                const statementData = variableData[statementVarName];
+                                const statementVarName = `${baseName}${normalizedStmtCode}`;
+                                const expectedHeader = `Q${statementVarName}`;
+                                const statementData = getVariableDataByExpectedHeader(expectedHeader);
                                 if (statementData) {
                                   if (statementData.frequencies && (
                                     statementData.frequencies[columnCode] !== undefined ||
@@ -2205,8 +2835,9 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                               baseName = v.name.replace('_Summary Tables', '');
                             }
                             hasData = Object.keys(v.statements).some((stmtCode) => {
-                              const statementVarName = `${baseName}_${stmtCode}`;
-                              const statementData = variableData[statementVarName];
+                              const statementVarName = `${baseName}${stmtCode}`;
+                              const expectedHeader = `Q${statementVarName}`;
+                              const statementData = variableData[expectedHeader] || variableData[statementVarName];
                               return statementData && (
                                 (statementData.count && statementData.count > 0) ||
                                 (statementData.frequencies && Object.keys(statementData.frequencies || {}).length > 0) ||
@@ -2222,7 +2853,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                           hasData = Object.keys(v.statements || {}).some((stmtCode) => {
                             return Object.keys(v.codes || {}).some((responseCode) => {
                               const cellVarName = `${v.name}_${stmtCode}_${responseCode}`;
-                              const cellData = variableData[cellVarName];
+                              const cellData = getVariableDataByExpectedHeader(cellVarName);
                               return cellData && (
                                 (cellData.count && cellData.count > 0) ||
                                 (cellData.values && Array.isArray(cellData.values) && cellData.values.length > 0) ||
@@ -2241,7 +2872,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                             hasData = variables.some(respVar => {
                               const match = respVar.name.match(/^(.+?)r(\d+)$/i);
                               if (match && match[1] === v.name && respVar.type?.toLowerCase().includes('multi-select')) {
-                                const respVarData = variableData[respVar.name];
+                                const respVarData = getVariableDataByExpectedHeader(respVar.name);
                                 return respVarData && (
                                   (respVarData.count && respVarData.count > 0) ||
                                   (respVarData.frequencies && Object.keys(respVarData.frequencies || {}).length > 0) ||
@@ -2258,7 +2889,30 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                           );
                           }
                         }
-                        
+
+                        // Check for scale summary variables (T2B, M3B, B2B)
+                        if ((v as any).isScaleSummary && v.statements) {
+                          const scaleMatch = v.name.match(/^([A-Z0-9]+)_(T2B|M3B|B2B)$/i);
+                          if (scaleMatch) {
+                            const baseName = scaleMatch[1];
+                            hasData = Object.keys(v.statements).some((stmtCode) => {
+                              const statementVarName = `${baseName}${stmtCode}`;
+                              const expectedHeader = `Q${statementVarName}`;
+                              const statementData = getVariableDataByExpectedHeader(expectedHeader);
+
+                              if (!statementData) return false;
+
+                              const hasFrequencies = statementData.frequencies &&
+                                Object.keys(statementData.frequencies).length > 0;
+                              const hasValues = statementData.values &&
+                                Array.isArray(statementData.values) &&
+                                statementData.values.length > 0;
+
+                              return hasFrequencies || hasValues;
+                            });
+                          }
+                        }
+
                         // Check if percentages don't sum to 100% (for single-select questions)
                         let hasPercentageError = false;
                         if (hasData && v.codes && Object.keys(v.codes).length > 0 && 
@@ -2296,6 +2950,8 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                           
                           if (frequencies) {
                             const total = varData?.count || 0;
+                            const isSingleSelect = v.type?.toLowerCase().includes('single select') && !v.type?.toLowerCase().includes('grid');
+                            let totalCount = 0;
                             let totalPercentage = 0;
                             
                             const getCount = (code: string): number => {
@@ -2333,13 +2989,26 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                               return count;
                             };
                             
+                            // First pass: calculate totalCount for single-select tables
+                            if (isSingleSelect) {
+                              Object.entries(v.codes || {}).forEach(([code]) => {
+                                const count = getCount(code);
+                                totalCount += count;
+                              });
+                            }
+                            
+                            // Second pass: calculate percentages
                             Object.entries(v.codes || {}).forEach(([code]) => {
                               const count = getCount(code);
-                              const percentage = total > 0 ? (count / total) * 100 : 0;
+                              // For single-select tables, use totalCount; otherwise use total
+                              const percentage = isSingleSelect && totalCount > 0 
+                                ? (count / totalCount) * 100 
+                                : (total > 0 ? (count / total) * 100 : 0);
                               totalPercentage += percentage;
                             });
                             
-                            if (total > 0 && totalPercentage > 0 && Math.abs(totalPercentage - 100) > 0.1) {
+                            // Only show error if totalPercentage is not 100% (or very close)
+                            if (Math.abs(totalPercentage - 100) > 0.1) {
                               hasPercentageError = true;
                             }
                           }
@@ -2367,7 +3036,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                   const baseQuestionNumber = columnSummaryMatch[1];
                                   const columnCode = columnSummaryMatch[2]; // e.g., "c1"
                                   
-                                  // Find the question to get response option text
+                                  // Find the question to check if it's a numeric list
                                   const question = questionnaireQuestions.find(q => {
                                     const qNum = q.number || q.id;
                                     return qNum === baseQuestionNumber || 
@@ -2375,7 +3044,17 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                            String(qNum) === String(baseQuestionNumber);
                                   });
                                   
-                                  if (question && question.responseOptions && Array.isArray(question.responseOptions)) {
+                                  const isNumericList = question?.type?.toLowerCase().includes('numeric list');
+                                  
+                                  if (isNumericList) {
+                                    // For numeric lists, check if it has "%" tag to determine label
+                                    const hasPercentTag = (v as any).tags && Array.isArray((v as any).tags) && (v as any).tags.includes('%');
+                                    // For numeric lists with "%" tag, show as "{baseQuestionNumber}_Mean Summary"
+                                    // Otherwise show as "{baseQuestionNumber}_Summary"
+                                    displayName = hasPercentTag ? `${baseQuestionNumber}_Mean Summary` : `${baseQuestionNumber}_Summary`;
+                                    titleText = displayName;
+                                  } else if (question && question.responseOptions && Array.isArray(question.responseOptions)) {
+                                    // For numeric grids, show column name
                                     // Extract column number from code (e.g., "c1" -> 1)
                                     const colNumMatch = columnCode.match(/c(\d+)/i);
                                     if (colNumMatch) {
@@ -2407,11 +3086,16 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                   </span>
                                 );
                               })()}
-                              {hasPercentageError ? (
-                                <InformationCircleIcon className="h-4 w-4 text-red-500 flex-shrink-0" title="Percentages don't sum to 100% - check response codes" />
-                              ) : !hasData ? (
-                                <InformationCircleIcon className="h-4 w-4 text-red-500 flex-shrink-0" title="No data available for this variable" />
-                          ) : null}
+                              {/* Show error icon for percentage errors or when there's no data (warning message shown above table) */}
+                              {hasPercentageError || !hasData ? (
+                                <InformationCircleIcon 
+                                  className="h-4 w-4 text-red-500 flex-shrink-0" 
+                                  title={hasPercentageError 
+                                    ? "Percentages don't sum to 100% - check response codes"
+                                    : "No data available - see warning message above table"
+                                  } 
+                                />
+                              ) : null}
                               </div>
                               <span className="text-xs px-2 py-0.5 rounded flex-shrink-0 bg-blue-100 text-blue-800" style={{ minWidth: '80px', textAlign: 'center' }}>
                                 {v.type || 'Unknown'}
@@ -2454,22 +3138,11 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                       variable = variables.find((v: any) => v.name === selectedVariable);
                     }
                     
-                    // DEBUG: Log the selected variable
-                    if (variable) {
-                      console.log(`[Numeric Grid Debug] Selected variable:`, {
-                        name: variable.name,
-                        type: variable.type,
-                        hasNumeric: variable.type?.toLowerCase().includes('numeric'),
-                        hasGrid: variable.type?.toLowerCase().includes('grid'),
-                        matchesColumnPattern: /^([A-Z0-9]+)_(c\d+)$/i.test(variable.name),
-                        columnMatch: variable.name.match(/^([A-Z0-9]+)_(c\d+)$/i)
-                      });
-                    }
                     if (!variable) {
                       return <div className="text-center py-12 text-gray-500">Variable not found</div>;
                     }
                   
-                  const varData = variableData[variable.name];
+                  const varData = getVariableDataByExpectedHeader(variable.name);
                   
                   // Check if percentages don't sum to 100% (for single-select questions)
                   let hasPercentageError = false;
@@ -2508,6 +3181,8 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                     
                     if (frequencies) {
                       const total = varData?.count || 0;
+                      const isSingleSelect = variable.type?.toLowerCase().includes('single select') && !variable.type?.toLowerCase().includes('grid');
+                      let totalCount = 0;
                       let totalPercentage = 0;
                       
                       const getCount = (code: string): number => {
@@ -2545,13 +3220,26 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                         return count;
                       };
                       
+                      // First pass: calculate totalCount for single-select tables
+                      if (isSingleSelect) {
+                        Object.entries(variable.codes || {}).forEach(([code]) => {
+                          const count = getCount(code);
+                          totalCount += count;
+                        });
+                      }
+                      
+                      // Second pass: calculate percentages
                       Object.entries(variable.codes || {}).forEach(([code]) => {
                         const count = getCount(code);
-                        const percentage = total > 0 ? (count / total) * 100 : 0;
+                        // For single-select tables, use totalCount; otherwise use total
+                        const percentage = isSingleSelect && totalCount > 0 
+                          ? (count / totalCount) * 100 
+                          : (total > 0 ? (count / total) * 100 : 0);
                         totalPercentage += percentage;
                       });
                       
-                      if (total > 0 && totalPercentage > 0 && Math.abs(totalPercentage - 100) > 0.1) {
+                      // Only show error if totalPercentage is not 100% (or very close)
+                      if (Math.abs(totalPercentage - 100) > 0.1) {
                         hasPercentageError = true;
                       }
                     }
@@ -2559,36 +3247,75 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                   
                   // For summary tables (numeric grids), check if the table has any data to display
                   let hasData = false;
-                  if ((variable as any).isSummaryTable && variable.statements) {
+                  
+                  // Special handling for open end list summary tables
+                  if (variable.type?.toLowerCase().includes('open end list') && 
+                      (variable as any).isSummaryTable && 
+                      variable.name.endsWith('_Summary')) {
+                    // For open end list summary tables, check if any related individual variables have data
+                    const baseQuestionName = variable.name.replace('_Summary', '');
+                    const relatedVariables = variables.filter((v: any) => {
+                      if (!v.type?.toLowerCase().includes('open end list')) return false;
+                      if ((v as any).isSummaryTable) return false;
+                      const varMatch = v.name.match(/^([A-Z0-9]+)r\d+$/i);
+                      return varMatch && varMatch[1] === baseQuestionName;
+                    });
+                    
+                    // Check if any related variable has data
+                    hasData = relatedVariables.some((relatedVar: any) => {
+                      const relatedVarData = getVariableDataByExpectedHeader(relatedVar.name);
+                      if (!relatedVarData) return false;
+                      
+                      const hasFrequencies = relatedVarData.frequencies && typeof relatedVarData.frequencies === 'object' && 
+                        Object.keys(relatedVarData.frequencies).length > 0 &&
+                        Object.values(relatedVarData.frequencies).some((count: any) => typeof count === 'number' && count > 0);
+                      const hasValues = Array.isArray(relatedVarData.values) && relatedVarData.values.length > 0;
+                      
+                      return hasFrequencies || hasValues;
+                    });
+                  } else if ((variable as any).isSummaryTable && variable.statements) {
                     // Check if this is a column summary table (e.g., S4_c1_Summary)
                     const columnMatch = variable.name.match(/^([A-Z0-9]+)_(c\d+)(?:_Summary)?$/i);
                     const isNumericGridColumnSummary = columnMatch && variable.type?.toLowerCase().includes('numeric');
                     
                     if (isNumericGridColumnSummary) {
-                      // For column summary tables, check if any rows have data (mean or sum)
+                      // For column summary tables (including numeric lists), check if any rows have data (mean or sum)
                       const baseName = columnMatch![1];
                       const columnCode = columnMatch![2];
+                      
+                      // Check if this is a numeric list
+                      const question = questionnaireQuestions.find(q => {
+                        const qNum = q.number || q.id;
+                        return qNum === baseName || qNum === baseName.replace(/^Q/, '');
+                      });
+                      const isNumericList = question?.type?.toLowerCase().includes('numeric list');
                       
                       hasData = Object.keys(variable.statements).some((stmtCode) => {
                         // Try to find data for this row in this column
                         let hasRowData = false;
                         
+                        // For numeric lists, normalize the code (add "r" prefix if needed)
+                        let normalizedStmtCode = stmtCode;
+                        if (isNumericList && !/^r\d+/i.test(stmtCode) && /^\d+$/.test(stmtCode)) {
+                          normalizedStmtCode = `r${stmtCode}`;
+                        }
+                        
                         // Check cell variables first
                         const cellVarNames = [
                           // Without Q prefix
-                          `${baseName}${stmtCode}${columnCode}`,
-                          `${baseName}_${stmtCode}_${columnCode}`,
-                          `${baseName}${stmtCode}_${columnCode}`,
-                          `${baseName}_${stmtCode}${columnCode}`,
+                          `${baseName}${normalizedStmtCode}${columnCode}`,
+                          `${baseName}_${normalizedStmtCode}_${columnCode}`,
+                          `${baseName}${normalizedStmtCode}_${columnCode}`,
+                          `${baseName}_${normalizedStmtCode}${columnCode}`,
                           // With Q prefix (data often stored with Q prefix)
-                          `Q${baseName}${stmtCode}${columnCode}`,
-                          `Q${baseName}_${stmtCode}_${columnCode}`,
-                          `Q${baseName}${stmtCode}_${columnCode}`,
-                          `Q${baseName}_${stmtCode}${columnCode}`,
+                          `Q${baseName}${normalizedStmtCode}${columnCode}`,
+                          `Q${baseName}_${normalizedStmtCode}_${columnCode}`,
+                          `Q${baseName}${normalizedStmtCode}_${columnCode}`,
+                          `Q${baseName}_${normalizedStmtCode}${columnCode}`,
                         ];
                         
                         for (const cellVarName of cellVarNames) {
-                          const cellData = variableData[cellVarName];
+                          const cellData = getVariableDataByExpectedHeader(cellVarName);
                           if (cellData && (
                             (cellData.count && cellData.count > 0) ||
                             (cellData.values && Array.isArray(cellData.values) && cellData.values.length > 0) ||
@@ -2602,8 +3329,9 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                         
                         // Check statement variable with frequencies
                         if (!hasRowData) {
-                          const statementVarName = `${baseName}_${stmtCode}`;
-                          const statementData = variableData[statementVarName];
+                          const statementVarName = `${baseName}${normalizedStmtCode}`;
+                          const expectedHeader = `Q${statementVarName}`;
+                          const statementData = getVariableDataByExpectedHeader(expectedHeader);
                           if (statementData) {
                             if (statementData.frequencies && (
                               statementData.frequencies[columnCode] !== undefined ||
@@ -2628,8 +3356,9 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                         baseName = variable.name.replace('_Summary Tables', '');
                       }
                       hasData = Object.keys(variable.statements).some((stmtCode) => {
-                        const statementVarName = `${baseName}_${stmtCode}`;
-                        const statementData = variableData[statementVarName];
+                        const statementVarName = `${baseName}${stmtCode}`;
+                        const expectedHeader = `Q${statementVarName}`;
+                        const statementData = getVariableDataByExpectedHeader(expectedHeader);
                         return statementData && (
                           (statementData.count && statementData.count > 0) ||
                           (statementData.frequencies && Object.keys(statementData.frequencies || {}).length > 0) ||
@@ -2645,7 +3374,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                     hasData = Object.keys(variable.statements || {}).some((stmtCode) => {
                       return Object.keys(variable.codes || {}).some((responseCode) => {
                         const cellVarName = `${variable.name}_${stmtCode}_${responseCode}`;
-                        const cellData = variableData[cellVarName];
+                        const cellData = getVariableDataByExpectedHeader(cellVarName);
                         return cellData && (
                           (cellData.count && cellData.count > 0) ||
                           (cellData.values && Array.isArray(cellData.values) && cellData.values.length > 0) ||
@@ -2663,7 +3392,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                       
                       // First, check if the column variable itself exists in variableData
                       // This handles cases where data is stored directly under the column variable name
-                      const columnVarData = variableData[variable.name];
+                      const columnVarData = getVariableDataByExpectedHeader(variable.name);
                       if (columnVarData && (
                         (columnVarData.count && columnVarData.count > 0) ||
                         (columnVarData.frequencies && Object.keys(columnVarData.frequencies || {}).length > 0) ||
@@ -2674,7 +3403,12 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                         hasData = true;
                       } else {
                         // Check if there's a mapped column name (from columnMapping)
-                        const mappedColumnName = columnMapping[variable.name];
+                        // Convert to expected header format and get mapped column name
+                        const expectedHeader = variable.name.startsWith('Q') ? variable.name : `Q${variable.name}`;
+                        let mappedColumnName = columnMapping[expectedHeader];
+                        if (!mappedColumnName) {
+                          mappedColumnName = columnMapping[variable.name];
+                        }
                         if (mappedColumnName) {
                           const mappedVarData = variableData[mappedColumnName];
                           if (mappedVarData && (
@@ -2714,7 +3448,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                           ].filter(Boolean) as string[];
                           
                           for (const cellVarName of cellVarNames) {
-                            const cellData = variableData[cellVarName];
+                            const cellData = getVariableDataByExpectedHeader(cellVarName);
                             if (cellData && (
                               (cellData.count && cellData.count > 0) ||
                               (cellData.values && Array.isArray(cellData.values) && cellData.values.length > 0) ||
@@ -2728,20 +3462,26 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                         });
                       } else {
                         // Not a column variable or no main grid found, check direct variable data
+                        // For numeric variables, also check for sum and mean which indicate data exists
                         hasData = varData && (
                           (varData.count && varData.count > 0) ||
                           (varData.frequencies && Object.keys(varData.frequencies || {}).length > 0) ||
-                          (varData.values && Array.isArray(varData.values) && varData.values.length > 0)
+                          (varData.values && Array.isArray(varData.values) && varData.values.length > 0) ||
+                          (varData.sum !== undefined) ||
+                          (varData.mean !== undefined)
                         );
                           }
                         }
                       }
                     } else {
-                      // Regular numeric variable, check direct data
+                      // Regular numeric variable (including numeric list variables), check direct data
+                      // For numeric variables, also check for sum and mean which indicate data exists
                       hasData = varData && (
                         (varData.count && varData.count > 0) ||
                         (varData.frequencies && Object.keys(varData.frequencies || {}).length > 0) ||
-                        (varData.values && Array.isArray(varData.values) && varData.values.length > 0)
+                        (varData.values && Array.isArray(varData.values) && varData.values.length > 0) ||
+                        (varData.sum !== undefined) ||
+                        (varData.mean !== undefined)
                       );
                     }
                   } else {
@@ -2754,7 +3494,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                       hasData = variables.some(v => {
                         const match = v.name.match(/^(.+?)r(\d+)$/i);
                         if (match && match[1] === variable.name && v.type?.toLowerCase().includes('multi-select')) {
-                          const respVarData = variableData[v.name];
+                          const respVarData = getVariableDataByExpectedHeader(v.name);
                           return respVarData && (
                             (respVarData.count && respVarData.count > 0) ||
                             (respVarData.frequencies && Object.keys(respVarData.frequencies || {}).length > 0) ||
@@ -2764,15 +3504,43 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                         return false;
                       });
                   } else {
-                    // For regular variables, check the variable itself
+                    // For regular variables (including numeric list variables), check the variable itself
+                    // For numeric variables, also check for sum and mean which indicate data exists
                     hasData = varData && (
                       (varData.count && varData.count > 0) ||
                       (varData.frequencies && Object.keys(varData.frequencies || {}).length > 0) ||
-                      (varData.values && Array.isArray(varData.values) && varData.values.length > 0)
+                      (varData.values && Array.isArray(varData.values) && varData.values.length > 0) ||
+                      (varData.sum !== undefined) ||
+                      (varData.mean !== undefined)
                     );
                     }
                   }
-                  
+
+                  // Check for scale summary variables (T2B, M3B, B2B)
+                  if ((variable as any).isScaleSummary && variable.statements) {
+                    // Check if any statement variables have data
+                    const scaleMatch = variable.name.match(/^([A-Z0-9]+)_(T2B|M3B|B2B)$/i);
+                    if (scaleMatch) {
+                      const baseName = scaleMatch[1];
+                      hasData = Object.keys(variable.statements).some((stmtCode) => {
+                        const statementVarName = `${baseName}${stmtCode}`;
+                        const expectedHeader = `Q${statementVarName}`;
+                        const statementData = getVariableDataByExpectedHeader(expectedHeader);
+
+                        if (!statementData) return false;
+
+                        // Check if statement has frequencies or values
+                        const hasFrequencies = statementData.frequencies &&
+                          Object.keys(statementData.frequencies).length > 0;
+                        const hasValues = statementData.values &&
+                          Array.isArray(statementData.values) &&
+                          statementData.values.length > 0;
+
+                        return hasFrequencies || hasValues;
+                      });
+                    }
+                  }
+
                   return (
                       <div className="space-y-6">
                         {/* Variable Header */}
@@ -2781,13 +3549,13 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                         <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="text-lg font-semibold text-gray-900">
                           {(() => {
-                            // Check if this is a numeric grid column summary (e.g., S11_c1_Summary)
+                            // Check if this is a numeric list summary table (e.g., S14B_c1_Summary)
                             const columnSummaryMatch = variable.name.match(/^([A-Z0-9]+)_(c\d+)_Summary$/i);
                             if (columnSummaryMatch && (variable as any).isSummaryTable) {
                               const baseQuestionNumber = columnSummaryMatch[1];
                               const columnCode = columnSummaryMatch[2]; // e.g., "c1"
                               
-                              // Find the question to get response option text
+                              // Check if this is a numeric list (not a numeric grid)
                               const question = questionnaireQuestions.find(q => {
                                 const qNum = q.number || q.id;
                                 return qNum === baseQuestionNumber || 
@@ -2795,6 +3563,17 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                        String(qNum) === String(baseQuestionNumber);
                               });
                               
+                              const isNumericList = question?.type?.toLowerCase().includes('numeric list');
+                              
+                              if (isNumericList) {
+                                // For numeric lists, check if it has "%" tag to determine label
+                                const hasPercentTag = (variable as any).tags && Array.isArray((variable as any).tags) && (variable as any).tags.includes('%');
+                                // For numeric lists with "%" tag, show as "{baseQuestionNumber}_Mean Summary"
+                                // Otherwise show as "{baseQuestionNumber}_Summary"
+                                return hasPercentTag ? `${baseQuestionNumber}_Mean Summary` : `${baseQuestionNumber}_Summary`;
+                              }
+                              
+                              // For numeric grids, show column name
                               if (question && question.responseOptions && Array.isArray(question.responseOptions)) {
                                 // Extract column number from code (e.g., "c1" -> 1)
                                 const colNumMatch = columnCode.match(/c(\d+)/i);
@@ -2903,28 +3682,37 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                       </div>
 
                         {/* No Data Warning */}
+                        {/* For summary tables, only show if the table below has no data (hasData already checks table rows) */}
+                        {/* For other variables, show if the variable itself has no data */}
                         {!hasData && (
                           <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
                             <InformationCircleIcon className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
                             <div>
                               <h4 className="text-sm font-medium text-red-800 mb-1">No Data Available</h4>
                               <p className="text-sm text-red-700">
-                                This variable has no data or mapping. This could mean:
+                                {((variable as any).isSummaryTable && variable.statements) 
+                                  ? 'This summary table has no data. None of the rows contain any values.'
+                                  : 'This variable has no data or mapping. This could mean:'}
                               </p>
-                              <ul className="text-sm text-red-700 mt-2 list-disc list-inside space-y-1">
-                                <li>The column mapping for this variable was not found in the uploaded data file</li>
-                                <li>No data was extracted for this variable during processing</li>
-                                <li>The variable name in the QNR doesn't match the column headers in your data file</li>
-                              </ul>
+                              {!((variable as any).isSummaryTable && variable.statements) && (
+                                <ul className="text-sm text-red-700 mt-2 list-disc list-inside space-y-1">
+                                  <li>The column mapping for this variable was not found in the uploaded data file</li>
+                                  <li>No data was extracted for this variable during processing</li>
+                                  <li>The variable name in the QNR doesn't match the column headers in your data file</li>
+                                </ul>
+                              )}
                       </div>
                           </div>
                         )}
 
                         {/* Statistics section for numeric questions */}
-                        {variable.type?.toLowerCase().includes('numeric') && !variable.type?.toLowerCase().includes('grid') && (
+                        {/* Exclude statistics for numeric list summary tables - they show stats in the table instead */}
+                        {variable.type?.toLowerCase().includes('numeric') && 
+                         !variable.type?.toLowerCase().includes('grid') && 
+                         !(variable.type?.toLowerCase().includes('numeric list') && (variable as any).isSummaryTable) && (
                         <div className="mb-4">
                                   {(() => {
-                              const varData = variableData[variable.name];
+                              const varData = getVariableDataByExpectedHeader(variable.name);
                               const hasNumberTag = (variable as any).tags && Array.isArray((variable as any).tags) && (variable as any).tags.includes('Number');
                               // Check if this is a numeric grid statement variable (name pattern: {questionNumber}_{r|c}{number})
                               const isNumericGridStatement = /^[A-Z0-9]+_[rc]\d+$/i.test(variable.name);
@@ -3011,21 +3799,25 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
 
                         {/* Statement table for numeric grid column variables (e.g., S11_c1, S14_c1) - shows all statements (rows) for this column */}
                         {(() => {
-                          // DEBUG: Check if condition matches
                           const hasNumeric = variable.type?.toLowerCase().includes('numeric');
                           const hasGrid = variable.type?.toLowerCase().includes('grid');
                           const conditionMatches = hasNumeric && !hasGrid;
                           const columnMatch = variable.name.match(/^([A-Z0-9]+)_(c\d+)$/i);
                           
-                          console.log(`[Numeric Grid Debug] Checking condition for "${variable.name}":`, {
-                            hasNumeric,
-                            hasGrid,
-                            conditionMatches,
-                            columnMatch: !!columnMatch,
-                            willEnter: conditionMatches && !!columnMatch
-                          });
+                          // Check if this is a numeric list variable (pattern: {baseNumber}_{number} like S14B_1)
+                          // Numeric list variables should NOT go through this column variable table logic
+                          const numericListMatch = variable.name.match(/^([A-Z0-9]+)_(\d+)$/i);
+                          const isNumericList = numericListMatch && !columnMatch;
                           
-                          if (!conditionMatches || !columnMatch) {
+                          // Check if the question type is numeric list
+                          const question = questionnaireQuestions.find(q => {
+                            const qNum = q.number || q.id;
+                            const baseNumber = numericListMatch ? numericListMatch[1] : '';
+                            return qNum === baseNumber || qNum === baseNumber.replace(/^Q/, '');
+                          });
+                          const questionIsNumericList = question?.type?.toLowerCase().includes('numeric list');
+                          // Exclude numeric list variables from this check - they should display as regular numeric variables
+                          if (!conditionMatches || !columnMatch || isNumericList || questionIsNumericList) {
                             return null;
                           }
                           
@@ -3052,14 +3844,10 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                             const mainGridVar = variables.find((v: any) => v.name === baseName && v.type?.toLowerCase().includes('numeric grid'));
                             
                             if (mainGridVar && mainGridVar.statements) {
-                              // DEBUG: Log the variable we're processing
-                              console.log(`[Numeric Grid Debug] Processing column variable: ${variable.name}, baseName: ${baseName}, columnCode: ${columnCode}`);
                               
-                              // DEBUG: Find all variableData keys that match this base question
                               const matchingKeys = Object.keys(variableData).filter(key => 
                                 key.toLowerCase().includes(baseName.toLowerCase())
                               );
-                              console.log(`[Numeric Grid Debug] Found ${matchingKeys.length} variableData keys matching baseName "${baseName}":`, matchingKeys.slice(0, 20));
                               
                               // The data is likely stored in statement variables (S11_r1, S11_r2, etc.)
                               // Each statement variable should have frequencies keyed by column codes (c1, c2, c3)
@@ -3069,31 +3857,21 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                               const statementRows = Object.entries(mainGridVar.statements).map(([stmtCode, stmtText]) => {
                                 let value: number | undefined = undefined;
                                 
-                                // DEBUG: Log which row we're processing
-                                console.log(`[Numeric Grid Debug] Processing row: stmtCode=${stmtCode}, stmtText=${stmtText}`);
                                 
-                                // Strategy 1: Check if statement variable exists (S11_r1) and has frequencies with column code
-                                const statementVarName = `${baseName}_${stmtCode}`;
-                                const statementVarData = variableData[statementVarName];
-                                
-                                // DEBUG: Check Strategy 1
-                                console.log(`[Numeric Grid Debug] Strategy 1: Checking statementVarName="${statementVarName}"`, {
-                                  exists: !!statementVarData,
-                                  hasFrequencies: !!statementVarData?.frequencies,
-                                  frequencies: statementVarData?.frequencies
-                                });
-                                
+                                // Strategy 1: Check if statement variable exists (S11r1) and has frequencies with column code
+                                const statementVarName = `${baseName}${stmtCode}`;
+                                const expectedHeader = `Q${statementVarName}`;
+                                const statementVarData = getVariableDataByExpectedHeader(expectedHeader);
+
                                 if (statementVarData && statementVarData.frequencies) {
                                   // Try to find the column code in frequencies
                                   if (statementVarData.frequencies[columnCode] !== undefined) {
                                     value = statementVarData.frequencies[columnCode];
-                                    console.log(`[Numeric Grid Debug] ✅ Strategy 1 found value: ${value} using columnCode="${columnCode}"`);
                                   } else {
                                     // Try without "c" prefix (c1 -> 1)
                                     const colCodeWithoutPrefix = columnCode.replace(/^c/i, '');
                                     if (statementVarData.frequencies[colCodeWithoutPrefix] !== undefined) {
                                       value = statementVarData.frequencies[colCodeWithoutPrefix];
-                                      console.log(`[Numeric Grid Debug] ✅ Strategy 1 found value: ${value} using colCodeWithoutPrefix="${colCodeWithoutPrefix}"`);
                                     }
                                   }
                                 }
@@ -3124,94 +3902,57 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                   }
                                 }
                                 
-                                // Strategy 2: Try cell variable formats (S11_r1_c1, etc.)
+                                // Strategy 2: Try cell variable formats (QS11r1c1, etc.)
                                 if (value === undefined) {
-                                  // Get mapped column name if available
-                                  const mappedColumnName = columnMapping[variable.name];
+                                  // Construct the expected header format (e.g., QS11r1c1)
+                                  const expectedHeader = `Q${baseName}${stmtCode}${columnCode}`;
                                   
-                                  const cellVarNames = [
-                                    // Without Q prefix
-                                    `${baseName}_${stmtCode}_${columnCode}`,  // S11_r1_c1
-                                    `${baseName}${stmtCode}${columnCode}`,    // S11r1c1
-                                    `${baseName}_${stmtCode}${columnCode}`,   // S11_r1c1
-                                    `${baseName}${stmtCode}_${columnCode}`,   // S11r1_c1
-                                    // With Q prefix (data often stored with Q prefix)
-                                    `Q${baseName}_${stmtCode}_${columnCode}`,  // QS11_r1_c1
-                                    `Q${baseName}${stmtCode}${columnCode}`,    // QS11r1c1
-                                    `Q${baseName}_${stmtCode}${columnCode}`,   // QS11_r1c1
-                                    `Q${baseName}${stmtCode}_${columnCode}`,   // QS11r1_c1
-                                    // Also try with mapped column names if available
-                                    mappedColumnName ? `${mappedColumnName.replace(/^Q/i, '')}_${stmtCode}_${columnCode}` : null,
-                                    mappedColumnName ? `${mappedColumnName.replace(/^Q/i, '')}${stmtCode}${columnCode}` : null,
-                                    mappedColumnName ? `${mappedColumnName}_${stmtCode}_${columnCode}` : null,
-                                    mappedColumnName ? `${mappedColumnName}${stmtCode}${columnCode}` : null
-                                  ].filter(Boolean) as string[];
                                   
-                                  // DEBUG: Log what we're trying
-                                  console.log(`[Numeric Grid Debug] Strategy 2: Trying ${cellVarNames.length} cell variable names for row ${stmtCode}:`, cellVarNames);
-                                  
-                                  for (const cellVarName of cellVarNames) {
-                                    const cellData = variableData[cellVarName];
-                                    if (cellData) {
-                                      console.log(`[Numeric Grid Debug] ✅ FOUND data for "${cellVarName}":`, {
-                                        sum: cellData.sum,
-                                        mean: cellData.mean,
-                                        count: cellData.count,
-                                        valuesLength: cellData.values?.length
-                                      });
-                                      if (cellData.sum !== undefined) {
-                                        value = cellData.sum;
-                                        break;
-                                      } else if (cellData.mean !== undefined) {
-                                        value = cellData.mean;
-                                        break;
-                                      } else if (cellData.values && Array.isArray(cellData.values) && cellData.values.length > 0) {
-                                        // Sum up all numeric values
-                                        value = cellData.values.reduce((sum: number, val: any) => {
-                                          const numVal = parseFloat(val);
-                                          return sum + (isNaN(numVal) ? 0 : numVal);
-                                        }, 0);
-                                        break;
-                                      } else if (cellData.count !== undefined && cellData.count > 0) {
-                                        // Use count as value if it's a frequency count
-                                        value = cellData.count;
-                                        break;
-                                      }
+                                  const cellData = getVariableDataByExpectedHeader(expectedHeader);
+                                  if (cellData) {
+                                    if (cellData.sum !== undefined) {
+                                      value = cellData.sum;
+                                    } else if (cellData.mean !== undefined) {
+                                      value = cellData.mean;
+                                    } else if (cellData.values && Array.isArray(cellData.values) && cellData.values.length > 0) {
+                                      // Sum up all numeric values
+                                      value = cellData.values.reduce((sum: number, val: any) => {
+                                        const numVal = parseFloat(val);
+                                        return sum + (isNaN(numVal) ? 0 : numVal);
+                                      }, 0);
+                                    } else if (cellData.count !== undefined && cellData.count > 0) {
+                                      // Use count as value if it's a frequency count
+                                      value = cellData.count;
                                     }
                                   }
                                   
                                   if (value === undefined) {
-                                    console.log(`[Numeric Grid Debug] ❌ No data found for row ${stmtCode} in Strategy 2`);
                                   }
                                 }
                                 
                                 // Strategy 3: Check if column variable exists (S11_c1) with statement codes as keys
                                 if (value === undefined) {
-                                  const columnVarData = variableData[variable.name];
-                                  
-                                  // DEBUG: Check Strategy 3
-                                  console.log(`[Numeric Grid Debug] Strategy 3: Checking columnVarName="${variable.name}"`, {
-                                    exists: !!columnVarData,
-                                    hasFrequencies: !!columnVarData?.frequencies,
-                                    frequencies: columnVarData?.frequencies
-                                  });
-                                  
+                                  const columnVarData = getVariableDataByExpectedHeader(variable.name);
+
                                   if (columnVarData && columnVarData.frequencies) {
                                     if (columnVarData.frequencies[stmtCode] !== undefined) {
                                       value = columnVarData.frequencies[stmtCode];
-                                      console.log(`[Numeric Grid Debug] ✅ Strategy 3 found value: ${value} using stmtCode="${stmtCode}"`);
                                     } else {
                                       const codeWithoutPrefix = stmtCode.replace(/^[rc]/i, '');
                                       if (columnVarData.frequencies[codeWithoutPrefix] !== undefined) {
                                         value = columnVarData.frequencies[codeWithoutPrefix];
-                                        console.log(`[Numeric Grid Debug] ✅ Strategy 3 found value: ${value} using codeWithoutPrefix="${codeWithoutPrefix}"`);
                                       }
                                     }
                                   }
                                   
                                   // Also check mapped column name
                                   if (value === undefined) {
-                                    const mappedColumnName = columnMapping[variable.name];
+                                    // Convert to expected header format and get mapped column name
+                                    const expectedHeader = variable.name.startsWith('Q') ? variable.name : `Q${variable.name}`;
+                                    let mappedColumnName = columnMapping[expectedHeader];
+                                    if (!mappedColumnName) {
+                                      mappedColumnName = columnMapping[variable.name];
+                                    }
                                     if (mappedColumnName) {
                                       const mappedColumnVarData = variableData[mappedColumnName];
                                       if (mappedColumnVarData && mappedColumnVarData.frequencies) {
@@ -3228,11 +3969,8 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                   }
                                 }
                                 
-                                // DEBUG: Log final result for this row
                                 if (value !== undefined) {
-                                  console.log(`[Numeric Grid Debug] ✅ Final value for row ${stmtCode}: ${value}`);
                                 } else {
-                                  console.log(`[Numeric Grid Debug] ❌ No value found for row ${stmtCode} after all strategies`);
                                 }
                                 
                                 return {
@@ -3293,7 +4031,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                           
                           if (!isNumericGridRow && !isNumericGridColumn && !isRegularNumeric) return null;
                           
-                          const varData = variableData[variable.name];
+                          const varData = getVariableDataByExpectedHeader(variable.name);
                           if (!varData) return null;
                           
                           // Build frequency distribution from values array or frequencies object
@@ -3398,1100 +4136,423 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                           );
                         })()}
 
-                        {/* Summary Tables for single select grids - one table per response option */}
-                        {(variable as any).isSummaryTable && variable.statements && variable.codes && variable.name.endsWith('_Summary Tables') && (() => {
-                          // Extract base question number
-                          const baseName = variable.name.replace('_Summary Tables', '');
-                          
-                          // Check if any statement variables have data
-                          const hasData = Object.keys(variable.statements || {}).some((stmtCode) => {
-                            const statementVarName = `${baseName}_${stmtCode}`;
-                            const statementData = variableData[statementVarName];
-                            return statementData && (
-                              (statementData.count && statementData.count > 0) ||
-                              (statementData.frequencies && Object.keys(statementData.frequencies || {}).length > 0) ||
-                              (statementData.values && Array.isArray(statementData.values) && statementData.values.length > 0)
-                            );
-                          });
-                          
-                          if (!hasData) return null;
-                          
-                          // For each response option, create a summary table
-                          return Object.entries(variable.codes || {}).map(([responseCode, responseLabel]) => {
-                            // Calculate total count for this response option across all statements
-                            let totalCount = 0;
-                            const statementCounts: Array<{code: string, text: string, count: number}> = [];
-                            
-                            Object.entries(variable.statements || {}).forEach(([stmtCode, stmtText]) => {
-                              const statementVarName = `${baseName}_${stmtCode}`;
-                              const statementData = variableData[statementVarName];
-                              
-                              if (statementData) {
-                                let count = 0;
-                                
-                                // Try to get count for this response code
-                                if (statementData.frequencies) {
-                                  // Try exact code match
-                                  count = statementData.frequencies[responseCode] || 0;
-                                  
-                                  // Try without prefix
-                                  if (count === 0) {
-                                    const codeWithoutPrefix = responseCode.replace(/^[rc]/i, '');
-                                    count = statementData.frequencies[codeWithoutPrefix] || 0;
-                                  }
-                                  
-                                  // Try with prefix
-                                  if (count === 0 && !responseCode.match(/^[rc]/i)) {
-                                    count = statementData.frequencies[`c${responseCode}`] || 0;
-                                    if (count === 0) {
-                                      count = statementData.frequencies[`r${responseCode}`] || 0;
-                                    }
-                                  }
-                                  
-                                  // Try label match
-                                  if (count === 0 && responseLabel) {
-                                    const labelLower = String(responseLabel).toLowerCase().trim();
-                                    const exactMatchKey = Object.keys(statementData.frequencies).find(key => 
-                                      String(key).toLowerCase().trim() === labelLower
-                                    );
-                                    if (exactMatchKey) {
-                                      count = statementData.frequencies[exactMatchKey] || 0;
-                                    }
-                                  }
-                                }
-                                
-                                // Fallback to values array
-                                if (count === 0 && statementData.values && Array.isArray(statementData.values) && responseLabel) {
-                                  const labelLower = String(responseLabel).toLowerCase().trim();
-                                  const codeWithoutPrefix = responseCode.replace(/^[rc]/i, '');
-                                  count = statementData.values.filter((val: any) => {
-                                    const valStr = String(val).toLowerCase().trim();
-                                    return valStr === labelLower || 
-                                           valStr === codeWithoutPrefix ||
-                                           valStr === responseCode.toLowerCase();
-                                  }).length;
-                                }
-                                
-                                statementCounts.push({
-                                  code: stmtCode,
-                                  text: String(stmtText),
-                                  count: count
-                                });
-                                totalCount += count;
-                              } else {
-                                statementCounts.push({
-                                  code: stmtCode,
-                                  text: String(stmtText),
-                                  count: 0
-                                });
-                              }
-                            });
-                            
-                            // Only show table if there's data
-                            if (totalCount === 0) return null;
-                            
-                            const displayCode = responseCode.replace(/^[rc]/i, '');
-                            
-                            return (
-                              <div key={responseCode} className="mt-4 bg-white border border-gray-200 rounded-lg overflow-hidden">
-                                <div className="overflow-x-auto">
-                                  <table className="min-w-full divide-y divide-gray-200">
-                                    <thead className="bg-gray-50">
-                                      <tr>
-                                        <th colSpan={2} className="px-4 py-2 text-left text-sm font-semibold text-gray-900">
-                                          {responseLabel} (Code: {displayCode})
-                                        </th>
-                                        <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style={{ width: '5rem' }}>Count</th>
-                                        <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style={{ width: '5rem' }}>%</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody className="bg-white divide-y divide-gray-200">
-                                      {statementCounts.map(({code, text, count}) => {
-                                        const percent = totalCount > 0 ? ((count / totalCount) * 100) : 0;
-                                        const displayStmtCode = code.replace(/^[rc]/i, '');
-                                        
+                        {/* Scale Summary Tables (T2B, M3B, B2B) */}
+                        {(variable as any).isScaleSummary && variable.statements && (
+                          <div>
+                            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                              <div className="overflow-x-auto">
+                                <table className="min-w-full divide-y divide-gray-200">
+                                  <thead className="bg-gray-50">
+                                    <tr>
+                                      <th colSpan={2} className="px-4 py-2 text-left text-sm font-semibold text-gray-900">
+                                        {variable.name.includes('_T2B') ? 'Top 2 Box (T2B)' :
+                                         variable.name.includes('_M3B') ? 'Middle 3 Box (M3B)' :
+                                         variable.name.includes('_B2B') ? 'Bottom 2 Box (B2B)' : 'Scale Summary'}
+                                      </th>
+                                      <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style={{ width: '5rem' }}>Count</th>
+                                      <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style={{ width: '5rem' }}>%</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="bg-white divide-y divide-gray-200">
+                                    {(() => {
+                                      // Extract base name and summary type from variable name (e.g., "C2_T2B" -> baseName: "C2", summaryType: "T2B")
+                                      const scaleMatch = variable.name.match(/^([A-Z0-9]+)_(T2B|M3B|B2B)$/i);
+                                      if (!scaleMatch) return null;
+
+                                      const baseName = scaleMatch[1];
+                                      const summaryType = scaleMatch[2].toUpperCase();
+
+                                      // Build rows for each statement
+                                      const rows = Object.entries(variable.statements || {}).map(([stmtCode, stmtText]) => {
+                                        const statementVarName = `${baseName}${stmtCode}`;
+                                        const expectedHeader = `Q${statementVarName}`;
+                                        const statementData = getVariableDataByExpectedHeader(expectedHeader);
+
+                                        if (!statementData) {
+                                          return (
+                                            <tr key={stmtCode}>
+                                              <td className="px-2 py-2 text-sm font-mono text-gray-700 text-center" style={{ width: '2.5rem' }}>{stmtCode.replace(/^[rc]/i, '')}</td>
+                                              <td className="px-4 py-2 text-sm text-gray-900">{String(stmtText)}</td>
+                                              <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>-</td>
+                                              <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>-</td>
+                                            </tr>
+                                          );
+                                        }
+
+                                        // Generate frequencies if they don't exist
+                                        let frequencies = statementData.frequencies;
+                                        if (!frequencies && statementData.values && Array.isArray(statementData.values)) {
+                                          frequencies = {};
+                                          statementData.values.forEach((val: any) => {
+                                            if (val !== null && val !== undefined && val !== '') {
+                                              const valStr = String(val).trim();
+                                              frequencies[valStr] = (frequencies[valStr] || 0) + 1;
+                                            }
+                                          });
+                                        }
+
+                                        if (!frequencies || Object.keys(frequencies).length === 0) {
+                                          return (
+                                            <tr key={stmtCode}>
+                                              <td className="px-2 py-2 text-sm font-mono text-gray-700 text-center" style={{ width: '2.5rem' }}>{stmtCode.replace(/^[rc]/i, '')}</td>
+                                              <td className="px-4 py-2 text-sm text-gray-900">{String(stmtText)}</td>
+                                              <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>-</td>
+                                              <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>-</td>
+                                            </tr>
+                                          );
+                                        }
+
+                                        // Get frequency counts for each code position
+                                        const frequencyEntries = Object.entries(frequencies)
+                                          .map(([code, count]) => {
+                                            const codeNum = parseInt(code.replace(/^[rc]/i, ''), 10);
+                                            return { codeNum, count: count as number };
+                                          })
+                                          .filter(({ codeNum }) => !isNaN(codeNum))
+                                          .sort((a, b) => a.codeNum - b.codeNum);
+
+                                        // Calculate total count
+                                        const totalCount = frequencyEntries.reduce((sum, { count }) => sum + count, 0);
+
+                                        // Calculate summary based on type
+                                        let summaryCount = 0;
+                                        if (summaryType === 'T2B') {
+                                          // Top 2 Box (high end: codes 6-7)
+                                          summaryCount = frequencyEntries
+                                            .filter(({ codeNum }) => codeNum >= 6 && codeNum <= 7)
+                                            .reduce((sum, { count }) => sum + count, 0);
+                                        } else if (summaryType === 'M3B') {
+                                          // Middle 3 Box (codes 3-5)
+                                          summaryCount = frequencyEntries
+                                            .filter(({ codeNum }) => codeNum >= 3 && codeNum <= 5)
+                                            .reduce((sum, { count }) => sum + count, 0);
+                                        } else if (summaryType === 'B2B') {
+                                          // Bottom 2 Box (low end: codes 1-2)
+                                          summaryCount = frequencyEntries
+                                            .filter(({ codeNum }) => codeNum >= 1 && codeNum <= 2)
+                                            .reduce((sum, { count }) => sum + count, 0);
+                                        }
+
+                                        const percentage = totalCount > 0 ? (summaryCount / totalCount) * 100 : 0;
+
                                         return (
-                                          <tr key={code}>
-                                            <td className="px-2 py-2 text-sm font-mono text-gray-700 text-center" style={{ width: '2.5rem' }}>{displayStmtCode}</td>
-                                            <td className="px-4 py-2 text-sm text-gray-900">{text}</td>
-                                            <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>{count}</td>
-                                            <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>{totalCount > 0 ? `${percent.toFixed(1)}%` : '-'}</td>
+                                          <tr key={stmtCode}>
+                                            <td className="px-2 py-2 text-sm font-mono text-gray-700 text-center" style={{ width: '2.5rem' }}>{stmtCode.replace(/^[rc]/i, '')}</td>
+                                            <td className="px-4 py-2 text-sm text-gray-900">{String(stmtText)}</td>
+                                            <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>{summaryCount}</td>
+                                            <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>{totalCount > 0 ? `${percentage.toFixed(1)}%` : '-'}</td>
                                           </tr>
                                         );
-                                      })}
-                                      {/* Total row */}
-                                      <tr className="bg-gray-50 font-semibold border-t-2 border-gray-300">
-                                        <td className="px-2 py-2 text-sm text-gray-900" colSpan={2}>Total</td>
-                                        <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>{totalCount}</td>
-                                        <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>100%</td>
-                                      </tr>
-                                    </tbody>
-                                  </table>
-                                </div>
+                                      });
+
+                                      return rows;
+                                    })()}
+                                  </tbody>
+                                </table>
                               </div>
-                            );
-                          });
-                        })()}
+                            </div>
+                          </div>
+                        )}
 
                         {/* Summary Table for numeric grids */}
                         {(variable as any).isSummaryTable && variable.statements && !variable.name.endsWith('_Summary Tables') && (
-                          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                          <div>
+                            {(() => {
+                              // Calculate sample size: count unique rows (respondents) with at least one non-blank value
+                              // For numeric lists, each row in the data file is one respondent
+                              // We count how many respondents have at least one non-blank value across all response options
+                              const columnMatch = variable.name.match(/^([A-Z0-9]+)_(c\d+)(?:_Summary)?$/i);
+                              const baseName = columnMatch ? columnMatch[1] : '';
+                              const columnCode = columnMatch ? columnMatch[2] : '';
+                              
+                              // Collect all values arrays from all rows
+                              const allValuesArrays: any[][] = [];
+                              let maxLength = 0;
+                              
+                              Object.entries(variable.statements || {}).forEach(([code]) => {
+                                // Normalize the code for numeric lists
+                                let normalizedCode = code;
+                                if (!/^r\d+/i.test(code) && /^\d+$/.test(code)) {
+                                  normalizedCode = `r${code}`;
+                                }
+                                const expectedHeader = `Q${baseName}${normalizedCode}${columnCode}`;
+                                
+                                const cellData = getVariableDataByExpectedHeader(expectedHeader);
+                                
+                                if (cellData && cellData.values && Array.isArray(cellData.values)) {
+                                  allValuesArrays.push(cellData.values);
+                                  maxLength = Math.max(maxLength, cellData.values.length);
+                                }
+                              });
+                              
+                              // Count unique rows (respondents) that have at least one non-blank value
+                              let sampleSize = 0;
+                              
+                              if (allValuesArrays.length > 0 && maxLength > 0) {
+                                // For each respondent position (row index)
+                                for (let i = 0; i < maxLength; i++) {
+                                  // Check if this respondent has at least one non-blank value across all response options
+                                  const hasData = allValuesArrays.some(valuesArray => {
+                                    if (i < valuesArray.length) {
+                                      const value = valuesArray[i];
+                                      return value !== null && value !== undefined && value !== '' && String(value).trim() !== '';
+                                    }
+                                    return false;
+                                  });
+                                  
+                                  if (hasData) {
+                                    sampleSize++;
+                                  }
+                                }
+                              }
+                              
+                              return sampleSize > 0 ? (
+                                <p className="mb-4 text-sm text-gray-700">
+                                  <span className="font-semibold">Sample Size:</span> <span className="font-semibold">{sampleSize.toLocaleString()}</span>
+                                </p>
+                              ) : null;
+                            })()}
+                            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
                             <div className="overflow-x-auto">
                             <table className="min-w-full divide-y divide-gray-200">
                                 <thead className="bg-gray-50">
                                   <tr>
                                     <th colSpan={2} className="px-4 py-2 text-left text-sm font-semibold text-gray-900">Summary Table</th>
-                                    {!(variable as any).isScaleSummary && (
+                                    <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style={{ width: '5rem' }}>Mean</th>
+                                    {((variable as any).tags && Array.isArray((variable as any).tags) && (variable as any).tags.includes('Number')) && (
                                       <>
-                                        <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style={{ width: '5rem' }}>Mean</th>
-                                        {((variable as any).tags && Array.isArray((variable as any).tags) && (variable as any).tags.includes('Number')) && (
-                                          <>
-                                            <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style={{ width: '5rem' }}>Sum</th>
-                                            <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style={{ width: '5rem' }}>%</th>
-                                          </>
-                                        )}
-                                      </>
-                                    )}
-                                    {(variable as any).isScaleSummary && (
-                                      <>
-                                        <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style={{ width: '5rem' }}>Count</th>
+                                        <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style={{ width: '5rem' }}>Sum</th>
                                         <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style={{ width: '5rem' }}>%</th>
                                       </>
                                     )}
                                   </tr>
                                 </thead>
                               <tbody className="bg-white divide-y divide-gray-200">
-                                  {(() => {
-                                    // Check if this is a numeric grid column summary table
-                                    // Pattern: {baseName}_c{number}_Summary or {baseName}_c{number} with isSummaryTable
-                                    const columnMatch = variable.name.match(/^([A-Z0-9]+)_(c\d+)(?:_Summary)?$/i);
-                                    const isNumericGridColumnSummary = columnMatch && variable.type?.toLowerCase().includes('numeric');
-                                    
-                                    // Calculate total sum for numeric summary tables BEFORE rendering rows
-                                    const hasNumberTag = (variable as any).tags && Array.isArray((variable as any).tags) && (variable as any).tags.includes('Number');
-                                    let totalSumForPercentage = 0;
-                                    
-                                    if ((variable as any).isSummaryTable && !(variable as any).isScaleSummary && hasNumberTag) {
-                                      // For summary tables, extract base question number (remove "_Summary" suffix)
-                                      const baseName = variable.name.endsWith('_Summary') 
-                                        ? variable.name.replace('_Summary', '') 
-                                        : variable.name;
-                                      Object.keys(variable.statements || {}).forEach((stmtCode) => {
-                                        const statementVarName = `${baseName}_${stmtCode}`;
-                                        const statementData = variableData[statementVarName];
-                                        if (statementData && statementData.sum !== undefined) {
-                                          totalSumForPercentage += statementData.sum;
-                                        }
-                                      });
-                                    }
-                                    
-                                    // For numeric grid column summary tables, show mean for each response option (row) in that column
-                                    if (isNumericGridColumnSummary && !(variable as any).isScaleSummary) {
-                                      const baseName = columnMatch![1];
-                                      const columnCode = columnMatch![2]; // e.g., "c1"
-                                      
-                                      // DEBUG: Log summary table processing
-                                      console.log(`[Summary Table Debug] Processing summary table: ${variable.name}, baseName: ${baseName}, columnCode: ${columnCode}`);
-                                      
-                                      // Get the column variable data (e.g., S14_c1)
-                                      const columnVarName = `${baseName}_${columnCode}`;
-                                      const columnData = variableData[columnVarName];
-                                      
-                                      // DEBUG: Check available variableData keys
-                                      const matchingKeys = Object.keys(variableData).filter(key => 
-                                        key.toLowerCase().includes(baseName.toLowerCase())
-                                      );
-                                      console.log(`[Summary Table Debug] Found ${matchingKeys.length} variableData keys matching baseName "${baseName}":`, matchingKeys.slice(0, 30));
-                                      
-                                      // Calculate total sum for percentage calculation
-                                      // First, try to get it from column variable
-                                      let totalSumForColumn = 0;
-                                      if (columnData && columnData.sum !== undefined) {
-                                        totalSumForColumn = columnData.sum;
-                                      } else {
-                                        // Calculate from individual row sums - try all cell variable patterns
-                                        Object.keys(variable.statements || {}).forEach((stmtCode) => {
-                                          let rowSum: number | undefined = undefined;
-                                          
-                                          // Try all cell variable name patterns (same as Strategy 2)
-                                          const cellVarNames = [
-                                            // Without Q prefix - row first format
-                                            `${baseName}${stmtCode}${columnCode}`,    // S4r1c1 (row first, then column - preferred format)
-                                            `${baseName}_${stmtCode}_${columnCode}`,  // S4_r1_c1
-                                            `${baseName}${stmtCode}_${columnCode}`,   // S4r1_c1
-                                            `${baseName}_${stmtCode}${columnCode}`,   // S4_r1c1
-                                            // Without Q prefix - column first format (backward compatibility)
-                                            `${baseName}${columnCode}${stmtCode}`,    // S4c1r1 (column first, then row - backward compatibility)
-                                            `${baseName}_${columnCode}_${stmtCode}`,  // S4_c1_r1
-                                            `${baseName}${columnCode}_${stmtCode}`,   // S4c1_r1
-                                            `${baseName}_${columnCode}${stmtCode}`,   // S4_c1r1
-                                            // With Q prefix - row first format
-                                            `Q${baseName}${stmtCode}${columnCode}`,    // QS4r1c1
-                                            `Q${baseName}_${stmtCode}_${columnCode}`,  // QS4_r1_c1
-                                            `Q${baseName}${stmtCode}_${columnCode}`,   // QS4r1_c1
-                                            `Q${baseName}_${stmtCode}${columnCode}`,   // QS4_r1c1
-                                            // With Q prefix - column first format
-                                            `Q${baseName}${columnCode}${stmtCode}`,    // QS4c1r1
-                                            `Q${baseName}_${columnCode}_${stmtCode}`,  // QS4_c1_r1
-                                            `Q${baseName}${columnCode}_${stmtCode}`,   // QS4c1_r1
-                                            `Q${baseName}_${columnCode}${stmtCode}`,   // QS4_c1r1
-                                          ];
-                                          
-                                          // First, try to get data from mapped column headers
-                                          // Note: columnMapping uses expected headers as keys (e.g., "QS11r1c1"), not variable names
-                                          for (const cellVarName of cellVarNames) {
-                                            // Try variable name directly first (for backward compatibility)
-                                            let mappedColumnHeader = columnMapping[cellVarName];
-                                            
-                                            // If not found, try generating expected header and checking that
-                                            if (!mappedColumnHeader || mappedColumnHeader.trim() === '') {
-                                              // Generate expected header: add Q prefix and normalize format
-                                              const normalized = cellVarName.replace(/[_-]/g, ''); // Remove underscores/dashes
-                                              const expectedHeader = normalized.startsWith('Q') ? normalized : `Q${normalized}`;
-                                              mappedColumnHeader = columnMapping[expectedHeader];
-                                              
-                                              // Also try with Q prefix variations
-                                              if (!mappedColumnHeader || mappedColumnHeader.trim() === '') {
-                                                // Try with Q prefix added to base
-                                                const baseMatch = normalized.match(/^([A-Z0-9]+)(r\d+)(c\d+)$/i);
-                                                if (baseMatch) {
-                                                  const [, base, row, col] = baseMatch;
-                                                  const altExpectedHeader = `Q${base}${row}${col}`;
-                                                  mappedColumnHeader = columnMapping[altExpectedHeader];
-                                                }
-                                              }
-                                            }
-                                            
-                                            if (mappedColumnHeader && mappedColumnHeader.trim() !== '') {
-                                              const cellData = variableData[mappedColumnHeader];
-                                              if (cellData && cellData.sum !== undefined) {
-                                                rowSum = cellData.sum;
-                                                break;
-                                              } else if (cellData && cellData.values && Array.isArray(cellData.values) && cellData.values.length > 0) {
-                                                // Calculate sum from values if sum is not directly available
-                                                const numericValues = cellData.values
-                                                  .map((v: any) => parseFloat(v))
-                                                  .filter((v: number) => !isNaN(v));
-                                                if (numericValues.length > 0) {
-                                                  rowSum = numericValues.reduce((sum: number, val: number) => sum + val, 0);
-                                                  break;
-                                                }
-                                              }
-                                            }
-                                          }
-                                          
-                                          // Fallback: try variable names directly if mapped column headers didn't work
-                                          if (rowSum === undefined) {
-                                            for (const cellVarName of cellVarNames) {
-                                              const cellData = variableData[cellVarName];
-                                              if (cellData && cellData.sum !== undefined) {
-                                                rowSum = cellData.sum;
-                                                break;
-                                              } else if (cellData && cellData.values && Array.isArray(cellData.values) && cellData.values.length > 0) {
-                                                // Calculate sum from values if sum is not directly available
-                                                const numericValues = cellData.values
-                                                  .map((v: any) => parseFloat(v))
-                                                  .filter((v: number) => !isNaN(v));
-                                                if (numericValues.length > 0) {
-                                                  rowSum = numericValues.reduce((sum: number, val: number) => sum + val, 0);
-                                                  break;
-                                                }
-                                              }
-                                            }
-                                          }
-                                          
-                                          // If cell variable not found, try statement variable with frequencies
-                                          if (rowSum === undefined) {
-                                            const statementVarName = `${baseName}_${stmtCode}`;
-                                            const statementData = variableData[statementVarName];
-                                            if (statementData) {
-                                              if (statementData.frequencies && statementData.frequencies[columnCode] !== undefined) {
-                                                rowSum = statementData.frequencies[columnCode];
-                                              } else if (statementData.frequencies) {
-                                                const colCodeWithoutPrefix = columnCode.replace(/^c/i, '');
-                                                if (statementData.frequencies[colCodeWithoutPrefix] !== undefined) {
-                                                  rowSum = statementData.frequencies[colCodeWithoutPrefix];
-                                                }
-                                              } else if (statementData.sum !== undefined) {
-                                                // Use statement sum as fallback (might be across all columns though)
-                                                // Only use this if we can't find column-specific data
-                                                // For multi-column grids, this would be wrong, so we skip it
-                                              }
-                                            }
-                                          }
-                                          
-                                          if (rowSum !== undefined) {
-                                            totalSumForColumn += rowSum;
-                                          }
-                                        });
+                                {(() => {
+                                  // Extract base name and column code from variable name (e.g., "S11_c1_Summary" -> baseName: "S11", columnCode: "c1")
+                                  const columnMatch = variable.name.match(/^([A-Z0-9]+)_(c\d+)(?:_Summary)?$/i);
+                                  const baseName = columnMatch ? columnMatch[1] : '';
+                                  const columnCode = columnMatch ? columnMatch[2] : '';
+                                  const hasNumberTag = (variable as any).tags && Array.isArray((variable as any).tags) && (variable as any).tags.includes('Number');
+                                  const hasPercentTag = (variable as any).tags && Array.isArray((variable as any).tags) && (variable as any).tags.includes('%');
+
+                                  // Check if this is a numeric grid (not a numeric list)
+                                  const question = questionnaireQuestions.find(q => {
+                                    const qNum = q.number || q.id;
+                                    return qNum === baseName || 
+                                           qNum === baseName.replace(/^Q/, '') ||
+                                           String(qNum) === String(baseName);
+                                  });
+                                  const isNumericGrid = question?.type?.toLowerCase().includes('numeric grid');
+                                  const isNumericList = question?.type?.toLowerCase().includes('numeric list');
+
+                                  // Calculate total sum first for percentage calculation
+                                  let totalSum = 0;
+                                  if (hasNumberTag) {
+                                    Object.entries(variable.statements || {}).forEach(([code]) => {
+                                      // Construct the expected header (e.g., QS11r1c1)
+                                      // For numeric lists, codes might be "1", "2", etc. instead of "r1", "r2"
+                                      // Normalize the code to ensure it has "r" prefix
+                                      let normalizedCode = code;
+                                      if (!/^r\d+/i.test(code) && /^\d+$/.test(code)) {
+                                        normalizedCode = `r${code}`;
                                       }
+                                      const expectedHeader = `Q${baseName}${normalizedCode}${columnCode}`;
                                       
-                                      const hasPercentTag = (variable as any).tags && Array.isArray((variable as any).tags) && (variable as any).tags.includes('%');
-                                      const hasNumberTag = (variable as any).tags && Array.isArray((variable as any).tags) && (variable as any).tags.includes('Number');
+                                      // Use the helper function to get cell data
+                                      const cellData = getVariableDataByExpectedHeader(expectedHeader);
                                       
-                                      // First pass: collect all row data and calculate total sum
-                                      const rowDataArray: Array<{code: string; text: string; mean: number | undefined; sum: number | undefined; mappedColumnHeader: string | undefined}> = [];
-                                      let totalSum = 0;
-                                      let sumOfMeans = 0;
-                                      
-                                      Object.entries(variable.statements || {}).forEach(([stmtCode, stmtText]) => {
-                                        const displayCode = stmtCode.replace(/^[rc]/i, '');
-                                        
-                                        // DEBUG: Log which row we're processing
-                                        console.log(`[Summary Table Debug] Processing row: stmtCode=${stmtCode}, stmtText=${stmtText}`);
-                                        
-                                        // Try multiple strategies to get the mean for this row in this column
-                                        // (Same strategies as used in the statement table for column variables)
-                                        let mean: number | undefined = undefined;
-                                        let sum: number | undefined = undefined;
-                                        let mappedColumnHeader: string | undefined = undefined;
-                                        
-                                        // Build all possible cell variable name patterns first
-                                        const cellVarNames = [
-                                          // Without Q prefix
-                                          `${baseName}${stmtCode}${columnCode}`,    // S11r1c1 (row first, then column - preferred format)
-                                          `${baseName}_${stmtCode}_${columnCode}`,  // S11_r1_c1
-                                          `${baseName}${stmtCode}_${columnCode}`,   // S11r1_c1
-                                          `${baseName}_${stmtCode}${columnCode}`,   // S11_r1c1
-                                          `${baseName}${columnCode}${stmtCode}`,    // S11c1r5 (column first, then row - backward compatibility)
-                                          `${baseName}_${columnCode}_${stmtCode}`,  // S11_c1_r5
-                                          `${baseName}${columnCode}_${stmtCode}`,   // S11c1_r5
-                                          `${baseName}_${columnCode}${stmtCode}`,   // S11_c1r5
-                                          // With Q prefix
-                                          `Q${baseName}${stmtCode}${columnCode}`,    // QS11r1c1
-                                          `Q${baseName}_${stmtCode}_${columnCode}`,  // QS11_r1_c1
-                                          `Q${baseName}${stmtCode}_${columnCode}`,   // QS11r1_c1
-                                          `Q${baseName}_${stmtCode}${columnCode}`,   // QS11_r1c1
-                                          `Q${baseName}${columnCode}${stmtCode}`,    // QS11c1r5
-                                          `Q${baseName}_${columnCode}_${stmtCode}`,  // QS11_c1_r5
-                                          `Q${baseName}${columnCode}_${stmtCode}`,   // QS11c1_r5
-                                          `Q${baseName}_${columnCode}${stmtCode}`,   // QS11_c1r5
-                                        ];
-                                        
-                                        // DEBUG: Log what we're trying
-                                        console.log(`[Summary Table Debug] Trying ${cellVarNames.length} cell variable names for row ${stmtCode}:`, cellVarNames);
-                                        
-                                        // First, find the mapped column header for this cell variable
-                                        // columnMapping uses expected headers as keys (e.g., "QS4r1c1"), and values are the actual column headers from the data file
-                                        let foundExpectedHeader: string | undefined = undefined;
-                                        for (const cellVarName of cellVarNames) {
-                                          // Generate expected header: normalize format and add Q prefix if needed
-                                          const normalized = cellVarName.replace(/[_-]/g, ''); // Remove underscores/dashes
-                                          const expectedHeader = normalized.startsWith('Q') ? normalized : `Q${normalized}`;
-                                          
-                                          // Check if this expected header has a mapping
-                                          const mappedHeader = columnMapping[expectedHeader];
-                                          if (mappedHeader && mappedHeader.trim() !== '') {
-                                            mappedColumnHeader = mappedHeader;
-                                            foundExpectedHeader = expectedHeader;
-                                            console.log(`[Summary Table Debug] Found mapping: expectedHeader="${expectedHeader}" -> mappedColumnHeader="${mappedColumnHeader}"`);
-                                            break; // Found the mapping, use this one
-                                          }
-                                        }
-                                        
-                                        // If we found a mapping, try both the expected header and mapped header to get the data
-                                        // Data might be stored under either the expected header key or the mapped header value
-                                        if (foundExpectedHeader && mappedColumnHeader) {
-                                          // Try expected header first (data is often stored under the mapping key)
-                                          let cellData = variableData[foundExpectedHeader];
-                                          if (cellData) {
-                                            console.log(`[Summary Table Debug] ✅ Found data using expectedHeader="${foundExpectedHeader}"`);
-                                          } else {
-                                            // Try mapped header (data might be stored under the actual column header)
-                                            cellData = variableData[mappedColumnHeader];
-                                            if (cellData) {
-                                              console.log(`[Summary Table Debug] ✅ Found data using mappedColumnHeader="${mappedColumnHeader}"`);
-                                            }
-                                          }
-                                          
-                                          if (cellData) {
-                                            if (mean === undefined && cellData.mean !== undefined) {
-                                              mean = cellData.mean;
-                                            }
-                                            if (sum === undefined && cellData.sum !== undefined) {
-                                              sum = cellData.sum;
-                                            }
-                                            if (mean === undefined && cellData.values && Array.isArray(cellData.values) && cellData.values.length > 0) {
-                                              const numericValues = cellData.values
-                                                .map((v: any) => parseFloat(v))
-                                                .filter((v: number) => !isNaN(v));
-                                              if (numericValues.length > 0) {
-                                                mean = numericValues.reduce((sum: number, val: number) => sum + val, 0) / numericValues.length;
-                                              }
-                                            }
-                                            if (sum === undefined && cellData.values && Array.isArray(cellData.values) && cellData.values.length > 0) {
-                                              const numericValues = cellData.values
-                                                .map((v: any) => parseFloat(v))
-                                                .filter((v: number) => !isNaN(v));
-                                              if (numericValues.length > 0) {
-                                                sum = numericValues.reduce((sum: number, val: number) => sum + val, 0);
-                                              }
-                                            }
-                                          }
-                                        }
-                                        
-                                        // Strategy 1: Check if statement variable exists (S14_r1) and has frequencies with column code
-                                        const statementVarName = `${baseName}_${stmtCode}`;
-                                        const statementVarData = variableData[statementVarName];
-                                        
-                                        if (statementVarData && statementVarData.frequencies) {
-                                          // Try to find the column code in frequencies
-                                          if (statementVarData.frequencies[columnCode] !== undefined) {
-                                            // This is a frequency count - use it as the value (could be sum or mean depending on data structure)
-                                            mean = statementVarData.frequencies[columnCode];
-                                            // Also try to get sum from statement variable
-                                            if (sum === undefined && statementVarData.sum !== undefined) {
-                                              sum = statementVarData.sum;
-                                            }
-                                          } else {
-                                            // Try without "c" prefix (c1 -> 1)
-                                            const colCodeWithoutPrefix = columnCode.replace(/^c/i, '');
-                                            if (statementVarData.frequencies[colCodeWithoutPrefix] !== undefined) {
-                                              mean = statementVarData.frequencies[colCodeWithoutPrefix];
-                                              // Also try to get sum from statement variable
-                                              if (sum === undefined && statementVarData.sum !== undefined) {
-                                                sum = statementVarData.sum;
-                                              }
-                                            }
-                                          }
-                                        }
-                                        
-                                        // Also try to get sum from statement variable if we haven't gotten it yet
-                                        if (sum === undefined && statementVarData && statementVarData.sum !== undefined) {
-                                          sum = statementVarData.sum;
-                                        }
-                                        
-                                        // Strategy 2: Try cell variable formats
-                                        // Format: {base}{row}{column} e.g., S11r1c1 (row first, then column - preferred format)
-                                        // Also try: {base}{column}{row} for backward compatibility
-                                        // IMPORTANT: First check if there's a mapped column header for this cell variable
-                                        if (mean === undefined || sum === undefined) {
-                                          // First, try to get data from mapped column headers
-                                          for (const cellVarName of cellVarNames) {
-                                            // Try variable name directly first (for backward compatibility)
-                                            let mappedHeader = columnMapping[cellVarName];
-                                            let currentExpectedHeader: string | undefined = undefined;
-                                            
-                                            // If not found, try generating expected header and checking that
-                                            if (!mappedHeader || mappedHeader.trim() === '') {
-                                              // Generate expected header: add Q prefix and normalize format
-                                              const normalized = cellVarName.replace(/[_-]/g, ''); // Remove underscores/dashes
-                                              const expectedHeader = normalized.startsWith('Q') ? normalized : `Q${normalized}`;
-                                              mappedHeader = columnMapping[expectedHeader];
-                                              
-                                              if (mappedHeader && mappedHeader.trim() !== '') {
-                                                currentExpectedHeader = expectedHeader;
-                                              } else {
-                                                // Also try with Q prefix variations
-                                                // Try with Q prefix added to base
-                                                const baseMatch = normalized.match(/^([A-Z0-9]+)(r\d+)(c\d+)$/i);
-                                                if (baseMatch) {
-                                                  const [, base, row, col] = baseMatch;
-                                                  const altExpectedHeader = `Q${base}${row}${col}`;
-                                                  mappedHeader = columnMapping[altExpectedHeader];
-                                                  if (mappedHeader && mappedHeader.trim() !== '') {
-                                                    currentExpectedHeader = altExpectedHeader;
-                                                  }
-                                                }
-                                              }
-                                            } else {
-                                              currentExpectedHeader = cellVarName;
-                                            }
-                                            
-                                            // Even if there's no mappedHeader, try to generate expected header and check variableData directly
-                                            if (!currentExpectedHeader) {
-                                              const normalized = cellVarName.replace(/[_-]/g, '');
-                                              currentExpectedHeader = normalized.startsWith('Q') ? normalized : `Q${normalized}`;
-                                            }
-                                            
-                                            // Try checking variableData directly with expected header format (even without mapping)
-                                            if (currentExpectedHeader && !mean && !sum) {
-                                              const directData = variableData[currentExpectedHeader];
-                                              if (directData) {
-                                                console.log(`[Summary Table Debug] ✅ Found data directly for expectedHeader="${currentExpectedHeader}" (no mapping needed)`);
-                                                if (mean === undefined && directData.mean !== undefined) {
-                                                  mean = directData.mean;
-                                                }
-                                                if (sum === undefined && directData.sum !== undefined) {
-                                                  sum = directData.sum;
-                                                }
-                                                if ((mean !== undefined || sum !== undefined) && !mappedColumnHeader) {
-                                                  mappedColumnHeader = currentExpectedHeader;
-                                                }
-                                              }
-                                            }
-                                            
-                                            if (mappedHeader && mappedHeader.trim() !== '') {
-                                              // Track which mapped column header we're using (if not already set)
-                                              if (!mappedColumnHeader) {
-                                                mappedColumnHeader = mappedHeader;
-                                              }
-                                              
-                                              // The backend stores data under the variable name, not the column header
-                                              // When we upload, we convert expected headers to variable names
-                                              // So we need to use the variable name (cellVarName) to look up the data
-                                              // The mappedHeader tells us which column was used, but data is stored under variable name
-                                              let dataKey: string | undefined = undefined;
-                                              
-                                              // Try multiple keys in order of preference:
-                                              // 1. Cell variable name directly (e.g., "S11r1c1") - this is what backend uses
-                                              if (variableData[cellVarName]) {
-                                                console.log(`[Summary Table Debug] ✅ Found data for cellVarName="${cellVarName}"`);
-                                                dataKey = cellVarName;
-                                              }
-                                              
-                                              // 2. Expected header without Q prefix (variable name format)
-                                              if (!dataKey && currentExpectedHeader) {
-                                                const varNameFromExpected = currentExpectedHeader.startsWith('Q') ? currentExpectedHeader.substring(1) : currentExpectedHeader;
-                                                if (variableData[varNameFromExpected]) {
-                                                  dataKey = varNameFromExpected;
-                                                }
-                                              }
-                                              
-                                              // 3. Expected header itself
-                                              if (!dataKey && currentExpectedHeader && variableData[currentExpectedHeader]) {
-                                                dataKey = currentExpectedHeader;
-                                              }
-                                              
-                                              // 4. Mapped header (column header) as fallback
-                                              if (!dataKey && variableData[mappedHeader]) {
-                                                dataKey = mappedHeader;
-                                              }
-                                              
-                                              // 5. Try the expected header format directly in variableData (even if not in columnMapping)
-                                              if (!dataKey && currentExpectedHeader && variableData[currentExpectedHeader]) {
-                                                console.log(`[Summary Table Debug] ✅ Found data for expectedHeader="${currentExpectedHeader}" (not in columnMapping)`);
-                                                dataKey = currentExpectedHeader;
-                                              }
-                                              
-                                              const cellData = dataKey ? variableData[dataKey] : undefined;
-                                              if (cellData) {
-                                                // Get mean if not already set
-                                                if (mean === undefined) {
-                                                  if (cellData.mean !== undefined) {
-                                                    mean = cellData.mean;
-                                                  } else if (cellData.sum !== undefined && cellData.count !== undefined && cellData.count > 0) {
-                                                    mean = cellData.sum / cellData.count;
-                                                  } else if (cellData.values && Array.isArray(cellData.values) && cellData.values.length > 0) {
-                                                    const numericValues = cellData.values
-                                                      .map((v: any) => parseFloat(v))
-                                                      .filter((v: number) => !isNaN(v));
-                                                    if (numericValues.length > 0) {
-                                                      mean = numericValues.reduce((sum: number, val: number) => sum + val, 0) / numericValues.length;
-                                                    }
-                                                  }
-                                                }
-                                                
-                                                // Get sum if not already set
-                                                if (sum === undefined && cellData.sum !== undefined) {
-                                                  sum = cellData.sum;
-                                                } else if (sum === undefined && cellData.values && Array.isArray(cellData.values) && cellData.values.length > 0) {
-                                                  // Calculate sum from values if sum is not directly available
-                                                  const numericValues = cellData.values
-                                                    .map((v: any) => parseFloat(v))
-                                                    .filter((v: number) => !isNaN(v));
-                                                  if (numericValues.length > 0) {
-                                                    sum = numericValues.reduce((sum: number, val: number) => sum + val, 0);
-                                                  }
-                                                }
-                                                
-                                                // If we have both mean and sum, we can break
-                                                if (mean !== undefined && sum !== undefined) {
-                                                  break;
-                                                }
-                                              }
-                                            }
-                                          }
-                                          
-                                          // Fallback: try variable names directly if mapped column headers didn't work
-                                          for (const cellVarName of cellVarNames) {
-                                            const cellData = variableData[cellVarName];
-                                            if (cellData) {
-                                              console.log(`[Summary Table Debug] ✅ Found data in fallback for cellVarName="${cellVarName}"`);
-                                              // Get mean if not already set
-                                              if (mean === undefined) {
-                                                if (cellData.mean !== undefined) {
-                                                  mean = cellData.mean;
-                                                } else if (cellData.sum !== undefined && cellData.count !== undefined && cellData.count > 0) {
-                                                  mean = cellData.sum / cellData.count;
-                                                } else if (cellData.values && Array.isArray(cellData.values) && cellData.values.length > 0) {
-                                                  const numericValues = cellData.values
-                                                    .map((v: any) => parseFloat(v))
-                                                    .filter((v: number) => !isNaN(v));
-                                                  if (numericValues.length > 0) {
-                                                    mean = numericValues.reduce((sum: number, val: number) => sum + val, 0) / numericValues.length;
-                                                  }
-                                                }
-                                              }
-                                              
-                                              // Get sum if not already set
-                                              if (sum === undefined && cellData.sum !== undefined) {
-                                                sum = cellData.sum;
-                                              } else if (sum === undefined && cellData.values && Array.isArray(cellData.values) && cellData.values.length > 0) {
-                                                // Calculate sum from values if sum is not directly available
-                                                const numericValues = cellData.values
-                                                  .map((v: any) => parseFloat(v))
-                                                  .filter((v: number) => !isNaN(v));
-                                                if (numericValues.length > 0) {
-                                                  sum = numericValues.reduce((sum: number, val: number) => sum + val, 0);
-                                                }
-                                              }
-                                              
-                                              // If we have both mean and sum, we can break
-                                              if (mean !== undefined && sum !== undefined) {
-                                                break;
-                                              }
-                                            }
-                                          }
-                                        }
-                                        
-                                        // Strategy 3: Check if column variable exists (S14_c1) with statement codes as keys
-                                        if (mean === undefined && columnData) {
-                                          if (columnData.frequencies) {
-                                            if (columnData.frequencies[stmtCode] !== undefined) {
-                                              mean = columnData.frequencies[stmtCode];
-                                            } else {
-                                              const codeWithoutPrefix = stmtCode.replace(/^[rc]/i, '');
-                                              if (columnData.frequencies[codeWithoutPrefix] !== undefined) {
-                                                mean = columnData.frequencies[codeWithoutPrefix];
-                                              }
-                                            }
-                                          }
-                                          // If column variable has mean, that's the overall mean for the column, not per-row
-                                          // But we can use it as a fallback if we can't find row-specific data
-                                          if (mean === undefined && columnData.mean !== undefined) {
-                                            // This is the overall column mean, not row-specific, but use as last resort
-                                            mean = columnData.mean;
-                                          }
-                                          if (sum === undefined && columnData.sum !== undefined) {
-                                            // This is the total sum for the column
-                                            // We can't easily split it per row, but we'll use it for percentage calculation
-                                          }
-                                        }
-                                        
-                                        // Strategy 4: Check column variable's values array
-                                        // If column variable has values, we can calculate mean from it
-                                        // Note: This assumes the values array contains all values for this column
-                                        if (mean === undefined && columnData && columnData.values && Array.isArray(columnData.values) && columnData.values.length > 0) {
-                                          const numericValues = columnData.values
+                                      if (cellData) {
+                                        if (cellData.sum !== undefined) {
+                                          totalSum += cellData.sum;
+                                        } else if (cellData.values && Array.isArray(cellData.values) && cellData.values.length > 0) {
+                                          const numericValues = cellData.values
                                             .map((v: any) => parseFloat(v))
                                             .filter((v: number) => !isNaN(v));
                                           if (numericValues.length > 0) {
-                                            // This gives us the overall mean for the column
-                                            // We can't easily split it per row, but we'll use it as a fallback
-                                            mean = numericValues.reduce((sum: number, val: number) => sum + val, 0) / numericValues.length;
+                                            totalSum += numericValues.reduce((sum: number, val: number) => sum + val, 0);
                                           }
                                         }
-                                        
-                                        // Strategy 5: Use statement variable's mean/sum as fallback (but this might be across all columns)
-                                        if (mean === undefined && statementVarData) {
-                                          if (statementVarData.mean !== undefined) {
-                                            mean = statementVarData.mean;
-                                          }
-                                          if (statementVarData.sum !== undefined) {
-                                            sum = statementVarData.sum;
-                                          }
-                                        }
-                                        
-                                        // Calculate sum if we have mean but not sum (for percentage calculation)
-                                        if (mean !== undefined && sum === undefined) {
-                                          // Try to get sum from cell data - try multiple formats
-                                          const cellVarNamesToTry = [
-                                            `${baseName}_${stmtCode}_${columnCode}`,  // S4_r1_c1
-                                            `${baseName}${stmtCode}${columnCode}`,    // S4r1c1
-                                            `Q${baseName}_${stmtCode}_${columnCode}`, // QS4_r1_c1
-                                            `Q${baseName}${stmtCode}${columnCode}`,   // QS4r1c1
-                                          ];
-                                          
-                                          for (const cellVarName of cellVarNamesToTry) {
-                                            const cellData = variableData[cellVarName];
-                                            if (cellData && cellData.sum !== undefined) {
-                                              sum = cellData.sum;
-                                              break;
-                                            }
-                                          }
-                                          
-                                          if (sum === undefined && statementVarData && statementVarData.sum !== undefined) {
-                                            sum = statementVarData.sum;
-                                          } else if (sum === undefined && columnData && columnData.sum !== undefined) {
-                                            // Column sum divided by number of statements (rough estimate)
-                                            const stmtCount = Object.keys(variable.statements || {}).length;
-                                            if (stmtCount > 0) {
-                                              sum = columnData.sum / stmtCount;
-                                            }
-                                          }
-                                        }
-                                        
-                                        // Accumulate totals
-                                        if (sum !== undefined) {
-                                          totalSum += sum;
-                                        }
-                                        if (mean !== undefined) {
-                                          sumOfMeans += mean;
-                                        }
-                                        
-                                        // Store row data for second pass
-                                        // DEBUG: Log final result for this row
-                                        if (mean !== undefined || sum !== undefined) {
-                                          console.log(`[Summary Table Debug] ✅ Final values for row ${stmtCode}: mean=${mean}, sum=${sum}, mappedColumnHeader=${mappedColumnHeader}`);
-                                        } else {
-                                          console.log(`[Summary Table Debug] ❌ No data found for row ${stmtCode} after all strategies`);
-                                        }
-                                        
-                                        rowDataArray.push({ code: stmtCode, text: stmtText, mean, sum, mappedColumnHeader });
-                                      });
-                                      
-                                      // Second pass: render rows with percentages calculated using total sum
-                                      const rows = rowDataArray.map(({ code: stmtCode, text: stmtText, mean, sum, mappedColumnHeader }) => {
-                                        const displayCode = stmtCode.replace(/^[rc]/i, '');
-                                        
-                                        // Calculate percentage: (row sum / total sum of all rows) * 100
-                                        const rowPercentage = totalSum > 0 && sum !== undefined 
-                                          ? (sum / totalSum) * 100 
-                                          : undefined;
-                                        
-                                        return (
-                                          <tr key={stmtCode}>
-                                            <td className="px-2 py-2 text-sm font-mono text-gray-700 text-center" style={{ width: '2.5rem' }}>{displayCode}</td>
-                                            <td className="px-4 py-2 text-sm text-gray-900">
-                                              {stmtText}
-                                              {mappedColumnHeader ? (
-                                                <span className="text-gray-500 text-xs ml-1">({mappedColumnHeader})</span>
-                                              ) : (
-                                                <span className="text-gray-400 text-xs ml-1 italic">(no mapping)</span>
-                                              )}
-                                            </td>
-                                            <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>
-                                              {mean !== undefined 
-                                                ? (hasPercentTag ? `${mean.toFixed(1)}%` : mean.toFixed(2))
-                                                : (hasPercentTag ? '-%' : '-')}
-                                            </td>
-                                            {hasNumberTag && (
-                                              <>
-                                                <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>
-                                                  {sum !== undefined ? sum.toFixed(0) : '-'}
-                                                </td>
-                                                <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>
-                                                  {rowPercentage !== undefined ? `${rowPercentage.toFixed(1)}%` : '-'}
-                                                </td>
-                                              </>
-                                            )}
-                                          </tr>
-                                        );
-                                      });
-                                      
-                                      // Add total row
-                                      const totalPercentage = totalSum > 0 ? 100 : undefined;
-                                      
-                                      return (
-                                        <>
-                                          {rows}
-                                          <tr className="bg-gray-50 font-semibold border-t-2 border-gray-300">
-                                            <td className="px-2 py-2 text-sm text-gray-900" colSpan={2}>Total</td>
-                                            <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>
-                                              {sumOfMeans > 0
-                                                ? (hasPercentTag ? `${sumOfMeans.toFixed(1)}%` : sumOfMeans.toFixed(2))
-                                                : (hasPercentTag ? '-%' : '-')}
-                                            </td>
-                                            {hasNumberTag && (
-                                              <>
-                                                <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>
-                                                  {totalSum > 0 ? totalSum.toFixed(0) : '-'}
-                                                </td>
-                                                <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>
-                                                  {totalPercentage !== undefined ? `${totalPercentage.toFixed(1)}%` : '-'}
-                                                </td>
-                                              </>
-                                            )}
-                                          </tr>
-                                        </>
-                                      );
+                                      }
+                                    });
+                                  }
+
+                                  // First pass: calculate all means
+                                  const rowData = Object.entries(variable.statements || {}).map(([code, text]) => {
+                                    const displayCode = code.replace(/^[rc]/i, '');
+
+                                    // Calculate mean and sum for this row
+                                    let mean: number | undefined = undefined;
+                                    let sum: number | undefined = undefined;
+
+                                    // Construct the expected header (e.g., QS11r1c1)
+                                    // For numeric lists, codes might be "1", "2", etc. instead of "r1", "r2"
+                                    // Normalize the code to ensure it has "r" prefix
+                                    let normalizedCode = code;
+                                    if (!/^r\d+/i.test(code) && /^\d+$/.test(code)) {
+                                      normalizedCode = `r${code}`;
                                     }
+                                    const expectedHeader = `Q${baseName}${normalizedCode}${columnCode}`;
                                     
-                                    // For non-column summary tables, show one row per statement (original behavior)
-                                    return Object.entries(variable.statements || {}).map(([code, text]) => {
-                                  const displayCode = code.replace(/^[rc]/i, '');
-                                  const hasNumberTag = (variable as any).tags && Array.isArray((variable as any).tags) && (variable as any).tags.includes('Number');
-                                  const hasPercentTag = (variable as any).tags && Array.isArray((variable as any).tags) && (variable as any).tags.includes('%');
-                                      
-                                  return (
-                                    <tr key={code}>
-                                          <td className="px-2 py-2 text-sm font-mono text-gray-700 text-center" style={{ width: '2.5rem' }}>{displayCode}</td>
-                                      <td className="px-4 py-2 text-sm text-gray-900">{text}</td>
-                                          {(variable as any).isSummaryTable && !(variable as any).isScaleSummary && (() => {
-                                            // For summary tables, extract base question number (remove "_Summary" suffix)
-                                            const baseName = variable.name.endsWith('_Summary') 
-                                              ? variable.name.replace('_Summary', '') 
-                                              : variable.name;
-                                            const statementVarName = `${baseName}_${code}`;
-                                            const statementData = variableData[statementVarName];
-                                            
-                                            if (!statementData) {
-                                              return (
-                                                <>
-                                                  <td className="px-4 py-2 text-sm text-gray-900 text-center">-</td>
-                                                  {hasNumberTag && (
-                                                    <>
-                                                      <td className="px-4 py-2 text-sm text-gray-900 text-center">-</td>
-                                                      <td className="px-4 py-2 text-sm text-gray-900 text-center">-</td>
-                                                    </>
-                                                  )}
-                                                </>
-                                              );
-                                            }
-                                            
-                                            const mean = statementData.mean;
-                                            const sum = statementData.sum;
-                                            
-                                            // Calculate percentage: (row sum / total sum of all rows) * 100
-                                            const rowPercentage = totalSumForPercentage > 0 && sum !== undefined 
-                                              ? (sum / totalSumForPercentage) * 100 
-                                              : undefined;
-                                            
-                                            return (
-                                              <>
-                                                <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>
-                                                  {mean !== undefined 
-                                                    ? (hasPercentTag ? `${mean.toFixed(1)}%` : mean.toFixed(2))
-                                                    : (hasPercentTag ? '-%' : '-')}
-                                                </td>
-                                                {hasNumberTag && (
-                                                  <>
-                                                    <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>
-                                                      {sum !== undefined ? sum.toFixed(0) : '-'}
-                                                    </td>
-                                                    <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>
-                                                      {rowPercentage !== undefined ? `${rowPercentage.toFixed(1)}%` : '-'}
-                                                    </td>
-                                                  </>
-                                                )}
-                                              </>
-                                            );
-                                          })()}
-                                      {(variable as any).isScaleSummary && (() => {
-                                        // Scale summary tables (T2B, M3B, B2B) need to calculate from individual statement variables
-                                        const baseMatch = variable.name.match(/^([A-Z0-9]+)_(T2B|M3B|B2B)$/i);
-                                        if (!baseMatch) {
-                                          return (
-                                            <>
-                                              <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>-</td>
-                                              <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>-</td>
-                                            </>
-                                          );
+                                    // Use the helper function to get cell data
+                                    const cellData = getVariableDataByExpectedHeader(expectedHeader);
+
+                                    if (cellData) {
+                                      // Get mean
+                                      if (cellData.mean !== undefined) {
+                                        mean = cellData.mean;
+                                      } else if (cellData.values && Array.isArray(cellData.values) && cellData.values.length > 0) {
+                                        // Calculate mean from values
+                                        const numericValues = cellData.values
+                                          .map((v: any) => parseFloat(v))
+                                          .filter((v: number) => !isNaN(v));
+                                        if (numericValues.length > 0) {
+                                          mean = numericValues.reduce((sum: number, val: number) => sum + val, 0) / numericValues.length;
                                         }
-                                        
-                                        const baseVar = baseMatch[1];
-                                        const netType = baseMatch[2].toUpperCase();
-                                        
-                                        // Find the individual statement variable (e.g., "S4_r1")
-                                        const statementVarName = `${baseVar}_${code}`;
-                                        const statementData = variableData[statementVarName];
-                                        
-                                        if (!statementData || !statementData.frequencies) {
-                                          return (
-                                            <>
-                                              <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>-</td>
-                                              <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>-</td>
-                                            </>
-                                          );
+                                      }
+
+                                      // Get sum
+                                      if (cellData.sum !== undefined) {
+                                        sum = cellData.sum;
+                                      } else if (cellData.values && Array.isArray(cellData.values) && cellData.values.length > 0) {
+                                        // Calculate sum from values
+                                        const numericValues = cellData.values
+                                          .map((v: any) => parseFloat(v))
+                                          .filter((v: number) => !isNaN(v));
+                                        if (numericValues.length > 0) {
+                                          sum = numericValues.reduce((sumAcc: number, val: number) => sumAcc + val, 0);
                                         }
-                                        
-                                        // Find the parent grid question to get response options
-                                            const parentQuestion = questionnaireQuestions.find(q => 
-                                          (q.number === baseVar || q.id === baseVar) && 
-                                          q.type?.toLowerCase().includes('single select') &&
-                                          q.type?.toLowerCase().includes('grid')
-                                        );
-                                        
-                                        if (!parentQuestion || !parentQuestion.responseOptions) {
-                                          return (
-                                            <>
-                                              <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>-</td>
-                                              <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>-</td>
-                                            </>
-                                          );
-                                        }
-                                        
-                                        // Determine which response codes to include based on net type
-                                        const responseOptions = parentQuestion.responseOptions;
-                                        let codesToInclude: string[] = [];
-                                        
-                                        if (netType === 'T2B') {
-                                          codesToInclude = responseOptions.slice(-2).map((opt: any) => {
-                                            if (typeof opt === 'string') return opt;
-                                            return opt.code || String(responseOptions.indexOf(opt) + 1);
-                                          });
-                                        } else if (netType === 'B2B') {
-                                          codesToInclude = responseOptions.slice(0, 2).map((opt: any) => {
-                                            if (typeof opt === 'string') return opt;
-                                            return opt.code || String(responseOptions.indexOf(opt) + 1);
-                                          });
-                                            } else if (netType === 'M3B' && responseOptions.length === 7) {
-                                          codesToInclude = responseOptions.slice(2, 5).map((opt: any) => {
-                                            if (typeof opt === 'string') return opt;
-                                            return opt.code || String(responseOptions.indexOf(opt) + 1);
-                                          });
-                                        }
-                                        
-                                        // Calculate count by summing frequencies for the included codes
-                                        let count = 0;
-                                        const frequencies = statementData.frequencies;
-                                        codesToInclude.forEach(codeToMatch => {
-                                          let codeCount = frequencies[codeToMatch] ?? 0;
-                                          if (codeCount === 0 || frequencies[codeToMatch] === undefined) {
-                                            const codeWithPrefix = codeToMatch.startsWith('c') ? codeToMatch : `c${codeToMatch}`;
-                                            codeCount += frequencies[codeWithPrefix] ?? 0;
-                                            if (codeCount === 0 || frequencies[codeWithPrefix] === undefined) {
-                                              const codeWithoutPrefix = codeToMatch.replace(/^[rc]/i, '');
-                                              codeCount += frequencies[codeWithoutPrefix] ?? 0;
-                                            }
-                                          }
-                                          const numericIndex = responseOptions.findIndex((opt: any) => {
-                                            if (typeof opt === 'string') return opt === codeToMatch;
-                                            return (opt.code || String(responseOptions.indexOf(opt) + 1)) === codeToMatch;
-                                          });
-                                          if (numericIndex >= 0 && codeCount === 0) {
-                                            codeCount += frequencies[String(numericIndex + 1)] ?? 0;
-                                            codeCount += frequencies[`c${numericIndex + 1}`] ?? 0;
-                                          }
-                                          count += codeCount;
-                                        });
-                                        
-                                        const totalCount = statementData.count ?? 0;
-                                        const percent = totalCount > 0 ? ((count / totalCount) * 100) : 0;
-                                        
-                                        return (
+                                      }
+                                    }
+
+                                    return { code, text, displayCode, mean, sum };
+                                  });
+
+                                  // Calculate sum of means
+                                  let sumOfMeans = 0;
+                                  rowData.forEach(row => {
+                                    if (row.mean !== undefined) {
+                                      sumOfMeans += row.mean;
+                                    }
+                                  });
+
+                                  // Normalize means for numeric grids with "%" tag so they sum to 100%
+                                  let normalizationFactor = 1;
+                                  if (hasPercentTag && isNumericGrid && sumOfMeans > 0) {
+                                    normalizationFactor = 100 / sumOfMeans;
+                                  }
+
+                                  // Second pass: render rows with normalized means
+                                  const rows = rowData.map(({ code, text, displayCode, mean, sum }) => {
+                                    // Apply normalization to mean if needed
+                                    const normalizedMean = mean !== undefined && hasPercentTag && isNumericGrid
+                                      ? mean * normalizationFactor
+                                      : mean;
+
+                                    // Calculate percentage
+                                    const rowPercentage = hasNumberTag && totalSum > 0 && sum !== undefined
+                                      ? (sum / totalSum) * 100
+                                      : undefined;
+
+                                    return (
+                                      <tr key={code}>
+                                        <td className="px-2 py-2 text-sm font-mono text-gray-700 text-center" style={{ width: '2.5rem' }}>{displayCode}</td>
+                                        <td className="px-4 py-2 text-sm text-gray-900">{text}</td>
+                                        <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>
+                                          {normalizedMean !== undefined
+                                            ? (hasPercentTag ? `${normalizedMean.toFixed(1)}%` : normalizedMean.toFixed(2))
+                                            : '-'}
+                                        </td>
+                                        {hasNumberTag && (
                                           <>
                                             <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>
-                                              {totalCount > 0 ? count : '-'}
+                                              {sum !== undefined ? sum.toFixed(0) : '-'}
                                             </td>
                                             <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>
-                                              {totalCount > 0 ? `${percent.toFixed(1)}%` : '-'}
+                                              {rowPercentage !== undefined ? `${rowPercentage.toFixed(1)}%` : '-'}
                                             </td>
                                           </>
-                                        );
-                                      })()}
-                                    </tr>
-                                  );
-                                    });
-                                  })()}
-                                {/* Total row for scale summary tables */}
-                                {(variable as any).isScaleSummary && (() => {
-                                    const baseMatch = variable.name.match(/^([A-Z0-9]+)_(T2B|M3B|B2B)$/i);
-                                    if (!baseMatch) return null;
-                                    
-                                    const baseVar = baseMatch[1];
-                                    const netType = baseMatch[2].toUpperCase();
-                                    
-                                  let totalCount = 0;
-                                  let totalNetCount = 0;
-                                  
-                                  Object.keys(variable.statements || {}).forEach((stmtCode) => {
-                                      const statementVarName = `${baseVar}_${stmtCode}`;
-                                      const statementData = variableData[statementVarName];
-                                      
-                                      if (statementData) {
-                                        const stmtTotalCount = statementData.count ?? 0;
-                                        totalCount += stmtTotalCount;
-                                        
-                                        const parentQuestion = questionnaireQuestions.find(q => 
-                                          (q.number === baseVar || q.id === baseVar) && 
-                                          q.type?.toLowerCase().includes('single select') &&
-                                          q.type?.toLowerCase().includes('grid')
-                                        );
-                                        
-                                        if (parentQuestion && parentQuestion.responseOptions) {
-                                          const responseOptions = parentQuestion.responseOptions;
-                                          let codesToInclude: string[] = [];
-                                          
-                                          if (netType === 'T2B') {
-                                            codesToInclude = responseOptions.slice(-2).map((opt: any) => {
-                                              if (typeof opt === 'string') return opt;
-                                              return opt.code || String(responseOptions.indexOf(opt) + 1);
-                                            });
-                                          } else if (netType === 'B2B') {
-                                            codesToInclude = responseOptions.slice(0, 2).map((opt: any) => {
-                                              if (typeof opt === 'string') return opt;
-                                              return opt.code || String(responseOptions.indexOf(opt) + 1);
-                                            });
-                                          } else if (netType === 'M3B' && responseOptions.length === 7) {
-                                            codesToInclude = responseOptions.slice(2, 5).map((opt: any) => {
-                                              if (typeof opt === 'string') return opt;
-                                              return opt.code || String(responseOptions.indexOf(opt) + 1);
-                                            });
-                                          }
-                                          
-                                          const frequencies = statementData.frequencies || {};
-                                          codesToInclude.forEach(codeToMatch => {
-                                            let codeCount = frequencies[codeToMatch] ?? 0;
-                                            if (codeCount === 0 || frequencies[codeToMatch] === undefined) {
-                                              const codeWithPrefix = codeToMatch.startsWith('c') ? codeToMatch : `c${codeToMatch}`;
-                                              codeCount += frequencies[codeWithPrefix] ?? 0;
-                                              if (codeCount === 0 || frequencies[codeWithPrefix] === undefined) {
-                                                const codeWithoutPrefix = codeToMatch.replace(/^[rc]/i, '');
-                                                codeCount += frequencies[codeWithoutPrefix] ?? 0;
-                                              }
-                                            }
-                                            totalNetCount += codeCount;
-                                          });
-                                      }
-                                    }
+                                        )}
+                                      </tr>
+                                    );
                                   });
-                                  
-                                  const totalPercent = totalCount > 0 ? ((totalNetCount / totalCount) * 100) : 0;
-                                  
-                                  return (
-                                    <tr className="bg-gray-50 font-semibold border-t-2 border-gray-300">
-                                      <td className="px-2 py-2 text-sm text-gray-900" colSpan={2}>Total</td>
-                                      <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>
-                                        {totalCount > 0 ? totalNetCount : '-'}
-                                      </td>
-                                      <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>
-                                        {totalCount > 0 ? `${totalPercent.toFixed(1)}%` : '-'}
-                                      </td>
-                                    </tr>
-                                  );
+
+                                  return rows;
                                 })()}
-                                {/* Total row for numeric summary tables with Number or % tag */}
-                                {/* Exclude column summary tables (e.g., S4_c1_Summary) as they have their own total row */}
-                                {(variable as any).isSummaryTable && !(variable as any).isScaleSummary &&
-                                 (variable as any).tags && 
-                                 Array.isArray((variable as any).tags) && 
-                                 ((variable as any).tags.includes('Number') || (variable as any).tags.includes('%')) &&
-                                 !(variable.name.match(/^([A-Z0-9]+)_(c\d+)(?:_Summary)?$/i) && variable.type?.toLowerCase().includes('numeric')) && (() => {
-                                  const hasPercentTag = (variable as any).tags && Array.isArray((variable as any).tags) && (variable as any).tags.includes('%');
+                                {/* Total row */}
+                                {(() => {
+                                  const columnMatch = variable.name.match(/^([A-Z0-9]+)_(c\d+)(?:_Summary)?$/i);
+                                  const baseName = columnMatch ? columnMatch[1] : '';
+                                  const columnCode = columnMatch ? columnMatch[2] : '';
                                   const hasNumberTag = (variable as any).tags && Array.isArray((variable as any).tags) && (variable as any).tags.includes('Number');
-                                  
-                                  // For summary tables, extract base question number (remove "_Summary" suffix)
-                                  let baseName = variable.name;
-                                  if (variable.name.endsWith('_Summary')) {
-                                    baseName = variable.name.replace('_Summary', '');
-                                  }
-                                  
+                                  const hasPercentTag = (variable as any).tags && Array.isArray((variable as any).tags) && (variable as any).tags.includes('%');
+
+                                  // Check if this is a numeric grid (not a numeric list)
+                                  const question = questionnaireQuestions.find(q => {
+                                    const qNum = q.number || q.id;
+                                    return qNum === baseName || 
+                                           qNum === baseName.replace(/^Q/, '') ||
+                                           String(qNum) === String(baseName);
+                                  });
+                                  const isNumericGrid = question?.type?.toLowerCase().includes('numeric grid');
+
+                                  // Calculate totals
                                   let totalSum = 0;
                                   let sumOfMeans = 0;
-                                  
-                                  Object.keys(variable.statements || {}).forEach((stmtCode) => {
-                                    const statementVarName = `${baseName}_${stmtCode}`;
-                                    const statementData = variableData[statementVarName];
+
+                                  Object.entries(variable.statements || {}).forEach(([code]) => {
+                                    // Construct the expected header (e.g., QS11r1c1)
+                                    // For numeric lists, codes might be "1", "2", etc. instead of "r1", "r2"
+                                    // Normalize the code to ensure it has "r" prefix
+                                    let normalizedCode = code;
+                                    if (!/^r\d+/i.test(code) && /^\d+$/.test(code)) {
+                                      normalizedCode = `r${code}`;
+                                    }
+                                    const expectedHeader = `Q${baseName}${normalizedCode}${columnCode}`;
                                     
-                                    if (statementData) {
-                                      if (statementData.sum !== undefined) {
-                                        totalSum += statementData.sum;
+                                    // Use the helper function to get cell data
+                                    const cellData = getVariableDataByExpectedHeader(expectedHeader);
+                                    
+                                    if (cellData) {
+                                      // Sum up means
+                                      if (cellData.mean !== undefined) {
+                                        sumOfMeans += cellData.mean;
+                                      } else if (cellData.values && Array.isArray(cellData.values) && cellData.values.length > 0) {
+                                        const numericValues = cellData.values
+                                          .map((v: any) => parseFloat(v))
+                                          .filter((v: number) => !isNaN(v));
+                                        if (numericValues.length > 0) {
+                                          sumOfMeans += numericValues.reduce((sum: number, val: number) => sum + val, 0) / numericValues.length;
+                                        }
                                       }
-                                      if (statementData.mean !== undefined) {
-                                        sumOfMeans += statementData.mean;
+
+                                      // Sum up totals
+                                      if (cellData.sum !== undefined) {
+                                        totalSum += cellData.sum;
+                                      } else if (cellData.values && Array.isArray(cellData.values) && cellData.values.length > 0) {
+                                        const numericValues = cellData.values
+                                          .map((v: any) => parseFloat(v))
+                                          .filter((v: number) => !isNaN(v));
+                                        if (numericValues.length > 0) {
+                                          totalSum += numericValues.reduce((sum: number, val: number) => sum + val, 0);
+                                        }
                                       }
                                     }
                                   });
-                                  
+
+                                  // Normalize sumOfMeans for numeric grids with "%" tag so it equals 100%
+                                  let normalizedSumOfMeans = sumOfMeans;
+                                  if (hasPercentTag && isNumericGrid && sumOfMeans > 0) {
+                                    normalizedSumOfMeans = 100;
+                                  }
+
                                   return (
                                     <tr className="bg-gray-50 font-semibold border-t-2 border-gray-300">
                                       <td className="px-2 py-2 text-sm text-gray-900" colSpan={2}>Total</td>
                                       <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>
-                                        {sumOfMeans > 0
-                                          ? (hasPercentTag ? `${sumOfMeans.toFixed(1)}%` : sumOfMeans.toFixed(2))
-                                          : (hasPercentTag ? '-%' : '-')}
+                                        {normalizedSumOfMeans > 0
+                                          ? (hasPercentTag ? `${normalizedSumOfMeans.toFixed(1)}%` : normalizedSumOfMeans.toFixed(2))
+                                          : '-'}
                                       </td>
                                       {hasNumberTag && (
                                         <>
@@ -4499,7 +4560,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                             {totalSum > 0 ? totalSum.toFixed(0) : '-'}
                                           </td>
                                           <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>
-                                            100%
+                                            {totalSum > 0 ? '100.0%' : '-'}
                                           </td>
                                         </>
                                       )}
@@ -4508,6 +4569,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                 })()}
                               </tbody>
                             </table>
+                          </div>
                           </div>
                         </div>
                       )}
@@ -4521,8 +4583,9 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                           
                           // Check if any statement variables have meanNoOutliers data
                           const hasNoOutliersData = Object.keys(variable.statements || {}).some((stmtCode) => {
-                            const statementVarName = `${baseName}_${stmtCode}`;
-                            const statementData = variableData[statementVarName];
+                            const statementVarName = `${baseName}${stmtCode}`;
+                            const expectedHeader = `Q${statementVarName}`;
+                            const statementData = getVariableDataByExpectedHeader(expectedHeader);
                             return statementData && statementData.meanNoOutliers !== undefined && statementData.meanNoOutliers !== null;
                           });
                           
@@ -4550,27 +4613,66 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                     {(() => {
                                       // Calculate total sumNoOutliers for numeric summary tables BEFORE rendering rows (for percentage base)
                                       const hasNumberTag = (variable as any).tags && Array.isArray((variable as any).tags) && (variable as any).tags.includes('Number');
+                                      const hasPercentTag = (variable as any).tags && Array.isArray((variable as any).tags) && (variable as any).tags.includes('%');
+                                      
+                                      // Check if this is a numeric grid (not a numeric list)
+                                      const columnMatch = variable.name.match(/^([A-Z0-9]+)_(c\d+)(?:_Summary)?$/i);
+                                      const baseQuestionNumber = columnMatch ? columnMatch[1] : '';
+                                      const question = questionnaireQuestions.find(q => {
+                                        const qNum = q.number || q.id;
+                                        return qNum === baseQuestionNumber || 
+                                               qNum === baseQuestionNumber.replace(/^Q/, '') ||
+                                               String(qNum) === String(baseQuestionNumber);
+                                      });
+                                      const isNumericGrid = question?.type?.toLowerCase().includes('numeric grid');
+                                      
                                       let totalSumNoOutliersForPercentage = 0;
                                       
                                       if (hasNumberTag) {
                                         Object.keys(variable.statements || {}).forEach((stmtCode) => {
-                                          const statementVarName = `${baseName}_${stmtCode}`;
-                                          const statementData = variableData[statementVarName];
+                                          const statementVarName = `${baseName}${stmtCode}`;
+                                          const expectedHeader = `Q${statementVarName}`;
+                                          const statementData = getVariableDataByExpectedHeader(expectedHeader);
                                           if (statementData && statementData.sumNoOutliers !== undefined && statementData.sumNoOutliers !== null) {
                                             totalSumNoOutliersForPercentage += statementData.sumNoOutliers;
                                           }
                                         });
                                       }
                                       
-                                      return Object.entries(variable.statements || {}).map(([code, text]) => {
+                                      // First pass: collect all meanNoOutliers values
+                                      const rowDataNoOutliers = Object.entries(variable.statements || {}).map(([code, text]) => {
                                         const displayCode = code.replace(/^[rc]/i, '');
-                                        const hasNumberTag = (variable as any).tags && Array.isArray((variable as any).tags) && (variable as any).tags.includes('Number');
-                                        const hasPercentTag = (variable as any).tags && Array.isArray((variable as any).tags) && (variable as any).tags.includes('%');
-                                        
-                                        const statementVarName = `${baseName}_${code}`;
-                                        const statementData = variableData[statementVarName];
+                                        const statementVarName = `${baseName}${code}`;
+                                        const expectedHeader = `Q${statementVarName}`;
+                                        const statementData = variableData[expectedHeader] || variableData[statementVarName];
                                         
                                         if (!statementData) {
+                                          return { code, text, displayCode, meanNoOutliers: undefined, sumNoOutliers: undefined };
+                                        }
+                                        
+                                        const meanNoOutliers = statementData.meanNoOutliers;
+                                        const sumNoOutliers = statementData.sumNoOutliers;
+                                        
+                                        return { code, text, displayCode, meanNoOutliers, sumNoOutliers };
+                                      });
+                                      
+                                      // Calculate sum of meansNoOutliers
+                                      let sumOfMeansNoOutliers = 0;
+                                      rowDataNoOutliers.forEach(row => {
+                                        if (row.meanNoOutliers !== undefined && row.meanNoOutliers !== null) {
+                                          sumOfMeansNoOutliers += row.meanNoOutliers;
+                                        }
+                                      });
+                                      
+                                      // Normalize meansNoOutliers for numeric grids with "%" tag so they sum to 100%
+                                      let normalizationFactorNoOutliers = 1;
+                                      if (hasPercentTag && isNumericGrid && sumOfMeansNoOutliers > 0) {
+                                        normalizationFactorNoOutliers = 100 / sumOfMeansNoOutliers;
+                                      }
+                                      
+                                      // Second pass: render rows with normalized means
+                                      return rowDataNoOutliers.map(({ code, text, displayCode, meanNoOutliers, sumNoOutliers }) => {
+                                        if (meanNoOutliers === undefined || meanNoOutliers === null) {
                                           return (
                                             <tr key={code}>
                                               <td className="px-2 py-2 text-sm font-mono text-gray-700 text-center" style={{ width: '2.5rem' }}>{displayCode}</td>
@@ -4586,9 +4688,10 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                           );
                                         }
                                         
-                                        // Use meanNoOutliers and sumNoOutliers - this is the outliers removed table
-                                        const meanNoOutliers = statementData.meanNoOutliers;
-                                        const sumNoOutliers = statementData.sumNoOutliers;
+                                        // Apply normalization to meanNoOutliers if needed
+                                        const normalizedMeanNoOutliers = hasPercentTag && isNumericGrid
+                                          ? meanNoOutliers * normalizationFactorNoOutliers
+                                          : meanNoOutliers;
                                         
                                         // Calculate percentage: (row sumNoOutliers / total sumNoOutliers of all rows) * 100
                                         const rowPercentage = totalSumNoOutliersForPercentage > 0 && sumNoOutliers !== undefined && sumNoOutliers !== null
@@ -4600,8 +4703,8 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                             <td className="px-2 py-2 text-sm font-mono text-gray-700 text-center" style={{ width: '2.5rem' }}>{displayCode}</td>
                                             <td className="px-4 py-2 text-sm text-gray-900">{text}</td>
                                             <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>
-                                              {meanNoOutliers !== undefined && meanNoOutliers !== null
-                                                ? (hasPercentTag ? `${meanNoOutliers.toFixed(1)}%` : meanNoOutliers.toFixed(2))
+                                              {normalizedMeanNoOutliers !== undefined && normalizedMeanNoOutliers !== null
+                                                ? (hasPercentTag ? `${normalizedMeanNoOutliers.toFixed(1)}%` : normalizedMeanNoOutliers.toFixed(2))
                                                 : (hasPercentTag ? '-%' : '-')}
                                             </td>
                                             {hasNumberTag && (
@@ -4625,12 +4728,24 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                       const hasPercentTag = (variable as any).tags && Array.isArray((variable as any).tags) && (variable as any).tags.includes('%');
                                       const hasNumberTag = (variable as any).tags && Array.isArray((variable as any).tags) && (variable as any).tags.includes('Number');
                                       
+                                      // Check if this is a numeric grid (not a numeric list)
+                                      const columnMatch = variable.name.match(/^([A-Z0-9]+)_(c\d+)(?:_Summary)?$/i);
+                                      const baseQuestionNumber = columnMatch ? columnMatch[1] : '';
+                                      const question = questionnaireQuestions.find(q => {
+                                        const qNum = q.number || q.id;
+                                        return qNum === baseQuestionNumber || 
+                                               qNum === baseQuestionNumber.replace(/^Q/, '') ||
+                                               String(qNum) === String(baseQuestionNumber);
+                                      });
+                                      const isNumericGrid = question?.type?.toLowerCase().includes('numeric grid');
+                                      
                                       let sumOfMeansNoOutliers = 0;
                                       let totalSumNoOutliers = 0;
                                       
                                       Object.keys(variable.statements || {}).forEach((stmtCode) => {
-                                        const statementVarName = `${baseName}_${stmtCode}`;
-                                        const statementData = variableData[statementVarName];
+                                        const statementVarName = `${baseName}${stmtCode}`;
+                                        const expectedHeader = `Q${statementVarName}`;
+                                        const statementData = variableData[expectedHeader] || variableData[statementVarName];
                                         
                                         if (statementData && statementData.meanNoOutliers !== undefined && statementData.meanNoOutliers !== null) {
                                           sumOfMeansNoOutliers += statementData.meanNoOutliers;
@@ -4640,6 +4755,12 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                         }
                                       });
                                       
+                                      // Normalize sumOfMeansNoOutliers for numeric grids with "%" tag so it equals 100%
+                                      let normalizedSumOfMeansNoOutliers = sumOfMeansNoOutliers;
+                                      if (hasPercentTag && isNumericGrid && sumOfMeansNoOutliers > 0) {
+                                        normalizedSumOfMeansNoOutliers = 100;
+                                      }
+                                      
                                       // Total percentage should be 100% since it's the sum of all rows in the table
                                       const totalPercentage = totalSumNoOutliers > 0 ? 100 : undefined;
                                       
@@ -4647,8 +4768,8 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                         <tr className="bg-gray-50 font-semibold border-t-2 border-gray-300">
                                           <td className="px-2 py-2 text-sm text-gray-900" colSpan={2}>Total</td>
                                           <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>
-                                            {sumOfMeansNoOutliers > 0
-                                              ? (hasPercentTag ? `${sumOfMeansNoOutliers.toFixed(1)}%` : sumOfMeansNoOutliers.toFixed(2))
+                                            {normalizedSumOfMeansNoOutliers > 0
+                                              ? (hasPercentTag ? `${normalizedSumOfMeansNoOutliers.toFixed(1)}%` : normalizedSumOfMeansNoOutliers.toFixed(2))
                                               : (hasPercentTag ? '-%' : '-')}
                                           </td>
                                           {hasNumberTag && (
@@ -4703,7 +4824,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                         <td className="px-4 py-2 text-sm text-gray-900">{stmtText}</td>
                                         {Object.entries(variable.codes || {}).map(([responseCode]) => {
                                           const cellVarName = `${variable.name}_${stmtCode}_${responseCode}`;
-                                          const cellData = variableData[cellVarName];
+                                          const cellData = getVariableDataByExpectedHeader(cellVarName);
                                           
                                           // Get the numeric value (could be sum, mean, or from values array)
                                           let value: number | undefined = undefined;
@@ -4742,7 +4863,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                          !variable.statements && 
                          !(variable as any).isSummaryTable && 
                          !variable.type?.toLowerCase().includes('numeric grid') && (() => {
-                            const varData = variableData[variable.name];
+                            const varData = getVariableDataByExpectedHeader(variable.name);
                             
                             // Use the same frequency generation logic as in the table
                             // If variable has codes but no frequencies, try to generate frequencies from values array
@@ -4776,6 +4897,8 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                             }
                             
                             const total = varData?.count || 0;
+                            const isSingleSelect = variable.type?.toLowerCase().includes('single select') && !variable.type?.toLowerCase().includes('grid');
+                            let totalCount = 0;
                             let totalPercentage = 0;
                             
                             // Calculate total percentage (same strict logic as in the table)
@@ -4836,15 +4959,26 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                               return count;
                             };
                             
+                            // First pass: calculate totalCount for single-select tables
+                            if (isSingleSelect) {
+                              Object.entries(variable.codes || {}).forEach(([code, label]) => {
+                                const count = getCount(code, label);
+                                totalCount += count;
+                              });
+                            }
+                            
+                            // Second pass: calculate percentages
                             Object.entries(variable.codes || {}).forEach(([code, label]) => {
                               const count = getCount(code, label);
-                              const percentage = total > 0 ? (count / total) * 100 : 0;
+                              // For single-select tables, use totalCount; otherwise use total
+                              const percentage = isSingleSelect && totalCount > 0 
+                                ? (count / totalCount) * 100 
+                                : (total > 0 ? (count / total) * 100 : 0);
                               totalPercentage += percentage;
                             });
                             
-                            // Use a slightly larger threshold (0.1%) to account for floating point precision issues
-                            // Also ensure we have a total > 0 and totalPercentage > 0 (not 0.0%)
-                            if (total > 0 && totalPercentage > 0 && Math.abs(totalPercentage - 100) > 0.1) {
+                            // Only show warning if totalPercentage is not 100% (or very close)
+                            if (Math.abs(totalPercentage - 100) > 0.1) {
                               // Find the questionnaire that contains this question
                               // Extract base variable name (e.g., "S4" from "S4_1")
                               const baseVarName = variable.name.match(/^(.+?)_\d+$/) ? variable.name.match(/^(.+?)_\d+$/)![1] : variable.name;
@@ -4925,7 +5059,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                               // Any row with 0 or 1 (not blank) means they saw the question
                               let baseSize = 0;
                               const firstRespVar = responseVariables[0];
-                              const firstRespVarData = variableData[firstRespVar.name];
+                              const firstRespVarData = getVariableDataByExpectedHeader(firstRespVar.name);
                               
                               if (firstRespVarData) {
                                 if (firstRespVarData.values && Array.isArray(firstRespVarData.values)) {
@@ -4950,7 +5084,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                               let totalResponses = 0;
                               
                               responseVariables.forEach((respVar) => {
-                                const respVarData = variableData[respVar.name];
+                                const respVarData = getVariableDataByExpectedHeader(respVar.name);
                                 if (!respVarData) return;
                                 
                                 // Get count for "Selected" (code "1")
@@ -5053,7 +5187,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                             <div>
                               {(() => {
                                 // Calculate base size (sample size) - count all people who saw the question
-                                const varData = variableData[variable.name];
+                                const varData = getVariableDataByExpectedHeader(variable.name);
                                 let baseSize = 0;
                                 
                                 if (varData) {
@@ -5086,14 +5220,114 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                             <table className="min-w-full divide-y divide-gray-200">
                                 <thead className="bg-gray-50">
                                   <tr>
-                                    <th colSpan={2} className="px-4 py-2 text-left text-sm font-semibold text-gray-900">Response Options</th>
-                                    <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style={{ width: '5rem' }}>Count</th>
-                                    <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style={{ width: '5rem' }}>%</th>
+                                    {(() => {
+                                      const isSingleSelect = variable.type?.toLowerCase().includes('single select') && !variable.type?.toLowerCase().includes('grid');
+                                      const currentSort = singleSelectSort[variable.name];
+                                      // Default to sorting by code ascending for single select questions
+                                      const effectiveSort = isSingleSelect && !currentSort 
+                                        ? { column: 'code' as const, direction: 'asc' as const }
+                                        : currentSort;
+                                      
+                                      const handleSort = (column: 'code' | 'count' | 'percentage') => {
+                                        setSingleSelectSort(prev => {
+                                          const current = prev[variable.name];
+                                          if (current?.column === column) {
+                                            // Toggle direction
+                                            return {
+                                              ...prev,
+                                              [variable.name]: {
+                                                column,
+                                                direction: current.direction === 'asc' ? 'desc' : 'asc'
+                                              }
+                                            };
+                                          } else {
+                                            // New column: count and percentage default to descending, code defaults to ascending
+                                            const defaultDirection = (column === 'count' || column === 'percentage') ? 'desc' : 'asc';
+                                            return {
+                                              ...prev,
+                                              [variable.name]: {
+                                                column,
+                                                direction: defaultDirection
+                                              }
+                                            };
+                                          }
+                                        });
+                                      };
+                                      
+                                      const SortableHeader = ({ column, label }: { column: 'code' | 'count' | 'percentage', label: string }) => {
+                                        if (!isSingleSelect) {
+                                          return (
+                                            <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style={{ width: '5rem' }}>{label}</th>
+                                          );
+                                        }
+                                        
+                                        // For count and percentage, show arrow for both when either is sorted
+                                        // Since they have the same order (count and percentage are correlated)
+                                        const isActive = effectiveSort?.column === column || 
+                                          (effectiveSort?.column === 'count' && column === 'percentage') ||
+                                          (effectiveSort?.column === 'percentage' && column === 'count');
+                                        
+                                        return (
+                                          <th 
+                                            className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-gray-100 select-none" 
+                                            style={{ width: '5rem' }}
+                                            onClick={() => handleSort(column)}
+                                          >
+                                            <div className="flex items-center justify-center gap-1">
+                                              <span>{label}</span>
+                                              {isActive && effectiveSort && (
+                                                effectiveSort.direction === 'asc' ? (
+                                                  <ChevronUpIcon className="h-3 w-3 text-gray-500" />
+                                                ) : (
+                                                  <ChevronDownIcon className="h-3 w-3 text-gray-500" />
+                                                )
+                                              )}
+                                            </div>
+                                          </th>
+                                        );
+                                      };
+                                      
+                                      const CodeHeader = () => {
+                                        if (!isSingleSelect) {
+                                          return (
+                                            <th colSpan={2} className="px-4 py-2 text-left text-sm font-semibold text-gray-900">Response Options</th>
+                                          );
+                                        }
+                                        
+                                        const isActive = effectiveSort?.column === 'code';
+                                        return (
+                                          <th 
+                                            colSpan={2} 
+                                            className="px-4 py-2 text-left text-sm font-semibold text-gray-900 cursor-pointer hover:bg-gray-100 select-none"
+                                            onClick={() => handleSort('code')}
+                                          >
+                                            <div className="flex items-center gap-1">
+                                              <span>Response Options</span>
+                                              {isActive && effectiveSort && (
+                                                effectiveSort.direction === 'asc' ? (
+                                                  <ChevronUpIcon className="h-3 w-3 text-gray-500" />
+                                                ) : (
+                                                  <ChevronDownIcon className="h-3 w-3 text-gray-500" />
+                                                )
+                                              )}
+                                            </div>
+                                          </th>
+                                        );
+                                      };
+                                      
+                                      return (
+                                        <>
+                                          <CodeHeader />
+                                          <SortableHeader column="count" label="Count" />
+                                          <SortableHeader column="percentage" label="%" />
+                                        </>
+                                      );
+                                    })()}
                                   </tr>
                                 </thead>
                               <tbody className="bg-white divide-y divide-gray-200">
                                   {(() => {
-                                    const varData = variableData[variable.name];
+                                    const varData = getVariableDataByExpectedHeader(variable.name);
                                     
                                     // If variable has codes but no frequencies, try to generate frequencies from values array
                                     // This handles cases where backend incorrectly marked a categorical variable as numeric
@@ -5213,40 +5447,137 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                       return count;
                                     };
                                     
-                                    // First pass: calculate totals
+                                    // First pass: calculate totalCount by summing all row counts
+                                    const isSingleSelect = variable.type?.toLowerCase().includes('single select') && !variable.type?.toLowerCase().includes('grid');
                                     Object.entries(variable.codes).forEach(([code, label]) => {
                                       const count = getCount(code, label);
                                       totalCount += count;
-                                      const percentage = total > 0 ? (count / total) * 100 : 0;
-                                      totalPercentage += percentage;
                                     });
+                                    
+                                    // Second pass: build rows array with percentages calculated based on totalCount
+                                    const rows: Array<{ code: string, label: string, count: number, percentage: number, displayCode: string }> = [];
+                                    Object.entries(variable.codes).forEach(([code, label]) => {
+                                      const count = getCount(code, label);
+                                      // For single select tables, calculate percentage based on totalCount (sum of all row counts)
+                                      const percentage = isSingleSelect && totalCount > 0 ? (count / totalCount) * 100 : (total > 0 ? (count / total) * 100 : 0);
+                                      totalPercentage += percentage;
+                                      
+                                      // Display code without prefix (c1 -> 1, r1 -> 1) for the first column
+                                      const displayCode = code.replace(/^[rc]/i, '');
+                                      
+                                      rows.push({
+                                        code,
+                                        label: label as string,
+                                        count,
+                                        percentage,
+                                        displayCode
+                                      });
+                                    });
+                                    
+                                    // Apply sorting for single select questions
+                                    if (isSingleSelect) {
+                                      const currentSort = singleSelectSort[variable.name];
+                                      // Default to sorting by code ascending if no sort is set
+                                      const sortToApply = currentSort || { column: 'code' as const, direction: 'asc' as const };
+                                      
+                                      rows.sort((a, b) => {
+                                        let comparison = 0;
+                                        
+                                        switch (sortToApply.column) {
+                                          case 'code':
+                                            // Sort by code numerically if possible, otherwise alphabetically
+                                            const aCodeNum = /^\d+$/.test(a.displayCode) ? parseInt(a.displayCode, 10) : null;
+                                            const bCodeNum = /^\d+$/.test(b.displayCode) ? parseInt(b.displayCode, 10) : null;
+                                            
+                                            if (aCodeNum !== null && bCodeNum !== null) {
+                                              comparison = aCodeNum - bCodeNum;
+                                            } else {
+                                              comparison = a.displayCode.localeCompare(b.displayCode);
+                                            }
+                                            break;
+                                          case 'count':
+                                            comparison = a.count - b.count;
+                                            break;
+                                          case 'percentage':
+                                            comparison = a.percentage - b.percentage;
+                                            break;
+                                          default:
+                                            return 0;
+                                        }
+                                        
+                                        return sortToApply.direction === 'asc' ? comparison : -comparison;
+                                      });
+                                    }
                                     
                                     return (
                                       <>
-                                        {Object.entries(variable.codes).map(([code, label]) => {
-                                          // Try multiple code formats to find the frequency
-                                          // Data might be stored with "c1" or "1", or even with text labels
-                                          const count = getCount(code, label);
-                                          const percentage = total > 0 ? (count / total) * 100 : 0;
-                                          
-                                          // Display code without prefix (c1 -> 1, r1 -> 1) for the first column
-                                          const displayCode = code.replace(/^[rc]/i, '');
-                                          
+                                        {rows.map((row) => (
+                                          <tr key={row.code}>
+                                            <td className="px-2 py-2 text-sm font-mono text-gray-700 text-center" style={{ width: '2.5rem' }}>{row.displayCode}</td>
+                                            <td className="px-4 py-2 text-sm text-gray-900">{row.label}</td>
+                                            <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>{row.count}</td>
+                                            <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>{(isSingleSelect && totalCount > 0) || (!isSingleSelect && total > 0) ? `${row.percentage.toFixed(1)}%` : '-'}</td>
+                                          </tr>
+                                        ))}
+
+                                        {/* Scale summary rows for 7-point scales with Scale tag */}
+                                        {(() => {
+                                          const hasScaleTag = variable.tags && Array.isArray(variable.tags) && variable.tags.includes('Scale');
+                                          const is7PointScale = hasScaleTag && isSingleSelect && rows.length === 7;
+
+                                          if (!is7PointScale) return null;
+
+                                          // Calculate T2B (Top 2 Box) - high end (codes 6-7)
+                                          const t2bCount = rows.slice(5, 7).reduce((sum, row) => sum + row.count, 0);
+                                          const t2bPercentage = totalCount > 0 ? (t2bCount / totalCount) * 100 : 0;
+
+                                          // Calculate M3B (Middle 3 Box) - middle 3 responses (codes 3-5)
+                                          const m3bCount = rows.slice(2, 5).reduce((sum, row) => sum + row.count, 0);
+                                          const m3bPercentage = totalCount > 0 ? (m3bCount / totalCount) * 100 : 0;
+
+                                          // Calculate B2B (Bottom 2 Box) - low end (codes 1-2)
+                                          const b2bCount = rows.slice(0, 2).reduce((sum, row) => sum + row.count, 0);
+                                          const b2bPercentage = totalCount > 0 ? (b2bCount / totalCount) * 100 : 0;
+
+                                          // Calculate Mean - weighted average (codes 1-7)
+                                          let weightedSum = 0;
+                                          rows.forEach((row, index) => {
+                                            weightedSum += row.count * (index + 1);
+                                          });
+                                          const mean = totalCount > 0 ? weightedSum / totalCount : 0;
+
                                           return (
-                                            <tr key={code}>
-                                              <td className="px-2 py-2 text-sm font-mono text-gray-700 text-center" style={{ width: '2.5rem' }}>{displayCode}</td>
-                                              <td className="px-4 py-2 text-sm text-gray-900">{label}</td>
-                                              <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>{count}</td>
-                                              <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>{total > 0 ? `${percentage.toFixed(1)}%` : '-'}</td>
-                                            </tr>
+                                            <>
+                                              <tr className="bg-blue-50 border-t border-gray-300">
+                                                <td className="px-2 py-2 text-sm text-gray-900" colSpan={2}>T2B (Top 2 Box)</td>
+                                                <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>{t2bCount}</td>
+                                                <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>{totalCount > 0 ? `${t2bPercentage.toFixed(1)}%` : '-'}</td>
+                                              </tr>
+                                              <tr className="bg-blue-50">
+                                                <td className="px-2 py-2 text-sm text-gray-900" colSpan={2}>M3B (Middle 3 Box)</td>
+                                                <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>{m3bCount}</td>
+                                                <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>{totalCount > 0 ? `${m3bPercentage.toFixed(1)}%` : '-'}</td>
+                                              </tr>
+                                              <tr className="bg-blue-50">
+                                                <td className="px-2 py-2 text-sm text-gray-900" colSpan={2}>B2B (Bottom 2 Box)</td>
+                                                <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>{b2bCount}</td>
+                                                <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>{totalCount > 0 ? `${b2bPercentage.toFixed(1)}%` : '-'}</td>
+                                              </tr>
+                                              <tr className="bg-blue-50 border-b border-gray-300">
+                                                <td className="px-2 py-2 text-sm text-gray-900" colSpan={2}>Mean</td>
+                                                <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>{totalCount > 0 ? mean.toFixed(2) : '-'}</td>
+                                                <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>-</td>
+                                              </tr>
+                                            </>
                                           );
-                                        })}
+                                        })()}
+
                                         {/* Total row */}
                                         <tr className="bg-gray-50 font-semibold border-t-2 border-gray-300">
                                           <td className="px-2 py-2 text-sm text-gray-900" colSpan={2}>Total</td>
                                           <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>{totalCount}</td>
                                           <td className={`px-4 py-2 text-sm text-center font-semibold ${Math.abs(totalPercentage - 100) > 0.01 ? 'text-red-600' : 'text-gray-900'}`} style={{ width: '5rem' }}>
-                                            {total > 0 ? `${totalPercentage.toFixed(1)}%` : '-'}
+                                            {isSingleSelect && totalCount > 0 ? '100.0%' : (!isSingleSelect && total > 0 ? `${totalPercentage.toFixed(1)}%` : '-')}
                                           </td>
                                         </tr>
                                       </>
@@ -5260,53 +5591,206 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                           );
                         })()}
 
+                        {/* Summary table for open end list variables - shown only when viewing the summary variable */}
+                        {variable.type?.toLowerCase().includes('open end list') && 
+                         (variable as any).isSummaryTable && 
+                         variable.name.endsWith('_Summary') && (() => {
+                          // Extract base question name (e.g., "S12" from "S12_Summary")
+                          const baseQuestionName = variable.name.replace('_Summary', '');
+                          
+                          // Find all related open end list variables (e.g., S12r1, S12r2, S12r3, etc.)
+                          const relatedVariables = variables.filter((v: any) => {
+                            if (!v.type?.toLowerCase().includes('open end list')) return false;
+                            if ((v as any).isSummaryTable) return false; // Exclude summary variable itself
+                            const varMatch = v.name.match(/^([A-Z0-9]+)r\d+$/i);
+                            return varMatch && varMatch[1] === baseQuestionName;
+                          });
+                          
+                          if (relatedVariables.length === 0) return null;
+                          
+                          // Combine all responses from all related variables
+                          const combinedFrequencyMap = new Map<string, number>();
+                          let combinedTotalCount = 0;
+                          
+                          relatedVariables.forEach((relatedVar: any) => {
+                            const relatedVarData = getVariableDataByExpectedHeader(relatedVar.name);
+                            if (!relatedVarData) return;
+                            
+                            // Process frequencies object
+                            if (relatedVarData.frequencies && typeof relatedVarData.frequencies === 'object') {
+                              Object.entries(relatedVarData.frequencies).forEach(([key, count]) => {
+                                if (typeof count === 'number' && count > 0) {
+                                  const keyStr = String(key).trim();
+                                  if (keyStr && keyStr !== '(No response)' && keyStr !== '(Empty response)') {
+                                    combinedFrequencyMap.set(keyStr, (combinedFrequencyMap.get(keyStr) || 0) + count);
+                                    combinedTotalCount += count;
+                                  }
+                                }
+                              });
+                            }
+                            // Process values array
+                            else if (Array.isArray(relatedVarData.values)) {
+                              relatedVarData.values.forEach((val: any) => {
+                                if (val !== null && val !== undefined && val !== '') {
+                                  const valStr = String(val).trim();
+                                  if (valStr) {
+                                    combinedFrequencyMap.set(valStr, (combinedFrequencyMap.get(valStr) || 0) + 1);
+                                    combinedTotalCount++;
+                                  }
+                                }
+                              });
+                            }
+                          });
+                          
+                          if (combinedFrequencyMap.size === 0) return null;
+                          
+                          // Sort by count (descending), then alphabetically
+                          const sortedCombinedFrequencies = Array.from(combinedFrequencyMap.entries())
+                            .sort((a, b) => {
+                              if (b[1] !== a[1]) {
+                                return b[1] - a[1]; // Sort by count descending
+                              }
+                              return a[0].localeCompare(b[0]); // Then alphabetically
+                            });
+                          
+                          const combinedCalculatedTotal = combinedTotalCount;
+                          
+                          // Calculate total from sum of counts in rows (for display in sample size and total row)
+                          const totalFromRows = sortedCombinedFrequencies.reduce((sum, [, count]) => sum + count, 0);
+                          
+                          return (
+                            <div className="mt-4">
+                              {/* Sample Size */}
+                              {totalFromRows > 0 && (
+                                <p className="mb-4 text-sm text-gray-700">
+                                  <span className="font-semibold">Sample Size:</span> <span className="font-semibold">{totalFromRows.toLocaleString()}</span>
+                                </p>
+                              )}
+                              
+                              <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                                <div className="overflow-x-auto">
+                                  <table className="min-w-full divide-y divide-gray-200">
+                                    <thead className="bg-gray-50">
+                                      <tr>
+                                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-900">Response</th>
+                                        <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style={{ width: '5rem' }}>Count</th>
+                                        <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style={{ width: '5rem' }}>%</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-gray-200">
+                                      {(() => {
+                                        
+                                        return (
+                                          <>
+                                            {sortedCombinedFrequencies.map(([response, count], index) => {
+                                              // Calculate percentage based on total from rows
+                                              const percent = totalFromRows > 0 ? ((count / totalFromRows) * 100) : 0;
+                                              
+                                              return (
+                                                <tr key={index}>
+                                                  <td className="px-4 py-2 text-sm text-gray-900 break-words max-w-md">{response}</td>
+                                                  <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>{count}</td>
+                                                  <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>{percent.toFixed(1)}%</td>
+                                                </tr>
+                                              );
+                                            })}
+                                            <tr className="bg-gray-100 font-bold border-t-2 border-gray-400">
+                                              <td className="px-4 py-2 text-sm text-gray-900">Total</td>
+                                              <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>{totalFromRows}</td>
+                                              <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>{totalFromRows > 0 ? '100.0%' : '0.0%'}</td>
+                                            </tr>
+                                          </>
+                                        );
+                                      })()}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()}
+
                         {/* Frequency table for open end questions */}
-                        {variable.type?.toLowerCase().includes('open end') && 
-                         !variable.codes && 
-                         !variable.statements && 
-                         !(variable as any).isSummaryTable && (() => {
-                          const varData = variableData[variable.name];
+                        {(variable.type?.toLowerCase().includes('open end') || variable.type?.toLowerCase().includes('open end list')) &&
+                         (!variable.codes || Object.keys(variable.codes).length === 0) &&
+                         (!variable.statements || Object.keys(variable.statements).length === 0) &&
+                         !(variable as any).isSummaryTable &&
+                         !variable.name.endsWith('_Summary') && (() => {
+                          const varData = getVariableDataByExpectedHeader(variable.name);
+
                           if (!varData) return null;
+                          
+                          // Check if we have meaningful data
+                          // Only render if we have frequencies with actual counts, or values array with data
+                          const hasFrequencies = varData.frequencies && typeof varData.frequencies === 'object' && 
+                            Object.keys(varData.frequencies).length > 0 &&
+                            Object.values(varData.frequencies).some((count: any) => typeof count === 'number' && count > 0);
+                          const hasValues = Array.isArray(varData.values) && varData.values.length > 0;
+                          
+                          // If we don't have frequencies with counts or values array, show a message
+                          if (!hasFrequencies && !hasValues) {
+                            return (
+                              <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                                <p className="text-sm text-yellow-800">
+                                  Open end data found but no response values available to display.
+                                  Data might need to be reprocessed or mapped correctly.
+                                </p>
+                              </div>
+                            );
+                          }
                           
                           // Build frequency map from values array or frequencies object
                           const frequencyMap = new Map<string, number>();
                           let totalCount = 0;
                           
                           // If frequencies object exists, use it (pre-aggregated)
-                          if (varData.frequencies && typeof varData.frequencies === 'object') {
+                          if (hasFrequencies) {
                             Object.entries(varData.frequencies).forEach(([key, count]) => {
                               if (typeof count === 'number' && count > 0) {
-                                const keyStr = String(key).trim();
+                                let keyStr = String(key).trim();
+                                // Normalize null/empty values
+                                if (!keyStr || keyStr === 'null' || keyStr.toLowerCase() === 'null' || 
+                                    key === null || key === undefined) {
+                                  keyStr = '(No response)';
+                                }
                                 if (keyStr) {
-                                  frequencyMap.set(keyStr, count);
+                                  frequencyMap.set(keyStr, (frequencyMap.get(keyStr) || 0) + count);
                                   totalCount += count;
                                 }
                               }
                             });
                           } 
                           // Otherwise, calculate from values array
-                          else if (Array.isArray(varData.values)) {
+                          else if (hasValues) {
                             varData.values.forEach((val: any) => {
-                              if (val !== null && val !== undefined && val !== '') {
-                                const valStr = String(val).trim();
-                                if (valStr) {
-                                  frequencyMap.set(valStr, (frequencyMap.get(valStr) || 0) + 1);
-                                  totalCount++;
+                              // Include ALL values, even empty ones (they represent "no response")
+                              // But normalize empty values to a consistent representation
+                              let valStr: string;
+                              // Handle null, undefined, empty string, or the string "null"
+                              if (val === null || val === undefined || val === '' || 
+                                  (typeof val === 'string' && val.toLowerCase().trim() === 'null')) {
+                                valStr = '(No response)';
+                              } else {
+                                valStr = String(val).trim();
+                                if (!valStr || valStr.toLowerCase() === 'null') {
+                                  valStr = '(No response)';
                                 }
                               }
+                              
+                              // Count all responses, including empty ones
+                              frequencyMap.set(valStr, (frequencyMap.get(valStr) || 0) + 1);
+                              totalCount++;
                             });
                           }
                           
                           // Only show if we have data
                           if (frequencyMap.size === 0) return null;
                           
-                          // Calculate base size (sample size) - count all people who saw the question
+                          // Calculate base size (sample size) - count ALL people who saw the question (including empty responses)
                           let baseSize = 0;
                           if (varData.values && Array.isArray(varData.values)) {
-                            // Count all non-blank values
-                            baseSize = varData.values.filter((v: any) => {
-                              return v !== null && v !== undefined && v !== '' && String(v).trim() !== '';
-                            }).length;
+                            // Count ALL values (including null/empty) - everyone who saw the question
+                            baseSize = varData.values.length;
                           } else if (varData.count !== undefined) {
                             baseSize = varData.count;
                           } else if (varData.frequencies) {
@@ -5324,12 +5808,16 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                               return a[0].localeCompare(b[0]); // Then alphabetically
                             });
                           
+                          // Calculate total from sum of counts in rows (for display in sample size and total row)
+                          const totalFromRows = sortedFrequencies.reduce((sum, [, count]) => sum + count, 0);
+                          const isOpenEndList = variable.type?.toLowerCase().includes('open end list');
+                          
                           return (
                             <div className="mt-4">
                               {/* Sample Size */}
-                              {baseSize > 0 && (
+                              {(isOpenEndList ? totalFromRows : baseSize) > 0 && (
                                 <p className="mb-4 text-sm text-gray-700">
-                                  <span className="font-semibold">Sample Size:</span> <span className="font-semibold">{baseSize.toLocaleString()}</span>
+                                  <span className="font-semibold">Sample Size:</span> <span className="font-semibold">{(isOpenEndList ? totalFromRows : baseSize).toLocaleString()}</span>
                                 </p>
                               )}
                               
@@ -5344,23 +5832,40 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                       </tr>
                                     </thead>
                                     <tbody className="bg-white divide-y divide-gray-200">
-                                      {sortedFrequencies.map(([response, count], index) => {
-                                        const percent = totalCount > 0 ? ((count / totalCount) * 100) : 0;
+                                      {(() => {
                                         
                                         return (
-                                          <tr key={index}>
-                                            <td className="px-4 py-2 text-sm text-gray-900 break-words max-w-md">{response}</td>
-                                            <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>{count}</td>
-                                            <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>{percent.toFixed(1)}%</td>
-                                          </tr>
+                                          <>
+                                            {sortedFrequencies.map(([response, count], index) => {
+                                              // For open end list, calculate percentage based on total from rows; otherwise use base size
+                                              const percent = isOpenEndList 
+                                                ? (totalFromRows > 0 ? ((count / totalFromRows) * 100) : 0)
+                                                : (baseSize > 0 ? ((count / baseSize) * 100) : 0);
+                                              
+                                              return (
+                                                <tr key={index}>
+                                                  <td className="px-4 py-2 text-sm text-gray-900 break-words max-w-md">{response}</td>
+                                                  <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>{count}</td>
+                                                  <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>{percent.toFixed(1)}%</td>
+                                                </tr>
+                                              );
+                                            })}
+                                            {/* No Response row - only for regular open end, not open end list */}
+                                            {baseSize > totalCount && !isOpenEndList && (
+                                              <tr className="bg-gray-50 font-semibold">
+                                                <td className="px-4 py-2 text-sm text-gray-900">No Response</td>
+                                                <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>{baseSize - totalCount}</td>
+                                                <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>{((baseSize - totalCount) / baseSize * 100).toFixed(1)}%</td>
+                                              </tr>
+                                            )}
+                                            <tr className="bg-gray-100 font-bold border-t-2 border-gray-400">
+                                              <td className="px-4 py-2 text-sm text-gray-900">Total</td>
+                                              <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>{isOpenEndList ? totalFromRows : baseSize}</td>
+                                              <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>100.0%</td>
+                                            </tr>
+                                          </>
                                         );
-                                      })}
-                                      {/* Total row */}
-                                      <tr className="bg-gray-50 font-semibold border-t-2 border-gray-300">
-                                        <td className="px-4 py-2 text-sm text-gray-900">Total</td>
-                                        <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>{totalCount}</td>
-                                        <td className="px-4 py-2 text-sm text-gray-900 text-center" style={{ width: '5rem' }}>100.0%</td>
-                                      </tr>
+                                      })()}
                                     </tbody>
                                   </table>
                                 </div>
@@ -5501,40 +6006,71 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                       };
                     });
 
-                    // Reconstruct row data from frequencies
-                    // This is a simplified approach - we create rows based on the frequencies
-                    // For proper crosstabs, we'd need the actual raw data file
-                    const dataRows: Record<string, any>[] = [];
-                    const maxCount = Math.max(...Object.values(variableData).map((v: any) => v?.count || 0), 0);
-                    
-                    // Create rows by reconstructing from frequencies
-                    // This is a workaround - ideally we'd have the raw data file
-                    for (let i = 0; i < maxCount; i++) {
-                      const row: Record<string, any> = {};
-                      variableDefinitions.forEach(v => {
-                        const varData = variableData[v.name];
-                        if (varData?.frequencies) {
-                          // For each code, assign values based on frequency distribution
-                          const codes = Object.keys(varData.frequencies);
-                          const total = varData.count || 0;
-                          let assigned = false;
-                          for (const code of codes) {
-                            const freq = varData.frequencies[code] || 0;
-                            const ratio = total > 0 ? freq / total : 0;
-                            const expectedCount = Math.round(ratio * maxCount);
-                            const currentIndex = Math.floor(i * (codes.length / maxCount));
-                            if (currentIndex < codes.length && !assigned) {
-                              row[v.name] = codes[currentIndex];
-                              assigned = true;
-                            }
-                          }
-                          if (!assigned && codes.length > 0) {
-                            row[v.name] = codes[0];
-                          }
+                    // Use actual raw data if available, otherwise reconstruct from frequencies
+                    let dataRows: Record<string, any>[] = [];
+
+                    if (fullRawData && fullRawData.rows && fullRawData.rows.length > 0 && fullRawData.headers && fullRawData.headers.length > 0) {
+                      // Create reverse mapping: column header -> expected header (variable name)
+                      const reverseMapping: Record<string, string> = {};
+                      Object.entries(columnMapping).forEach(([expectedHeader, columnHeader]) => {
+                        if (columnHeader) {
+                          reverseMapping[columnHeader] = expectedHeader;
                         }
                       });
-                      if (Object.keys(row).length > 0) {
-                        dataRows.push(row);
+
+                      // Use the actual raw data rows
+                      dataRows = fullRawData.rows.map((row: any) => {
+                        const newRow: Record<string, any> = {};
+                        // Map the column headers to variable names using column mapping
+                        fullRawData.headers.forEach((header: string, index: number) => {
+                          const value = row[index];
+                          if (value !== null && value !== undefined && value !== '') {
+                            // Try to find the expected header (variable name) for this column header
+                            const expectedHeader = reverseMapping[header];
+                            if (expectedHeader) {
+                              // Remove Q prefix if it exists to get the actual variable name
+                              const variableName = expectedHeader.startsWith('Q') ? expectedHeader.substring(1) : expectedHeader;
+                              newRow[variableName] = value;
+                            } else {
+                              // If no mapping found, try using the header as-is
+                              // Remove Q prefix if present
+                              const cleanHeader = header.startsWith('Q') ? header.substring(1) : header;
+                              newRow[cleanHeader] = value;
+                            }
+                          }
+                        });
+                        return newRow;
+                      });
+                    } else {
+                      // Fallback: Reconstruct from frequencies (less accurate for cross-tabs)
+                      const maxCount = Math.max(...Object.values(variableData).map((v: any) => v?.count || 0), 0);
+
+                      for (let i = 0; i < maxCount; i++) {
+                        const row: Record<string, any> = {};
+                        variableDefinitions.forEach(v => {
+                          const varData = getVariableDataByExpectedHeader(v.name);
+                          if (varData?.frequencies) {
+                            const codes = Object.keys(varData.frequencies);
+                            const total = varData.count || 0;
+                            let assigned = false;
+                            for (const code of codes) {
+                              const freq = varData.frequencies[code] || 0;
+                              const ratio = total > 0 ? freq / total : 0;
+                              const expectedCount = Math.round(ratio * maxCount);
+                              const currentIndex = Math.floor(i * (codes.length / maxCount));
+                              if (currentIndex < codes.length && !assigned) {
+                                row[v.name] = codes[currentIndex];
+                                assigned = true;
+                              }
+                            }
+                            if (!assigned && codes.length > 0) {
+                              row[v.name] = codes[0];
+                            }
+                          }
+                        });
+                        if (Object.keys(row).length > 0) {
+                          dataRows.push(row);
+                        }
                       }
                     }
 
@@ -5576,7 +6112,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                           ) : (
                             <div className="space-y-1">
                               {categoricalVariables.map((v) => {
-                                const varData = variableData[v.name];
+                                const varData = getVariableDataByExpectedHeader(v.name);
                                 const hasData = varData && (
                                   (varData.count && varData.count > 0) ||
                                   (varData.frequencies && Object.keys(varData.frequencies || {}).length > 0)
@@ -5753,12 +6289,204 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                 </div>
               )}
                             </div>
+            ) : qnrViewMode === 'rawdata' ? (
+            /* Raw Data View */
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Raw Data</h3>
+
+              {(() => {
+                  // Load full raw data if not already loaded
+                  if (!fullRawData && !loadingFullRawData && selectedQuestionnaire) {
+                    loadFullRawData();
+                    return <div className="text-center py-8 text-gray-500">Loading data...</div>;
+                  }
+
+                  if (loadingFullRawData) {
+                    return <div className="text-center py-8 text-gray-500">Loading data...</div>;
+                  }
+
+                  if (!fullRawData || !fullRawData.rows || fullRawData.rows.length === 0) {
+                    return (
+                      <div className="text-center py-8">
+                        <p className="text-sm text-gray-500">No data available. Please upload a data file first.</p>
+                      </div>
+                    );
+                  }
+
+                  if (!variables || variables.length === 0) {
+                    return (
+                      <div className="text-center py-8">
+                        <p className="text-sm text-gray-500">No variables available</p>
+                        <p className="text-xs text-gray-400 mt-2">Sync with QNR to load variables</p>
+                      </div>
+                    );
+                  }
+
+                  // Get all expected headers from all variables
+                  const allExpectedHeaders: string[] = [];
+                  const baseQuestionMap = new Map<string, { baseNumber: string; type: string; variables: Variable[] }>();
+
+                  variables.forEach((variable) => {
+                    // Skip summary table variables
+                    if (variable.name.endsWith('_Summary Tables') ||
+                        variable.name.endsWith('_T2B') ||
+                        variable.name.endsWith('_B2B') ||
+                        variable.name.endsWith('_M3B') ||
+                        (variable as any).isSummaryTable) {
+                      return;
+                    }
+
+                    const baseNumber = getBaseQuestionNumber(variable.name);
+                    if (!baseQuestionMap.has(baseNumber)) {
+                      const question = questionnaireQuestions.find(q => {
+                        const qNum = q.number || q.id;
+                        return qNum === baseNumber ||
+                               qNum === baseNumber.replace(/^Q/, '') ||
+                               String(qNum) === String(baseNumber);
+                      });
+                      const questionType = question?.type || variable.type || '';
+
+                      baseQuestionMap.set(baseNumber, {
+                        baseNumber,
+                        type: questionType,
+                        variables: []
+                      });
+                    }
+                    baseQuestionMap.get(baseNumber)!.variables.push(variable);
+                  });
+
+                  baseQuestionMap.forEach((group) => {
+                    const expectedHeaders = getExpectedColumnHeadersForBase(group.baseNumber, variables);
+                    allExpectedHeaders.push(...expectedHeaders);
+                  });
+
+                  // Always include "record" as the first column if it exists in the data
+                  const finalHeaders: string[] = [];
+                  if (fullRawData.columns.includes('record')) {
+                    finalHeaders.push('record');
+                  }
+                  finalHeaders.push(...allExpectedHeaders);
+
+                  // Filter to only show headers that are mapped
+                  const mappedHeaders = finalHeaders.filter(header => {
+                    if (header === 'record') return true; // Always show record column
+                    return columnMapping && columnMapping[header] && columnMapping[header] !== '';
+                  });
+
+                  // Get data rows from full raw data, matching by column headers
+                  const dataRows = fullRawData.rows.map((rawRow: any) => {
+                    const row: Record<string, any> = {};
+                    mappedHeaders.forEach((header) => {
+                      if (header === 'record') {
+                        // Use record column directly from raw data
+                        row[header] = rawRow['record'] ?? null;
+                      } else {
+                        // Get the matched column header from columnMapping
+                        const matchedColumnHeader = columnMapping?.[header];
+                        if (matchedColumnHeader && rawRow.hasOwnProperty(matchedColumnHeader)) {
+                          const value = rawRow[matchedColumnHeader];
+                          // Normalize empty values
+                          if (value === null || value === undefined || value === '') {
+                            row[header] = null;
+                          } else if (typeof value === 'string' && value.trim() === '') {
+                            row[header] = null;
+                          } else {
+                            row[header] = value;
+                          }
+                        } else {
+                          row[header] = null;
+                        }
+                      }
+                    });
+                    return row;
+                  });
+
+                  return (
+                    <div className="border border-gray-200 rounded-lg overflow-hidden flex flex-col" style={{ maxHeight: 'calc(100vh - 200px)' }}>
+                      <div className="overflow-y-auto overflow-x-auto flex-1">
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              {mappedHeaders.map((header, idx) => {
+                                // Get the mapped column header from columnMapping to show the actual column name from the data file
+                                const mappedHeader = header === 'record' ? 'record' : (columnMapping?.[header] || '');
+                                
+                                return (
+                                  <th 
+                                    key={idx} 
+                                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap bg-gray-50"
+                                    style={{ position: 'sticky', top: 0, zIndex: 20 }}
+                                  >
+                                    {mappedHeader}
+                                  </th>
+                                );
+                              })}
+                            </tr>
+                            <tr className="bg-gray-100">
+                              {mappedHeaders.map((header, idx) => {
+                                // Show the expected header (e.g., QS14r1c1) in the second row
+                                return (
+                                  <th 
+                                    key={idx} 
+                                    className="px-4 py-2 text-left text-xs font-normal text-gray-600 italic whitespace-nowrap bg-gray-100"
+                                    style={{ position: 'sticky', top: '48px', zIndex: 20 }}
+                                  >
+                                    {header}
+                                  </th>
+                                );
+                              })}
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {dataRows.length > 0 ? (
+                              dataRows.map((row, rowIdx) => (
+                                <tr key={rowIdx}>
+                                  {mappedHeaders.map((header, colIdx) => {
+                                    const cellValue = row[header];
+                                    // Display empty cells (null, undefined, or empty string) as "-"
+                                    const displayValue = (cellValue === null || cellValue === undefined || cellValue === '') 
+                                      ? '-' 
+                                      : String(cellValue);
+                                    
+                                    return (
+                                      <td key={colIdx} className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
+                                        {displayValue}
+                                      </td>
+                                    );
+                                  })}
+                                </tr>
+                              ))
+                            ) : (
+                              <tr>
+                                <td colSpan={mappedHeaders.length} className="px-4 py-8 text-center text-sm text-gray-500">
+                                  No data available.
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                })()}
+            </div>
             ) : (
             /* Data Upload View */
             <div className="p-6">
-                <div className="bg-white border border-gray-200 rounded-lg p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Upload Data File</h3>
-                  
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900">Data File</h3>
+                    {!uploadedFileInfo && (
+                      <button
+                        onClick={() => document.getElementById('data-file-upload')?.click()}
+                        className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white rounded-lg shadow-sm transition-colors hover:opacity-90"
+                        style={{ backgroundColor: BRAND_ORANGE }}
+                      >
+                        <CloudArrowUpIcon className="h-4 w-4" />
+                        Upload Data File
+                      </button>
+                    )}
+                  </div>
+
                   {uploadedFileInfo ? (
                     <div className="border border-gray-200 rounded-lg overflow-hidden">
                                           <table className="w-full divide-y divide-gray-200">
@@ -5778,7 +6506,57 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                             <td className="px-4 py-3 text-sm text-right whitespace-nowrap">
                               <div className="flex items-center justify-end gap-2 flex-wrap">
                               {uploadedFileInfo.processed ? (
-                                <span className="px-2 py-1.5 text-xs font-medium rounded bg-green-100 text-green-800">Mapped</span>
+                                <button
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    // Clear all mappings
+                                    const newMapping = {};
+                                    setColumnMapping(newMapping);
+                                    setHasAttemptedMapping(false);
+                                    
+                                    // Update uploadedFileInfo immediately to show mapping button
+                                    if (uploadedFileInfo) {
+                                      setUploadedFileInfo({
+                                        ...uploadedFileInfo,
+                                        processed: false
+                                      });
+                                    }
+                                    
+                                    // Save to backend
+                                    if (selectedQuestionnaire) {
+                                      try {
+                                        const saveResponse = await fetch(`${API_BASE_URL}/api/questionnaire/map-columns`, {
+                                          method: 'POST',
+                                          headers: {
+                                            'Content-Type': 'application/json',
+                                          },
+                                          body: JSON.stringify({
+                                            questionnaireId: selectedQuestionnaire.id,
+                                            variableNames: variables.map(v => v.name),
+                                            dataHeaders: columnHeaders,
+                                            mapping: newMapping
+                                          })
+                                        });
+                                        if (saveResponse.ok) {
+                                          // Wait a bit for the backend to persist, then reload
+                                          await new Promise(resolve => setTimeout(resolve, 300));
+                                          debouncedLoadFileInfo(500);
+                                        } else {
+                                          console.error('Failed to save unmapping:', await saveResponse.text());
+                                        }
+                                      } catch (error) {
+                                        console.error('Error saving unmapping:', error);
+                                      }
+                                    }
+                                  }}
+                                  className="inline-flex items-center gap-1 px-2 py-1.5 text-xs font-medium rounded bg-green-100 text-green-800 hover:bg-green-200 transition-colors cursor-pointer"
+                                  title="Click to unmap all variables"
+                                >
+                                  <span>Mapped</span>
+                                  <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                </button>
                               ) : (
                                 <button
                                   onClick={async () => {
@@ -5844,7 +6622,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                       // Generate expected headers and match them directly to column headers
                                       const usedColumnHeaders = new Set<string>();
                                       baseQuestionMap.forEach((group) => {
-                                        const expectedHeaders = getExpectedColumnHeadersForBase(group.baseNumber, group.variables);
+                                        const expectedHeaders = getExpectedColumnHeadersForBase(group.baseNumber, variables);
                                         expectedHeaders.forEach(expectedHeader => {
                                           // Check if this expected header exactly matches any column header
                                           const expectedNormalized = expectedHeader.toLowerCase().trim();
@@ -6063,26 +6841,38 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                       // For each expected header in the mapping, find the corresponding variable
                                       Object.entries(columnMapping).forEach(([expectedHeader, columnHeader]) => {
                                         if (!columnHeader || columnHeader.trim() === '') return;
-                                        
+
                                         // Try to find which variable generates this expected header
                                         let foundVariable: Variable | null = null;
-                                        
-                                        for (const group of baseQuestionMap.values()) {
-                                          if (foundVariable) break; // Already found
-                                          
-                                          // Check each variable in this group
-                                          for (const variable of group.variables) {
+
+                                        // For numeric grid cell variables (e.g., S4r1c1), match directly by pattern
+                                        // Expected header format: QS4r1c1, variable name format: S4r1c1
+                                        const cellVarPattern = expectedHeader.match(/^Q?([A-Z0-9]+r\d+c\d+)$/i);
+                                        if (cellVarPattern) {
+                                          const varName = cellVarPattern[1]; // e.g., "S4r1c1"
+                                          foundVariable = variables.find(v => v.name === varName) || null;
+                                        }
+
+                                        // If not a cell variable, use the original logic
+                                        if (!foundVariable) {
+                                          for (const group of baseQuestionMap.values()) {
                                             if (foundVariable) break; // Already found
-                                            
-                                            // Generate expected headers for this variable
-                                            const headers = getExpectedColumnHeadersForBase(group.baseNumber, [variable]);
+
+                                            // Check each variable in this group
+                                            // Generate expected headers for this group
+                                            const headers = getExpectedColumnHeadersForBase(group.baseNumber, variables);
                                             if (headers.includes(expectedHeader)) {
-                                              foundVariable = variable;
-                                              break;
+                                              // Find which variable in the group matches this expected header
+                                              for (const variable of group.variables) {
+                                                // For now, just use the first variable in the group
+                                                // The actual mapping will be to the expected header itself
+                                                foundVariable = variable;
+                                                break;
+                                              }
                                             }
                                           }
                                         }
-                                        
+
                                         if (foundVariable !== null) {
                                           // Use the variable name as the key
                                           variableNameMapping[foundVariable.name] = columnHeader;
@@ -6092,7 +6882,13 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                           variableNameMapping[expectedHeader] = columnHeader;
                                         }
                                       });
-                                      
+
+                                      // Always include "record" column if it exists in column headers
+                                      const recordHeader = columnHeaders.find(h => h.toLowerCase() === 'record');
+                                      if (recordHeader) {
+                                        variableNameMapping['record'] = recordHeader;
+                                      }
+
                                       const response = await fetch(`${API_BASE_URL}/api/questionnaire/upload-data`, {
                                   method: 'POST',
                                   headers: {
@@ -6189,113 +6985,90 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                             </table>
                           </div>
                   ) : (
-                    <>
-                      <p className="text-sm text-gray-600 mb-6">
-                        Upload an Excel (.xlsx, .xls) or CSV file containing your survey data. The system will parse the column headers.
-                      </p>
-                      
-                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                    <input
-                      type="file"
-                      id="data-file-upload"
-                      accept=".xlsx,.xls,.csv"
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (file && selectedQuestionnaire) {
-                          setDataFile(file);
-                          setDataUploadSuccess(false);
-                          // Don't clear column headers - we want to keep them visible
-                          setShowAllHeaders(false);
-                          
-                          // Parse headers from the file locally
-                          try {
-                            setUploadingFile(true);
-                            const parsedHeaders = await parseFileHeaders(file);
-                            
-                            // Auto-upload the file after parsing headers
-                            const formData = new FormData();
-                            formData.append('file', file);
-                            formData.append('questionnaireId', selectedQuestionnaire.id);
-                            
-                            const response = await fetch(`${API_BASE_URL}/api/questionnaire/upload-data-file`, {
-                                    method: 'POST',
-                                    headers: {
-                                      'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
-                                    },
-                              body: formData
+                    <div className="text-center py-8">
+                      <p className="text-sm text-gray-500">No data file uploaded</p>
+                      <p className="text-xs text-gray-400 mt-2">Click the "Upload Data File" button to get started</p>
+                    </div>
+                  )}
+
+                  {/* Hidden file input */}
+                  <input
+                    type="file"
+                    id="data-file-upload"
+                    accept=".xlsx,.xls,.csv"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file && selectedQuestionnaire) {
+                        setDataFile(file);
+                        setDataUploadSuccess(false);
+                        setShowAllHeaders(false);
+
+                        try {
+                          setUploadingFile(true);
+                          const parsedHeaders = await parseFileHeaders(file);
+
+                          const formData = new FormData();
+                          formData.append('file', file);
+                          formData.append('questionnaireId', selectedQuestionnaire.id);
+
+                          const response = await fetch(`${API_BASE_URL}/api/questionnaire/upload-data-file`, {
+                            method: 'POST',
+                            headers: {
+                              'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
+                            },
+                            body: formData
+                          });
+
+                          if (response.ok) {
+                            const result = await response.json();
+                            setDataUploadSuccess(true);
+                            setUploadedFileInfo({
+                              fileName: result.originalFileName || result.fileName || file.name,
+                              uploadedAt: new Date().toISOString(),
+                              processed: false
                             });
-                            
-                            if (response.ok) {
-                              const result = await response.json();
-                              setDataUploadSuccess(true);
-                              // Set file info immediately from the response - always set processed to false for new uploads
-                              setUploadedFileInfo({
-                                fileName: result.originalFileName || result.fileName || file.name,
-                                uploadedAt: new Date().toISOString(),
-                                processed: false  // New uploads are never mapped initially
-                              });
-                              // Save column headers to metadata using the parsed headers directly
-                              if (parsedHeaders.length > 0 && selectedQuestionnaire) {
-                                try {
-                                  const saveResponse = await fetch(`${API_BASE_URL}/api/questionnaire/save-column-headers`, {
-                                    method: 'POST',
-                                    headers: {
-                                      'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`,
-                                      'Content-Type': 'application/json'
-                                    },
-                                    body: JSON.stringify({
-                                      questionnaireId: selectedQuestionnaire.id,
-                                      columnHeaders: parsedHeaders
-                                    })
-                                  });
-                                  if (!saveResponse.ok) {
-                                    console.error('Failed to save column headers');
-                                  }
-                                } catch (error) {
-                                  console.error('Error saving column headers:', error);
-                                  // Continue anyway - headers are already in state
+
+                            if (parsedHeaders.length > 0 && selectedQuestionnaire) {
+                              try {
+                                const saveResponse = await fetch(`${API_BASE_URL}/api/questionnaire/save-column-headers`, {
+                                  method: 'POST',
+                                  headers: {
+                                    'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`,
+                                    'Content-Type': 'application/json'
+                                  },
+                                  body: JSON.stringify({
+                                    questionnaireId: selectedQuestionnaire.id,
+                                    columnHeaders: parsedHeaders
+                                  })
+                                });
+                                if (!saveResponse.ok) {
+                                  console.error('Failed to save column headers');
                                 }
+                              } catch (error) {
+                                console.error('Error saving column headers:', error);
                               }
-                              // Clear the selected file since it's now uploaded
-                              setDataFile(null);
-                              // Reset file input
-                              const fileInput = document.getElementById('data-file-upload') as HTMLInputElement;
-                              if (fileInput) fileInput.value = '';
-                              // Reload file info after a short delay to ensure everything is saved
-                              setTimeout(() => {
-                                loadFileInfo();
-                              }, 500);
-                            } else {
-                              const error = await response.json();
-                              console.error('Failed to upload data file:', error.error || 'Unknown error');
                             }
-                          } catch (error) {
-                            console.error('Error parsing headers or uploading file:', error);
-                          } finally {
-                            setUploadingFile(false);
+
+                            setDataFile(null);
+                            const fileInput = document.getElementById('data-file-upload') as HTMLInputElement;
+                            if (fileInput) fileInput.value = '';
+
+                            setTimeout(() => {
+                              loadFileInfo();
+                            }, 500);
+                          } else {
+                            const error = await response.json();
+                            console.error('Failed to upload data file:', error.error || 'Unknown error');
                           }
-                        } else if (file && !selectedQuestionnaire) {
-                          // Silently return if no questionnaire selected
+                        } catch (error) {
+                          console.error('Error parsing headers or uploading file:', error);
+                        } finally {
+                          setUploadingFile(false);
                         }
-                      }}
-                      className="hidden"
-                    />
-                    <label htmlFor="data-file-upload" className="cursor-pointer">
-                      <CloudArrowUpIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                      <div className="text-sm text-gray-600">
-                        {dataFile ? (
-                          <span className="font-medium text-gray-900">{dataFile.name}</span>
-                        ) : (
-                          <>
-                            <span className="font-medium text-orange-600">Click to upload</span> or drag and drop
-                          </>
-                  )}
-                </div>
-                          <p className="text-xs text-gray-500 mt-2">Excel (.xlsx, .xls) or CSV files only</p>
-                        </label>
-                        </div>
-                    </>
-                  )}
+                      }
+                    }}
+                    className="hidden"
+                  />
 
                   {uploadingFile && (
                     <div className="mt-4 text-center text-sm text-gray-500">
@@ -6307,37 +7080,12 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                   {/* Three Boxes: QNR Variables, Column Headers, Data Mapping */}
                   <div className="mt-6">
                     {uploadedFileInfo ? (
-                      <div className={`grid gap-6 ${Object.keys(columnMapping).length > 0 ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                      <div className={`grid gap-6 ${variables.length > 0 ? 'grid-cols-3' : 'grid-cols-2'}`}>
                         {/* QNR Variables Box */}
                         <div className="flex flex-col">
                           <div className="flex items-center justify-between mb-3">
                             <h4 className="text-sm font-semibold text-gray-900">
-                              QNR Variables {variables.length > 0 ? (() => {
-                                const baseQuestionMap = new Map<string, { baseNumber: string; type: string; variables: Variable[] }>();
-                                variables.forEach((variable) => {
-                                  if (variable.name.endsWith('_Summary Tables') || 
-                                      variable.name.endsWith('_T2B') || 
-                                      variable.name.endsWith('_B2B') || 
-                                      variable.name.endsWith('_M3B') ||
-                                      (variable as any).isSummaryTable) {
-                                    return;
-                                  }
-                                  const baseNumber = getBaseQuestionNumber(variable.name);
-                                  if (!baseQuestionMap.has(baseNumber)) {
-                                    // Get the question type from the original question data
-                                    const question = questionnaireQuestions.find(q => (q.number || q.id) === baseNumber);
-                                    const questionType = question?.type || variable.type || '';
-                                    
-                                    baseQuestionMap.set(baseNumber, {
-                                      baseNumber,
-                                      type: questionType,
-                                      variables: []
-                                    });
-                                  }
-                                  baseQuestionMap.get(baseNumber)!.variables.push(variable);
-                                });
-                                return `(${baseQuestionMap.size})`;
-                              })() : ''}
+                              QNR Variables {questionnaireQuestions.length > 0 ? `(${questionnaireQuestions.length})` : variables.length > 0 ? `(${variables.length})` : ''}
                             </h4>
                           </div>
                           <div className="mb-3">
@@ -6367,119 +7115,35 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                             <div className="overflow-y-auto overflow-x-hidden" style={{ maxHeight: 'calc(10 * 3rem)' }}>
                               <table className="w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed' }}>
                                 <tbody className="bg-white divide-y divide-gray-200">
-                                  {variables.length > 0 ? (() => {
-                                    // Group variables by base question number
-                                    const baseQuestionMap = new Map<string, { baseNumber: string; type: string; variables: Variable[] }>();
-                                    
-                                    variables.forEach((variable) => {
-                                      // Filter out summary table variables
-                                      if (variable.name.endsWith('_Summary Tables') || 
-                                          variable.name.endsWith('_T2B') || 
-                                          variable.name.endsWith('_B2B') || 
-                                          variable.name.endsWith('_M3B') ||
-                                          (variable as any).isSummaryTable) {
-                                        return;
-                                      }
-                                      
-                                      const baseNumber = getBaseQuestionNumber(variable.name);
-                                      if (!baseQuestionMap.has(baseNumber)) {
-                                        // Get the question type from the original question data
-                                        // Try multiple formats for question number matching
-                                        const question = questionnaireQuestions.find(q => {
-                                          const qNum = q.number || q.id;
-                                          return qNum === baseNumber || 
-                                                 qNum === baseNumber.replace(/^Q/, '') ||
-                                                 String(qNum) === String(baseNumber);
-                                        });
-                                        const questionType = question?.type || variable.type || '';
-                                        
-                                        baseQuestionMap.set(baseNumber, {
-                                          baseNumber,
-                                          type: questionType,
-                                          variables: []
-                                        });
-                                      }
-                                      baseQuestionMap.get(baseNumber)!.variables.push(variable);
-                                    });
-                                    
-                                    // After grouping, update types for numeric grids and numeric lists
-                                    baseQuestionMap.forEach((group) => {
-                                      // Check if any variable in the group has a grid type
-                                      const hasGridType = group.variables.some(v => 
-                                        v.type && v.type.toLowerCase().includes('grid')
-                                      );
-                                      
-                                      if (hasGridType) {
-                                        // Find the grid type
-                                        const gridVar = group.variables.find(v => 
-                                          v.type && v.type.toLowerCase().includes('grid')
-                                        );
-                                        if (gridVar) {
-                                          group.type = gridVar.type;
-                                        }
-                                      } else {
-                                        // Check if variables have the pattern of a numeric grid (both r and c codes)
-                                        const hasGridPattern = group.variables.some(v => {
-                                          const hasRowCode = /r\d+/i.test(v.name);
-                                          const hasColCode = /c\d+/i.test(v.name);
-                                          return hasRowCode && hasColCode;
-                                        });
-                                        
-                                        if (hasGridPattern && group.type === 'Numeric') {
-                                          group.type = 'Numeric Grid';
-                                        } else {
-                                          // Check if this is a numeric list pattern
-                                          // Numeric lists can have:
-                                          // 1. Variables with _r codes but no _c codes (e.g., S5_r1, S5_r2)
-                                          // 2. Variables with just numeric codes after underscore (e.g., S14B_1, S14B_2)
-                                          const hasNumericListPattern = group.variables.some(v => {
-                                            // Check for _r1, _r2 pattern
-                                            const hasUnderscoreRowCode = /_[rR]\d+/i.test(v.name);
-                                            // Check for _1, _2 pattern (just a number after underscore at the end)
-                                            const hasNumericCode = /_\d+$/.test(v.name);
-                                            const hasColCode = /[cC]\d+/i.test(v.name);
-                                            return (hasUnderscoreRowCode || hasNumericCode) && !hasColCode;
-                                          });
-                                          
-                                          // If we detect numeric list pattern, try to get the correct type from the question
-                                          if (hasNumericListPattern) {
-                                            const question = questionnaireQuestions.find(q => {
-                                              const qNum = q.number || q.id;
-                                              return qNum === group.baseNumber || qNum === group.baseNumber.replace(/^Q/, '');
-                                            });
-                                            if (question && question.type && question.type.toLowerCase().includes('numeric list')) {
-                                              group.type = question.type;
-                                            } else if (group.type === 'Numeric') {
-                                              // Fallback: if type is still 'Numeric' but pattern suggests numeric list, update it
-                                              group.type = 'Numeric List';
-                                            }
-                                          }
-                                        }
-                                      }
-                                    });
-                                    
-                                    // Convert to array and filter
-                                    let groupedQuestions = Array.from(baseQuestionMap.values());
+                                  {questionnaireQuestions.length > 0 ? (() => {
+                                    // Iterate through all questions from the QNR
+                                    let questionsToShow = [...questionnaireQuestions];
                                     
                                     // Apply search filter
                                     if (qnrVariableSearch.trim()) {
                                       const searchLower = qnrVariableSearch.toLowerCase();
-                                      groupedQuestions = groupedQuestions.filter(group => {
-                                        const matchesBase = group.baseNumber.toLowerCase().includes(searchLower);
-                                        const matchesType = group.type.toLowerCase().includes(searchLower);
-                                        const expectedHeaders = getExpectedColumnHeadersForBase(group.baseNumber, variables);
+                                      questionsToShow = questionsToShow.filter(question => {
+                                        const qNum = question.number || question.id;
+                                        const qNumStr = String(qNum);
+                                        const questionType = question.type || '';
+                                        const expectedHeaders = getExpectedColumnHeadersForBase(qNumStr, variables);
+                                        const matchesBase = qNumStr.toLowerCase().includes(searchLower);
+                                        const matchesType = questionType.toLowerCase().includes(searchLower);
                                         const matchesExpected = expectedHeaders.some(h => h.toLowerCase().includes(searchLower));
                                         return matchesBase || matchesType || matchesExpected;
                                       });
                                     }
                                     
-                                    return groupedQuestions.map((group) => {
-                                      const expectedHeaders = getExpectedColumnHeadersForBase(group.baseNumber, variables);
+                                    return questionsToShow.map((question) => {
+                                      const qNum = question.number || question.id;
+                                      const qNumStr = String(qNum);
+                                      const questionType = question.type || '';
+                                      const expectedHeaders = getExpectedColumnHeadersForBase(qNumStr, variables);
                                       
                                       return (
-                                        <tr key={group.baseNumber}>
-                                          <td className="px-4 py-3 text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap" style={{ width: '80px' }} title={group.baseNumber}>{group.baseNumber}</td>
-                                          <td className="px-4 py-3 text-xs font-medium text-gray-500 tracking-wider truncate" style={{ width: '30%' }} title={group.type || '-'}>{group.type || '-'}</td>
+                                        <tr key={qNumStr}>
+                                          <td className="px-4 py-3 text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap" style={{ width: '80px' }} title={qNumStr}>{qNumStr}</td>
+                                          <td className="px-4 py-3 text-xs font-medium text-gray-500 tracking-wider truncate" style={{ width: '30%' }} title={questionType || '-'}>{questionType || '-'}</td>
                                           <td className="px-4 py-3 text-xs font-medium text-gray-500 tracking-wider">
                                             <div className="flex flex-wrap gap-1">
                                               {expectedHeaders.map((header, idx) => (
@@ -6495,7 +7159,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                   })() : (
                                 <tr>
                                       <td colSpan={3} className="px-4 py-8 text-center text-sm text-gray-500">
-                                        No variables available. Sync with QNR to load variables.
+                                        No questions available. Sync with QNR to load questions.
                                   </td>
                                 </tr>
                               )}
@@ -6572,7 +7236,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                         </div>
 
                         {/* Data Mapping Box - Show all expected headers with mapping status */}
-                        {hasAttemptedMapping && (
+                        {variables.length > 0 && (
                         <div className="flex flex-col">
                           {(() => {
                             // Calculate counts
@@ -6674,56 +7338,20 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                         <tr key={expectedHeader}>
                                           <td className="px-4 py-3 text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap" title={expectedHeader}>{expectedHeader}</td>
                                           <td className="px-4 py-3 text-xs text-gray-900 whitespace-nowrap" title={mappedColumnHeader || undefined}>
-                                            {isMapped ? mappedColumnHeader : <span className="text-gray-400 italic">Not mapped</span>}
+                                            {isMapped && mappedColumnHeader ? mappedColumnHeader : ''}
                                           </td>
                                           <td className="px-4 py-3 text-right whitespace-nowrap">
-                                            {isMapped ? (
-                                              <button
-                                                onClick={async (e) => {
-                                                  e.stopPropagation();
-                                                  // Remove mapping for this variable
-                                                  const newMapping = { ...columnMapping };
-                                                  delete newMapping[mappedVariableName];
-                                                  setColumnMapping(newMapping);
-                                                  
-                                                  // Save to backend
-                                                  if (selectedQuestionnaire) {
-                                                    try {
-                                                      const saveResponse = await fetch(`${API_BASE_URL}/api/questionnaire/map-columns`, {
-                                                        method: 'POST',
-                                                        headers: {
-                                                          'Content-Type': 'application/json',
-                                                        },
-                                                        body: JSON.stringify({
-                                                          questionnaireId: selectedQuestionnaire.id,
-                                                          variableNames: variables.map(v => v.name),
-                                                          dataHeaders: columnHeaders,
-                                                          mapping: newMapping
-                                                        })
-                                                      });
-                                                      if (saveResponse.ok) {
-                                                        debouncedLoadFileInfo(500);
-                                                      }
-                                                    } catch (error) {
-                                                      console.error('Error saving mapping:', error);
-                                                    }
-                                                  }
-                                                }}
-                                                className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700 hover:bg-green-200 transition-colors"
-                                                title={`Mapped to: ${mappedColumnHeader}`}
-                                              >
-                                                <span>Mapped</span>
-                                                <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                                </svg>
-                                              </button>
+                                            {isMapped && mappedColumnHeader ? (
+                                              <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700" title={`Mapped to: ${mappedColumnHeader}`}>
+                                                Mapped
+                                              </span>
                                             ) : (
                                               <button
                                                 onClick={() => {
                                                   setSelectedUnmappedExpectedHeader(expectedHeader);
                                                   setShowUnmappedHeaderMappingModal(true);
                                                 }}
-                                                className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700 hover:bg-red-200 transition-colors cursor-pointer"
+                                                className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-orange-100 text-orange-700 hover:bg-orange-200 transition-colors cursor-pointer"
                                                 title="Click to map this header"
                                               >
                                                 Unmapped
@@ -6749,32 +7377,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                       <div className="flex flex-col">
                         <div className="flex items-center justify-between mb-3">
                           <h4 className="text-sm font-semibold text-gray-900">
-                            QNR Variables {variables.length > 0 ? (() => {
-                              const baseQuestionMap = new Map<string, { baseNumber: string; type: string; variables: Variable[] }>();
-                              variables.forEach((variable) => {
-                                if (variable.name.endsWith('_Summary Tables') || 
-                                    variable.name.endsWith('_T2B') || 
-                                    variable.name.endsWith('_B2B') || 
-                                    variable.name.endsWith('_M3B') ||
-                                    (variable as any).isSummaryTable) {
-                                  return;
-                                }
-                                const baseNumber = getBaseQuestionNumber(variable.name);
-                                if (!baseQuestionMap.has(baseNumber)) {
-                                  // Get the question type from the original question data
-                                  const question = questionnaireQuestions.find(q => (q.number || q.id) === baseNumber);
-                                  const questionType = question?.type || variable.type || '';
-                                  
-                                  baseQuestionMap.set(baseNumber, {
-                                    baseNumber,
-                                    type: questionType,
-                                    variables: []
-                                  });
-                                }
-                                baseQuestionMap.get(baseNumber)!.variables.push(variable);
-                              });
-                              return `(${baseQuestionMap.size})`;
-                            })() : ''}
+                            QNR Variables {questionnaireQuestions.length > 0 ? `(${questionnaireQuestions.length})` : variables.length > 0 ? `(${variables.length})` : ''}
                           </h4>
                         </div>
                         <div className="mb-3">
@@ -6804,107 +7407,35 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                           <div className="overflow-y-auto overflow-x-hidden" style={{ maxHeight: 'calc(10 * 3rem)' }}>
                             <table className="w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed' }}>
                               <tbody className="bg-white divide-y divide-gray-200">
-                                {variables.length > 0 ? (() => {
-                                  // Group variables by base question number
-                                  const baseQuestionMap = new Map<string, { baseNumber: string; type: string; variables: Variable[] }>();
-                                  
-                                  variables.forEach((variable) => {
-                                    // Filter out summary table variables
-                                    if (variable.name.endsWith('_Summary Tables') || 
-                                        variable.name.endsWith('_T2B') || 
-                                        variable.name.endsWith('_B2B') || 
-                                        variable.name.endsWith('_M3B') ||
-                                        (variable as any).isSummaryTable) {
-                                      return;
-                                    }
-                                    
-                                    const baseNumber = getBaseQuestionNumber(variable.name);
-                                    if (!baseQuestionMap.has(baseNumber)) {
-                                      // Get the question type from the original question data
-                                      const question = questionnaireQuestions.find(q => (q.number || q.id) === baseNumber);
-                                      const questionType = question?.type || variable.type || '';
-                                      
-                                      baseQuestionMap.set(baseNumber, {
-                                        baseNumber,
-                                        type: questionType,
-                                        variables: []
-                                      });
-                                    }
-                                    baseQuestionMap.get(baseNumber)!.variables.push(variable);
-                                  });
-                                  
-                                  // After grouping, update types for numeric grids and numeric lists
-                                  baseQuestionMap.forEach((group) => {
-                                    // Check if any variable in the group has a grid type
-                                    const hasGridType = group.variables.some(v => 
-                                      v.type && v.type.toLowerCase().includes('grid')
-                                    );
-                                    
-                                    if (hasGridType) {
-                                      // Find the grid type
-                                      const gridVar = group.variables.find(v => 
-                                        v.type && v.type.toLowerCase().includes('grid')
-                                      );
-                                      if (gridVar) {
-                                        group.type = gridVar.type;
-                                      }
-                                    } else {
-                                      // Check if variables have the pattern of a numeric grid (both r and c codes)
-                                      const hasGridPattern = group.variables.some(v => {
-                                        const hasRowCode = /r\d+/i.test(v.name);
-                                        const hasColCode = /c\d+/i.test(v.name);
-                                        return hasRowCode && hasColCode;
-                                      });
-                                      
-                                      if (hasGridPattern && group.type === 'Numeric') {
-                                        group.type = 'Numeric Grid';
-                                      } else {
-                                        // Check if this is a numeric list pattern (variables with _r codes but no _c codes)
-                                        const hasNumericListPattern = group.variables.some(v => {
-                                          const hasUnderscoreRowCode = /_[rR]\d+/i.test(v.name);
-                                          const hasColCode = /[cC]\d+/i.test(v.name);
-                                          return hasUnderscoreRowCode && !hasColCode;
-                                        });
-                                        
-                                        // If we detect numeric list pattern, try to get the correct type from the question
-                                        if (hasNumericListPattern) {
-                                          const question = questionnaireQuestions.find(q => {
-                                            const qNum = q.number || q.id;
-                                            return qNum === group.baseNumber || qNum === group.baseNumber.replace(/^Q/, '');
-                                          });
-                                          if (question && question.type && question.type.toLowerCase().includes('numeric list')) {
-                                            group.type = question.type;
-                                          } else if (group.type === 'Numeric') {
-                                            // Fallback: if type is still 'Numeric' but pattern suggests numeric list, update it
-                                            group.type = 'Numeric List';
-                                          }
-                                        }
-                                      }
-                                    }
-                                  });
-                                  
-                                  // Convert to array and filter
-                                  let groupedQuestions = Array.from(baseQuestionMap.values());
+                                {questionnaireQuestions.length > 0 ? (() => {
+                                  // Iterate through all questions from the QNR
+                                  let questionsToShow = [...questionnaireQuestions];
                                   
                                   // Apply search filter
                                   if (qnrVariableSearch.trim()) {
                                     const searchLower = qnrVariableSearch.toLowerCase();
-                                    groupedQuestions = groupedQuestions.filter(group => {
-                                      const matchesBase = group.baseNumber.toLowerCase().includes(searchLower);
-                                      const matchesType = group.type.toLowerCase().includes(searchLower);
-                                      const expectedHeaders = getExpectedColumnHeadersForBase(group.baseNumber, variables);
+                                    questionsToShow = questionsToShow.filter(question => {
+                                      const qNum = question.number || question.id;
+                                      const qNumStr = String(qNum);
+                                      const questionType = question.type || '';
+                                      const expectedHeaders = getExpectedColumnHeadersForBase(qNumStr, variables);
+                                      const matchesBase = qNumStr.toLowerCase().includes(searchLower);
+                                      const matchesType = questionType.toLowerCase().includes(searchLower);
                                       const matchesExpected = expectedHeaders.some(h => h.toLowerCase().includes(searchLower));
                                       return matchesBase || matchesType || matchesExpected;
                                     });
                                   }
                                   
-                                  return groupedQuestions.map((group) => {
-                                    const expectedHeaders = getExpectedColumnHeadersForBase(group.baseNumber, variables);
+                                  return questionsToShow.map((question) => {
+                                    const qNum = question.number || question.id;
+                                    const qNumStr = String(qNum);
+                                    const questionType = question.type || '';
+                                    const expectedHeaders = getExpectedColumnHeadersForBase(qNumStr, variables);
                                     
                                     return (
-                                      <tr key={group.baseNumber}>
-                                        <td className="px-4 py-3 text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap" style={{ width: '80px' }} title={group.baseNumber}>{group.baseNumber}</td>
-                                        <td className="px-4 py-3 text-xs font-medium text-gray-500 tracking-wider truncate" style={{ width: '30%' }} title={group.type || '-'}>{group.type || '-'}</td>
+                                      <tr key={qNumStr}>
+                                        <td className="px-4 py-3 text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap" style={{ width: '80px' }} title={qNumStr}>{qNumStr}</td>
+                                        <td className="px-4 py-3 text-xs font-medium text-gray-500 tracking-wider truncate" style={{ width: '30%' }} title={questionType || '-'}>{questionType || '-'}</td>
                                         <td className="px-4 py-3 text-xs font-medium text-gray-500 tracking-wider">
                                           <div className="flex flex-wrap gap-1">
                                             {expectedHeaders.map((header, idx) => (
@@ -6920,7 +7451,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                 })() : (
                               <tr>
                                     <td colSpan={3} className="px-4 py-8 text-center text-sm text-gray-500">
-                                      No variables available. Sync with QNR to load variables.
+                                      No questions available. Sync with QNR to load questions.
                                 </td>
                               </tr>
                             )}
@@ -6931,8 +7462,6 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                       </div>
                     )}
                   </div>
-                      
-              </div>
             </div>
           )}
           </div>
@@ -6961,15 +7490,54 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                   </span>
                 )}
               </div>
-              <button
-                onClick={() => {
-                  setShowQuestionModal(false);
-                  setQuestionData(null);
-                }}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <XMarkIcon className="h-6 w-6" />
-              </button>
+              <div className="flex items-center gap-2">
+                {!isEditingQuestion ? (
+                  <button
+                    onClick={() => {
+                      // Initialize editing state with current question data
+                      const questionNumber = questionData.number || questionData.id;
+                      const matchingQnr = questionnaires.find((qnr: any) => 
+                        qnr.questions?.some((q: any) => 
+                          (q.number || q.id) === questionNumber
+                        )
+                      ) || allQuestionnaires.find((qnr: any) => 
+                        qnr.questions?.some((q: any) => 
+                          (q.number || q.id) === questionNumber
+                        )
+                      );
+                      
+                      if (matchingQnr) {
+                        const question = matchingQnr.questions?.find((q: any) => 
+                          (q.number || q.id) === questionNumber
+                        );
+                        if (question) {
+                          setEditingQuestion({
+                            ...question,
+                            responseOptions: question.responseOptions ? [...question.responseOptions] : [],
+                            statementOptions: question.statementOptions ? [...question.statementOptions] : [],
+                            options: question.options ? [...question.options] : []
+                          });
+                          setIsEditingQuestion(true);
+                        }
+                      }
+                    }}
+                    className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                  >
+                    Edit
+                  </button>
+                ) : null}
+                <button
+                  onClick={() => {
+                    setShowQuestionModal(false);
+                    setQuestionData(null);
+                    setIsEditingQuestion(false);
+                    setEditingQuestion(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <XMarkIcon className="h-6 w-6" />
+                </button>
+              </div>
             </div>
             
             {/* Body: Question text and other content */}
@@ -6982,82 +7550,368 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                   </div>
                 </div>
               ) : questionData ? (
-                <div className="space-y-4">
-                  {/* Question text */}
-                  <div>
-                    <p className="text-base text-gray-900">{questionData.text}</p>
+                isEditingQuestion && editingQuestion ? (
+                  /* Edit Mode */
+                  <div className="space-y-6">
+                    {/* Question Type Dropdown */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Question Type
+                      </label>
+                      <select
+                        value={editingQuestion.type || ''}
+                        onChange={(e) => setEditingQuestion({ ...editingQuestion, type: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                      >
+                        <option value="">Select type...</option>
+                        <option value="Single Select">Single Select</option>
+                        <option value="Multi-Select">Multi-Select</option>
+                        <option value="Numeric">Numeric</option>
+                        <option value="Numeric Grid">Numeric Grid</option>
+                        <option value="Single Select Grid">Single Select Grid</option>
+                        <option value="Multi-Select Grid">Multi-Select Grid</option>
+                        <option value="Open End">Open End</option>
+                        <option value="Open End List">Open End List</option>
+                        <option value="Numeric List">Numeric List</option>
+                      </select>
+                    </div>
+
+                    {/* Response Options (for single/multi-select) */}
+                    {(editingQuestion.type?.toLowerCase().includes('select') && !editingQuestion.type?.toLowerCase().includes('grid')) && (
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Response Options
+                          </label>
+                          <button
+                            onClick={() => {
+                              const newOptions = editingQuestion.options || [];
+                              const newCode = String(newOptions.length + 1);
+                              setEditingQuestion({
+                                ...editingQuestion,
+                                options: [...newOptions, { code: newCode, text: '' }]
+                              });
+                            }}
+                            className="px-2 py-1 text-xs font-medium text-orange-600 hover:text-orange-700"
+                          >
+                            + Add Option
+                          </button>
+                        </div>
+                        <div className="space-y-2">
+                          {(editingQuestion.options || []).map((option: any, idx: number) => {
+                            const opt = typeof option === 'string' 
+                              ? { code: String(idx + 1), text: option } 
+                              : option;
+                            return (
+                              <div key={idx} className="flex items-center gap-2">
+                                <span className="font-mono text-xs text-gray-500 w-8">{opt.code}:</span>
+                                <input
+                                  type="text"
+                                  value={opt.text}
+                                  onChange={(e) => {
+                                    const newOptions = [...(editingQuestion.options || [])];
+                                    if (typeof newOptions[idx] === 'string') {
+                                      newOptions[idx] = e.target.value;
+                                    } else {
+                                      newOptions[idx] = { ...newOptions[idx], text: e.target.value };
+                                    }
+                                    setEditingQuestion({ ...editingQuestion, options: newOptions });
+                                  }}
+                                  className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                                  placeholder="Option text"
+                                />
+                                <button
+                                  onClick={() => {
+                                    const newOptions = [...(editingQuestion.options || [])];
+                                    newOptions.splice(idx, 1);
+                                    setEditingQuestion({ ...editingQuestion, options: newOptions });
+                                  }}
+                                  className="px-2 py-1 text-red-600 hover:text-red-700"
+                                >
+                                  <XMarkIcon className="h-4 w-4" />
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Statement Options (Rows) */}
+                    {editingQuestion.type?.toLowerCase().includes('grid') && (
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Statements (Rows)
+                          </label>
+                          <button
+                            onClick={() => {
+                              const newStatements = editingQuestion.statementOptions || [];
+                              const newCode = `r${newStatements.length + 1}`;
+                              setEditingQuestion({
+                                ...editingQuestion,
+                                statementOptions: [...newStatements, { code: newCode, text: '' }]
+                              });
+                            }}
+                            className="px-2 py-1 text-xs font-medium text-orange-600 hover:text-orange-700"
+                          >
+                            + Add Statement
+                          </button>
+                        </div>
+                        <div className="space-y-2">
+                          {(editingQuestion.statementOptions || []).map((stmt: any, idx: number) => {
+                            const stmtObj = typeof stmt === 'string' 
+                              ? { code: `r${idx + 1}`, text: stmt } 
+                              : stmt;
+                            return (
+                              <div key={idx} className="flex items-center gap-2">
+                                <span className="font-mono text-xs text-gray-500 w-12">{stmtObj.code}:</span>
+                                <input
+                                  type="text"
+                                  value={stmtObj.text}
+                                  onChange={(e) => {
+                                    const newStatements = [...(editingQuestion.statementOptions || [])];
+                                    if (typeof newStatements[idx] === 'string') {
+                                      newStatements[idx] = e.target.value;
+                                    } else {
+                                      newStatements[idx] = { ...newStatements[idx], text: e.target.value };
+                                    }
+                                    setEditingQuestion({ ...editingQuestion, statementOptions: newStatements });
+                                  }}
+                                  className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                                  placeholder="Statement text"
+                                />
+                                <button
+                                  onClick={() => {
+                                    const newStatements = [...(editingQuestion.statementOptions || [])];
+                                    newStatements.splice(idx, 1);
+                                    setEditingQuestion({ ...editingQuestion, statementOptions: newStatements });
+                                  }}
+                                  className="px-2 py-1 text-red-600 hover:text-red-700"
+                                >
+                                  <XMarkIcon className="h-4 w-4" />
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Response Options (Columns) */}
+                    {editingQuestion.type?.toLowerCase().includes('grid') && (
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Response Options (Columns)
+                          </label>
+                          <button
+                            onClick={() => {
+                              const newResponses = editingQuestion.responseOptions || [];
+                              const newCode = `c${newResponses.length + 1}`;
+                              setEditingQuestion({
+                                ...editingQuestion,
+                                responseOptions: [...newResponses, { code: newCode, text: '' }]
+                              });
+                            }}
+                            className="px-2 py-1 text-xs font-medium text-orange-600 hover:text-orange-700"
+                          >
+                            + Add Response Option
+                          </button>
+                        </div>
+                        <div className="space-y-2">
+                          {(editingQuestion.responseOptions || []).map((resp: any, idx: number) => {
+                            const respObj = typeof resp === 'string' 
+                              ? { code: `c${idx + 1}`, text: resp } 
+                              : resp;
+                            return (
+                              <div key={idx} className="flex items-center gap-2">
+                                <span className="font-mono text-xs text-gray-500 w-12">{respObj.code}:</span>
+                                <input
+                                  type="text"
+                                  value={respObj.text}
+                                  onChange={(e) => {
+                                    const newResponses = [...(editingQuestion.responseOptions || [])];
+                                    if (typeof newResponses[idx] === 'string') {
+                                      newResponses[idx] = e.target.value;
+                                    } else {
+                                      newResponses[idx] = { ...newResponses[idx], text: e.target.value };
+                                    }
+                                    setEditingQuestion({ ...editingQuestion, responseOptions: newResponses });
+                                  }}
+                                  className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                                  placeholder="Response option text"
+                                />
+                                <button
+                                  onClick={() => {
+                                    const newResponses = [...(editingQuestion.responseOptions || [])];
+                                    newResponses.splice(idx, 1);
+                                    setEditingQuestion({ ...editingQuestion, responseOptions: newResponses });
+                                  }}
+                                  className="px-2 py-1 text-red-600 hover:text-red-700"
+                                >
+                                  <XMarkIcon className="h-4 w-4" />
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  
-                  {questionData.options && questionData.options.length > 0 && (
+                ) : (
+                  /* View Mode */
+                  <div className="space-y-4">
+                    {/* Question text */}
                     <div>
-                      <h4 className="text-sm font-medium text-gray-700 mb-2">Response Options:</h4>
-                      <div className="space-y-1">
-                        {questionData.options.map((option: any, idx: number) => {
-                          const opt = typeof option === 'string' 
-                            ? { code: String(idx + 1), text: option } 
-                            : option;
-                          return (
-                            <div key={idx} className="flex items-center gap-2 text-sm text-gray-700">
-                              <span className="font-mono text-xs text-gray-500 w-8">{opt.code}:</span>
-                              <span>{opt.text}</span>
-    </div>
-  );
-                        })}
-                      </div>
+                      <p className="text-base text-gray-900">{questionData.text}</p>
                     </div>
-                  )}
-                  
-                  {questionData.statementOptions && questionData.statementOptions.length > 0 && (
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-700 mb-2">Statements (Rows):</h4>
-                      <div className="space-y-1">
-                        {questionData.statementOptions.map((stmt: any, idx: number) => {
-                          const stmtObj = typeof stmt === 'string' 
-                            ? { code: `r${idx + 1}`, text: stmt } 
-                            : stmt;
-                          return (
-                            <div key={idx} className="flex items-center gap-2 text-sm text-gray-700">
-                              <span className="font-mono text-xs text-gray-500 w-12">{stmtObj.code}:</span>
-                              <span>{stmtObj.text}</span>
-                            </div>
-                          );
-                        })}
+                    
+                    {questionData.options && questionData.options.length > 0 && (
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-700 mb-2">Response Options:</h4>
+                        <div className="space-y-1">
+                          {questionData.options.map((option: any, idx: number) => {
+                            const opt = typeof option === 'string' 
+                              ? { code: String(idx + 1), text: option } 
+                              : option;
+                            return (
+                              <div key={idx} className="flex items-center gap-2 text-sm text-gray-700">
+                                <span className="font-mono text-xs text-gray-500 w-8">{opt.code}:</span>
+                                <span>{opt.text}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                  
-                  {questionData.responseOptions && questionData.responseOptions.length > 0 && (
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-700 mb-2">Response Options (Columns):</h4>
-                      <div className="space-y-1">
-                        {questionData.responseOptions.map((resp: any, idx: number) => {
-                          const respObj = typeof resp === 'string' 
-                            ? { code: `c${idx + 1}`, text: resp } 
-                            : resp;
-                          return (
-                            <div key={idx} className="flex items-center gap-2 text-sm text-gray-700">
-                              <span className="font-mono text-xs text-gray-500 w-12">{respObj.code}:</span>
-                              <span>{respObj.text}</span>
-                            </div>
-                          );
-                        })}
+                    )}
+                    
+                    {questionData.statementOptions && questionData.statementOptions.length > 0 && (
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <h4 className="text-sm font-medium text-gray-700">Statements (Rows):</h4>
+                          <button
+                            onClick={() => {
+                              // Initialize editing state with current question data
+                              const questionNumber = questionData.number || questionData.id;
+                              const matchingQnr = questionnaires.find((qnr: any) => 
+                                qnr.questions?.some((q: any) => 
+                                  (q.number || q.id) === questionNumber
+                                )
+                              ) || allQuestionnaires.find((qnr: any) => 
+                                qnr.questions?.some((q: any) => 
+                                  (q.number || q.id) === questionNumber
+                                )
+                              );
+                              
+                              if (matchingQnr) {
+                                const question = matchingQnr.questions?.find((q: any) => 
+                                  (q.number || q.id) === questionNumber
+                                );
+                                if (question) {
+                                  setEditingQuestion({
+                                    ...question,
+                                    responseOptions: question.responseOptions ? [...question.responseOptions] : [],
+                                    statementOptions: question.statementOptions ? [...question.statementOptions] : [],
+                                    options: question.options ? [...question.options] : []
+                                  });
+                                  setIsEditingQuestion(true);
+                                }
+                              }
+                            }}
+                            className="px-2 py-1 text-xs font-medium text-orange-600 hover:text-orange-700 flex items-center gap-1"
+                            title="Edit statement options"
+                          >
+                            <PencilIcon className="h-3 w-3" />
+                            Edit
+                          </button>
+                        </div>
+                        <div className="space-y-1">
+                          {questionData.statementOptions.map((stmt: any, idx: number) => {
+                            const stmtObj = typeof stmt === 'string' 
+                              ? { code: `r${idx + 1}`, text: stmt } 
+                              : stmt;
+                            return (
+                              <div key={idx} className="flex items-center gap-2 text-sm text-gray-700">
+                                <span className="font-mono text-xs text-gray-500 w-12">{stmtObj.code}:</span>
+                                <span>{stmtObj.text}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                  
-                  {questionData.tags && questionData.tags.length > 0 && (
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-700 mb-2">Tags:</h4>
-                      <div className="flex flex-wrap gap-2">
-                        {questionData.tags.map((tag: string, idx: number) => (
-                          <span key={idx} className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">
-                            {tag}
-                          </span>
-                        ))}
+                    )}
+                    
+                    {questionData.responseOptions && questionData.responseOptions.length > 0 && (
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <h4 className="text-sm font-medium text-gray-700">Response Options (Columns):</h4>
+                          <button
+                            onClick={() => {
+                              // Initialize editing state with current question data
+                              const questionNumber = questionData.number || questionData.id;
+                              const matchingQnr = questionnaires.find((qnr: any) => 
+                                qnr.questions?.some((q: any) => 
+                                  (q.number || q.id) === questionNumber
+                                )
+                              ) || allQuestionnaires.find((qnr: any) => 
+                                qnr.questions?.some((q: any) => 
+                                  (q.number || q.id) === questionNumber
+                                )
+                              );
+                              
+                              if (matchingQnr) {
+                                const question = matchingQnr.questions?.find((q: any) => 
+                                  (q.number || q.id) === questionNumber
+                                );
+                                if (question) {
+                                  setEditingQuestion({
+                                    ...question,
+                                    responseOptions: question.responseOptions ? [...question.responseOptions] : [],
+                                    statementOptions: question.statementOptions ? [...question.statementOptions] : [],
+                                    options: question.options ? [...question.options] : []
+                                  });
+                                  setIsEditingQuestion(true);
+                                }
+                              }
+                            }}
+                            className="px-2 py-1 text-xs font-medium text-orange-600 hover:text-orange-700 flex items-center gap-1"
+                            title="Edit response options"
+                          >
+                            <PencilIcon className="h-3 w-3" />
+                            Edit
+                          </button>
+                        </div>
+                        <div className="space-y-1">
+                          {questionData.responseOptions.map((resp: any, idx: number) => {
+                            const respObj = typeof resp === 'string' 
+                              ? { code: `c${idx + 1}`, text: resp } 
+                              : resp;
+                            return (
+                              <div key={idx} className="flex items-center gap-2 text-sm text-gray-700">
+                                <span className="font-mono text-xs text-gray-500 w-12">{respObj.code}:</span>
+                                <span>{respObj.text}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
+                    )}
+                    
+                    {questionData.tags && questionData.tags.length > 0 && (
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-700 mb-2">Tags:</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {questionData.tags.map((tag: string, idx: number) => (
+                            <span key={idx} className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
               ) : (
                 <div className="text-center py-12">
                   <p className="text-gray-500">Question not found in QNR</p>
@@ -7065,90 +7919,182 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
               )}
             </div>
             
-            {/* Bottom: Programming logic and actions */}
+            {/* Bottom: Actions */}
             {questionData && (
               <div className="border-t border-gray-200 p-6 space-y-4">
-                {/* Programming Logic */}
-                {(questionData.showLogic || questionData.logic || questionData.terminateLogic || questionData.randomize !== undefined) && (
-                  <div className="space-y-3">
-                    <h4 className="text-sm font-semibold text-gray-900">Programming Logic:</h4>
-                    
-                    {questionData.showLogic && (
-                      <div>
-                        <h5 className="text-xs font-medium text-gray-700 mb-1">Show Logic:</h5>
-                        <p className="text-xs text-gray-600 font-mono bg-gray-50 p-2 rounded">
-                          {typeof questionData.showLogic === 'string' 
-                            ? questionData.showLogic 
-                            : JSON.stringify(questionData.showLogic, null, 2)}
-                        </p>
-                      </div>
-                    )}
-                    
-                    {questionData.logic && (
-                      <div>
-                        <h5 className="text-xs font-medium text-gray-700 mb-1">Logic:</h5>
-                        <p className="text-xs text-gray-600 font-mono bg-gray-50 p-2 rounded">
-                          {typeof questionData.logic === 'string' 
-                            ? questionData.logic 
-                            : JSON.stringify(questionData.logic, null, 2)}
-                        </p>
-                      </div>
-                    )}
-                    
-                    {questionData.terminateLogic && (
-                      <div>
-                        <h5 className="text-xs font-medium text-gray-700 mb-1">Terminate Logic:</h5>
-                        <p className="text-xs text-gray-600 font-mono bg-gray-50 p-2 rounded">
-                          {typeof questionData.terminateLogic === 'string' 
-                            ? questionData.terminateLogic 
-                            : JSON.stringify(questionData.terminateLogic, null, 2)}
-                        </p>
-                      </div>
-                    )}
-                    
-                    {questionData.randomize !== undefined && (
-                      <div>
-                        <h5 className="text-xs font-medium text-gray-700 mb-1">Randomize:</h5>
-                        <p className="text-xs text-gray-600 font-mono bg-gray-50 p-2 rounded">
-                          {questionData.randomize ? 'Yes' : 'No'}
-                        </p>
-                      </div>
-                    )}
+                {isEditingQuestion && editingQuestion ? (
+                  /* Edit Mode Actions */
+                  <div className="flex gap-3">
+                    <button
+                      onClick={async () => {
+                        try {
+                          const questionNumber = questionData.number || questionData.id;
+                          const matchingQnr = questionnaires.find((qnr: any) => 
+                            qnr.questions?.some((q: any) => 
+                              (q.number || q.id) === questionNumber
+                            )
+                          ) || allQuestionnaires.find((qnr: any) => 
+                            qnr.questions?.some((q: any) => 
+                              (q.number || q.id) === questionNumber
+                            )
+                          );
+                          
+                          if (!matchingQnr) {
+                            alert('Questionnaire not found');
+                            return;
+                          }
+                          
+                          // Update the question in the questionnaire
+                          const updatedQuestions = matchingQnr.questions.map((q: any) => {
+                            if ((q.number || q.id) === questionNumber) {
+                              return editingQuestion;
+                            }
+                            return q;
+                          });
+                          
+                          // Save to API
+                          const response = await fetch(`${API_BASE_URL}/api/questionnaire/${matchingQnr.id}`, {
+                            method: 'PUT',
+                            headers: {
+                              'Content-Type': 'application/json',
+                              'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
+                            },
+                            body: JSON.stringify({
+                              questions: updatedQuestions
+                            })
+                          });
+                          
+                          if (response.ok) {
+                            // Update local state
+                            const updatedQnr = { ...matchingQnr, questions: updatedQuestions };
+                            const updatedQuestionnaires = questionnaires.map((qnr: any) => 
+                              qnr.id === matchingQnr.id ? updatedQnr : qnr
+                            );
+                            setQuestionnaires(updatedQuestionnaires);
+                            
+                            // Update questionData to reflect changes
+                            setQuestionData(editingQuestion);
+                            setIsEditingQuestion(false);
+                            setEditingQuestion(null);
+                            
+                            // Reload variables to reflect changes
+                            if (selectedQuestionnaire && selectedQuestionnaire.id === matchingQnr.id) {
+                              // Reload the questionnaire to get updated questions
+                              const reloadResponse = await fetch(`${API_BASE_URL}/api/questionnaire/${selectedQuestionnaire.id}`, {
+                                headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
+                              });
+                              if (reloadResponse.ok) {
+                                const reloadedQnr = await reloadResponse.json();
+                                setQuestionnaireQuestions(reloadedQnr.questions || []);
+                              }
+                            }
+                          } else {
+                            alert('Failed to save changes');
+                          }
+                        } catch (error) {
+                          console.error('Error saving question:', error);
+                          alert('Error saving question');
+                        }
+                      }}
+                      className="flex-1 px-4 py-2 text-sm font-medium text-white rounded-lg shadow-sm transition-colors hover:opacity-90"
+                      style={{ backgroundColor: BRAND_ORANGE }}
+                    >
+                      Save Changes
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsEditingQuestion(false);
+                        setEditingQuestion(null);
+                      }}
+                      className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                    >
+                      Cancel
+                    </button>
                   </div>
+                ) : (
+                  /* View Mode Actions */
+                  <>
+                    {/* Programming Logic */}
+                    {(questionData.showLogic || questionData.logic || questionData.terminateLogic || questionData.randomize !== undefined) && (
+                      <div className="space-y-3">
+                        <h4 className="text-sm font-semibold text-gray-900">Programming Logic:</h4>
+                        
+                        {questionData.showLogic && (
+                          <div>
+                            <h5 className="text-xs font-medium text-gray-700 mb-1">Show Logic:</h5>
+                            <p className="text-xs text-gray-600 font-mono bg-gray-50 p-2 rounded">
+                              {typeof questionData.showLogic === 'string' 
+                                ? questionData.showLogic 
+                                : JSON.stringify(questionData.showLogic, null, 2)}
+                            </p>
+                          </div>
+                        )}
+                        
+                        {questionData.logic && (
+                          <div>
+                            <h5 className="text-xs font-medium text-gray-700 mb-1">Logic:</h5>
+                            <p className="text-xs text-gray-600 font-mono bg-gray-50 p-2 rounded">
+                              {typeof questionData.logic === 'string' 
+                                ? questionData.logic 
+                                : JSON.stringify(questionData.logic, null, 2)}
+                            </p>
+                          </div>
+                        )}
+                        
+                        {questionData.terminateLogic && (
+                          <div>
+                            <h5 className="text-xs font-medium text-gray-700 mb-1">Terminate Logic:</h5>
+                            <p className="text-xs text-gray-600 font-mono bg-gray-50 p-2 rounded">
+                              {typeof questionData.terminateLogic === 'string' 
+                                ? questionData.terminateLogic 
+                                : JSON.stringify(questionData.terminateLogic, null, 2)}
+                            </p>
+                          </div>
+                        )}
+                        
+                        {questionData.randomize !== undefined && (
+                          <div>
+                            <h5 className="text-xs font-medium text-gray-700 mb-1">Randomize:</h5>
+                            <p className="text-xs text-gray-600 font-mono bg-gray-50 p-2 rounded">
+                              {questionData.randomize ? 'Yes' : 'No'}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* Button to navigate to QNR tab */}
+                    {selectedProject && (() => {
+                      const questionNumber = questionData.number || questionData.id;
+                      const matchingQnr = questionnaires.find((qnr: any) => 
+                        qnr.questions?.some((q: any) => 
+                          (q.number || q.id) === questionNumber
+                        )
+                      ) || allQuestionnaires.find((qnr: any) => 
+                        qnr.questions?.some((q: any) => 
+                          (q.number || q.id) === questionNumber
+                        )
+                      );
+                      
+                      return matchingQnr ? (
+                        <div>
+                          <button
+                            onClick={() => {
+                              sessionStorage.setItem('cognitive_dash_tabs_sync_project_id', selectedProject.id);
+                              sessionStorage.setItem('cognitive_dash_tabs_sync_qnr_id', matchingQnr.id);
+                              setShowQuestionModal(false);
+                              navigate('/qnr');
+                            }}
+                            className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white rounded-lg shadow-sm transition-colors hover:opacity-90"
+                            style={{ backgroundColor: BRAND_ORANGE }}
+                          >
+                            <span>Open in QNR Tab</span>
+                          </button>
+                        </div>
+                      ) : null;
+                    })()}
+                  </>
                 )}
-                
-                {/* Button to navigate to QNR tab */}
-                {selectedProject && (() => {
-                  const questionNumber = questionData.number || questionData.id;
-                  // Find the questionnaire that contains this question from the already loaded questionnaires
-                  const matchingQnr = questionnaires.find((qnr: any) => 
-                    qnr.questions?.some((q: any) => 
-                      (q.number || q.id) === questionNumber
-                    )
-                  ) || allQuestionnaires.find((qnr: any) => 
-                    qnr.questions?.some((q: any) => 
-                      (q.number || q.id) === questionNumber
-                    )
-                  );
-                  
-                  return matchingQnr ? (
-                    <div>
-                      <button
-                        onClick={() => {
-                          // Store project and QNR IDs in sessionStorage for QNR component to pick up
-                          sessionStorage.setItem('cognitive_dash_tabs_sync_project_id', selectedProject.id);
-                          sessionStorage.setItem('cognitive_dash_tabs_sync_qnr_id', matchingQnr.id);
-                          setShowQuestionModal(false);
-                          navigate('/qnr');
-                        }}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white rounded-lg shadow-sm transition-colors hover:opacity-90"
-                        style={{ backgroundColor: BRAND_ORANGE }}
-                      >
-                        <span>Open in QNR Tab</span>
-                      </button>
-                    </div>
-                  ) : null;
-                })()}
               </div>
             )}
           </div>
@@ -7448,7 +8394,11 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                               })
                             });
                             if (saveResponse.ok) {
+                              // Wait a bit for the backend to persist, then reload
+                              await new Promise(resolve => setTimeout(resolve, 300));
                               debouncedLoadFileInfo(500);
+                            } else {
+                              console.error('Failed to save mapping:', await saveResponse.text());
                             }
                           } catch (error) {
                             console.error('Error saving mapping:', error);
@@ -7512,7 +8462,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
               }}
             >
               {(() => {
-                const expectedHeaders = getExpectedColumnHeadersForBase(selectedUnmappedQuestion.baseNumber, selectedUnmappedQuestion.variables);
+                const expectedHeaders = getExpectedColumnHeadersForBase(selectedUnmappedQuestion.baseNumber, variables);
                 const usedHeaders = new Set(Object.values(columnMapping).filter(h => h && h !== ''));
                 
                 return (
@@ -7663,29 +8613,38 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                           {currentMapping && (
                             <button
                               type="button"
-                              onClick={() => {
+                              onClick={async () => {
                                 const newMapping = { ...columnMapping };
                                 delete newMapping[expectedHeader];
-                                
+
                                 setColumnMapping(newMapping);
-                                
+
                                 // Save to backend
                                 if (selectedQuestionnaire) {
-                                  fetch(`${API_BASE_URL}/api/questionnaire/map-columns`, {
-                                    method: 'POST',
-                                    headers: {
-                                      'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`,
-                                      'Content-Type': 'application/json'
-                                    },
-                                    body: JSON.stringify({
-                                      questionnaireId: selectedQuestionnaire.id,
-                                      variableNames: variables.map(v => v.name),
-                                      dataHeaders: columnHeaders,
-                                      mapping: newMapping
-                                    })
-                                  }).then(() => {
-                                    debouncedLoadFileInfo(500);
-                                  });
+                                  try {
+                                    const response = await fetch(`${API_BASE_URL}/api/questionnaire/map-columns`, {
+                                      method: 'POST',
+                                      headers: {
+                                        'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`,
+                                        'Content-Type': 'application/json'
+                                      },
+                                      body: JSON.stringify({
+                                        questionnaireId: selectedQuestionnaire.id,
+                                        variableNames: variables.map(v => v.name),
+                                        dataHeaders: columnHeaders,
+                                        mapping: newMapping
+                                      })
+                                    });
+                                    if (response.ok) {
+                                      // Wait a bit for the backend to persist, then reload
+                                      await new Promise(resolve => setTimeout(resolve, 300));
+                                      debouncedLoadFileInfo(500);
+                                    } else {
+                                      console.error('Failed to save mapping removal:', await response.text());
+                                    }
+                                  } catch (error) {
+                                    console.error('Error saving mapping removal:', error);
+                                  }
                                 }
                               }}
                               className="px-3 py-2 text-xs text-red-600 hover:text-red-700 font-medium whitespace-nowrap"
