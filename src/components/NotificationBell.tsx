@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { BellIcon, UserGroupIcon, ClipboardDocumentListIcon, ExclamationTriangleIcon, RocketLaunchIcon } from '@heroicons/react/24/outline';
+import { BellIcon, UserGroupIcon, ClipboardDocumentListIcon, ExclamationTriangleIcon, RocketLaunchIcon, LightBulbIcon } from '@heroicons/react/24/outline';
 import { Notification } from '../types/notifications';
 
 interface NotificationBellProps {
@@ -66,6 +66,14 @@ export default function NotificationBell({
         return <ExclamationTriangleIcon className="w-5 h-5 text-red-500" />;
       case 'phase_started':
         return <RocketLaunchIcon className="w-5 h-5 text-purple-500" />;
+      case 'feedback_comment':
+        return <BellIcon className="w-5 h-5 text-orange-500" />;
+      case 'feedback_status_changed':
+        return <ExclamationTriangleIcon className="w-5 h-5 text-yellow-500" />;
+      case 'feedback_submitted_bug':
+        return <ExclamationTriangleIcon className="w-5 h-5 text-red-500" />;
+      case 'feedback_submitted_feature':
+        return <LightBulbIcon className="w-5 h-5 text-blue-500" />;
       default:
         return <BellIcon className="w-5 h-5 text-gray-500" />;
     }
@@ -143,9 +151,11 @@ export default function NotificationBell({
                           {formatTimeAgo(notification.createdAt)}
                         </span>
                       </div>
-                      <p className="text-xs text-gray-500 mb-1">
-                        {notification.projectName}
-                      </p>
+                      {notification.projectName && (
+                        <p className="text-xs text-gray-500 mb-1">
+                          {notification.projectName}
+                        </p>
+                      )}
                       <p className="text-xs text-gray-600 line-clamp-1">
                         {notification.message}
                       </p>

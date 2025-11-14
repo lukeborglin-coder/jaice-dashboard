@@ -744,33 +744,32 @@ Output ONLY the cleaned transcript. No explanations or notes. Start directly wit
       }
     }
 
-    // Save original transcript with permanent name
+    // Ensure uploads directory exists (for cleaned transcripts)
     const uploadsDir = path.join(DATA_DIR, 'uploads');
-
-    // Ensure uploads directory exists
     try {
       await fs.mkdir(uploadsDir, { recursive: true });
     } catch (error) {
       console.log('Uploads directory already exists or created');
     }
 
-    const originalFilename = `original_${Date.now()}_${req.file.originalname}`;
-    const originalPath = path.join(uploadsDir, originalFilename);
-
-    // Use copyFile + unlink instead of rename to handle cross-device scenarios
-    await fs.copyFile(req.file.path, originalPath);
-    await fs.unlink(req.file.path);
+    // Delete the temporary uploaded file - we only save cleaned transcripts
+    try {
+      await fs.unlink(req.file.path);
+    } catch (error) {
+      console.warn('Could not delete temporary file:', error);
+    }
 
     // Add transcript without assigning respno yet
+    // Note: We no longer save original transcripts - only cleaned ones
     const transcriptRecord = {
       id: transcriptId,
-      originalFilename: req.file.originalname,
+      originalFilename: req.file.originalname, // Keep for reference, but file is not saved
       cleanedFilename,
-      originalPath,
+      originalPath: null, // No longer saving original files
       cleanedPath,
       uploadedAt: Date.now(),
       isCleaned: cleanTranscript === 'true' && cleanedText !== null && cleanedText.length > 0,
-      originalSize: originalSize,
+      originalSize: originalSize, // Keep size for reference
       cleanedSize: null, // Will be set after Word doc is generated
       interviewDate,
       interviewTime,
@@ -914,7 +913,7 @@ Output ONLY the cleaned transcript. No explanations or notes. Start directly wit
   }
 });
 
-// GET download transcript
+// GET download transcript (only cleaned transcripts are available)
 router.get('/download/:projectId/:transcriptId', authenticateToken, async (req, res) => {
   try {
     const { projectId, transcriptId } = req.params;
@@ -933,17 +932,13 @@ router.get('/download/:projectId/:transcriptId', authenticateToken, async (req, 
       return res.status(404).json({ error: 'Transcript not found' });
     }
 
-    // Determine which file to use
-    let filePath;
-    let filename;
-
-    if (preferCleaned === 'true' && transcript.isCleaned && transcript.cleanedPath) {
-      filePath = transcript.cleanedPath;
-      filename = transcript.cleanedFilename;
-    } else {
-      filePath = transcript.originalPath;
-      filename = transcript.originalFilename;
+    // Only cleaned transcripts are available (original files are no longer saved)
+    if (!transcript.isCleaned || !transcript.cleanedPath) {
+      return res.status(404).json({ error: 'Cleaned transcript not available. Only cleaned transcripts are saved.' });
     }
+
+    const filePath = transcript.cleanedPath;
+    const filename = transcript.cleanedFilename;
 
     // If asText is requested, extract plain text from .docx
     if (asText === 'true') {
@@ -988,14 +983,14 @@ router.delete('/:projectId/:transcriptId', authenticateToken, async (req, res) =
     const deletedTranscriptId = transcript.id; // Use transcriptId, not respno
     const deletedRespno = transcript.respno; // Store for logging
 
-    // Delete files
+    // Delete cleaned transcript file (original files are no longer saved)
     try {
-      await fs.unlink(transcript.originalPath);
       if (transcript.cleanedPath) {
         await fs.unlink(transcript.cleanedPath);
       }
+      // Note: originalPath is null now since we don't save original files
     } catch (error) {
-      console.warn('Failed to delete transcript files:', error);
+      console.warn('Failed to delete transcript file:', error);
     }
 
     // Remove from list

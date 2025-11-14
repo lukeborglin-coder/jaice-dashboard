@@ -434,19 +434,9 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
       const questionNumber = question.number || question.id;
       let questionType = question.type || '';
       
-      // Auto-classify open end questions: if they have response options, they're "Open End List", otherwise "Open End"
-      const isOpenEnd = questionType.toLowerCase().includes('open end');
-      if (isOpenEnd) {
-        const hasResponseOptions = question.responseOptions && Array.isArray(question.responseOptions) && question.responseOptions.length > 0;
-        const hasOptions = question.options && Array.isArray(question.options) && question.options.length > 0;
-        if (hasResponseOptions || hasOptions) {
-          // Has response options, so it's an Open End List
-          questionType = 'Open End List';
-        } else {
-          // No response options, so it's a regular Open End
-          questionType = 'Open End';
-        }
-      }
+      // Keep the question type from QNR - don't auto-classify Open End questions
+      // Open End can have responseOptions (opt-out options like "Don't know")
+      // Open End List has responseOptions that define multiple text boxes
       
       const isNumericGrid = questionType.toLowerCase().includes('numeric grid');
       const isNumericList = questionType.toLowerCase().includes('numeric list');
@@ -826,6 +816,50 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
           isScaleSummary: false
         });
       }
+      // Open End questions with opt-out options
+      else if (questionType.toLowerCase().includes('open end') && !questionType.toLowerCase().includes('list')) {
+        processedQuestionNumbers.add(questionNumber);
+
+        // Create main Open End variable
+        vars.push({
+          name: questionNumber,
+          description: question.text || '',
+          type: 'Open End',
+          tags: question.tags || [],
+          isSummaryTable: false,
+          isScaleSummary: false
+        });
+
+        // If there are opt-out options (responseOptions or options), create variables for them
+        // These will appear at the bottom of the variable table
+        const optOutOptions = question.responseOptions || question.options || [];
+        if (optOutOptions.length > 0) {
+          optOutOptions.forEach((opt: any, idx: number) => {
+            const optObj = typeof opt === 'string' ? { code: String(idx + 1), text: opt } : opt;
+            const optionCode = optObj.code || String(idx + 1);
+            const optionText = optObj.text || optObj.code;
+
+            // Extract numeric part from code
+            let optionNumber = optionCode;
+            if (optionCode.toLowerCase().startsWith('c')) {
+              optionNumber = optionCode.substring(1);
+            }
+            optionNumber = String(parseInt(optionNumber, 10) || (idx + 1));
+
+            // Create opt-out variable with "opt" suffix to distinguish from Open End List
+            const optOutVarName = `${questionNumber}_opt${optionNumber}`;
+            vars.push({
+              name: optOutVarName,
+              description: `${question.text || questionNumber} - ${optionText}`,
+              type: 'Open End (Opt-out)',
+              codes: { '0': 'Not Selected', '1': 'Selected' },
+              tags: question.tags || [],
+              isSummaryTable: false,
+              isScaleSummary: false
+            });
+          });
+        }
+      }
       // Regular questions (non-grid)
       else {
         const isMultiSelect = questionType.toLowerCase().includes('multi-select');
@@ -893,18 +927,8 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
       
       // Create a basic variable for this question so it shows up in the QNR variables tab
       let questionType = question.type || '';
-      
-      // Auto-classify open end questions
-      const isOpenEnd = questionType.toLowerCase().includes('open end');
-      if (isOpenEnd) {
-        const hasResponseOptions = question.responseOptions && Array.isArray(question.responseOptions) && question.responseOptions.length > 0;
-        const hasOptions = question.options && Array.isArray(question.options) && question.options.length > 0;
-        if (hasResponseOptions || hasOptions) {
-          questionType = 'Open End List';
-        } else {
-          questionType = 'Open End';
-        }
-      }
+
+      // Keep the question type from QNR - don't auto-classify
       
       // Try to get codes if available
       let codes: Record<string, string> | undefined = undefined;

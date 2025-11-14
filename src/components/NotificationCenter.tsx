@@ -7,7 +7,8 @@ import {
   UserGroupIcon,
   ClipboardDocumentListIcon,
   ExclamationTriangleIcon,
-  RocketLaunchIcon
+  RocketLaunchIcon,
+  LightBulbIcon
 } from '@heroicons/react/24/outline';
 import { Notification } from '../types/notifications';
 
@@ -86,6 +87,14 @@ export default function NotificationCenter({
         return <ExclamationTriangleIcon className="w-5 h-5 text-red-500" />;
       case 'phase_started':
         return <RocketLaunchIcon className="w-5 h-5 text-purple-500" />;
+      case 'feedback_comment':
+        return <BellIcon className="w-5 h-5 text-orange-500" />;
+      case 'feedback_status_changed':
+        return <ExclamationTriangleIcon className="w-5 h-5 text-yellow-500" />;
+      case 'feedback_submitted_bug':
+        return <ExclamationTriangleIcon className="w-5 h-5 text-red-500" />;
+      case 'feedback_submitted_feature':
+        return <LightBulbIcon className="w-5 h-5 text-blue-500" />;
       default:
         return <BellIcon className="w-5 h-5 text-gray-500" />;
     }
@@ -101,6 +110,14 @@ export default function NotificationCenter({
         return 'Task Overdue';
       case 'phase_started':
         return 'Phase Started';
+      case 'feedback_comment':
+        return 'Feedback Comment';
+      case 'feedback_status_changed':
+        return 'Status Changed';
+      case 'feedback_submitted_bug':
+        return 'Bug Report Submitted';
+      case 'feedback_submitted_feature':
+        return 'Feature Request Submitted';
       default:
         return 'Notification';
     }
@@ -185,9 +202,11 @@ export default function NotificationCenter({
                             {!notification.read && (
                               <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
                             )}
-                            <span className="text-xs text-gray-500">
-                              {notification.projectName}
-                            </span>
+                            {notification.projectName && (
+                              <span className="text-xs text-gray-500">
+                                {notification.projectName}
+                              </span>
+                            )}
                           </div>
                           <div className="flex items-center gap-2 text-xs text-gray-400">
                             <ClockIcon className="w-3 h-3" />

@@ -509,16 +509,32 @@ router.delete('/workflows/:workflowId/survey', async (req, res) => {
     const workflow = workflows[index];
     console.log('[DELETE Survey] Workflow found, removing survey data...');
 
-    // Remove survey data and estimation results
-    if (workflow.survey?.storedFileName) {
-      try {
-        const surveyFilePath = path.join(WORKFLOW_UPLOAD_ROOT, workflowId, workflow.survey.storedFileName);
-        await fs.rm(surveyFilePath, { force: true });
-        console.log(`[Survey Delete] Removed survey file: ${surveyFilePath}`);
-      } catch (cleanupError) {
-        console.warn('[Survey Delete] Failed to remove survey file:', cleanupError);
-        // Continue anyway - we'll still remove from database
+    // Remove ALL files in the workflow directory (not just the one referenced in metadata)
+    const workflowDir = path.join(WORKFLOW_UPLOAD_ROOT, workflowId);
+    try {
+      const entries = await fs.readdir(workflowDir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isFile()) {
+          const filePath = path.join(workflowDir, entry.name);
+          try {
+            await fs.unlink(filePath);
+            console.log(`[Survey Delete] Removed file: ${entry.name}`);
+          } catch (fileError) {
+            console.warn(`[Survey Delete] Failed to remove file ${entry.name}:`, fileError);
+          }
+        }
       }
+      // Try to remove the directory itself if it's empty
+      try {
+        await fs.rmdir(workflowDir);
+        console.log(`[Survey Delete] Removed workflow directory: ${workflowDir}`);
+      } catch (dirError) {
+        // Directory might not be empty or might not exist, that's fine
+        console.log(`[Survey Delete] Could not remove directory (may not be empty): ${dirError.message}`);
+      }
+    } catch (dirReadError) {
+      // Directory might not exist, that's fine
+      console.log(`[Survey Delete] Could not read workflow directory (may not exist): ${dirReadError.message}`);
     }
 
     // Remove survey data and estimation from workflow
@@ -825,7 +841,27 @@ router.post('/workflows/:workflowId/survey', upload.single('file'), async (req, 
       warnings.push(`Survey contains ${unmatchedCodes.size} code(s) that do not appear in the design matrix.`);
     }
 
-    await fs.mkdir(path.join(WORKFLOW_UPLOAD_ROOT, workflowId), { recursive: true });
+    const workflowUploadDir = path.join(WORKFLOW_UPLOAD_ROOT, workflowId);
+    await fs.mkdir(workflowUploadDir, { recursive: true });
+    
+    // Clean up old files before uploading new one
+    try {
+      const existingEntries = await fs.readdir(workflowUploadDir, { withFileTypes: true });
+      for (const entry of existingEntries) {
+        if (entry.isFile()) {
+          const oldFilePath = path.join(workflowUploadDir, entry.name);
+          try {
+            await fs.unlink(oldFilePath);
+            console.log(`🗑️ Cleaned up old workflow file: ${entry.name}`);
+          } catch (e) {
+            console.warn(`Could not delete old file ${entry.name}:`, e);
+          }
+        }
+      }
+    } catch (e) {
+      // Directory might be empty, that's fine
+    }
+    
     const sanitizedOriginalName = req.file.originalname.replace(/[^\w.\-]/g, '_');
     const storedFileName = `${Date.now()}_${sanitizedOriginalName}`;
     await fs.writeFile(path.join(WORKFLOW_UPLOAD_ROOT, workflowId, storedFileName), req.file.buffer);
@@ -1666,6 +1702,24 @@ router.post('/ai-workflow/process-data', upload.single('file'), async (req, res)
     // Save the uploaded file to disk for estimation to use later
     const workflowUploadDir = path.join(WORKFLOW_UPLOAD_ROOT, workflowId);
     await fs.mkdir(workflowUploadDir, { recursive: true });
+    
+    // Clean up old files before uploading new one
+    try {
+      const existingEntries = await fs.readdir(workflowUploadDir, { withFileTypes: true });
+      for (const entry of existingEntries) {
+        if (entry.isFile()) {
+          const oldFilePath = path.join(workflowUploadDir, entry.name);
+          try {
+            await fs.unlink(oldFilePath);
+            console.log(`🗑️ Cleaned up old workflow file: ${entry.name}`);
+          } catch (e) {
+            console.warn(`Could not delete old file ${entry.name}:`, e);
+          }
+        }
+      }
+    } catch (e) {
+      // Directory might be empty, that's fine
+    }
     
     const timestamp = Date.now();
     const storedFileName = `${timestamp}_${req.file.originalname}`;

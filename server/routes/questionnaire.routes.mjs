@@ -1436,14 +1436,14 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     // Parse the questionnaire (pass extracted text to avoid re-extracting)
     const questions = await parseQuestionnaire(req.file.path, projectId, text);
     
-    // Create questionnaire object
+    // Create questionnaire object (don't save filePath since we'll delete the file)
     const questionnaire = {
       id: `qnr-${Date.now()}`,
       name: name || req.file.originalname.replace('.docx', ''),
       questions: questions,
       createdAt: new Date().toISOString(),
-      projectId: projectId,
-      filePath: req.file.path
+      projectId: projectId
+      // Note: filePath is not saved since the file is deleted after parsing
     };
     
     // Save to questionnaires.json
@@ -1464,6 +1464,15 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     questionnaires[projectId].push(questionnaire);
     
     await fs.writeFile(questionnairesPath, JSON.stringify(questionnaires, null, 2));
+    
+    // Delete the uploaded .docx file after parsing since we have the parsed data saved
+    try {
+      await fs.unlink(req.file.path);
+      console.log(`🗑️ Deleted QNR file after parsing: ${req.file.path}`);
+    } catch (deleteError) {
+      console.warn('Could not delete QNR file after parsing:', deleteError);
+      // Continue anyway - the file deletion is not critical
+    }
     
     res.json(questionnaire);
   } catch (error) {
@@ -2355,6 +2364,24 @@ router.post('/upload-data-file', uploadDataFile.single('file'), async (req, res)
     const qnrDataDir = path.join(dataRoot, 'questionnaire-data', questionnaireId);
     await fs.mkdir(qnrDataDir, { recursive: true });
     
+    // Clean up old data files before uploading new one
+    try {
+      const existingEntries = await fs.readdir(qnrDataDir, { withFileTypes: true });
+      for (const entry of existingEntries) {
+        if (entry.isFile() && entry.name.startsWith('data_')) {
+          const oldFilePath = path.join(qnrDataDir, entry.name);
+          try {
+            await fs.unlink(oldFilePath);
+            console.log(`🗑️ Cleaned up old data file: ${entry.name}`);
+          } catch (e) {
+            console.warn(`Could not delete old file ${entry.name}:`, e);
+          }
+        }
+      }
+    } catch (e) {
+      // Directory might be empty, that's fine
+    }
+    
     // Move file from temp location to questionnaire-specific directory
     const timestamp = Date.now();
     const ext = path.extname(req.file.originalname);
@@ -2500,39 +2527,56 @@ router.delete('/delete-data-file/:questionnaireId', async (req, res) => {
   try {
     const { questionnaireId } = req.params;
     const qnrDataDir = path.join(dataRoot, 'questionnaire-data', questionnaireId);
-    const metadataPath = path.join(qnrDataDir, 'metadata.json');
     
     try {
-      const metadata = JSON.parse(await fs.readFile(metadataPath, 'utf-8'));
+      // Check if directory exists
+      const dirExists = await fs.access(qnrDataDir).then(() => true).catch(() => false);
       
-      // Delete the data file if it exists
-      if (metadata.dataFileName) {
-        const filePath = path.join(qnrDataDir, metadata.dataFileName);
-        try {
-          await fs.unlink(filePath);
-          console.log(`🗑️ Deleted data file: ${metadata.dataFileName}`);
-        } catch (e) {
-          console.warn('Could not delete data file:', e);
+      if (!dirExists) {
+        return res.json({ message: 'No data directory found to delete' });
+      }
+      
+      // Read all files in the directory
+      const entries = await fs.readdir(qnrDataDir, { withFileTypes: true });
+      
+      let deletedCount = 0;
+      const errors = [];
+      
+      // Delete ALL files in the directory (including old timestamped files)
+      for (const entry of entries) {
+        if (entry.isFile()) {
+          const filePath = path.join(qnrDataDir, entry.name);
+          try {
+            await fs.unlink(filePath);
+            console.log(`🗑️ Deleted file: ${entry.name}`);
+            deletedCount++;
+          } catch (e) {
+            console.warn(`Could not delete file ${entry.name}:`, e);
+            errors.push(entry.name);
+          }
         }
       }
       
-      // Delete processed data file if it exists
-      const processedDataPath = path.join(qnrDataDir, 'processed-data.json');
+      // Try to remove the directory itself (will fail if not empty, which is fine)
       try {
-        await fs.unlink(processedDataPath);
-        console.log('🗑️ Deleted processed data file');
+        await fs.rmdir(qnrDataDir);
+        console.log(`🗑️ Removed directory: ${qnrDataDir}`);
       } catch (e) {
-        // File doesn't exist, that's fine
+        // Directory not empty or other error - that's fine, we've deleted the files
       }
       
-      // Delete metadata file
-      await fs.unlink(metadataPath);
-      console.log('🗑️ Deleted metadata file');
+      if (errors.length > 0) {
+        console.warn(`⚠️ Some files could not be deleted: ${errors.join(', ')}`);
+      }
       
-      res.json({ message: 'Data file and all related data deleted successfully' });
+      res.json({ 
+        message: `Deleted ${deletedCount} file(s) successfully`,
+        deletedCount,
+        errors: errors.length > 0 ? errors : undefined
+      });
     } catch (e) {
-      // Metadata file doesn't exist, that's fine - return success anyway
-      res.json({ message: 'No data file found to delete' });
+      // Directory doesn't exist, that's fine - return success anyway
+      res.json({ message: 'No data directory found to delete' });
     }
   } catch (error) {
     console.error('Error deleting data file:', error);

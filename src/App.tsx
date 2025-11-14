@@ -2650,6 +2650,8 @@ function AdminCenter({ onProjectUpdate }: { onProjectUpdate?: () => void }) {
   const [featureRequests, setFeatureRequests] = useState<any[]>([]);
   const [bugReports, setBugReports] = useState<any[]>([]);
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
+  const [newComment, setNewComment] = useState('');
+  const [addingComment, setAddingComment] = useState(false);
 
   // Cost Tracker state
   const [costData, setCostData] = useState<any[]>([]);
@@ -2667,6 +2669,16 @@ function AdminCenter({ onProjectUpdate }: { onProjectUpdate?: () => void }) {
   const [loadingStorage, setLoadingStorage] = useState(false);
   const [expandedStorageProject, setExpandedStorageProject] = useState<string | null>(null);
   const [storageFilter, setStorageFilter] = useState<'all' | 'active' | 'archived'>('all');
+
+  // File manager state
+  const [allFiles, setAllFiles] = useState<any[]>([]);
+  const [loadingFiles, setLoadingFiles] = useState(false);
+  const [fileFilter, setFileFilter] = useState<string>('all');
+  const [fileCategoryFilter, setFileCategoryFilter] = useState<string>('all');
+  const [deletingFile, setDeletingFile] = useState<string | null>(null);
+  const [fileSortBy, setFileSortBy] = useState<'name' | 'size' | 'date' | 'category'>('date');
+  const [fileSortOrder, setFileSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set()); // Start with empty set (all collapsed)
   const loadCostData = useCallback(async () => {
     try {
       const headers: any = { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` };
@@ -2841,10 +2853,45 @@ function AdminCenter({ onProjectUpdate }: { onProjectUpdate?: () => void }) {
         body: JSON.stringify(updates)
       });
       if (resp.ok) {
+        const data = await resp.json();
         await loadAdminFeedback();
+        // Update selectedItem if it's the one being updated
+        if (selectedItem && selectedItem.id === id) {
+          setSelectedItem(data.item);
+        }
       }
     } catch (e) {}
-  }, [loadAdminFeedback]);
+  }, [loadAdminFeedback, selectedItem]);
+
+  const addComment = useCallback(async (id: string, comment: string) => {
+    if (!comment.trim()) return;
+    setAddingComment(true);
+    try {
+      const resp = await fetch(`${API_BASE_URL}/api/feedback/${id}/comments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
+        },
+        body: JSON.stringify({ comment })
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        setNewComment('');
+        await loadAdminFeedback();
+        // Update selectedItem with new comment
+        if (selectedItem && selectedItem.id === id) {
+          setSelectedItem(data.item);
+        }
+      } else {
+        alert('Failed to add comment');
+      }
+    } catch (e) {
+      alert('Error adding comment');
+    } finally {
+      setAddingComment(false);
+    }
+  }, [loadAdminFeedback, selectedItem]);
   const [loadingRequests, setLoadingRequests] = useState(false);
 
   // Password management state
@@ -2895,6 +2942,56 @@ function AdminCenter({ onProjectUpdate }: { onProjectUpdate?: () => void }) {
     }
   }, []);
 
+  const loadAllFiles = useCallback(async () => {
+    setLoadingFiles(true);
+    try {
+      const headers: any = { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` };
+      const resp = await fetch(`${API_BASE_URL}/api/storage/files`, { headers });
+      if (resp.ok) {
+        const data = await resp.json();
+        setAllFiles(Array.isArray(data.files) ? data.files : []);
+      } else {
+        setAllFiles([]);
+      }
+    } catch (e) {
+      console.error('Error loading files:', e);
+      setAllFiles([]);
+    } finally {
+      setLoadingFiles(false);
+    }
+  }, []);
+
+  const deleteFile = useCallback(async (filePath: string, deleteMetadata: boolean = true) => {
+    if (!confirm(`Are you sure you want to delete this file?${deleteMetadata ? ' This will also remove associated metadata.' : ''}`)) {
+      return;
+    }
+
+    setDeletingFile(filePath);
+    try {
+      const headers: any = { 
+        'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`,
+        'Content-Type': 'application/json'
+      };
+      const resp = await fetch(`${API_BASE_URL}/api/storage/files`, {
+        method: 'DELETE',
+        headers,
+        body: JSON.stringify({ filePath, deleteMetadata })
+      });
+      if (resp.ok) {
+        await loadAllFiles();
+        alert('File deleted successfully');
+      } else {
+        const error = await resp.json();
+        alert(`Failed to delete file: ${error.error || 'Unknown error'}`);
+      }
+    } catch (e) {
+      console.error('Error deleting file:', e);
+      alert('Error deleting file. Please try again.');
+    } finally {
+      setDeletingFile(null);
+    }
+  }, [loadAllFiles]);
+
   useEffect(() => {
     if (activeTab === 'cost-tracker') {
       loadCostData();
@@ -2904,8 +3001,14 @@ function AdminCenter({ onProjectUpdate }: { onProjectUpdate?: () => void }) {
       loadProjects();
     } else if (activeTab === 'storage') {
       loadStorageData();
+      loadAllFiles();
     }
-  }, [activeTab, loadCostData, loadAdminFeedback, loadProjects, loadStorageData]);
+  }, [activeTab, loadCostData, loadAdminFeedback, loadProjects, loadStorageData, loadAllFiles]);
+
+  // Expand all categories by default when files are loaded
+  useEffect(() => {
+    // Don't auto-expand categories - keep them collapsed by default
+  }, [allFiles]);
 
   // Create new user
   const handleCreateUser = async (e: React.FormEvent) => {
@@ -3856,224 +3959,341 @@ function AdminCenter({ onProjectUpdate }: { onProjectUpdate?: () => void }) {
 
       {activeTab === 'storage' && (
         <div className="bg-white shadow-sm rounded-lg border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-semibold text-gray-900">Storage Monitor</h3>
+            <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-semibold text-gray-900">File Manager</h3>
             <div className="flex items-center gap-3">
               <button
-                onClick={loadStorageData}
-                disabled={loadingStorage}
+                onClick={() => { loadAllFiles(); }}
+                disabled={loadingFiles}
                 className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
               >
-                {loadingStorage ? 'Refreshing...' : 'Refresh'}
+                {loadingFiles ? 'Refreshing...' : 'Refresh'}
               </button>
-              <select
-                value={storageFilter}
-                onChange={(e) => setStorageFilter(e.target.value as 'all' | 'active' | 'archived')}
-                className="text-sm border border-gray-300 rounded px-3 py-1.5 focus:ring-2 focus:border-gray-300"
-                style={{ '--tw-ring-color': '#D14A2D' } as React.CSSProperties}
-              >
-                <option value="all">All Projects</option>
-                <option value="active">Active Projects</option>
-                <option value="archived">Archived Projects</option>
-              </select>
             </div>
           </div>
 
-          {loadingStorage ? (
+          {loadingFiles ? (
             <div className="text-center py-12">
               <div className="w-16 h-16 flex items-center justify-center mx-auto mb-4">
                 <svg className="animate-spin" width="48" height="48" viewBox="0 0 48 48">
                   <circle cx="24" cy="24" r="20" fill="none" stroke="#D14A2D" strokeWidth="4" strokeDasharray="50 75.4" strokeDashoffset="0" />
                 </svg>
               </div>
-              <p className="text-gray-500">Calculating storage usage...</p>
-            </div>
-          ) : !storageData ? (
-            <div className="text-center py-12">
-              <IconServer className="mx-auto h-12 w-12 text-gray-400" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">No storage data available</h3>
-              <p className="mt-1 text-sm text-gray-500">
-                Click refresh to calculate storage usage for all projects.
-              </p>
+              <p className="text-gray-500">Loading files...</p>
             </div>
           ) : (
             <div className="space-y-4">
-              {/* Summary Stats */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <div className="text-sm text-gray-600">Total Projects</div>
-                  <div className="text-2xl font-bold text-gray-900">
-                    {storageData.projects?.filter((p: any) => 
-                      storageFilter === 'all' || 
-                      (storageFilter === 'active' && !p.archived) || 
-                      (storageFilter === 'archived' && p.archived)
-                    ).length || 0}
-                  </div>
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <p className="text-sm text-gray-500">View and delete all uploaded files</p>
                 </div>
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <div className="text-sm text-gray-600">Total Storage</div>
-                  <div className="text-2xl font-bold" style={{ color: '#D14A2D' }}>
-                    {storageData.summary?.totalStorageFormatted || '0 B'}
-                  </div>
-                </div>
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <div className="text-sm text-gray-600">System Storage</div>
-                  <div className="text-2xl font-bold text-gray-900">
-                    {storageData.summary?.systemStorageFormatted?.totalDataDir || '0 B'}
-                  </div>
+                <div className="flex items-center gap-3">
+                  <select
+                    value={fileSortBy}
+                    onChange={(e) => setFileSortBy(e.target.value as 'name' | 'size' | 'date' | 'category')}
+                    className="text-sm border border-gray-300 rounded px-3 py-1.5 focus:ring-2 focus:border-gray-300"
+                    style={{ '--tw-ring-color': '#D14A2D' } as React.CSSProperties}
+                  >
+                    <option value="date">Sort by Date</option>
+                    <option value="size">Sort by Size</option>
+                    <option value="name">Sort by Name</option>
+                    <option value="category">Sort by Category</option>
+                  </select>
+                  <button
+                    onClick={() => setFileSortOrder(fileSortOrder === 'asc' ? 'desc' : 'asc')}
+                    className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                    title={fileSortOrder === 'asc' ? 'Ascending' : 'Descending'}
+                  >
+                    {fileSortOrder === 'asc' ? '↑' : '↓'}
+                  </button>
                 </div>
               </div>
 
-              {/* System Storage Breakdown */}
-              {storageData.summary?.systemStorageFormatted && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                  <h4 className="text-sm font-semibold text-blue-900 mb-3">System Storage Breakdown</h4>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
-                    <div>
-                      <span className="text-blue-700">Uploads:</span>
-                      <span className="ml-2 font-medium text-blue-900">{storageData.summary.systemStorageFormatted.uploadsDir}</span>
-                    </div>
-                    <div>
-                      <span className="text-blue-700">Questionnaires:</span>
-                      <span className="ml-2 font-medium text-blue-900">{storageData.summary.systemStorageFormatted.questionnaireDataDir}</span>
-                    </div>
-                    <div>
-                      <span className="text-blue-700">Discussion Guides:</span>
-                      <span className="ml-2 font-medium text-blue-900">{storageData.summary.systemStorageFormatted.discussionGuidesDir}</span>
-                    </div>
-                    <div>
-                      <span className="text-blue-700">Conjoint Workflows:</span>
-                      <span className="ml-2 font-medium text-blue-900">{storageData.summary.systemStorageFormatted.conjointWorkflowsDir}</span>
-                    </div>
-                    <div>
-                      <span className="text-blue-700">Data Tabulations:</span>
-                      <span className="ml-2 font-medium text-blue-900">{storageData.summary.systemStorageFormatted.dataTabulationsDir}</span>
-                    </div>
-                  </div>
+              {allFiles.length === 0 ? (
+                <div className="text-center py-12">
+                  <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                  </svg>
+                  <h3 className="mt-2 text-sm font-medium text-gray-900">No files found</h3>
+                  <p className="mt-1 text-sm text-gray-500">
+                    No uploaded files are currently stored on the server.
+                  </p>
                 </div>
-              )}
+              ) : (
+                  <div className="space-y-4">
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <div className="text-sm text-gray-600">Total Files: <span className="font-semibold text-gray-900">{allFiles.length}</span></div>
+                      <div className="text-sm text-gray-600 mt-1">
+                        Total Size: <span className="font-semibold text-gray-900">
+                          {(() => {
+                            const totalSize = allFiles.reduce((sum, f) => sum + (f.size || 0), 0);
+                            const formatBytes = (bytes: number) => {
+                              if (bytes === 0) return '0 B';
+                              const k = 1024;
+                              const sizes = ['B', 'KB', 'MB', 'GB'];
+                              const i = Math.floor(Math.log(bytes) / Math.log(k));
+                              return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
+                            };
+                            return formatBytes(totalSize);
+                          })()}
+                        </span>
+                      </div>
+                    </div>
 
-              {/* Projects List */}
-              <div className="space-y-3">
-                {storageData.projects
-                  ?.filter((project: any) => {
-                    if (storageFilter === 'active') return !project.archived;
-                    if (storageFilter === 'archived') return project.archived;
-                    return true;
-                  })
-                  .map((project: any) => {
-                    const formatBytes = (bytes: number) => {
-                      if (bytes === 0) return '0 B';
-                      const k = 1024;
-                      const sizes = ['B', 'KB', 'MB', 'GB'];
-                      const i = Math.floor(Math.log(bytes) / Math.log(k));
-                      return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
-                    };
+                    {/* Group files by category */}
+                    {(() => {
+                      const formatBytes = (bytes: number) => {
+                        if (bytes === 0) return '0 B';
+                        const k = 1024;
+                        const sizes = ['B', 'KB', 'MB', 'GB'];
+                        const i = Math.floor(Math.log(bytes) / Math.log(k));
+                        return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
+                      };
 
-                    return (
-                      <div key={project.projectId} className="border rounded-lg overflow-hidden">
-                        <div
-                          className="p-4 hover:bg-gray-50 cursor-pointer transition-colors"
-                          onClick={() => setExpandedStorageProject(expandedStorageProject === project.projectId ? null : project.projectId)}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                                <h4 className="text-base font-medium text-gray-900">{project.projectName}</h4>
-                                {project.archived && (
-                                  <span className="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded">Archived</span>
+                      // Define all possible categories (always show all, even with 0 files)
+                      const allPossibleCategories = [
+                        'Conjoint Workflows',
+                        'Data Tabulations',
+                        'Discussion Guides',
+                        'General Uploads',
+                        'Metadata Files',
+                        'Other Data',
+                        'QNR Files',
+                        'Tabs Data',
+                        'Transcripts'
+                      ];
+                      
+                      // Group files by category
+                      const filesByCategory: Record<string, any[]> = {};
+                      // Initialize all categories with empty arrays
+                      allPossibleCategories.forEach(cat => {
+                        filesByCategory[cat] = [];
+                      });
+                      // Add files to their categories
+                      allFiles.forEach((file: any) => {
+                        const category = file.category || 'Other Data';
+                        if (!filesByCategory[category]) {
+                          filesByCategory[category] = [];
+                        }
+                        filesByCategory[category].push(file);
+                      });
+
+                      // Sort files within each category
+                      Object.keys(filesByCategory).forEach(category => {
+                        filesByCategory[category].sort((a, b) => {
+                          let aVal: any, bVal: any;
+                          switch (fileSortBy) {
+                            case 'size':
+                              aVal = a.size || 0;
+                              bVal = b.size || 0;
+                              break;
+                            case 'name':
+                              aVal = a.name?.toLowerCase() || '';
+                              bVal = b.name?.toLowerCase() || '';
+                              break;
+                            case 'date':
+                              aVal = new Date(a.modified).getTime();
+                              bVal = new Date(b.modified).getTime();
+                              break;
+                            case 'category':
+                              aVal = a.category || '';
+                              bVal = b.category || '';
+                              break;
+                            default:
+                              aVal = new Date(a.modified).getTime();
+                              bVal = new Date(b.modified).getTime();
+                          }
+                          
+                          if (fileSortOrder === 'asc') {
+                            return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
+                          } else {
+                            return aVal < bVal ? 1 : aVal > bVal ? -1 : 0;
+                          }
+                        });
+                      });
+
+                      // Always sort categories alphabetically
+                      const sortedCategories = Object.keys(filesByCategory).sort((a, b) => a.localeCompare(b));
+
+                      return (
+                        <div className="space-y-2">
+                          {sortedCategories.map((category) => {
+                            const categoryFiles = filesByCategory[category] || [];
+                            const categorySize = categoryFiles.reduce((sum, f) => sum + (f.size || 0), 0);
+                            const isExpanded = expandedCategories.has(category);
+
+                            return (
+                              <div key={category} className="border border-gray-200 rounded-lg overflow-hidden">
+                                {/* Category Folder Header */}
+                                <div
+                                  className="bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors p-4"
+                                  onClick={() => {
+                                    const newExpanded = new Set(expandedCategories);
+                                    if (isExpanded) {
+                                      newExpanded.delete(category);
+                                    } else {
+                                      newExpanded.add(category);
+                                    }
+                                    setExpandedCategories(newExpanded);
+                                  }}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                      {isExpanded ? (
+                                        <ChevronDownIcon className="w-5 h-5 text-gray-500" />
+                                      ) : (
+                                        <ChevronRightIcon className="w-5 h-5 text-gray-500" />
+                                      )}
+                                      <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                                      </svg>
+                                      <div>
+                                        <div className="text-sm font-semibold text-gray-900">{category}</div>
+                                        <div className="text-xs text-gray-500">
+                                          {categoryFiles.length} file{categoryFiles.length !== 1 ? 's' : ''} • {formatBytes(categorySize)}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Category Files */}
+                                {isExpanded && (
+                                  categoryFiles.length > 0 ? (
+                                  <div className="bg-white border-t border-gray-200">
+                                    <div className="overflow-x-auto">
+                                      <table className="min-w-full text-sm">
+                                        <thead className="bg-gray-50">
+                                          <tr>
+                                            <th 
+                                              className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                                              onClick={() => {
+                                                if (fileSortBy === 'name') {
+                                                  setFileSortOrder(fileSortOrder === 'asc' ? 'desc' : 'asc');
+                                                } else {
+                                                  setFileSortBy('name');
+                                                  setFileSortOrder('asc');
+                                                }
+                                              }}
+                                            >
+                                              File Name {fileSortBy === 'name' && (fileSortOrder === 'asc' ? '↑' : '↓')}
+                                            </th>
+                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Directory</th>
+                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                            <th 
+                                              className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                                              onClick={() => {
+                                                if (fileSortBy === 'size') {
+                                                  setFileSortOrder(fileSortOrder === 'asc' ? 'desc' : 'asc');
+                                                } else {
+                                                  setFileSortBy('size');
+                                                  setFileSortOrder('desc');
+                                                }
+                                              }}
+                                            >
+                                              Size {fileSortBy === 'size' && (fileSortOrder === 'asc' ? '↑' : '↓')}
+                                            </th>
+                                            <th 
+                                              className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                                              onClick={() => {
+                                                if (fileSortBy === 'date') {
+                                                  setFileSortOrder(fileSortOrder === 'asc' ? 'desc' : 'asc');
+                                                } else {
+                                                  setFileSortBy('date');
+                                                  setFileSortOrder('desc');
+                                                }
+                                              }}
+                                            >
+                                              Modified {fileSortBy === 'date' && (fileSortOrder === 'asc' ? '↑' : '↓')}
+                                            </th>
+                                            <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody className="bg-white divide-y divide-gray-200">
+                                          {categoryFiles.map((file: any, idx: number) => (
+                                            <tr key={idx} className={`hover:bg-gray-50 ${file.isOrphaned ? 'bg-yellow-50' : ''}`}>
+                                              <td className="px-4 py-2 whitespace-nowrap">
+                                                <div className="flex items-center gap-2">
+                                                  {file.isOrphaned && (
+                                                    <div className="flex-shrink-0" title="Orphaned file - not referenced in any active data">
+                                                      <svg className="w-5 h-5 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
+                                                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                                      </svg>
+                                                    </div>
+                                                  )}
+                                                  <div className="flex-1 min-w-0">
+                                                    <div className="text-sm font-medium text-gray-900 truncate max-w-xs" title={file.name}>
+                                                      {file.qnrName ? (
+                                                        <>
+                                                          <div>{file.qnrName}</div>
+                                                          <div className="text-xs text-gray-400 mt-0.5">{file.name}</div>
+                                                        </>
+                                                      ) : (
+                                                        file.name
+                                                      )}
+                                                    </div>
+                                                    <div className="text-xs text-gray-500 truncate max-w-xs" title={file.path}>
+                                                      {file.path}
+                                                    </div>
+                                                    {file.projectId && (
+                                                      <div className="text-xs text-blue-600 mt-0.5">
+                                                        Project: {file.projectId}
+                                                      </div>
+                                                    )}
+                                                  </div>
+                                                </div>
+                                              </td>
+                                              <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-500">
+                                                {file.directory}
+                                              </td>
+                                              <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-500">
+                                                {file.type || 'N/A'}
+                                              </td>
+                                              <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-600 text-right">
+                                                {file.sizeFormatted}
+                                              </td>
+                                              <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-500">
+                                                {file.qnrCreatedAt ? (
+                                                  <div>
+                                                    <div>Uploaded: {new Date(file.qnrCreatedAt).toLocaleDateString()}</div>
+                                                    <div className="text-gray-400">Modified: {new Date(file.modified).toLocaleDateString()}</div>
+                                                  </div>
+                                                ) : (
+                                                  <>
+                                                    {new Date(file.modified).toLocaleDateString()} {new Date(file.modified).toLocaleTimeString()}
+                                                  </>
+                                                )}
+                                              </td>
+                                              <td className="px-4 py-2 whitespace-nowrap text-center">
+                                                <button
+                                                  onClick={() => deleteFile(file.fullPath || file.path, true)}
+                                                  disabled={deletingFile === (file.fullPath || file.path)}
+                                                  className="text-red-600 hover:text-red-800 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                                                >
+                                                  {deletingFile === (file.fullPath || file.path) ? 'Deleting...' : 'Delete'}
+                                                </button>
+                                              </td>
+                                            </tr>
+                                          ))}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  </div>
+                                  ) : (
+                                    <div className="bg-white border-t border-gray-200 p-8 text-center">
+                                      <p className="text-sm text-gray-500">No files in this category</p>
+                                    </div>
+                                  )
                                 )}
                               </div>
-                              <div className="text-sm text-gray-500 mt-1">
-                                {Object.values(project.breakdown).reduce((sum: number, cat: any) => sum + (cat.count || 0), 0)} items across {Object.values(project.breakdown).filter((cat: any) => (cat.count || 0) > 0).length} categories
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-4">
-                              <div className="text-right">
-                                <div className="text-lg font-bold" style={{ color: '#D14A2D' }}>
-                                  {formatBytes(project.totalSize)}
-                                </div>
-                              </div>
-                              <ChevronDownIcon
-                                className={`w-5 h-5 text-gray-400 transition-transform ${
-                                  expandedStorageProject === project.projectId ? 'transform rotate-180' : ''
-                                }`}
-                              />
-                            </div>
-                          </div>
+                            );
+                          })}
                         </div>
-
-                        {/* Expanded Details */}
-                        {expandedStorageProject === project.projectId && (
-                          <div className="border-t bg-gray-50 p-4">
-                            <h5 className="text-sm font-semibold text-gray-700 mb-3">Storage Breakdown</h5>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                              {Object.entries(project.breakdown).map(([category, data]: [string, any]) => {
-                                if (!data || (data.size === 0 && data.count === 0)) return null;
-                                
-                                const categoryNames: Record<string, string> = {
-                                  transcripts: 'Transcripts',
-                                  questionnaires: 'Questionnaires',
-                                  contentAnalysis: 'Content Analysis',
-                                  storytelling: 'Storytelling',
-                                  dataTabulation: 'Data Tabulation',
-                                  conjoint: 'Conjoint',
-                                  other: 'Other'
-                                };
-
-                                return (
-                                  <div key={category} className="bg-white p-3 rounded border border-gray-200">
-                                    <div className="text-xs text-gray-600 mb-1">{categoryNames[category] || category}</div>
-                                    <div className="text-lg font-semibold text-gray-900">{formatBytes(data.size || 0)}</div>
-                                    <div className="text-xs text-gray-500 mt-1">{data.count || 0} {data.count === 1 ? 'item' : 'items'}</div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-
-                            {/* Detailed file list for transcripts */}
-                            {project.breakdown.transcripts?.files?.length > 0 && (
-                              <div className="mt-4 bg-white rounded border border-gray-200 overflow-x-auto">
-                                <h6 className="text-xs font-semibold text-gray-700 p-2 border-b">Transcript Files</h6>
-                                <div className="max-h-48 overflow-y-auto">
-                                  <table className="min-w-full text-xs">
-                                    <thead className="bg-gray-50">
-                                      <tr>
-                                        <th className="px-3 py-2 text-left text-gray-600 font-medium">File Name</th>
-                                        <th className="px-3 py-2 text-left text-gray-600 font-medium">Type</th>
-                                        <th className="px-3 py-2 text-right text-gray-600 font-medium">Size</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {project.breakdown.transcripts.files.map((file: any, idx: number) => (
-                                        <tr key={idx} className="border-t">
-                                          <td className="px-3 py-2">{file.name}</td>
-                                          <td className="px-3 py-2 capitalize">{file.type}</td>
-                                          <td className="px-3 py-2 text-right">{formatBytes(file.size)}</td>
-                                        </tr>
-                                      ))}
-                                    </tbody>
-                                  </table>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                      );
+                    })()}
+                  </div>
+                )}
               </div>
-
-              {(!storageData.projects || storageData.projects.filter((p: any) => 
-                storageFilter === 'all' || 
-                (storageFilter === 'active' && !p.archived) || 
-                (storageFilter === 'archived' && p.archived)
-              ).length === 0) && (
-                <div className="text-center py-8">
-                  <p className="text-sm text-gray-500">No projects match the selected filter</p>
-                </div>
-              )}
-            </div>
           )}
         </div>
       )}
@@ -4127,10 +4347,69 @@ function AdminCenter({ onProjectUpdate }: { onProjectUpdate?: () => void }) {
                   <div className="text-sm text-gray-900 capitalize">{selectedItem.priority}</div>
                 </div>
               </div>
+              
+              {/* Comments Section */}
+              <div className="border-t pt-4 mt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-3">Comments</label>
+                
+                {/* Existing Comments */}
+                <div className="space-y-3 mb-4 max-h-60 overflow-y-auto">
+                  {selectedItem.comments && selectedItem.comments.length > 0 ? (
+                    selectedItem.comments.map((comment: any) => (
+                      <div key={comment.id} className="bg-gray-50 p-3 rounded border border-gray-200">
+                        <div className="flex items-start justify-between mb-1">
+                          <div className="text-xs font-medium text-gray-700">{comment.createdByName || 'Admin'}</div>
+                          <div className="text-xs text-gray-500">{new Date(comment.createdAt).toLocaleString()}</div>
+                        </div>
+                        <div className="text-sm text-gray-800 whitespace-pre-wrap">{comment.text}</div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-sm text-gray-500 italic">No comments yet</div>
+                  )}
+                </div>
+
+                {/* Add Comment Form (Admin only) */}
+                {user?.role === 'admin' && (
+                  <div className="border-t pt-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Add Comment</label>
+                    <textarea
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      placeholder="Enter your comment..."
+                      className="w-full border border-gray-300 rounded px-3 py-2 text-sm min-h-[80px] focus:ring-2 focus:border-gray-300"
+                      style={{ '--tw-ring-color': '#D14A2D' } as React.CSSProperties}
+                    />
+                    <div className="flex justify-end mt-2">
+                      <button
+                        onClick={() => addComment(selectedItem.id, newComment)}
+                        disabled={addingComment || !newComment.trim()}
+                        className="px-4 py-2 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        style={{ backgroundColor: '#D14A2D' }}
+                        onMouseEnter={(e) => {
+                          if (!addingComment && newComment.trim()) {
+                            (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#B74227';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!addingComment && newComment.trim()) {
+                            (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#D14A2D';
+                          }
+                        }}
+                      >
+                        {addingComment ? 'Adding...' : 'Add Comment'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
             <div className="mt-6 flex justify-end">
               <button
-                onClick={() => setSelectedItem(null)}
+                onClick={() => {
+                  setSelectedItem(null);
+                  setNewComment('');
+                }}
                 className="px-4 py-2 text-white rounded-lg transition-colors"
                 style={{ backgroundColor: '#D14A2D' }}
                 onMouseEnter={(e) => (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#B74227'}
@@ -4559,6 +4838,7 @@ export default function App() {
   const [currentSelectedProject, setCurrentSelectedProject] = useState<Project | null>(null);
   const [isViewingProjectDetails, setIsViewingProjectDetails] = useState(false);
   const [tabsHeader, setTabsHeader] = useState<string | null>(null);
+  const [qnrPageTitle, setQnrPageTitle] = useState<string>('QNR');
 
   // One-time migration: normalize project.moderator to store moderator ID
   useEffect(() => {
@@ -4635,6 +4915,9 @@ export default function App() {
         setNotifications(newNotifications);
       });
 
+      // Start syncing notifications from backend
+      notificationService.startSync(30000); // Sync every 30 seconds
+
       // Check for overdue tasks periodically
       const checkOverdueInterval = setInterval(() => {
         if (projects.length > 0) {
@@ -4648,6 +4931,7 @@ export default function App() {
       return () => {
         unsubscribe();
         clearInterval(checkOverdueInterval);
+        notificationService.stopSync();
       };
     }
   }, [user?.id, projects]);
@@ -5474,7 +5758,7 @@ export default function App() {
             )}
             {route === "QNR" && (
               <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-bold" style={{ color: BRAND.gray }}>QNR</h1>
+                <h1 className="text-2xl font-bold" style={{ color: BRAND.gray }}>{qnrPageTitle}</h1>
               </div>
             )}
             {route === "Open-End Coding" && (
@@ -5796,7 +6080,7 @@ export default function App() {
           </div>
         )
       ) : route === "QNR" || route === "qnr" ? (
-        <QNR projects={projects} onNavigateToProject={handleProjectView} />
+        <QNR projects={projects} onNavigateToProject={handleProjectView} onPageTitleChange={setQnrPageTitle} />
       ) : (
         <main className="flex-1 overflow-visible min-w-0" style={{ background: BRAND.bg, marginTop: '80px' }}>
           {/* Mobile menu button - only visible on very small screens */}

@@ -1,9 +1,11 @@
 import { Notification, NotificationType } from '../types/notifications';
+import { API_BASE_URL } from '../config';
 
 export class NotificationService {
   private static instance: NotificationService;
   private notifications: Notification[] = [];
   private listeners: ((notifications: Notification[]) => void)[] = [];
+  private syncInterval: NodeJS.Timeout | null = null;
 
   static getInstance(): NotificationService {
     if (!NotificationService.instance) {
@@ -59,7 +61,7 @@ export class NotificationService {
   }
 
   // Mark notifications as read
-  markAsRead(notificationIds?: string[]): void {
+  async markAsRead(notificationIds?: string[]): Promise<void> {
     if (notificationIds) {
       this.notifications = this.notifications.map(n => 
         notificationIds.includes(n.id) ? { ...n, read: true } : n
@@ -70,15 +72,93 @@ export class NotificationService {
     }
     this.saveNotifications();
     this.notifyListeners();
+    
+    // Sync with backend
+    await this.markAsReadOnBackend(notificationIds);
   }
 
-  // Create a new notification
+  // Sync notifications from backend
+  async syncFromBackend(): Promise<void> {
+    try {
+      const token = localStorage.getItem('cognitive_dash_token');
+      if (!token) return;
+
+      const response = await fetch(`${API_BASE_URL}/api/notifications`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const backendNotifications = data.notifications || [];
+        
+        // Merge with local notifications, prioritizing backend
+        const backendIds = new Set(backendNotifications.map((n: Notification) => n.id));
+        const localOnly = this.notifications.filter(n => !backendIds.has(n.id));
+        
+        // Combine: backend first, then local-only (for offline support)
+        this.notifications = [...backendNotifications, ...localOnly]
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+          .slice(0, 50); // Keep latest 50
+        
+        this.saveNotifications();
+        this.notifyListeners();
+      }
+    } catch (error) {
+      console.error('Error syncing notifications from backend:', error);
+    }
+  }
+
+  // Mark notifications as read on backend
+  async markAsReadOnBackend(notificationIds?: string[]): Promise<void> {
+    try {
+      const token = localStorage.getItem('cognitive_dash_token');
+      if (!token) return;
+
+      await fetch(`${API_BASE_URL}/api/notifications/read`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ notificationIds })
+      });
+    } catch (error) {
+      console.error('Error marking notifications as read on backend:', error);
+    }
+  }
+
+  // Start periodic sync with backend
+  startSync(intervalMs: number = 30000): void {
+    if (this.syncInterval) {
+      clearInterval(this.syncInterval);
+    }
+    
+    // Sync immediately
+    this.syncFromBackend();
+    
+    // Then sync periodically
+    this.syncInterval = setInterval(() => {
+      this.syncFromBackend();
+    }, intervalMs);
+  }
+
+  // Stop periodic sync
+  stopSync(): void {
+    if (this.syncInterval) {
+      clearInterval(this.syncInterval);
+      this.syncInterval = null;
+    }
+  }
+
+  // Create a new notification (local only, for client-side notifications)
   createNotification(
     type: NotificationType,
     title: string,
     message: string,
-    projectId: string,
-    projectName: string,
+    projectId: string | undefined,
+    projectName: string | undefined,
     userId: string,
     metadata?: Notification['metadata']
   ): Notification {
@@ -97,9 +177,9 @@ export class NotificationService {
 
     this.notifications.unshift(notification); // Add to beginning
     
-    // Keep only the latest 20 notifications
-    if (this.notifications.length > 20) {
-      this.notifications = this.notifications.slice(0, 20);
+    // Keep only the latest 50 notifications
+    if (this.notifications.length > 50) {
+      this.notifications = this.notifications.slice(0, 50);
     }
     
     this.saveNotifications();
@@ -124,6 +204,46 @@ export class NotificationService {
       projectName,
       addedUserId,
       { addedBy, phaseName: currentPhase }
+    );
+  }
+
+  // Generate notification for feedback comment
+  generateFeedbackCommentNotification(
+    userId: string,
+    feedbackId: string,
+    feedbackType: string,
+    subject: string,
+    adminName: string
+  ): void {
+    this.createNotification(
+      'feedback_comment',
+      `New Comment on Your ${feedbackType === 'bug' ? 'Bug Report' : 'Feature Request'}`,
+      `${adminName} commented on your ${feedbackType === 'bug' ? 'bug report' : 'feature request'}: "${subject}"`,
+      undefined,
+      undefined,
+      userId,
+      { feedbackId, feedbackType, subject }
+    );
+  }
+
+  // Generate notification for feedback status change
+  generateFeedbackStatusChangeNotification(
+    userId: string,
+    feedbackId: string,
+    feedbackType: string,
+    subject: string,
+    oldStatus: string,
+    newStatus: string,
+    adminName: string
+  ): void {
+    this.createNotification(
+      'feedback_status_changed',
+      `${feedbackType === 'bug' ? 'Bug Report' : 'Feature Request'} Status Updated`,
+      `Your ${feedbackType === 'bug' ? 'bug report' : 'feature request'} "${subject}" status has been changed to "${newStatus}" by ${adminName}`,
+      undefined,
+      undefined,
+      userId,
+      { feedbackId, feedbackType, subject, oldStatus, newStatus }
     );
   }
 

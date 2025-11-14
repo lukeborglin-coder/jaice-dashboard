@@ -53,12 +53,93 @@ interface Questionnaire {
 interface QNRProps {
   projects?: any[];
   onNavigateToProject?: (project: any) => void;
+  onPageTitleChange?: (title: string) => void;
 }
+
+// Helper function to parse special option tags (EXCLUSIVE, ANCHOR, SPECIFY)
+const parseOptionTags = (text: string): { cleanText: string; hasExclusive: boolean; hasAnchor: boolean; hasSpecify: boolean } => {
+  if (!text) return { cleanText: '', hasExclusive: false, hasAnchor: false, hasSpecify: false };
+
+  let cleanText = text;
+  let hasExclusive = false;
+  let hasAnchor = false;
+  let hasSpecify = false;
+
+  // Find all bracketed content and check for special tags
+  const bracketRegex = /\[([^\]]+)\]/g;
+  let match;
+  const bracketsToRemove: string[] = [];
+
+  while ((match = bracketRegex.exec(text)) !== null) {
+    const bracketContent = match[1]; // Content inside brackets
+    const fullBracket = match[0]; // Full bracket including [ and ]
+
+    // Split by comma and check each part
+    const parts = bracketContent.split(',').map(p => p.trim().toUpperCase());
+
+    let shouldRemoveBracket = false;
+
+    for (const part of parts) {
+      if (part === 'EXCLUSIVE') {
+        hasExclusive = true;
+        shouldRemoveBracket = true;
+      }
+      if (part === 'ANCHOR') {
+        hasAnchor = true;
+        shouldRemoveBracket = true;
+      }
+      if (part === 'SPECIFY') {
+        hasSpecify = true;
+        shouldRemoveBracket = true;
+      }
+    }
+
+    // If this bracket only contains special tags, mark it for removal
+    if (shouldRemoveBracket) {
+      // Check if ALL parts are special tags
+      const allPartsAreSpecialTags = parts.every(part =>
+        part === 'EXCLUSIVE' || part === 'ANCHOR' || part === 'SPECIFY'
+      );
+
+      if (allPartsAreSpecialTags) {
+        bracketsToRemove.push(fullBracket);
+      }
+    }
+  }
+
+  // Remove brackets that only contain special tags
+  for (const bracket of bracketsToRemove) {
+    cleanText = cleanText.replace(bracket, '');
+  }
+
+  // Clean up extra whitespace
+  cleanText = cleanText.replace(/\s+/g, ' ').trim();
+
+  return { cleanText, hasExclusive, hasAnchor, hasSpecify };
+};
+
+// Helper function to toggle a tag in option text
+const toggleOptionTag = (text: string, tagName: 'EXCLUSIVE' | 'ANCHOR' | 'SPECIFY', add: boolean): string => {
+  const { cleanText, hasExclusive, hasAnchor, hasSpecify } = parseOptionTags(text);
+
+  // Build array of tags that should be present
+  const tags: string[] = [];
+  if (tagName === 'EXCLUSIVE' ? add : hasExclusive) tags.push('EXCLUSIVE');
+  if (tagName === 'ANCHOR' ? add : hasAnchor) tags.push('ANCHOR');
+  if (tagName === 'SPECIFY' ? add : hasSpecify) tags.push('SPECIFY');
+
+  // Return text with tags
+  if (tags.length === 0) {
+    return cleanText;
+  } else {
+    return `${cleanText} [${tags.join(', ')}]`.trim();
+  }
+};
 
 // Helper function to format text with brackets styled in blue italic
 const formatDescriptionWithBrackets = (text: string) => {
   if (!text) return null;
-  
+
   // Split text by brackets, keeping the brackets in the result
   const parts: (string | JSX.Element)[] = [];
   const regex = /(\[[^\]]+\])/g;
@@ -66,14 +147,14 @@ const formatDescriptionWithBrackets = (text: string) => {
   let match;
   let key = 0;
   let foundBrackets = false;
-  
+
   while ((match = regex.exec(text)) !== null) {
     foundBrackets = true;
     // Add text before the bracket
     if (match.index > lastIndex) {
       parts.push(text.substring(lastIndex, match.index));
     }
-    
+
     // Add the bracketed text with styling (including the brackets)
     const bracketContent = match[1].slice(1, -1); // Remove [ and ]
     parts.push(
@@ -81,7 +162,7 @@ const formatDescriptionWithBrackets = (text: string) => {
         [{bracketContent}]
       </span>
     );
-    
+
     lastIndex = regex.lastIndex;
   }
   
@@ -98,7 +179,7 @@ const formatDescriptionWithBrackets = (text: string) => {
   return <>{parts}</>;
 };
 
-export default function QNR({ projects = [], onNavigateToProject }: QNRProps) {
+export default function QNR({ projects = [], onNavigateToProject, onPageTitleChange }: QNRProps) {
   const { user } = useAuth();
   const [viewMode, setViewMode] = useState<'home' | 'project' | 'qnr'>('home');
   const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
@@ -166,6 +247,18 @@ export default function QNR({ projects = [], onNavigateToProject }: QNRProps) {
     };
     loadAllQuestionnaires();
   }, []);
+
+  // Update page title when questionnaire is selected
+  useEffect(() => {
+    if (onPageTitleChange) {
+      if (viewMode === 'qnr' && selectedQuestionnaire) {
+        const questionCount = selectedQuestionnaire.questions?.length || 0;
+        onPageTitleChange(`${selectedQuestionnaire.name} (${questionCount})`);
+      } else {
+        onPageTitleChange('QNR');
+      }
+    }
+  }, [selectedQuestionnaire, viewMode, onPageTitleChange]);
 
   // Get QNR count for a project
   const getQNRCount = useCallback((projectId: string) => {
@@ -783,37 +876,29 @@ export default function QNR({ projects = [], onNavigateToProject }: QNRProps) {
       {viewMode === 'qnr' && selectedQuestionnaire && (
         <div className="flex h-[calc(100vh-8rem)]">
           {/* Left Sidebar - reduced width */}
-          <div className="w-[16.67%] bg-gray-50 border-r border-gray-200 flex flex-col overflow-hidden">
-            {/* Back Button and QNR Name */}
+          <div className="w-[22%] bg-gray-50 border-r border-gray-200 flex flex-col overflow-hidden">
+            {/* Back Button */}
             <div className="pr-4 pt-4 pb-4 flex-shrink-0">
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => {
-                    setViewMode('project');
-                    setSelectedQuestionnaire(null);
-                    setSelectedQuestionTypes(new Set());
-                  }}
-                  className="flex items-center justify-center text-gray-600 hover:text-gray-800 hover:bg-gray-100 p-2 rounded-lg transition-colors"
-                  title="Back to QNRs"
-                >
-                  <ArrowLeftIcon className="h-5 w-5" />
-                </button>
-                <div className="flex-1">
-                  <h2 className="text-lg font-semibold text-gray-900">{selectedQuestionnaire.name}</h2>
-                  <div className="text-sm text-gray-500">
-                    {selectedQuestionnaire.questions?.length || 0} questions
-                  </div>
-                </div>
-              </div>
+              <button
+                onClick={() => {
+                  setViewMode('project');
+                  setSelectedQuestionnaire(null);
+                  setSelectedQuestionTypes(new Set());
+                }}
+                className="flex items-center gap-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 px-3 py-2 rounded-lg transition-colors whitespace-nowrap"
+                title="Back to QNRs"
+              >
+                <ArrowLeftIcon className="h-5 w-5 flex-shrink-0" />
+                <span className="text-sm font-medium">Back to QNRs</span>
+              </button>
             </div>
 
-            {/* Filter Boxes Container - Evenly Distributed */}
+            {/* Filter Boxes Container - Sections static, Question Types fill remaining */}
             <div className="flex-1 flex flex-col gap-4 pr-4 overflow-hidden">
-              {/* Sections */}
+              {/* Sections - No scrolling, always show all */}
               {sectionKeys.length > 0 && (
-                <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-2 flex flex-col flex-1 min-h-0">
-                  <div className="text-xs font-medium text-gray-700 uppercase tracking-wider flex-shrink-0">Sections</div>
-                  <div className="flex flex-col gap-2 overflow-y-auto flex-1">
+                <div className="space-y-2 flex-shrink-0">
+                  <div className="flex flex-col gap-2">
                     {sectionKeys.map((sectionKey) => {
                       const isSelected = selectedSection === sectionKey;
                       const count = questionsBySection[sectionKey]?.length || 0;
@@ -839,11 +924,11 @@ export default function QNR({ projects = [], onNavigateToProject }: QNRProps) {
                 </div>
               )}
 
-              {/* Question Type Filters */}
+              {/* Question Type Filters - Fill remaining space with scroll */}
               {allQuestionTypes.length > 0 && (
                 <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-2 flex flex-col flex-1 min-h-0">
                   <div className="text-xs font-medium text-gray-700 uppercase tracking-wider flex-shrink-0">Question Types</div>
-                  <div className="flex flex-col gap-2 overflow-y-auto flex-1">
+                  <div className="flex flex-col gap-2 overflow-y-auto flex-1 pr-4">
                     {allQuestionTypes.map((type) => {
                       const isSelected = selectedQuestionTypes.has(type);
                       const count = questionTypeCounts[type] || 0;
@@ -858,10 +943,12 @@ export default function QNR({ projects = [], onNavigateToProject }: QNRProps) {
                           }`}
                           style={isSelected ? { backgroundColor: BRAND_ORANGE, borderColor: BRAND_ORANGE } : {}}
                         >
-                          <span className="text-xs font-medium">{type}</span>
-                          <span className={`ml-1.5 text-xs ${isSelected ? 'text-white' : 'text-gray-500'}`}>
-                            ({count})
-                          </span>
+                          <div className="truncate">
+                            <span className="text-xs font-medium">{type}</span>
+                            <span className={`ml-1.5 text-xs ${isSelected ? 'text-white' : 'text-gray-500'}`}>
+                              ({count})
+                            </span>
+                          </div>
                         </button>
                       );
                     })}
@@ -1280,6 +1367,7 @@ function QuestionBox({
   const [editedResponseOptions, setEditedResponseOptions] = useState<Array<{ code: string; text: string }>>([]);
   const [editedStatementOptions, setEditedStatementOptions] = useState<Array<{ code: string; text: string }>>([]);
   const [editedRandomize, setEditedRandomize] = useState<boolean>(false);
+  const [editedTerminateLogic, setEditedTerminateLogic] = useState<string>('');
   const [isRawAiOutputCollapsed, setIsRawAiOutputCollapsed] = useState<boolean>(true);
   
   // Check if question has both statementOptions and responseOptions (can be flipped)
@@ -1347,13 +1435,75 @@ function QuestionBox({
   const getFieldsForType = (type: string) => {
     const typeLower = type?.toLowerCase() || '';
     return {
-      needsOptions: typeLower.includes('single select') && !typeLower.includes('grid') || 
+      needsOptions: typeLower.includes('single select') && !typeLower.includes('grid') ||
                     typeLower.includes('multi-select') && !typeLower.includes('grid'),
       needsStatementOptions: typeLower.includes('grid'),
-      needsResponseOptions: typeLower.includes('grid') || 
-                            typeLower.includes('open end list') || 
-                            typeLower.includes('numeric list')
+      needsResponseOptions: typeLower.includes('grid') ||
+                            typeLower.includes('open end list') ||
+                            typeLower.includes('numeric list') ||
+                            (typeLower.includes('open end') && !typeLower.includes('list')) // Open End can have opt-out options
     };
+  };
+
+  // Validate question type rules
+  const validateQuestionType = (q: Question): string | null => {
+    const typeLower = q.type?.toLowerCase().trim() || '';
+
+    // Check what actually exists in the data (not filtered by what should be there)
+    const hasResponseOptions = q.responseOptions && q.responseOptions.length > 0;
+    const hasStatementOptions = q.statementOptions && q.statementOptions.length > 0;
+    const hasOptions = q.options && q.options.length > 0;
+
+    // Numeric (plain) - should NOT have responseOptions or options
+    // Must check this BEFORE the includes checks to avoid false matches
+    if (typeLower === 'numeric' || (typeLower.includes('numeric') && !typeLower.includes('list') && !typeLower.includes('grid'))) {
+      if (hasResponseOptions || hasOptions) {
+        return 'Numeric questions should not have response options (single response box only)';
+      }
+    }
+
+    // Numeric List - SHOULD have responseOptions
+    if (typeLower.includes('numeric list')) {
+      if (!hasResponseOptions) {
+        return 'Numeric List questions must have response options (one per numeric input box)';
+      }
+    }
+
+    // Numeric Grid - SHOULD have both statementOptions AND responseOptions
+    if (typeLower.includes('numeric grid')) {
+      if (!hasStatementOptions) {
+        return 'Numeric Grid questions must have statement options (rows)';
+      }
+      if (!hasResponseOptions) {
+        return 'Numeric Grid questions must have response options (columns)';
+      }
+    }
+
+    // Single Select Grid / Multi-Select Grid - SHOULD have both statementOptions AND responseOptions
+    if ((typeLower.includes('single select grid') || typeLower.includes('multi-select grid')) && typeLower.includes('grid')) {
+      if (!hasStatementOptions) {
+        return `${q.type} questions must have statement options (rows)`;
+      }
+      if (!hasResponseOptions) {
+        return `${q.type} questions must have response options (columns)`;
+      }
+    }
+
+    // Open End List - SHOULD have responseOptions
+    if (typeLower.includes('open end list')) {
+      if (!hasResponseOptions) {
+        return 'Open End List questions must have response options (one per text box)';
+      }
+    }
+
+    // Single Select / Multi-Select (not grid) - SHOULD have options
+    if ((typeLower.includes('single select') || typeLower.includes('multi-select')) && !typeLower.includes('grid')) {
+      if (!hasOptions) {
+        return `${q.type} questions must have response options`;
+      }
+    }
+
+    return null; // No errors
   };
 
   // Initialize edit mode with current question data
@@ -1407,7 +1557,16 @@ function QuestionBox({
     
     // Initialize randomize
     setEditedRandomize(question.randomize || false);
-    
+
+    // Initialize terminate logic
+    if (typeof question.terminateLogic === 'string') {
+      setEditedTerminateLogic(question.terminateLogic);
+    } else if (question.terminateLogic && Array.isArray(question.terminateLogic.optionCodes)) {
+      setEditedTerminateLogic(question.terminateLogic.optionCodes.join(', '));
+    } else {
+      setEditedTerminateLogic('');
+    }
+
     setIsEditing(true);
   };
 
@@ -1535,34 +1694,55 @@ function QuestionBox({
     }
 
     const isNumericGrid = editedType?.toLowerCase().includes('numeric grid');
-    
+    const fields = getFieldsForType(editedType);
+
     // Build updated question
     const updatedQuestion: Question = {
       ...question,
       number: editedQuestionNumber.trim(),
       text: editedQuestionText.trim(),
       type: editedType,
-      options: editedOptions.length > 0 ? editedOptions.map(opt => ({
-        code: opt.code,
-        text: opt.text,
-        tags: (() => {
-          // Preserve tags from original option if it exists
-          const originalOpt = question.options?.find((o, idx) => {
-            const originalOptObj = typeof o === 'string' ? { code: String(idx + 1), text: o } : o;
-            return originalOptObj.text === opt.text || originalOptObj.code === opt.code;
-          });
-          return originalOpt && typeof originalOpt !== 'string' ? originalOpt.tags : undefined;
-        })()
-      })) : question.options,
-      responseOptions: editedResponseOptions.length > 0 ? editedResponseOptions.map(opt => ({
-        code: `c${opt.code}`,
-        text: opt.text
-      })) : question.responseOptions,
-      statementOptions: editedStatementOptions.length > 0 ? editedStatementOptions.map(opt => ({
-        code: `r${opt.code}`,
-        text: opt.text
-      })) : question.statementOptions,
-      randomize: editedRandomize
+      // Only include options if the type needs them (Single Select, Multi-Select)
+      // Plain Numeric questions should NOT have options
+      options: fields.needsOptions && editedOptions.length > 0
+        ? editedOptions.map(opt => ({
+            code: opt.code,
+            text: opt.text,
+            tags: (() => {
+              // Preserve tags from original option if it exists
+              const originalOpt = question.options?.find((o, idx) => {
+                const originalOptObj = typeof o === 'string' ? { code: String(idx + 1), text: o } : o;
+                return originalOptObj.text === opt.text || originalOptObj.code === opt.code;
+              });
+              return originalOpt && typeof originalOpt !== 'string' ? originalOpt.tags : undefined;
+            })()
+          }))
+        : fields.needsOptions
+          ? []
+          : undefined,
+      // Only include responseOptions if the type needs them (Numeric Grid, Numeric List, Open End List)
+      // Plain Numeric questions should NOT have responseOptions
+      responseOptions: fields.needsResponseOptions && editedResponseOptions.length > 0
+        ? editedResponseOptions.map(opt => ({
+            code: `c${opt.code}`,
+            text: opt.text
+          }))
+        : fields.needsResponseOptions
+          ? []
+          : undefined,
+      // Only include statementOptions if the type needs them (all grid types)
+      statementOptions: fields.needsStatementOptions && editedStatementOptions.length > 0
+        ? editedStatementOptions.map(opt => ({
+            code: `r${opt.code}`,
+            text: opt.text
+          }))
+        : fields.needsStatementOptions
+          ? []
+          : undefined,
+      randomize: editedRandomize,
+      terminateLogic: editedTerminateLogic.trim()
+        ? { optionCodes: editedTerminateLogic.split(',').map(c => c.trim()).filter(Boolean) }
+        : undefined
     };
 
     try {
@@ -1756,6 +1936,32 @@ function QuestionBox({
               <option value="Open End List">Open End List</option>
               <option value="Numeric List">Numeric List</option>
             </select>
+            {(() => {
+              const fields = getFieldsForType(editedType);
+              const tempQuestion: Question = {
+                ...question,
+                type: editedType,
+                // Only include options if the type needs them
+                options: fields.needsOptions ? (editedOptions.length > 0 ? editedOptions : question.options) : [],
+                // Only include responseOptions if the type needs them
+                responseOptions: fields.needsResponseOptions
+                  ? (editedResponseOptions.length > 0 ? editedResponseOptions.map(opt => ({ code: `c${opt.code}`, text: opt.text })) : question.responseOptions)
+                  : undefined,
+                // Only include statementOptions if the type needs them
+                statementOptions: fields.needsStatementOptions
+                  ? (editedStatementOptions.length > 0 ? editedStatementOptions.map(opt => ({ code: `r${opt.code}`, text: opt.text })) : question.statementOptions)
+                  : undefined
+              };
+              const validationError = validateQuestionType(tempQuestion);
+              return validationError ? (
+                <div className="relative group">
+                  <InformationCircleIcon className="w-4 h-4 text-red-600 cursor-help flex-shrink-0" />
+                  <div className="absolute left-0 top-6 hidden group-hover:block z-50 w-64 p-2 bg-red-600 text-white text-xs rounded shadow-lg">
+                    {validationError}
+                  </div>
+                </div>
+              ) : null;
+            })()}
           </div>
 
           <div>
@@ -1800,6 +2006,11 @@ function QuestionBox({
                   const codes = optionsToShow.map(o => o.code.trim().toLowerCase()).filter(c => c);
                   const isDuplicate = codes.filter((c, idx) => codes.indexOf(c) !== idx).includes(opt.code.trim().toLowerCase());
                   
+                  const { hasExclusive, hasAnchor, hasSpecify } = parseOptionTags(opt.text);
+                  // Parse edited terminate logic to check if this option is marked for termination
+                  const editedTerminateCodes = editedTerminateLogic.split(',').map(c => c.trim()).filter(Boolean);
+                  const hasTerminate = editedTerminateCodes.includes(opt.code);
+
                   return (
                     <div key={optIndex} className="flex items-center gap-2">
                       <input
@@ -1811,7 +2022,7 @@ function QuestionBox({
                           updated[optIndex] = { ...updated[optIndex], code: e.target.value };
                           setEditedOptions(updated);
                         }}
-                        className={`w-20 px-2 py-1 text-xs font-mono border rounded focus:outline-none focus:ring-2 focus:ring-[#D14A2D] ${
+                        className={`w-12 px-2 py-1 text-xs font-mono border rounded focus:outline-none focus:ring-2 focus:ring-[#D14A2D] ${
                           isDuplicate ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-2 focus:ring-[#D14A2D]'
                         }`}
                         placeholder="Code"
@@ -1828,6 +2039,73 @@ function QuestionBox({
                         className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[#D14A2D]"
                         placeholder="Text"
                       />
+                      <button
+                        onClick={() => {
+                          const currentOptions = editedOptions.length === 0 ? [{ code: '1', text: '' }] : editedOptions;
+                          const updated = [...currentOptions];
+                          updated[optIndex] = { ...updated[optIndex], text: toggleOptionTag(opt.text, 'EXCLUSIVE', !hasExclusive) };
+                          setEditedOptions(updated);
+                        }}
+                        className={`text-xs font-bold rounded inline-flex items-center justify-center w-5 h-5 ${
+                          hasExclusive ? 'bg-blue-100 text-blue-800' : 'bg-gray-200 text-gray-500'
+                        }`}
+                        title="Toggle Exclusive"
+                      >
+                        E
+                      </button>
+                      <button
+                        onClick={() => {
+                          const currentOptions = editedOptions.length === 0 ? [{ code: '1', text: '' }] : editedOptions;
+                          const updated = [...currentOptions];
+                          updated[optIndex] = { ...updated[optIndex], text: toggleOptionTag(opt.text, 'ANCHOR', !hasAnchor) };
+                          setEditedOptions(updated);
+                        }}
+                        className={`text-xs font-bold rounded inline-flex items-center justify-center w-5 h-5 ${
+                          hasAnchor ? 'bg-blue-100 text-blue-800' : 'bg-gray-200 text-gray-500'
+                        }`}
+                        title="Toggle Anchor"
+                      >
+                        A
+                      </button>
+                      <button
+                        onClick={() => {
+                          const currentOptions = editedOptions.length === 0 ? [{ code: '1', text: '' }] : editedOptions;
+                          const updated = [...currentOptions];
+                          updated[optIndex] = { ...updated[optIndex], text: toggleOptionTag(opt.text, 'SPECIFY', !hasSpecify) };
+                          setEditedOptions(updated);
+                        }}
+                        className={`text-xs font-bold rounded inline-flex items-center justify-center w-5 h-5 ${
+                          hasSpecify ? 'bg-blue-100 text-blue-800' : 'bg-gray-200 text-gray-500'
+                        }`}
+                        title="Toggle Specify"
+                      >
+                        S
+                      </button>
+                      <button
+                        onClick={() => {
+                          // Toggle terminate logic using edited state
+                          let newTerminateCodes = editedTerminateLogic.split(',').map(c => c.trim()).filter(Boolean);
+
+                          if (hasTerminate) {
+                            // Remove this code
+                            newTerminateCodes = newTerminateCodes.filter(c => c !== opt.code);
+                          } else {
+                            // Add this code
+                            if (!newTerminateCodes.includes(opt.code)) {
+                              newTerminateCodes.push(opt.code);
+                            }
+                          }
+
+                          // Update terminate logic
+                          setEditedTerminateLogic(newTerminateCodes.length > 0 ? newTerminateCodes.join(', ') : '');
+                        }}
+                        className={`text-xs font-bold rounded inline-flex items-center justify-center w-5 h-5 ${
+                          hasTerminate ? 'bg-red-100 text-red-800' : 'bg-gray-200 text-gray-500'
+                        }`}
+                        title="Toggle Terminate"
+                      >
+                        T
+                      </button>
                       <button
                         onClick={() => {
                           const currentOptions = editedOptions.length === 0 ? [{ code: '1', text: '' }] : editedOptions;
@@ -1861,7 +2139,18 @@ function QuestionBox({
             return fields.needsStatementOptions && (
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="block text-sm font-medium text-gray-700">Statement Options (Rows):</label>
+                  <div className="flex items-end gap-2">
+                    <label className="block text-sm font-medium text-gray-700">Statement Options (Rows):</label>
+                    <button
+                      onClick={() => setEditedRandomize(!editedRandomize)}
+                      className={`text-[10px] px-1.5 py-0.5 rounded ${
+                        editedRandomize ? 'bg-blue-100 text-blue-800' : 'bg-gray-200 text-gray-600'
+                      }`}
+                      title="Toggle randomize rows"
+                    >
+                      RANDOMIZE
+                    </button>
+                  </div>
                   <button
                     onClick={() => {
                       const currentStatements = editedStatementOptions.length === 0 ? [{ code: '1', text: '' }] : editedStatementOptions;
@@ -1896,7 +2185,7 @@ function QuestionBox({
                           updated[stmtIndex] = { ...updated[stmtIndex], code: e.target.value };
                           setEditedStatementOptions(updated);
                         }}
-                        className={`w-20 px-2 py-1 text-xs font-mono border rounded focus:outline-none focus:ring-2 focus:ring-[#D14A2D] ${
+                        className={`w-12 px-2 py-1 text-xs font-mono border rounded focus:outline-none focus:ring-2 focus:ring-[#D14A2D] ${
                           isDuplicate ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-2 focus:ring-[#D14A2D]'
                         }`}
                         placeholder="Code"
@@ -1939,26 +2228,6 @@ function QuestionBox({
             );
           })()}
 
-          {/* Randomize checkbox (only for questions with statement options/rows) */}
-          {(() => {
-            const fields = getFieldsForType(editedType);
-            return fields.needsStatementOptions && (
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id={`randomize-checkbox-${question.number || index}`}
-                  checked={editedRandomize}
-                  onChange={(e) => setEditedRandomize(e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-300 focus:ring-2 focus:ring-[#D14A2D]"
-                  style={{ accentColor: BRAND_ORANGE }}
-                />
-                <label htmlFor={`randomize-checkbox-${question.number || index}`} className="text-sm font-medium text-gray-700">
-                  Randomize rows (statement options)
-                </label>
-              </div>
-            );
-          })()}
-
           {/* Flip Options button (only for grid questions in edit mode) */}
           {canFlip && (() => {
             const fields = getFieldsForType(editedType);
@@ -1981,11 +2250,12 @@ function QuestionBox({
           {(() => {
             const fields = getFieldsForType(editedType);
             const responsesToShow = fields.needsResponseOptions && editedResponseOptions.length === 0 ? [{ code: '1', text: '' }] : editedResponseOptions;
+            const isOpenEnd = editedType?.toLowerCase().includes('open end') && !editedType?.toLowerCase().includes('list');
             return fields.needsResponseOptions && (
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="block text-sm font-medium text-gray-700">
-                    {fields.needsStatementOptions ? 'Response Options (Columns):' : 'Response Options:'}
+                    {isOpenEnd ? 'Opt-out Options:' : fields.needsStatementOptions ? 'Response Options (Columns):' : 'Response Options:'}
                   </label>
                   <button
                     onClick={() => {
@@ -2002,7 +2272,7 @@ function QuestionBox({
                       e.currentTarget.style.color = BRAND_ORANGE;
                     }}
                   >
-                    + Add Response Option
+                    {isOpenEnd ? '+ Add Opt-out Option' : '+ Add Response Option'}
                   </button>
                 </div>
               <div className="space-y-2">
@@ -2010,18 +2280,24 @@ function QuestionBox({
                   const codes = responsesToShow.map(o => o.code.trim().toLowerCase()).filter(c => c);
                   const isDuplicate = codes.filter((c, idx) => codes.indexOf(c) !== idx).includes(respOpt.code.trim().toLowerCase());
                   
+                  const { hasExclusive, hasAnchor, hasSpecify } = parseOptionTags(respOpt.text);
+                  // Parse edited terminate logic to check if this response option is marked for termination
+                  const editedTerminateCodes = editedTerminateLogic.split(',').map(c => c.trim()).filter(Boolean);
+                  const respCode = `c${respOpt.code}`;
+                  const hasTerminate = editedTerminateCodes.includes(respCode) || editedTerminateCodes.includes(respOpt.code);
+
                   return (
                     <div key={respIndex} className="flex items-center gap-2">
                       <input
                         type="text"
                         value={respOpt.code}
-                            onChange={(e) => {
-                              const currentResponses = editedResponseOptions.length === 0 ? [{ code: '1', text: '' }] : editedResponseOptions;
-                              const updated = [...currentResponses];
-                              updated[respIndex] = { ...updated[respIndex], code: e.target.value };
-                              setEditedResponseOptions(updated);
-                            }}
-                        className={`w-20 px-2 py-1 text-xs font-mono border rounded focus:outline-none focus:ring-2 focus:ring-[#D14A2D] ${
+                        onChange={(e) => {
+                          const currentResponses = editedResponseOptions.length === 0 ? [{ code: '1', text: '' }] : editedResponseOptions;
+                          const updated = [...currentResponses];
+                          updated[respIndex] = { ...updated[respIndex], code: e.target.value };
+                          setEditedResponseOptions(updated);
+                        }}
+                        className={`w-12 px-2 py-1 text-xs font-mono border rounded focus:outline-none focus:ring-2 focus:ring-[#D14A2D] ${
                           isDuplicate ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-2 focus:ring-[#D14A2D]'
                         }`}
                         placeholder="Code"
@@ -2029,36 +2305,104 @@ function QuestionBox({
                       <input
                         type="text"
                         value={respOpt.text}
-                            onChange={(e) => {
-                              const currentResponses = editedResponseOptions.length === 0 ? [{ code: '1', text: '' }] : editedResponseOptions;
-                              const updated = [...currentResponses];
-                              updated[respIndex] = { ...updated[respIndex], text: e.target.value };
-                              setEditedResponseOptions(updated);
-                            }}
+                        onChange={(e) => {
+                          const currentResponses = editedResponseOptions.length === 0 ? [{ code: '1', text: '' }] : editedResponseOptions;
+                          const updated = [...currentResponses];
+                          updated[respIndex] = { ...updated[respIndex], text: e.target.value };
+                          setEditedResponseOptions(updated);
+                        }}
                         className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[#D14A2D]"
                         placeholder="Text"
                       />
                       <button
-                            onClick={() => {
-                              const currentResponses = editedResponseOptions.length === 0 ? [{ code: '1', text: '' }] : editedResponseOptions;
-                              const updated = [...currentResponses];
-                              updated.splice(respIndex, 1);
-                              // If this was the last response and type requires responses, keep at least one empty
-                              const fields = getFieldsForType(editedType);
-                              if (updated.length === 0 && fields.needsResponseOptions) {
-                                setEditedResponseOptions([{ code: '1', text: '' }]);
-                              } else {
-                                setEditedResponseOptions(updated);
-                              }
-                            }}
-                            className="px-2 py-1 text-red-600 hover:text-red-700"
-                            title="Remove response option"
-                          >
-                            <XMarkIcon className="w-4 h-4" />
-                          </button>
-                        </div>
-                      );
-                    })}
+                        onClick={() => {
+                          const currentResponses = editedResponseOptions.length === 0 ? [{ code: '1', text: '' }] : editedResponseOptions;
+                          const updated = [...currentResponses];
+                          updated[respIndex] = { ...updated[respIndex], text: toggleOptionTag(respOpt.text, 'EXCLUSIVE', !hasExclusive) };
+                          setEditedResponseOptions(updated);
+                        }}
+                        className={`text-xs font-bold rounded inline-flex items-center justify-center w-5 h-5 ${
+                          hasExclusive ? 'bg-blue-100 text-blue-800' : 'bg-gray-200 text-gray-500'
+                        }`}
+                        title="Toggle Exclusive"
+                      >
+                        E
+                      </button>
+                      <button
+                        onClick={() => {
+                          const currentResponses = editedResponseOptions.length === 0 ? [{ code: '1', text: '' }] : editedResponseOptions;
+                          const updated = [...currentResponses];
+                          updated[respIndex] = { ...updated[respIndex], text: toggleOptionTag(respOpt.text, 'ANCHOR', !hasAnchor) };
+                          setEditedResponseOptions(updated);
+                        }}
+                        className={`text-xs font-bold rounded inline-flex items-center justify-center w-5 h-5 ${
+                          hasAnchor ? 'bg-blue-100 text-blue-800' : 'bg-gray-200 text-gray-500'
+                        }`}
+                        title="Toggle Anchor"
+                      >
+                        A
+                      </button>
+                      <button
+                        onClick={() => {
+                          const currentResponses = editedResponseOptions.length === 0 ? [{ code: '1', text: '' }] : editedResponseOptions;
+                          const updated = [...currentResponses];
+                          updated[respIndex] = { ...updated[respIndex], text: toggleOptionTag(respOpt.text, 'SPECIFY', !hasSpecify) };
+                          setEditedResponseOptions(updated);
+                        }}
+                        className={`text-xs font-bold rounded inline-flex items-center justify-center w-5 h-5 ${
+                          hasSpecify ? 'bg-blue-100 text-blue-800' : 'bg-gray-200 text-gray-500'
+                        }`}
+                        title="Toggle Specify"
+                      >
+                        S
+                      </button>
+                      <button
+                        onClick={() => {
+                          // Toggle terminate logic using edited state
+                          let newTerminateCodes = editedTerminateLogic.split(',').map(c => c.trim()).filter(Boolean);
+                          const respCode = `c${respOpt.code}`;
+
+                          if (hasTerminate) {
+                            // Remove this code (both with and without 'c' prefix)
+                            newTerminateCodes = newTerminateCodes.filter(c => c !== respCode && c !== respOpt.code);
+                          } else {
+                            // Add this code
+                            if (!newTerminateCodes.includes(respCode)) {
+                              newTerminateCodes.push(respCode);
+                            }
+                          }
+
+                          // Update terminate logic
+                          setEditedTerminateLogic(newTerminateCodes.length > 0 ? newTerminateCodes.join(', ') : '');
+                        }}
+                        className={`text-xs font-bold rounded inline-flex items-center justify-center w-5 h-5 ${
+                          hasTerminate ? 'bg-red-100 text-red-800' : 'bg-gray-200 text-gray-500'
+                        }`}
+                        title="Toggle Terminate"
+                      >
+                        T
+                      </button>
+                      <button
+                        onClick={() => {
+                          const currentResponses = editedResponseOptions.length === 0 ? [{ code: '1', text: '' }] : editedResponseOptions;
+                          const updated = [...currentResponses];
+                          updated.splice(respIndex, 1);
+                          // If this was the last response and type requires responses, keep at least one empty
+                          const fields = getFieldsForType(editedType);
+                          if (updated.length === 0 && fields.needsResponseOptions) {
+                            setEditedResponseOptions([{ code: '1', text: '' }]);
+                          } else {
+                            setEditedResponseOptions(updated);
+                          }
+                        }}
+                        className="px-2 py-1 text-red-600 hover:text-red-700"
+                        title="Remove response option"
+                      >
+                        <XMarkIcon className="w-4 h-4" />
+                      </button>
+                    </div>
+                  );
+                })}
                   </div>
                 </div>
               );
@@ -2122,9 +2466,34 @@ function QuestionBox({
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-sm font-semibold text-gray-900">{question.number || `Q${index + 1}`}</span>
               {/* Question type pill - blue, right after question number */}
-              <span className="text-xs px-2 py-1 rounded flex-shrink-0 bg-blue-100 text-blue-800" style={{ minWidth: '80px', textAlign: 'center' }}>
-                {question.type || 'other'}
-              </span>
+              <div className="flex items-center gap-1">
+                <span className="text-xs px-2 py-1 rounded flex-shrink-0 bg-blue-100 text-blue-800" style={{ minWidth: '80px', textAlign: 'center' }}>
+                  {question.type || 'other'}
+                </span>
+                {(() => {
+                  const validationError = validateQuestionType(question);
+                  return validationError ? (
+                    <div className="relative group">
+                      <InformationCircleIcon className="w-4 h-4 text-red-600 cursor-help" />
+                      <div className="absolute left-0 top-6 hidden group-hover:block z-50 w-64 p-2 bg-red-600 text-white text-xs rounded shadow-lg">
+                        {validationError}
+                      </div>
+                    </div>
+                  ) : null;
+                })()}
+              </div>
+              {/* Display metadata tags (Scale, %, Number) as pills - grey, right after question type */}
+              {question.tags && question.tags.filter(tag =>
+                (tag === 'Scale' || tag === '%' || tag === 'Number') &&
+                tag.toLowerCase() !== 'terminate' && tag.toLowerCase() !== 'specify'
+              ).map((tag, tagIndex) => (
+                <span
+                  key={tagIndex}
+                  className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded"
+                >
+                  {tag}
+                </span>
+              ))}
               {question.needsReview && (
                 <span className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded">Needs Review</span>
               )}
@@ -2140,27 +2509,15 @@ function QuestionBox({
               </button>
             )}
           </div>
-          <div className="flex items-center gap-2 flex-wrap mb-2">
-            {/* Display metadata tags (Scale, %, Number) as pills - grey */}
-            {question.tags && question.tags.filter(tag => 
-              (tag === 'Scale' || tag === '%' || tag === 'Number') &&
-              tag.toLowerCase() !== 'terminate' && tag.toLowerCase() !== 'specify'
-            ).map((tag, tagIndex) => (
-              <span
-                key={tagIndex}
-                className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded"
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
 
           <div className="mb-3">
             <p className="text-sm text-gray-900">{formatDescriptionWithBrackets(question.text)}</p>
           </div>
 
           {/* Response Options */}
-          {question.options && question.options.length > 0 && (() => {
+          {question.options && question.options.length > 0 &&
+           !(question.type?.toLowerCase() === 'numeric' || (question.type?.toLowerCase().includes('numeric') && !question.type?.toLowerCase().includes('list') && !question.type?.toLowerCase().includes('grid'))) && // Exclude plain Numeric questions
+           (() => {
             const terminateCodes = parseTerminateLogic(question.terminateLogic, question.options, question.type);
             return (
               <div className="mb-3">
@@ -2181,12 +2538,22 @@ function QuestionBox({
                       };
                     }
                     const shouldTerminate = terminateCodes.has(opt.code || String(optIndex + 1));
+                    const { cleanText, hasExclusive, hasAnchor, hasSpecify } = parseOptionTags(opt.text);
                     return (
                       <div key={optIndex} className="flex items-center gap-2 text-sm text-gray-700">
                         <span className="font-mono text-xs text-gray-500 w-8">{opt.code}:</span>
-                        <span>{formatDescriptionWithBrackets(opt.text)}</span>
+                        <span>{formatDescriptionWithBrackets(cleanText)}</span>
+                        {hasExclusive && (
+                          <span className="text-xs font-bold bg-blue-100 text-blue-800 rounded ml-0.5 inline-flex items-center justify-center w-5 h-5">E</span>
+                        )}
+                        {hasAnchor && (
+                          <span className="text-xs font-bold bg-blue-100 text-blue-800 rounded ml-0.5 inline-flex items-center justify-center w-5 h-5">A</span>
+                        )}
+                        {hasSpecify && (
+                          <span className="text-xs font-bold bg-blue-100 text-blue-800 rounded ml-0.5 inline-flex items-center justify-center w-5 h-5">S</span>
+                        )}
                         {shouldTerminate && (
-                          <span className="text-[10px] font-bold text-red-600 ml-1">TERM</span>
+                          <span className="text-xs font-bold bg-red-100 text-red-800 rounded ml-0.5 inline-flex items-center justify-center w-5 h-5">T</span>
                         )}
                         {opt.tags && opt.tags.length > 0 && (
                           <div className="flex gap-1 ml-2">
@@ -2273,12 +2640,14 @@ function QuestionBox({
             const terminateCodes = parseTerminateLogic(question.terminateLogic, question.statementOptions, question.type);
             return (
               <div className="mb-3">
-                <h4 className="text-xs font-medium text-gray-700 mb-2">
-                  Statement Options (Rows):
+                <div className="flex items-end gap-2 mb-2">
+                  <h4 className="text-xs font-medium text-gray-700">
+                    Statement Options (Rows):
+                  </h4>
                   {question.randomize && (
-                    <span className="text-[10px] font-bold text-blue-600 ml-2">RANDOMIZE</span>
+                    <span className="text-[10px] px-1 py-0 rounded bg-blue-100 text-blue-800">RANDOMIZE</span>
                   )}
-                </h4>
+                </div>
                 <div className="space-y-1">
                   {question.statementOptions.map((stmt, stmtIndex) => {
                     const isNumericGrid = question.type?.toLowerCase().includes('numeric grid');
@@ -2307,26 +2676,39 @@ function QuestionBox({
           })()}
 
           {/* Response Options (for grid questions - column headers/scale) - only show if not already shown in grid table */}
-          {question.responseOptions && question.responseOptions.length > 0 && 
-           !(question.type?.toLowerCase().includes('numeric grid') && question.statementOptions && question.statementOptions.length > 0) && (() => {
+          {question.responseOptions && question.responseOptions.length > 0 &&
+           !(question.type?.toLowerCase().includes('numeric grid') && question.statementOptions && question.statementOptions.length > 0) &&
+           !(question.type?.toLowerCase() === 'numeric') && // Exclude plain Numeric questions (single response box - no responseOptions)
+           (() => {
             const terminateCodes = parseTerminateLogic(question.terminateLogic, question.responseOptions, question.type);
+            const isOpenEnd = question.type?.toLowerCase().includes('open end') && !question.type?.toLowerCase().includes('list');
             return (
               <div className="mb-3">
                 <h4 className="text-xs font-medium text-gray-700 mb-2">
-                  Response Options (Columns):
+                  {isOpenEnd ? 'Opt-out Options:' : 'Response Options (Columns):'}
                 </h4>
                 <div className="space-y-1">
                   {question.responseOptions.map((resp, respIndex) => {
-                    const respOpt = typeof resp === 'string' 
-                      ? { code: `c${respIndex + 1}`, text: resp } 
+                    const respOpt = typeof resp === 'string'
+                      ? { code: `c${respIndex + 1}`, text: resp }
                       : resp;
                     const shouldTerminate = terminateCodes.has(respOpt.code || `c${respIndex + 1}`);
+                    const { cleanText, hasExclusive, hasAnchor, hasSpecify } = parseOptionTags(respOpt.text);
                     return (
                       <div key={respIndex} className="flex items-center gap-2 text-sm text-gray-700">
                         <span className="font-mono text-xs text-gray-500 w-8">{respOpt.code}:</span>
-                        <span>{formatDescriptionWithBrackets(respOpt.text)}</span>
+                        <span>{formatDescriptionWithBrackets(cleanText)}</span>
+                        {hasExclusive && (
+                          <span className="text-xs font-bold bg-blue-100 text-blue-800 rounded ml-0.5 inline-flex items-center justify-center w-5 h-5">E</span>
+                        )}
+                        {hasAnchor && (
+                          <span className="text-xs font-bold bg-blue-100 text-blue-800 rounded ml-0.5 inline-flex items-center justify-center w-5 h-5">A</span>
+                        )}
+                        {hasSpecify && (
+                          <span className="text-xs font-bold bg-blue-100 text-blue-800 rounded ml-0.5 inline-flex items-center justify-center w-5 h-5">S</span>
+                        )}
                         {shouldTerminate && (
-                          <span className="text-[10px] font-bold text-red-600 ml-1">TERM</span>
+                          <span className="text-xs font-bold bg-red-100 text-red-800 rounded ml-0.5 inline-flex items-center justify-center w-5 h-5">T</span>
                         )}
                       </div>
                     );
@@ -2348,15 +2730,7 @@ function QuestionBox({
         </div>
       )}
 
-      {/* Terminate Logic - Only show if it's complex (string format), not simple structured format */}
-      {question.terminateLogic && typeof question.terminateLogic === 'string' && (
-        <div className="mb-3">
-          <h4 className="text-xs font-medium text-gray-700 mb-1">Terminate Logic:</h4>
-          <p className="text-xs text-gray-600 font-mono bg-gray-50 p-2 rounded">
-            {question.terminateLogic}
-          </p>
-        </div>
-      )}
+      {/* Terminate Logic is now displayed as T badges on individual options, no need for separate section */}
 
       {/* Misc - Raw AI Output */}
       <div className="mb-3">
@@ -2558,36 +2932,84 @@ function SurveyQuestionView({
       {/* Single Select */}
       {isSingleSelect && (
         <div className="space-y-2">
-          {getOptions().map((opt, optIdx) => (
-            <label key={optIdx} className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded cursor-pointer">
-              <input
-                type="radio"
-                name={`question-${question.id || index}`}
-                value={opt.code}
-                className="w-4 h-4 focus:ring-2 focus:ring-[#D14A2D]"
-                style={{ accentColor: BRAND_ORANGE }}
-              />
-              <span className="text-sm text-gray-700">{formatDescriptionWithBrackets(opt.text || opt.code)}</span>
-            </label>
-          ))}
+          {getOptions().map((opt, optIdx) => {
+            const { cleanText, hasExclusive, hasAnchor, hasSpecify } = parseOptionTags(opt.text || opt.code);
+            return (
+              <div key={optIdx}>
+                <label className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded cursor-pointer">
+                  <input
+                    type="radio"
+                    name={`question-${question.id || index}`}
+                    value={opt.code}
+                    className="w-4 h-4 focus:ring-2 focus:ring-[#D14A2D]"
+                    style={{ accentColor: BRAND_ORANGE }}
+                  />
+                  <span className="text-sm text-gray-700">{formatDescriptionWithBrackets(cleanText)}</span>
+                  {hasExclusive && (
+                    <span className="text-xs font-bold bg-blue-100 text-blue-800 rounded ml-0.5 inline-flex items-center justify-center w-5 h-5">E</span>
+                  )}
+                  {hasAnchor && (
+                    <span className="text-xs font-bold bg-blue-100 text-blue-800 rounded ml-0.5 inline-flex items-center justify-center w-5 h-5">A</span>
+                  )}
+                  {hasSpecify && (
+                    <span className="text-xs font-bold bg-blue-100 text-blue-800 rounded ml-0.5 inline-flex items-center justify-center w-5 h-5">S</span>
+                  )}
+                </label>
+                {hasSpecify && (
+                  <div className="ml-10 mt-1">
+                    <input
+                      type="text"
+                      placeholder="Please specify..."
+                      className="w-full max-w-md px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#D14A2D]"
+                    />
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
       {/* Multi-Select */}
       {isMultiSelect && (
         <div className="space-y-2">
-          {getOptions().map((opt, optIdx) => (
-            <label key={optIdx} className="flex items-start gap-3 p-2 hover:bg-gray-50 rounded cursor-pointer">
-              <input
-                type="checkbox"
-                name={`question-${question.id || index}`}
-                value={opt.code}
-                className="w-4 h-4 mt-0.5 rounded focus:ring-2 focus:ring-[#D14A2D] flex-shrink-0"
-                style={{ accentColor: BRAND_ORANGE }}
-              />
-              <span className="text-sm text-gray-700">{formatDescriptionWithBrackets(opt.text || opt.code)}</span>
-            </label>
-          ))}
+          {getOptions().map((opt, optIdx) => {
+            const { cleanText, hasExclusive, hasAnchor, hasSpecify } = parseOptionTags(opt.text || opt.code);
+            return (
+              <div key={optIdx}>
+                <label className="flex items-start gap-3 p-2 hover:bg-gray-50 rounded cursor-pointer">
+                  <input
+                    type="checkbox"
+                    name={`question-${question.id || index}`}
+                    value={opt.code}
+                    className="w-4 h-4 mt-0.5 rounded focus:ring-2 focus:ring-[#D14A2D] flex-shrink-0"
+                    style={{ accentColor: BRAND_ORANGE }}
+                  />
+                  <div className="flex items-center gap-1 flex-1">
+                    <span className="text-sm text-gray-700">{formatDescriptionWithBrackets(cleanText)}</span>
+                    {hasExclusive && (
+                      <span className="text-xs font-bold bg-blue-100 text-blue-800 rounded ml-0.5 inline-flex items-center justify-center w-5 h-5">E</span>
+                    )}
+                    {hasAnchor && (
+                      <span className="text-xs font-bold bg-blue-100 text-blue-800 rounded ml-0.5 inline-flex items-center justify-center w-5 h-5">A</span>
+                    )}
+                    {hasSpecify && (
+                      <span className="text-xs font-bold bg-blue-100 text-blue-800 rounded ml-0.5 inline-flex items-center justify-center w-5 h-5">S</span>
+                    )}
+                  </div>
+                </label>
+                {hasSpecify && (
+                  <div className="ml-10 mt-1">
+                    <input
+                      type="text"
+                      placeholder="Please specify..."
+                      className="w-full max-w-md px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#D14A2D]"
+                    />
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -2608,12 +3030,67 @@ function SurveyQuestionView({
 
       {/* Open End */}
       {isOpenEnd && (
-        <textarea
-          name={`question-${question.id || index}`}
-          rows={3}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#D14A2D] resize-none"
-          placeholder="Enter your response"
-        />
+        <div className="space-y-3">
+          <textarea
+            name={`question-${question.id || index}`}
+            rows={3}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#D14A2D] resize-none"
+            placeholder="Enter your response"
+          />
+
+          {/* Opt-out options (e.g., "Don't know", "Prefer not to answer") */}
+          {(() => {
+            // Check for opt-out options in responseOptions or options
+            const optOutOptions = question.responseOptions || question.options || [];
+            if (optOutOptions.length === 0) return null;
+
+            return (
+              <div className="border-t pt-3">
+                <div className="text-xs font-medium text-gray-600 mb-2">Or select:</div>
+                <div className="space-y-1">
+                  {optOutOptions.map((opt, optIdx) => {
+                    const optObj = typeof opt === 'string'
+                      ? { code: String(optIdx + 1), text: opt }
+                      : opt;
+                    const { cleanText, hasExclusive, hasAnchor, hasSpecify } = parseOptionTags(optObj.text || optObj.code);
+                    return (
+                      <div key={optIdx}>
+                        <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                          <input
+                            type="radio"
+                            name={`question-${question.id || index}`}
+                            value={optObj.code}
+                            className="w-4 h-4 focus:ring-2 focus:ring-[#D14A2D]"
+                            style={{ accentColor: BRAND_ORANGE }}
+                          />
+                          <span>{formatDescriptionWithBrackets(cleanText)}</span>
+                          {hasExclusive && (
+                            <span className="text-xs font-bold bg-blue-100 text-blue-800 rounded ml-0.5 inline-flex items-center justify-center w-5 h-5">E</span>
+                          )}
+                          {hasAnchor && (
+                            <span className="text-xs font-bold bg-blue-100 text-blue-800 rounded ml-0.5 inline-flex items-center justify-center w-5 h-5">A</span>
+                          )}
+                          {hasSpecify && (
+                            <span className="text-xs font-bold bg-blue-100 text-blue-800 rounded ml-0.5 inline-flex items-center justify-center w-5 h-5">S</span>
+                          )}
+                        </label>
+                        {hasSpecify && (
+                          <div className="ml-6 mt-1">
+                            <input
+                              type="text"
+                              placeholder="Please specify..."
+                              className="w-full max-w-md px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#D14A2D]"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+        </div>
       )}
 
       {/* Single Select Grid */}
@@ -2796,8 +3273,8 @@ function SurveyQuestionView({
 
       {/* Numeric List */}
       {isNumericList && (() => {
-        // For numeric lists, response options are stored in question.options, not question.responseOptions
-        const responseOptions = question.options || [];
+        // For numeric lists, response options should be in question.responseOptions
+        const responseOptions = question.responseOptions || [];
         const hasResponseOptions = responseOptions.length > 0;
         
         if (!hasResponseOptions) {
