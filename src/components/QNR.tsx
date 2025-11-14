@@ -12,7 +12,9 @@ import {
   ArrowPathIcon,
   PencilIcon,
   CheckIcon,
-  InformationCircleIcon
+  InformationCircleIcon,
+  ChevronDownIcon,
+  ChevronUpIcon
 } from '@heroicons/react/24/outline';
 import { IconCheckbox } from '@tabler/icons-react';
 import { API_BASE_URL } from '../config';
@@ -34,8 +36,10 @@ interface Question {
   showLogic?: string;
   statementOptions?: Array<{ code: string; text: string }>;
   responseOptions?: Array<{ code: string; text: string }>;
-  terminateLogic?: string | object;
+  terminateLogic?: string | { optionCodes: string[] };
   validation?: object;
+  randomize?: boolean;
+  rawAiOutput?: string; // Raw AI response for this question
 }
 
 interface Questionnaire {
@@ -50,6 +54,49 @@ interface QNRProps {
   projects?: any[];
   onNavigateToProject?: (project: any) => void;
 }
+
+// Helper function to format text with brackets styled in blue italic
+const formatDescriptionWithBrackets = (text: string) => {
+  if (!text) return null;
+  
+  // Split text by brackets, keeping the brackets in the result
+  const parts: (string | JSX.Element)[] = [];
+  const regex = /(\[[^\]]+\])/g;
+  let lastIndex = 0;
+  let match;
+  let key = 0;
+  let foundBrackets = false;
+  
+  while ((match = regex.exec(text)) !== null) {
+    foundBrackets = true;
+    // Add text before the bracket
+    if (match.index > lastIndex) {
+      parts.push(text.substring(lastIndex, match.index));
+    }
+    
+    // Add the bracketed text with styling (including the brackets)
+    const bracketContent = match[1].slice(1, -1); // Remove [ and ]
+    parts.push(
+      <span key={key++} className="text-blue-600 italic">
+        [{bracketContent}]
+      </span>
+    );
+    
+    lastIndex = regex.lastIndex;
+  }
+  
+  // Add remaining text after last bracket
+  if (lastIndex < text.length) {
+    parts.push(text.substring(lastIndex));
+  }
+  
+  // If no brackets found, return original text as-is
+  if (!foundBrackets) {
+    return text;
+  }
+  
+  return <>{parts}</>;
+};
 
 export default function QNR({ projects = [], onNavigateToProject }: QNRProps) {
   const { user } = useAuth();
@@ -69,8 +116,22 @@ export default function QNR({ projects = [], onNavigateToProject }: QNRProps) {
   const [allQuestionnaires, setAllQuestionnaires] = useState<Questionnaire[]>([]);
   const [selectedQuestionTypes, setSelectedQuestionTypes] = useState<Set<string>>(new Set());
   const [variableData, setVariableData] = useState<Record<string, any>>({});
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+  const [selectedSection, setSelectedSection] = useState<string | null>(null);
+  const [surveyView, setSurveyView] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const pendingSyncRef = React.useRef<{ qnrId: string; projectId: string } | null>(null);
+  const [fileValidation, setFileValidation] = useState<{
+    isValid: boolean;
+    fileSize?: number;
+    textLength?: number;
+    estimatedInputTokens?: number;
+    estimatedOutputTokens?: number;
+    maxOutputTokens?: number;
+    maxTextLength?: number;
+    message?: string;
+  } | null>(null);
+  const [validatingFile, setValidatingFile] = useState(false);
 
   // Load questionnaires for a project
   const loadQuestionnaires = useCallback(async (projectId: string) => {
@@ -293,6 +354,67 @@ export default function QNR({ projects = [], onNavigateToProject }: QNRProps) {
     );
   }, [selectedQuestionnaire?.questions, selectedQuestionTypes]);
 
+  // Group questions by first letter of question number, preserving QNR order
+  const questionsBySection = useMemo(() => {
+    const grouped: Record<string, Question[]> = {};
+    const sectionOrder: string[] = [];
+    
+    filteredQuestions.forEach((question) => {
+      const qNum = question.number || '';
+      const firstLetter = qNum.toString().charAt(0).toUpperCase();
+      const sectionKey = firstLetter || 'OTHER';
+      if (!grouped[sectionKey]) {
+        grouped[sectionKey] = [];
+        sectionOrder.push(sectionKey);
+      }
+      grouped[sectionKey].push(question);
+    });
+    
+    // Return sections in the order they first appeared in the QNR
+    return sectionOrder.reduce((acc, key) => {
+      acc[key] = grouped[key];
+      return acc;
+    }, {} as Record<string, Question[]>);
+  }, [filteredQuestions]);
+
+  // Get section keys in order
+  const sectionKeys = useMemo(() => {
+    return Object.keys(questionsBySection);
+  }, [questionsBySection]);
+
+  // Set first section as selected by default when sections change
+  useEffect(() => {
+    if (sectionKeys.length > 0) {
+      if (!selectedSection || !sectionKeys.includes(selectedSection)) {
+        // If no section selected or selected section no longer exists, select first section
+        setSelectedSection(sectionKeys[0]);
+      }
+    } else {
+      setSelectedSection(null);
+    }
+  }, [sectionKeys]);
+
+  // Get questions for the selected section
+  const selectedSectionQuestions = useMemo(() => {
+    if (!selectedSection || !questionsBySection[selectedSection]) {
+      return [];
+    }
+    return questionsBySection[selectedSection];
+  }, [selectedSection, questionsBySection]);
+
+  // Toggle section expansion
+  const toggleSection = useCallback((sectionKey: string) => {
+    setExpandedSections((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(sectionKey)) {
+        newSet.delete(sectionKey);
+      } else {
+        newSet.add(sectionKey);
+      }
+      return newSet;
+    });
+  }, []);
+
   // Toggle question type filter
   const toggleQuestionType = useCallback((type: string) => {
     setSelectedQuestionTypes((prev) => {
@@ -314,10 +436,56 @@ export default function QNR({ projects = [], onNavigateToProject }: QNRProps) {
   };
 
   // Handle QNR upload
+  // Handle file selection and validation
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) {
+      setFileValidation(null);
+      return;
+    }
+
+    setValidatingFile(true);
+    setFileValidation(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch(`${API_BASE_URL}/api/questionnaire/validate-file`, {
+        method: 'POST',
+        body: formData,
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
+      });
+
+      if (response.ok) {
+        const validation = await response.json();
+        setFileValidation(validation);
+      } else {
+        const error = await response.json();
+        setFileValidation({
+          isValid: false,
+          message: error.error || 'Failed to validate file'
+        });
+      }
+    } catch (error) {
+      console.error('Validation error:', error);
+      setFileValidation({
+        isValid: false,
+        message: 'Failed to validate file - please try again'
+      });
+    } finally {
+      setValidatingFile(false);
+    }
+  };
+
   const handleUpload = async () => {
     const file = fileInputRef.current?.files?.[0];
     if (!file) {
       alert('Please select a file first');
+      return;
+    }
+    if (!fileValidation?.isValid) {
+      alert('File validation failed. Please select a valid file.');
       return;
     }
     if (!questionnaireName.trim()) {
@@ -613,70 +781,199 @@ export default function QNR({ projects = [], onNavigateToProject }: QNRProps) {
       )}
 
       {viewMode === 'qnr' && selectedQuestionnaire && (
-        <>
-          <div className="bg-white shadow-sm border border-gray-200 rounded-lg overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-              <div className="flex items-center justify-between">
+        <div className="flex h-[calc(100vh-8rem)]">
+          {/* Left Sidebar - reduced width */}
+          <div className="w-[16.67%] bg-gray-50 border-r border-gray-200 flex flex-col overflow-hidden">
+            {/* Back Button and QNR Name */}
+            <div className="pr-4 pt-4 pb-4 flex-shrink-0">
+              <div className="flex items-center gap-3">
                 <button
                   onClick={() => {
                     setViewMode('project');
                     setSelectedQuestionnaire(null);
                     setSelectedQuestionTypes(new Set());
                   }}
-                  className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 px-3 py-1 rounded-lg transition-colors"
+                  className="flex items-center justify-center text-gray-600 hover:text-gray-800 hover:bg-gray-100 p-2 rounded-lg transition-colors"
+                  title="Back to QNRs"
                 >
-                  <ArrowLeftIcon className="h-4 w-4" />
-                  Back to QNRs
+                  <ArrowLeftIcon className="h-5 w-5" />
                 </button>
-                <h2 className="text-xl font-semibold text-gray-900">{selectedQuestionnaire.name}</h2>
-                <div className="text-sm text-gray-500">
-                  {filteredQuestions.length} of {selectedQuestionnaire.questions?.length || 0} questions
+                <div className="flex-1">
+                  <h2 className="text-lg font-semibold text-gray-900">{selectedQuestionnaire.name}</h2>
+                  <div className="text-sm text-gray-500">
+                    {selectedQuestionnaire.questions?.length || 0} questions
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Question Type Filters */}
-            {allQuestionTypes.length > 0 && (
-              <div className="px-6 py-4 border-b border-gray-200 bg-white">
-                <div className="flex flex-wrap gap-2">
-                  {allQuestionTypes.map((type) => {
-                    const isSelected = selectedQuestionTypes.has(type);
-                    const count = questionTypeCounts[type] || 0;
-                    return (
-                      <button
-                        key={type}
-                        onClick={() => toggleQuestionType(type)}
-                        className={`px-4 py-2 rounded-lg border-2 transition-all ${
-                          isSelected
-                            ? 'border-orange-500 text-white shadow-sm'
-                            : 'border-gray-300 text-gray-700 hover:border-gray-400 hover:bg-gray-50'
-                        }`}
-                        style={isSelected ? { backgroundColor: BRAND_ORANGE } : {}}
-                      >
-                        <span className="text-sm font-medium">{type}</span>
-                        <span className={`ml-2 text-xs ${isSelected ? 'text-white' : 'text-gray-500'}`}>
-                          ({count})
-                        </span>
-                      </button>
-                    );
-                  })}
+            {/* Filter Boxes Container - Evenly Distributed */}
+            <div className="flex-1 flex flex-col gap-4 pr-4 overflow-hidden">
+              {/* Sections */}
+              {sectionKeys.length > 0 && (
+                <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-2 flex flex-col flex-1 min-h-0">
+                  <div className="text-xs font-medium text-gray-700 uppercase tracking-wider flex-shrink-0">Sections</div>
+                  <div className="flex flex-col gap-2 overflow-y-auto flex-1">
+                    {sectionKeys.map((sectionKey) => {
+                      const isSelected = selectedSection === sectionKey;
+                      const count = questionsBySection[sectionKey]?.length || 0;
+                      return (
+                        <button
+                          key={sectionKey}
+                          onClick={() => setSelectedSection(sectionKey)}
+                          className={`w-full text-left px-2 py-1 rounded border-2 transition-all flex-shrink-0 ${
+                            isSelected
+                              ? 'text-white shadow-sm'
+                              : 'border-gray-300 text-gray-700 hover:border-gray-400 hover:bg-gray-50'
+                          }`}
+                          style={isSelected ? { backgroundColor: BRAND_ORANGE, borderColor: BRAND_ORANGE } : {}}
+                        >
+                          <span className="text-xs font-medium">SECTION {sectionKey}</span>
+                          <span className={`ml-1.5 text-xs ${isSelected ? 'text-white' : 'text-gray-500'}`}>
+                            ({count})
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            <div className="px-6 py-6 space-y-4">
-              {filteredQuestions.length === 0 ? (
-                <div className="text-center py-12">
-                  <p className="text-gray-500">No questions match the selected filters.</p>
-                  <button
-                    onClick={() => setSelectedQuestionTypes(new Set())}
-                    className="mt-4 text-sm text-orange-600 hover:text-orange-700 underline"
-                  >
-                    Clear filters
-                  </button>
+              {/* Question Type Filters */}
+              {allQuestionTypes.length > 0 && (
+                <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-2 flex flex-col flex-1 min-h-0">
+                  <div className="text-xs font-medium text-gray-700 uppercase tracking-wider flex-shrink-0">Question Types</div>
+                  <div className="flex flex-col gap-2 overflow-y-auto flex-1">
+                    {allQuestionTypes.map((type) => {
+                      const isSelected = selectedQuestionTypes.has(type);
+                      const count = questionTypeCounts[type] || 0;
+                      return (
+                        <button
+                          key={type}
+                          onClick={() => toggleQuestionType(type)}
+                          className={`w-full text-left px-2 py-1 rounded border-2 transition-all flex-shrink-0 ${
+                            isSelected
+                              ? 'text-white shadow-sm'
+                              : 'border-gray-300 text-gray-700 hover:border-gray-400 hover:bg-gray-50'
+                          }`}
+                          style={isSelected ? { backgroundColor: BRAND_ORANGE, borderColor: BRAND_ORANGE } : {}}
+                        >
+                          <span className="text-xs font-medium">{type}</span>
+                          <span className={`ml-1.5 text-xs ${isSelected ? 'text-white' : 'text-gray-500'}`}>
+                            ({count})
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right Content Area - 3/4 width */}
+          <div className="flex-1 overflow-y-auto p-6">
+            {surveyView ? (
+              /* Survey View */
+              <div className="space-y-6">
+                {selectedSectionQuestions.length === 0 ? (
+                  <div className="text-center py-12 bg-white border border-gray-200 rounded-lg">
+                    <p className="text-gray-500">No questions in the selected section.</p>
+                  </div>
+                ) : (
+                  <>
+                    {selectedSection && (
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="text-lg font-semibold text-gray-900">
+                          SECTION {selectedSection}
+                        </div>
+                        <button
+                          onClick={() => setSurveyView(!surveyView)}
+                          className={`flex items-center justify-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded transition-colors w-28 ${
+                            surveyView
+                              ? 'text-white'
+                              : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                          }`}
+                          style={surveyView ? { backgroundColor: BRAND_ORANGE } : {}}
+                          onMouseEnter={(e) => {
+                            if (surveyView) {
+                              e.currentTarget.style.backgroundColor = '#B83D25';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (surveyView) {
+                              e.currentTarget.style.backgroundColor = BRAND_ORANGE;
+                            }
+                          }}
+                          title={surveyView ? 'Switch to QNR view' : 'Switch to Survey view'}
+                        >
+                          <DocumentTextIcon className="w-3.5 h-3.5" />
+                          {surveyView ? 'QNR View' : 'Survey View'}
+                        </button>
+                      </div>
+                    )}
+                    {selectedSectionQuestions.map((question, index) => (
+                    <SurveyQuestionView 
+                      key={question.number || question.id || index} 
+                      question={question} 
+                      index={index}
+                      onUpdateQuestion={(updatedQuestion) => {
+                        // Update the question in the selected questionnaire
+                        const updatedQuestions = selectedQuestionnaire.questions.map(q => 
+                          (q.number || q.id) === (updatedQuestion.number || updatedQuestion.id) ? updatedQuestion : q
+                        );
+                        setSelectedQuestionnaire({
+                          ...selectedQuestionnaire,
+                          questions: updatedQuestions
+                        });
+                        return updatedQuestions;
+                      }}
+                      questionnaireId={selectedQuestionnaire.id}
+                    />
+                    ))}
+                  </>
+                )}
+              </div>
+            ) : (
+              /* Default QNR View - Floating Question Boxes */
+              <div className="space-y-4">
+              {selectedSectionQuestions.length === 0 ? (
+                <div className="text-center py-12 bg-white border border-gray-200 rounded-lg">
+                  <p className="text-gray-500">No questions in the selected section.</p>
                 </div>
               ) : (
-                filteredQuestions.map((question, index) => (
+                <>
+                  {selectedSection && (
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-lg font-semibold text-gray-900">
+                        SECTION {selectedSection}
+                      </div>
+                      <button
+                        onClick={() => setSurveyView(!surveyView)}
+                        className={`flex items-center justify-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded transition-colors ${
+                          surveyView
+                            ? 'text-white'
+                            : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                        }`}
+                        style={surveyView ? { backgroundColor: BRAND_ORANGE } : {}}
+                        onMouseEnter={(e) => {
+                          if (surveyView) {
+                            e.currentTarget.style.backgroundColor = '#B83D25';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (surveyView) {
+                            e.currentTarget.style.backgroundColor = BRAND_ORANGE;
+                          }
+                        }}
+                        title={surveyView ? 'Switch to QNR view' : 'Switch to Survey view'}
+                      >
+                        <DocumentTextIcon className="w-3.5 h-3.5" />
+                        {surveyView ? 'QNR View' : 'Survey View'}
+                      </button>
+                    </div>
+                  )}
+                  {selectedSectionQuestions.map((question, index) => (
                   <QuestionBox 
                     key={question.id || index} 
                     question={question} 
@@ -695,11 +992,13 @@ export default function QNR({ projects = [], onNavigateToProject }: QNRProps) {
                     }}
                     questionnaireId={selectedQuestionnaire.id}
                   />
-                ))
+                  ))}
+                </>
               )}
-            </div>
+              </div>
+            )}
           </div>
-        </>
+        </div>
       )}
 
       {/* Upload Modal */}
@@ -757,6 +1056,7 @@ export default function QNR({ projects = [], onNavigateToProject }: QNRProps) {
                       setUploadSuccess(false);
                       setUploading(false);
                       setQuestionnaireName('');
+                      setFileValidation(null);
                       if (fileInputRef.current) {
                         fileInputRef.current.value = '';
                       }
@@ -775,7 +1075,7 @@ export default function QNR({ projects = [], onNavigateToProject }: QNRProps) {
                       type="text"
                       value={questionnaireName}
                       onChange={(e) => setQuestionnaireName(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#D14A2D]"
                       placeholder="e.g., US ATU W3 QNR"
                     />
                   </div>
@@ -787,36 +1087,83 @@ export default function QNR({ projects = [], onNavigateToProject }: QNRProps) {
                       ref={fileInputRef}
                       type="file"
                       accept=".docx"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
-                      disabled={uploading}
+                      onChange={handleFileChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#D14A2D]"
+                      disabled={uploading || validatingFile}
                     />
+                    {validatingFile && (
+                      <p className="mt-2 text-sm text-gray-500">Validating file...</p>
+                    )}
+                    {fileValidation && (
+                      <div className={`mt-3 p-3 rounded-md ${fileValidation.isValid ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+                        <div className="text-sm">
+                          <div className="font-medium mb-2" style={{ color: fileValidation.isValid ? '#16a34a' : '#dc2626' }}>
+                            {fileValidation.isValid ? '✓ File is valid' : '✗ File is too large'}
+                          </div>
+                          {fileValidation.fileSize && (
+                            <div className="text-gray-700 mb-1">
+                              File size: {(fileValidation.fileSize / 1024).toFixed(2)} KB
+                            </div>
+                          )}
+                          {fileValidation.textLength && (
+                            <div className="text-gray-700 mb-1">
+                              Text length: {fileValidation.textLength.toLocaleString()} characters
+                              {fileValidation.maxTextLength && (
+                                <span className="text-gray-500"> / {fileValidation.maxTextLength.toLocaleString()} max</span>
+                              )}
+                            </div>
+                          )}
+                          {fileValidation.estimatedInputTokens && (
+                            <div className="text-gray-700 mb-1">
+                              Estimated input tokens: {fileValidation.estimatedInputTokens.toLocaleString()}
+                            </div>
+                          )}
+                          {fileValidation.estimatedOutputTokens && (
+                            <div className="text-gray-700 mb-1">
+                              Estimated output tokens: {fileValidation.estimatedOutputTokens.toLocaleString()}
+                              {fileValidation.maxOutputTokens && (
+                                <span className="text-gray-500"> / {fileValidation.maxOutputTokens.toLocaleString()} max</span>
+                              )}
+                            </div>
+                          )}
+                          {fileValidation.message && (
+                            <div className="mt-2 text-xs" style={{ color: fileValidation.isValid ? '#16a34a' : '#dc2626' }}>
+                              {fileValidation.message}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
-                <div className="flex justify-end gap-3 mt-6">
-                  <button
-                    onClick={() => {
-                      setShowUploadModal(false);
-                      setUploadSuccess(false);
-                      setUploading(false);
-                      setQuestionnaireName('');
-                      if (fileInputRef.current) {
-                        fileInputRef.current.value = '';
-                      }
-                    }}
-                    className="px-4 py-2 text-gray-600 hover:text-gray-800"
-                    disabled={uploading}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleUpload}
-                    className="px-4 py-2 text-white rounded-md hover:opacity-90"
-                    style={{ backgroundColor: BRAND_ORANGE }}
-                    disabled={uploading}
-                  >
-                    Upload
-                  </button>
-                </div>
+                {fileValidation && (
+                  <div className="flex justify-end gap-3 mt-6">
+                    <button
+                      onClick={() => {
+                        setShowUploadModal(false);
+                        setUploadSuccess(false);
+                        setUploading(false);
+                        setQuestionnaireName('');
+                        setFileValidation(null);
+                        if (fileInputRef.current) {
+                          fileInputRef.current.value = '';
+                        }
+                      }}
+                      className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                      disabled={uploading}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleUpload}
+                      className="px-4 py-2 text-white rounded-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                      style={{ backgroundColor: BRAND_ORANGE }}
+                      disabled={uploading || !fileValidation.isValid}
+                    >
+                      Upload
+                    </button>
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -824,6 +1171,90 @@ export default function QNR({ projects = [], onNavigateToProject }: QNRProps) {
       )}
     </div>
   );
+}
+
+// Helper function to parse terminate logic and extract option codes that trigger termination
+// Only works for single-select and multi-select questions
+function parseTerminateLogic(terminateLogic: string | { optionCodes: string[] } | undefined, options: Array<string | { code: string; text: string }>, questionType?: string): Set<string> {
+  const terminateCodes = new Set<string>();
+  
+  if (!terminateLogic || !options || options.length === 0) {
+    return terminateCodes;
+  }
+
+  // Only parse structured terminate logic for single-select and multi-select questions
+  const typeLower = questionType?.toLowerCase() || '';
+  const isSingleOrMultiSelect = typeLower.includes('single select') || 
+                                 typeLower.includes('multi-select') || 
+                                 typeLower.includes('multi select') ||
+                                 (!typeLower.includes('grid') && !typeLower.includes('numeric') && !typeLower.includes('open end'));
+
+  // If terminateLogic is a structured object with optionCodes, use it directly (only for single/multi-select)
+  if (isSingleOrMultiSelect && typeof terminateLogic === 'object' && terminateLogic !== null && 'optionCodes' in terminateLogic) {
+    terminateLogic.optionCodes.forEach(code => {
+      terminateCodes.add(String(code));
+    });
+    return terminateCodes;
+  }
+
+  // Otherwise, parse from string (fallback for complex logic or legacy format)
+  const logicString = typeof terminateLogic === 'string' ? terminateLogic : JSON.stringify(terminateLogic);
+  
+  // Extract option codes from options array
+  const optionCodes = options.map((opt, idx) => {
+    if (typeof opt === 'string') {
+      return String(idx + 1);
+    }
+    return opt.code || String(idx + 1);
+  });
+
+  // Pattern 1: "option 1, 2, 3, or 4" or "options 1, 2, 3, or 4"
+  const listPattern = /option[s]?\s+(\d+(?:\s*,\s*\d+)*(?:\s+or\s+\d+)?)/gi;
+  let match;
+  while ((match = listPattern.exec(logicString)) !== null) {
+    const numbers = match[1].split(/[,]|\s+or\s+/i).map(n => n.trim()).filter(n => n);
+    numbers.forEach(num => {
+      const code = String(parseInt(num));
+      if (optionCodes.includes(code)) {
+        terminateCodes.add(code);
+      }
+    });
+  }
+
+  // Pattern 2: "option 1-4" or "options 1-4"
+  const rangePattern = /option[s]?\s+(\d+)\s*-\s*(\d+)/gi;
+  while ((match = rangePattern.exec(logicString)) !== null) {
+    const start = parseInt(match[1]);
+    const end = parseInt(match[2]);
+    for (let i = start; i <= end; i++) {
+      const code = String(i);
+      if (optionCodes.includes(code)) {
+        terminateCodes.add(code);
+      }
+    }
+  }
+
+  // Pattern 3: "if option 1, 2, 3, or 4 is selected"
+  const ifPattern = /if\s+option[s]?\s+(\d+(?:\s*,\s*\d+)*(?:\s+or\s+\d+)?)/gi;
+  while ((match = ifPattern.exec(logicString)) !== null) {
+    const numbers = match[1].split(/[,]|\s+or\s+/i).map(n => n.trim()).filter(n => n);
+    numbers.forEach(num => {
+      const code = String(parseInt(num));
+      if (optionCodes.includes(code)) {
+        terminateCodes.add(code);
+      }
+    });
+  }
+
+  // Pattern 4: Direct code mentions like "option 1" or "option 2"
+  optionCodes.forEach(code => {
+    const codeRegex = new RegExp(`\\boption[s]?\\s+${code}\\b`, 'i');
+    if (codeRegex.test(logicString)) {
+      terminateCodes.add(code);
+    }
+  });
+
+  return terminateCodes;
 }
 
 // Question Box Component
@@ -840,15 +1271,16 @@ function QuestionBox({
   onUpdateQuestion?: (question: Question) => Question[];
   questionnaireId?: string;
 }) {
+  const [isEditing, setIsEditing] = useState(false);
   const [isFlipping, setIsFlipping] = useState(false);
-  const [isEditingOptions, setIsEditingOptions] = useState(false);
+  const [editedQuestionNumber, setEditedQuestionNumber] = useState<string>('');
+  const [editedQuestionText, setEditedQuestionText] = useState<string>('');
+  const [editedType, setEditedType] = useState<string>('');
   const [editedOptions, setEditedOptions] = useState<Array<{ code: string; text: string }>>([]);
-  const [isEditingResponseOptions, setIsEditingResponseOptions] = useState(false);
   const [editedResponseOptions, setEditedResponseOptions] = useState<Array<{ code: string; text: string }>>([]);
   const [editedStatementOptions, setEditedStatementOptions] = useState<Array<{ code: string; text: string }>>([]);
-  const [isEditingStatementOptions, setIsEditingStatementOptions] = useState(false);
-  const [isEditingType, setIsEditingType] = useState(false);
-  const [editedType, setEditedType] = useState<string>('');
+  const [editedRandomize, setEditedRandomize] = useState<boolean>(false);
+  const [isRawAiOutputCollapsed, setIsRawAiOutputCollapsed] = useState<boolean>(true);
   
   // Check if question has both statementOptions and responseOptions (can be flipped)
   const canFlip = question.statementOptions && question.statementOptions.length > 0 && 
@@ -911,33 +1343,206 @@ function QuestionBox({
     }
   };
 
-  const handleStartEditOptions = () => {
+  // Helper function to determine what fields are needed for a question type
+  const getFieldsForType = (type: string) => {
+    const typeLower = type?.toLowerCase() || '';
+    return {
+      needsOptions: typeLower.includes('single select') && !typeLower.includes('grid') || 
+                    typeLower.includes('multi-select') && !typeLower.includes('grid'),
+      needsStatementOptions: typeLower.includes('grid'),
+      needsResponseOptions: typeLower.includes('grid') || 
+                            typeLower.includes('open end list') || 
+                            typeLower.includes('numeric list')
+    };
+  };
+
+  // Initialize edit mode with current question data
+  const handleStartEdit = () => {
+    setEditedQuestionNumber(question.number || `Q${index + 1}`);
+    setEditedQuestionText(question.text || '');
+    setEditedType(question.type || '');
+    
+    // Initialize options
     const options = question.options?.map((opt, idx) => 
       typeof opt === 'string' ? { code: String(idx + 1), text: opt } : { code: opt.code || String(idx + 1), text: opt.text || '' }
     ) || [];
     setEditedOptions(options);
-    setIsEditingOptions(true);
+    
+    // Initialize response options
+    const isNumericGrid = question.type?.toLowerCase().includes('numeric grid');
+    if (isNumericGrid && question.statementOptions && question.statementOptions.length > 0) {
+      const statementOptions = question.statementOptions.map((opt, idx) => {
+        const stmtOpt = typeof opt === 'string' ? { code: `r${idx + 1}`, text: opt } : { code: opt.code || `r${idx + 1}`, text: opt.text || '' };
+        let numericCode = stmtOpt.code.replace(/^[rc]/i, '');
+        if (!numericCode || numericCode.trim() === '') {
+          numericCode = String(idx + 1);
+        }
+        return { code: numericCode, text: stmtOpt.text || '' };
+      });
+      setEditedStatementOptions(statementOptions);
+    } else if (question.statementOptions && question.statementOptions.length > 0) {
+      const statementOptions = question.statementOptions.map((opt, idx) => {
+        const stmtOpt = typeof opt === 'string' ? { code: `r${idx + 1}`, text: opt } : { code: opt.code || `r${idx + 1}`, text: opt.text || '' };
+        let numericCode = stmtOpt.code.replace(/^[rc]/i, '');
+        if (!numericCode || numericCode.trim() === '') {
+          numericCode = String(idx + 1);
+        }
+        return { code: numericCode, text: stmtOpt.text || '' };
+      });
+      setEditedStatementOptions(statementOptions);
+    } else {
+      setEditedStatementOptions([]);
+    }
+    
+    // Initialize response options
+    const responseOptions = question.responseOptions?.map((opt, idx) => {
+      const respOpt = typeof opt === 'string' ? { code: `c${idx + 1}`, text: opt } : { code: opt.code || `c${idx + 1}`, text: opt.text || '' };
+      let numericCode = respOpt.code.replace(/^[rc]/i, '');
+      if (!numericCode || numericCode.trim() === '') {
+        numericCode = String(idx + 1);
+      }
+      return { code: numericCode, text: respOpt.text || '' };
+    }) || [];
+    setEditedResponseOptions(responseOptions);
+    
+    // Initialize randomize
+    setEditedRandomize(question.randomize || false);
+    
+    setIsEditing(true);
   };
 
-  const handleCancelEditOptions = () => {
-    setIsEditingOptions(false);
+  // Handle type change - initialize fields based on new type
+  const handleTypeChange = (newType: string) => {
+    setEditedType(newType);
+    const fields = getFieldsForType(newType);
+    
+    // Initialize options if needed
+    if (fields.needsOptions && editedOptions.length === 0) {
+      setEditedOptions([{ code: '1', text: '' }]);
+    } else if (!fields.needsOptions) {
+      setEditedOptions([]);
+    }
+    
+    // Initialize statement options if needed (for grid questions)
+    if (fields.needsStatementOptions && editedStatementOptions.length === 0) {
+      setEditedStatementOptions([{ code: '1', text: '' }]);
+    } else if (!fields.needsStatementOptions) {
+      setEditedStatementOptions([]);
+    }
+    
+    // Initialize response options if needed
+    if (fields.needsResponseOptions && editedResponseOptions.length === 0) {
+      setEditedResponseOptions([{ code: '1', text: '' }]);
+    } else if (!fields.needsResponseOptions && !fields.needsStatementOptions) {
+      // Only clear if not a grid (grids need response options)
+      setEditedResponseOptions([]);
+    }
+  };
+
+  // Cancel edit mode
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditedQuestionNumber('');
+    setEditedQuestionText('');
+    setEditedType('');
     setEditedOptions([]);
+    setEditedResponseOptions([]);
+    setEditedStatementOptions([]);
+    setEditedRandomize(false);
   };
 
-  const handleSaveOptions = async () => {
-    if (!onUpdateQuestion || !questionnaireId) return;
-
-    // Check for duplicate codes
-    const codes = editedOptions.map(opt => opt.code.trim().toLowerCase());
-    const duplicateCodes = codes.filter((code, index) => codes.indexOf(code) !== index);
-    if (duplicateCodes.length > 0) {
-      alert('Duplicate codes are not allowed. Please ensure each code is unique.');
+  // Delete question
+  const handleDeleteQuestion = async () => {
+    if (!questionnaireId || !onUpdateQuestion) return;
+    
+    if (!confirm(`Are you sure you want to delete question ${question.number}?`)) {
       return;
     }
 
+    try {
+      // Fetch current questionnaire
+      const response = await fetch(`${API_BASE_URL}/api/questionnaire/${questionnaireId}`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
+      });
+      
+      if (response.ok) {
+        const questionnaire = await response.json();
+        // Remove the question from the questions array
+        const updatedQuestions = questionnaire.questions.filter((q: Question) => (q.number || q.id) !== (question.number || question.id));
+        
+        // Update on backend
+        const updateResponse = await fetch(`${API_BASE_URL}/api/questionnaire/${questionnaireId}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            ...questionnaire,
+            questions: updatedQuestions
+          })
+        });
+        
+        if (updateResponse.ok) {
+          // Update parent component by calling onUpdateQuestion with the updated questions
+          // This will trigger a re-render with the question removed
+          const updatedQnr = { ...questionnaire, questions: updatedQuestions };
+          onUpdateQuestion(updatedQnr.questions.find((q: Question) => (q.number || q.id) === (question.number || question.id)) || question);
+          // Notify parent to reload questionnaire data
+          window.dispatchEvent(new CustomEvent('questionnaireUpdated', { detail: { questionnaireId } }));
+          // Reload to reflect the deletion in the UI
+          window.location.reload();
+        }
+      }
+    } catch (error) {
+      console.error('Error deleting question:', error);
+      alert('Failed to delete question. Please try again.');
+    }
+  };
+
+  // Save all changes
+  const handleSaveAll = async () => {
+    if (!onUpdateQuestion || !questionnaireId) return;
+
+    // Validate duplicate codes in options
+    if (editedOptions.length > 0) {
+      const codes = editedOptions.map(opt => opt.code.trim().toLowerCase()).filter(code => code);
+      const duplicateCodes = codes.filter((code, index) => codes.indexOf(code) !== index);
+      if (duplicateCodes.length > 0) {
+        alert('Duplicate codes are not allowed in response options. Please ensure each code is unique.');
+        return;
+      }
+    }
+
+    // Validate duplicate codes in response options
+    if (editedResponseOptions.length > 0) {
+      const responseCodes = editedResponseOptions.map(opt => opt.code.trim().toLowerCase()).filter(code => code);
+      const duplicateResponseCodes = responseCodes.filter((code, index) => responseCodes.indexOf(code) !== index);
+      if (duplicateResponseCodes.length > 0) {
+        alert('Duplicate codes are not allowed within response options. Please ensure each response code is unique.');
+        return;
+      }
+    }
+
+    // Validate duplicate codes in statement options
+    if (editedStatementOptions.length > 0) {
+      const statementCodes = editedStatementOptions.map(opt => opt.code.trim().toLowerCase()).filter(code => code);
+      const duplicateStatementCodes = statementCodes.filter((code, index) => statementCodes.indexOf(code) !== index);
+      if (duplicateStatementCodes.length > 0) {
+        alert('Duplicate codes are not allowed within statements. Please ensure each statement code is unique.');
+        return;
+      }
+    }
+
+    const isNumericGrid = editedType?.toLowerCase().includes('numeric grid');
+    
+    // Build updated question
     const updatedQuestion: Question = {
       ...question,
-      options: editedOptions.map(opt => ({
+      number: editedQuestionNumber.trim(),
+      text: editedQuestionText.trim(),
+      type: editedType,
+      options: editedOptions.length > 0 ? editedOptions.map(opt => ({
         code: opt.code,
         text: opt.text,
         tags: (() => {
@@ -948,121 +1553,16 @@ function QuestionBox({
           });
           return originalOpt && typeof originalOpt !== 'string' ? originalOpt.tags : undefined;
         })()
-      }))
-    };
-
-    try {
-      const updatedQuestions = onUpdateQuestion(updatedQuestion);
-      
-      const response = await fetch(`${API_BASE_URL}/api/questionnaire/${questionnaireId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
-        },
-        body: JSON.stringify({
-          questions: updatedQuestions
-        })
-      });
-
-      if (response.ok) {
-        setIsEditingOptions(false);
-        // Notify Tabs page to reload questionnaire data
-        window.dispatchEvent(new CustomEvent('questionnaireUpdated', { detail: { questionnaireId } }));
-      } else {
-        alert('Failed to save changes. Please try again.');
-      }
-    } catch (error) {
-      console.error('Error saving options:', error);
-      alert('Failed to save changes. Please try again.');
-    }
-  };
-
-  const handleStartEditResponseOptions = () => {
-    // For numeric grids, initialize both statements and responses
-    const isNumericGrid = question.type?.toLowerCase().includes('numeric grid');
-    
-    if (isNumericGrid && question.statementOptions && question.statementOptions.length > 0) {
-      // Initialize statement options with numeric codes (without "r" prefix for editing)
-      const statementOptions = question.statementOptions.map((opt, idx) => {
-        const stmtOpt = typeof opt === 'string' ? { code: `r${idx + 1}`, text: opt } : { code: opt.code || `r${idx + 1}`, text: opt.text || '' };
-        // Extract numeric part for editing (remove "r" prefix)
-        let numericCode = stmtOpt.code.replace(/^[rc]/i, '');
-        // If code is empty after removing prefix, use index + 1
-        if (!numericCode || numericCode.trim() === '') {
-          numericCode = String(idx + 1);
-        }
-        return { code: numericCode, text: stmtOpt.text || '' };
-      });
-      setEditedStatementOptions(statementOptions);
-    }
-    
-    // Initialize response options with numeric codes (without "c" prefix for editing)
-    const responseOptions = question.responseOptions?.map((opt, idx) => {
-      const respOpt = typeof opt === 'string' ? { code: `c${idx + 1}`, text: opt } : { code: opt.code || `c${idx + 1}`, text: opt.text || '' };
-      // Extract numeric part for editing (remove "c" prefix)
-      let numericCode = respOpt.code.replace(/^[rc]/i, '');
-      // If code is empty after removing prefix, use index + 1
-      if (!numericCode || numericCode.trim() === '') {
-        numericCode = String(idx + 1);
-      }
-      return { code: numericCode, text: respOpt.text || '' };
-    }) || [];
-    setEditedResponseOptions(responseOptions);
-    setIsEditingResponseOptions(true);
-  };
-
-  const handleCancelEditResponseOptions = () => {
-    setIsEditingResponseOptions(false);
-    setEditedResponseOptions([]);
-    setEditedStatementOptions([]);
-  };
-
-  const handleSaveResponseOptions = async () => {
-    if (!onUpdateQuestion || !questionnaireId) return;
-
-    const isNumericGrid = question.type?.toLowerCase().includes('numeric grid');
-    
-    // Check for duplicate codes within responses (codes must be unique within responses)
-    const responseCodes = editedResponseOptions.map(opt => opt.code.trim().toLowerCase()).filter(code => code);
-    const duplicateResponseCodes = responseCodes.filter((code, index) => responseCodes.indexOf(code) !== index);
-    
-    // Check for duplicate codes within statements (codes must be unique within statements)
-    // Note: Statements and responses CAN have the same codes, but duplicates within each group are not allowed
-    let duplicateStatementCodes: string[] = [];
-    if (isNumericGrid && editedStatementOptions.length > 0) {
-      const statementCodes = editedStatementOptions.map(opt => opt.code.trim().toLowerCase()).filter(code => code);
-      duplicateStatementCodes = statementCodes.filter((code, index) => statementCodes.indexOf(code) !== index);
-    }
-    
-    if (duplicateResponseCodes.length > 0) {
-      alert('Duplicate codes are not allowed within response options. Please ensure each response code is unique.');
-      return;
-    }
-    
-    if (duplicateStatementCodes.length > 0) {
-      alert('Duplicate codes are not allowed within statements. Please ensure each statement code is unique.');
-      return;
-    }
-
-    // Add back prefixes when saving
-    const updatedResponseOptions = editedResponseOptions.map(opt => ({
-      code: `c${opt.code}`,
-      text: opt.text
-    }));
-    
-    let updatedStatementOptions = question.statementOptions;
-    if (isNumericGrid && editedStatementOptions.length > 0) {
-      updatedStatementOptions = editedStatementOptions.map(opt => ({
+      })) : question.options,
+      responseOptions: editedResponseOptions.length > 0 ? editedResponseOptions.map(opt => ({
+        code: `c${opt.code}`,
+        text: opt.text
+      })) : question.responseOptions,
+      statementOptions: editedStatementOptions.length > 0 ? editedStatementOptions.map(opt => ({
         code: `r${opt.code}`,
         text: opt.text
-      }));
-    }
-
-    const updatedQuestion: Question = {
-      ...question,
-      responseOptions: updatedResponseOptions,
-      ...(isNumericGrid && editedStatementOptions.length > 0 ? { statementOptions: updatedStatementOptions } : {})
+      })) : question.statementOptions,
+      randomize: editedRandomize
     };
 
     try {
@@ -1080,17 +1580,18 @@ function QuestionBox({
       });
 
       if (response.ok) {
-        setIsEditingResponseOptions(false);
+        setIsEditing(false);
         // Notify Tabs page to reload questionnaire data
         window.dispatchEvent(new CustomEvent('questionnaireUpdated', { detail: { questionnaireId } }));
       } else {
         alert('Failed to save changes. Please try again.');
       }
     } catch (error) {
-      console.error('Error saving response options:', error);
+      console.error('Error saving question:', error);
       alert('Failed to save changes. Please try again.');
     }
   };
+
 
   // Calculate hasPercentageError and hasData from variableData
   const questionNumber = question.number || `Q${index + 1}`;
@@ -1225,69 +1726,24 @@ function QuestionBox({
   }
 
   return (
-    <div className="border border-gray-200 rounded-lg p-4 bg-white" data-question-number={question.number || `Q${index + 1}`}>
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm font-semibold text-gray-900">{question.number || `Q${index + 1}`}</span>
-          {hasPercentageError ? (
-            <InformationCircleIcon className="h-5 w-5 text-red-500 flex-shrink-0" title="Percentages don't sum to 100% - check response codes" />
-          ) : !hasData ? (
-            <InformationCircleIcon className="h-5 w-5 text-red-500 flex-shrink-0" title="No data available for this variable" />
-          ) : null}
-          {question.needsReview && (
-            <span className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded">Needs Review</span>
-          )}
-        </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          {/* Display metadata tags (Scale, %, Number) as pills - right aligned and grey */}
-          {question.tags && question.tags.filter(tag => 
-            (tag === 'Scale' || tag === '%' || tag === 'Number') &&
-            tag.toLowerCase() !== 'terminate' && tag.toLowerCase() !== 'specify'
-          ).map((tag, tagIndex) => (
-            <span
-              key={tagIndex}
-              className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded"
-            >
-              {tag}
-            </span>
-          ))}
-          {/* Question type pill - blue, right-aligned */}
-          {isEditingType ? (
+    <div className="border border-gray-200 rounded-lg p-4 bg-white relative" data-question-number={question.number || `Q${index + 1}`}>
+      {isEditing ? (
+        // Edit Mode
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-medium text-gray-700">Q#:</span>
+            <input
+              type="text"
+              value={editedQuestionNumber}
+              onChange={(e) => setEditedQuestionNumber(e.target.value)}
+              className="px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[#D14A2D]"
+              placeholder="Q1"
+            />
+            <span className="text-sm font-medium text-gray-700">Type:</span>
             <select
               value={editedType}
-              onChange={(e) => setEditedType(e.target.value)}
-              className="text-xs px-2 py-1 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-500"
-              onBlur={async () => {
-                if (editedType !== question.type && onUpdateQuestion && questionnaireId) {
-                  const updatedQuestion: Question = {
-                    ...question,
-                    type: editedType
-                  };
-                  try {
-                    const updatedQuestions = onUpdateQuestion(updatedQuestion);
-                    const response = await fetch(`${API_BASE_URL}/api/questionnaire/${questionnaireId}`, {
-                      method: 'PUT',
-                      headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
-                      },
-                      body: JSON.stringify({
-                        questions: updatedQuestions
-                      })
-                    });
-                    if (response.ok) {
-                      setIsEditingType(false);
-                      // Notify Tabs page to reload questionnaire data
-                      window.dispatchEvent(new CustomEvent('questionnaireUpdated', { detail: { questionnaireId } }));
-                    }
-                  } catch (error) {
-                    console.error('Error updating question type:', error);
-                  }
-                } else {
-                  setIsEditingType(false);
-                }
-              }}
-              autoFocus
+              onChange={(e) => handleTypeChange(e.target.value)}
+              className="px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[#D14A2D]"
             >
               <option value="">Select type...</option>
               <option value="Single Select">Single Select</option>
@@ -1300,427 +1756,465 @@ function QuestionBox({
               <option value="Open End List">Open End List</option>
               <option value="Numeric List">Numeric List</option>
             </select>
-          ) : (
-            <button
-              onClick={() => {
-                setEditedType(question.type || '');
-                setIsEditingType(true);
-              }}
-              className="text-xs px-2 py-1 rounded flex-shrink-0 bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors"
-              style={{ minWidth: '80px', textAlign: 'center' }}
-              title="Click to edit question type"
-            >
-              {question.type || 'other'}
-            </button>
-          )}
-        {canFlip && (
-          <button
-            onClick={handleFlipOptions}
-            disabled={isFlipping}
-            className="flex items-center gap-1 px-3 py-1 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Flip statement options and response options"
-          >
-            <ArrowPathIcon className={`w-4 h-4 ${isFlipping ? 'animate-spin' : ''}`} />
-            Flip Options
-          </button>
-        )}
-        </div>
-      </div>
-
-      <div className="mb-3">
-        <p className="text-sm text-gray-900">{question.text}</p>
-      </div>
-
-      {/* Response Options */}
-      {question.options && question.options.length > 0 && (
-        <div className="mb-3">
-          <div className="flex items-center gap-2 mb-2">
-            <h4 className="text-xs font-medium text-gray-700">Response Options:</h4>
-            {!isEditingOptions && (
-              <button
-                onClick={handleStartEditOptions}
-                className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
-                title="Edit response codes"
-              >
-                <PencilIcon className="w-3 h-3" />
-                Edit
-              </button>
-            )}
           </div>
-          {isEditingOptions ? (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between mb-2">
-                <div className="text-xs font-medium text-gray-700">Response Options:</div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Question Text:</label>
+            <textarea
+              value={editedQuestionText}
+              onChange={(e) => setEditedQuestionText(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#D14A2D] resize-none"
+              rows={3}
+              placeholder="Enter question text..."
+            />
+          </div>
+
+          {/* Response Options (for Single Select, Multi-Select) */}
+          {(() => {
+            const fields = getFieldsForType(editedType);
+            const optionsToShow = fields.needsOptions && editedOptions.length === 0 ? [{ code: '1', text: '' }] : editedOptions;
+            return fields.needsOptions && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-700">Response Options:</label>
+                  <button
+                    onClick={() => {
+                      const currentOptions = editedOptions.length === 0 ? [{ code: '1', text: '' }] : editedOptions;
+                      const newCode = String(currentOptions.length + 1);
+                      setEditedOptions([...currentOptions, { code: newCode, text: '' }]);
+                    }}
+                    className="px-2 py-1 text-xs font-medium"
+                    style={{ color: BRAND_ORANGE }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.color = '#B83D25';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.color = BRAND_ORANGE;
+                    }}
+                  >
+                    + Add Option
+                  </button>
+                </div>
+              <div className="space-y-2">
+                {optionsToShow.map((opt, optIndex) => {
+                  const codes = optionsToShow.map(o => o.code.trim().toLowerCase()).filter(c => c);
+                  const isDuplicate = codes.filter((c, idx) => codes.indexOf(c) !== idx).includes(opt.code.trim().toLowerCase());
+                  
+                  return (
+                    <div key={optIndex} className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={opt.code}
+                        onChange={(e) => {
+                          const currentOptions = editedOptions.length === 0 ? [{ code: '1', text: '' }] : editedOptions;
+                          const updated = [...currentOptions];
+                          updated[optIndex] = { ...updated[optIndex], code: e.target.value };
+                          setEditedOptions(updated);
+                        }}
+                        className={`w-20 px-2 py-1 text-xs font-mono border rounded focus:outline-none focus:ring-2 focus:ring-[#D14A2D] ${
+                          isDuplicate ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-2 focus:ring-[#D14A2D]'
+                        }`}
+                        placeholder="Code"
+                      />
+                      <input
+                        type="text"
+                        value={opt.text}
+                        onChange={(e) => {
+                          const currentOptions = editedOptions.length === 0 ? [{ code: '1', text: '' }] : editedOptions;
+                          const updated = [...currentOptions];
+                          updated[optIndex] = { ...updated[optIndex], text: e.target.value };
+                          setEditedOptions(updated);
+                        }}
+                        className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[#D14A2D]"
+                        placeholder="Text"
+                      />
+                      <button
+                        onClick={() => {
+                          const currentOptions = editedOptions.length === 0 ? [{ code: '1', text: '' }] : editedOptions;
+                          const updated = [...currentOptions];
+                          updated.splice(optIndex, 1);
+                          // If this was the last option and type requires options, keep at least one empty
+                          const fields = getFieldsForType(editedType);
+                          if (updated.length === 0 && fields.needsOptions) {
+                            setEditedOptions([{ code: '1', text: '' }]);
+                          } else {
+                            setEditedOptions(updated);
+                          }
+                        }}
+                        className="px-2 py-1 text-red-600 hover:text-red-700"
+                        title="Remove option"
+                      >
+                        <XMarkIcon className="w-4 h-4" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            );
+          })()}
+
+          {/* Statement Options (for grid questions) */}
+          {(() => {
+            const fields = getFieldsForType(editedType);
+            const statementsToShow = fields.needsStatementOptions && editedStatementOptions.length === 0 ? [{ code: '1', text: '' }] : editedStatementOptions;
+            return fields.needsStatementOptions && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-700">Statement Options (Rows):</label>
+                  <button
+                    onClick={() => {
+                      const currentStatements = editedStatementOptions.length === 0 ? [{ code: '1', text: '' }] : editedStatementOptions;
+                      const newCode = String(currentStatements.length + 1);
+                      setEditedStatementOptions([...currentStatements, { code: newCode, text: '' }]);
+                    }}
+                    className="px-2 py-1 text-xs font-medium"
+                    style={{ color: BRAND_ORANGE }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.color = '#B83D25';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.color = BRAND_ORANGE;
+                    }}
+                  >
+                    + Add Statement
+                  </button>
+                </div>
+              <div className="space-y-2">
+                {statementsToShow.map((stmtOpt, stmtIndex) => {
+                  const codes = statementsToShow.map(o => o.code.trim().toLowerCase()).filter(c => c);
+                  const isDuplicate = codes.filter((c, idx) => codes.indexOf(c) !== idx).includes(stmtOpt.code.trim().toLowerCase());
+                  
+                  return (
+                    <div key={stmtIndex} className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={stmtOpt.code}
+                        onChange={(e) => {
+                          const currentStatements = editedStatementOptions.length === 0 ? [{ code: '1', text: '' }] : editedStatementOptions;
+                          const updated = [...currentStatements];
+                          updated[stmtIndex] = { ...updated[stmtIndex], code: e.target.value };
+                          setEditedStatementOptions(updated);
+                        }}
+                        className={`w-20 px-2 py-1 text-xs font-mono border rounded focus:outline-none focus:ring-2 focus:ring-[#D14A2D] ${
+                          isDuplicate ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-2 focus:ring-[#D14A2D]'
+                        }`}
+                        placeholder="Code"
+                      />
+                      <input
+                        type="text"
+                        value={stmtOpt.text}
+                        onChange={(e) => {
+                          const currentStatements = editedStatementOptions.length === 0 ? [{ code: '1', text: '' }] : editedStatementOptions;
+                          const updated = [...currentStatements];
+                          updated[stmtIndex] = { ...updated[stmtIndex], text: e.target.value };
+                          setEditedStatementOptions(updated);
+                        }}
+                        className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[#D14A2D]"
+                        placeholder="Text"
+                      />
+                      <button
+                        onClick={() => {
+                          const currentStatements = editedStatementOptions.length === 0 ? [{ code: '1', text: '' }] : editedStatementOptions;
+                          const updated = [...currentStatements];
+                          updated.splice(stmtIndex, 1);
+                          // If this was the last statement and type requires statements, keep at least one empty
+                          const fields = getFieldsForType(editedType);
+                          if (updated.length === 0 && fields.needsStatementOptions) {
+                            setEditedStatementOptions([{ code: '1', text: '' }]);
+                          } else {
+                            setEditedStatementOptions(updated);
+                          }
+                        }}
+                        className="px-2 py-1 text-red-600 hover:text-red-700"
+                        title="Remove statement"
+                      >
+                        <XMarkIcon className="w-4 h-4" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            );
+          })()}
+
+          {/* Randomize checkbox (only for questions with statement options/rows) */}
+          {(() => {
+            const fields = getFieldsForType(editedType);
+            return fields.needsStatementOptions && (
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id={`randomize-checkbox-${question.number || index}`}
+                  checked={editedRandomize}
+                  onChange={(e) => setEditedRandomize(e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-300 focus:ring-2 focus:ring-[#D14A2D]"
+                  style={{ accentColor: BRAND_ORANGE }}
+                />
+                <label htmlFor={`randomize-checkbox-${question.number || index}`} className="text-sm font-medium text-gray-700">
+                  Randomize rows (statement options)
+                </label>
+              </div>
+            );
+          })()}
+
+          {/* Flip Options button (only for grid questions in edit mode) */}
+          {canFlip && (() => {
+            const fields = getFieldsForType(editedType);
+            return fields.needsStatementOptions && fields.needsResponseOptions && (
+              <div>
                 <button
-                  onClick={() => {
-                    const newCode = String(editedOptions.length + 1);
-                    setEditedOptions([...editedOptions, { code: newCode, text: '' }]);
-                  }}
-                  className="px-2 py-1 text-xs font-medium text-orange-600 hover:text-orange-700"
+                  onClick={handleFlipOptions}
+                  disabled={isFlipping}
+                  className="flex items-center gap-1 px-3 py-1 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Flip statement options and response options"
                 >
-                  + Add Option
+                  <ArrowPathIcon className={`w-4 h-4 ${isFlipping ? 'animate-spin' : ''}`} />
+                  Flip Options
                 </button>
               </div>
-              {(() => {
-                // Check for duplicate codes
-                const codes = editedOptions.map(opt => opt.code.trim().toLowerCase());
-                const duplicateCodes = new Set<string>();
-                codes.forEach((code, index) => {
-                  if (code && codes.indexOf(code) !== index) {
-                    duplicateCodes.add(code);
-                  }
-                });
-                
-                return (
-                  <>
-                    {editedOptions.map((opt, optIndex) => {
-                      const codeLower = opt.code.trim().toLowerCase();
-                      const isDuplicate = codeLower && duplicateCodes.has(codeLower);
-                      
-                      return (
-                        <div key={optIndex} className="flex items-center gap-2">
-                          <input
-                            type="text"
-                            value={opt.code}
+            );
+          })()}
+
+          {/* Response Options (for grid questions, open end list, numeric list) */}
+          {(() => {
+            const fields = getFieldsForType(editedType);
+            const responsesToShow = fields.needsResponseOptions && editedResponseOptions.length === 0 ? [{ code: '1', text: '' }] : editedResponseOptions;
+            return fields.needsResponseOptions && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    {fields.needsStatementOptions ? 'Response Options (Columns):' : 'Response Options:'}
+                  </label>
+                  <button
+                    onClick={() => {
+                      const currentResponses = editedResponseOptions.length === 0 ? [{ code: '1', text: '' }] : editedResponseOptions;
+                      const newCode = String(currentResponses.length + 1);
+                      setEditedResponseOptions([...currentResponses, { code: newCode, text: '' }]);
+                    }}
+                    className="px-2 py-1 text-xs font-medium"
+                    style={{ color: BRAND_ORANGE }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.color = '#B83D25';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.color = BRAND_ORANGE;
+                    }}
+                  >
+                    + Add Response Option
+                  </button>
+                </div>
+              <div className="space-y-2">
+                {responsesToShow.map((respOpt, respIndex) => {
+                  const codes = responsesToShow.map(o => o.code.trim().toLowerCase()).filter(c => c);
+                  const isDuplicate = codes.filter((c, idx) => codes.indexOf(c) !== idx).includes(respOpt.code.trim().toLowerCase());
+                  
+                  return (
+                    <div key={respIndex} className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={respOpt.code}
                             onChange={(e) => {
-                              const updated = [...editedOptions];
-                              updated[optIndex] = { ...updated[optIndex], code: e.target.value };
-                              setEditedOptions(updated);
+                              const currentResponses = editedResponseOptions.length === 0 ? [{ code: '1', text: '' }] : editedResponseOptions;
+                              const updated = [...currentResponses];
+                              updated[respIndex] = { ...updated[respIndex], code: e.target.value };
+                              setEditedResponseOptions(updated);
                             }}
-                            className={`w-16 px-2 py-1 text-xs font-mono border rounded focus:outline-none focus:ring-2 ${
-                              isDuplicate 
-                                ? 'border-red-500 focus:ring-red-500' 
-                                : 'border-gray-300 focus:ring-orange-500'
-                            }`}
-                            placeholder="Code"
-                          />
-                          <input
-                            type="text"
-                            value={opt.text}
+                        className={`w-20 px-2 py-1 text-xs font-mono border rounded focus:outline-none focus:ring-2 focus:ring-[#D14A2D] ${
+                          isDuplicate ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-2 focus:ring-[#D14A2D]'
+                        }`}
+                        placeholder="Code"
+                      />
+                      <input
+                        type="text"
+                        value={respOpt.text}
                             onChange={(e) => {
-                              const updated = [...editedOptions];
-                              updated[optIndex] = { ...updated[optIndex], text: e.target.value };
-                              setEditedOptions(updated);
+                              const currentResponses = editedResponseOptions.length === 0 ? [{ code: '1', text: '' }] : editedResponseOptions;
+                              const updated = [...currentResponses];
+                              updated[respIndex] = { ...updated[respIndex], text: e.target.value };
+                              setEditedResponseOptions(updated);
                             }}
-                            className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-orange-500"
-                            placeholder="Text"
-                          />
-                          <button
+                        className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[#D14A2D]"
+                        placeholder="Text"
+                      />
+                      <button
                             onClick={() => {
-                              const updated = [...editedOptions];
-                              updated.splice(optIndex, 1);
-                              setEditedOptions(updated);
+                              const currentResponses = editedResponseOptions.length === 0 ? [{ code: '1', text: '' }] : editedResponseOptions;
+                              const updated = [...currentResponses];
+                              updated.splice(respIndex, 1);
+                              // If this was the last response and type requires responses, keep at least one empty
+                              const fields = getFieldsForType(editedType);
+                              if (updated.length === 0 && fields.needsResponseOptions) {
+                                setEditedResponseOptions([{ code: '1', text: '' }]);
+                              } else {
+                                setEditedResponseOptions(updated);
+                              }
                             }}
                             className="px-2 py-1 text-red-600 hover:text-red-700"
-                            title="Remove option"
+                            title="Remove response option"
                           >
                             <XMarkIcon className="w-4 h-4" />
                           </button>
                         </div>
                       );
                     })}
-                    {duplicateCodes.size > 0 && (
-                      <p className="text-xs text-red-600 mt-1">
-                        Duplicate codes are not allowed. Please ensure each code is unique.
-                      </p>
-                    )}
-                  </>
-                );
-              })()}
-              <div className="flex items-center gap-2 mt-2">
-                {(() => {
-                  const codes = editedOptions.map(opt => opt.code.trim().toLowerCase());
-                  const duplicateCodes = codes.filter((code, index) => code && codes.indexOf(code) !== index);
-                  const hasDuplicates = duplicateCodes.length > 0;
-                  
-                  return (
-                    <button
-                      onClick={handleSaveOptions}
-                      disabled={hasDuplicates}
-                      className={`flex items-center gap-1 px-3 py-1 text-xs font-medium rounded transition-colors ${
-                        hasDuplicates
-                          ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
-                          : 'text-white bg-green-600 hover:bg-green-700'
-                      }`}
-                    >
-                      <CheckIcon className="w-3 h-3" />
-                      Save
-                    </button>
-                  );
-                })()}
-                <button
-                  onClick={handleCancelEditOptions}
-                  className="flex items-center gap-1 px-3 py-1 text-xs font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded transition-colors"
-                >
-                  <XMarkIcon className="w-3 h-3" />
-                  Cancel
-                </button>
-              </div>
-            </div>
-          ) : (
-          <div className="space-y-1">
-            {question.options.map((option, optIndex) => {
-              const opt = typeof option === 'string' 
-                ? { code: String(optIndex + 1), text: option } 
-                : option;
-              return (
-                <div key={optIndex} className="flex items-center gap-2 text-sm text-gray-700">
-                  <span className="font-mono text-xs text-gray-500 w-8">{opt.code}:</span>
-                  <span>{opt.text}</span>
-                  {opt.tags && opt.tags.length > 0 && (
-                    <div className="flex gap-1 ml-2">
-                      {opt.tags.map((tag, tagIdx) => (
-                        <span
-                          key={tagIdx}
-                          className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  )}
+                  </div>
                 </div>
               );
-            })}
-          </div>
-          )}
-        </div>
-      )}
+            })()}
 
-      {/* Grid table for numeric grids with both statements and response options */}
-      {question.type?.toLowerCase().includes('numeric grid') && 
-       question.statementOptions && question.statementOptions.length > 0 && 
-       question.responseOptions && question.responseOptions.length > 0 && (
-        <div className="mb-3">
-          <div className="flex items-center justify-between mb-2">
-            <h4 className="text-xs font-medium text-gray-700">Grid Structure:</h4>
-            {!isEditingResponseOptions && (
+          {/* Save/Cancel/Delete Buttons */}
+          <div className="flex items-center justify-between pt-2 border-t border-gray-200">
+            <div className="flex items-center gap-2">
               <button
-                onClick={handleStartEditResponseOptions}
-                className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
-                title="Edit response codes"
+                onClick={handleSaveAll}
+                className="flex items-center gap-1 px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded transition-colors"
               >
-                <PencilIcon className="w-3 h-3" />
-                Edit Response Codes
+                <CheckIcon className="w-4 h-4" />
+                Save
+              </button>
+              <button
+                onClick={handleCancelEdit}
+                className="flex items-center gap-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded transition-colors"
+              >
+                <XMarkIcon className="w-4 h-4" />
+                Cancel
+              </button>
+            </div>
+            <button
+              onClick={handleDeleteQuestion}
+              className="flex items-center gap-1 px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded transition-colors"
+            >
+              <TrashIcon className="w-4 h-4" />
+              Delete Question
+            </button>
+          </div>
+        </div>
+      ) : (
+        // View Mode
+        <>
+          {/* Show Logic - left-aligned, with edit button on the right if show logic exists */}
+          {question.showLogic ? (
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs italic" style={{ color: '#2563eb' }}>
+                {typeof question.showLogic === 'string' 
+                  ? question.showLogic 
+                  : JSON.stringify(question.showLogic)}
+              </p>
+              {/* Edit Icon */}
+              {!isEditing && (
+                <button
+                  onClick={handleStartEdit}
+                  className="px-2 py-1 text-xs text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors flex items-center justify-center flex-shrink-0"
+                  title="Edit question"
+                >
+                  <PencilIcon className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          ) : (
+            /* Edit Icon on question number line if no show logic */
+            null
+          )}
+          {/* Question number, question type pill, needs review, and edit button */}
+          <div className="flex items-center gap-2 flex-wrap justify-between mb-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-semibold text-gray-900">{question.number || `Q${index + 1}`}</span>
+              {/* Question type pill - blue, right after question number */}
+              <span className="text-xs px-2 py-1 rounded flex-shrink-0 bg-blue-100 text-blue-800" style={{ minWidth: '80px', textAlign: 'center' }}>
+                {question.type || 'other'}
+              </span>
+              {question.needsReview && (
+                <span className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded">Needs Review</span>
+              )}
+            </div>
+            {/* Edit Icon - only show here if there's no show logic */}
+            {!question.showLogic && !isEditing && (
+              <button
+                onClick={handleStartEdit}
+                className="px-2 py-1 text-xs text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors flex items-center justify-center flex-shrink-0"
+                title="Edit question"
+              >
+                <PencilIcon className="w-4 h-4" />
               </button>
             )}
           </div>
-          {isEditingResponseOptions ? (
-            <div className="space-y-4 mb-3">
-              {/* Statements (Rows) - only show for numeric grids */}
-              {question.type?.toLowerCase().includes('numeric grid') && question.statementOptions && question.statementOptions.length > 0 && (
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="text-xs font-medium text-gray-700">Statements (Rows):</div>
-                    <button
-                      onClick={() => {
-                        const newCode = String(editedStatementOptions.length + 1);
-                        setEditedStatementOptions([...editedStatementOptions, { code: newCode, text: '' }]);
-                      }}
-                      className="px-2 py-1 text-xs font-medium text-orange-600 hover:text-orange-700"
-                    >
-                      + Add Statement
-                    </button>
-                  </div>
-                  {(() => {
-                    // Check for duplicate codes within statements only
-                    const codes = editedStatementOptions.map(opt => opt.code.trim().toLowerCase()).filter(code => code);
-                    const duplicateCodes = new Set<string>();
-                    codes.forEach((code, index) => {
-                      if (codes.indexOf(code) !== index) {
-                        duplicateCodes.add(code);
-                      }
-                    });
-                    
-                    return (
-                      <>
-                        {editedStatementOptions.map((stmtOpt, stmtIndex) => {
-                          const codeLower = stmtOpt.code.trim().toLowerCase();
-                          const isDuplicate = codeLower && duplicateCodes.has(codeLower);
-                          
-                          return (
-                            <div key={stmtIndex} className="flex items-center gap-2 mb-2">
-                              <input
-                                type="text"
-                                value={stmtOpt.code}
-                                onChange={(e) => {
-                                  const updated = [...editedStatementOptions];
-                                  updated[stmtIndex] = { ...updated[stmtIndex], code: e.target.value };
-                                  setEditedStatementOptions(updated);
-                                }}
-                                className={`w-16 px-2 py-1 text-xs font-mono border rounded focus:outline-none focus:ring-2 ${
-                                  isDuplicate 
-                                    ? 'border-red-500 focus:ring-red-500' 
-                                    : 'border-gray-300 focus:ring-orange-500'
-                                }`}
-                                placeholder="Code"
-                              />
-                              <input
-                                type="text"
-                                value={stmtOpt.text}
-                                onChange={(e) => {
-                                  const updated = [...editedStatementOptions];
-                                  updated[stmtIndex] = { ...updated[stmtIndex], text: e.target.value };
-                                  setEditedStatementOptions(updated);
-                                }}
-                                className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-orange-500"
-                                placeholder="Text"
-                              />
-                              <button
-                                onClick={() => {
-                                  const updated = [...editedStatementOptions];
-                                  updated.splice(stmtIndex, 1);
-                                  setEditedStatementOptions(updated);
-                                }}
-                                className="px-2 py-1 text-red-600 hover:text-red-700"
-                                title="Remove statement"
-                              >
-                                <XMarkIcon className="w-4 h-4" />
-                              </button>
-                            </div>
-                          );
-                        })}
-                        {duplicateCodes.size > 0 && (
-                          <p className="text-xs text-red-600 mt-1">
-                            Duplicate codes are not allowed. Please ensure each code is unique.
-                          </p>
-                        )}
-                      </>
-                    );
-                  })()}
-                </div>
-              )}
-              
-              {/* Response Options (Columns) */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <div className="text-xs font-medium text-gray-700">Response Options (Columns):</div>
-                  <button
-                    onClick={() => {
-                      const newCode = String(editedResponseOptions.length + 1);
-                      setEditedResponseOptions([...editedResponseOptions, { code: newCode, text: '' }]);
-                    }}
-                    className="px-2 py-1 text-xs font-medium text-orange-600 hover:text-orange-700"
-                  >
-                    + Add Response Option
-                  </button>
-                </div>
-                {(() => {
-                  // Check for duplicate codes within responses only
-                  const codes = editedResponseOptions.map(opt => opt.code.trim().toLowerCase()).filter(code => code);
-                  const duplicateCodes = new Set<string>();
-                  codes.forEach((code, index) => {
-                    if (codes.indexOf(code) !== index) {
-                      duplicateCodes.add(code);
+          <div className="flex items-center gap-2 flex-wrap mb-2">
+            {/* Display metadata tags (Scale, %, Number) as pills - grey */}
+            {question.tags && question.tags.filter(tag => 
+              (tag === 'Scale' || tag === '%' || tag === 'Number') &&
+              tag.toLowerCase() !== 'terminate' && tag.toLowerCase() !== 'specify'
+            ).map((tag, tagIndex) => (
+              <span
+                key={tagIndex}
+                className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+
+          <div className="mb-3">
+            <p className="text-sm text-gray-900">{formatDescriptionWithBrackets(question.text)}</p>
+          </div>
+
+          {/* Response Options */}
+          {question.options && question.options.length > 0 && (() => {
+            const terminateCodes = parseTerminateLogic(question.terminateLogic, question.options, question.type);
+            return (
+              <div className="mb-3">
+                <h4 className="text-xs font-medium text-gray-700 mb-2">
+                  Response Options:
+                </h4>
+                <div className="space-y-1">
+                  {question.options.map((option, optIndex) => {
+                    // Options should already be normalized with codes extracted, but handle both formats
+                    let opt: { code: string; text: string; tags?: string[] };
+                    if (typeof option === 'string') {
+                      opt = { code: String(optIndex + 1), text: option };
+                    } else {
+                      opt = { 
+                        code: option.code || String(optIndex + 1), 
+                        text: typeof option.text === 'string' ? option.text : String(option),
+                        tags: option.tags
+                      };
                     }
-                  });
-                  
-                  return (
-                    <>
-                      {editedResponseOptions.map((respOpt, respIndex) => {
-                        const codeLower = respOpt.code.trim().toLowerCase();
-                        const isDuplicate = codeLower && duplicateCodes.has(codeLower);
-                        
-                        return (
-                          <div key={respIndex} className="flex items-center gap-2 mb-2">
-                            <input
-                              type="text"
-                              value={respOpt.code}
-                              onChange={(e) => {
-                                const updated = [...editedResponseOptions];
-                                updated[respIndex] = { ...updated[respIndex], code: e.target.value };
-                                setEditedResponseOptions(updated);
-                              }}
-                              className={`w-16 px-2 py-1 text-xs font-mono border rounded focus:outline-none focus:ring-2 ${
-                                isDuplicate 
-                                  ? 'border-red-500 focus:ring-red-500' 
-                                  : 'border-gray-300 focus:ring-orange-500'
-                              }`}
-                              placeholder="Code"
-                            />
-                            <input
-                              type="text"
-                              value={respOpt.text}
-                              onChange={(e) => {
-                                const updated = [...editedResponseOptions];
-                                updated[respIndex] = { ...updated[respIndex], text: e.target.value };
-                                setEditedResponseOptions(updated);
-                              }}
-                              className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-orange-500"
-                              placeholder="Text"
-                            />
-                            <button
-                              onClick={() => {
-                                const updated = [...editedResponseOptions];
-                                updated.splice(respIndex, 1);
-                                setEditedResponseOptions(updated);
-                              }}
-                              className="px-2 py-1 text-red-600 hover:text-red-700"
-                              title="Remove response option"
-                            >
-                              <XMarkIcon className="w-4 h-4" />
-                            </button>
+                    const shouldTerminate = terminateCodes.has(opt.code || String(optIndex + 1));
+                    return (
+                      <div key={optIndex} className="flex items-center gap-2 text-sm text-gray-700">
+                        <span className="font-mono text-xs text-gray-500 w-8">{opt.code}:</span>
+                        <span>{formatDescriptionWithBrackets(opt.text)}</span>
+                        {shouldTerminate && (
+                          <span className="text-[10px] font-bold text-red-600 ml-1">TERM</span>
+                        )}
+                        {opt.tags && opt.tags.length > 0 && (
+                          <div className="flex gap-1 ml-2">
+                            {opt.tags.map((tag: string, tagIdx: number) => (
+                              <span
+                                key={tagIdx}
+                                className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded"
+                              >
+                                {tag}
+                              </span>
+                            ))}
                           </div>
-                        );
-                      })}
-                      {duplicateCodes.size > 0 && (
-                        <p className="text-xs text-red-600 mt-1">
-                          Duplicate codes are not allowed. Please ensure each code is unique.
-                        </p>
-                      )}
-                    </>
-                  );
-                })()}
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-              
-              <div className="flex items-center gap-2 mt-2">
-                {(() => {
-                  // Check for duplicates separately within each group
-                  const responseCodes = editedResponseOptions.map(opt => opt.code.trim().toLowerCase()).filter(code => code);
-                  const statementCodes = editedStatementOptions.map(opt => opt.code.trim().toLowerCase()).filter(code => code);
-                  
-                  // Check for duplicates within responses
-                  const duplicateResponseCodes = responseCodes.filter((code, index) => responseCodes.indexOf(code) !== index);
-                  
-                  // Check for duplicates within statements
-                  const duplicateStatementCodes = statementCodes.filter((code, index) => statementCodes.indexOf(code) !== index);
-                  
-                  const hasDuplicates = duplicateResponseCodes.length > 0 || duplicateStatementCodes.length > 0;
-                  
-                  // Check that all codes are non-empty
-                  const allResponseCodesFilled = editedResponseOptions.every(opt => opt.code.trim() !== '');
-                  const allStatementCodesFilled = editedStatementOptions.length === 0 || editedStatementOptions.every(opt => opt.code.trim() !== '');
-                  const allCodesFilled = allResponseCodesFilled && allStatementCodesFilled;
-                  
-                  const canSave = !hasDuplicates && allCodesFilled;
-                  
-                  return (
-                    <button
-                      onClick={handleSaveResponseOptions}
-                      disabled={!canSave}
-                      className={`flex items-center gap-1 px-3 py-1 text-xs font-medium rounded transition-colors ${
-                        !canSave
-                          ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
-                          : 'text-white bg-green-600 hover:bg-green-700'
-                      }`}
-                    >
-                      <CheckIcon className="w-3 h-3" />
-                      Save
-                    </button>
-                  );
-                })()}
-                <button
-                  onClick={handleCancelEditResponseOptions}
-                  className="flex items-center gap-1 px-3 py-1 text-xs font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded transition-colors"
-                >
-                  <XMarkIcon className="w-3 h-3" />
-                  Cancel
-                </button>
-              </div>
-            </div>
-          ) : null}
-          {!isEditingResponseOptions && (
-          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            );
+          })()}
+
+          {/* Grid table for numeric grids with both statements and response options */}
+          {question.type?.toLowerCase().includes('numeric grid') && 
+           question.statementOptions && question.statementOptions.length > 0 && 
+           question.responseOptions && question.responseOptions.length > 0 && (
+            <div className="mb-3">
+              <h4 className="text-xs font-medium text-gray-700 mb-2">Grid Structure:</h4>
+              <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
@@ -1734,7 +2228,7 @@ function QuestionBox({
                       const displayCode = respOpt.code?.replace(/^[rc]/i, '') || String(respIndex + 1);
                       return (
                         <th key={respIndex} className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style={{ width: '8rem' }}>
-                          {respOpt.text} ({displayCode})
+                          {formatDescriptionWithBrackets(respOpt.text)} ({displayCode})
                         </th>
                       );
                     })}
@@ -1752,8 +2246,8 @@ function QuestionBox({
                     return (
                       <tr key={stmtIndex}>
                         <td className="px-2 py-2 text-xs font-mono text-gray-700 text-center" style={{ width: '2.5rem' }}>{displayStmtCode}</td>
-                        <td className="px-4 py-2 text-xs text-gray-900">{stmtOpt.text}</td>
-                        {question.responseOptions.map((resp, respIndex) => {
+                        <td className="px-4 py-2 text-xs text-gray-900">{formatDescriptionWithBrackets(stmtOpt.text)}</td>
+                        {question.responseOptions?.map((resp, respIndex) => {
                           const respOpt = typeof resp === 'string' 
                             ? { code: `c${respIndex + 1}`, text: resp } 
                             : resp;
@@ -1770,390 +2264,127 @@ function QuestionBox({
               </table>
             </div>
           </div>
-          )}
         </div>
       )}
 
-      {/* Statement Options (for grid questions - rows) - only show if not already shown in grid table */}
-      {question.statementOptions && question.statementOptions.length > 0 && 
-       !(question.type?.toLowerCase().includes('numeric grid') && question.responseOptions && question.responseOptions.length > 0) && (
-        <div className="mb-3">
-          <div className="flex items-center gap-2 mb-2">
-            <h4 className="text-xs font-medium text-gray-700">Statement Options (Rows):</h4>
-            {!isEditingStatementOptions && (
-              <button
-                onClick={() => {
-                  const statementOptions = question.statementOptions?.map((opt, idx) => {
-                    const stmtOpt = typeof opt === 'string' ? { code: `r${idx + 1}`, text: opt } : { code: opt.code || `r${idx + 1}`, text: opt.text || '' };
-                    // Extract numeric part for editing (remove "r" prefix)
-                    let numericCode = stmtOpt.code.replace(/^[rc]/i, '');
-                    // If code is empty after removing prefix, use index + 1
-                    if (!numericCode || numericCode.trim() === '') {
-                      numericCode = String(idx + 1);
-                    }
-                    return { code: numericCode, text: stmtOpt.text || '' };
-                  }) || [];
-                  setEditedStatementOptions(statementOptions);
-                  setIsEditingStatementOptions(true);
-                }}
-                className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
-                title="Edit statement codes"
-              >
-                <PencilIcon className="w-3 h-3" />
-                Edit
-              </button>
-            )}
-          </div>
-          {isEditingStatementOptions ? (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between mb-2">
-                <div className="text-xs font-medium text-gray-700">Statement Options:</div>
-                <button
-                  onClick={() => {
-                    const newCode = String(editedStatementOptions.length + 1);
-                    setEditedStatementOptions([...editedStatementOptions, { code: newCode, text: '' }]);
-                  }}
-                  className="px-2 py-1 text-xs font-medium text-orange-600 hover:text-orange-700"
-                >
-                  + Add Statement
-                </button>
-              </div>
-              {(() => {
-                // Check for duplicate codes
-                const codes = editedStatementOptions.map(opt => opt.code.trim().toLowerCase());
-                const duplicateCodes = new Set<string>();
-                codes.forEach((code, index) => {
-                  if (code && codes.indexOf(code) !== index) {
-                    duplicateCodes.add(code);
-                  }
-                });
-                
-                return (
-                  <>
-                    {editedStatementOptions.map((stmtOpt, stmtIndex) => {
-                      const codeLower = stmtOpt.code.trim().toLowerCase();
-                      const isDuplicate = codeLower && duplicateCodes.has(codeLower);
-                      
-                      return (
-                        <div key={stmtIndex} className="flex items-center gap-2">
-                          <input
-                            type="text"
-                            value={stmtOpt.code}
-                            onChange={(e) => {
-                              const updated = [...editedStatementOptions];
-                              updated[stmtIndex] = { ...updated[stmtIndex], code: e.target.value };
-                              setEditedStatementOptions(updated);
-                            }}
-                            className={`w-16 px-2 py-1 text-xs font-mono border rounded focus:outline-none focus:ring-2 ${
-                              isDuplicate 
-                                ? 'border-red-500 focus:ring-red-500' 
-                                : 'border-gray-300 focus:ring-orange-500'
-                            }`}
-                            placeholder="Code"
-                          />
-                          <input
-                            type="text"
-                            value={stmtOpt.text}
-                            onChange={(e) => {
-                              const updated = [...editedStatementOptions];
-                              updated[stmtIndex] = { ...updated[stmtIndex], text: e.target.value };
-                              setEditedStatementOptions(updated);
-                            }}
-                            className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-orange-500"
-                            placeholder="Text"
-                          />
-                          <button
-                            onClick={() => {
-                              const updated = [...editedStatementOptions];
-                              updated.splice(stmtIndex, 1);
-                              setEditedStatementOptions(updated);
-                            }}
-                            className="px-2 py-1 text-red-600 hover:text-red-700"
-                            title="Remove statement"
-                          >
-                            <XMarkIcon className="w-4 h-4" />
-                          </button>
-                        </div>
-                      );
-                    })}
-                    {duplicateCodes.size > 0 && (
-                      <p className="text-xs text-red-600 mt-1">
-                        Duplicate codes are not allowed. Please ensure each code is unique.
-                      </p>
-                    )}
-                  </>
-                );
-              })()}
-              <div className="flex items-center gap-2 mt-2">
-                {(() => {
-                  const codes = editedStatementOptions.map(opt => opt.code.trim().toLowerCase());
-                  const duplicateCodes = codes.filter((code, index) => code && codes.indexOf(code) !== index);
-                  const hasDuplicates = duplicateCodes.length > 0;
-                  
-                  return (
-                    <button
-                      onClick={async () => {
-                        if (!onUpdateQuestion || !questionnaireId) return;
-
-                        // Check for duplicate codes
-                        if (hasDuplicates) {
-                          alert('Duplicate codes are not allowed within statements. Please ensure each statement code is unique.');
-                          return;
-                        }
-
-                        // Add back prefixes when saving
-                        const updatedStatementOptions = editedStatementOptions.map(opt => ({
-                          code: `r${opt.code}`,
-                          text: opt.text
-                        }));
-
-                        const updatedQuestion: Question = {
-                          ...question,
-                          statementOptions: updatedStatementOptions
+          {/* Statement Options (for grid questions - rows) - only show if not already shown in grid table */}
+          {question.statementOptions && question.statementOptions.length > 0 && 
+           !(question.type?.toLowerCase().includes('numeric grid') && question.responseOptions && question.responseOptions.length > 0) && (() => {
+            const terminateCodes = parseTerminateLogic(question.terminateLogic, question.statementOptions, question.type);
+            return (
+              <div className="mb-3">
+                <h4 className="text-xs font-medium text-gray-700 mb-2">
+                  Statement Options (Rows):
+                  {question.randomize && (
+                    <span className="text-[10px] font-bold text-blue-600 ml-2">RANDOMIZE</span>
+                  )}
+                </h4>
+                <div className="space-y-1">
+                  {question.statementOptions.map((stmt, stmtIndex) => {
+                    const isNumericGrid = question.type?.toLowerCase().includes('numeric grid');
+                    // For numeric grids, use c1, c2, etc. For other grids, use r1, r2, etc. or existing code
+                    const defaultCode = isNumericGrid ? `c${stmtIndex + 1}` : `r${stmtIndex + 1}`;
+                    const stmtOpt = typeof stmt === 'string' 
+                      ? { code: defaultCode, text: stmt } 
+                      : { 
+                          code: isNumericGrid ? `c${stmtIndex + 1}` : (stmt.code || defaultCode), 
+                          text: stmt.text 
                         };
-
-                        try {
-                          const updatedQuestions = onUpdateQuestion(updatedQuestion);
-                          
-                          const response = await fetch(`${API_BASE_URL}/api/questionnaire/${questionnaireId}`, {
-                            method: 'PUT',
-                            headers: {
-                              'Content-Type': 'application/json',
-                              'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
-                            },
-                            body: JSON.stringify({
-                              questions: updatedQuestions
-                            })
-                          });
-
-                          if (response.ok) {
-                            setIsEditingStatementOptions(false);
-                            // Notify Tabs page to reload questionnaire data
-                            window.dispatchEvent(new CustomEvent('questionnaireUpdated', { detail: { questionnaireId } }));
-                          } else {
-                            alert('Failed to save changes. Please try again.');
-                          }
-                        } catch (error) {
-                          console.error('Error saving statement options:', error);
-                          alert('Failed to save changes. Please try again.');
-                        }
-                      }}
-                      disabled={hasDuplicates}
-                      className={`flex items-center gap-1 px-3 py-1 text-xs font-medium rounded transition-colors ${
-                        hasDuplicates
-                          ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
-                          : 'text-white bg-green-600 hover:bg-green-700'
-                      }`}
-                    >
-                      <CheckIcon className="w-3 h-3" />
-                      Save
-                    </button>
-                  );
-                })()}
-                <button
-                  onClick={() => {
-                    setIsEditingStatementOptions(false);
-                    setEditedStatementOptions([]);
-                  }}
-                  className="flex items-center gap-1 px-3 py-1 text-xs font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded transition-colors"
-                >
-                  <XMarkIcon className="w-3 h-3" />
-                  Cancel
-                </button>
-              </div>
-            </div>
-          ) : (
-          <div className="space-y-1">
-            {question.statementOptions.map((stmt, stmtIndex) => {
-              const isNumericGrid = question.type?.toLowerCase().includes('numeric grid');
-              // For numeric grids, use c1, c2, etc. For other grids, use r1, r2, etc. or existing code
-              const defaultCode = isNumericGrid ? `c${stmtIndex + 1}` : `r${stmtIndex + 1}`;
-              const stmtOpt = typeof stmt === 'string' 
-                ? { code: defaultCode, text: stmt } 
-                : { 
-                    code: isNumericGrid ? `c${stmtIndex + 1}` : (stmt.code || defaultCode), 
-                    text: stmt.text 
-                  };
-              return (
-                <div key={stmtIndex} className="flex items-center gap-2 text-sm text-gray-700">
-                  <span className="font-mono text-xs text-gray-500 w-8">{stmtOpt.code}:</span>
-                  <span>{stmtOpt.text}</span>
+                    const shouldTerminate = terminateCodes.has(stmtOpt.code || defaultCode);
+                    return (
+                      <div key={stmtIndex} className="flex items-center gap-2 text-sm text-gray-700">
+                        <span className="font-mono text-xs text-gray-500 w-8">{stmtOpt.code}:</span>
+                        <span>{formatDescriptionWithBrackets(stmtOpt.text)}</span>
+                        {shouldTerminate && (
+                          <span className="text-[10px] font-bold text-red-600 ml-1">TERM</span>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-              );
-            })}
-          </div>
-          )}
-        </div>
-      )}
+              </div>
+            );
+          })()}
 
-      {/* Response Options (for grid questions - column headers/scale) - only show if not already shown in grid table */}
-      {question.responseOptions && question.responseOptions.length > 0 && 
-       !(question.type?.toLowerCase().includes('numeric grid') && question.statementOptions && question.statementOptions.length > 0) && (
-        <div className="mb-3">
-          <div className="flex items-center gap-2 mb-2">
-            <h4 className="text-xs font-medium text-gray-700">Response Options (Columns):</h4>
-            {!isEditingResponseOptions && (
-              <button
-                onClick={handleStartEditResponseOptions}
-                className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
-                title="Edit response codes"
-              >
-                <PencilIcon className="w-3 h-3" />
-                Edit
-              </button>
-            )}
-          </div>
-          {isEditingResponseOptions ? (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between mb-2">
-                <div className="text-xs font-medium text-gray-700">Response Options:</div>
-                <button
-                  onClick={() => {
-                    const newCode = String(editedResponseOptions.length + 1);
-                    setEditedResponseOptions([...editedResponseOptions, { code: newCode, text: '' }]);
-                  }}
-                  className="px-2 py-1 text-xs font-medium text-orange-600 hover:text-orange-700"
-                >
-                  + Add Option
-                </button>
-              </div>
-              {(() => {
-                // Check for duplicate codes
-                const codes = editedResponseOptions.map(opt => opt.code.trim().toLowerCase());
-                const duplicateCodes = new Set<string>();
-                codes.forEach((code, index) => {
-                  if (code && codes.indexOf(code) !== index) {
-                    duplicateCodes.add(code);
-                  }
-                });
-                
-                return (
-                  <>
-                    {editedResponseOptions.map((respOpt, respIndex) => {
-                      const codeLower = respOpt.code.trim().toLowerCase();
-                      const isDuplicate = codeLower && duplicateCodes.has(codeLower);
-                      
-                      return (
-                        <div key={respIndex} className="flex items-center gap-2">
-                          <input
-                            type="text"
-                            value={respOpt.code}
-                            onChange={(e) => {
-                              const updated = [...editedResponseOptions];
-                              updated[respIndex] = { ...updated[respIndex], code: e.target.value };
-                              setEditedResponseOptions(updated);
-                            }}
-                            className={`w-16 px-2 py-1 text-xs font-mono border rounded focus:outline-none focus:ring-2 ${
-                              isDuplicate 
-                                ? 'border-red-500 focus:ring-red-500' 
-                                : 'border-gray-300 focus:ring-orange-500'
-                            }`}
-                            placeholder="Code"
-                          />
-                          <input
-                            type="text"
-                            value={respOpt.text}
-                            onChange={(e) => {
-                              const updated = [...editedResponseOptions];
-                              updated[respIndex] = { ...updated[respIndex], text: e.target.value };
-                              setEditedResponseOptions(updated);
-                            }}
-                            className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-orange-500"
-                            placeholder="Text"
-                          />
-                          <button
-                            onClick={() => {
-                              const updated = [...editedResponseOptions];
-                              updated.splice(respIndex, 1);
-                              setEditedResponseOptions(updated);
-                            }}
-                            className="px-2 py-1 text-red-600 hover:text-red-700"
-                            title="Remove option"
-                          >
-                            <XMarkIcon className="w-4 h-4" />
-                          </button>
-                        </div>
-                      );
-                    })}
-                    {duplicateCodes.size > 0 && (
-                      <p className="text-xs text-red-600 mt-1">
-                        Duplicate codes are not allowed. Please ensure each code is unique.
-                      </p>
-                    )}
-                  </>
-                );
-              })()}
-              <div className="flex items-center gap-2 mt-2">
-                {(() => {
-                  const codes = editedResponseOptions.map(opt => opt.code.trim().toLowerCase());
-                  const duplicateCodes = codes.filter((code, index) => code && codes.indexOf(code) !== index);
-                  const hasDuplicates = duplicateCodes.length > 0;
-                  
-                  return (
-                    <button
-                      onClick={handleSaveResponseOptions}
-                      disabled={hasDuplicates}
-                      className={`flex items-center gap-1 px-3 py-1 text-xs font-medium rounded transition-colors ${
-                        hasDuplicates
-                          ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
-                          : 'text-white bg-green-600 hover:bg-green-700'
-                      }`}
-                    >
-                      <CheckIcon className="w-3 h-3" />
-                      Save
-                    </button>
-                  );
-                })()}
-                <button
-                  onClick={handleCancelEditResponseOptions}
-                  className="flex items-center gap-1 px-3 py-1 text-xs font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded transition-colors"
-                >
-                  <XMarkIcon className="w-3 h-3" />
-                  Cancel
-                </button>
-              </div>
-            </div>
-          ) : (
-          <div className="space-y-1">
-            {question.responseOptions.map((resp, respIndex) => {
-              const respOpt = typeof resp === 'string' 
-                ? { code: `c${respIndex + 1}`, text: resp } 
-                : resp;
-              return (
-                <div key={respIndex} className="flex items-center gap-2 text-sm text-gray-700">
-                  <span className="font-mono text-xs text-gray-500 w-8">{respOpt.code}:</span>
-                  <span>{respOpt.text}</span>
+          {/* Response Options (for grid questions - column headers/scale) - only show if not already shown in grid table */}
+          {question.responseOptions && question.responseOptions.length > 0 && 
+           !(question.type?.toLowerCase().includes('numeric grid') && question.statementOptions && question.statementOptions.length > 0) && (() => {
+            const terminateCodes = parseTerminateLogic(question.terminateLogic, question.responseOptions, question.type);
+            return (
+              <div className="mb-3">
+                <h4 className="text-xs font-medium text-gray-700 mb-2">
+                  Response Options (Columns):
+                </h4>
+                <div className="space-y-1">
+                  {question.responseOptions.map((resp, respIndex) => {
+                    const respOpt = typeof resp === 'string' 
+                      ? { code: `c${respIndex + 1}`, text: resp } 
+                      : resp;
+                    const shouldTerminate = terminateCodes.has(respOpt.code || `c${respIndex + 1}`);
+                    return (
+                      <div key={respIndex} className="flex items-center gap-2 text-sm text-gray-700">
+                        <span className="font-mono text-xs text-gray-500 w-8">{respOpt.code}:</span>
+                        <span>{formatDescriptionWithBrackets(respOpt.text)}</span>
+                        {shouldTerminate && (
+                          <span className="text-[10px] font-bold text-red-600 ml-1">TERM</span>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-              );
-            })}
-          </div>
-          )}
-        </div>
-      )}
+              </div>
+            );
+          })()}
 
-      {/* Logic/Show Logic */}
-      {(question.showLogic || question.logic) && (
+      {/* Logic (only show if there's logic but no showLogic, since showLogic is shown above question number) */}
+      {!question.showLogic && question.logic && (
         <div className="mb-3">
           <h4 className="text-xs font-medium text-gray-700 mb-1">Logic:</h4>
           <p className="text-xs text-gray-600 font-mono bg-gray-50 p-2 rounded">
-            {typeof (question.showLogic || question.logic) === 'string' 
-              ? (question.showLogic || question.logic) 
-              : JSON.stringify(question.showLogic || question.logic)}
+            {typeof question.logic === 'string' 
+              ? question.logic 
+              : JSON.stringify(question.logic)}
           </p>
         </div>
       )}
 
-      {/* Terminate Logic */}
-      {question.terminateLogic && (
+      {/* Terminate Logic - Only show if it's complex (string format), not simple structured format */}
+      {question.terminateLogic && typeof question.terminateLogic === 'string' && (
         <div className="mb-3">
           <h4 className="text-xs font-medium text-gray-700 mb-1">Terminate Logic:</h4>
           <p className="text-xs text-gray-600 font-mono bg-gray-50 p-2 rounded">
-            {typeof question.terminateLogic === 'string' 
-              ? question.terminateLogic 
-              : JSON.stringify(question.terminateLogic)}
+            {question.terminateLogic}
           </p>
         </div>
       )}
+
+      {/* Misc - Raw AI Output */}
+      <div className="mb-3">
+        <button
+          onClick={() => setIsRawAiOutputCollapsed(!isRawAiOutputCollapsed)}
+          className="flex items-center gap-2 text-xs font-medium text-gray-700 mb-1 hover:text-gray-900"
+        >
+          {isRawAiOutputCollapsed ? (
+            <ChevronDownIcon className="w-4 h-4" />
+          ) : (
+            <ChevronUpIcon className="w-4 h-4" />
+          )}
+          Raw AI Output:
+        </button>
+        {!isRawAiOutputCollapsed && (
+          <div className="bg-gray-50 p-3 rounded border border-gray-200">
+            {question.rawAiOutput ? (
+              <pre className="text-xs text-gray-700 font-mono whitespace-pre-wrap overflow-x-auto">
+                {question.rawAiOutput}
+              </pre>
+            ) : (
+              <pre className="text-xs text-gray-500 font-mono whitespace-pre-wrap overflow-x-auto italic">
+                Raw AI output not available (this question was parsed before raw output storage was added)
+              </pre>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Validation */}
       {question.validation && (
@@ -2167,24 +2398,448 @@ function QuestionBox({
         </div>
       )}
 
-      {/* Other Tags (excluding metadata tags that are shown as pills) */}
-      {question.tags && question.tags.filter(tag => 
-        tag !== 'Scale' && tag !== '%' && tag !== 'Number'
-      ).length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          <span className="text-xs font-medium text-gray-700">Other Tags: </span>
-          {question.tags.filter(tag => 
+          {/* Other Tags (excluding metadata tags that are shown as pills) */}
+          {question.tags && question.tags.filter(tag => 
             tag !== 'Scale' && tag !== '%' && tag !== 'Number'
-          ).map((tag, tagIndex) => (
-            <span
-              key={tagIndex}
-              className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded"
+          ).length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              <span className="text-xs font-medium text-gray-700">Other Tags: </span>
+              {question.tags.filter(tag => 
+                tag !== 'Scale' && tag !== '%' && tag !== 'Number'
+              ).map((tag, tagIndex) => (
+                <span
+                  key={tagIndex}
+                  className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// Survey Question View Component
+function SurveyQuestionView({ 
+  question, 
+  index,
+  onUpdateQuestion,
+  questionnaireId
+}: { 
+  question: Question; 
+  index: number;
+  onUpdateQuestion?: (question: Question) => Question[];
+  questionnaireId?: string;
+}) {
+  const [isFlipping, setIsFlipping] = useState(false);
+  
+  const questionType = question.type?.toLowerCase() || '';
+  const isSingleSelect = questionType.includes('single select') && !questionType.includes('grid');
+  const isMultiSelect = questionType.includes('multi-select') && !questionType.includes('grid');
+  const isNumeric = questionType.includes('numeric') && !questionType.includes('grid') && !questionType.includes('list');
+  const isNumericGrid = questionType.includes('numeric grid');
+  const isSingleSelectGrid = questionType.includes('single select grid');
+  const isMultiSelectGrid = questionType.includes('multi-select grid');
+  const isOpenEnd = questionType.includes('open end') && !questionType.includes('list');
+  const isOpenEndList = questionType.includes('open end list');
+  const isNumericList = questionType.includes('numeric list');
+  
+  
+  // Check if question can be flipped (has both statement and response options)
+  const canFlip = question.statementOptions && question.statementOptions.length > 0 && 
+                  question.responseOptions && question.responseOptions.length > 0;
+  
+  // Use actual question data (no local flip state - it's persisted)
+  const displayStatementOptions = question.statementOptions;
+  const displayResponseOptions = question.responseOptions;
+  
+  // Handle flip options - same logic as QNR view
+  const handleFlipOptions = async () => {
+    if (!canFlip || !onUpdateQuestion || !questionnaireId) return;
+
+    setIsFlipping(true);
+    const originalQuestion = question;
+    let updatedQuestions: Question[] = [];
+
+    try {
+      // Create updated question with flipped options
+      const updatedQuestion: Question = {
+        ...question,
+        statementOptions: question.responseOptions?.map((opt, idx) => {
+          const optObj = typeof opt === 'string' ? { code: `r${idx + 1}`, text: opt } : opt;
+          return {
+            code: `r${idx + 1}`,
+            text: optObj.text
+          };
+        }),
+        responseOptions: question.statementOptions?.map((opt, idx) => {
+          const optObj = typeof opt === 'string' ? { code: `c${idx + 1}`, text: opt } : opt;
+          return {
+            code: `c${idx + 1}`,
+            text: optObj.text
+          };
+        })
+      };
+
+      // Update locally first for immediate feedback
+      updatedQuestions = onUpdateQuestion(updatedQuestion);
+
+      // Save to backend with all questions
+      const response = await fetch(`${API_BASE_URL}/api/questionnaire/${questionnaireId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
+        },
+        body: JSON.stringify({
+          questions: updatedQuestions
+        })
+      });
+
+      if (response.ok) {
+        setIsFlipping(false);
+        // Notify Tabs page to reload questionnaire data
+        window.dispatchEvent(new CustomEvent('questionnaireUpdated', { detail: { questionnaireId } }));
+      } else {
+        // Revert on error
+        onUpdateQuestion(originalQuestion);
+        alert('Failed to save changes. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error flipping options:', error);
+      // Revert on error
+      if (onUpdateQuestion) {
+        onUpdateQuestion(originalQuestion);
+      }
+      alert('Failed to save changes. Please try again.');
+    } finally {
+      setIsFlipping(false);
+    }
+  };
+
+  // Get options for single/multi-select
+  const getOptions = () => {
+    if (!question.options) return [];
+    return question.options.map((opt, idx) => {
+      if (typeof opt === 'string') {
+        return { code: String(idx + 1), text: opt };
+      }
+      return { code: opt.code || String(idx + 1), text: opt.text || '' };
+    });
+  };
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg p-6">
+      <div className="mb-4">
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-sm text-gray-500">
+            {question.number || `Q${index + 1}`}
+          </div>
+          {canFlip && (isSingleSelectGrid || isMultiSelectGrid) && (
+            <button
+              onClick={handleFlipOptions}
+              disabled={isFlipping}
+              className="flex items-center gap-1 px-3 py-1 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Flip statement options and response options"
             >
-              {tag}
-            </span>
+              <ArrowPathIcon className={`w-4 h-4 ${isFlipping ? 'animate-spin' : ''}`} />
+              Flip Options
+            </button>
+          )}
+        </div>
+        <div className="text-base text-gray-900">
+          {formatDescriptionWithBrackets(question.text)}
+        </div>
+      </div>
+
+      {/* Single Select */}
+      {isSingleSelect && (
+        <div className="space-y-2">
+          {getOptions().map((opt, optIdx) => (
+            <label key={optIdx} className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded cursor-pointer">
+              <input
+                type="radio"
+                name={`question-${question.id || index}`}
+                value={opt.code}
+                className="w-4 h-4 focus:ring-2 focus:ring-[#D14A2D]"
+                style={{ accentColor: BRAND_ORANGE }}
+              />
+              <span className="text-sm text-gray-700">{formatDescriptionWithBrackets(opt.text || opt.code)}</span>
+            </label>
           ))}
         </div>
       )}
+
+      {/* Multi-Select */}
+      {isMultiSelect && (
+        <div className="space-y-2">
+          {getOptions().map((opt, optIdx) => (
+            <label key={optIdx} className="flex items-start gap-3 p-2 hover:bg-gray-50 rounded cursor-pointer">
+              <input
+                type="checkbox"
+                name={`question-${question.id || index}`}
+                value={opt.code}
+                className="w-4 h-4 mt-0.5 rounded focus:ring-2 focus:ring-[#D14A2D] flex-shrink-0"
+                style={{ accentColor: BRAND_ORANGE }}
+              />
+              <span className="text-sm text-gray-700">{formatDescriptionWithBrackets(opt.text || opt.code)}</span>
+            </label>
+          ))}
+        </div>
+      )}
+
+      {/* Numeric */}
+      {isNumeric && (
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            name={`question-${question.id || index}`}
+            className="w-auto min-w-[120px] max-w-[200px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#D14A2D] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            placeholder="Enter a number"
+          />
+          {question.tags && question.tags.includes('%') && (
+            <span className="text-sm text-gray-700">%</span>
+          )}
+        </div>
+      )}
+
+      {/* Open End */}
+      {isOpenEnd && (
+        <textarea
+          name={`question-${question.id || index}`}
+          rows={3}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#D14A2D] resize-none"
+          placeholder="Enter your response"
+        />
+      )}
+
+      {/* Single Select Grid */}
+      {isSingleSelectGrid && displayStatementOptions && displayResponseOptions && (
+        <div className="overflow-x-auto">
+          <table className="min-w-full border border-gray-300 rounded-lg">
+            <thead>
+              <tr className="bg-gray-50">
+                <th className="px-4 py-2 text-left text-sm font-medium text-gray-700 border-b border-gray-300"></th>
+                {displayResponseOptions.map((resp, respIdx) => {
+                  const respOpt = typeof resp === 'string' 
+                    ? { code: `c${respIdx + 1}`, text: resp } 
+                    : resp;
+                  return (
+                    <th key={respIdx} className="px-4 py-2 text-center text-sm font-medium text-gray-700 border-b border-gray-300">
+                      {formatDescriptionWithBrackets(respOpt.text || respOpt.code)}
+                    </th>
+                  );
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {displayStatementOptions.map((stmt, stmtIdx) => {
+                const stmtOpt = typeof stmt === 'string' 
+                  ? { code: `r${stmtIdx + 1}`, text: stmt } 
+                  : stmt;
+                return (
+                  <tr key={stmtIdx} className="border-b border-gray-200">
+                    <td className="px-4 py-3 text-sm text-gray-700">{formatDescriptionWithBrackets(stmtOpt.text || stmtOpt.code)}</td>
+                    {displayResponseOptions?.map((resp, respIdx) => (
+                      <td key={respIdx} className="px-4 py-3 text-center">
+                        <input
+                          type="radio"
+                          name={`question-${question.id || index}-stmt-${stmtIdx}`}
+                          value={respIdx}
+                          className="w-4 h-4 focus:ring-2 focus:ring-[#D14A2D]"
+                style={{ accentColor: BRAND_ORANGE }}
+                        />
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Multi-Select Grid */}
+      {isMultiSelectGrid && displayStatementOptions && displayResponseOptions && (
+        <div className="overflow-x-auto">
+          <table className="min-w-full border border-gray-300 rounded-lg">
+            <thead>
+              <tr className="bg-gray-50">
+                <th className="px-4 py-2 text-left text-sm font-medium text-gray-700 border-b border-gray-300"></th>
+                {displayResponseOptions.map((resp, respIdx) => {
+                  const respOpt = typeof resp === 'string' 
+                    ? { code: `c${respIdx + 1}`, text: resp } 
+                    : resp;
+                  return (
+                    <th key={respIdx} className="px-4 py-2 text-center text-sm font-medium text-gray-700 border-b border-gray-300">
+                      {formatDescriptionWithBrackets(respOpt.text || respOpt.code)}
+                    </th>
+                  );
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {displayStatementOptions.map((stmt, stmtIdx) => {
+                const stmtOpt = typeof stmt === 'string' 
+                  ? { code: `r${stmtIdx + 1}`, text: stmt } 
+                  : stmt;
+                return (
+                  <tr key={stmtIdx} className="border-b border-gray-200">
+                    <td className="px-4 py-3 text-sm text-gray-700">{formatDescriptionWithBrackets(stmtOpt.text || stmtOpt.code)}</td>
+                    {displayResponseOptions?.map((resp, respIdx) => (
+                      <td key={respIdx} className="px-4 py-3 text-center">
+                        <input
+                          type="checkbox"
+                          name={`question-${question.id || index}-stmt-${stmtIdx}-resp-${respIdx}`}
+                          className="w-4 h-4 rounded focus:ring-2 focus:ring-[#D14A2D]"
+                          style={{ accentColor: BRAND_ORANGE }}
+                        />
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Numeric Grid */}
+      {isNumericGrid && question.statementOptions && question.responseOptions && (
+        <div className="overflow-x-auto">
+          <table className="w-full border border-gray-300 rounded-lg" style={{ tableLayout: 'fixed' }}>
+            <thead>
+              <tr className="bg-gray-50">
+                <th className="px-4 py-2 text-left text-sm font-medium text-gray-700 border-b border-gray-300"></th>
+                {question.responseOptions.map((resp, respIdx) => {
+                  const respOpt = typeof resp === 'string' 
+                    ? { code: `c${respIdx + 1}`, text: resp } 
+                    : resp;
+                  const numColumns = question.responseOptions?.length || 1;
+                  // Response columns share remaining space equally (assuming first column takes ~30%)
+                  const columnWidth = `${70 / numColumns}%`;
+                  return (
+                    <th 
+                      key={respIdx} 
+                      className="px-4 py-2 text-center text-sm font-medium text-gray-700 border-b border-gray-300"
+                      style={{ width: columnWidth }}
+                    >
+                      {formatDescriptionWithBrackets(respOpt.text || respOpt.code)}
+                    </th>
+                  );
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {question.statementOptions.map((stmt, stmtIdx) => {
+                const stmtOpt = typeof stmt === 'string' 
+                  ? { code: `r${stmtIdx + 1}`, text: stmt } 
+                  : stmt;
+                const numColumns = question.responseOptions?.length || 1;
+                const columnWidth = `${70 / numColumns}%`;
+                return (
+                  <tr key={stmtIdx} className="border-b border-gray-200">
+                    <td className="px-4 py-3 text-sm text-gray-700">{formatDescriptionWithBrackets(stmtOpt.text || stmtOpt.code)}</td>
+                    {question.responseOptions?.map((resp, respIdx) => (
+                      <td 
+                        key={respIdx} 
+                        className="px-4 py-3 text-center"
+                        style={{ width: columnWidth }}
+                      >
+                        <div className="flex items-center justify-center gap-1">
+                          <input
+                            type="number"
+                            name={`question-${question.id || index}-stmt-${stmtIdx}-resp-${respIdx}`}
+                            className="w-16 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[#D14A2D] text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            placeholder="0"
+                          />
+                          {question.tags && question.tags.includes('%') && (
+                            <span className="text-sm text-gray-700">%</span>
+                          )}
+                        </div>
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Open End List */}
+      {isOpenEndList && question.responseOptions && (
+        <div className="space-y-3">
+          {question.responseOptions.map((resp, respIdx) => {
+            const respOpt = typeof resp === 'string' 
+              ? { code: `r${respIdx + 1}`, text: resp } 
+              : resp;
+            return (
+              <div key={respIdx}>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {formatDescriptionWithBrackets(respOpt.text || respOpt.code)}
+                </label>
+                <textarea
+                  name={`question-${question.id || index}-resp-${respIdx}`}
+                  rows={2}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#D14A2D] resize-none"
+                  placeholder="Enter your response"
+                />
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Numeric List */}
+      {isNumericList && (() => {
+        // For numeric lists, response options are stored in question.options, not question.responseOptions
+        const responseOptions = question.options || [];
+        const hasResponseOptions = responseOptions.length > 0;
+        
+        if (!hasResponseOptions) {
+          return (
+            <div className="text-sm text-gray-500 italic">No response options available</div>
+          );
+        }
+        
+        return (
+          <div className="overflow-x-auto">
+            <table className="w-full border border-gray-300 rounded-lg">
+              <tbody>
+                {responseOptions.map((resp, respIdx) => {
+                  const respOpt = typeof resp === 'string' 
+                    ? { code: `r${respIdx + 1}`, text: resp } 
+                    : resp;
+                  return (
+                    <tr key={respIdx} className="border-b border-gray-200 last:border-b-0">
+                      <td className="px-4 py-3 text-sm text-gray-700">
+                        {formatDescriptionWithBrackets(respOpt.text || respOpt.code)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-start gap-1">
+                          <input
+                            type="number"
+                            name={`question-${question.id || index}-resp-${respIdx}`}
+                            className="w-16 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[#D14A2D] text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            placeholder="0"
+                          />
+                          {question.tags && question.tags.includes('%') && (
+                            <span className="text-sm text-gray-700">%</span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        );
+      })()}
     </div>
   );
 }

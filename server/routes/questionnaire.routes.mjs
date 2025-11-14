@@ -92,6 +92,29 @@ const uploadDataFile = multer({
   limits: { fileSize: 50 * 1024 * 1024 } // 50MB limit for data files
 });
 
+// Helper function to parse option string and extract code
+// Handles formats like "1 Amyotrophic lateral sclerosis (ALS)" or "99 None of the above apply [EXCLUSIVE, ANCHOR]"
+function parseOptionString(optionString) {
+  if (typeof optionString !== 'string') {
+    return optionString; // Already an object, return as-is
+  }
+  
+  // Match leading number(s) followed by space, then the rest of the text
+  // Pattern: one or more digits at the start, followed by a space, then the rest
+  // Examples: "1 Text" -> code: "1", text: "Text"
+  //           "99 None of the above apply [EXCLUSIVE, ANCHOR]" -> code: "99", text: "None of the above apply [EXCLUSIVE, ANCHOR]"
+  const match = optionString.match(/^(\d+)\s+(.+)$/);
+  
+  if (match) {
+    const code = match[1]; // The extracted code (e.g., "1", "99")
+    const text = match[2].trim(); // The remaining text (without the leading number)
+    return { code, text };
+  }
+  
+  // If no code found, return as-is (will use index as code later)
+  return optionString;
+}
+
 // Helper function to split questionnaire text into chunks
 function splitQuestionnaireIntoChunks(text, maxChunkSize = 35000) {
   // Improved regex to catch more question formats: QS14, S1, A1, Q1, Section 1, Question 1, etc.
@@ -201,7 +224,11 @@ function splitQuestionnaireIntoChunks(text, maxChunkSize = 35000) {
 
 // Parse a single chunk of questionnaire
 async function parseQuestionnaireChunk(textChunk, chunkIndex, totalChunks, systemPrompt, projectId) {
-  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const client = new OpenAI({ 
+    apiKey: process.env.OPENAI_API_KEY,
+    timeout: 180000, // 3 minute timeout per chunk
+    maxRetries: 2
+  });
   
   const userPrompt = `Please parse this ${chunkIndex === 0 && totalChunks > 1 ? 'FIRST SECTION' : chunkIndex === totalChunks - 1 && totalChunks > 1 ? 'FINAL SECTION' : totalChunks > 1 ? `SECTION ${chunkIndex + 1} of ${totalChunks}` : ''} of a questionnaire document and extract ALL questions with their details:
 
@@ -213,18 +240,18 @@ Return a JSON object with this structure:
 {
   "questions": [
     {
-      "id": "unique-id",
-      "number": "question number (e.g., S1, A1, Q1)",
+      "number": "question number (e.g., S1, A1, Q1) - this will be used as the unique identifier",
       "text": "full question text",
       "type": "specific Forsta question type from the library above",
       "options": ["option1", "option2", ...],  // For non-grid questions: response options
       "statementOptions": [{"code": "r1", "text": "statement 1"}, ...],  // For grid questions: row labels/statements (ALWAYS use "r" prefix: r1, r2, r3, etc.)
       "responseOptions": [{"code": "c1", "text": "Option 1"}, ...],  // For grid questions: column headers/response scale (ALWAYS use "c" prefix: c1, c2, c3, etc.)
       "showLogic": "condition for showing this question (if present)",
-      "randomize": true/false,
+      "randomize": true/false,  // ONLY applies to rows/statement options, NEVER to columns/response options
       "tags": ["tag1", "tag2"],
       "needsReview": true/false,
-      "logic": "any skip logic or conditions"
+      "logic": "any skip logic or conditions",
+      "terminateLogic": "TERMINATE IF [condition]" OR {"optionCodes": ["1", "2", "3"]}  // For simple single/multi-select: structured object with optionCodes array. For complex logic: text string.
     }
   ]
 }
@@ -266,6 +293,8 @@ Response options should ALWAYS include the full descriptive text, not just the n
 TAG SYSTEM - ADDITIONAL METADATA:
 Questions should include tags in the "tags" array to provide additional context:
 
+IMPORTANT: DO NOT add "terminate" as a tag. Termination logic is handled separately in the "terminateLogic" field (see TERMINATE LOGIC PARSING RULES above).
+
 1. SCALE TAG:
    - ONLY add "Scale" tag if the question is ACTUALLY a rating scale question, NOT just because it has 5, 7, or 10 options
    - Rating scales are questions that ask respondents to RATE, EVALUATE, or MEASURE something on a numeric scale (e.g., satisfaction, agreement, likelihood, importance)
@@ -291,6 +320,9 @@ Questions should include tags in the "tags" array to provide additional context:
 
 IMPORTANT: Return ONLY valid JSON. Do not include any explanatory text outside the JSON object.`;
 
+  const requestStartTime = Date.now();
+  console.log(`    📡 Sending API request for chunk ${chunkIndex + 1} (${textChunk.length} chars)...`);
+  
   const response = await client.chat.completions.create({
     model: 'gpt-4o',
     messages: [
@@ -301,6 +333,9 @@ IMPORTANT: Return ONLY valid JSON. Do not include any explanatory text outside t
     response_format: { type: 'json_object' },
     max_tokens: 16384  // Maximum for gpt-4o
   });
+  
+  const requestTime = ((Date.now() - requestStartTime) / 1000).toFixed(1);
+  console.log(`    ✅ API response received in ${requestTime}s for chunk ${chunkIndex + 1}`);
 
   const finishReason = response.choices[0].finish_reason;
   if (finishReason === 'length') {
@@ -346,11 +381,16 @@ IMPORTANT: Return ONLY valid JSON. Do not include any explanatory text outside t
 }
 
 // Parse questionnaire from .docx file using AI
-async function parseQuestionnaire(filePath, projectId) {
+async function parseQuestionnaire(filePath, projectId, extractedText = null) {
   try {
-    // Extract text from .docx file
+    // Extract text from .docx file if not provided
+    let text;
+    if (extractedText) {
+      text = extractedText;
+    } else {
     const result = await mammoth.extractRawText({ path: filePath });
-    const text = result.value;
+      text = result.value;
+    }
     
     // Define systemPrompt (used for both chunked and non-chunked parsing)
     const systemPrompt = `You are a Forsta/Decipher questionnaire expert. Parse questionnaires with EXACT fidelity to programming logic.
@@ -360,10 +400,33 @@ CRITICAL PARSING RULES:
 1. PROGRAMMING NOTES (ALL CAPS TEXT):
    - "ASK IF [condition]" → showLogic: "[condition]"
    - "SHOW IF [condition]" → showLogic: "[condition]"  
-   - "TERMINATE IF [condition]" → terminateLogic: "[condition]"
-   - "RANDOMIZE" → randomize: true
+   - "TERMINATE IF [condition]" → terminateLogic: See TERMINATE LOGIC rules below
+   - "RANDOMIZE" → randomize: true (NOTE: This ONLY applies to rows/statement options, NEVER to columns/response options)
    - "RANGE: X-Y" → validation: {type: "range", min: X, max: Y}
    - "MUST = 100%" → validation: {type: "sum", value: 100, unit: "%"}
+
+TERMINATE LOGIC PARSING RULES:
+For "TERMINATE IF [condition]" instructions, parse as follows:
+
+A. SIMPLE TERMINATE LOGIC (for Single Select and Multi-Select questions only):
+   - If the condition references option codes from the current question (e.g., "if option 1", "if options 1, 2, 3", "if option 1-4")
+   - Parse into structured format: terminateLogic: { "optionCodes": ["1", "2", "3"] }
+   - Extract the option codes (numbers) that trigger termination
+   - Examples:
+     * "TERMINATE IF option 1 is selected" → terminateLogic: { "optionCodes": ["1"] }
+     * "TERMINATE IF options 1, 2, 3, or 4 are selected" → terminateLogic: { "optionCodes": ["1", "2", "3", "4"] }
+     * "TERMINATE IF option 1-4" → terminateLogic: { "optionCodes": ["1", "2", "3", "4"] }
+     * "TERMINATE IF option 1 or 2" → terminateLogic: { "optionCodes": ["1", "2"] }
+
+B. COMPLEX TERMINATE LOGIC:
+   - If the condition references other questions (e.g., "if S9=1 and S10=5")
+   - If the condition is complex (multiple conditions, AND/OR logic, etc.)
+   - Keep as text string: terminateLogic: "TERMINATE IF S9=1 and S10=5"
+   - Examples:
+     * "TERMINATE IF S9=1 and S10=5" → terminateLogic: "TERMINATE IF S9=1 and S10=5"
+     * "TERMINATE IF Q5=1 OR Q6=2" → terminateLogic: "TERMINATE IF Q5=1 OR Q6=2"
+
+IMPORTANT: Only use structured format (optionCodes array) for Single Select and Multi-Select questions when the condition only references options from the current question. For all other cases, use text string format.
 
 2. GRID DETECTION AND CLASSIFICATION:
    Grid questions are matrix-style questions with rows and columns. CRITICAL DISTINCTIONS:
@@ -418,7 +481,7 @@ CRITICAL PARSING RULES:
    - [ANCHOR] → anchor option to bottom
    - [EXCLUSIVE] → deselects all other options when selected
    - [SPECIFY] → adds text box for "Other, specify"
-   - [RANDOMIZE] → randomize this specific option set
+   - [RANDOMIZE] → randomize: true (NOTE: This ONLY applies to rows/statement options, NEVER to columns/response options. Only set randomize: true if the RANDOMIZE instruction applies to the statement options/rows)
 
 4. PIPING (VARIABLES IN BRACKETS):
    - [INSERT variable] → insert value from previous question
@@ -484,8 +547,138 @@ OUTPUT STRUCTURE:
 Return enhanced JSON with all logic preserved.`;
 
     const estimatedTokens = text.length / 4; // Rough estimate: 4 chars per token
+    const estimatedOutputTokens = estimatedTokens * 0.3; // Rough estimate: output is ~30% of input
     
-    // Single-pass parsing - use full context window
+    // Check if we need to chunk - be more aggressive to avoid truncation
+    // Use chunking if estimated output > 8000 tokens OR text > 100000 chars
+    // This ensures we stay well under the 16384 token limit
+    const shouldChunk = estimatedOutputTokens > 8000 || text.length > 100000;
+    
+    if (shouldChunk) {
+      console.log(`📦 Questionnaire is large (${text.length} chars, ~${Math.round(estimatedTokens)} input tokens, ~${Math.round(estimatedOutputTokens)} estimated output tokens). Splitting into chunks...`);
+      
+      // Split into chunks at question boundaries
+      // Use 25000 chars per chunk (~6250 input tokens) to ensure output stays well under 16384 token limit
+      const chunks = splitQuestionnaireIntoChunks(text, 25000);
+      console.log(`📦 Split into ${chunks.length} chunks`);
+      
+      if (chunks.length === 0) {
+        throw new Error('Failed to split questionnaire into chunks');
+      }
+      
+      // Parse each chunk with progress logging
+      const allQuestions = [];
+      const startTime = Date.now();
+      for (let i = 0; i < chunks.length; i++) {
+        const chunkStartTime = Date.now();
+        console.log(`📦 Parsing chunk ${i + 1} of ${chunks.length} (${chunks[i].length} chars)...`);
+        try {
+          const chunkQuestions = await parseQuestionnaireChunk(chunks[i], i, chunks.length, systemPrompt, projectId);
+          const chunkTime = ((Date.now() - chunkStartTime) / 1000).toFixed(1);
+          console.log(`✅ Chunk ${i + 1} completed in ${chunkTime}s - found ${chunkQuestions.length} questions`);
+          allQuestions.push(...chunkQuestions);
+          
+          // Log overall progress
+          const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+          const avgTimePerChunk = elapsed / (i + 1);
+          const estimatedRemaining = ((chunks.length - i - 1) * avgTimePerChunk).toFixed(0);
+          console.log(`⏱️  Progress: ${i + 1}/${chunks.length} chunks (${Math.round(((i + 1) / chunks.length) * 100)}%) - Elapsed: ${elapsed}s - Est. remaining: ${estimatedRemaining}s`);
+        } catch (error) {
+          console.error(`❌ Error parsing chunk ${i + 1}:`, error);
+          throw new Error(`Failed to parse chunk ${i + 1} of ${chunks.length}: ${error.message}`);
+        }
+      }
+      
+      const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
+      console.log(`✅ Successfully parsed ${allQuestions.length} questions from ${chunks.length} chunks in ${totalTime}s`);
+      
+      // Process and normalize all questions
+      const processedQuestions = allQuestions.map((question, index) => {
+        // Normalize options - extract codes from strings like "1 Amyotrophic lateral sclerosis (ALS)"
+        const normalizedOptions = question.options?.map((opt, optIndex) => {
+          const parsed = parseOptionString(opt);
+          if (typeof parsed === 'string') {
+            // No code found in string, use index
+            return { code: String(optIndex + 1), text: parsed };
+          }
+          // Code was extracted, use it
+          return parsed;
+        });
+
+        // Normalize statementOptions codes to always use "r" prefix
+        const normalizedStatementOptions = question.statementOptions?.map((stmt, stmtIndex) => {
+          const parsed = parseOptionString(stmt);
+          const stmtObj = typeof parsed === 'string' ? { code: `r${stmtIndex + 1}`, text: parsed } : parsed;
+          const code = stmtObj.code || `r${stmtIndex + 1}`;
+          const normalizedCode = code.startsWith('r') ? code : `r${code.replace(/^r?/, '')}`;
+          return { ...stmtObj, code: normalizedCode };
+        });
+
+        // Normalize responseOptions codes to always use "c" prefix
+        const normalizedResponseOptions = question.responseOptions?.map((resp, respIndex) => {
+          const parsed = parseOptionString(resp);
+          const respObj = typeof parsed === 'string' ? { code: `c${respIndex + 1}`, text: parsed } : parsed;
+          const code = respObj.code || `c${respIndex + 1}`;
+          const normalizedCode = code.startsWith('c') ? code : `c${code.replace(/^c?/, '')}`;
+          return { ...respObj, code: normalizedCode };
+        });
+
+        // Process tags
+        let processedTags = Array.isArray(question.tags) ? [...question.tags] : [];
+
+        // Convert Button Rating to Single Select
+        if (question.type === 'Button Rating') {
+          question.type = 'Single Select';
+        }
+
+        // Detect scale questions
+        const questionText = (question.text || '').toLowerCase();
+        const mentionsScale = questionText.includes('point scale') || questionText.includes('-point scale') || 
+                             questionText.includes('rating scale') || 
+                             (questionText.includes('scale') && (questionText.includes('rate') || questionText.includes('rate from') || questionText.includes('on a scale'))) ||
+                             questionText.includes('how satisfied') || questionText.includes('how likely') || 
+                             questionText.includes('how much do you agree') || questionText.includes('rate your') ||
+                             questionText.includes('how important') || questionText.includes('how would you rate');
+        
+        if (mentionsScale && !processedTags.includes('Scale')) {
+          processedTags.push('Scale');
+        }
+
+        // Detect numeric type tags
+        const isNumericQuestion = question.type === 'Numeric' || question.type === 'Numeric Grid' || question.type === 'Numeric List';
+        if (isNumericQuestion) {
+          const isPercent = questionText.includes('percent') || questionText.includes('percentage') || 
+                            questionText.includes('%') || questionText.match(/\d+\s*%/);
+          
+          if (isPercent && !processedTags.includes('%')) {
+            processedTags.push('%');
+          } else if (!isPercent && !processedTags.includes('Number') && !processedTags.includes('%')) {
+            processedTags.push('Number');
+          }
+        }
+
+        return {
+          ...question,
+          // Use number as id if they're the same, otherwise use number as primary identifier
+          id: question.number || question.id || `Q${index + 1}`,
+          number: question.number || question.id || `Q${index + 1}`,
+          needsReview: question.needsReview || false,
+          tags: processedTags,
+          showLogic: question.showLogic || null,
+          randomize: question.randomize || false,
+          logic: question.logic || question.showLogic || '',
+          terminateLogic: question.terminateLogic || null,
+          statementOptions: normalizedStatementOptions || (question.type && question.type.toLowerCase().includes('grid') ? [] : undefined),
+          responseOptions: normalizedResponseOptions || (question.type && question.type.toLowerCase().includes('grid') && !question.type.toLowerCase().includes('numeric') ? [] : undefined),
+          options: normalizedOptions || [],
+          rawAiOutput: JSON.stringify(question, null, 2) // Store raw AI response for this question
+        };
+      });
+      
+      return processedQuestions;
+    }
+    
+    // Single-pass parsing for smaller questionnaires
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     
     const userPrompt = `Please parse this questionnaire document and extract ALL questions with their details. CRITICAL: You MUST parse EVERY SINGLE question in this document. Do not skip any questions. Look for all question markers (QS, S, Q, A, F, G, etc. followed by numbers) and extract every question you find:
@@ -499,18 +692,18 @@ Return a JSON object with this structure:
 {
   "questions": [
     {
-      "id": "unique-id",
-      "number": "question number (e.g., S1, A1, Q1)",
+      "number": "question number (e.g., S1, A1, Q1) - this will be used as the unique identifier",
       "text": "full question text",
       "type": "specific Forsta question type from the library above",
       "options": ["option1", "option2", ...],  // For non-grid questions: response options
       "statementOptions": [{"code": "r1", "text": "statement 1"}, ...],  // For grid questions: row labels/statements (ALWAYS use "r" prefix: r1, r2, r3, etc.)
       "responseOptions": [{"code": "c1", "text": "Option 1"}, ...],  // For grid questions: column headers/response scale (ALWAYS use "c" prefix: c1, c2, c3, etc.)
       "showLogic": "condition for showing this question (if present)",
-      "randomize": true/false,
+      "randomize": true/false,  // ONLY applies to rows/statement options, NEVER to columns/response options
       "tags": ["tag1", "tag2"],
       "needsReview": true/false,
-      "logic": "any skip logic or conditions"
+      "logic": "any skip logic or conditions",
+      "terminateLogic": "TERMINATE IF [condition]" OR {"optionCodes": ["1", "2", "3"]}  // For simple single/multi-select: structured object with optionCodes array. For complex logic: text string.
     }
   ]
 }
@@ -552,6 +745,8 @@ Response options should ALWAYS include the full descriptive text, not just the n
 TAG SYSTEM - ADDITIONAL METADATA:
 Questions should include tags in the "tags" array to provide additional context:
 
+IMPORTANT: DO NOT add "terminate" as a tag. Termination logic is handled separately in the "terminateLogic" field (see TERMINATE LOGIC PARSING RULES above).
+
 1. SCALE TAG:
    - ONLY add "Scale" tag if the question is ACTUALLY a rating scale question, NOT just because it has 5, 7, or 10 options
    - Rating scales are questions that ask respondents to RATE, EVALUATE, or MEASURE something on a numeric scale (e.g., satisfaction, agreement, likelihood, importance)
@@ -592,7 +787,121 @@ IMPORTANT: Return ONLY valid JSON. Do not include any explanatory text outside t
     const content = response.choices[0].message.content;
     
     if (finishReason === 'length') {
-      throw new Error('AI response was truncated due to output token limit (16,384 tokens max). The questionnaire may be too large to parse in a single pass. Please try splitting the questionnaire or contact support.');
+      // Response was truncated - automatically retry with chunking
+      console.log('⚠️ Response was truncated. Automatically retrying with chunking...');
+      
+      // Split into chunks and parse
+      const chunks = splitQuestionnaireIntoChunks(text, 20000); // Even smaller chunks for safety
+      console.log(`📦 Split into ${chunks.length} chunks for retry`);
+      
+      if (chunks.length === 0) {
+        throw new Error('Failed to split questionnaire into chunks');
+      }
+      
+      // Parse each chunk with progress logging
+      const allQuestions = [];
+      const startTime = Date.now();
+      for (let i = 0; i < chunks.length; i++) {
+        const chunkStartTime = Date.now();
+        console.log(`📦 Parsing chunk ${i + 1} of ${chunks.length} (${chunks[i].length} chars)...`);
+        try {
+          const chunkQuestions = await parseQuestionnaireChunk(chunks[i], i, chunks.length, systemPrompt, projectId);
+          const chunkTime = ((Date.now() - chunkStartTime) / 1000).toFixed(1);
+          console.log(`✅ Chunk ${i + 1} completed in ${chunkTime}s - found ${chunkQuestions.length} questions`);
+          allQuestions.push(...chunkQuestions);
+          
+          // Log overall progress
+          const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+          const avgTimePerChunk = elapsed / (i + 1);
+          const estimatedRemaining = ((chunks.length - i - 1) * avgTimePerChunk).toFixed(0);
+          console.log(`⏱️  Progress: ${i + 1}/${chunks.length} chunks (${Math.round(((i + 1) / chunks.length) * 100)}%) - Elapsed: ${elapsed}s - Est. remaining: ${estimatedRemaining}s`);
+        } catch (error) {
+          console.error(`❌ Error parsing chunk ${i + 1}:`, error);
+          throw new Error(`Failed to parse chunk ${i + 1} of ${chunks.length}: ${error.message}`);
+        }
+      }
+      
+      const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
+      console.log(`✅ Successfully parsed ${allQuestions.length} questions from ${chunks.length} chunks in ${totalTime}s (retry)`);
+      
+      // Process and normalize all questions (same as chunked path above)
+      const processedQuestions = allQuestions.map((question, index) => {
+        // Normalize options - extract codes from strings like "1 Amyotrophic lateral sclerosis (ALS)"
+        const normalizedOptions = question.options?.map((opt, optIndex) => {
+          const parsed = parseOptionString(opt);
+          if (typeof parsed === 'string') {
+            // No code found in string, use index
+            return { code: String(optIndex + 1), text: parsed };
+          }
+          // Code was extracted, use it
+          return parsed;
+        });
+
+        const normalizedStatementOptions = question.statementOptions?.map((stmt, stmtIndex) => {
+          const parsed = parseOptionString(stmt);
+          const stmtObj = typeof parsed === 'string' ? { code: `r${stmtIndex + 1}`, text: parsed } : parsed;
+          const code = stmtObj.code || `r${stmtIndex + 1}`;
+          const normalizedCode = code.startsWith('r') ? code : `r${code.replace(/^r?/, '')}`;
+          return { ...stmtObj, code: normalizedCode };
+        });
+
+        const normalizedResponseOptions = question.responseOptions?.map((resp, respIndex) => {
+          const parsed = parseOptionString(resp);
+          const respObj = typeof parsed === 'string' ? { code: `c${respIndex + 1}`, text: parsed } : parsed;
+          const code = respObj.code || `c${respIndex + 1}`;
+          const normalizedCode = code.startsWith('c') ? code : `c${code.replace(/^c?/, '')}`;
+          return { ...respObj, code: normalizedCode };
+        });
+
+        let processedTags = Array.isArray(question.tags) ? [...question.tags] : [];
+
+        if (question.type === 'Button Rating') {
+          question.type = 'Single Select';
+        }
+
+        const questionText = (question.text || '').toLowerCase();
+        const mentionsScale = questionText.includes('point scale') || questionText.includes('-point scale') || 
+                             questionText.includes('rating scale') || 
+                             (questionText.includes('scale') && (questionText.includes('rate') || questionText.includes('rate from') || questionText.includes('on a scale'))) ||
+                             questionText.includes('how satisfied') || questionText.includes('how likely') || 
+                             questionText.includes('how much do you agree') || questionText.includes('rate your') ||
+                             questionText.includes('how important') || questionText.includes('how would you rate');
+        
+        if (mentionsScale && !processedTags.includes('Scale')) {
+          processedTags.push('Scale');
+        }
+
+        const isNumericQuestion = question.type === 'Numeric' || question.type === 'Numeric Grid' || question.type === 'Numeric List';
+        if (isNumericQuestion) {
+          const isPercent = questionText.includes('percent') || questionText.includes('percentage') || 
+                            questionText.includes('%') || questionText.match(/\d+\s*%/);
+          
+          if (isPercent && !processedTags.includes('%')) {
+            processedTags.push('%');
+          } else if (!isPercent && !processedTags.includes('Number') && !processedTags.includes('%')) {
+            processedTags.push('Number');
+          }
+        }
+
+        return {
+          ...question,
+          // Use number as id if they're the same, otherwise use number as primary identifier
+          id: question.number || question.id || `Q${index + 1}`,
+          number: question.number || question.id || `Q${index + 1}`,
+          needsReview: question.needsReview || false,
+          tags: processedTags,
+          showLogic: question.showLogic || null,
+          randomize: question.randomize || false,
+          logic: question.logic || question.showLogic || '',
+          terminateLogic: question.terminateLogic || null,
+          statementOptions: normalizedStatementOptions || (question.type && question.type.toLowerCase().includes('grid') ? [] : undefined),
+          responseOptions: normalizedResponseOptions || (question.type && question.type.toLowerCase().includes('grid') && !question.type.toLowerCase().includes('numeric') ? [] : undefined),
+          options: normalizedOptions || [],
+          rawAiOutput: JSON.stringify(question, null, 2) // Store raw AI response for this question
+        };
+      });
+      
+      return processedQuestions;
     }
     
     // Check if content ends properly (basic check for incomplete JSON)
@@ -661,9 +970,21 @@ IMPORTANT: Return ONLY valid JSON. Do not include any explanatory text outside t
     
     // Add unique IDs and ensure proper formatting
     const questions = parsedData.questions.map((question, index) => {
+      // Normalize options - extract codes from strings like "1 Amyotrophic lateral sclerosis (ALS)"
+      const normalizedOptions = question.options?.map((opt, optIndex) => {
+        const parsed = parseOptionString(opt);
+        if (typeof parsed === 'string') {
+          // No code found in string, use index
+          return { code: String(optIndex + 1), text: parsed };
+        }
+        // Code was extracted, use it
+        return parsed;
+      });
+
       // Normalize statementOptions codes to always use "r" prefix
       const normalizedStatementOptions = question.statementOptions?.map((stmt, stmtIndex) => {
-        const stmtObj = typeof stmt === 'string' ? { code: `r${stmtIndex + 1}`, text: stmt } : stmt;
+        const parsed = parseOptionString(stmt);
+        const stmtObj = typeof parsed === 'string' ? { code: `r${stmtIndex + 1}`, text: parsed } : parsed;
         const code = stmtObj.code || `r${stmtIndex + 1}`;
         // Ensure code starts with "r" prefix
         const normalizedCode = code.startsWith('r') ? code : `r${code.replace(/^r?/, '')}`;
@@ -672,7 +993,8 @@ IMPORTANT: Return ONLY valid JSON. Do not include any explanatory text outside t
 
       // Normalize responseOptions codes to always use "c" prefix
       const normalizedResponseOptions = question.responseOptions?.map((resp, respIndex) => {
-        const respObj = typeof resp === 'string' ? { code: `c${respIndex + 1}`, text: resp } : resp;
+        const parsed = parseOptionString(resp);
+        const respObj = typeof parsed === 'string' ? { code: `c${respIndex + 1}`, text: parsed } : parsed;
         const code = respObj.code || `c${respIndex + 1}`;
         // Ensure code starts with "c" prefix
         const normalizedCode = code.startsWith('c') ? code : `c${code.replace(/^c?/, '')}`;
@@ -716,10 +1038,16 @@ IMPORTANT: Return ONLY valid JSON. Do not include any explanatory text outside t
         }
       }
 
+      // Store raw AI output before normalization
+      const rawAiOutput = JSON.stringify(question, null, 2);
+      
       return {
         ...question,
-        id: question.id || `q-${Date.now()}-${index + 1}`,
+        // Use number as id if they're the same, otherwise use number as primary identifier
+        id: question.number || question.id || `Q${index + 1}`,
+        number: question.number || question.id || `Q${index + 1}`,
         needsReview: question.needsReview || false,
+        rawAiOutput: rawAiOutput, // Store raw AI response for this question
         tags: processedTags,
         showLogic: question.showLogic || null,
         randomize: question.randomize || false,
@@ -729,7 +1057,7 @@ IMPORTANT: Return ONLY valid JSON. Do not include any explanatory text outside t
         statementOptions: normalizedStatementOptions || (question.type && question.type.toLowerCase().includes('grid') ? [] : undefined),
         responseOptions: normalizedResponseOptions || (question.type && question.type.toLowerCase().includes('grid') && !question.type.toLowerCase().includes('numeric') ? [] : undefined),
         // Keep options for backward compatibility with non-grid questions
-        options: question.options || []
+        options: normalizedOptions || []
       };
     });
     
@@ -994,6 +1322,71 @@ router.get('/:projectId', async (req, res) => {
   }
 });
 
+// POST /api/questionnaire/validate-file - Validate file size and estimate tokens
+router.post('/validate-file', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file provided' });
+    }
+
+    // Extract text from .docx file
+    let text;
+    try {
+      const result = await mammoth.extractRawText({ path: req.file.path });
+      text = result.value;
+    } catch (error) {
+      // Clean up file on error
+      try {
+        await fs.unlink(req.file.path);
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+      return res.status(400).json({ error: 'Failed to read questionnaire file. Please ensure it is a valid .docx file.' });
+    }
+
+    // Estimate tokens
+    const estimatedTokens = text.length / 4; // Rough estimate: 4 chars per token
+    const estimatedOutputTokens = estimatedTokens * 0.3; // Rough estimate: output is ~30% of input
+
+    // Limits
+    const MAX_ESTIMATED_OUTPUT_TOKENS = 20000;
+    const MAX_TEXT_LENGTH = 500000;
+
+    const isValid = estimatedOutputTokens <= MAX_ESTIMATED_OUTPUT_TOKENS && text.length <= MAX_TEXT_LENGTH;
+
+    // Clean up the temporary file
+    try {
+      await fs.unlink(req.file.path);
+    } catch (e) {
+      // Ignore cleanup errors
+    }
+
+    res.json({
+      isValid,
+      fileSize: req.file.size,
+      textLength: text.length,
+      estimatedInputTokens: Math.round(estimatedTokens),
+      estimatedOutputTokens: Math.round(estimatedOutputTokens),
+      maxOutputTokens: MAX_ESTIMATED_OUTPUT_TOKENS,
+      maxTextLength: MAX_TEXT_LENGTH,
+      message: isValid 
+        ? 'File is valid and ready to upload'
+        : `File is too large. Estimated output tokens: ${Math.round(estimatedOutputTokens)} (max: ${MAX_ESTIMATED_OUTPUT_TOKENS}), Text length: ${text.length} characters (max: ${MAX_TEXT_LENGTH})`
+    });
+  } catch (error) {
+    console.error('Error validating file:', error);
+    // Clean up file on error
+    if (req.file && req.file.path) {
+      try {
+        await fs.unlink(req.file.path);
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+    }
+    res.status(500).json({ error: 'Failed to validate file: ' + error.message });
+  }
+});
+
 // POST /api/questionnaire/upload - Upload and parse questionnaire
 router.post('/upload', upload.single('file'), async (req, res) => {
   try {
@@ -1004,8 +1397,44 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'Missing file or projectId' });
     }
     
-    // Parse the questionnaire
-    const questions = await parseQuestionnaire(req.file.path, projectId);
+    // Check file size BEFORE parsing - extract text first to estimate
+    let text;
+    try {
+      const result = await mammoth.extractRawText({ path: req.file.path });
+      text = result.value;
+    } catch (error) {
+      // Clean up file on error
+      try {
+        await fs.unlink(req.file.path);
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+      return res.status(400).json({ error: 'Failed to read questionnaire file. Please ensure it is a valid .docx file.' });
+    }
+    
+    // Estimate tokens and check if file is too large
+    const estimatedTokens = text.length / 4; // Rough estimate: 4 chars per token
+    const estimatedOutputTokens = estimatedTokens * 0.3; // Rough estimate: output is ~30% of input
+    
+    // Hard limits: reject if estimated output > 12000 tokens OR text > 150000 chars
+    // This ensures we can handle it with chunking, but reject files that are clearly too large
+    const MAX_ESTIMATED_OUTPUT_TOKENS = 20000; // Allow some buffer for chunking
+    const MAX_TEXT_LENGTH = 500000; // ~125000 input tokens, ~37500 output tokens (would need many chunks)
+    
+    if (estimatedOutputTokens > MAX_ESTIMATED_OUTPUT_TOKENS || text.length > MAX_TEXT_LENGTH) {
+      // Clean up file
+      try {
+        await fs.unlink(req.file.path);
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+      return res.status(400).json({ 
+        error: `Questionnaire file is too large to process. Estimated output tokens: ${Math.round(estimatedOutputTokens)} (max: ${MAX_ESTIMATED_OUTPUT_TOKENS}), Text length: ${text.length} characters (max: ${MAX_TEXT_LENGTH}). Please split the questionnaire into smaller files or contact support.` 
+      });
+    }
+    
+    // Parse the questionnaire (pass extracted text to avoid re-extracting)
+    const questions = await parseQuestionnaire(req.file.path, projectId, text);
     
     // Create questionnaire object
     const questionnaire = {
