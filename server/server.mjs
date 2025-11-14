@@ -21,6 +21,8 @@ import openEndCodingRouter from './routes/openEndCoding.routes.mjs';
 import conjointRouter from './routes/conjoint.routes.mjs';
 import storageRouter from './routes/storage.routes.mjs';
 import notificationsRouter from './routes/notifications.routes.mjs';
+import adminMessagesRouter from './routes/adminMessages.routes.mjs';
+import utilitiesRouter from './routes/utilities.routes.mjs';
 
 // Load environment variables
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -114,6 +116,8 @@ app.use('/api/openend', apiLimiter, openEndCodingRouter);
 app.use('/api/conjoint', apiLimiter, conjointRouter);
 app.use('/api/storage', apiLimiter, storageRouter);
 app.use('/api/notifications', apiLimiter, notificationsRouter);
+app.use('/api/admin-messages', apiLimiter, adminMessagesRouter);
+app.use('/api/utilities', apiLimiter, utilitiesRouter);
 
 // Health check
 app.get('/health', (req, res) => {

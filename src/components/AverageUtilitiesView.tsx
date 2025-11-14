@@ -1,7 +1,12 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 
 interface AverageUtilitiesViewProps {
   workflow: any;
+  axisMode?: 'independent' | 'consistent' | 'manual';
+  manualMin?: number;
+  manualMax?: number;
+  onAxisModeChange?: (mode: 'independent' | 'consistent' | 'manual') => void;
+  onManualValuesChange?: (min: number, max: number) => void;
 }
 
 interface UtilityLevel {
@@ -29,8 +34,43 @@ const hexToRgba = (hex: string, opacity: number): string => {
   return `rgba(${r}, ${g}, ${b}, ${opacity})`;
 };
 
-export default function AverageUtilitiesView({ workflow }: AverageUtilitiesViewProps) {
+export default function AverageUtilitiesView({ 
+  workflow,
+  axisMode: propAxisMode,
+  manualMin: propManualMin,
+  manualMax: propManualMax,
+  onAxisModeChange,
+  onManualValuesChange
+}: AverageUtilitiesViewProps) {
   const [selectedAttributeForTable, setSelectedAttributeForTable] = useState<string | null>(null);
+  const chartContainerRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [containerHeights, setContainerHeights] = useState<Record<string, number>>({});
+  const [axisMode, setAxisMode] = useState<'independent' | 'consistent' | 'manual'>(propAxisMode || 'independent');
+  const [manualMin, setManualMin] = useState<number>(propManualMin ?? 0);
+  const [manualMax, setManualMax] = useState<number>(propManualMax ?? 1);
+  const [manualMinInput, setManualMinInput] = useState<string>(String(propManualMin ?? 0));
+  const [manualMaxInput, setManualMaxInput] = useState<string>(String(propManualMax ?? 1));
+
+  // Update local state when props change
+  useEffect(() => {
+    if (propAxisMode !== undefined) {
+      setAxisMode(propAxisMode);
+    }
+  }, [propAxisMode]);
+
+  useEffect(() => {
+    if (propManualMin !== undefined) {
+      setManualMin(propManualMin);
+      setManualMinInput(String(propManualMin));
+    }
+  }, [propManualMin]);
+
+  useEffect(() => {
+    if (propManualMax !== undefined) {
+      setManualMax(propManualMax);
+      setManualMaxInput(String(propManualMax));
+    }
+  }, [propManualMax]);
 
   const attributesData = useMemo(() => {
     // Extract utilities from workflow
@@ -325,6 +365,31 @@ export default function AverageUtilitiesView({ workflow }: AverageUtilitiesViewP
     return attributes;
   }, [workflow]);
 
+  // Measure container heights on mount and resize
+  useEffect(() => {
+    const measureContainers = () => {
+      const heights: Record<string, number> = {};
+      Object.entries(chartContainerRefs.current).forEach(([key, element]) => {
+        if (element) {
+          heights[key] = element.clientHeight;
+        }
+      });
+      if (Object.keys(heights).length > 0) {
+        setContainerHeights(heights);
+      }
+    };
+
+    // Measure after a short delay to ensure layout is complete
+    const timeout = setTimeout(measureContainers, 100);
+    measureContainers();
+    window.addEventListener('resize', measureContainers);
+
+    return () => {
+      window.removeEventListener('resize', measureContainers);
+      clearTimeout(timeout);
+    };
+  }, [attributesData]);
+
   if (attributesData.length === 0) {
     // Check if workflow has survey data but no estimation yet
     const hasSurveyData = workflow?.survey || workflow?.surveyUploadedAt;
@@ -346,27 +411,169 @@ export default function AverageUtilitiesView({ workflow }: AverageUtilitiesViewP
 
   // Note: Y-axis will be calculated per-attribute for independent scaling
   // Fixed chart height for consistency
-  const defaultChartHeight = 400;
+  const defaultChartHeight = 320;
+  const minChartHeight = 400; // Minimum height to prevent charts from being scrunched
+
+  // Calculate global min/max for consistent axis mode
+  const globalMinMax = useMemo(() => {
+    if (axisMode !== 'consistent' || attributesData.length === 0) {
+      return null;
+    }
+    let globalMin = Infinity;
+    let globalMax = -Infinity;
+    attributesData.forEach(attr => {
+      if (attr.minUtility < globalMin) globalMin = attr.minUtility;
+      if (attr.maxUtility > globalMax) globalMax = attr.maxUtility;
+    });
+    return { min: globalMin, max: globalMax };
+  }, [axisMode, attributesData]);
 
   return (
     <div className="min-h-full">
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-semibold text-gray-900">Average Utilities</h1>
-            <p className="text-sm text-gray-600 mt-1">Utility values for each attribute level. Higher values indicate greater preference.</p>
+      <div className="bg-white border-b border-gray-200 pr-6 pl-0 py-2">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-gray-700 whitespace-nowrap">Y-Axis:</span>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 border border-gray-300 rounded">
+            <button
+              onClick={() => {
+                setAxisMode('independent');
+                onAxisModeChange?.('independent');
+              }}
+              className={`px-2 py-1 text-xs transition ${
+                axisMode === 'independent'
+                  ? 'bg-blue-50 border-blue-300 text-blue-700'
+                  : 'bg-white text-gray-700 hover:bg-gray-50'
+              } ${axisMode === 'independent' ? 'border-r' : ''}`}
+              title="Each chart uses its own Y-axis range"
+            >
+              Independent
+            </button>
+            <button
+              onClick={() => {
+                setAxisMode('consistent');
+                onAxisModeChange?.('consistent');
+              }}
+              className={`px-2 py-1 text-xs transition ${
+                axisMode === 'consistent'
+                  ? 'bg-blue-50 border-blue-300 text-blue-700'
+                  : 'bg-white text-gray-700 hover:bg-gray-50'
+              } ${axisMode !== 'independent' && axisMode !== 'manual' ? 'border-x' : axisMode === 'consistent' ? 'border-r' : ''}`}
+              title="All charts use the same Y-axis range"
+            >
+              Consistent
+            </button>
+            <button
+              onClick={() => {
+                setAxisMode('manual');
+                onAxisModeChange?.('manual');
+              }}
+              className={`px-2 py-1 text-xs transition rounded-r ${
+                axisMode === 'manual'
+                  ? 'bg-blue-50 border-blue-300 text-blue-700'
+                  : 'bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+              title="Manually set Y-axis range"
+            >
+              Manual
+            </button>
+              </div>
+              {axisMode === 'manual' && (
+                <div className="flex items-center gap-2 text-xs">
+                  <label className="flex items-center gap-1">
+                    <span className="text-gray-600">Min:</span>
+                    <input
+                      type="text"
+                      value={manualMinInput}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        // Allow empty, digits, decimal point, and minus at the start
+                        if (value === '' || /^-?\d*\.?\d*$/.test(value)) {
+                          // Always update the input display
+                          setManualMinInput(value);
+                          
+                          // Only update the actual number state if it's a valid complete number
+                          if (value !== '' && value !== '-' && value !== '.' && value !== '-.') {
+                            const numValue = Number(value);
+                            if (!isNaN(numValue)) {
+                              // Don't allow min to be greater than max
+                              const newMin = numValue <= manualMax ? numValue : manualMin;
+                              setManualMin(newMin);
+                              onManualValuesChange?.(newMin, manualMax);
+                            }
+                          }
+                        }
+                      }}
+                      onBlur={() => {
+                        // On blur, ensure we have a valid number
+                        const numValue = Number(manualMinInput);
+                        if (isNaN(numValue) || manualMinInput === '' || manualMinInput === '-' || manualMinInput === '.' || manualMinInput === '-.') {
+                          setManualMinInput(String(manualMin));
+                        } else {
+                          const newMin = numValue <= manualMax ? numValue : manualMin;
+                          setManualMin(newMin);
+                          setManualMinInput(String(newMin));
+                          onManualValuesChange?.(newMin, manualMax);
+                        }
+                      }}
+                      className="w-14 px-1 py-0.5 border border-gray-300 rounded text-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                  </label>
+                  <label className="flex items-center gap-1">
+                    <span className="text-gray-600">Max:</span>
+                    <input
+                      type="text"
+                      value={manualMaxInput}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        // Allow empty, digits, decimal point, and minus at the start
+                        if (value === '' || /^-?\d*\.?\d*$/.test(value)) {
+                          // Always update the input display
+                          setManualMaxInput(value);
+                          
+                          // Only update the actual number state if it's a valid complete number
+                          if (value !== '' && value !== '-' && value !== '.' && value !== '-.') {
+                            const numValue = Number(value);
+                            if (!isNaN(numValue)) {
+                              // Don't allow max to be smaller than min
+                              const newMax = numValue >= manualMin ? numValue : manualMax;
+                              setManualMax(newMax);
+                              onManualValuesChange?.(manualMin, newMax);
+                            }
+                          }
+                        }
+                      }}
+                      onBlur={() => {
+                        // On blur, ensure we have a valid number
+                        const numValue = Number(manualMaxInput);
+                        if (isNaN(numValue) || manualMaxInput === '' || manualMaxInput === '-' || manualMaxInput === '.' || manualMaxInput === '-.') {
+                          setManualMaxInput(String(manualMax));
+                        } else {
+                          const newMax = numValue >= manualMin ? numValue : manualMax;
+                          setManualMax(newMax);
+                          setManualMaxInput(String(newMax));
+                          onManualValuesChange?.(manualMin, newMax);
+                        }
+                      }}
+                      className="w-14 px-1 py-0.5 border border-gray-300 rounded text-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                  </label>
+                </div>
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-4 text-xs text-gray-600">
-            <span className="font-semibold">Spread Strength:</span>
-            <div className="flex items-center gap-1">
+          <div className="flex items-center gap-3 text-xs text-gray-600 flex-shrink-0">
+            <span className="font-semibold whitespace-nowrap">Spread Strength:</span>
+            <div className="flex items-center gap-1 whitespace-nowrap">
               <div className="w-2 h-2 rounded-full bg-green-500"></div>
               <span>Strong</span>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 whitespace-nowrap">
               <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
               <span>Medium</span>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 whitespace-nowrap">
               <div className="w-2 h-2 rounded-full bg-red-500"></div>
               <span>Weak</span>
             </div>
@@ -374,15 +581,22 @@ export default function AverageUtilitiesView({ workflow }: AverageUtilitiesViewP
         </div>
       </div>
 
-      <div className="px-6 py-6 bg-gray-50 space-y-8">
+      <div className="py-6 grid grid-cols-2 gap-6">
         {attributesData.map((attr, index) => {
-          const chartHeight = defaultChartHeight;
+          // Use measured container height if available, otherwise use default
+          // Ensure minimum height to prevent charts from being scrunched
+          const measuredHeight = containerHeights[attr.attributeName];
+          const chartHeight = Math.max(
+            measuredHeight && measuredHeight > 0 ? measuredHeight : defaultChartHeight,
+            minChartHeight
+          );
           // Bottom margin fixed to accommodate 3-line wrapped labels
           // Top margin minimal to maximize plot area - expand plot area to fill available space
           const labelHeight = 70; // Height for 3-line labels
-          const bottomMargin = labelHeight + 10; // Just enough for labels with a small gap
-          const topMargin = 20; // Minimal top margin
-          const margin = { top: topMargin, right: 0, bottom: bottomMargin, left: 60 };
+          const bottomMargin = labelHeight; // Just enough for labels
+          const topMargin = 15; // Padding above chart
+          const chartPadding = 10; // Padding above and below the plot area
+          const margin = { top: topMargin + chartPadding, right: 0, bottom: bottomMargin + chartPadding, left: 60 };
           // Chart width will be calculated dynamically based on container, but we need a base for calculations
           // The actual width will be set via CSS to fill the container
           const baseChartWidth = 1000; // Base width for calculations, but SVG will scale to container
@@ -431,14 +645,27 @@ export default function AverageUtilitiesView({ workflow }: AverageUtilitiesViewP
           // Note: Removed constraints on first/last labels - they can extend beyond chart boundaries
           // to use available space more effectively
           
-          // Calculate Y-axis scaling per-attribute for independent scaling
-          const attrMin = attr.minUtility;
-          const attrMax = attr.maxUtility;
+          // Calculate Y-axis scaling - use independent, consistent, or manual based on mode
+          let attrMin, attrMax;
+          if (axisMode === 'manual') {
+            attrMin = manualMin;
+            attrMax = manualMax;
+          } else if (axisMode === 'consistent' && globalMinMax) {
+            attrMin = globalMinMax.min;
+            attrMax = globalMinMax.max;
+          } else {
+            attrMin = attr.minUtility;
+            attrMax = attr.maxUtility;
+          }
           const attrRange = attrMax - attrMin;
-          // If range is zero or very small, use symmetric padding around the value
-          const padding = attrRange > 0.001 
-            ? Math.max(attrRange * 0.1, 0.005) // 10% padding, minimum 0.005
-            : Math.max(Math.abs(attrMin || attrMax || 0) * 0.1, 0.01); // 10% of value, minimum 0.01
+          // Only add padding if not in manual mode - manual mode should use exact values
+          let padding = 0;
+          if (axisMode !== 'manual') {
+            // If range is zero or very small, use symmetric padding around the value
+            padding = attrRange > 0.001 
+              ? Math.max(attrRange * 0.1, 0.005) // 10% padding, minimum 0.005
+              : Math.max(Math.abs(attrMin || attrMax || 0) * 0.1, 0.01); // 10% of value, minimum 0.01
+          }
           const yMin = attrMin - padding;
           const yMax = attrMax + padding;
           const yAxisRange = yMax - yMin;
@@ -496,10 +723,10 @@ export default function AverageUtilitiesView({ workflow }: AverageUtilitiesViewP
           }).join(' ');
 
           return (
-            <div key={attr.attributeName || index} className="bg-white rounded-lg border border-gray-200 p-6 relative">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">{attr.attributeLabel}</h3>
-                <div className="flex items-center gap-3">
+            <div key={attr.attributeName || index} className="bg-white rounded-lg border border-gray-200 px-2 pt-2 pb-0 relative flex flex-col">
+              <div className="flex justify-between items-center mb-1 gap-2 min-w-0 pb-1 border-b border-gray-200">
+                <h3 className="text-sm font-semibold text-gray-900 truncate flex-1 min-w-0" title={attr.attributeLabel}>{attr.attributeLabel}</h3>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
                   <button
                     onClick={() => {
                       setSelectedAttributeForTable(
@@ -508,7 +735,7 @@ export default function AverageUtilitiesView({ workflow }: AverageUtilitiesViewP
                           : attr.attributeName
                       );
                     }}
-                    className={`px-3 py-1.5 border rounded transition text-xs ${
+                    className={`px-1.5 py-0.5 border rounded transition text-xs ${
                       selectedAttributeForTable === attr.attributeName
                         ? 'bg-gray-100 border-gray-400 text-gray-900'
                         : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
@@ -518,14 +745,14 @@ export default function AverageUtilitiesView({ workflow }: AverageUtilitiesViewP
                     {selectedAttributeForTable === attr.attributeName ? 'View Chart' : 'View Table'}
                   </button>
                   <div 
-                    className="flex items-center gap-2 px-3 py-1.5 rounded border text-xs text-gray-700"
+                    className="flex items-center gap-1 px-1.5 py-0.5 rounded border text-xs text-gray-700"
                     style={{ 
                       backgroundColor: attr.spreadColor ? hexToRgba(attr.spreadColor, 0.15) : '#f3f4f6',
                       borderColor: attr.spreadColor ? hexToRgba(attr.spreadColor, 0.3) : '#d1d5db'
                     }}
                   >
                     <div 
-                      className="w-2 h-2 rounded-full"
+                      className="w-1.5 h-1.5 rounded-full"
                       style={{ backgroundColor: attr.spreadColor || '#9ca3af' }}
                     ></div>
                     <span>Spread: {attr.spread.toFixed(3)}</span>
@@ -534,45 +761,56 @@ export default function AverageUtilitiesView({ workflow }: AverageUtilitiesViewP
               </div>
               
               {/* Chart or Table - toggle view */}
-              <div className="w-full">
+              <div 
+                ref={(el) => {
+                  if (el) {
+                    chartContainerRefs.current[attr.attributeName] = el;
+                  }
+                }}
+                className="w-full -mb-2 flex-1 min-h-0"
+              >
                 {selectedAttributeForTable === attr.attributeName ? (
                   /* Table view */
-                  <div className="w-full overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-gray-300">
-                          <th className="text-center py-2 px-3 font-semibold text-gray-700">Code</th>
-                          <th className="text-left py-2 px-3 font-semibold text-gray-700">Level</th>
-                          <th className="text-center py-2 px-3 font-semibold text-gray-700">Raw Value</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {attr.levels.map((level, levelIdx) => (
-                          <tr 
-                            key={levelIdx} 
-                            className="border-b border-gray-200"
-                          >
-                            <td className="py-2 px-3 text-gray-500 text-sm whitespace-nowrap text-center">
-                              {level.code || 'N/A'}
-                            </td>
-                            <td className="py-2 px-3 text-gray-900 text-sm" title={level.level}>
-                              {String(level.level || '').replace(/^[-•·\s]+/, '').trim() || level.level}
-                            </td>
-                            <td className="py-2 px-3 text-gray-900 text-sm text-center">
-                              {level.value.toFixed(6)}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  <div className="w-full h-full overflow-auto">
+                    {(() => {
+                      // Find the maximum utility value
+                      const maxValue = Math.max(...attr.levels.map(l => l.value));
+                      return (
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="border-b border-gray-300">
+                              <th className="text-left py-1.5 px-2 font-semibold text-gray-700">Level</th>
+                              <th className="text-center py-1.5 px-2 font-semibold text-gray-700">Raw Value</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {attr.levels.map((level, levelIdx) => {
+                              const isBest = level.value === maxValue;
+                              return (
+                                <tr 
+                                  key={levelIdx} 
+                                  className={`border-b border-gray-200 ${isBest ? 'bg-green-50' : ''}`}
+                                >
+                                  <td className="py-1.5 px-2 text-gray-900" title={level.level}>
+                                    {String(level.level || '').replace(/^[-•·\s]+/, '').trim() || level.level}
+                                  </td>
+                                  <td className="py-1.5 px-2 text-gray-900 text-center">
+                                    {level.value.toFixed(6)}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      );
+                    })()}
                   </div>
                 ) : (
                   /* Chart view */
                   <svg 
                     viewBox={`0 0 ${baseChartWidth} ${chartHeight}`} 
                     preserveAspectRatio="xMidYMid meet"
-                    className="w-full h-auto"
-                    style={{ minHeight: `${chartHeight}px` }}
+                    className="w-full h-full"
                   >
                     {/* Y-axis line */}
                     <line

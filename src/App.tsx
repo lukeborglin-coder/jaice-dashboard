@@ -51,7 +51,7 @@ import {
   RocketLaunchIcon as RocketLaunchIconSolid,
   PlayIcon as PlayIconSolid
 } from "@heroicons/react/24/solid";
-import { IconCalendarShare, IconCalendarWeek, IconBallAmericanFootball, IconRocket, IconFileAnalyticsFilled, IconLayoutSidebarFilled, IconTable, IconCheckbox, IconDatabaseExclamation, IconBook2, IconScript, IconChartBar, IconCode, IconChartDots, IconServer, IconChartDonut2 } from "@tabler/icons-react";
+import { IconCalendarShare, IconCalendarWeek, IconBallAmericanFootball, IconRocket, IconFileAnalyticsFilled, IconLayoutSidebarFilled, IconTable, IconCheckbox, IconDatabaseExclamation, IconBook2, IconScript, IconChartBar, IconCode, IconChartDots, IconServer, IconChartDonut2, IconChartLine } from "@tabler/icons-react";
 import ContentAnalysisX from "./components/ContentAnalysisX";
 import Transcripts from "./components/Transcripts";
 import Storytelling from "./components/Storytelling";
@@ -59,6 +59,7 @@ import QuestionnaireParser from "./components/QuestionnaireParser";
 import StatTesting from "./components/StatTesting";
 import OpenEndCoding from "./components/OpenEndCoding";
 import ConjointProjects from "./components/ConjointProjects";
+import UtilitiesProjects from "./components/UtilitiesProjects";
 import QNR from "./components/QNR";
 import Tabs from "./components/Tabs";
 import AuthWrapper from "./components/AuthWrapper";
@@ -71,6 +72,7 @@ import CalendarPicker from "./components/CalendarPicker";
 import SimpleCalendar from "./components/SimpleCalendar";
 import NotificationBell from "./components/NotificationBell";
 import NotificationCenter from "./components/NotificationCenter";
+import AdminMessagePopup from "./components/AdminMessagePopup";
 import { useAuth } from "./contexts/AuthContext";
 import { notificationService } from "./services/notificationService";
 import { Notification } from "./types/notifications";
@@ -2634,7 +2636,7 @@ function VendorLibrary({ projects }: { projects: any[] }) {
 // Admin Center Component
 function AdminCenter({ onProjectUpdate }: { onProjectUpdate?: () => void }) {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'users' | 'cost-tracker' | 'feature-requests' | 'bug-reports' | 'settings' | 'storage'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'cost-tracker' | 'feature-requests' | 'bug-reports' | 'settings' | 'storage' | 'messages'>('users');
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateUser, setShowCreateUser] = useState(false);
@@ -2681,6 +2683,13 @@ function AdminCenter({ onProjectUpdate }: { onProjectUpdate?: () => void }) {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set()); // Start with empty set (all collapsed)
   const [deletingOrphaned, setDeletingOrphaned] = useState(false);
   const [diskInfo, setDiskInfo] = useState<{total: number, used: number, free: number, formatted: any, percentageUsed: string} | null>(null);
+
+  // Admin Messages state
+  const [adminMessages, setAdminMessages] = useState<any[]>([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [editingMessage, setEditingMessage] = useState<any | null>(null);
+  const [newMessage, setNewMessage] = useState({ title: '', content: '', isActive: true });
+  const [showCreateMessage, setShowCreateMessage] = useState(false);
   const loadCostData = useCallback(async () => {
     try {
       const headers: any = { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` };
@@ -3044,6 +3053,104 @@ function AdminCenter({ onProjectUpdate }: { onProjectUpdate?: () => void }) {
     }
   }, [allFiles, loadAllFiles, loadDiskInfo]);
 
+  const loadAdminMessages = useCallback(async () => {
+    setLoadingMessages(true);
+    try {
+      const headers: any = { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` };
+      const resp = await fetch(`${API_BASE_URL}/api/admin-messages`, { headers });
+      if (resp.ok) {
+        const data = await resp.json();
+        setAdminMessages(Array.isArray(data.messages) ? data.messages : []);
+      }
+    } catch (e) {
+      console.error('Error loading admin messages:', e);
+    } finally {
+      setLoadingMessages(false);
+    }
+  }, []);
+
+  const createMessage = useCallback(async () => {
+    if (!newMessage.title || !newMessage.content) {
+      alert('Title and content are required');
+      return;
+    }
+
+    try {
+      const headers: any = { 
+        'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`,
+        'Content-Type': 'application/json'
+      };
+      const resp = await fetch(`${API_BASE_URL}/api/admin-messages`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(newMessage)
+      });
+      if (resp.ok) {
+        await loadAdminMessages();
+        setNewMessage({ title: '', content: '', isActive: true });
+        setShowCreateMessage(false);
+        alert('Message created successfully');
+      } else {
+        const error = await resp.json();
+        alert(`Failed to create message: ${error.error || 'Unknown error'}`);
+      }
+    } catch (e) {
+      console.error('Error creating message:', e);
+      alert('Error creating message. Please try again.');
+    }
+  }, [newMessage, loadAdminMessages]);
+
+  const updateMessage = useCallback(async (id: string, updates: any) => {
+    try {
+      const headers: any = { 
+        'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`,
+        'Content-Type': 'application/json'
+      };
+      const resp = await fetch(`${API_BASE_URL}/api/admin-messages/${id}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(updates)
+      });
+      if (resp.ok) {
+        await loadAdminMessages();
+        setEditingMessage(null);
+        alert('Message updated successfully');
+      } else {
+        const error = await resp.json();
+        alert(`Failed to update message: ${error.error || 'Unknown error'}`);
+      }
+    } catch (e) {
+      console.error('Error updating message:', e);
+      alert('Error updating message. Please try again.');
+    }
+  }, [loadAdminMessages]);
+
+  const deleteMessage = useCallback(async (id: string) => {
+    if (!confirm('Are you sure you want to delete this message?')) {
+      return;
+    }
+
+    try {
+      const headers: any = { 
+        'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
+      };
+      const resp = await fetch(`${API_BASE_URL}/api/admin-messages/${id}`, {
+        method: 'DELETE',
+        headers
+      });
+      if (resp.ok) {
+        await loadAdminMessages();
+        alert('Message deleted successfully');
+      } else {
+        const error = await resp.json();
+        alert(`Failed to delete message: ${error.error || 'Unknown error'}`);
+      }
+    } catch (e) {
+      console.error('Error deleting message:', e);
+      alert('Error deleting message. Please try again.');
+    }
+  }, [loadAdminMessages]);
+
   useEffect(() => {
     if (activeTab === 'cost-tracker') {
       loadCostData();
@@ -3055,8 +3162,10 @@ function AdminCenter({ onProjectUpdate }: { onProjectUpdate?: () => void }) {
       loadStorageData();
       loadAllFiles();
       loadDiskInfo();
+    } else if (activeTab === 'messages') {
+      loadAdminMessages();
     }
-  }, [activeTab, loadCostData, loadAdminFeedback, loadProjects, loadStorageData, loadAllFiles, loadDiskInfo]);
+  }, [activeTab, loadCostData, loadAdminFeedback, loadProjects, loadStorageData, loadAllFiles, loadDiskInfo, loadAdminMessages]);
 
   // Expand all categories by default when files are loaded
   useEffect(() => {
@@ -3375,6 +3484,20 @@ function AdminCenter({ onProjectUpdate }: { onProjectUpdate?: () => void }) {
             <div className="flex items-center gap-2">
               <IconServer className="w-5 h-5" />
               Storage Monitor
+            </div>
+          </button>
+          <button
+            onClick={() => setActiveTab('messages')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'messages'
+                ? 'text-gray-900'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+            style={activeTab === 'messages' ? { borderBottomColor: '#D14A2D', color: '#D14A2D' } : {}}
+          >
+            <div className="flex items-center gap-2">
+              <DocumentTextIcon className="w-5 h-5" />
+              Site Messages
             </div>
           </button>
         </nav>
@@ -4526,6 +4649,175 @@ function AdminCenter({ onProjectUpdate }: { onProjectUpdate?: () => void }) {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {activeTab === 'messages' && (
+        <div className="bg-white shadow-sm rounded-lg border border-gray-200 p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-semibold text-gray-900">Site Messages</h3>
+            <button
+              onClick={() => {
+                setShowCreateMessage(true);
+                setEditingMessage(null);
+                setNewMessage({ title: '', content: '', isActive: true });
+              }}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+            >
+              <PlusIcon className="w-5 h-5" />
+              Create Message
+            </button>
+          </div>
+
+          {loadingMessages ? (
+            <div className="text-center py-12">
+              <div className="w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                <svg className="animate-spin" width="48" height="48" viewBox="0 0 48 48">
+                  <circle cx="24" cy="24" r="20" fill="none" stroke="#D14A2D" strokeWidth="4" strokeDasharray="50 75.4" strokeDashoffset="0" />
+                </svg>
+              </div>
+              <p className="text-gray-500">Loading messages...</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {adminMessages.length === 0 ? (
+                <div className="text-center py-12">
+                  <DocumentTextIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-sm font-medium text-gray-900 mb-1">No messages</h3>
+                  <p className="text-sm text-gray-500">Create a message to display on the home page after users log in.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {adminMessages.map((message: any) => (
+                    <div key={message.id} className="border border-gray-200 rounded-lg p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <h4 className="text-sm font-semibold text-gray-900">{message.title}</h4>
+                            <span className={`px-2 py-0.5 text-xs rounded-full ${
+                              message.isActive 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-gray-100 text-gray-800'
+                            }`}>
+                              {message.isActive ? 'Active' : 'Inactive'}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-600 whitespace-pre-wrap mb-2">{message.content}</p>
+                          <p className="text-xs text-gray-400">
+                            Created: {new Date(message.createdAt).toLocaleString()}
+                            {message.updatedAt !== message.createdAt && (
+                              <> • Updated: {new Date(message.updatedAt).toLocaleString()}</>
+                            )}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 ml-4">
+                          <button
+                            onClick={() => {
+                              setEditingMessage(message);
+                              setNewMessage({ title: message.title, content: message.content, isActive: message.isActive });
+                              setShowCreateMessage(true);
+                            }}
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Edit"
+                          >
+                            <PencilIcon className="w-5 h-5" />
+                          </button>
+                          <button
+                            onClick={() => deleteMessage(message.id)}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Delete"
+                          >
+                            <TrashIcon className="w-5 h-5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Create/Edit Message Modal */}
+          {showCreateMessage && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center overflow-y-auto py-8 z-[9999]">
+              <div className="bg-white rounded-lg p-6 w-full max-w-2xl my-8">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold">
+                    {editingMessage ? 'Edit Message' : 'Create New Message'}
+                  </h3>
+                  <button
+                    onClick={() => {
+                      setShowCreateMessage(false);
+                      setEditingMessage(null);
+                      setNewMessage({ title: '', content: '', isActive: true });
+                    }}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <XMarkIcon className="w-6 h-6" />
+                  </button>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                    <input
+                      type="text"
+                      value={newMessage.title}
+                      onChange={(e) => setNewMessage({ ...newMessage, title: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:border-gray-300"
+                      placeholder="Message title"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Content</label>
+                    <textarea
+                      value={newMessage.content}
+                      onChange={(e) => setNewMessage({ ...newMessage, content: e.target.value })}
+                      rows={6}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:border-gray-300"
+                      placeholder="Message content (supports line breaks)"
+                    />
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="isActive"
+                      checked={newMessage.isActive}
+                      onChange={(e) => setNewMessage({ ...newMessage, isActive: e.target.checked })}
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <label htmlFor="isActive" className="ml-2 text-sm text-gray-700">
+                      Active (message will be shown to users)
+                    </label>
+                  </div>
+                  <div className="flex items-center justify-end gap-3 pt-4 border-t">
+                    <button
+                      onClick={() => {
+                        setShowCreateMessage(false);
+                        setEditingMessage(null);
+                        setNewMessage({ title: '', content: '', isActive: true });
+                      }}
+                      className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (editingMessage) {
+                          updateMessage(editingMessage.id, newMessage);
+                        } else {
+                          createMessage();
+                        }
+                      }}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      {editingMessage ? 'Update Message' : 'Create Message'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -5770,10 +6062,11 @@ export default function App() {
         { name: "Data QA (Coming Soon)", icon: IconDatabaseExclamation, disabled: true },
       ];
 
-      // Only show Tabs and Conjoint Simulator to admins
+      // Only show Tabs, Conjoint Simulator, and Utilities to admins
       if (user?.role === 'admin') {
         tools.splice(3, 0, { name: "Tabs", icon: IconChartDonut2 });
         tools.splice(4, 0, { name: "Conjoint Simulator", icon: IconChartDots });
+        tools.splice(5, 0, { name: "Utilities", icon: IconChartLine });
       }
 
       return tools;
@@ -5885,6 +6178,11 @@ export default function App() {
             {route === "Conjoint Simulator" && (
               <div className="flex items-center gap-3">
                 <h1 className="text-2xl font-bold" style={{ color: BRAND.gray }}>Conjoint Simulator</h1>
+              </div>
+            )}
+            {route === "Utilities" && (
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-bold" style={{ color: BRAND.gray }}>Utilities</h1>
               </div>
             )}
             {route === "Admin Center" && (
@@ -6186,6 +6484,21 @@ export default function App() {
             </div>
           </div>
         )
+      ) : route === "Utilities" ? (
+        user?.role === 'admin' ? (
+          <UtilitiesProjects
+            projects={projects}
+            onNavigateToProject={handleProjectView}
+            onCreateProject={() => setShowProjectWizard(true)}
+          />
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center p-8">
+              <h2 className="text-2xl font-semibold text-gray-900 mb-2">Access Restricted</h2>
+              <p className="text-gray-600">Utilities is only available to administrators.</p>
+            </div>
+          </div>
+        )
       ) : route === "QNR" || route === "qnr" ? (
         <QNR projects={projects} onNavigateToProject={handleProjectView} onPageTitleChange={setQnrPageTitle} />
       ) : (
@@ -6239,6 +6552,9 @@ export default function App() {
           onClose={() => setShowNotificationCenter(false)}
         />
       )}
+
+      {/* Admin Message Popup - Shows on home page after login */}
+      {route === 'Home' && <AdminMessagePopup />}
     </div>
     </AuthWrapper>
   );

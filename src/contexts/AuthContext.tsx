@@ -33,6 +33,71 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const inactivityTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const INACTIVITY_TIMEOUT = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
+
+  const logout = React.useCallback(() => {
+    setUser(null);
+    localStorage.removeItem('cognitive_dash_user');
+    localStorage.removeItem('cognitive_dash_token');
+    localStorage.removeItem('cognitive_dash_vendors'); // Clear vendors cache on logout
+    if (inactivityTimeoutRef.current) {
+      clearTimeout(inactivityTimeoutRef.current);
+      inactivityTimeoutRef.current = null;
+    }
+  }, []);
+
+  // Reset inactivity timer
+  const resetInactivityTimer = React.useCallback(() => {
+    if (inactivityTimeoutRef.current) {
+      clearTimeout(inactivityTimeoutRef.current);
+    }
+
+    if (user) {
+      inactivityTimeoutRef.current = setTimeout(() => {
+        console.log('⏰ User inactive for 2 hours, logging out...');
+        logout();
+        alert('You have been logged out due to inactivity. Please log in again.');
+      }, INACTIVITY_TIMEOUT);
+    }
+  }, [user, logout]);
+
+  // Track user activity
+  useEffect(() => {
+    if (!user) {
+      // Clear timer if user is not logged in
+      if (inactivityTimeoutRef.current) {
+        clearTimeout(inactivityTimeoutRef.current);
+        inactivityTimeoutRef.current = null;
+      }
+      return;
+    }
+
+    // Set initial timer
+    resetInactivityTimer();
+
+    // Track various user activities
+    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+    
+    const handleActivity = () => {
+      resetInactivityTimer();
+    };
+
+    // Add event listeners
+    events.forEach(event => {
+      window.addEventListener(event, handleActivity, { passive: true });
+    });
+
+    // Cleanup
+    return () => {
+      events.forEach(event => {
+        window.removeEventListener(event, handleActivity);
+      });
+      if (inactivityTimeoutRef.current) {
+        clearTimeout(inactivityTimeoutRef.current);
+      }
+    };
+  }, [user, resetInactivityTimer]);
 
   useEffect(() => {
     // Check for existing session on app load
@@ -91,13 +156,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = (userData: User) => {
     setUser(userData);
-  };
-
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('cognitive_dash_user');
-    localStorage.removeItem('cognitive_dash_token');
-    localStorage.removeItem('cognitive_dash_vendors'); // Clear vendors cache on logout
   };
 
   const value = {
