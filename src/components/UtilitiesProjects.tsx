@@ -229,6 +229,32 @@ const AttributeImportanceView = React.forwardRef<AttributeImportanceViewRef, Att
               .map(([level, utility]) => ({ level, utility: Number(utility) }))
               .sort((a, b) => b.utility - a.utility) : [];
             
+            // Calculate global min and max utility across ALL attributes
+            const allUtilities: number[] = [];
+            Object.values(utilitiesData.utilities || {}).forEach(attrUtilities => {
+              Object.values(attrUtilities).forEach(util => {
+                allUtilities.push(Number(util));
+              });
+            });
+            const globalMinUtility = allUtilities.length > 0 ? Math.min(...allUtilities) : 0;
+            const globalMaxUtility = allUtilities.length > 0 ? Math.max(...allUtilities) : 0;
+            const globalRange = globalMaxUtility - globalMinUtility;
+            
+            // Function to get color based on utility value (gradient from grey -> green)
+            const getImpactColor = (utility: number): string => {
+              if (globalRange === 0) return '#9CA3AF'; // grey if no range
+              
+              // Normalize utility to 0-1 range
+              const normalized = (utility - globalMinUtility) / globalRange;
+              
+              // Create gradient: grey (0) -> green (1)
+              // Grey: rgb(156, 163, 175) -> Green: rgb(34, 197, 94)
+              const r = Math.round(156 + (34 - 156) * normalized);
+              const g = Math.round(163 + (197 - 163) * normalized);
+              const b = Math.round(175 + (94 - 175) * normalized);
+              return `rgb(${r}, ${g}, ${b})`;
+            };
+            
             // Convert number to ordinal (1st, 2nd, 3rd, etc.)
             const getOrdinal = (n: number): string => {
               const s = ["th", "st", "nd", "rd"];
@@ -274,31 +300,167 @@ const AttributeImportanceView = React.forwardRef<AttributeImportanceViewRef, Att
                 </div>
                 
                 {/* Utility Scores Table */}
-                {levelUtilities.length > 0 && (() => {
-                  const maxUtility = Math.max(...levelUtilities.map(l => l.utility));
-                  const minUtility = Math.min(...levelUtilities.map(l => l.utility));
-                  return (
+                {levelUtilities.length > 0 && (
                     <div className="mt-6">
                       <div className="border border-gray-200 rounded-lg overflow-hidden">
                         <table className="min-w-full divide-y divide-gray-200">
                           <thead className="bg-[#D14A2D]">
                             <tr>
                               <th className="px-3 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">Level</th>
-                              <th className="px-3 py-2 text-center text-xs font-medium text-white uppercase tracking-wider whitespace-nowrap w-auto">Utility</th>
+                              <th className="px-3 py-2 text-center text-xs font-medium text-white uppercase tracking-wider whitespace-nowrap" style={{ width: '70px' }}>Utility</th>
+                              <th className="px-3 py-2 text-center text-xs font-medium text-white uppercase tracking-wider whitespace-nowrap" style={{ width: '70px' }}>Impact</th>
                             </tr>
                           </thead>
                           <tbody className="bg-white divide-y divide-gray-200">
                             {levelUtilities.map(({ level, utility }) => {
-                              let rowClass = 'bg-white';
-                              if (utility === maxUtility) {
-                                rowClass = 'bg-green-50';
-                              } else if (utility === minUtility) {
-                                rowClass = 'bg-yellow-50';
-                              }
+                              const impactColor = getImpactColor(utility);
+                              const normalized = globalRange > 0 ? (utility - globalMinUtility) / globalRange : 0.5;
+                              // Determine which third this utility falls into
+                              const isTop33Percent = normalized >= 0.67; // Top third (green section)
+                              const isMiddle33Percent = normalized >= 0.33 && normalized < 0.67; // Middle third (grey section)
+                              const isBottom33Percent = normalized < 0.33; // Bottom third (red section)
+                              
+                              // Speedometer calculations
+                              const size = 60;
+                              const centerX = size / 2;
+                              const centerY = size / 2 + 8; // Center point for the gauge (slightly below middle to balance arc above)
+                              const radius = 20;
+                              // Angles: 0 = right, 90 = down, 180 = left, 270 = up
+                              // For semi-circle above the center: start at 0 (right), end at 180 (left), curving upward
+                              // Highest impact (normalized = 1) → 0° (right/green)
+                              // Lowest impact (normalized = 0) → 180° (left/red)
+                              const startAngle = 0; // Right side (highest/green)
+                              const endAngle = 180; // Left side (lowest/red)
+                              const angleRange = Math.abs(endAngle - startAngle); // 180 degrees
+                              // Map normalized: highest (1) → 0° (right), lowest (0) → 180° (left)
+                              const currentAngle = startAngle + ((1 - normalized) * angleRange);
+                              const angleRad = (currentAngle * Math.PI) / 180;
+                              
+                              // Calculate needle endpoint (pointing up to the arc)
+                              const needleLength = radius - 2;
+                              const needleEndX = centerX + needleLength * Math.cos(angleRad);
+                              const needleEndY = centerY - Math.abs(needleLength * Math.sin(angleRad)); // Above center
+                              
+                              // Create gradient stops for the arc (unique ID per level)
+                              const safeLevel = level.replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-]/g, '');
+                              const gradientId = `gradient-${selectedAttribute}-${safeLevel}`;
+                              
+                              // Create arc segments for gradient effect
+                              const numSegments = 20;
+                              const segmentAngle = angleRange / numSegments;
+                              
                               return (
-                                <tr key={level} className={rowClass}>
-                                  <td className="px-3 py-2 text-sm text-gray-900">{level}</td>
-                                  <td className="px-3 py-2 text-sm text-gray-900 text-center font-medium whitespace-nowrap">{utility.toFixed(3)}</td>
+                                <tr key={level} className="bg-white">
+                                  <td className="px-3 py-2 text-sm text-gray-900 align-middle">{level}</td>
+                                  <td className="px-3 py-2 text-sm text-gray-900 text-center font-medium whitespace-nowrap align-middle" style={{ width: '70px' }}>{utility.toFixed(3)}</td>
+                                  <td className="px-3 py-2 align-middle" style={{ width: '70px' }}>
+                                    <div className="flex justify-center items-center h-full">
+                                      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="overflow-visible">
+                                        <defs>
+                                          <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
+                                            <stop offset="0%" stopColor="rgb(156, 163, 175)" />
+                                            <stop offset="100%" stopColor="rgb(34, 197, 94)" />
+                                          </linearGradient>
+                                        </defs>
+                                        {/* Speedometer arc - draw as segments for better gradient visibility, curving upward */}
+                                        {Array.from({ length: numSegments }).map((_, i) => {
+                                          // Arc goes from 0° (right) to 180° (left), curving upward
+                                          const segStartAngle = startAngle + (i * segmentAngle);
+                                          const segEndAngle = startAngle + ((i + 1) * segmentAngle);
+                                          const segStartRad = (segStartAngle * Math.PI) / 180;
+                                          const segEndRad = (segEndAngle * Math.PI) / 180;
+                                          // Arc is above center - use absolute value of sin to ensure it's above
+                                          const segStartX = centerX + radius * Math.cos(segStartRad);
+                                          const segStartY = centerY - Math.abs(radius * Math.sin(segStartRad));
+                                          const segEndX = centerX + radius * Math.cos(segEndRad);
+                                          const segEndY = centerY - Math.abs(radius * Math.sin(segEndRad));
+                                          // Three distinct color sections: green (right) -> grey (middle) -> red (left)
+                                          // i=0 is at 0° (right, highest/green), i=numSegments-1 is at 180° (left, lowest/red)
+                                          const segPosition = i / numSegments; // 0 at right, 1 at left
+                                          
+                                          // No fade - solid colors for each third, lighten other sections based on impact level
+                                          let segColor: string;
+                                          if (segPosition < 1/3) {
+                                            // Right third: green
+                                            if (isMiddle33Percent || isBottom33Percent) {
+                                              // Lighten green by 50% if in middle or bottom third
+                                              segColor = 'rgb(121, 226, 145)'; // 50% lighter green
+                                            } else {
+                                              segColor = 'rgb(34, 197, 94)';
+                                            }
+                                          } else if (segPosition < 2/3) {
+                                            // Middle third: grey
+                                            if (isTop33Percent || isBottom33Percent) {
+                                              // Lighten grey by 50% if in top or bottom third
+                                              segColor = 'rgb(206, 211, 215)'; // 50% lighter grey
+                                            } else {
+                                              segColor = 'rgb(156, 163, 175)';
+                                            }
+                                          } else {
+                                            // Left third: red
+                                            if (isTop33Percent || isMiddle33Percent) {
+                                              // Lighten red by 50% if in top or middle third
+                                              segColor = 'rgb(247, 134, 134)'; // 50% lighter red
+                                            } else {
+                                              segColor = 'rgb(239, 68, 68)';
+                                            }
+                                          }
+                                          
+                                          return (
+                                            <path
+                                              key={i}
+                                              d={`M ${segStartX} ${segStartY} A ${radius} ${radius} 0 0 1 ${segEndX} ${segEndY}`}
+                                              fill="none"
+                                              stroke={segColor}
+                                              strokeWidth="6"
+                                              strokeLinecap="round"
+                                            />
+                                          );
+                                        })}
+                                        {/* White border lines at 1/3 and 2/3 marks - extend to top of arc */}
+                                        {[1/3, 2/3].map((mark) => {
+                                          const markAngle = startAngle + (mark * angleRange);
+                                          const markAngleRad = (markAngle * Math.PI) / 180;
+                                          // Extend lines to reach the top of the arc (same height as 90° point)
+                                          const topArcY = centerY - radius; // Y coordinate of the top of the arc
+                                          // Calculate the X coordinate where the line at this angle reaches the top arc height
+                                          const lineLength = radius + 3; // Extend slightly beyond the arc
+                                          const markEndX = centerX + lineLength * Math.cos(markAngleRad);
+                                          const markEndY = centerY - Math.abs(lineLength * Math.sin(markAngleRad));
+                                          
+                                          return (
+                                            <line
+                                              key={mark}
+                                              x1={centerX}
+                                              y1={centerY}
+                                              x2={markEndX}
+                                              y2={markEndY}
+                                              stroke="white"
+                                              strokeWidth="2"
+                                              strokeLinecap="round"
+                                            />
+                                          );
+                                        })}
+                                        {/* Needle */}
+                                        <line
+                                          x1={centerX}
+                                          y1={centerY}
+                                          x2={needleEndX}
+                                          y2={needleEndY}
+                                          stroke="#1F2937"
+                                          strokeWidth="2.5"
+                                          strokeLinecap="round"
+                                        />
+                                        {/* Center dot */}
+                                        <circle
+                                          cx={centerX}
+                                          cy={centerY}
+                                          r="3"
+                                          fill="#1F2937"
+                                        />
+                                      </svg>
+                                    </div>
+                                  </td>
                                 </tr>
                               );
                             })}
@@ -306,8 +468,7 @@ const AttributeImportanceView = React.forwardRef<AttributeImportanceViewRef, Att
                         </table>
                       </div>
                     </div>
-                  );
-                })()}
+                )}
               </div>
             );
           })()}
