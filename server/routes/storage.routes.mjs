@@ -1,6 +1,8 @@
 import express from 'express';
 import fs from 'fs/promises';
 import path from 'path';
+import os from 'os';
+import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { authenticateToken, requireCognitiveOrAdmin } from '../middleware/auth.middleware.mjs';
 
@@ -714,6 +716,332 @@ router.get('/files', async (req, res) => {
   } catch (error) {
     console.error('Error listing files:', error);
     res.status(500).json({ error: 'Failed to list files: ' + error.message });
+  }
+});
+
+// DELETE /api/storage/orphaned - Delete all orphaned files
+router.delete('/orphaned', async (req, res) => {
+  try {
+    // Reuse the same file listing and orphan detection logic from GET /files
+    const directories = [
+      { name: 'questionnaire-data', path: path.join(DATA_DIR, 'questionnaire-data'), category: 'Tabs Data' },
+      { name: 'discussion-guides', path: path.join(DATA_DIR, 'discussionGuides'), category: 'Discussion Guides' },
+      { name: 'data-tabulations', path: path.join(DATA_DIR, 'data-tabulations'), category: 'Data Tabulations' },
+      { name: 'conjoint-workflows', path: path.join(DATA_DIR, 'conjoint-workflows'), category: 'Conjoint Workflows' },
+      { name: 'transcripts', path: path.join(DATA_DIR, 'transcripts'), category: 'Transcripts' }
+    ];
+
+    const allFiles = [];
+    
+    // Load all metadata files (same as in GET /files)
+    let questionnaires = {};
+    let transcripts = {};
+    let savedAnalyses = [];
+    let conjointWorkflows = [];
+    let tabulations = {};
+    
+    try {
+      const questionnairesPath = path.join(DATA_DIR, 'questionnaires.json');
+      const questionnairesData = await fs.readFile(questionnairesPath, 'utf8');
+      questionnaires = JSON.parse(questionnairesData);
+    } catch (err) {}
+    
+    try {
+      const transcriptsPath = path.join(DATA_DIR, 'transcripts.json');
+      const transcriptsData = await fs.readFile(transcriptsPath, 'utf8');
+      transcripts = JSON.parse(transcriptsData);
+    } catch (err) {}
+    
+    try {
+      const savedAnalysesPath = path.join(DATA_DIR, 'savedAnalyses.json');
+      const savedAnalysesData = await fs.readFile(savedAnalysesPath, 'utf8');
+      savedAnalyses = JSON.parse(savedAnalysesData);
+      if (!Array.isArray(savedAnalyses)) {
+        savedAnalyses = Object.values(savedAnalyses);
+      }
+    } catch (err) {}
+    
+    try {
+      const conjointWorkflowsPath = path.join(DATA_DIR, 'conjointWorkflows.json');
+      const conjointWorkflowsData = await fs.readFile(conjointWorkflowsPath, 'utf8');
+      conjointWorkflows = JSON.parse(conjointWorkflowsData);
+      if (!Array.isArray(conjointWorkflows)) {
+        conjointWorkflows = [];
+      }
+    } catch (err) {}
+    
+    try {
+      const tabulationsPath = path.join(DATA_DIR, 'data-tabulations', 'saved-tabulations.json');
+      const tabulationsData = await fs.readFile(tabulationsPath, 'utf8');
+      tabulations = JSON.parse(tabulationsData);
+    } catch (err) {}
+    
+    // Build referenced paths set (same logic as GET /files)
+    const referencedPaths = new Set();
+    
+    for (const projectId in transcripts) {
+      if (Array.isArray(transcripts[projectId])) {
+        for (const transcript of transcripts[projectId]) {
+          if (transcript.cleanedPath) referencedPaths.add(path.normalize(transcript.cleanedPath));
+          if (transcript.originalPath) referencedPaths.add(path.normalize(transcript.originalPath));
+        }
+      }
+    }
+    
+    const qnrFileMap = new Map();
+    for (const projectId in questionnaires) {
+      if (Array.isArray(questionnaires[projectId])) {
+        for (const qnr of questionnaires[projectId]) {
+          if (qnr.filePath) {
+            referencedPaths.add(path.normalize(qnr.filePath));
+          }
+          if (qnr.id) {
+            const qnrDataDir = path.join(DATA_DIR, 'questionnaire-data', qnr.id);
+            try {
+              const metadataPath = path.join(qnrDataDir, 'metadata.json');
+              const metadataData = await fs.readFile(metadataPath, 'utf8');
+              const metadata = JSON.parse(metadataData);
+              if (metadata.dataFileName) {
+                referencedPaths.add(path.normalize(path.join(qnrDataDir, metadata.dataFileName)));
+              }
+            } catch (e) {}
+          }
+        }
+      }
+    }
+    
+    for (const analysis of savedAnalyses) {
+      if (analysis.projectId) {
+        const guidePath = path.join(DATA_DIR, 'discussionGuides', `${analysis.projectId}.docx`);
+        referencedPaths.add(path.normalize(guidePath));
+      }
+    }
+    
+    for (const workflow of conjointWorkflows) {
+      if (workflow.id && workflow.survey?.storedFileName) {
+        const workflowPath = path.join(DATA_DIR, 'conjoint-workflows', workflow.id, workflow.survey.storedFileName);
+        referencedPaths.add(path.normalize(workflowPath));
+      }
+    }
+    
+    if (Array.isArray(tabulations)) {
+      for (const tabulation of tabulations) {
+        if (tabulation.filePath) {
+          referencedPaths.add(path.normalize(path.join(DATA_DIR, 'data-tabulations', tabulation.filePath)));
+        }
+      }
+    } else if (typeof tabulations === 'object') {
+      for (const key in tabulations) {
+        const tabulation = tabulations[key];
+        if (tabulation && tabulation.filePath) {
+          referencedPaths.add(path.normalize(path.join(DATA_DIR, 'data-tabulations', tabulation.filePath)));
+        }
+      }
+    }
+    
+    // Scan uploads directory
+    try {
+      const uploadsFiles = await listAllFiles(FILES_DIR, 'uploads');
+      uploadsFiles.forEach(file => {
+        if (file.name.startsWith('questionnaire_') && (file.type === '.docx' || file.name.endsWith('.docx'))) {
+          file.category = 'QNR Files';
+        } else if (file.name.startsWith('original_') || file.name.startsWith('cleaned_')) {
+          file.category = 'Transcripts';
+        } else {
+          file.category = 'General Uploads';
+        }
+      });
+      allFiles.push(...uploadsFiles);
+    } catch (err) {}
+    
+    // Scan other directories
+    for (const dir of directories) {
+      try {
+        const files = await listAllFiles(dir.path, dir.name);
+        files.forEach(file => {
+          file.category = dir.category;
+        });
+        allFiles.push(...files);
+      } catch (err) {}
+    }
+    
+    // Find orphaned files
+    const orphanedFiles = [];
+    for (const file of allFiles) {
+      const normalizedPath = path.normalize(file.fullPath || path.join(DATA_DIR, file.path));
+      
+      if (file.category === 'Metadata Files') {
+        continue; // Skip metadata files
+      }
+      
+      let isOrphaned = !referencedPaths.has(normalizedPath);
+      
+      if (file.category === 'QNR Files' && file.name.startsWith('questionnaire_')) {
+        isOrphaned = !qnrFileMap.has(normalizedPath);
+      }
+      
+      if (file.name.startsWith('original_')) {
+        isOrphaned = true;
+      }
+      
+      if (isOrphaned) {
+        orphanedFiles.push(file);
+      }
+    }
+    
+    // Delete all orphaned files
+    let deletedCount = 0;
+    let deletedSize = 0;
+    const errors = [];
+    
+    for (const file of orphanedFiles) {
+      try {
+        const filePath = file.fullPath || path.join(DATA_DIR, file.path);
+        const stats = await fs.stat(filePath);
+        await fs.unlink(filePath);
+        deletedCount++;
+        deletedSize += stats.size;
+        console.log(`Deleted orphaned file: ${filePath}`);
+      } catch (error) {
+        errors.push({ file: file.name, error: error.message });
+        console.error(`Failed to delete orphaned file ${file.name}:`, error);
+      }
+    }
+    
+    res.json({
+      success: true,
+      deletedCount,
+      deletedSize,
+      deletedSizeFormatted: formatBytes(deletedSize),
+      errors: errors.length > 0 ? errors : undefined
+    });
+  } catch (error) {
+    console.error('Error deleting orphaned files:', error);
+    res.status(500).json({ error: 'Failed to delete orphaned files: ' + error.message });
+  }
+});
+
+// GET /api/storage/disk-info - Get disk space information
+router.get('/disk-info', async (req, res) => {
+  try {
+    const platform = os.platform();
+    
+    let totalSpace = 0;
+    let freeSpace = 0;
+    let usedSpace = 0;
+    
+    // Always use df command for production servers (Linux/Unix)
+    // This will work on production servers where the live site is running
+    // For Windows development, it will try df first, then fall back to Windows methods
+    try {
+      // Use df command - works on Linux/Unix (production) and may work on Windows with WSL/Git Bash
+      // On Render, persistent disks are mounted at /opt/render/project/src/data or similar
+      // We check the disk where DATA_DIR is located
+      const dfOutput = execSync(`df -k "${DATA_DIR}"`, { encoding: 'utf8' });
+      console.log(`[Disk Info] Checking disk space for: ${DATA_DIR}`);
+      const lines = dfOutput.trim().split('\n');
+      if (lines.length > 1) {
+        // Find the line that matches our DATA_DIR path
+        // df output format: Filesystem 1K-blocks Used Available Use% Mounted on
+        for (let i = 1; i < lines.length; i++) {
+          const parts = lines[i].split(/\s+/).filter(p => p.length > 0);
+          if (parts.length >= 6) {
+            // Check if this line's mount point matches or contains our DATA_DIR
+            const mountPoint = parts[5];
+            if (DATA_DIR.startsWith(mountPoint) || mountPoint === DATA_DIR) {
+              const totalKB = parseInt(parts[1]) * 1024;
+              const usedKB = parseInt(parts[2]) * 1024;
+              const availableKB = parseInt(parts[3]) * 1024;
+              
+              totalSpace = totalKB;
+              usedSpace = usedKB;
+              freeSpace = availableKB;
+              break;
+            }
+          }
+        }
+        
+        // If we didn't find a match, use the first data line (most common case)
+        if (totalSpace === 0 && lines.length > 1) {
+          const parts = lines[1].split(/\s+/).filter(p => p.length > 0);
+          if (parts.length >= 4) {
+            const totalKB = parseInt(parts[1]) * 1024;
+            const usedKB = parseInt(parts[2]) * 1024;
+            const availableKB = parseInt(parts[3]) * 1024;
+            
+            totalSpace = totalKB;
+            usedSpace = usedKB;
+            freeSpace = availableKB;
+          }
+        }
+      }
+    } catch (dfError) {
+      // df command failed, try platform-specific methods
+      if (platform === 'win32') {
+        // On Windows (local development), use PowerShell or wmic
+        try {
+          const driveLetter = path.parse(DATA_DIR).root.replace('\\', '');
+          
+          // Try PowerShell first
+          const psCommand = `Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Root -eq '${driveLetter}' } | Select-Object -Property Used,Free | ConvertTo-Json`;
+          const psOutput = execSync(`powershell -Command "${psCommand}"`, { encoding: 'utf8' });
+          
+          try {
+            const diskInfo = JSON.parse(psOutput);
+            if (diskInfo && typeof diskInfo.Used === 'number' && typeof diskInfo.Free === 'number') {
+              usedSpace = diskInfo.Used;
+              freeSpace = diskInfo.Free;
+              totalSpace = usedSpace + freeSpace;
+            } else {
+              throw new Error('Invalid PowerShell output format');
+            }
+          } catch (parseError) {
+            // Try wmic as fallback
+            const wmicCommand = `wmic logicaldisk where "DeviceID='${driveLetter.replace(':', '')}'" get Size,FreeSpace /format:list`;
+            const wmicOutput = execSync(wmicCommand, { encoding: 'utf8' });
+            const sizeMatch = wmicOutput.match(/Size=(\d+)/);
+            const freeMatch = wmicOutput.match(/FreeSpace=(\d+)/);
+            
+            if (sizeMatch && freeMatch) {
+              totalSpace = parseInt(sizeMatch[1]);
+              freeSpace = parseInt(freeMatch[1]);
+              usedSpace = totalSpace - freeSpace;
+            } else {
+              throw new Error('Could not parse wmic output');
+            }
+          }
+        } catch (winError) {
+          console.warn('Could not get disk space info on Windows:', winError);
+          // Final fallback: show used space only
+          const usedSpaceBytes = await getDirectorySize(DATA_DIR);
+          usedSpace = usedSpaceBytes;
+          totalSpace = usedSpace * 10; // Placeholder
+          freeSpace = totalSpace - usedSpace;
+        }
+      } else {
+        // Unix-like system but df failed - this shouldn't happen, but handle it
+        console.warn('df command failed on Unix-like system:', dfError);
+        const usedSpaceBytes = await getDirectorySize(DATA_DIR);
+        usedSpace = usedSpaceBytes;
+        totalSpace = usedSpace * 10; // Placeholder
+        freeSpace = totalSpace - usedSpace;
+      }
+    }
+    
+    res.json({
+      total: totalSpace,
+      used: usedSpace,
+      free: freeSpace,
+      formatted: {
+        total: formatBytes(totalSpace),
+        used: formatBytes(usedSpace),
+        free: formatBytes(freeSpace)
+      },
+      percentageUsed: totalSpace > 0 ? ((usedSpace / totalSpace) * 100).toFixed(1) : '0.0'
+    });
+  } catch (error) {
+    console.error('Error getting disk info:', error);
+    res.status(500).json({ error: 'Failed to get disk info: ' + error.message });
   }
 });
 

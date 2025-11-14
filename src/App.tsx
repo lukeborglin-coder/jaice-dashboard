@@ -2679,6 +2679,8 @@ function AdminCenter({ onProjectUpdate }: { onProjectUpdate?: () => void }) {
   const [fileSortBy, setFileSortBy] = useState<'name' | 'size' | 'date' | 'category'>('date');
   const [fileSortOrder, setFileSortOrder] = useState<'asc' | 'desc'>('desc');
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set()); // Start with empty set (all collapsed)
+  const [deletingOrphaned, setDeletingOrphaned] = useState(false);
+  const [diskInfo, setDiskInfo] = useState<{total: number, used: number, free: number, formatted: any, percentageUsed: string} | null>(null);
   const loadCostData = useCallback(async () => {
     try {
       const headers: any = { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` };
@@ -2992,6 +2994,56 @@ function AdminCenter({ onProjectUpdate }: { onProjectUpdate?: () => void }) {
     }
   }, [loadAllFiles]);
 
+  const loadDiskInfo = useCallback(async () => {
+    try {
+      const headers: any = { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` };
+      const resp = await fetch(`${API_BASE_URL}/api/storage/disk-info`, { headers });
+      if (resp.ok) {
+        const data = await resp.json();
+        setDiskInfo(data);
+      }
+    } catch (e) {
+      console.error('Error loading disk info:', e);
+    }
+  }, []);
+
+  const deleteAllOrphanedFiles = useCallback(async () => {
+    const orphanedCount = allFiles.filter(f => f.isOrphaned).length;
+    if (orphanedCount === 0) {
+      alert('No orphaned files found.');
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to delete ${orphanedCount} orphaned file(s)? This action cannot be undone.`)) {
+      return;
+    }
+
+    setDeletingOrphaned(true);
+    try {
+      const headers: any = { 
+        'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
+      };
+      const resp = await fetch(`${API_BASE_URL}/api/storage/orphaned`, {
+        method: 'DELETE',
+        headers
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        alert(`Successfully deleted ${data.deletedCount} orphaned file(s), freeing ${data.deletedSizeFormatted} of space.`);
+        await loadAllFiles();
+        await loadDiskInfo();
+      } else {
+        const error = await resp.json();
+        alert(`Failed to delete orphaned files: ${error.error || 'Unknown error'}`);
+      }
+    } catch (e) {
+      console.error('Error deleting orphaned files:', e);
+      alert('Error deleting orphaned files. Please try again.');
+    } finally {
+      setDeletingOrphaned(false);
+    }
+  }, [allFiles, loadAllFiles, loadDiskInfo]);
+
   useEffect(() => {
     if (activeTab === 'cost-tracker') {
       loadCostData();
@@ -3002,8 +3054,9 @@ function AdminCenter({ onProjectUpdate }: { onProjectUpdate?: () => void }) {
     } else if (activeTab === 'storage') {
       loadStorageData();
       loadAllFiles();
+      loadDiskInfo();
     }
-  }, [activeTab, loadCostData, loadAdminFeedback, loadProjects, loadStorageData, loadAllFiles]);
+  }, [activeTab, loadCostData, loadAdminFeedback, loadProjects, loadStorageData, loadAllFiles, loadDiskInfo]);
 
   // Expand all categories by default when files are loaded
   useEffect(() => {
@@ -3962,8 +4015,27 @@ function AdminCenter({ onProjectUpdate }: { onProjectUpdate?: () => void }) {
             <div className="flex items-center justify-between mb-6">
             <h3 className="text-lg font-semibold text-gray-900">File Manager</h3>
             <div className="flex items-center gap-3">
+              {allFiles.filter(f => f.isOrphaned).length > 0 && (
+                <button
+                  onClick={deleteAllOrphanedFiles}
+                  disabled={deletingOrphaned}
+                  className="px-4 py-1.5 text-sm bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {deletingOrphaned ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Deleting...
+                    </>
+                  ) : (
+                    <>
+                      <ExclamationTriangleIcon className="w-4 h-4" />
+                      Delete All Orphaned Files ({allFiles.filter(f => f.isOrphaned).length})
+                    </>
+                  )}
+                </button>
+              )}
               <button
-                onClick={() => { loadAllFiles(); }}
+                onClick={() => { loadAllFiles(); loadDiskInfo(); }}
                 disabled={loadingFiles}
                 className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
               >
@@ -3971,6 +4043,41 @@ function AdminCenter({ onProjectUpdate }: { onProjectUpdate?: () => void }) {
               </button>
             </div>
           </div>
+
+          {/* Disk Space Bar Chart */}
+          {diskInfo && (
+            <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-sm font-semibold text-gray-900">Disk Space Usage</h4>
+                <span className="text-xs text-gray-500">(Production Server)</span>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
+                  <span>Used: {diskInfo.formatted.used}</span>
+                  <span>Free: {diskInfo.formatted.free}</span>
+                  <span>Total: {diskInfo.formatted.total}</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-6 overflow-hidden">
+                  <div
+                    className={`h-full transition-all duration-300 ${
+                      parseFloat(diskInfo.percentageUsed) >= 90 ? 'bg-red-600' :
+                      parseFloat(diskInfo.percentageUsed) >= 75 ? 'bg-yellow-600' :
+                      'bg-green-600'
+                    }`}
+                    style={{ width: `${Math.min(parseFloat(diskInfo.percentageUsed), 100)}%` }}
+                  >
+                    <div className="h-full flex items-center justify-center text-xs font-medium text-white px-2">
+                      {diskInfo.percentageUsed}% Used
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between text-xs text-gray-500">
+                  <span>{diskInfo.formatted.used} used</span>
+                  <span>{diskInfo.formatted.free} available</span>
+                </div>
+              </div>
+            </div>
+          )}
 
           {loadingFiles ? (
             <div className="text-center py-12">
