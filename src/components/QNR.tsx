@@ -1245,25 +1245,43 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
                     </div>
                   ))}
                 </div>
-                <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
+                <div className="flex justify-between items-center gap-3 mt-6 pt-4 border-t">
                   <button
                     onClick={() => {
-                      setShowUploadModal(false);
+                      // Go back to upload view
                       setUploadedQuestionnaire(null);
                       setUploadSuccess(false);
                       setUploading(false);
+                      setFileValidation(null);
                       setQuestionnaireName('');
                       if (fileInputRef.current) {
                         fileInputRef.current.value = '';
                       }
-                      // Reload questionnaires to get the latest data
-                      loadQuestionnaires(selectedProject!.id);
                     }}
-                    className="px-4 py-2 text-white rounded-md hover:opacity-90"
-                    style={{ backgroundColor: BRAND_ORANGE }}
+                    className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
                   >
-                    Done
+                    Back
                   </button>
+                  {uploadedQuestionnaire.sections?.every(s => s.parsed) && (
+                    <button
+                      onClick={() => {
+                        setShowUploadModal(false);
+                        setUploadedQuestionnaire(null);
+                        setUploadSuccess(false);
+                        setUploading(false);
+                        setQuestionnaireName('');
+                        if (fileInputRef.current) {
+                          fileInputRef.current.value = '';
+                        }
+                        // Reload questionnaires to get the latest data
+                        loadQuestionnaires(selectedProject!.id);
+                      }}
+                      className="px-4 py-2 text-white rounded-md hover:opacity-90"
+                      style={{ backgroundColor: BRAND_ORANGE }}
+                    >
+                      Done
+                    </button>
+                  )}
                 </div>
               </div>
             ) : uploadSuccess ? (
@@ -1339,6 +1357,10 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
                       type="file"
                       accept=".docx"
                       onChange={handleFileChange}
+                      onClick={(e) => {
+                        // Clear validation when user clicks to select a new file
+                        setFileValidation(null);
+                      }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#D14A2D]"
                       disabled={uploading || validatingFile}
                     />
@@ -1348,40 +1370,9 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
                     {fileValidation && (
                       <div className={`mt-3 p-3 rounded-md ${fileValidation.isValid ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
                         <div className="text-sm">
-                          <div className="font-medium mb-2" style={{ color: fileValidation.isValid ? '#16a34a' : '#dc2626' }}>
+                          <div className="font-medium" style={{ color: fileValidation.isValid ? '#16a34a' : '#dc2626' }}>
                             {fileValidation.isValid ? '✓ File is valid' : '✗ File is too large'}
                           </div>
-                          {fileValidation.fileSize && (
-                            <div className="text-gray-700 mb-1">
-                              File size: {(fileValidation.fileSize / 1024).toFixed(2)} KB
-                            </div>
-                          )}
-                          {fileValidation.textLength && (
-                            <div className="text-gray-700 mb-1">
-                              Text length: {fileValidation.textLength.toLocaleString()} characters
-                              {fileValidation.maxTextLength && (
-                                <span className="text-gray-500"> / {fileValidation.maxTextLength.toLocaleString()} max</span>
-                              )}
-                            </div>
-                          )}
-                          {fileValidation.estimatedInputTokens && (
-                            <div className="text-gray-700 mb-1">
-                              Estimated input tokens: {fileValidation.estimatedInputTokens.toLocaleString()}
-                            </div>
-                          )}
-                          {fileValidation.estimatedOutputTokens && (
-                            <div className="text-gray-700 mb-1">
-                              Estimated output tokens: {fileValidation.estimatedOutputTokens.toLocaleString()}
-                              {fileValidation.maxOutputTokens && (
-                                <span className="text-gray-500"> / {fileValidation.maxOutputTokens.toLocaleString()} max</span>
-                              )}
-                            </div>
-                          )}
-                          {fileValidation.message && (
-                            <div className="mt-2 text-xs" style={{ color: fileValidation.isValid ? '#16a34a' : '#dc2626' }}>
-                              {fileValidation.message}
-                            </div>
-                          )}
                         </div>
                       </div>
                     )}
