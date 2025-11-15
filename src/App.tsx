@@ -6059,14 +6059,14 @@ export default function App() {
         { name: "Stat Testing", icon: IconChartBar },
         { name: "Open-End Coding", icon: IconCode },
         { name: "QNR", icon: IconCheckbox },
+        { name: "Tabs", icon: IconChartDonut2 },
+        { name: "Utilities", icon: IconChartLine },
         { name: "Data QA (Coming Soon)", icon: IconDatabaseExclamation, disabled: true },
       ];
 
-      // Only show Tabs, Conjoint Simulator, and Utilities to admins
+      // Only show Conjoint Simulator to admins
       if (user?.role === 'admin') {
-        tools.splice(3, 0, { name: "Tabs", icon: IconChartDonut2 });
-        tools.splice(4, 0, { name: "Conjoint Simulator", icon: IconChartDots });
-        tools.splice(5, 0, { name: "Utilities", icon: IconChartLine });
+        tools.splice(5, 0, { name: "Conjoint Simulator", icon: IconChartDots });
       }
 
       return tools;
@@ -6459,16 +6459,7 @@ export default function App() {
       ) : route === "Open-End Coding" ? (
         <OpenEndCoding />
       ) : route === "Tabs" ? (
-        user?.role === 'admin' ? (
-          <Tabs projects={projects} onNavigateToProject={handleProjectView} onHeaderChange={setTabsHeader} />
-        ) : (
-          <div className="flex-1 p-6 flex items-center justify-center">
-            <div className="text-center">
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h1>
-              <p className="text-gray-600">You need admin privileges to access this page.</p>
-            </div>
-          </div>
-        )
+        <Tabs projects={projects} onNavigateToProject={handleProjectView} onHeaderChange={setTabsHeader} />
       ) : route === "Conjoint Simulator" ? (
         user?.role === 'admin' ? (
           <ConjointProjects
@@ -6485,20 +6476,11 @@ export default function App() {
           </div>
         )
       ) : route === "Utilities" ? (
-        user?.role === 'admin' ? (
-          <UtilitiesProjects
-            projects={projects}
-            onNavigateToProject={handleProjectView}
-            onCreateProject={() => setShowProjectWizard(true)}
-          />
-        ) : (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center p-8">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-2">Access Restricted</h2>
-              <p className="text-gray-600">Utilities is only available to administrators.</p>
-            </div>
-          </div>
-        )
+        <UtilitiesProjects
+          projects={projects}
+          onNavigateToProject={handleProjectView}
+          onCreateProject={() => setShowProjectWizard(true)}
+        />
       ) : route === "QNR" || route === "qnr" ? (
         <QNR projects={projects} onNavigateToProject={handleProjectView} onPageTitleChange={setQnrPageTitle} />
       ) : (
