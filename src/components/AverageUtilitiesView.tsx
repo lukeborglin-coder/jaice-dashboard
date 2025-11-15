@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
+import { PencilIcon } from '@heroicons/react/24/outline';
 
 interface AverageUtilitiesViewProps {
   workflow: any;
@@ -50,6 +51,14 @@ export default function AverageUtilitiesView({
   const [manualMax, setManualMax] = useState<number>(propManualMax ?? 1);
   const [manualMinInput, setManualMinInput] = useState<string>(String(propManualMin ?? 0));
   const [manualMaxInput, setManualMaxInput] = useState<string>(String(propManualMax ?? 1));
+  const minInputRef = useRef<HTMLInputElement | null>(null);
+  
+  // Spread strength thresholds (editable)
+  const [strongThreshold, setStrongThreshold] = useState<number>(1.0);
+  const [mediumThreshold, setMediumThreshold] = useState<number>(0.500);
+  const [isEditingThresholds, setIsEditingThresholds] = useState<boolean>(false);
+  const [strongThresholdInput, setStrongThresholdInput] = useState<string>('1.0');
+  const [mediumThresholdInput, setMediumThresholdInput] = useState<string>('0.500');
 
   // Update local state when props change
   useEffect(() => {
@@ -337,25 +346,16 @@ export default function AverageUtilitiesView({
     // Sort attributes by spread (strongest to weakest)
     attributes.sort((a, b) => b.spread - a.spread);
     
-    // Calculate min and max spread for color scaling
-    const spreads = attributes.map(a => a.spread);
-    const minSpread = Math.min(...spreads);
-    const maxSpread = Math.max(...spreads);
-    const spreadRange = maxSpread - minSpread;
-    
     // Add color indicator to each attribute
     attributes.forEach(attr => {
-      // Normalize spread to 0-1 range
-      const normalizedSpread = spreadRange > 0 
-        ? (attr.spread - minSpread) / spreadRange 
-        : 0.5;
-      
-      // Color scale: green (strong) -> yellow (medium) -> red (weak)
-      // Since we're sorting strongest to weakest, strongest = green
+      // Color scale based on actual spread value (using editable thresholds):
+      // Strong (green): >= strongThreshold
+      // Medium (yellow): >= mediumThreshold and < strongThreshold
+      // Weak (red): < mediumThreshold
       let color = '#ef4444'; // red (weak)
-      if (normalizedSpread > 0.66) {
+      if (attr.spread >= strongThreshold) {
         color = '#10b981'; // green (strong)
-      } else if (normalizedSpread > 0.33) {
+      } else if (attr.spread >= mediumThreshold) {
         color = '#f59e0b'; // yellow (medium)
       }
       
@@ -363,7 +363,7 @@ export default function AverageUtilitiesView({
     });
 
     return attributes;
-  }, [workflow]);
+  }, [workflow, strongThreshold, mediumThreshold]);
 
   // Measure container heights on mount and resize
   useEffect(() => {
@@ -484,6 +484,7 @@ export default function AverageUtilitiesView({
                   <label className="flex items-center gap-1">
                     <span className="text-gray-600">Min:</span>
                     <input
+                      ref={minInputRef}
                       type="text"
                       value={manualMinInput}
                       onChange={(e) => {
@@ -565,18 +566,111 @@ export default function AverageUtilitiesView({
           </div>
           <div className="flex items-center gap-3 text-xs text-gray-600 flex-shrink-0">
             <span className="font-semibold whitespace-nowrap">Spread Strength:</span>
-            <div className="flex items-center gap-1 whitespace-nowrap">
-              <div className="w-2 h-2 rounded-full bg-green-500"></div>
-              <span>Strong</span>
-            </div>
-            <div className="flex items-center gap-1 whitespace-nowrap">
-              <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
-              <span>Medium</span>
-            </div>
-            <div className="flex items-center gap-1 whitespace-nowrap">
-              <div className="w-2 h-2 rounded-full bg-red-500"></div>
-              <span>Weak</span>
-            </div>
+            {!isEditingThresholds ? (
+              <>
+                <div className="flex items-center gap-1 whitespace-nowrap">
+                  <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                  <span>Strong (≥{strongThreshold})</span>
+                </div>
+                <div className="flex items-center gap-1 whitespace-nowrap">
+                  <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
+                  <span>Medium (≥{mediumThreshold})</span>
+                </div>
+                <div className="flex items-center gap-1 whitespace-nowrap">
+                  <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                  <span>Weak (&lt;{mediumThreshold})</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsEditingThresholds(true);
+                    setStrongThresholdInput(String(strongThreshold));
+                    setMediumThresholdInput(String(mediumThreshold));
+                  }}
+                  className="flex items-center justify-center p-1 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors ml-2 cursor-pointer"
+                  title="Edit spread strength thresholds"
+                >
+                  <PencilIcon className="w-4 h-4" />
+                </button>
+              </>
+            ) : (
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-600">Strong ≥</span>
+                  <input
+                    type="text"
+                    value={strongThresholdInput}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value === '' || /^-?\d*\.?\d*$/.test(value)) {
+                        setStrongThresholdInput(value);
+                        if (value !== '' && value !== '-' && value !== '.' && value !== '-.') {
+                          const numValue = Number(value);
+                          if (!isNaN(numValue) && numValue > mediumThreshold) {
+                            setStrongThreshold(numValue);
+                          }
+                        }
+                      }
+                    }}
+                    onBlur={() => {
+                      const numValue = Number(strongThresholdInput);
+                      if (isNaN(numValue) || strongThresholdInput === '' || strongThresholdInput === '-' || strongThresholdInput === '.' || strongThresholdInput === '-.') {
+                        setStrongThresholdInput(String(strongThreshold));
+                      } else {
+                        const newValue = numValue > mediumThreshold ? numValue : strongThreshold;
+                        setStrongThreshold(newValue);
+                        setStrongThresholdInput(String(newValue));
+                      }
+                    }}
+                    className="w-16 px-1 py-0.5 border border-gray-300 rounded text-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-600">Medium ≥</span>
+                  <input
+                    type="text"
+                    value={mediumThresholdInput}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value === '' || /^-?\d*\.?\d*$/.test(value)) {
+                        setMediumThresholdInput(value);
+                        if (value !== '' && value !== '-' && value !== '.' && value !== '-.') {
+                          const numValue = Number(value);
+                          if (!isNaN(numValue) && numValue < strongThreshold) {
+                            setMediumThreshold(numValue);
+                          }
+                        }
+                      }
+                    }}
+                    onBlur={() => {
+                      const numValue = Number(mediumThresholdInput);
+                      if (isNaN(numValue) || mediumThresholdInput === '' || mediumThresholdInput === '-' || mediumThresholdInput === '.' || mediumThresholdInput === '-.') {
+                        setMediumThresholdInput(String(mediumThreshold));
+                      } else {
+                        const newValue = numValue < strongThreshold ? numValue : mediumThreshold;
+                        setMediumThreshold(newValue);
+                        setMediumThresholdInput(String(newValue));
+                      }
+                    }}
+                    className="w-16 px-1 py-0.5 border border-gray-300 rounded text-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsEditingThresholds(false);
+                  }}
+                  className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                  title="Done editing"
+                >
+                  Done
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

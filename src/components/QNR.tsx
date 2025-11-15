@@ -42,10 +42,20 @@ interface Question {
   rawAiOutput?: string; // Raw AI response for this question
 }
 
+interface Section {
+  sectionNumber: number;
+  sectionName: string;
+  textLength: number;
+  parsed: boolean;
+  questions?: Question[];
+}
+
 interface Questionnaire {
   id: string;
   name: string;
   questions: Question[];
+  sections?: Section[];
+  filePath?: string;
   createdAt: string;
   projectId: string;
 }
@@ -193,6 +203,7 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
   const [uploading, setUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [uploadedQuestionnaire, setUploadedQuestionnaire] = useState<Questionnaire | null>(null);
+  const [parsingSections, setParsingSections] = useState<Set<number>>(new Set());
   const [questionnaireName, setQuestionnaireName] = useState('');
   const [allQuestionnaires, setAllQuestionnaires] = useState<Questionnaire[]>([]);
   const [selectedQuestionTypes, setSelectedQuestionTypes] = useState<Set<string>>(new Set());
@@ -605,18 +616,20 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
 
       if (response.ok) {
         const result = await response.json();
-        // Reload all questionnaires to update counts
-        const allResponse = await fetch(`${API_BASE_URL}/api/questionnaire/all`, {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
-        });
-        if (allResponse.ok) {
-          const allData = await allResponse.json();
-          setAllQuestionnaires(allData || []);
+        console.log('Upload response:', result);
+        console.log('Sections found:', result.sections?.length || 0);
+        
+        // Verify sections exist
+        if (!result.sections || result.sections.length === 0) {
+          alert('No sections were identified in the questionnaire. Please check the file format.');
+          setUploading(false);
+          return;
         }
-        await loadQuestionnaires(selectedProject.id);
-        // Set success state instead of closing modal
-        setUploadSuccess(true);
+        
+        // Set the uploaded questionnaire with sections - don't set uploadSuccess
         setUploadedQuestionnaire(result);
+        setUploading(false); // Set to false to show sections view
+        // Don't reload questionnaires yet - wait until sections are parsed
       } else {
         const error = await response.json();
         setUploading(false);
@@ -1091,8 +1104,8 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
       {/* Upload Modal */}
       {showUploadModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style={{ margin: 0, padding: 0, top: 0, left: 0, right: 0, bottom: 0 }}>
-          <div className="bg-white rounded-lg p-6 w-96 max-w-full mx-4">
-            {uploading && !uploadSuccess ? (
+          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto mx-4">
+            {uploading && !uploadedQuestionnaire ? (
               <div className="text-center py-8">
                 <div className="w-16 h-16 mx-auto mb-4">
                   <svg className="animate-spin w-16 h-16" fill="none" viewBox="0 0 24 24" style={{ color: BRAND_ORANGE }}>
@@ -1100,7 +1113,158 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Parsing QNR</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Identifying Sections</h3>
+                <p className="text-sm text-gray-600 mt-2">Analyzing questionnaire structure...</p>
+              </div>
+            ) : uploadedQuestionnaire && uploadedQuestionnaire.sections && uploadedQuestionnaire.sections.length > 0 ? (
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-lg font-semibold">Questionnaire Sections</h3>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Found {uploadedQuestionnaire.sections.length} section{uploadedQuestionnaire.sections.length !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      // Get initial list of sections to parse
+                      let sectionsToParse = [...(uploadedQuestionnaire.sections || [])].filter(s => !s.parsed);
+                      
+                      if (sectionsToParse.length === 0) {
+                        alert('All sections have already been parsed.');
+                        return;
+                      }
+                      
+                      // Parse sections sequentially
+                      for (const section of sectionsToParse) {
+                        setParsingSections(prev => new Set(prev).add(section.sectionNumber));
+                        
+                        try {
+                          const response = await fetch(`${API_BASE_URL}/api/questionnaire/${uploadedQuestionnaire.id}/parse-section`, {
+                            method: 'POST',
+                            headers: {
+                              'Content-Type': 'application/json',
+                              'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
+                            },
+                            body: JSON.stringify({ sectionNumber: section.sectionNumber })
+                          });
+
+                          if (response.ok) {
+                            const result = await response.json();
+                            // Update the section in uploadedQuestionnaire using functional update
+                            setUploadedQuestionnaire(prev => {
+                              if (!prev) return prev;
+                              const updatedSections = prev.sections?.map(s => 
+                                s.sectionNumber === section.sectionNumber 
+                                  ? { ...s, parsed: true, questions: result.questions }
+                                  : s
+                              );
+                              return {
+                                ...prev,
+                                sections: updatedSections,
+                                questions: [...(prev.questions || []), ...result.questions]
+                              };
+                            });
+                            // Reload questionnaires to get updated data
+                            const allResponse = await fetch(`${API_BASE_URL}/api/questionnaire/all`, {
+                              headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
+                            });
+                            if (allResponse.ok) {
+                              const allData = await allResponse.json();
+                              setAllQuestionnaires(allData || []);
+                            }
+                            await loadQuestionnaires(selectedProject!.id);
+                            
+                            // Small delay to allow UI to update before next section
+                            await new Promise(resolve => setTimeout(resolve, 200));
+                          } else {
+                            const error = await response.json();
+                            alert(`Failed to parse section ${section.sectionNumber}: ${error.error}`);
+                            break; // Stop parsing if there's an error
+                          }
+                        } catch (error) {
+                          console.error('Parse section error:', error);
+                          alert(`Failed to parse section ${section.sectionNumber} - please try again`);
+                          break; // Stop parsing if there's an error
+                        } finally {
+                          setParsingSections(prev => {
+                            const newSet = new Set(prev);
+                            newSet.delete(section.sectionNumber);
+                            return newSet;
+                          });
+                        }
+                      }
+                    }}
+                    disabled={parsingSections.size > 0 || (uploadedQuestionnaire.sections?.every(s => s.parsed) ?? false)}
+                    className="px-4 py-2 text-white rounded-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ backgroundColor: BRAND_ORANGE }}
+                  >
+                    {parsingSections.size > 0 ? (
+                      <span className="flex items-center">
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Parsing...
+                      </span>
+                    ) : (
+                      'Parse All Sections'
+                    )}
+                  </button>
+                </div>
+                <div className="space-y-3 mb-4">
+                  {uploadedQuestionnaire.sections.map((section) => (
+                    <div 
+                      key={section.sectionNumber} 
+                      className="flex items-center justify-between p-3 border border-gray-200 rounded-md hover:bg-gray-50"
+                    >
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-900">
+                          Section {section.sectionNumber}: {section.sectionName}
+                        </div>
+                      </div>
+                      <div className="flex items-center">
+                        {parsingSections.has(section.sectionNumber) ? (
+                          <span className="flex items-center text-sm text-gray-600">
+                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" style={{ color: BRAND_ORANGE }}>
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Parsing...
+                          </span>
+                        ) : section.parsed ? (
+                          <span className="text-sm text-green-600 font-medium">
+                            ✓ Parsed ({section.questions?.length || 0} questions)
+                          </span>
+                        ) : (
+                          <span className="text-sm text-gray-400">
+                            Pending
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
+                  <button
+                    onClick={() => {
+                      setShowUploadModal(false);
+                      setUploadedQuestionnaire(null);
+                      setUploadSuccess(false);
+                      setUploading(false);
+                      setQuestionnaireName('');
+                      if (fileInputRef.current) {
+                        fileInputRef.current.value = '';
+                      }
+                      // Reload questionnaires to get the latest data
+                      loadQuestionnaires(selectedProject!.id);
+                    }}
+                    className="px-4 py-2 text-white rounded-md hover:opacity-90"
+                    style={{ backgroundColor: BRAND_ORANGE }}
+                  >
+                    Done
+                  </button>
+                </div>
               </div>
             ) : uploadSuccess ? (
               <div className="text-center py-8">
@@ -1462,12 +1626,8 @@ function QuestionBox({
       }
     }
 
-    // Numeric List - SHOULD have responseOptions
-    if (typeLower.includes('numeric list')) {
-      if (!hasResponseOptions) {
-        return 'Numeric List questions must have response options (one per numeric input box)';
-      }
-    }
+    // Numeric List - no validation (can have responseOptions or options)
+    // Removed validation error for numeric list questions
 
     // Numeric Grid - SHOULD have both statementOptions AND responseOptions
     if (typeLower.includes('numeric grid')) {

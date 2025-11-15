@@ -7,6 +7,7 @@ import OpenAI from 'openai';
 import XLSX from 'xlsx';
 import { authenticateToken, requireCognitiveOrAdmin } from '../middleware/auth.middleware.mjs';
 import { logCost, COST_CATEGORIES } from '../services/costTracking.service.mjs';
+import { cleanQuestionnaire, parseCleanedQuestionnaire } from './questionnaire.routes.NEW.mjs';
 
 const router = express.Router();
 
@@ -115,126 +116,374 @@ function parseOptionString(optionString) {
   return optionString;
 }
 
-// Helper function to split questionnaire text into chunks
-function splitQuestionnaireIntoChunks(text, maxChunkSize = 35000) {
-  // Improved regex to catch more question formats: QS14, S1, A1, Q1, Section 1, Question 1, etc.
-  // This pattern matches: QS followed by digits, S/Q followed by digits, any letter followed by digits, or Section/Question headers
-  // Note: QS must come before Q to avoid matching QS as just Q
-  const questionPattern = /(?:^|\n)(QS\d+|S\d+|Q\d+|A\d+|[A-Z]+\d+|Section\s+\d+|Question\s+\d+)/i;
-  
-  // Find all question markers and their positions
-  const markers = [];
-  let match;
-  const regex = new RegExp(questionPattern.source, questionPattern.flags + 'g');
-  
-  while ((match = regex.exec(text)) !== null) {
-    markers.push({
-      index: match.index,
-      text: match[0].trim(),
-      fullMatch: match[0]
-    });
-  }
-  
-  // If no markers found, split by size only
-  if (markers.length === 0) {
-    const chunks = [];
-    for (let i = 0; i < text.length; i += maxChunkSize) {
-      chunks.push(text.substring(i, i + maxChunkSize));
-    }
-    return chunks;
-  }
-  
-  // Split into chunks at question boundaries
-  // Strategy: Start from first marker, accumulate questions until we hit size limit, then split
-  const chunks = [];
-  const chunkInfo = []; // Track chunk positions for verification
-  
-  if (markers.length === 0) {
-    // No markers found, split by size only
-    for (let i = 0; i < text.length; i += maxChunkSize) {
-      const chunk = text.substring(i, i + maxChunkSize);
-      chunks.push(chunk);
-      chunkInfo.push({ start: i, end: i + chunk.length });
-    }
-    return chunks;
-  }
-  
-  // Start from the first marker (or beginning if no markers)
-  let chunkStart = markers[0]?.index ?? 0;
-  
-  for (let i = 0; i < markers.length; i++) {
-    const marker = markers[i];
-    const nextMarker = markers[i + 1];
-    
-    // Calculate where this chunk would end if we include this marker's question
-    // The chunk ends at the start of the next marker (or end of text)
-    const proposedChunkEnd = nextMarker ? nextMarker.index : text.length;
-    const proposedChunkSize = proposedChunkEnd - chunkStart;
-    
-    // If adding this question would exceed max size AND we're not at the first marker,
-    // we need to split before this marker
-    if (proposedChunkSize > maxChunkSize && i > 0) {
-      // End the current chunk right before this marker
-      const chunk = text.substring(chunkStart, marker.index);
-      if (chunk.length > 0) {
-        chunks.push(chunk);
-        chunkInfo.push({ start: chunkStart, end: marker.index });
-        const firstMarkerInChunk = markers.find(m => m.index >= chunkStart);
-        console.log(`📦 Chunk ${chunks.length}: ${chunk.length} chars, positions ${chunkStart}-${marker.index}, from marker ${firstMarkerInChunk?.text || 'start'} to before ${marker.text}`);
-      }
-      // Start a new chunk at this marker
-      chunkStart = marker.index;
-    }
-    
-    // If this is the last marker, we're done - will add final chunk below
-    if (!nextMarker) {
-      break;
-    }
-  }
-  
-  // Always add the final chunk (from current chunkStart to end of text)
-  const finalChunk = text.substring(chunkStart);
-  if (finalChunk.length > 0) {
-    chunks.push(finalChunk);
-    chunkInfo.push({ start: chunkStart, end: text.length });
-    const firstMarkerInChunk = markers.find(m => m.index >= chunkStart);
-    const lastMarker = markers[markers.length - 1];
-  }
-  
-  // Verify all markers are included in chunks
-  let markersInChunks = 0;
-  chunkInfo.forEach((info) => {
-    const markersInThisChunk = markers.filter(m => m.index >= info.start && m.index < info.end);
-    markersInChunks += markersInThisChunk.length;
-  });
-  
-  if (markersInChunks < markers.length) {
-    console.warn(`⚠️ Warning: Only ${markersInChunks} of ${markers.length} markers found in chunks!`);
-  }
-  
-  // If we somehow have no chunks, return the whole text
-  if (chunks.length === 0) {
-    return [text];
-  }
-  
-  console.log(`📦 Split into ${chunks.length} chunks at question boundaries`);
-  
-  return chunks;
-}
-
-// Parse a single chunk of questionnaire
-async function parseQuestionnaireChunk(textChunk, chunkIndex, totalChunks, systemPrompt, projectId) {
+// Helper function to identify sections using AI
+async function identifySectionsWithAI(text, projectId) {
   const client = new OpenAI({ 
     apiKey: process.env.OPENAI_API_KEY,
-    timeout: 180000, // 3 minute timeout per chunk
+    timeout: 60000, // 1 minute timeout
     maxRetries: 2
   });
   
-  const userPrompt = `Please parse this ${chunkIndex === 0 && totalChunks > 1 ? 'FIRST SECTION' : chunkIndex === totalChunks - 1 && totalChunks > 1 ? 'FINAL SECTION' : totalChunks > 1 ? `SECTION ${chunkIndex + 1} of ${totalChunks}` : ''} of a questionnaire document and extract ALL questions with their details:
+  const systemPrompt = `You are an expert at analyzing questionnaire documents. Your task is to identify distinct sections in a questionnaire.
 
-${textChunk}
+A section is a logical grouping of questions that belong together. Sections can be identified by:
+1. Explicit section headers (e.g., "Section 1", "SECTION 1", "Screening Questions", "Demographics", etc.)
+2. Changes in question numbering prefixes (e.g., questions starting with S1, S2... then switching to A1, A2...)
+3. Thematic groupings (e.g., all questions about demographics, all questions about satisfaction, etc.)
+4. Visual separators or page breaks that indicate a new section
 
-${totalChunks > 1 ? `\nCRITICAL: This is section ${chunkIndex + 1} of ${totalChunks}. You MUST parse EVERY SINGLE question in this section. Do not skip any questions. Look for all question markers (QS, S, Q, A, F, G, etc. followed by numbers) and extract every question you find.` : '\nCRITICAL: You MUST parse EVERY SINGLE question in this document. Do not skip any questions. Look for all question markers (QS, S, Q, A, F, G, etc. followed by numbers) and extract every question you find.'}
+For each section you identify, provide:
+- sectionNumber: A sequential number (1, 2, 3, etc.)
+- sectionName: A descriptive name. ALWAYS use the question prefix letter format (e.g., "Section S", "Section A", "Section C") even if there's a descriptive header. The prefix letter is critical for parsing.
+- questionPrefix: The letter prefix used by questions in this section (e.g., "S", "A", "B", "C", "QS", "F", "G", etc.). This is REQUIRED and must match the actual question numbering.
+- startIndex: The character index where this section begins in the text
+- endIndex: The character index where this section ends (or null if it's the last section)
+
+IMPORTANT RULES:
+- ALWAYS identify the question prefix (the letter(s) before the number in questions like S1, A1, C1, QS14, F1, etc.)
+- ALWAYS use "Section {prefix}" format for sectionName (e.g., "Section S", "Section A", "Section C")
+- The questionPrefix field is CRITICAL - it must accurately reflect the letter prefix used by ALL questions in that section
+- If a section has a descriptive header like "Screening Questionnaire" but questions start with S1, S2, etc., the sectionName should be "Section S" and questionPrefix should be "S"
+- Each section should contain ALL questions that belong to that logical group, including the first question (e.g., C1, F1, S1, etc.)
+- Do not create duplicate section names - if multiple sections use the same prefix, add a number (e.g., "Section S", "Section S (2)")
+- Be precise with start and end indices to avoid overlapping sections and ensure the first question of each section is included
+- Return sections in the order they appear in the document
+- Make sure startIndex includes any section headers or introductory text before the first question`;
+
+  const userPrompt = `Please analyze this questionnaire document and identify all distinct sections:
+
+${text}
+
+Return a JSON object with this structure:
+{
+  "sections": [
+    {
+      "sectionNumber": 1,
+      "sectionName": "Section S",
+      "questionPrefix": "S",
+      "startIndex": 0,
+      "endIndex": 1843
+    },
+    {
+      "sectionNumber": 2,
+      "sectionName": "Section A",
+      "questionPrefix": "A",
+      "startIndex": 1843,
+      "endIndex": 19541
+    }
+  ]
+}
+
+CRITICAL: 
+- The questionPrefix field is REQUIRED and must match the actual letter prefix used by questions in that section
+- Make sure startIndex includes the first question of the section (e.g., if the section starts with C1, the startIndex should be before C1)
+- Make sure endIndex is after the last question of the section
+
+Return ONLY valid JSON. Do not include any explanatory text outside the JSON object.`;
+
+  try {
+    const response = await client.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      temperature: 0.1,
+      response_format: { type: 'json_object' },
+      max_tokens: 4096
+    });
+
+    const content = response.choices[0].message.content;
+    const parsedData = JSON.parse(content);
+    
+    // Log cost
+    if (projectId && response.usage) {
+      const inputTokens = response.usage.prompt_tokens || 0;
+      const outputTokens = response.usage.completion_tokens || 0;
+      if (inputTokens > 0 && outputTokens > 0) {
+        try {
+          await logCost(
+            projectId,
+            COST_CATEGORIES.QUESTIONNAIRE_PARSING,
+            'gpt-4o',
+            inputTokens,
+            outputTokens,
+            'Questionnaire section identification'
+          );
+        } catch (costError) {
+          console.warn('Failed to log cost for section identification:', costError.message);
+        }
+      }
+    }
+    
+    // Convert AI response to section objects with text
+    const sections = [];
+    const aiSections = parsedData.sections || [];
+    
+    for (let i = 0; i < aiSections.length; i++) {
+      const aiSection = aiSections[i];
+      const startIndex = aiSection.startIndex || 0;
+      const endIndex = aiSection.endIndex !== null && aiSection.endIndex !== undefined 
+        ? aiSection.endIndex 
+        : text.length;
+      
+      // Ensure we don't go out of bounds
+      const safeStartIndex = Math.max(0, Math.min(startIndex, text.length));
+      const safeEndIndex = Math.max(safeStartIndex, Math.min(endIndex, text.length));
+      
+      const sectionText = text.substring(safeStartIndex, safeEndIndex).trim();
+      
+      if (sectionText.length > 0) {
+        // Extract question prefix if not provided by AI
+        let questionPrefix = aiSection.questionPrefix;
+        if (!questionPrefix) {
+          // Try to extract from section name (e.g., "Section S" -> "S")
+          const nameMatch = aiSection.sectionName?.match(/Section\s+([A-Z]+(?:[A-Z]+)?)/i);
+          if (nameMatch) {
+            questionPrefix = nameMatch[1].toUpperCase();
+          } else {
+            // Try to extract from first question in the section
+            const firstQuestionMatch = sectionText.match(/(?:^|\n)(QS\d+|S\d+|Q\d+|A\d+|([A-Z]+)\d+)/i);
+            if (firstQuestionMatch) {
+              const fullMatch = firstQuestionMatch[0].trim();
+              if (fullMatch.startsWith('QS')) {
+                questionPrefix = 'QS';
+              } else if (fullMatch.match(/^S\d+/i)) {
+                questionPrefix = 'S';
+              } else if (fullMatch.match(/^Q\d+/i)) {
+                questionPrefix = 'Q';
+              } else if (fullMatch.match(/^A\d+/i)) {
+                questionPrefix = 'A';
+              } else if (firstQuestionMatch[2]) {
+                questionPrefix = firstQuestionMatch[2].toUpperCase();
+              }
+            }
+          }
+        }
+        
+        sections.push({
+          text: sectionText,
+          sectionNumber: aiSection.sectionNumber || i + 1,
+          sectionName: aiSection.sectionName || `Section ${questionPrefix || i + 1}`,
+          questionPrefix: questionPrefix || null
+        });
+      }
+    }
+    
+    console.log(`📦 AI identified ${sections.length} sections`);
+    sections.forEach((section, idx) => {
+      const prefixInfo = section.questionPrefix ? ` [prefix: ${section.questionPrefix}]` : '';
+      console.log(`   Section ${idx + 1}: ${section.sectionName}${prefixInfo} (${section.text.length} chars)`);
+    });
+    
+    return sections;
+  } catch (error) {
+    console.error('Error identifying sections with AI:', error);
+    throw new Error(`Failed to identify sections: ${error.message}`);
+  }
+}
+
+// Legacy function kept for fallback - split questionnaire text into sections using regex
+// This is a fallback if AI identification fails
+function splitQuestionnaireIntoSections(text) {
+  const sections = [];
+  
+  // Pattern to match explicit section headers (case-insensitive)
+  // Matches: "Section 1", "SECTION 1", "Section 1:", "SECTION 1:", etc.
+  const sectionHeaderPattern = /(?:^|\n)(?:Section\s+\d+|SECTION\s+\d+)[:\s]*/i;
+  
+  // Pattern to match question markers and extract their prefix
+  // Matches: QS14, S1, A1, Q1, etc. - captures the letter prefix
+  const questionPattern = /(?:^|\n)(QS\d+|S\d+|Q\d+|A\d+|([A-Z]+)\d+)/i;
+  
+  // Find all section headers
+  const sectionHeaders = [];
+  let match;
+  const sectionRegex = new RegExp(sectionHeaderPattern.source, sectionHeaderPattern.flags + 'g');
+  
+  while ((match = sectionRegex.exec(text)) !== null) {
+    sectionHeaders.push({
+      index: match.index,
+      text: match[0].trim(),
+      type: 'header'
+    });
+  }
+  
+  // Find all question markers and identify section boundaries by prefix changes
+  const questionMarkers = [];
+  const questionRegex = new RegExp(questionPattern.source, questionPattern.flags + 'g');
+  let currentPrefix = null;
+  
+  while ((match = questionRegex.exec(text)) !== null) {
+    const fullMatch = match[0].trim();
+    // Extract prefix (first letter(s) before digits)
+    let prefix = null;
+    if (match[1]) {
+      // Handle QS, S, Q, A explicitly
+      if (fullMatch.startsWith('QS')) {
+        prefix = 'QS';
+      } else if (fullMatch.match(/^S\d+/i)) {
+        prefix = 'S';
+      } else if (fullMatch.match(/^Q\d+/i)) {
+        prefix = 'Q';
+      } else if (fullMatch.match(/^A\d+/i)) {
+        prefix = 'A';
+      } else if (match[2]) {
+        // Generic letter prefix
+        prefix = match[2].toUpperCase();
+      }
+    }
+    
+    // If prefix changed, mark this as a section boundary
+    if (prefix && currentPrefix !== null && prefix !== currentPrefix) {
+      questionMarkers.push({
+        index: match.index,
+        text: fullMatch,
+        type: 'section_boundary',
+        prefix: prefix,
+        previousPrefix: currentPrefix
+      });
+    }
+    
+    if (prefix) {
+      currentPrefix = prefix;
+    }
+    
+    questionMarkers.push({
+      index: match.index,
+      text: fullMatch,
+      type: 'question',
+      prefix: prefix
+    });
+  }
+  
+  // Combine section headers and section boundaries, sort by position
+  const allBoundaries = [
+    ...sectionHeaders,
+    ...questionMarkers.filter(m => m.type === 'section_boundary')
+  ].sort((a, b) => a.index - b.index);
+  
+  // If no sections found, return the whole text as a single section
+  if (allBoundaries.length === 0) {
+    console.log(`📦 No sections found, treating entire questionnaire as one section`);
+    return [{ text: text, sectionNumber: 1, sectionName: 'Section 1' }];
+  }
+  
+  // Helper function to extract prefix from first question in a section
+  const getPrefixFromSectionText = (sectionText) => {
+    const firstQuestionMatch = sectionText.match(/(?:^|\n)(QS\d+|S\d+|Q\d+|A\d+|([A-Z]+)\d+)/i);
+    if (firstQuestionMatch) {
+      const fullMatch = firstQuestionMatch[0].trim();
+      if (fullMatch.startsWith('QS')) {
+        return 'QS';
+      } else if (fullMatch.match(/^S\d+/i)) {
+        return 'S';
+      } else if (fullMatch.match(/^Q\d+/i)) {
+        return 'Q';
+      } else if (fullMatch.match(/^A\d+/i)) {
+        return 'A';
+      } else if (firstQuestionMatch[2]) {
+        return firstQuestionMatch[2].toUpperCase();
+      }
+    }
+    return null;
+  };
+  
+  // Split text into sections based on boundaries
+  let sectionStart = 0;
+  let sectionNumber = 1;
+  
+  for (let i = 0; i < allBoundaries.length; i++) {
+    const boundary = allBoundaries[i];
+    
+    // If this boundary is not at the start, create a section from previous start to here
+    if (boundary.index > sectionStart) {
+      const sectionText = text.substring(sectionStart, boundary.index).trim();
+      if (sectionText.length > 0) {
+        let sectionName;
+        if (boundary.type === 'header') {
+          sectionName = boundary.text;
+        } else {
+          // Determine prefix from the section text (first question in the section)
+          const prefix = getPrefixFromSectionText(sectionText) || boundary.previousPrefix || 'Unknown';
+          sectionName = `Section ${prefix}`;
+        }
+        sections.push({
+          text: sectionText,
+          sectionNumber: sectionNumber,
+          sectionName: sectionName
+        });
+        sectionNumber++;
+      }
+    }
+    
+    sectionStart = boundary.index;
+  }
+  
+  // Add the final section
+  const finalSectionText = text.substring(sectionStart).trim();
+  if (finalSectionText.length > 0) {
+    const lastBoundary = allBoundaries[allBoundaries.length - 1];
+    let sectionName;
+    if (lastBoundary.type === 'header') {
+      sectionName = lastBoundary.text;
+    } else {
+      // Determine prefix from the final section text (first question in the section)
+      const prefix = getPrefixFromSectionText(finalSectionText) || lastBoundary.prefix || 'Unknown';
+      sectionName = `Section ${prefix}`;
+    }
+    sections.push({
+      text: finalSectionText,
+      sectionNumber: sectionNumber,
+      sectionName: sectionName
+    });
+  }
+  
+  // If we somehow have no sections, return the whole text
+  if (sections.length === 0) {
+    return [{ text: text, sectionNumber: 1, sectionName: 'Section 1' }];
+  }
+  
+  console.log(`📦 Split into ${sections.length} sections based on section headers and question prefix changes`);
+  sections.forEach((section, idx) => {
+    console.log(`   Section ${idx + 1}: ${section.sectionName} (${section.text.length} chars)`);
+  });
+  
+  return sections;
+}
+
+// Parse a single section of questionnaire
+async function parseQuestionnaireSection(section, sectionIndex, totalSections, systemPrompt, projectId) {
+  const client = new OpenAI({ 
+    apiKey: process.env.OPENAI_API_KEY,
+    timeout: 180000, // 3 minute timeout per section
+    maxRetries: 2
+  });
+  
+  const sectionLabel = sectionIndex === 0 && totalSections > 1 
+    ? 'FIRST SECTION' 
+    : sectionIndex === totalSections - 1 && totalSections > 1 
+    ? 'FINAL SECTION' 
+    : totalSections > 1 
+    ? `SECTION ${sectionIndex + 1} of ${totalSections}` 
+    : '';
+  
+  // Build section context with question prefix information
+  const sectionContext = section.questionPrefix 
+    ? `Section: ${section.sectionName} (Questions in this section use the "${section.questionPrefix}" prefix, e.g., ${section.questionPrefix}1, ${section.questionPrefix}2, etc.)`
+    : `Section: ${section.sectionName || 'unnamed section'}`;
+  
+  const questionPrefixHint = section.questionPrefix
+    ? `\n\nIMPORTANT: Questions in this section use the "${section.questionPrefix}" prefix. Look for questions like ${section.questionPrefix}1, ${section.questionPrefix}2, ${section.questionPrefix}3, etc. The FIRST question in this section should be ${section.questionPrefix}1 - make sure you include it!`
+    : '';
+  
+  const userPrompt = `Please parse this ${sectionLabel} of a questionnaire document and extract ALL questions with their details:
+
+${sectionContext}
+
+${section.text}
+
+${totalSections > 1 ? `\nCRITICAL: This is section ${sectionIndex + 1} of ${totalSections} (${section.sectionName || 'unnamed section'}). You MUST parse EVERY SINGLE question in this section, including the FIRST question. Do not skip any questions.${questionPrefixHint}\n\nLook for all question markers and extract every question you find.` : `\nCRITICAL: You MUST parse EVERY SINGLE question in this document, including the FIRST question. Do not skip any questions.${questionPrefixHint}\n\nLook for all question markers and extract every question you find.`}
 
 Return a JSON object with this structure:
 {
@@ -321,10 +570,10 @@ IMPORTANT: DO NOT add "terminate" as a tag. Termination logic is handled separat
 IMPORTANT: Return ONLY valid JSON. Do not include any explanatory text outside the JSON object.`;
 
   const requestStartTime = Date.now();
-  console.log(`    📡 Sending API request for chunk ${chunkIndex + 1} (${textChunk.length} chars)...`);
+  console.log(`    📡 Sending API request for section ${sectionIndex + 1} (${section.sectionName || 'unnamed'}, ${section.text.length} chars)...`);
   
   const response = await client.chat.completions.create({
-    model: 'gpt-4o',
+    model: 'gpt-4o', // Using GPT-4o for better parsing accuracy
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt }
@@ -335,29 +584,29 @@ IMPORTANT: Return ONLY valid JSON. Do not include any explanatory text outside t
   });
   
   const requestTime = ((Date.now() - requestStartTime) / 1000).toFixed(1);
-  console.log(`    ✅ API response received in ${requestTime}s for chunk ${chunkIndex + 1}`);
+  console.log(`    ✅ API response received in ${requestTime}s for section ${sectionIndex + 1}`);
 
   const finishReason = response.choices[0].finish_reason;
   if (finishReason === 'length') {
-    throw new Error(`Chunk ${chunkIndex + 1} response was truncated. The questionnaire section is too large.`);
+    throw new Error(`Section ${sectionIndex + 1} (${section.sectionName || 'unnamed'}) response was truncated. The questionnaire section is too large.`);
   }
 
   const content = response.choices[0].message.content;
   if (!content || content.trim().length === 0) {
-    throw new Error(`Chunk ${chunkIndex + 1} returned empty response`);
+    throw new Error(`Section ${sectionIndex + 1} (${section.sectionName || 'unnamed'}) returned empty response`);
   }
 
   let parsedData;
   try {
     parsedData = JSON.parse(content);
   } catch (parseError) {
-    console.error(`JSON Parse Error for chunk ${chunkIndex + 1}:`, parseError);
-    throw new Error(`Failed to parse JSON response for chunk ${chunkIndex + 1}: ${parseError.message}`);
+    console.error(`JSON Parse Error for section ${sectionIndex + 1}:`, parseError);
+    throw new Error(`Failed to parse JSON response for section ${sectionIndex + 1} (${section.sectionName || 'unnamed'}): ${parseError.message}`);
   }
 
   const questions = parsedData.questions || [];
   
-  // Log cost for this chunk
+  // Log cost for this section
   if (projectId && response.usage) {
     const inputTokens = response.usage.prompt_tokens || 0;
     const outputTokens = response.usage.completion_tokens || 0;
@@ -369,14 +618,136 @@ IMPORTANT: Return ONLY valid JSON. Do not include any explanatory text outside t
           'gpt-4o',
           inputTokens,
           outputTokens,
-          `Questionnaire parsing chunk ${chunkIndex + 1} of ${totalChunks}`
+          `Questionnaire parsing section ${sectionIndex + 1} of ${totalSections} (${section.sectionName || 'unnamed'})`
         );
       } catch (costError) {
-        console.warn('Failed to log cost for chunk:', costError.message);
+        console.warn('Failed to log cost for section:', costError.message);
       }
     }
   }
   
+  return questions;
+}
+
+// Hard-coded parser to extract questions from standardized format
+function parseStandardizedFormat(cleanedText) {
+  const questions = [];
+  const questionBlocks = cleanedText.split('===QUESTION===').filter(block => block.trim());
+
+  for (const block of questionBlocks) {
+    if (!block.includes('===END===')) continue;
+
+    const content = block.split('===END===')[0].trim();
+    const lines = content.split('\n').map(l => l.trim()).filter(l => l);
+
+    const question = {
+      number: '',
+      text: '',
+      type: '',
+      options: [],
+      statementOptions: [],
+      responseOptions: [],
+      showLogic: '',
+      randomize: false,
+      tags: [],
+      needsReview: false,
+      logic: '',
+      terminateLogic: null
+    };
+
+    let currentField = null;
+
+    for (const line of lines) {
+      if (line.startsWith('NUMBER:')) {
+        question.number = line.substring(7).trim();
+      } else if (line.startsWith('TEXT:')) {
+        question.text = line.substring(5).trim();
+      } else if (line.startsWith('TYPE:')) {
+        question.type = line.substring(5).trim();
+      } else if (line.startsWith('OPTIONS:')) {
+        currentField = 'options';
+      } else if (line.startsWith('STATEMENT_OPTIONS:')) {
+        currentField = 'statementOptions';
+      } else if (line.startsWith('RESPONSE_OPTIONS:')) {
+        currentField = 'responseOptions';
+      } else if (line.startsWith('SHOW_LOGIC:')) {
+        question.showLogic = line.substring(11).trim();
+        currentField = null;
+      } else if (line.startsWith('RANDOMIZE:') || line.startsWith('RANDOMIZE_ROWS:')) {
+        const value = line.includes(':') ? line.split(':')[1].trim().toLowerCase() : '';
+        question.randomize = value === 'true';
+        currentField = null;
+      } else if (line.startsWith('TAGS:')) {
+        const tagsStr = line.substring(5).trim();
+        question.tags = tagsStr ? tagsStr.split(',').map(t => t.trim()).filter(t => t) : [];
+        currentField = null;
+      } else if (line.startsWith('NEEDS_REVIEW:')) {
+        question.needsReview = line.substring(13).trim().toLowerCase() === 'true';
+        currentField = null;
+      } else if (line.startsWith('LOGIC:')) {
+        question.logic = line.substring(6).trim();
+        currentField = null;
+      } else if (line.startsWith('TERMINATE_IF:')) {
+        const terminateStr = line.substring(13).trim();
+        if (terminateStr && terminateStr !== 'none') {
+          // Check if it's a simple list of option codes or complex logic
+          if (/^[\d,\s-]+$/.test(terminateStr)) {
+            // Simple option codes like "1,2" or "1-4"
+            const codes = [];
+            const parts = terminateStr.split(',').map(p => p.trim());
+            for (const part of parts) {
+              if (part.includes('-')) {
+                const [start, end] = part.split('-').map(n => parseInt(n.trim()));
+                for (let i = start; i <= end; i++) {
+                  codes.push(String(i));
+                }
+              } else {
+                codes.push(part);
+              }
+            }
+            question.terminateLogic = { optionCodes: codes };
+          } else {
+            // Complex logic - keep as string
+            question.terminateLogic = terminateStr;
+          }
+        }
+        currentField = null;
+      } else if (currentField && line.match(/^\s+(.+)/)) {
+        // This is a continuation line for options/statements/responses
+        const match = line.match(/^\s*(.+)/);
+        if (match) {
+          const content = match[1].trim();
+          if (content.includes('|')) {
+            const [code, text] = content.split('|').map(s => s.trim());
+            if (currentField === 'options') {
+              question.options.push({ code, text });
+            } else if (currentField === 'statementOptions') {
+              question.statementOptions.push({ code, text });
+            } else if (currentField === 'responseOptions') {
+              question.responseOptions.push({ code, text });
+            }
+          } else if (currentField === 'options') {
+            // Option without explicit code - use text as both
+            question.options.push(content);
+          }
+        }
+      }
+    }
+
+    // Clean up empty arrays
+    if (question.statementOptions.length === 0) delete question.statementOptions;
+    if (question.responseOptions.length === 0) delete question.responseOptions;
+    if (question.options.length === 0) delete question.options;
+    if (!question.showLogic) delete question.showLogic;
+    if (!question.logic) delete question.logic;
+    if (!question.terminateLogic) delete question.terminateLogic;
+    if (question.tags.length === 0) delete question.tags;
+
+    if (question.number && question.text) {
+      questions.push(question);
+    }
+  }
+
   return questions;
 }
 
@@ -391,7 +762,7 @@ async function parseQuestionnaire(filePath, projectId, extractedText = null) {
     const result = await mammoth.extractRawText({ path: filePath });
       text = result.value;
     }
-    
+
     // Define systemPrompt (used for both chunked and non-chunked parsing)
     const systemPrompt = `You are a Forsta/Decipher questionnaire expert. Parse questionnaires with EXACT fidelity to programming logic.
 
@@ -546,51 +917,47 @@ Structural Elements:
 OUTPUT STRUCTURE:
 Return enhanced JSON with all logic preserved.`;
 
-    const estimatedTokens = text.length / 4; // Rough estimate: 4 chars per token
-    const estimatedOutputTokens = estimatedTokens * 0.3; // Rough estimate: output is ~30% of input
+    // Split questionnaire into sections using AI
+    // This approach respects the natural structure of the questionnaire
+    console.log(`🤖 Using AI to identify sections...`);
+    let sections;
+    try {
+      sections = await identifySectionsWithAI(text, projectId);
+    } catch (error) {
+      console.error('AI section identification failed, falling back to regex method:', error);
+      // Fallback to regex-based method if AI fails
+      sections = splitQuestionnaireIntoSections(text);
+    }
     
-    // Check if we need to chunk - be more aggressive to avoid truncation
-    // Use chunking if estimated output > 8000 tokens OR text > 100000 chars
-    // This ensures we stay well under the 16384 token limit
-    const shouldChunk = estimatedOutputTokens > 8000 || text.length > 100000;
+    if (sections.length === 0) {
+      throw new Error('Failed to split questionnaire into sections');
+    }
     
-    if (shouldChunk) {
-      console.log(`📦 Questionnaire is large (${text.length} chars, ~${Math.round(estimatedTokens)} input tokens, ~${Math.round(estimatedOutputTokens)} estimated output tokens). Splitting into chunks...`);
-      
-      // Split into chunks at question boundaries
-      // Use 25000 chars per chunk (~6250 input tokens) to ensure output stays well under 16384 token limit
-      const chunks = splitQuestionnaireIntoChunks(text, 25000);
-      console.log(`📦 Split into ${chunks.length} chunks`);
-      
-      if (chunks.length === 0) {
-        throw new Error('Failed to split questionnaire into chunks');
-      }
-      
-      // Parse all chunks in parallel for much faster processing
-      const startTime = Date.now();
-      console.log(`📦 Starting parallel parsing of ${chunks.length} chunks...`);
+    // Parse all sections in parallel for faster processing
+    const startTime = Date.now();
+    console.log(`📦 Starting parallel parsing of ${sections.length} sections using GPT-4o...`);
 
-      try {
-        const chunkPromises = chunks.map((chunk, i) =>
-          parseQuestionnaireChunk(chunk, i, chunks.length, systemPrompt, projectId)
-            .then(questions => {
-              console.log(`✅ Chunk ${i + 1} completed - found ${questions.length} questions`);
-              return questions;
-            })
-            .catch(error => {
-              console.error(`❌ Error parsing chunk ${i + 1}:`, error);
-              throw new Error(`Failed to parse chunk ${i + 1} of ${chunks.length}: ${error.message}`);
-            })
-        );
+    try {
+      const sectionPromises = sections.map((section, i) =>
+        parseQuestionnaireSection(section, i, sections.length, systemPrompt, projectId)
+          .then(questions => {
+            console.log(`✅ Section ${i + 1} (${section.sectionName || 'unnamed'}) completed - found ${questions.length} questions`);
+            return questions;
+          })
+          .catch(error => {
+            console.error(`❌ Error parsing section ${i + 1} (${section.sectionName || 'unnamed'}):`, error);
+            throw new Error(`Failed to parse section ${i + 1} of ${sections.length} (${section.sectionName || 'unnamed'}): ${error.message}`);
+          })
+      );
 
-        const results = await Promise.all(chunkPromises);
-        const allQuestions = results.flat();
+      const results = await Promise.all(sectionPromises);
+      const allQuestions = results.flat();
 
-        const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
-        console.log(`✅ Successfully parsed ${allQuestions.length} questions from ${chunks.length} chunks in ${totalTime}s (parallel processing)`);
-      } catch (error) {
-        throw error; // Re-throw to be caught by outer error handler
-      }
+      const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
+      console.log(`✅ Successfully parsed ${allQuestions.length} questions from ${sections.length} sections in ${totalTime}s (parallel processing)`);
+    } catch (error) {
+      throw error; // Re-throw to be caught by outer error handler
+    }
 
       // Process and normalize all questions
       const processedQuestions = allQuestions.map((question, index) => {
@@ -676,8 +1043,25 @@ Return enhanced JSON with all logic preserved.`;
       });
       
       return processedQuestions;
+  } catch (error) {
+    console.error('Error parsing questionnaire:', error);
+    throw new Error('Failed to parse questionnaire file: ' + error.message);
+  }
+}
+
+// This function is kept for backward compatibility but is no longer used
+// The upload endpoint now uses section-based parsing instead
+async function parseQuestionnaireLegacy(filePath, projectId, extractedText = null) {
+  try {
+    // Extract text from .docx file if not provided
+    let text;
+    if (extractedText) {
+      text = extractedText;
+    } else {
+      const result = await mammoth.extractRawText({ path: filePath });
+      text = result.value;
     }
-    
+
     // Single-pass parsing for smaller questionnaires
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     
@@ -787,39 +1171,47 @@ IMPORTANT: Return ONLY valid JSON. Do not include any explanatory text outside t
     const content = response.choices[0].message.content;
     
     if (finishReason === 'length') {
-      // Response was truncated - automatically retry with chunking
-      console.log('⚠️ Response was truncated. Automatically retrying with chunking...');
+      // Response was truncated - automatically retry with section-based parsing
+      console.log('⚠️ Response was truncated. Automatically retrying with section-based parsing...');
       
-      // Split into chunks and parse
-      const chunks = splitQuestionnaireIntoChunks(text, 20000); // Even smaller chunks for safety
-      console.log(`📦 Split into ${chunks.length} chunks for retry`);
+      // Split into sections using AI and parse
+      console.log('🤖 Using AI to identify sections for retry...');
+      let sections;
+      try {
+        sections = await identifySectionsWithAI(text, projectId);
+      } catch (error) {
+        console.error('AI section identification failed, falling back to regex method:', error);
+        // Fallback to regex-based method if AI fails
+        sections = splitQuestionnaireIntoSections(text);
+      }
+      console.log(`📦 Split into ${sections.length} sections for retry`);
       
-      if (chunks.length === 0) {
-        throw new Error('Failed to split questionnaire into chunks');
+      if (sections.length === 0) {
+        throw new Error('Failed to split questionnaire into sections');
       }
       
-      // Parse all chunks in parallel for much faster processing (retry path)
+      // Parse all sections in parallel for much faster processing (retry path)
       const startTime = Date.now();
-      console.log(`📦 Starting parallel parsing of ${chunks.length} chunks (retry)...`);
+      console.log(`📦 Starting parallel parsing of ${sections.length} sections (retry)...`);
 
       try {
-        const chunkPromises = chunks.map((chunk, i) =>
-          parseQuestionnaireChunk(chunk, i, chunks.length, systemPrompt, projectId)
+        const sectionPromises = sections.map((section, i) =>
+          parseQuestionnaireSection(section, i, sections.length, systemPrompt, projectId)
             .then(questions => {
-              console.log(`✅ Chunk ${i + 1} completed - found ${questions.length} questions`);
+              console.log(`✅ Section ${i + 1} (${section.sectionName || 'unnamed'}) completed - found ${questions.length} questions`);
               return questions;
             })
             .catch(error => {
-              console.error(`❌ Error parsing chunk ${i + 1}:`, error);
-              throw new Error(`Failed to parse chunk ${i + 1} of ${chunks.length}: ${error.message}`);
+              console.error(`❌ Error parsing section ${i + 1} (${section.sectionName || 'unnamed'}):`, error);
+              throw new Error(`Failed to parse section ${i + 1} of ${sections.length} (${section.sectionName || 'unnamed'}): ${error.message}`);
             })
         );
 
-        const results = await Promise.all(chunkPromises);
+        const results = await Promise.all(sectionPromises);
         const allQuestions = results.flat();
 
         const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
-        console.log(`✅ Successfully parsed ${allQuestions.length} questions from ${chunks.length} chunks in ${totalTime}s (parallel processing - retry)`);
+        console.log(`✅ Successfully parsed ${allQuestions.length} questions from ${sections.length} sections in ${totalTime}s (parallel processing - retry)`);
       } catch (error) {
         throw error; // Re-throw to be caught by outer error handler
       }
@@ -1387,7 +1779,7 @@ router.post('/validate-file', upload.single('file'), async (req, res) => {
   }
 });
 
-// POST /api/questionnaire/upload - Upload and parse questionnaire
+// POST /api/questionnaire/upload - Upload questionnaire and identify sections (without parsing)
 router.post('/upload', upload.single('file'), async (req, res) => {
   try {
     const { projectId } = req.body;
@@ -1397,7 +1789,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'Missing file or projectId' });
     }
     
-    // Check file size BEFORE parsing - extract text first to estimate
+    // Extract text from file
     let text;
     try {
       const result = await mammoth.extractRawText({ path: req.file.path });
@@ -1412,41 +1804,46 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'Failed to read questionnaire file. Please ensure it is a valid .docx file.' });
     }
     
-    // Estimate tokens and check if file is too large
-    const estimatedTokens = text.length / 4; // Rough estimate: 4 chars per token
-    const estimatedOutputTokens = estimatedTokens * 0.3; // Rough estimate: output is ~30% of input
-    
-    // Hard limits: reject if estimated output > 12000 tokens OR text > 150000 chars
-    // This ensures we can handle it with chunking, but reject files that are clearly too large
-    const MAX_ESTIMATED_OUTPUT_TOKENS = 20000; // Allow some buffer for chunking
-    const MAX_TEXT_LENGTH = 500000; // ~125000 input tokens, ~37500 output tokens (would need many chunks)
-    
-    if (estimatedOutputTokens > MAX_ESTIMATED_OUTPUT_TOKENS || text.length > MAX_TEXT_LENGTH) {
-      // Clean up file
-      try {
-        await fs.unlink(req.file.path);
-      } catch (e) {
-        // Ignore cleanup errors
-      }
-      return res.status(400).json({ 
-        error: `Questionnaire file is too large to process. Estimated output tokens: ${Math.round(estimatedOutputTokens)} (max: ${MAX_ESTIMATED_OUTPUT_TOKENS}), Text length: ${text.length} characters (max: ${MAX_TEXT_LENGTH}). Please split the questionnaire into smaller files or contact support.` 
-      });
+    // Delete the .docx file immediately after extracting text
+    try {
+      await fs.unlink(req.file.path);
+      console.log(`🗑️ Deleted uploaded file: ${req.file.path}`);
+    } catch (error) {
+      console.warn(`⚠️ Could not delete uploaded file ${req.file.path}:`, error);
+      // Continue even if file deletion fails
     }
     
-    // Parse the questionnaire (pass extracted text to avoid re-extracting)
-    const questions = await parseQuestionnaire(req.file.path, projectId, text);
+    // Identify sections using AI
+    console.log('🤖 Using AI to identify sections...');
+    let sections;
+    try {
+      sections = await identifySectionsWithAI(text, projectId);
+    } catch (error) {
+      console.error('AI section identification failed, falling back to regex method:', error);
+      // Fallback to regex-based method if AI fails
+      sections = splitQuestionnaireIntoSections(text);
+    }
     
-    // Create questionnaire object (don't save filePath since we'll delete the file)
+    // Create a temporary questionnaire object with sections but no questions yet
+    const questionnaireId = `qnr-${Date.now()}`;
     const questionnaire = {
-      id: `qnr-${Date.now()}`,
+      id: questionnaireId,
       name: name || req.file.originalname.replace('.docx', ''),
-      questions: questions,
+      questions: [], // Will be populated as sections are parsed
+      sections: sections.map((section, index) => ({
+        sectionNumber: section.sectionNumber,
+        sectionName: section.sectionName,
+        questionPrefix: section.questionPrefix || null,
+        textLength: section.text.length,
+        parsed: false,
+        questions: []
+      })),
+      extractedText: text, // Save extracted text instead of file path
       createdAt: new Date().toISOString(),
       projectId: projectId
-      // Note: filePath is not saved since the file is deleted after parsing
     };
     
-    // Save to questionnaires.json
+    // Save to questionnaires.json (with extracted text so we can parse sections later)
     const questionnairesPath = path.join(dataRoot, 'questionnaires.json');
     let questionnaires = {};
     
@@ -1465,19 +1862,291 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     
     await fs.writeFile(questionnairesPath, JSON.stringify(questionnaires, null, 2));
     
-    // Delete the uploaded .docx file after parsing since we have the parsed data saved
-    try {
-      await fs.unlink(req.file.path);
-      console.log(`🗑️ Deleted QNR file after parsing: ${req.file.path}`);
-    } catch (deleteError) {
-      console.warn('Could not delete QNR file after parsing:', deleteError);
-      // Continue anyway - the file deletion is not critical
-    }
-    
-    res.json(questionnaire);
+    // Return questionnaire with sections (but no questions yet)
+    res.json({
+      ...questionnaire,
+      sections: sections.map((section, index) => ({
+        sectionNumber: section.sectionNumber,
+        sectionName: section.sectionName,
+        questionPrefix: section.questionPrefix || null,
+        textLength: section.text.length,
+        parsed: false
+      }))
+    });
   } catch (error) {
     console.error('Error uploading questionnaire:', error);
     res.status(500).json({ error: 'Failed to upload questionnaire: ' + error.message });
+  }
+});
+
+// POST /api/questionnaire/:questionnaireId/parse-section - Parse a single section
+router.post('/:questionnaireId/parse-section', async (req, res) => {
+  try {
+    const { questionnaireId } = req.params;
+    const { sectionNumber } = req.body;
+    
+    if (!sectionNumber) {
+      return res.status(400).json({ error: 'Missing sectionNumber' });
+    }
+    
+    // Load questionnaire
+    const questionnairesPath = path.join(dataRoot, 'questionnaires.json');
+    let questionnaires = {};
+    
+    try {
+      const data = await fs.readFile(questionnairesPath, 'utf8');
+      questionnaires = JSON.parse(data);
+    } catch (error) {
+      return res.status(404).json({ error: 'Questionnaires file not found' });
+    }
+    
+    // Find questionnaire
+    let questionnaire = null;
+    let projectId = null;
+    
+    for (const pid in questionnaires) {
+      const qnr = questionnaires[pid].find(q => q.id === questionnaireId);
+      if (qnr) {
+        questionnaire = qnr;
+        projectId = pid;
+        break;
+      }
+    }
+    
+    if (!questionnaire) {
+      return res.status(404).json({ error: 'Questionnaire not found' });
+    }
+    
+    // Get extracted text (preferred) or extract from file (backwards compatibility)
+    let text;
+    if (questionnaire.extractedText) {
+      text = questionnaire.extractedText;
+    } else if (questionnaire.filePath) {
+      // Backwards compatibility: extract from file if extractedText not available
+      try {
+        const result = await mammoth.extractRawText({ path: questionnaire.filePath });
+        text = result.value;
+      } catch (error) {
+        return res.status(400).json({ error: 'Failed to read questionnaire file.' });
+      }
+    } else {
+      return res.status(400).json({ error: 'Questionnaire text not found. Cannot parse section.' });
+    }
+    
+    // Find the section
+    const section = questionnaire.sections?.find(s => s.sectionNumber === sectionNumber);
+    if (!section) {
+      return res.status(404).json({ error: `Section ${sectionNumber} not found` });
+    }
+    
+    if (section.parsed) {
+      return res.json({ 
+        message: 'Section already parsed',
+        questions: section.questions || []
+      });
+    }
+    
+    // Re-identify sections to get the exact section text (use AI for consistency)
+    console.log('🤖 Re-identifying sections with AI...');
+    let allSections;
+    try {
+      allSections = await identifySectionsWithAI(text, projectId);
+    } catch (error) {
+      console.error('AI section re-identification failed, falling back to regex method:', error);
+      // Fallback to regex-based method if AI fails
+      allSections = splitQuestionnaireIntoSections(text);
+    }
+    const sectionToParse = allSections.find(s => s.sectionNumber === sectionNumber);
+    
+    if (!sectionToParse) {
+      return res.status(404).json({ error: `Section ${sectionNumber} not found in file` });
+    }
+    
+    // Get the system prompt (same as used in parseQuestionnaire)
+    const systemPrompt = `You are a Forsta/Decipher questionnaire expert. Parse questionnaires with EXACT fidelity to programming logic.
+
+CRITICAL PARSING RULES:
+
+1. PROGRAMMING NOTES (ALL CAPS TEXT):
+   - "ASK IF [condition]" → showLogic: "[condition]"
+   - "SHOW IF [condition]" → showLogic: "[condition]"  
+   - "TERMINATE IF [condition]" → terminateLogic: See TERMINATE LOGIC rules below
+   - "RANDOMIZE" → randomize: true (NOTE: This ONLY applies to rows/statement options, NEVER to columns/response options)
+   - "RANGE: X-Y" → validation: {type: "range", min: X, max: Y}
+   - "MUST = 100%" → validation: {type: "sum", value: 100, unit: "%"}
+
+TERMINATE LOGIC PARSING RULES:
+For "TERMINATE IF [condition]" instructions, parse as follows:
+
+A. SIMPLE TERMINATE LOGIC (for Single Select and Multi-Select questions only):
+   - If the condition references option codes from the current question (e.g., "if option 1", "if options 1, 2, 3", "if option 1-4")
+   - Parse into structured format: terminateLogic: { "optionCodes": ["1", "2", "3"] }
+   - Extract the option codes (numbers) that trigger termination
+   - Examples:
+     * "TERMINATE IF option 1 is selected" → terminateLogic: { "optionCodes": ["1"] }
+     * "TERMINATE IF options 1, 2, 3, or 4 are selected" → terminateLogic: { "optionCodes": ["1", "2", "3", "4"] }
+     * "TERMINATE IF option 1-4" → terminateLogic: { "optionCodes": ["1", "2", "3", "4"] }
+     * "TERMINATE IF option 1 or 2" → terminateLogic: { "optionCodes": ["1", "2"] }
+
+B. COMPLEX TERMINATE LOGIC:
+   - If the condition references other questions (e.g., "if S9=1 and S10=5")
+   - If the condition is complex (multiple conditions, AND/OR logic, etc.)
+   - Keep as text string: terminateLogic: "TERMINATE IF S9=1 and S10=5"
+   - Examples:
+     * "TERMINATE IF S9=1 and S10=5" → terminateLogic: "TERMINATE IF S9=1 and S10=5"
+     * "TERMINATE IF Q5=1 OR Q6=2" → terminateLogic: "TERMINATE IF Q5=1 OR Q6=2"
+
+IMPORTANT: Only use structured format (optionCodes array) for Single Select and Multi-Select questions when the condition only references options from the current question. For all other cases, use text string format.
+
+2. GRID DETECTION AND CLASSIFICATION:
+   Grid questions are matrix-style questions with rows and columns. CRITICAL DISTINCTIONS:
+   
+   NUMERIC GRID:
+   - Respondents enter numeric values (numbers, counts, percentages, etc.) in cells
+   - MUST have BOTH row labels (statements) AND column headers (categories like age groups, time periods, etc.)
+   - Respondents enter numbers for each row-column combination
+   - Structure: BOTH statementOptions (rows) AND responseOptions (columns)
+   - Examples: "How many patients by age group?" (rows = treatments, columns = age groups), "Enter numbers for each category" (rows = items, columns = categories)
+   - Type: "Numeric Grid"
+   - Key indicator: Look for multiple columns with headers that represent categories (age groups, time periods, etc.) where numeric values are entered, AND rows that represent statements/items
+   
+   NUMERIC LIST:
+   - Respondents enter numeric values (numbers, counts, percentages, etc.)
+   - Has ONLY response options (a list of items), NO row labels/statements
+   - Each response option gets a single numeric input
+   - Structure: responseOptions only (or "options" field), NO statementOptions
+   - Examples: "How many patients for each treatment?" (list of treatments, each with one number), "Enter a number for each option" (list of options, each with one number)
+   - Type: "Numeric List"
+   - Key indicator: Multiple items/options listed, each requiring a single numeric value (not a grid with rows and columns)
+   
+   SINGLE SELECT GRID:
+   - Has row labels (statements) AND column headers (response codes/options)
+   - Respondents select ONE option per row
+   - Column headers are the response options (e.g., 1-7 scale, Yes/No, etc.)
+   - Row labels are the statements (what's being rated/selected)
+   - Type: "Single Select Grid"
+   - Structure: statementOptions (rows) AND responseOptions (columns/headers)
+   
+   MULTI-SELECT GRID:
+   - Has row labels (statements) AND column headers (response codes)
+   - Respondents can select MULTIPLE options per row
+   - Typically has "Values: 0-1" indicating checked/unchecked
+   - Type: "Multi-Select Grid"
+   - Structure: statementOptions (rows) AND responseOptions (columns)
+   
+   DETECTION PATTERNS:
+   - Multiple columns with headers → check if numeric input or selection
+   - Row labels on the left → these are statementOptions
+   - Codes like "r1c2" (row 1, column 2) → indicates grid with both rows and columns
+   - "AUTOFILL SUM OF..." → autofill calculation (often indicates numeric grid with columns)
+   - "DO NOT SHOW COLUMN" → hidden column for calculations (often indicates numeric grid with columns)
+   - "SUM OF COLUMNS X-Y MUST = COLUMN Z" → validation rule indicating numeric grid with multiple columns
+   - If asking for numbers/amounts:
+     - Has BOTH rows (statements) AND columns (categories) → NUMERIC GRID (with statementOptions AND responseOptions)
+     - Has ONLY a list of options (no rows, no columns) → NUMERIC LIST (use "options" field)
+     - Single input field → NUMERIC
+   - If asking to select/rate from options (not entering numbers) → single-select or multi-select grid
+
+3. SPECIAL TAGS (IN BRACKETS):
+   - [ANCHOR] → anchor option to bottom
+   - [EXCLUSIVE] → deselects all other options when selected
+   - [SPECIFY] → adds text box for "Other, specify"
+   - [RANDOMIZE] → randomize: true (NOTE: This ONLY applies to rows/statement options, NEVER to columns/response options. Only set randomize: true if the RANDOMIZE instruction applies to the statement options/rows)
+
+4. PIPING (VARIABLES IN BRACKETS):
+   - [INSERT variable] → insert value from previous question
+   - "Of your [INSERT S4r5] patients" → piping from S4, row 5
+
+5. HIDDEN VARIABLES:
+   Detect sections like:
+   "PATIENT COUNT (Hidden Variable)"
+   Extract calculation logic
+
+6. QUOTAS:
+   Extract quota tables with conditions
+
+COMPREHENSIVE QUESTION TYPE LIBRARY:
+Basic Question Types:
+- Single Select: Respondents pick one option (can be one-dimensional or two-dimensional)
+- Multi-Select: Respondents pick one or more options (supports exclusive options)
+- Dropdown Menu: Drop-down list with up to three dimensions
+- Button Single Select: Mobile-friendly button-based single selection
+- Single Select Grid: Matrix-style grid with one column selection per row. Has statementOptions (rows) and responseOptions (column headers/scale)
+- Button Single Select Grid: Touch-friendly grid with button selections
+- Numeric Grid: Grid where respondents enter numeric values. MUST have BOTH statementOptions (rows) AND responseOptions (columns) representing categories like age groups, time periods, etc. Use when asking for numbers in a grid format with both rows and columns.
+- Numeric List: List where respondents enter numeric values. Has ONLY response options (use "options" field), NO statementOptions. Each option gets a single numeric input. Use when asking for numbers for a list of items (no grid structure with rows and columns).
+- Multi-Select Grid: Grid allowing multiple selections per row/cell. Has statementOptions (rows) and responseOptions (columns). Typically has "Values: 0-1"
+- Button Multi-Select/Grid: Button-based multi-select including grid variants
+- Open End: Freeform alphanumeric text input
+- Numeric: Numeric values only (single numeric input, not a grid)
+
+Dynamic/Advanced Types:
+- Autosuggest: Type-ahead suggestions from predefined list
+- Button Rating: Numeric rating scale as buttons (1-5, 1-10)
+- Card Rating: Visual card-based rating
+- Card Sort: Drag-and-drop cards into categories
+- Date Picker: Calendar widget for date selection
+- DCM Conjoint: Choice-based conjoint with profile selection
+- Image Map: Click on specific image areas (hotspots)
+- Media Evaluator: Rate/view media with timed feedback
+- Media Testimonial: Record/upload video/audio responses
+- Open Assist: AI-assisted open-ended questions
+- Rating Scale (Dynamic): Visually enhanced animated rating scales
+- Shopping Cart: E-commerce cart simulation
+- Slider/Slider Rating: Draggable slider for numeric/percentage values
+- Star Rating: Visual 1-5 or 1-10 star rating
+- Text Highlighter: Highlight parts of passages
+- This or That: Two-option comparison
+- Video/Audio Player: Embedded media with follow-up
+- Heat-Click: Track clicks/focus points on images
+- Virtual Magazine/Page Timer: Timed/paginated content tracking
+- Image Upload: Upload images as responses
+
+Structural Elements:
+- Descriptive Content: Static text/instructions
+- Section: Organize questions into logical groups
+- Note: Internal comments (not visible to respondents)
+- Skip: Logic control for routing
+- Terminate: End survey/disqualify based on conditions
+- Quota: Control completion limits
+- Reusable Answer List: Shared response options
+- Exec: Hidden Python/custom logic execution
+- Import Data: External variables/preloaded data
+
+OUTPUT STRUCTURE:
+Return enhanced JSON with all logic preserved.`;
+    
+    // Parse the section
+    const questions = await parseQuestionnaireSection(
+      sectionToParse,
+      sectionNumber - 1,
+      allSections.length,
+      systemPrompt,
+      projectId
+    );
+    
+    // Update the section in the questionnaire
+    section.parsed = true;
+    section.questions = questions;
+    
+    // Add questions to the main questions array
+    if (!questionnaire.questions) {
+      questionnaire.questions = [];
+    }
+    questionnaire.questions.push(...questions);
+    
+    // Save updated questionnaire
+    await fs.writeFile(questionnairesPath, JSON.stringify(questionnaires, null, 2));
+    
+    res.json({
+      sectionNumber: sectionNumber,
+      sectionName: section.sectionName,
+      questions: questions,
+      totalQuestions: questionnaire.questions.length
+    });
+  } catch (error) {
+    console.error('Error parsing section:', error);
+    res.status(500).json({ error: 'Failed to parse section: ' + error.message });
   }
 });
 
@@ -1530,19 +2199,25 @@ router.post('/:questionnaireId/reparse', async (req, res) => {
       return res.status(404).json({ error: 'Questionnaire not found' });
     }
     
-    // Check if original file still exists
-    if (!questionnaire.filePath) {
-      return res.status(404).json({ error: 'Original questionnaire file path not found. Please re-upload the file.' });
-    }
-    
-    try {
-      await fs.access(questionnaire.filePath);
-    } catch (error) {
-      return res.status(404).json({ error: 'Original questionnaire file not found. Please re-upload the file.' });
+    // Get extracted text (preferred) or extract from file (backwards compatibility)
+    let text;
+    if (questionnaire.extractedText) {
+      text = questionnaire.extractedText;
+    } else if (questionnaire.filePath) {
+      // Backwards compatibility: extract from file if extractedText not available
+      try {
+        await fs.access(questionnaire.filePath);
+        const result = await mammoth.extractRawText({ path: questionnaire.filePath });
+        text = result.value;
+      } catch (error) {
+        return res.status(404).json({ error: 'Original questionnaire file not found. Please re-upload the file.' });
+      }
+    } else {
+      return res.status(404).json({ error: 'Questionnaire text not found. Please re-upload the file.' });
     }
     
     // Re-parse the questionnaire with updated prompt
-    const questions = await parseQuestionnaire(questionnaire.filePath, projectId);
+    const questions = await parseQuestionnaire(null, projectId, text);
     
     // Update the questionnaire in the array
     for (const pid in questionnaires) {
@@ -1631,11 +2306,13 @@ router.delete('/:questionnaireId', async (req, res) => {
       return res.status(404).json({ error: 'Questionnaires not found' });
     }
     
-    // Find and delete the questionnaire
+    // Find the questionnaire before deleting it
+    let questionnaire = null;
     let found = false;
     for (const projectId in questionnaires) {
       const index = questionnaires[projectId].findIndex(q => q.id === questionnaireId);
       if (index !== -1) {
+        questionnaire = questionnaires[projectId][index];
         questionnaires[projectId].splice(index, 1);
         found = true;
         break;
@@ -1644,6 +2321,48 @@ router.delete('/:questionnaireId', async (req, res) => {
     
     if (!found) {
       return res.status(404).json({ error: 'Questionnaire not found' });
+    }
+    
+    // Delete the .docx file if it still exists (backwards compatibility)
+    if (questionnaire.filePath) {
+      try {
+        await fs.unlink(questionnaire.filePath);
+        console.log(`🗑️ Deleted questionnaire file: ${questionnaire.filePath}`);
+      } catch (error) {
+        // File might not exist, that's fine
+        console.log(`ℹ️ File ${questionnaire.filePath} not found or already deleted`);
+      }
+    }
+    
+    // Delete questionnaire data directory if it exists
+    const qnrDataDir = path.join(dataRoot, 'questionnaire-data', questionnaireId);
+    try {
+      const dirExists = await fs.access(qnrDataDir).then(() => true).catch(() => false);
+      if (dirExists) {
+        // Delete all files in the directory
+        const entries = await fs.readdir(qnrDataDir, { withFileTypes: true });
+        for (const entry of entries) {
+          if (entry.isFile()) {
+            const filePath = path.join(qnrDataDir, entry.name);
+            try {
+              await fs.unlink(filePath);
+              console.log(`🗑️ Deleted data file: ${entry.name}`);
+            } catch (e) {
+              console.warn(`Could not delete file ${entry.name}:`, e);
+            }
+          }
+        }
+        // Try to remove the directory
+        try {
+          await fs.rmdir(qnrDataDir);
+          console.log(`🗑️ Removed data directory: ${qnrDataDir}`);
+        } catch (e) {
+          // Directory not empty or other error - that's fine
+        }
+      }
+    } catch (error) {
+      // Directory doesn't exist, that's fine
+      console.log(`ℹ️ Data directory ${qnrDataDir} not found or already deleted`);
     }
     
     await fs.writeFile(questionnairesPath, JSON.stringify(questionnaires, null, 2));
@@ -2636,7 +3355,7 @@ router.get('/processed-data/:questionnaireId', async (req, res) => {
       res.json(processedData);
     } catch (e) {
       if (e.code === 'ENOENT') {
-        console.log(`❌ File not found error: ${e.message}`);
+        console.log(`ℹ️ No processed data found for questionnaire ${questionnaireId} (this is normal for newly uploaded questionnaires)`);
         res.status(404).json({ error: 'No processed data found for this questionnaire' });
       } else {
         console.error(`❌ Error reading processed data:`, e);
@@ -3258,6 +3977,155 @@ router.post('/upload-data', async (req, res) => {
   } catch (error) {
     console.error('Error uploading data:', error);
     res.status(500).json({ error: 'Failed to upload data' });
+  }
+});
+
+// TEST ENDPOINT: New fast parser using AI cleaning + hard-coded parsing
+router.post('/parse-test-new', upload.single('file'), async (req, res) => {
+  console.log('🧪 TEST: Using NEW fast parser (AI cleaning + hard-coded parsing)');
+
+  try {
+    const { projectId } = req.body;
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const filePath = req.file.path;
+
+    console.log(`📄 Processing file: ${req.file.originalname}`);
+    console.log(`📊 File size: ${req.file.size} bytes`);
+
+    const startTime = Date.now();
+
+    // Use new parser
+    const questions = await cleanAndParseQuestionnaire(filePath, projectId);
+
+    const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.log(`✅ TEST COMPLETE: Parsed ${questions.length} questions in ${totalTime}s`);
+
+    // Clean up uploaded file
+    try {
+      await fs.unlink(filePath);
+    } catch (cleanupError) {
+      console.warn('Failed to delete temp file:', cleanupError);
+    }
+
+    res.json({
+      success: true,
+      message: `Successfully parsed ${questions.length} questions using NEW method`,
+      totalTime: `${totalTime}s`,
+      questionCount: questions.length,
+      questions: questions,
+      method: 'AI Cleaning + Hard-Coded Parser (NEW)'
+    });
+
+  } catch (error) {
+    console.error('❌ Error in new parser test:', error);
+
+    // Clean up file on error
+    if (req.file?.path) {
+      try {
+        await fs.unlink(req.file.path);
+      } catch (cleanupError) {
+        console.warn('Failed to delete temp file:', cleanupError);
+      }
+    }
+
+    res.status(500).json({
+      error: error.message || 'Failed to parse questionnaire',
+      method: 'AI Cleaning + Hard-Coded Parser (NEW - FAILED)'
+    });
+  }
+});
+
+// STEP 1: Clean QNR with AI (don't parse yet)
+router.post('/clean-qnr', upload.single('file'), async (req, res) => {
+  console.log('🧪 STEP 1: Cleaning QNR with AI...');
+
+  try {
+    const { projectId } = req.body;
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const filePath = req.file.path;
+
+    console.log(`📄 Processing file: ${req.file.originalname}`);
+    console.log(`📊 File size: ${req.file.size} bytes`);
+
+    // Clean the questionnaire with AI
+    const { cleanedText, cleaningTime } = await cleanQuestionnaire(filePath, projectId);
+
+    console.log(`✅ STEP 1 COMPLETE: Cleaned in ${cleaningTime}s`);
+
+    // Clean up uploaded file
+    try {
+      await fs.unlink(filePath);
+    } catch (cleanupError) {
+      console.warn('Failed to delete temp file:', cleanupError);
+    }
+
+    res.json({
+      success: true,
+      message: `AI cleaning completed in ${cleaningTime}s`,
+      cleaningTime: `${cleaningTime}s`,
+      cleanedText: cleanedText,
+      step: 'CLEANED - Ready to parse'
+    });
+
+  } catch (error) {
+    console.error('❌ Error cleaning QNR:', error);
+
+    // Clean up file on error
+    if (req.file?.path) {
+      try {
+        await fs.unlink(req.file.path);
+      } catch (cleanupError) {
+        console.warn('Failed to delete temp file:', cleanupError);
+      }
+    }
+
+    res.status(500).json({
+      error: error.message || 'Failed to clean questionnaire',
+      step: 'CLEANING FAILED'
+    });
+  }
+});
+
+// STEP 2: Parse already-cleaned QNR (instant!)
+router.post('/parse-cleaned-qnr', async (req, res) => {
+  console.log('🧪 STEP 2: Parsing cleaned QNR...');
+
+  try {
+    const { cleanedText } = req.body;
+
+    if (!cleanedText) {
+      return res.status(400).json({ error: 'No cleaned text provided' });
+    }
+
+    // Parse the cleaned questionnaire (instant!)
+    const { questions, parseTime } = parseCleanedQuestionnaire(cleanedText);
+
+    console.log(`✅ STEP 2 COMPLETE: Parsed ${questions.length} questions in ${parseTime}s`);
+
+    res.json({
+      success: true,
+      message: `Successfully parsed ${questions.length} questions`,
+      parseTime: `${parseTime}s`,
+      questionCount: questions.length,
+      questions: questions,
+      step: 'PARSED - Complete'
+    });
+
+  } catch (error) {
+    console.error('❌ Error parsing cleaned QNR:', error);
+
+    res.status(500).json({
+      error: error.message || 'Failed to parse cleaned questionnaire',
+      step: 'PARSING FAILED'
+    });
   }
 });
 

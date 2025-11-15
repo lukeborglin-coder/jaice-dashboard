@@ -54,10 +54,20 @@ interface Question {
   logic?: string;
 }
 
+interface Section {
+  sectionNumber: number;
+  sectionName: string;
+  textLength: number;
+  parsed: boolean;
+  questions?: Question[];
+}
+
 interface Questionnaire {
   id: string;
   name: string;
   questions: Question[];
+  sections?: Section[];
+  filePath?: string;
   createdAt: string;
   projectId: string;
 }
@@ -75,6 +85,8 @@ export default function QuestionnaireParser({ projectId, projects = [], onNaviga
   const [selectedProjectId, setSelectedProjectId] = useState(projectId || '');
   const [costEstimate, setCostEstimate] = useState<CostEstimate | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'editor'>('list');
+  const [uploadedQuestionnaire, setUploadedQuestionnaire] = useState<Questionnaire | null>(null);
+  const [parsingSections, setParsingSections] = useState<Set<number>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load questionnaires on component mount
@@ -594,8 +606,8 @@ export default function QuestionnaireParser({ projectId, projects = [], onNaviga
       {/* Upload Modal */}
       {showUploadModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-96">
-            {uploading ? (
+          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            {uploading && !uploadedQuestionnaire ? (
               <div className="text-center py-8">
                 <div className="w-16 h-16 mx-auto mb-4">
                   <svg className="animate-spin w-16 h-16" fill="none" viewBox="0 0 24 24" style={{ color: BRAND_ORANGE }}>
@@ -603,14 +615,165 @@ export default function QuestionnaireParser({ projectId, projects = [], onNaviga
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Parsing Questionnaire</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Identifying Sections</h3>
                 <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">
                   <div className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: BRAND_ORANGE }}></div>
                   <div className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: BRAND_ORANGE, animationDelay: '0.1s' }}></div>
                   <div className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: BRAND_ORANGE, animationDelay: '0.2s' }}></div>
                 </div>
-                <p className="text-sm text-gray-600 mt-2">Using AI to analyze and structure your questionnaire...</p>
+                <p className="text-sm text-gray-600 mt-2">Analyzing questionnaire structure...</p>
               </div>
+            ) : uploadedQuestionnaire ? (
+              uploadedQuestionnaire.sections && uploadedQuestionnaire.sections.length > 0 ? (
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Questionnaire Sections</h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  Found {uploadedQuestionnaire.sections.length} section{uploadedQuestionnaire.sections.length !== 1 ? 's' : ''}. 
+                  Click "Parse Section" next to each section to parse it using GPT-4.
+                </p>
+                <div className="space-y-3 mb-4">
+                  {uploadedQuestionnaire.sections.map((section) => (
+                    <div 
+                      key={section.sectionNumber} 
+                      className="flex items-center justify-between p-3 border border-gray-200 rounded-md hover:bg-gray-50"
+                    >
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-900">
+                          Section {section.sectionNumber}: {section.sectionName}
+                        </div>
+                        <div className="text-sm text-gray-500 mt-1">
+                          {section.textLength.toLocaleString()} characters
+                          {section.parsed && (
+                            <span className="ml-2 text-green-600 font-medium">
+                              ✓ Parsed ({section.questions?.length || 0} questions)
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          if (section.parsed) {
+                            alert('This section has already been parsed.');
+                            return;
+                          }
+                          
+                          setParsingSections(prev => new Set(prev).add(section.sectionNumber));
+                          try {
+                            const response = await fetch(`${API_BASE_URL}/api/questionnaire/${uploadedQuestionnaire.id}/parse-section`, {
+                              method: 'POST',
+                              headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
+                              },
+                              body: JSON.stringify({ sectionNumber: section.sectionNumber })
+                            });
+
+                            if (response.ok) {
+                              const result = await response.json();
+                              // Update the section in uploadedQuestionnaire
+                              setUploadedQuestionnaire(prev => {
+                                if (!prev) return prev;
+                                const updatedSections = prev.sections?.map(s => 
+                                  s.sectionNumber === section.sectionNumber 
+                                    ? { ...s, parsed: true, questions: result.questions }
+                                    : s
+                                );
+                                return {
+                                  ...prev,
+                                  sections: updatedSections,
+                                  questions: [...(prev.questions || []), ...result.questions]
+                                };
+                              });
+                              // Reload questionnaires to get updated data
+                              await loadQuestionnaires();
+                              // Success is shown via UI update (checkmark and question count)
+                            } else {
+                              const error = await response.json();
+                              alert(`Failed to parse section: ${error.error}`);
+                            }
+                          } catch (error) {
+                            console.error('Parse section error:', error);
+                            alert('Failed to parse section - please try again');
+                          } finally {
+                            setParsingSections(prev => {
+                              const newSet = new Set(prev);
+                              newSet.delete(section.sectionNumber);
+                              return newSet;
+                            });
+                          }
+                        }}
+                        disabled={section.parsed || parsingSections.has(section.sectionNumber)}
+                        className="px-4 py-2 text-white rounded-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                        style={{ backgroundColor: section.parsed ? BRAND_GRAY : BRAND_ORANGE }}
+                      >
+                        {parsingSections.has(section.sectionNumber) ? (
+                          <span className="flex items-center">
+                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Parsing...
+                          </span>
+                        ) : section.parsed ? (
+                          'Parsed'
+                        ) : (
+                          'Parse Section'
+                        )}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
+                  <button
+                    onClick={() => {
+                      setShowUploadModal(false);
+                      setUploadedQuestionnaire(null);
+                      setCostEstimate(null);
+                      setQuestionnaireName('');
+                      setSelectedProjectId(projectId || '');
+                      if (fileInputRef.current) {
+                        fileInputRef.current.value = '';
+                      }
+                      // Reload questionnaires to get the latest data
+                      loadQuestionnaires();
+                    }}
+                    className="px-4 py-2 text-white rounded-md hover:opacity-90"
+                    style={{ backgroundColor: BRAND_ORANGE }}
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+              ) : (
+                <div>
+                  <h3 className="text-lg font-semibold mb-4 text-red-600">Error: No sections found</h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    The questionnaire was uploaded but no sections were identified. 
+                    Please check the console for details.
+                  </p>
+                  <pre className="text-xs bg-gray-100 p-4 rounded overflow-auto max-h-60">
+                    {JSON.stringify(uploadedQuestionnaire, null, 2)}
+                  </pre>
+                  <div className="flex justify-end gap-3 mt-6">
+                    <button
+                      onClick={() => {
+                        setShowUploadModal(false);
+                        setUploadedQuestionnaire(null);
+                        setCostEstimate(null);
+                        setQuestionnaireName('');
+                        setSelectedProjectId(projectId || '');
+                        if (fileInputRef.current) {
+                          fileInputRef.current.value = '';
+                        }
+                      }}
+                      className="px-4 py-2 text-white rounded-md hover:opacity-90"
+                      style={{ backgroundColor: BRAND_ORANGE }}
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              )
             ) : (
               <>
                 <h3 className="text-lg font-semibold mb-4">Upload Questionnaire</h3>
@@ -705,31 +868,48 @@ export default function QuestionnaireParser({ projectId, projects = [], onNaviga
 
                         console.log('Uploading questionnaire:', questionnaireName, 'File:', file.name, 'Project:', selectedProjectId);
                         
-                        const response = await fetch(`${API_BASE_URL}/api/questionnaire/upload`, {
-                          method: 'POST',
-                          body: formData,
-                          headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
-                        });
+                        let response;
+                        try {
+                          response = await fetch(`${API_BASE_URL}/api/questionnaire/upload`, {
+                            method: 'POST',
+                            body: formData,
+                            headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
+                          });
+                        } catch (fetchError) {
+                          console.error('Fetch error:', fetchError);
+                          alert('Upload failed - please try again');
+                          setUploading(false);
+                          return;
+                        }
 
                         if (response.ok) {
                           const result = await response.json();
-                          // Reload all questionnaires to get the latest data
-                          await loadQuestionnaires();
-                          setSelectedQuestionnaire(result);
-                          setShowUploadModal(false);
-                          setQuestionnaireName('');
-                          setSelectedProjectId(projectId || '');
-                          setCostEstimate(null);
-                          alert('Questionnaire uploaded and parsed successfully!');
+                          console.log('Upload response:', result);
+                          console.log('Sections found:', result.sections?.length || 0);
+                          console.log('Sections data:', result.sections);
+                          
+                          // Verify sections exist
+                          if (!result.sections || result.sections.length === 0) {
+                            alert('No sections were identified in the questionnaire. Please check the file format.');
+                            setUploading(false);
+                            return;
+                          }
+                          
+                          // Set the uploaded questionnaire with sections
+                          setUploadedQuestionnaire(result);
+                          // Keep modal open and show sections - don't close it
+                          // Don't call loadQuestionnaires() yet - wait until sections are parsed
+                          setUploading(false); // Set to false to show sections view
                         } else {
                           const error = await response.json();
                           alert(`Upload failed: ${error.error}`);
+                          setUploading(false);
                         }
                       } catch (error) {
                         console.error('Upload error:', error);
                         alert('Upload failed - please try again');
+                        setUploading(false);
                       }
-                      setUploading(false);
                       if (fileInputRef.current) {
                         fileInputRef.current.value = '';
                       }
