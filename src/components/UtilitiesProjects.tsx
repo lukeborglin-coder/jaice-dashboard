@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState, useRef, useImperativeHandle } from 'react';
 import { API_BASE_URL } from '../config';
 import { useAuth } from '../contexts/AuthContext';
-import { DocumentTextIcon, ArrowLeftIcon, CloudArrowUpIcon, ClipboardDocumentIcon } from '@heroicons/react/24/outline';
+import { DocumentTextIcon, ArrowLeftIcon, CloudArrowUpIcon, ClipboardDocumentIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 import { IconBook2, IconLaurelWreath1, IconLaurelWreath2, IconLaurelWreath3 } from '@tabler/icons-react';
 import * as XLSX from 'xlsx';
 import AverageUtilitiesView from './AverageUtilitiesView';
@@ -1097,7 +1097,7 @@ export default function UtilitiesProjects({
                           Client
                         </th>
                         <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
-                          Files
+                          File Uploaded
                         </th>
                       </tr>
                     </thead>
@@ -1118,9 +1118,12 @@ export default function UtilitiesProjects({
                             <div className="text-sm text-gray-900 truncate">{getClientName(project)}</div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-center w-32">
-                            <div className="flex items-center justify-center gap-1 text-sm text-gray-900">
-                              <IconBook2 className="h-4 w-4 text-gray-400" />
-                              {getUtilitiesCount(project)}
+                            <div className="flex items-center justify-center text-sm text-gray-900">
+                              {getUtilitiesCount(project) > 0 ? (
+                                <CheckCircleIcon className="h-5 w-5 text-green-500" />
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
                             </div>
                           </td>
                         </tr>
