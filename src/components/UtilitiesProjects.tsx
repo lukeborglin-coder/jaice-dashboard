@@ -27,6 +27,7 @@ interface UtilitiesData {
     manualMax?: number;
   };
   excludedLevels?: Record<string, string[]>; // attribute name -> array of excluded level names
+  hasUtilities?: boolean; // Marker to indicate utilities exist without loading full data
 }
 
 // Attribute Importance View Component
@@ -614,6 +615,31 @@ export default function UtilitiesProjects({
     loadArchivedProjects();
   }, [activeTab, archivedProjects.length, loadingArchived]);
 
+  // Load list of projects with utilities on mount
+  useEffect(() => {
+    const loadUtilitiesList = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/utilities`, {
+          credentials: 'include'
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const projectIds = data.projectIds || [];
+          // Mark projects that have utilities with a lightweight marker
+          const utilitiesMap: Record<string, UtilitiesData> = {};
+          projectIds.forEach((id: string) => {
+            // Use a marker object to indicate utilities exist without loading full data
+            utilitiesMap[id] = { utilities: {}, hasUtilities: true } as any;
+          });
+          setProjectUtilities(utilitiesMap);
+        }
+      } catch (error) {
+        console.error('Error loading utilities list:', error);
+      }
+    };
+    loadUtilitiesList();
+  }, []);
+
   // Filter projects by user (same logic as ConjointProjects)
   const filterProjectsByUser = useCallback(
     (list: any[]) => {
@@ -796,7 +822,8 @@ export default function UtilitiesProjects({
                 utilities,
                 schema: { attributes: schemaAttributes },
                 axisSettings: existingData?.axisSettings || undefined,
-                excludedLevels: existingData?.excludedLevels || undefined
+                excludedLevels: existingData?.excludedLevels || undefined,
+                hasUtilities: true
               };
               
               setUtilitiesData(result);
@@ -866,7 +893,8 @@ export default function UtilitiesProjects({
             utilities,
             schema: { attributes: schemaAttributes },
             axisSettings: existingData?.axisSettings || undefined,
-            excludedLevels: existingData?.excludedLevels || undefined
+            excludedLevels: existingData?.excludedLevels || undefined,
+            hasUtilities: true
           };
 
           setUtilitiesData(result);
@@ -923,9 +951,12 @@ export default function UtilitiesProjects({
   useEffect(() => {
     const loadProjectUtilities = async () => {
       if (selectedProject) {
-        // First check if we have it in memory
-        if (projectUtilities[selectedProject.id]) {
-          const data = projectUtilities[selectedProject.id];
+        // First check if we have full data in memory (not just the marker)
+        const cachedData = projectUtilities[selectedProject.id];
+        const hasFullData = cachedData && cachedData.schema && Object.keys(cachedData.utilities).length > 0;
+
+        if (hasFullData) {
+          const data = cachedData;
           setUtilitiesData(data);
           // Load axis settings if they exist
           if (data.axisSettings) {
@@ -954,6 +985,7 @@ export default function UtilitiesProjects({
             });
             if (response.ok) {
               const data = await response.json();
+              data.hasUtilities = true; // Mark as having utilities
               setUtilitiesData(data);
               setProjectUtilities(prev => ({
                 ...prev,

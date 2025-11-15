@@ -46,6 +46,18 @@ async function saveUtilitiesData(data) {
   }
 }
 
+// GET /api/utilities - Get list of project IDs that have utilities
+router.get('/', async (req, res) => {
+  try {
+    const utilitiesData = await loadUtilitiesData();
+    const projectIds = Object.keys(utilitiesData);
+    res.json({ projectIds });
+  } catch (error) {
+    console.error('Error loading utilities list:', error);
+    res.status(500).json({ error: 'Failed to load utilities list' });
+  }
+});
+
 // GET /api/utilities/:projectId - Get utilities data for a project
 router.get('/:projectId', async (req, res) => {
   try {
