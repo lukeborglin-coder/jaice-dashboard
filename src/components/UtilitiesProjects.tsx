@@ -146,9 +146,9 @@ const AttributeImportanceView = React.forwardRef<AttributeImportanceViewRef, Att
     // Use a fixed base width for calculations to prevent jumping
     const baseChartWidth = 1200;
     const chartWidth = Math.max(800, containerWidth);
-    // Calculate plot width based on whether we're in selected mode (3/4 width) or full width
-    // When selected, use the actual 3/4 width minus margins, not scaled down
-    const effectiveWidth = selectedAttribute ? containerWidth * 0.75 : containerWidth;
+    // Calculate plot width based on whether we're in selected mode (1/2 width) or full width
+    // When selected, use the actual 1/2 width minus margins, not scaled down
+    const effectiveWidth = selectedAttribute ? containerWidth * 0.5 : containerWidth;
     // Use the effective width directly for plot width calculation
     const plotWidth = effectiveWidth - leftMargin - rightMargin;
 
@@ -158,7 +158,7 @@ const AttributeImportanceView = React.forwardRef<AttributeImportanceViewRef, Att
       <div className="flex gap-4">
         <div 
           ref={containerRef} 
-          className={`overflow-x-auto overflow-y-hidden transition-all duration-500 ease-in-out ${selectedAttribute ? 'w-3/4' : 'w-full'}`}
+          className={`overflow-x-auto overflow-y-hidden transition-all duration-500 ease-in-out ${selectedAttribute ? 'w-1/2' : 'w-full'}`}
           style={{ height: `${chartHeight + topMargin * 2}px`, minHeight: `${chartHeight + topMargin * 2}px`, maxHeight: `${chartHeight + topMargin * 2}px` }}
         >
           <svg width="100%" height={chartHeight + topMargin * 2} viewBox={`0 0 ${effectiveWidth || baseChartWidth} ${chartHeight + topMargin * 2}`} preserveAspectRatio="xMinYMin meet" style={{ minWidth: '800px', height: `${chartHeight + topMargin * 2}px`, minHeight: `${chartHeight + topMargin * 2}px`, maxHeight: `${chartHeight + topMargin * 2}px` }}>
@@ -219,6 +219,12 @@ const AttributeImportanceView = React.forwardRef<AttributeImportanceViewRef, Att
           })}
         </svg>
         </div>
+        {selectedAttribute && (
+          <div 
+            className="w-px bg-gray-300 flex-shrink-0"
+            style={{ height: `${chartHeight + topMargin * 2}px` }}
+          ></div>
+        )}
           {selectedAttribute && (() => {
             const selectedAttr = attributesWithScores.find(a => a.name === selectedAttribute);
             const rank = attributesWithScores.findIndex(a => a.name === selectedAttribute) + 1;
@@ -263,8 +269,8 @@ const AttributeImportanceView = React.forwardRef<AttributeImportanceViewRef, Att
             };
             
             return (
-              <div className="w-1/4 bg-white rounded-lg p-4 transition-all duration-500">
-                <div className="flex items-center justify-between mb-4">
+              <div className="w-1/2 bg-white rounded-lg p-4 transition-all duration-500">
+                <div className="flex items-center justify-between mb-2">
                   <h3 className="text-lg font-semibold text-gray-900">Attribute Details</h3>
                   <button
                     onClick={() => setSelectedAttribute(null)}
@@ -276,26 +282,27 @@ const AttributeImportanceView = React.forwardRef<AttributeImportanceViewRef, Att
                   </button>
                 </div>
                 <div className="space-y-2">
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-gray-600 mb-3">
                     {selectedAttr?.label}
                   </p>
-                  <div className="border-b border-gray-200 my-3"></div>
-                  <div className="bg-[#D14A2D] text-white px-3 py-2 rounded-lg flex items-center justify-between">
-                    <p className="text-sm">
-                      <span className="font-medium">Relative Importance:</span>
-                    </p>
-                    <p className="text-sm font-medium">
-                      {selectedAttr?.score.toFixed(1)}%
-                    </p>
-                  </div>
-                  <div className="bg-[#D14A2D] text-white px-3 py-2 rounded-lg flex items-center justify-between">
-                    <p className="text-sm">
-                      <span className="font-medium">Rank </span>
-                      <span className="text-xs italic font-normal">(out of {totalAttributes}):</span>
-                    </p>
-                    <p className="text-sm font-medium">
-                      {getOrdinal(rank)}
-                    </p>
+                  <div className="space-y-2">
+                    <div className="bg-[#D14A2D] text-white px-3 py-2 rounded-lg grid grid-cols-[1fr_auto] gap-3 items-center">
+                      <p className="text-sm">
+                        <span className="font-medium">Relative Importance:</span>
+                      </p>
+                      <p className="text-sm font-medium text-center whitespace-nowrap">
+                        {selectedAttr?.score.toFixed(1)}%
+                      </p>
+                    </div>
+                    <div className="bg-[#D14A2D] text-white px-3 py-2 rounded-lg grid grid-cols-[1fr_auto] gap-3 items-center">
+                      <p className="text-sm">
+                        <span className="font-medium">Rank </span>
+                        <span className="text-xs italic font-normal">(out of {totalAttributes}):</span>
+                      </p>
+                      <p className="text-sm font-medium text-center whitespace-nowrap">
+                        {getOrdinal(rank)}
+                      </p>
+                    </div>
                   </div>
                 </div>
                 

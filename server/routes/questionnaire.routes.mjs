@@ -566,32 +566,32 @@ Return enhanced JSON with all logic preserved.`;
         throw new Error('Failed to split questionnaire into chunks');
       }
       
-      // Parse each chunk with progress logging
-      const allQuestions = [];
+      // Parse all chunks in parallel for much faster processing
       const startTime = Date.now();
-      for (let i = 0; i < chunks.length; i++) {
-        const chunkStartTime = Date.now();
-        console.log(`📦 Parsing chunk ${i + 1} of ${chunks.length} (${chunks[i].length} chars)...`);
-        try {
-          const chunkQuestions = await parseQuestionnaireChunk(chunks[i], i, chunks.length, systemPrompt, projectId);
-          const chunkTime = ((Date.now() - chunkStartTime) / 1000).toFixed(1);
-          console.log(`✅ Chunk ${i + 1} completed in ${chunkTime}s - found ${chunkQuestions.length} questions`);
-          allQuestions.push(...chunkQuestions);
-          
-          // Log overall progress
-          const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-          const avgTimePerChunk = elapsed / (i + 1);
-          const estimatedRemaining = ((chunks.length - i - 1) * avgTimePerChunk).toFixed(0);
-          console.log(`⏱️  Progress: ${i + 1}/${chunks.length} chunks (${Math.round(((i + 1) / chunks.length) * 100)}%) - Elapsed: ${elapsed}s - Est. remaining: ${estimatedRemaining}s`);
-        } catch (error) {
-          console.error(`❌ Error parsing chunk ${i + 1}:`, error);
-          throw new Error(`Failed to parse chunk ${i + 1} of ${chunks.length}: ${error.message}`);
-        }
+      console.log(`📦 Starting parallel parsing of ${chunks.length} chunks...`);
+
+      try {
+        const chunkPromises = chunks.map((chunk, i) =>
+          parseQuestionnaireChunk(chunk, i, chunks.length, systemPrompt, projectId)
+            .then(questions => {
+              console.log(`✅ Chunk ${i + 1} completed - found ${questions.length} questions`);
+              return questions;
+            })
+            .catch(error => {
+              console.error(`❌ Error parsing chunk ${i + 1}:`, error);
+              throw new Error(`Failed to parse chunk ${i + 1} of ${chunks.length}: ${error.message}`);
+            })
+        );
+
+        const results = await Promise.all(chunkPromises);
+        const allQuestions = results.flat();
+
+        const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
+        console.log(`✅ Successfully parsed ${allQuestions.length} questions from ${chunks.length} chunks in ${totalTime}s (parallel processing)`);
+      } catch (error) {
+        throw error; // Re-throw to be caught by outer error handler
       }
-      
-      const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
-      console.log(`✅ Successfully parsed ${allQuestions.length} questions from ${chunks.length} chunks in ${totalTime}s`);
-      
+
       // Process and normalize all questions
       const processedQuestions = allQuestions.map((question, index) => {
         // Normalize options - extract codes from strings like "1 Amyotrophic lateral sclerosis (ALS)"
@@ -798,32 +798,32 @@ IMPORTANT: Return ONLY valid JSON. Do not include any explanatory text outside t
         throw new Error('Failed to split questionnaire into chunks');
       }
       
-      // Parse each chunk with progress logging
-      const allQuestions = [];
+      // Parse all chunks in parallel for much faster processing (retry path)
       const startTime = Date.now();
-      for (let i = 0; i < chunks.length; i++) {
-        const chunkStartTime = Date.now();
-        console.log(`📦 Parsing chunk ${i + 1} of ${chunks.length} (${chunks[i].length} chars)...`);
-        try {
-          const chunkQuestions = await parseQuestionnaireChunk(chunks[i], i, chunks.length, systemPrompt, projectId);
-          const chunkTime = ((Date.now() - chunkStartTime) / 1000).toFixed(1);
-          console.log(`✅ Chunk ${i + 1} completed in ${chunkTime}s - found ${chunkQuestions.length} questions`);
-          allQuestions.push(...chunkQuestions);
-          
-          // Log overall progress
-          const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-          const avgTimePerChunk = elapsed / (i + 1);
-          const estimatedRemaining = ((chunks.length - i - 1) * avgTimePerChunk).toFixed(0);
-          console.log(`⏱️  Progress: ${i + 1}/${chunks.length} chunks (${Math.round(((i + 1) / chunks.length) * 100)}%) - Elapsed: ${elapsed}s - Est. remaining: ${estimatedRemaining}s`);
-        } catch (error) {
-          console.error(`❌ Error parsing chunk ${i + 1}:`, error);
-          throw new Error(`Failed to parse chunk ${i + 1} of ${chunks.length}: ${error.message}`);
-        }
+      console.log(`📦 Starting parallel parsing of ${chunks.length} chunks (retry)...`);
+
+      try {
+        const chunkPromises = chunks.map((chunk, i) =>
+          parseQuestionnaireChunk(chunk, i, chunks.length, systemPrompt, projectId)
+            .then(questions => {
+              console.log(`✅ Chunk ${i + 1} completed - found ${questions.length} questions`);
+              return questions;
+            })
+            .catch(error => {
+              console.error(`❌ Error parsing chunk ${i + 1}:`, error);
+              throw new Error(`Failed to parse chunk ${i + 1} of ${chunks.length}: ${error.message}`);
+            })
+        );
+
+        const results = await Promise.all(chunkPromises);
+        const allQuestions = results.flat();
+
+        const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
+        console.log(`✅ Successfully parsed ${allQuestions.length} questions from ${chunks.length} chunks in ${totalTime}s (parallel processing - retry)`);
+      } catch (error) {
+        throw error; // Re-throw to be caught by outer error handler
       }
-      
-      const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
-      console.log(`✅ Successfully parsed ${allQuestions.length} questions from ${chunks.length} chunks in ${totalTime}s (retry)`);
-      
+
       // Process and normalize all questions (same as chunked path above)
       const processedQuestions = allQuestions.map((question, index) => {
         // Normalize options - extract codes from strings like "1 Amyotrophic lateral sclerosis (ALS)"

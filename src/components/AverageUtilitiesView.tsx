@@ -411,8 +411,8 @@ export default function AverageUtilitiesView({
 
   // Note: Y-axis will be calculated per-attribute for independent scaling
   // Fixed chart height for consistency
-  const defaultChartHeight = 320;
-  const minChartHeight = 400; // Minimum height to prevent charts from being scrunched
+  const defaultChartHeight = 450;
+  const minChartHeight = 500; // Minimum height to prevent charts from being scrunched
 
   // Calculate global min/max for consistent axis mode
   const globalMinMax = useMemo(() => {
@@ -724,7 +724,7 @@ export default function AverageUtilitiesView({
 
           return (
             <div key={attr.attributeName || index} className="bg-white rounded-lg border border-gray-200 px-2 pt-2 pb-0 relative flex flex-col">
-              <div className="flex justify-between items-center mb-1 gap-2 min-w-0 pb-1 border-b border-gray-200">
+              <div className="flex justify-between items-center mb-1 gap-2 min-w-0 pt-2 pb-2 border-b border-gray-200">
                 <h3 className="text-sm font-semibold text-gray-900 truncate flex-1 min-w-0" title={attr.attributeLabel}>{attr.attributeLabel}</h3>
                 <div className="flex items-center gap-1.5 flex-shrink-0">
                   <button

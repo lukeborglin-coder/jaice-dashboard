@@ -16,7 +16,7 @@ import {
   EyeSlashIcon,
   FunnelIcon,
 } from '@heroicons/react/24/outline';
-import { IconTable } from '@tabler/icons-react';
+import { IconTable, IconCheckbox } from '@tabler/icons-react';
 import { API_BASE_URL } from '../config';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -2621,7 +2621,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                     </td>
                     <td className="px-6 py-4 text-center">
                       <div className="flex items-center justify-center gap-1 text-sm text-gray-900">
-                        <IconTable className="h-4 w-4 text-gray-400" />
+                        <IconCheckbox className="h-4 w-4 text-gray-400" />
                         <span>{getQNRCount(project.id)}</span>
                       </div>
                     </td>
