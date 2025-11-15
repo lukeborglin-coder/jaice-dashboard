@@ -474,7 +474,7 @@ async function parseQuestionnaireSection(section, sectionIndex, totalSections, s
     : `Section: ${section.sectionName || 'unnamed section'}`;
   
   const questionPrefixHint = section.questionPrefix
-    ? `\n\nIMPORTANT: Questions in this section use the "${section.questionPrefix}" prefix. Look for questions like ${section.questionPrefix}1, ${section.questionPrefix}2, ${section.questionPrefix}3, etc. The FIRST question in this section should be ${section.questionPrefix}1 - make sure you include it!`
+    ? `\n\nCRITICAL: Questions in this section use the "${section.questionPrefix}" prefix. You MUST find and parse ALL questions with this prefix in this section. Look for questions like ${section.questionPrefix}1, ${section.questionPrefix}2, ${section.questionPrefix}3, ${section.questionPrefix}4, ${section.questionPrefix}5, etc. The FIRST question in this section should be ${section.questionPrefix}1 - make sure you include it! Continue parsing ALL questions with the "${section.questionPrefix}" prefix until you reach the next section or the end of the document. Do not stop after finding just one question - parse ALL of them!`
     : '';
   
   const userPrompt = `Please parse this ${sectionLabel} of a questionnaire document and extract ALL questions with their details:
@@ -483,13 +483,13 @@ ${sectionContext}
 
 ${section.text}
 
-${totalSections > 1 ? `\nCRITICAL: This is section ${sectionIndex + 1} of ${totalSections} (${section.sectionName || 'unnamed section'}). You MUST parse EVERY SINGLE question in this section, including the FIRST question. Do not skip any questions.${questionPrefixHint}\n\nLook for all question markers and extract every question you find.` : `\nCRITICAL: You MUST parse EVERY SINGLE question in this document, including the FIRST question. Do not skip any questions.${questionPrefixHint}\n\nLook for all question markers and extract every question you find.`}
+${totalSections > 1 ? `\nCRITICAL: This is section ${sectionIndex + 1} of ${totalSections} (${section.sectionName || 'unnamed section'}). You MUST parse EVERY SINGLE question in this section, including the FIRST question. Do not skip any questions.${questionPrefixHint}\n\nLook for all question markers and extract every question you find. Count how many questions there are in this section and make sure you parse ALL of them. If a section should have 20 questions, you must return 20 questions, not just 1 or 2.\n\nHIDDEN VARIABLES: You MUST also parse any hidden variables found in this section. Hidden variables are sections with titles like "VARIABLE NAME (Hidden Variable)". For each hidden variable:\n- Include it in the questions array\n- Use "number": "h_VARIABLE_NAME" format (convert title to UPPERCASE, replace spaces with underscores, remove "(Hidden Variable)")\n- Example: "SPINRAZA RESTART GAP (Hidden Variable)" → number: "h_SPINRAZA_RESTART_GAP"\n- Extract all options/conditions from the hidden variable table\n- Include the full title as the "text" field` : `\nCRITICAL: You MUST parse EVERY SINGLE question in this document, including the FIRST question. Do not skip any questions.${questionPrefixHint}\n\nLook for all question markers and extract every question you find. Count how many questions there are in this document and make sure you parse ALL of them. If a section should have 20 questions, you must return 20 questions, not just 1 or 2.\n\nHIDDEN VARIABLES: You MUST also parse any hidden variables found in this document. Hidden variables are sections with titles like "VARIABLE NAME (Hidden Variable)". For each hidden variable:\n- Include it in the questions array\n- Use "number": "h_VARIABLE_NAME" format (convert title to UPPERCASE, replace spaces with underscores, remove "(Hidden Variable)")\n- Example: "SPINRAZA RESTART GAP (Hidden Variable)" → number: "h_SPINRAZA_RESTART_GAP"\n- Extract all options/conditions from the hidden variable table\n- Include the full title as the "text" field`}
 
 Return a JSON object with this structure:
 {
   "questions": [
     {
-      "number": "question number (e.g., S1, A1, Q1) - this will be used as the unique identifier",
+      "number": "question number (e.g., S1, A1, Q1) - this will be used as the unique identifier. For hidden variables, use format 'h_VARIABLE_NAME' (e.g., 'h_SPINRAZA_RESTART_GAP')",
       "text": "full question text",
       "type": "specific Forsta question type from the library above",
       "options": ["option1", "option2", ...],  // For non-grid questions: response options
@@ -861,7 +861,22 @@ IMPORTANT: Only use structured format (optionCodes array) for Single Select and 
 5. HIDDEN VARIABLES:
    Detect sections like:
    "PATIENT COUNT (Hidden Variable)"
-   Extract calculation logic
+   "SPINRAZA RESTART GAP (Hidden Variable)"
+   "TIME ON PAST TREATMENT (Hidden Variable)"
+   
+   CRITICAL: Hidden variables MUST be included in the questions array as regular questions with:
+   - "number": Use format "h_VARIABLE_NAME" where VARIABLE_NAME is derived from the hidden variable title
+   - Convert the title to UPPERCASE and replace spaces with underscores
+   - Remove "(Hidden Variable)" text from the name
+   - Examples:
+     * "SPINRAZA RESTART GAP (Hidden Variable)" → number: "h_SPINRAZA_RESTART_GAP"
+     * "TIME ON PAST TREATMENT (Hidden Variable)" → number: "h_TIME_ON_PAST_TREATMENT"
+     * "PATIENT COUNT (Hidden Variable)" → number: "h_PATIENT_COUNT"
+   - "text": The full title of the hidden variable (e.g., "SPINRAZA RESTART GAP (Hidden Variable)")
+   - "type": "Single Select" (hidden variables typically have conditional logic options)
+   - "options": Extract all the options/conditions from the hidden variable table/logic
+   - "logic": Extract the calculation/conditional logic for each option
+   - Include hidden variables in the questions array - they should appear in the question list
 
 6. QUOTAS:
    Extract quota tables with conditions
@@ -1076,7 +1091,7 @@ Return a JSON object with this structure:
 {
   "questions": [
     {
-      "number": "question number (e.g., S1, A1, Q1) - this will be used as the unique identifier",
+      "number": "question number (e.g., S1, A1, Q1) - this will be used as the unique identifier. For hidden variables, use format 'h_VARIABLE_NAME' (e.g., 'h_SPINRAZA_RESTART_GAP')",
       "text": "full question text",
       "type": "specific Forsta question type from the library above",
       "options": ["option1", "option2", ...],  // For non-grid questions: response options
@@ -2060,7 +2075,22 @@ IMPORTANT: Only use structured format (optionCodes array) for Single Select and 
 5. HIDDEN VARIABLES:
    Detect sections like:
    "PATIENT COUNT (Hidden Variable)"
-   Extract calculation logic
+   "SPINRAZA RESTART GAP (Hidden Variable)"
+   "TIME ON PAST TREATMENT (Hidden Variable)"
+   
+   CRITICAL: Hidden variables MUST be included in the questions array as regular questions with:
+   - "number": Use format "h_VARIABLE_NAME" where VARIABLE_NAME is derived from the hidden variable title
+   - Convert the title to UPPERCASE and replace spaces with underscores
+   - Remove "(Hidden Variable)" text from the name
+   - Examples:
+     * "SPINRAZA RESTART GAP (Hidden Variable)" → number: "h_SPINRAZA_RESTART_GAP"
+     * "TIME ON PAST TREATMENT (Hidden Variable)" → number: "h_TIME_ON_PAST_TREATMENT"
+     * "PATIENT COUNT (Hidden Variable)" → number: "h_PATIENT_COUNT"
+   - "text": The full title of the hidden variable (e.g., "SPINRAZA RESTART GAP (Hidden Variable)")
+   - "type": "Single Select" (hidden variables typically have conditional logic options)
+   - "options": Extract all the options/conditions from the hidden variable table/logic
+   - "logic": Extract the calculation/conditional logic for each option
+   - Include hidden variables in the questions array - they should appear in the question list
 
 6. QUOTAS:
    Extract quota tables with conditions

@@ -204,6 +204,7 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [uploadedQuestionnaire, setUploadedQuestionnaire] = useState<Questionnaire | null>(null);
   const [parsingSections, setParsingSections] = useState<Set<number>>(new Set());
+  const parsingCancelledRef = React.useRef<boolean>(false);
   const [questionnaireName, setQuestionnaireName] = useState('');
   const [allQuestionnaires, setAllQuestionnaires] = useState<Questionnaire[]>([]);
   const [selectedQuestionTypes, setSelectedQuestionTypes] = useState<Set<string>>(new Set());
@@ -1127,6 +1128,9 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
                   </div>
                   <button
                     onClick={async () => {
+                      // Reset cancellation flag
+                      parsingCancelledRef.current = false;
+                      
                       // Get initial list of sections to parse
                       let sectionsToParse = [...(uploadedQuestionnaire.sections || [])].filter(s => !s.parsed);
                       
@@ -1137,6 +1141,12 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
                       
                       // Parse sections sequentially
                       for (const section of sectionsToParse) {
+                        // Check if parsing was cancelled
+                        if (parsingCancelledRef.current) {
+                          console.log('Parsing cancelled by user');
+                          break;
+                        }
+                        
                         setParsingSections(prev => new Set(prev).add(section.sectionNumber));
                         
                         try {
@@ -1148,6 +1158,12 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
                             },
                             body: JSON.stringify({ sectionNumber: section.sectionNumber })
                           });
+
+                          // Check again if cancelled after request completes
+                          if (parsingCancelledRef.current) {
+                            console.log('Parsing cancelled after request');
+                            break;
+                          }
 
                           if (response.ok) {
                             const result = await response.json();
@@ -1179,12 +1195,16 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
                             await new Promise(resolve => setTimeout(resolve, 200));
                           } else {
                             const error = await response.json();
-                            alert(`Failed to parse section ${section.sectionNumber}: ${error.error}`);
+                            if (!parsingCancelledRef.current) {
+                              alert(`Failed to parse section ${section.sectionNumber}: ${error.error}`);
+                            }
                             break; // Stop parsing if there's an error
                           }
                         } catch (error) {
                           console.error('Parse section error:', error);
-                          alert(`Failed to parse section ${section.sectionNumber} - please try again`);
+                          if (!parsingCancelledRef.current) {
+                            alert(`Failed to parse section ${section.sectionNumber} - please try again`);
+                          }
                           break; // Stop parsing if there's an error
                         } finally {
                           setParsingSections(prev => {
@@ -1248,6 +1268,10 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
                 <div className="flex justify-between items-center gap-3 mt-6 pt-4 border-t">
                   <button
                     onClick={() => {
+                      // Cancel any ongoing parsing
+                      parsingCancelledRef.current = true;
+                      setParsingSections(new Set());
+                      
                       // Go back to upload view
                       setUploadedQuestionnaire(null);
                       setUploadSuccess(false);
