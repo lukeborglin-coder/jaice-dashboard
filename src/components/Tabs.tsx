@@ -8592,17 +8592,17 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                             </div>
                           </div>
                           <div className="border border-gray-200 rounded-lg overflow-hidden flex flex-col">
-                            <table className="w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed' }}>
+                            <table className="w-full divide-y divide-gray-200">
                               <thead className="bg-gray-50">
                                 <tr>
-                                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style={{ width: '80px' }}>Q#</th>
+                                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style={{ width: 'auto', minWidth: '80px' }}>Q#</th>
                                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '30%' }}>Question Type</th>
                                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expected Headers</th>
                                 </tr>
                               </thead>
                             </table>
                             <div className="overflow-y-auto overflow-x-hidden" style={{ maxHeight: 'calc(10 * 3rem)' }}>
-                              <table className="w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed' }}>
+                              <table className="w-full divide-y divide-gray-200">
                                 <tbody className="bg-white divide-y divide-gray-200">
                                   {questionnaireQuestions.length > 0 ? (() => {
                                     // Iterate through all questions from the QNR
@@ -8631,7 +8631,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                       
                                       return (
                                         <tr key={qNumStr}>
-                                          <td className="px-4 py-3 text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap" style={{ width: '80px' }} title={qNumStr}>{qNumStr}</td>
+                                          <td className="px-4 py-3 text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap" style={{ width: 'auto', minWidth: '80px' }} title={qNumStr}>{qNumStr}</td>
                                           <td className="px-4 py-3 text-xs font-medium text-gray-500 tracking-wider truncate" style={{ width: '30%' }} title={questionType || '-'}>{questionType || '-'}</td>
                                           <td className="px-4 py-3 text-xs font-medium text-gray-500 tracking-wider">
                                             <div className="flex flex-wrap gap-1">
@@ -8884,17 +8884,17 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                           </div>
                         </div>
                         <div className="border border-gray-200 rounded-lg overflow-hidden flex flex-col">
-                          <table className="w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed' }}>
+                          <table className="w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
                               <tr>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style={{ width: '80px' }}>Q#</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style={{ width: 'auto', minWidth: '80px' }}>Q#</th>
                                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '30%' }}>Question Type</th>
                                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expected Headers</th>
                               </tr>
                             </thead>
                           </table>
                           <div className="overflow-y-auto overflow-x-hidden" style={{ maxHeight: 'calc(10 * 3rem)' }}>
-                            <table className="w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed' }}>
+                            <table className="w-full divide-y divide-gray-200">
                               <tbody className="bg-white divide-y divide-gray-200">
                                 {questionnaireQuestions.length > 0 ? (() => {
                                   // Iterate through all questions from the QNR
@@ -8923,7 +8923,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                                     
                                     return (
                                       <tr key={qNumStr}>
-                                        <td className="px-4 py-3 text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap" style={{ width: '80px' }} title={qNumStr}>{qNumStr}</td>
+                                        <td className="px-4 py-3 text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap" style={{ width: 'auto', minWidth: '80px' }} title={qNumStr}>{qNumStr}</td>
                                         <td className="px-4 py-3 text-xs font-medium text-gray-500 tracking-wider truncate" style={{ width: '30%' }} title={questionType || '-'}>{questionType || '-'}</td>
                                         <td className="px-4 py-3 text-xs font-medium text-gray-500 tracking-wider">
                                           <div className="flex flex-wrap gap-1">

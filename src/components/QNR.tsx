@@ -21,11 +21,14 @@ import {
   TableCellsIcon,
   ChatBubbleLeftRightIcon,
   ListBulletIcon,
-  FunnelIcon
+  FunnelIcon,
+  ArrowDownTrayIcon,
+  ClipboardDocumentIcon
 } from '@heroicons/react/24/outline';
 import { IconCheckbox } from '@tabler/icons-react';
 import { API_BASE_URL } from '../config';
 import { useAuth } from '../contexts/AuthContext';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle, ImageRun } from 'docx';
 
 const BRAND_ORANGE = '#D14A2D';
 const BRAND_BG = '#F7F7F8';
@@ -254,6 +257,7 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
   const [editQuestionNumbers, setEditQuestionNumbers] = useState<string[]>([]);
   const [editQuotas, setEditQuotas] = useState<Quota[]>([]);
   const [editingQuotasModal, setEditingQuotasModal] = useState(false);
+  const [xmlCopied, setXmlCopied] = useState(false);
 
   // Load questionnaires for a project
   const loadQuestionnaires = useCallback(async (projectId: string) => {
@@ -860,6 +864,1024 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
     }
   };
 
+  // Helper function to create text segments with bracket information for Word
+  const parseTextWithBrackets = (text: string): Array<{ text: string; isBracket: boolean }> => {
+    if (!text) return [];
+    
+    const segments: Array<{ text: string; isBracket: boolean }> = [];
+    const regex = /(\[[^\]]+\])/g;
+    let lastIndex = 0;
+    let match;
+    
+    while ((match = regex.exec(text)) !== null) {
+      // Add text before the bracket
+      if (match.index > lastIndex) {
+        segments.push({
+          text: text.substring(lastIndex, match.index),
+          isBracket: false
+        });
+      }
+      
+      // Add the bracketed text
+      segments.push({
+        text: match[1], // Include the brackets
+        isBracket: true
+      });
+      
+      lastIndex = regex.lastIndex;
+    }
+    
+    // Add remaining text after last bracket
+    if (lastIndex < text.length) {
+      segments.push({
+        text: text.substring(lastIndex),
+        isBracket: false
+      });
+    }
+    
+    // If no brackets found, return single segment
+    if (segments.length === 0) {
+      segments.push({
+        text: text,
+        isBracket: false
+      });
+    }
+    
+    return segments;
+  };
+
+  // Download QNR as Word document
+  const downloadQNRAsWord = async () => {
+    if (!selectedQuestionnaire) return;
+
+    try {
+      const children: any[] = [];
+
+      // Add logo
+      let logoImage;
+      try {
+        const logoResponse = await fetch('/assets/Cog Logo.png');
+        const logoBlob = await logoResponse.blob();
+        const logoBuffer = await logoBlob.arrayBuffer();
+        logoImage = new ImageRun({
+          data: new Uint8Array(logoBuffer),
+          transformation: {
+            width: 2.01 * 72, // Convert inches to points (72 points per inch)
+            height: 0.43 * 72
+          }
+        });
+      } catch (err) {
+        console.error('Error loading logo:', err);
+      }
+
+      if (logoImage) {
+        children.push(
+          new Paragraph({
+            children: [logoImage],
+            alignment: AlignmentType.CENTER
+          })
+        );
+      }
+
+      // Add line break
+      children.push(
+        new Paragraph({
+          text: ''
+        })
+      );
+
+      // Add download date (month and year)
+      const now = new Date();
+      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'];
+      const downloadDate = `${monthNames[now.getMonth()]} ${now.getFullYear()}`;
+      children.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: downloadDate,
+              font: 'Trebuchet MS',
+              size: 20,
+              italics: true
+            })
+          ],
+          alignment: AlignmentType.LEFT
+        })
+      );
+
+      // Add line break
+      children.push(
+        new Paragraph({
+          text: ''
+        })
+      );
+
+      // Add title in a table (like open end boxes)
+      children.push(
+        new Table({
+          rows: [
+            new TableRow({
+              height: {
+                value: 720,
+                rule: 'atLeast'
+              },
+              children: [
+                new TableCell({
+                  children: [
+                    new Paragraph({
+                      children: [
+                        new TextRun({
+                          text: selectedQuestionnaire.name.toUpperCase(),
+                          font: 'Trebuchet MS',
+                          size: 24,
+                          bold: true
+                        })
+                      ],
+                      alignment: AlignmentType.CENTER
+                    })
+                  ],
+                  width: {
+                    size: 100,
+                    type: WidthType.PERCENTAGE
+                  },
+                  verticalAlign: 'center'
+                })
+              ]
+            })
+          ],
+          width: {
+            size: 100,
+            type: WidthType.PERCENTAGE
+          },
+          borders: {
+            top: { size: 4, color: '000000', style: BorderStyle.SINGLE },
+            bottom: { size: 4, color: '000000', style: BorderStyle.SINGLE },
+            left: { size: 4, color: '000000', style: BorderStyle.SINGLE },
+            right: { size: 4, color: '000000', style: BorderStyle.SINGLE },
+            insideHorizontal: { size: 4, color: '000000', style: BorderStyle.SINGLE },
+            insideVertical: { size: 4, color: '000000', style: BorderStyle.SINGLE }
+          }
+        })
+      );
+
+      // Add line break after header
+      children.push(
+        new Paragraph({
+          text: ''
+        })
+      );
+
+      // Group questions by section
+      const questionsBySection = allQuestionsBySection;
+      const sectionKeys = Object.keys(questionsBySection);
+
+      // Add questions organized by section
+      for (const sectionKey of sectionKeys) {
+        const questions = questionsBySection[sectionKey] || [];
+        if (questions.length === 0) continue;
+
+        // Skip quota section (includes hidden variables)
+        if (sectionKey === 'QUOTA') {
+          continue;
+        }
+
+        // Section header
+        children.push(
+          new Table({
+            rows: [
+              new TableRow({
+                children: [
+                  new TableCell({
+                    children: [
+                      new Paragraph({
+                        children: [
+                          new TextRun({
+                            text: `SECTION ${sectionKey}`,
+                            font: 'Trebuchet MS',
+                            size: 24,
+                            bold: true
+                          })
+                        ]
+                      })
+                    ],
+                    shading: {
+                      fill: 'D3D3D3'
+                    },
+                    width: {
+                      size: 100,
+                      type: WidthType.PERCENTAGE
+                    }
+                  })
+                ]
+              })
+            ],
+            width: {
+              size: 100,
+              type: WidthType.PERCENTAGE
+            },
+            borders: {
+              top: { size: 0, color: 'FFFFFF' },
+              bottom: { size: 0, color: 'FFFFFF' },
+              left: { size: 0, color: 'FFFFFF' },
+              right: { size: 0, color: 'FFFFFF' },
+              insideHorizontal: { size: 0, color: 'FFFFFF' },
+              insideVertical: { size: 0, color: 'FFFFFF' }
+            }
+          }),
+          new Paragraph({
+            text: ''
+          })
+        );
+
+        // Add each question
+        for (const question of questions) {
+          // Show logic - show BEFORE the question
+          if (question.showLogic) {
+            const showLogicSegments = parseTextWithBrackets(question.showLogic);
+            const showLogicRuns = showLogicSegments.map(seg => 
+              new TextRun({
+                text: seg.isBracket ? seg.text : seg.text.toUpperCase(),
+                font: 'Trebuchet MS',
+                size: 18,
+                color: '0070C0', // Blue
+                italics: true,
+                bold: false
+              })
+            );
+            children.push(
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: 'SHOW IF: ',
+                    font: 'Trebuchet MS',
+                    size: 18,
+                    color: '0070C0',
+                    italics: true,
+                    bold: false
+                  }),
+                  ...showLogicRuns
+                ]
+              })
+            );
+          }
+          
+          // Question number and text - use table format for proper alignment
+          const questionNumber = question.number || 'Q';
+          const questionText = question.text || '';
+          const questionSegments = parseTextWithBrackets(questionText);
+          const questionTextRuns = questionSegments.map(seg => 
+            new TextRun({
+              text: seg.text,
+              font: 'Trebuchet MS',
+              size: 22,
+              color: seg.isBracket ? '0070C0' : undefined,
+              italics: seg.isBracket ? true : undefined
+            })
+          );
+          
+          // Build content for column 2 (question text and type)
+          const column2Content: Paragraph[] = [];
+          
+          // Question text
+          column2Content.push(
+            new Paragraph({
+              children: questionTextRuns,
+              indent: { left: 0, hanging: 0 }
+            })
+          );
+          
+          // Question type
+          if (question.type) {
+            const typeSegments = parseTextWithBrackets(question.type);
+            const typeTextRuns = typeSegments.map(seg =>
+              new TextRun({
+                text: seg.text,
+                font: 'Trebuchet MS',
+                size: 16,
+                color: seg.isBracket ? '0070C0' : undefined,
+                italics: true // All type text is italic
+              })
+            );
+            column2Content.push(
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: 'Type: ',
+                    font: 'Trebuchet MS',
+                    size: 16,
+                    italics: true
+                  }),
+                  ...typeTextRuns
+                ],
+                indent: { left: 0, hanging: 0 }
+              })
+            );
+          }
+          
+          // Create table row for question
+          children.push(
+            new Table({
+              rows: [
+                new TableRow({
+                  children: [
+                    new TableCell({
+                      children: [
+                        new Paragraph({
+                          children: [
+                            new TextRun({
+                              text: `${questionNumber}.`,
+                              font: 'Trebuchet MS',
+                              size: 22
+                            })
+                          ],
+                          indent: { left: 0, hanging: 0 }
+                        })
+                      ],
+                      width: {
+                        size: 5,
+                        type: WidthType.PERCENTAGE
+                      },
+                      margins: {
+                        top: 0,
+                        bottom: 0,
+                        left: 0,
+                        right: 100
+                      }
+                    }),
+                    new TableCell({
+                      children: column2Content,
+                      width: {
+                        size: 95,
+                        type: WidthType.PERCENTAGE
+                      },
+                      margins: {
+                        top: 0,
+                        bottom: 0,
+                        left: 0,
+                        right: 0
+                      }
+                    })
+                  ]
+                })
+              ],
+              width: {
+                size: 100,
+                type: WidthType.PERCENTAGE
+              },
+              borders: {
+                top: { size: 0, color: 'FFFFFF' },
+                bottom: { size: 0, color: 'FFFFFF' },
+                left: { size: 0, color: 'FFFFFF' },
+                right: { size: 0, color: 'FFFFFF' },
+                insideHorizontal: { size: 0, color: 'FFFFFF' },
+                insideVertical: { size: 0, color: 'FFFFFF' }
+              }
+            })
+          );
+          
+          // Add spacing after question
+          children.push(
+            new Paragraph({
+              text: ''
+            })
+          );
+
+          // Options - use table for single select questions
+          if (question.options && question.options.length > 0) {
+            const tableRows: TableRow[] = [];
+            const terminateCodes = parseTerminateLogic(question.terminateLogic, question.options, question.type);
+            
+            for (const option of question.options) {
+              let optionText: string;
+              let optionCode: string;
+              
+              if (typeof option === 'string') {
+                // Try to extract code from string (e.g., "99 Don't Know" -> code: "99", text: "Don't Know")
+                const codeMatch = option.match(/^(\d+):?\s+(.+)$/);
+                if (codeMatch) {
+                  optionCode = codeMatch[1];
+                  optionText = codeMatch[2].trim();
+                } else {
+                  // No code found, use index
+                  optionCode = String(question.options.indexOf(option) + 1);
+                  optionText = option;
+                }
+              } else {
+                // Use actual code from option object, removing any prefixes like "c" or "r"
+                optionCode = option.code ? option.code.replace(/^[rc]/i, '') : String(question.options.indexOf(option) + 1);
+                optionText = option.text || '';
+              }
+              
+              // Parse tags from option text
+              const { cleanText, hasExclusive, hasAnchor, hasSpecify } = parseOptionTags(optionText);
+              const shouldTerminate = terminateCodes.has(optionCode);
+              
+              // Build text runs for option text
+              const optionTextRuns = parseTextWithBrackets(cleanText).map(seg => 
+                new TextRun({
+                  text: seg.text,
+                  font: 'Trebuchet MS',
+                  size: 20,
+                  color: seg.isBracket ? '0070C0' : undefined,
+                  italics: seg.isBracket ? true : undefined
+                })
+              );
+              
+              // Add tag indicators
+              const tagRuns: TextRun[] = [];
+              if (shouldTerminate) {
+                tagRuns.push(
+                  new TextRun({
+                    text: ' TERM',
+                    font: 'Trebuchet MS',
+                    size: 20,
+                    color: 'FF0000', // Red
+                    bold: true
+                  })
+                );
+              }
+              if (hasSpecify) {
+                tagRuns.push(
+                  new TextRun({
+                    text: ' [SPECIFY]',
+                    font: 'Trebuchet MS',
+                    size: 20,
+                    color: '0070C0', // Blue
+                    italics: true
+                  })
+                );
+              }
+              if (hasAnchor) {
+                tagRuns.push(
+                  new TextRun({
+                    text: ' [ANCHOR]',
+                    font: 'Trebuchet MS',
+                    size: 20,
+                    color: '0070C0', // Blue
+                    italics: true
+                  })
+                );
+              }
+              if (hasExclusive) {
+                tagRuns.push(
+                  new TextRun({
+                    text: ' [EXCLUSIVE]',
+                    font: 'Trebuchet MS',
+                    size: 20,
+                    color: '0070C0', // Blue
+                    italics: true
+                  })
+                );
+              }
+              
+              tableRows.push(
+                new TableRow({
+                  children: [
+                    new TableCell({
+                      children: [
+                        new Paragraph({
+                          children: [
+                            new TextRun({
+                              text: optionCode,
+                              font: 'Trebuchet MS',
+                              size: 20
+                            })
+                          ],
+                          alignment: AlignmentType.CENTER,
+                          indent: {
+                            left: 0,
+                            hanging: 0
+                          }
+                        })
+                      ],
+                      width: {
+                        size: 5,
+                        type: WidthType.PERCENTAGE
+                      }
+                    }),
+                    new TableCell({
+                      children: [
+                        new Paragraph({
+                          children: [...optionTextRuns, ...tagRuns],
+                          alignment: AlignmentType.LEFT,
+                          indent: {
+                            left: 0,
+                            hanging: 0
+                          }
+                        })
+                      ],
+                      width: {
+                        size: 95,
+                        type: WidthType.PERCENTAGE
+                      }
+                    })
+                  ]
+                })
+              );
+            }
+            
+            if (tableRows.length > 0) {
+              // Add RANDOMIZE header row if randomize is true
+              if (question.randomize) {
+                tableRows.unshift(
+                  new TableRow({
+                    children: [
+                      new TableCell({
+                        children: [
+                          new Paragraph({
+                            children: [
+                              new TextRun({
+                                text: 'RANDOMIZE',
+                                font: 'Trebuchet MS',
+                                size: 20,
+                                color: '0070C0',
+                                italics: true
+                              })
+                            ],
+                            alignment: AlignmentType.LEFT
+                          })
+                        ],
+                        columnSpan: 2,
+                        width: {
+                          size: 100,
+                          type: WidthType.PERCENTAGE
+                        }
+                      })
+                    ]
+                  })
+                );
+              }
+
+              children.push(
+                new Table({
+                  rows: tableRows,
+                  width: {
+                    size: 100,
+                    type: WidthType.PERCENTAGE
+                  },
+                  borders: {
+                    top: { size: 4, color: '000000', style: BorderStyle.SINGLE },
+                    bottom: { size: 4, color: '000000', style: BorderStyle.SINGLE },
+                    left: { size: 4, color: '000000', style: BorderStyle.SINGLE },
+                    right: { size: 4, color: '000000', style: BorderStyle.SINGLE },
+                    insideHorizontal: { size: 4, color: '000000', style: BorderStyle.SINGLE },
+                    insideVertical: { size: 4, color: '000000', style: BorderStyle.SINGLE }
+                  }
+                })
+              );
+            }
+          }
+          
+          // For numeric and open end questions (single response, not lists/grids), add blank table
+          const typeLower = question.type?.toLowerCase() || '';
+          const isNumericSingle = typeLower.includes('numeric') && !typeLower.includes('list') && !typeLower.includes('grid');
+          const isOpenEndSingle = typeLower.includes('open end') && !typeLower.includes('list') && !typeLower.includes('grid');
+          
+          if ((isNumericSingle || isOpenEndSingle) && !question.options && !question.responseOptions) {
+            // Check if there's a programming note for this question
+            let cellContent;
+            if (question.logic) {
+              const skipLogicSegments = parseTextWithBrackets(question.logic);
+              const skipLogicRuns = skipLogicSegments.map(seg =>
+                new TextRun({
+                  text: seg.text,
+                  font: 'Trebuchet MS',
+                  size: 18,
+                  color: '0070C0',
+                  italics: true
+                })
+              );
+              cellContent = [
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: 'PROGRAMMING NOTE: ',
+                      font: 'Trebuchet MS',
+                      size: 18,
+                      color: '0070C0',
+                      italics: true
+                    }),
+                    ...skipLogicRuns
+                  ],
+                  alignment: AlignmentType.CENTER
+                })
+              ];
+            } else {
+              cellContent = [
+                new Paragraph({
+                  text: ''
+                })
+              ];
+            }
+
+            children.push(
+              new Table({
+                rows: [
+                  new TableRow({
+                    height: {
+                      value: 720,
+                      rule: 'atLeast'
+                    },
+                    children: [
+                      new TableCell({
+                        children: cellContent,
+                        width: {
+                          size: 100,
+                          type: WidthType.PERCENTAGE
+                        },
+                        verticalAlign: 'center'
+                      })
+                    ]
+                  })
+                ],
+                width: {
+                  size: 100,
+                  type: WidthType.PERCENTAGE
+                },
+                borders: {
+                  top: { size: 4, color: '000000', style: BorderStyle.SINGLE },
+                  bottom: { size: 4, color: '000000', style: BorderStyle.SINGLE },
+                  left: { size: 4, color: '000000', style: BorderStyle.SINGLE },
+                  right: { size: 4, color: '000000', style: BorderStyle.SINGLE },
+                  insideHorizontal: { size: 4, color: '000000', style: BorderStyle.SINGLE },
+                  insideVertical: { size: 4, color: '000000', style: BorderStyle.SINGLE }
+                }
+              })
+            );
+          }
+
+          // Numeric grids - format as table with rows and columns
+          const isNumericGrid = typeLower.includes('numeric grid');
+          const isGrid = typeLower.includes('grid');
+
+          if (isGrid && question.statementOptions && question.statementOptions.length > 0) {
+            // Add "Rows:" label
+            children.push(
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: 'Rows:',
+                    font: 'Trebuchet MS',
+                    size: 20,
+                    bold: true
+                  })
+                ]
+              })
+            );
+
+            // Create table for statement options (rows)
+            const stmtTableRows: TableRow[] = [];
+            for (const stmt of question.statementOptions) {
+              const stmtCode = stmt.code ? stmt.code.replace(/^[rc]/i, '') : '';
+              const stmtSegments = parseTextWithBrackets(stmt.text || '');
+              const stmtTextRuns = stmtSegments.map(seg =>
+                new TextRun({
+                  text: seg.text,
+                  font: 'Trebuchet MS',
+                  size: 20,
+                  color: seg.isBracket ? '0070C0' : undefined,
+                  italics: seg.isBracket ? true : undefined
+                })
+              );
+
+              stmtTableRows.push(
+                new TableRow({
+                  children: [
+                    new TableCell({
+                      children: [
+                        new Paragraph({
+                          children: [
+                            new TextRun({
+                              text: stmtCode,
+                              font: 'Trebuchet MS',
+                              size: 20
+                            })
+                          ],
+                          alignment: AlignmentType.CENTER,
+                          indent: { left: 0, hanging: 0 }
+                        })
+                      ],
+                      width: {
+                        size: 5,
+                        type: WidthType.PERCENTAGE
+                      }
+                    }),
+                    new TableCell({
+                      children: [
+                        new Paragraph({
+                          children: stmtTextRuns,
+                          alignment: AlignmentType.LEFT,
+                          indent: { left: 100, hanging: 0 }
+                        })
+                      ],
+                      width: {
+                        size: 95,
+                        type: WidthType.PERCENTAGE
+                      }
+                    })
+                  ]
+                })
+              );
+            }
+
+            if (stmtTableRows.length > 0) {
+              // Add RANDOMIZE header row if randomize is true
+              if (question.randomize) {
+                stmtTableRows.unshift(
+                  new TableRow({
+                    children: [
+                      new TableCell({
+                        children: [
+                          new Paragraph({
+                            children: [
+                              new TextRun({
+                                text: 'RANDOMIZE',
+                                font: 'Trebuchet MS',
+                                size: 20,
+                                color: '0070C0',
+                                italics: true
+                              })
+                            ],
+                            alignment: AlignmentType.LEFT
+                          })
+                        ],
+                        columnSpan: 2,
+                        width: {
+                          size: 100,
+                          type: WidthType.PERCENTAGE
+                        }
+                      })
+                    ]
+                  })
+                );
+              }
+
+              children.push(
+                new Table({
+                  rows: stmtTableRows,
+                  width: {
+                    size: 100,
+                    type: WidthType.PERCENTAGE
+                  },
+                  borders: {
+                    top: { size: 4, color: '000000', style: BorderStyle.SINGLE },
+                    bottom: { size: 4, color: '000000', style: BorderStyle.SINGLE },
+                    left: { size: 4, color: '000000', style: BorderStyle.SINGLE },
+                    right: { size: 4, color: '000000', style: BorderStyle.SINGLE },
+                    insideHorizontal: { size: 4, color: '000000', style: BorderStyle.SINGLE },
+                    insideVertical: { size: 4, color: '000000', style: BorderStyle.SINGLE }
+                  }
+                })
+              );
+            }
+
+            // Add spacing between tables
+            children.push(
+              new Paragraph({
+                text: ''
+              })
+            );
+
+            // Add "Columns:" label
+            children.push(
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: 'Columns:',
+                    font: 'Trebuchet MS',
+                    size: 20,
+                    bold: true
+                  })
+                ]
+              })
+            );
+
+            // Create table for response options (columns)
+            const respTableRows: TableRow[] = [];
+            // For numeric grids without response options, create fallback column with % or # based on tags
+            let responseOptions = question.responseOptions || [];
+            if (isNumericGrid && responseOptions.length === 0 && question.statementOptions && question.statementOptions.length > 0) {
+              const hasPercentTag = question.tags && question.tags.includes('%');
+              const hasNumberTag = question.tags && question.tags.includes('Number');
+              const fallbackColumnLabel = hasPercentTag ? '%' : (hasNumberTag ? '#' : '#');
+              responseOptions = [{ code: '1', text: fallbackColumnLabel }];
+            }
+            for (const resp of responseOptions) {
+              const respCode = resp.code ? resp.code.replace(/^[rc]/i, '') : '';
+              const respSegments = parseTextWithBrackets(resp.text || '');
+              const respTextRuns = respSegments.map(seg =>
+                new TextRun({
+                  text: seg.text,
+                  font: 'Trebuchet MS',
+                  size: 20,
+                  color: seg.isBracket ? '0070C0' : undefined,
+                  italics: seg.isBracket ? true : undefined
+                })
+              );
+
+              respTableRows.push(
+                new TableRow({
+                  children: [
+                    new TableCell({
+                      children: [
+                        new Paragraph({
+                          children: [
+                            new TextRun({
+                              text: respCode,
+                              font: 'Trebuchet MS',
+                              size: 20
+                            })
+                          ],
+                          alignment: AlignmentType.CENTER,
+                          indent: { left: 0, hanging: 0 }
+                        })
+                      ],
+                      width: {
+                        size: 5,
+                        type: WidthType.PERCENTAGE
+                      }
+                    }),
+                    new TableCell({
+                      children: [
+                        new Paragraph({
+                          children: respTextRuns,
+                          alignment: AlignmentType.LEFT,
+                          indent: { left: 100, hanging: 0 }
+                        })
+                      ],
+                      width: {
+                        size: 95,
+                        type: WidthType.PERCENTAGE
+                      }
+                    })
+                  ]
+                })
+              );
+            }
+
+            if (respTableRows.length > 0) {
+              // Add RANDOMIZE header row if randomize is true
+              if (question.randomize) {
+                respTableRows.unshift(
+                  new TableRow({
+                    children: [
+                      new TableCell({
+                        children: [
+                          new Paragraph({
+                            children: [
+                              new TextRun({
+                                text: 'RANDOMIZE',
+                                font: 'Trebuchet MS',
+                                size: 20,
+                                color: '0070C0',
+                                italics: true
+                              })
+                            ],
+                            alignment: AlignmentType.LEFT
+                          })
+                        ],
+                        columnSpan: 2,
+                        width: {
+                          size: 100,
+                          type: WidthType.PERCENTAGE
+                        }
+                      })
+                    ]
+                  })
+                );
+              }
+
+              children.push(
+                new Table({
+                  rows: respTableRows,
+                  width: {
+                    size: 100,
+                    type: WidthType.PERCENTAGE
+                  },
+                  borders: {
+                    top: { size: 4, color: '000000', style: BorderStyle.SINGLE },
+                    bottom: { size: 4, color: '000000', style: BorderStyle.SINGLE },
+                    left: { size: 4, color: '000000', style: BorderStyle.SINGLE },
+                    right: { size: 4, color: '000000', style: BorderStyle.SINGLE },
+                    insideHorizontal: { size: 4, color: '000000', style: BorderStyle.SINGLE },
+                    insideVertical: { size: 4, color: '000000', style: BorderStyle.SINGLE }
+                  }
+                })
+              );
+            }
+          }
+
+          // Skip logic - only add as separate paragraph if NOT a numeric/open end single question
+          // (those have the programming note inside the response table)
+          const skipLogicInTable = (isNumericSingle || isOpenEndSingle) && !question.options && !question.responseOptions;
+          if (question.logic && !skipLogicInTable) {
+            // Add line break before programming note
+            children.push(
+              new Paragraph({
+                text: ''
+              })
+            );
+
+            const skipLogicSegments = parseTextWithBrackets(question.logic);
+            const skipLogicRuns = skipLogicSegments.map(seg =>
+              new TextRun({
+                text: seg.text,
+                font: 'Trebuchet MS',
+                size: 18,
+                color: '0070C0',
+                italics: true
+              })
+            );
+            children.push(
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: 'PROGRAMMING NOTE: ',
+                    font: 'Trebuchet MS',
+                    size: 18,
+                    color: '0070C0',
+                    italics: true
+                  }),
+                  ...skipLogicRuns
+                ]
+              })
+            );
+          }
+
+          // Single line break after question
+          children.push(
+            new Paragraph({
+              text: ''
+            })
+          );
+        }
+      }
+
+      // Create document
+      const doc = new Document({
+        sections: [{
+          properties: {},
+          children: children
+        }]
+      });
+
+      // Generate and download
+      const blob = await Packer.toBlob(doc);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const filename = selectedQuestionnaire.name.replace(/[/\\?%*:|"<>]/g, '-');
+      a.download = `${filename}.docx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error generating Word document:', error);
+      alert('Failed to generate Word document');
+    }
+  };
+
+  // Copy QNR as Forsta XML to clipboard
+  const downloadQNRAsForstaXML = async () => {
+    if (!selectedQuestionnaire) return;
+
+    try {
+      // Create a copy of the questionnaire without quotas and hidden variables
+      const forstaQuestionnaire = {
+        ...selectedQuestionnaire,
+        quotas: undefined, // Remove quotas
+        questions: selectedQuestionnaire.questions.filter(q => !q.number?.startsWith('hid_'))
+      };
+
+      const response = await fetch(`${API_BASE_URL}/api/questionnaire/forsta-xml`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
+        },
+        body: JSON.stringify(forstaQuestionnaire)
+      });
+
+      if (response.ok) {
+        const xml = await response.text();
+        // Copy to clipboard
+        await navigator.clipboard.writeText(xml);
+        setXmlCopied(true);
+        // Reset the copied state after 3 seconds
+        setTimeout(() => {
+          setXmlCopied(false);
+        }, 3000);
+      } else {
+        const error = await response.json();
+        alert(`Failed to generate XML: ${error.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error generating Forsta XML:', error);
+      alert('Failed to generate Forsta XML');
+    }
+  };
+
   return (
     <div className="flex-1 p-6 space-y-4 max-w-full overflow-y-auto overflow-x-hidden" style={{ height: 'calc(100vh - 80px)', marginTop: '80px' }}>
       {viewMode === 'home' && (
@@ -1342,6 +2364,39 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
                       </div>
                     </div>
                   </div>
+                  {/* Download Boxes */}
+                  <div className="grid grid-cols-2 gap-3 mb-6">
+                    <button
+                      onClick={downloadQNRAsWord}
+                      className="rounded-lg p-4 bg-white border-2 border-gray-300 text-gray-700 hover:border-gray-400 hover:bg-gray-50 transition-all cursor-pointer flex flex-col items-center justify-center gap-2"
+                    >
+                      <DocumentTextIcon className="w-6 h-6" />
+                      <div className="text-sm font-semibold text-center">Download as Word</div>
+                      <div className="text-xs text-gray-500 text-center">Full QNR Document</div>
+                    </button>
+                    <button
+                      onClick={downloadQNRAsForstaXML}
+                      className={`rounded-lg p-4 border-2 transition-all cursor-pointer flex flex-col items-center justify-center gap-2 ${
+                        xmlCopied
+                          ? 'bg-green-50 border-green-400 text-green-700'
+                          : 'bg-white border-gray-300 text-gray-700 hover:border-gray-400 hover:bg-gray-50'
+                      }`}
+                    >
+                      {xmlCopied ? (
+                        <>
+                          <CheckIcon className="w-6 h-6" />
+                          <div className="text-sm font-semibold text-center">Copied!</div>
+                          <div className="text-xs text-green-600 text-center">XML in clipboard</div>
+                        </>
+                      ) : (
+                        <>
+                          <ClipboardDocumentIcon className="w-6 h-6" />
+                          <div className="text-sm font-semibold text-center">Copy Forsta XML</div>
+                          <div className="text-xs text-gray-500 text-center">Survey Programming Code</div>
+                        </>
+                      )}
+                    </button>
+                  </div>
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="text-md font-semibold text-gray-900">Quotas</h3>
                   <button
@@ -1409,9 +2464,18 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
                           variableData={variableData}
                           onUpdateQuestion={(updatedQuestion) => {
                             // Update the question in the selected questionnaire
-                            const updatedQuestions = selectedQuestionnaire.questions.map(q => 
-                              q.id === updatedQuestion.id ? updatedQuestion : q
-                            );
+                            // Prioritize ID matching (more stable), then fall back to number matching
+                            const updatedQuestions = selectedQuestionnaire.questions.map(q => {
+                              // Match by ID first (most reliable)
+                              if (q.id && updatedQuestion.id && q.id === updatedQuestion.id) {
+                                return updatedQuestion;
+                              }
+                              // Fall back to number matching if IDs don't match or don't exist
+                              if ((q.number || q.id) === (updatedQuestion.number || updatedQuestion.id)) {
+                                return updatedQuestion;
+                              }
+                              return q;
+                            });
                             setSelectedQuestionnaire({
                               ...selectedQuestionnaire,
                               questions: updatedQuestions
@@ -1499,9 +2563,18 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
                         index={index}
                         onUpdateQuestion={(updatedQuestion) => {
                           // Update the question in the selected questionnaire
-                          const updatedQuestions = selectedQuestionnaire.questions.map(q => 
-                            (q.number || q.id) === (updatedQuestion.number || updatedQuestion.id) ? updatedQuestion : q
-                          );
+                          // Prioritize ID matching (more stable), then fall back to number matching
+                          const updatedQuestions = selectedQuestionnaire.questions.map(q => {
+                            // Match by ID first (most reliable)
+                            if (q.id && updatedQuestion.id && q.id === updatedQuestion.id) {
+                              return updatedQuestion;
+                            }
+                            // Fall back to number matching if IDs don't match or don't exist
+                            if ((q.number || q.id) === (updatedQuestion.number || updatedQuestion.id)) {
+                              return updatedQuestion;
+                            }
+                            return q;
+                          });
                           setSelectedQuestionnaire({
                             ...selectedQuestionnaire,
                             questions: updatedQuestions
@@ -1594,9 +2667,18 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
                               variableData={variableData}
                               onUpdateQuestion={(updatedQuestion) => {
                                 // Update the question in the selected questionnaire
-                                const updatedQuestions = selectedQuestionnaire.questions.map(q => 
-                                  q.id === updatedQuestion.id ? updatedQuestion : q
-                                );
+                                // Prioritize ID matching (more stable), then fall back to number matching
+                                const updatedQuestions = selectedQuestionnaire.questions.map(q => {
+                                  // Match by ID first (most reliable)
+                                  if (q.id && updatedQuestion.id && q.id === updatedQuestion.id) {
+                                    return updatedQuestion;
+                                  }
+                                  // Fall back to number matching if IDs don't match or don't exist
+                                  if ((q.number || q.id) === (updatedQuestion.number || updatedQuestion.id)) {
+                                    return updatedQuestion;
+                                  }
+                                  return q;
+                                });
                                 setSelectedQuestionnaire({
                                   ...selectedQuestionnaire,
                                   questions: updatedQuestions
@@ -1683,9 +2765,18 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
                           variableData={variableData}
                           onUpdateQuestion={(updatedQuestion) => {
                             // Update the question in the selected questionnaire
-                            const updatedQuestions = selectedQuestionnaire.questions.map(q => 
-                              q.id === updatedQuestion.id ? updatedQuestion : q
-                            );
+                            // Prioritize ID matching (more stable), then fall back to number matching
+                            const updatedQuestions = selectedQuestionnaire.questions.map(q => {
+                              // Match by ID first (most reliable)
+                              if (q.id && updatedQuestion.id && q.id === updatedQuestion.id) {
+                                return updatedQuestion;
+                              }
+                              // Fall back to number matching if IDs don't match or don't exist
+                              if ((q.number || q.id) === (updatedQuestion.number || updatedQuestion.id)) {
+                                return updatedQuestion;
+                              }
+                              return q;
+                            });
                             setSelectedQuestionnaire({
                               ...selectedQuestionnaire,
                               questions: updatedQuestions
@@ -4305,12 +5396,13 @@ function QuestionBox({
       // 2. Use options if available (for original numeric lists)
       // 3. Use statementOptions if available (for fallback numeric grids)
       const isNumericListForResponse = question.type?.toLowerCase().includes('numeric list');
+      const isNumericGridForResponse = question.type?.toLowerCase().includes('numeric grid');
       const hasResponseOptionsForResponse = question.responseOptions && Array.isArray(question.responseOptions) && question.responseOptions.length > 0;
       const hasOptionsForResponse = question.options && Array.isArray(question.options) && question.options.length > 0;
       const hasStatementOptionsForResponse = question.statementOptions && Array.isArray(question.statementOptions) && question.statementOptions.length > 0;
       const hasNoResponseOptionsForResponse = !hasResponseOptionsForResponse;
       const shouldUseStatementOptionsForResponse = isNumericListForResponse && hasNoResponseOptionsForResponse && hasStatementOptionsForResponse;
-      
+
       // Always try to use responseOptions first, then options, then statementOptions for fallback numeric lists
       let optionsToUseForResponse: any[] = [];
       if (hasResponseOptionsForResponse && question.responseOptions) {
@@ -4320,8 +5412,14 @@ function QuestionBox({
         optionsToUseForResponse = question.options;
       } else if (shouldUseStatementOptionsForResponse && question.statementOptions) {
         optionsToUseForResponse = question.statementOptions;
+      } else if (isNumericGridForResponse && !hasResponseOptionsForResponse && hasStatementOptionsForResponse) {
+        // For numeric grids without response options, create fallback column with % or # based on tags
+        const hasPercentTag = question.tags && question.tags.includes('%');
+        const hasNumberTag = question.tags && question.tags.includes('Number');
+        const fallbackColumnLabel = hasPercentTag ? '%' : (hasNumberTag ? '#' : '#');
+        optionsToUseForResponse = [{ code: '1', text: fallbackColumnLabel }];
       }
-      
+
       const responseOptions = optionsToUseForResponse.map((opt, idx) => {
         const respOpt = typeof opt === 'string' ? { code: `c${idx + 1}`, text: opt } : { code: opt.code || `c${idx + 1}`, text: opt.text || '' };
         // For numeric lists, use just the number (1, 2, 3) instead of c1, r1, etc.
@@ -4405,12 +5503,13 @@ function QuestionBox({
       // 2. Use options if available (for original numeric lists)
       // 3. Use statementOptions if available (for fallback numeric grids)
       const isNumericListForInit = question.type?.toLowerCase().includes('numeric list');
+      const isNumericGridForInit = question.type?.toLowerCase().includes('numeric grid');
       const hasResponseOptionsForInit = question.responseOptions && Array.isArray(question.responseOptions) && question.responseOptions.length > 0;
       const hasOptionsForInit = question.options && Array.isArray(question.options) && question.options.length > 0;
       const hasStatementOptionsForInit = question.statementOptions && Array.isArray(question.statementOptions) && question.statementOptions.length > 0;
       const hasNoResponseOptionsForInit = !hasResponseOptionsForInit;
       const shouldUseStatementOptionsForInit = isNumericListForInit && hasNoResponseOptionsForInit && hasStatementOptionsForInit;
-      
+
       // Always try to use responseOptions first, then options, then statementOptions for fallback numeric lists
       let optionsToUseForInit: any[] = [];
       if (hasResponseOptionsForInit && question.responseOptions) {
@@ -4420,8 +5519,14 @@ function QuestionBox({
         optionsToUseForInit = question.options;
       } else if (shouldUseStatementOptionsForInit && question.statementOptions) {
         optionsToUseForInit = question.statementOptions;
+      } else if (isNumericGridForInit && !hasResponseOptionsForInit && hasStatementOptionsForInit) {
+        // For numeric grids without response options, create fallback column with % or # based on tags
+        const hasPercentTag = question.tags && question.tags.includes('%');
+        const hasNumberTag = question.tags && question.tags.includes('Number');
+        const fallbackColumnLabel = hasPercentTag ? '%' : (hasNumberTag ? '#' : '#');
+        optionsToUseForInit = [{ code: '1', text: fallbackColumnLabel }];
       }
-      
+
       const responseOptions = optionsToUseForInit.map((opt, idx) => {
         const respOpt = typeof opt === 'string' ? { code: `c${idx + 1}`, text: opt } : { code: opt.code || `c${idx + 1}`, text: opt.text || '' };
         // For numeric lists, use just the number (1, 2, 3) instead of c1, r1, etc.
@@ -4508,12 +5613,13 @@ function QuestionBox({
     // 2. Use options if available (for original numeric lists)
     // 3. Use statementOptions if available (for fallback numeric grids)
     const isNumericList = question.type?.toLowerCase().includes('numeric list');
+    const isNumericGrid = question.type?.toLowerCase().includes('numeric grid');
     const hasResponseOptions = question.responseOptions && Array.isArray(question.responseOptions) && question.responseOptions.length > 0;
     const hasOptions = question.options && Array.isArray(question.options) && question.options.length > 0;
     const hasStatementOptions = question.statementOptions && Array.isArray(question.statementOptions) && question.statementOptions.length > 0;
     const hasNoResponseOptions = !hasResponseOptions;
     const shouldUseStatementOptions = isNumericList && hasNoResponseOptions && hasStatementOptions;
-    
+
     // Always try to use responseOptions first, then options, then statementOptions for fallback numeric lists
     let optionsToUse: any[] = [];
     if (hasResponseOptions && question.responseOptions) {
@@ -4523,8 +5629,14 @@ function QuestionBox({
       optionsToUse = question.options;
     } else if (shouldUseStatementOptions && question.statementOptions) {
       optionsToUse = question.statementOptions;
+    } else if (isNumericGrid && !hasResponseOptions && hasStatementOptions) {
+      // For numeric grids without response options, create fallback column with % or # based on tags
+      const hasPercentTag = question.tags && question.tags.includes('%');
+      const hasNumberTag = question.tags && question.tags.includes('Number');
+      const fallbackColumnLabel = hasPercentTag ? '%' : (hasNumberTag ? '#' : '#');
+      optionsToUse = [{ code: '1', text: fallbackColumnLabel }];
     }
-    
+
     const responseOptions = optionsToUse.map((opt, idx) => {
       const respOpt = typeof opt === 'string' ? { code: `c${idx + 1}`, text: opt } : { code: opt.code || `c${idx + 1}`, text: opt.text || '' };
       // For numeric lists, use just the number (1, 2, 3) instead of c1, r1, etc.
@@ -4539,7 +5651,7 @@ function QuestionBox({
       }
       return { code: numericCode, text: respOpt.text || '' };
     });
-    
+
     setEditedResponseOptions(responseOptions);
     
     // Initialize randomize
@@ -4684,8 +5796,10 @@ function QuestionBox({
     const fields = getFieldsForType(editedType);
 
     // Build updated question
+    // IMPORTANT: Preserve the question ID to ensure proper matching when updating
     const updatedQuestion: Question = {
       ...question,
+      id: question.id, // Explicitly preserve ID for matching
       number: editedQuestionNumber.trim(),
       text: editedQuestionText.trim(),
       type: editedType,
@@ -5623,7 +6737,13 @@ function QuestionBox({
                     // Options should already be normalized with codes extracted, but handle both formats
                     let opt: { code: string; text: string; tags?: string[] };
                     if (typeof option === 'string') {
-                      opt = { code: String(optIndex + 1), text: option };
+                      // Try to extract code from string (e.g., "99 Don't Know" -> code: "99", text: "Don't Know")
+                      const codeMatch = option.match(/^(\d+):?\s+(.+)$/);
+                      if (codeMatch) {
+                        opt = { code: codeMatch[1], text: codeMatch[2].trim() };
+                      } else {
+                        opt = { code: String(optIndex + 1), text: option };
+                      }
                     } else {
                       opt = { 
                         code: option.code || String(optIndex + 1), 
@@ -5635,9 +6755,11 @@ function QuestionBox({
                     const { cleanText: rawCleanText, hasExclusive, hasAnchor, hasSpecify } = parseOptionTags(opt.text);
                     // If the text starts with the same code we're displaying, remove it to avoid duplication
                     // e.g., if code is "1" and text is "1 Yes", show just "Yes"
+                    // Escape special regex characters in displayCode
                     let cleanText = rawCleanText;
                     const displayCodeForOption = opt.code || String(optIndex + 1);
-                    const codePattern = new RegExp(`^${displayCodeForOption}\\s+`, 'i');
+                    const escapedCode = displayCodeForOption.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const codePattern = new RegExp(`^${escapedCode}\\s+`, 'i');
                     if (cleanText.match(codePattern)) {
                       cleanText = cleanText.replace(codePattern, '').trim();
                     }
@@ -5694,7 +6816,9 @@ function QuestionBox({
             const hasPercentTag = question.tags && question.tags.includes('%');
             const hasNumberTag = question.tags && question.tags.includes('Number');
             const fallbackColumnLabel = hasPercentTag ? '%' : (hasNumberTag ? '#' : '#');
-            const displayResponseOptions: Array<{ code: string; text: string } | string> = hasResponseOptions ? question.responseOptions : [{ code: 'c1', text: fallbackColumnLabel }];
+            const displayResponseOptions: Array<{ code: string; text: string } | string> = hasResponseOptions 
+              ? (question.responseOptions as Array<{ code: string; text: string } | string>) 
+              : [{ code: 'c1', text: fallbackColumnLabel }];
             
             return (
               <div className="mb-3">
@@ -5835,8 +6959,10 @@ function QuestionBox({
                     const shouldTerminate = terminateCodes.has(codeForTerminate);
                     // If the text starts with the same code we're displaying, remove it to avoid duplication
                     // e.g., if displayCode is "1" and text is "1 Yes", show just "Yes"
+                    // Escape special regex characters in displayCode
                     let displayText = stmtOpt.text || '';
-                    const codePattern = new RegExp(`^${displayCode}\\s+`, 'i');
+                    const escapedCode = displayCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const codePattern = new RegExp(`^${escapedCode}\\s+`, 'i');
                     if (displayText.match(codePattern)) {
                       displayText = displayText.replace(codePattern, '').trim();
                     }
@@ -5974,9 +7100,19 @@ function QuestionBox({
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
                         {optionsToDisplay.map((resp, respIndex) => {
-                          const respOpt = typeof resp === 'string'
-                            ? { code: `c${respIndex + 1}`, text: resp }
-                            : resp;
+                          // If resp is a string, try to extract code from it (e.g., "99 Don't know" -> code: "99", text: "Don't know")
+                          let respOpt: { code: string; text: string };
+                          if (typeof resp === 'string') {
+                            // Try to extract leading number as code
+                            const codeMatch = resp.match(/^(\d+):?\s+(.+)$/);
+                            if (codeMatch) {
+                              respOpt = { code: `c${codeMatch[1]}`, text: codeMatch[2].trim() };
+                            } else {
+                              respOpt = { code: `c${respIndex + 1}`, text: resp };
+                            }
+                          } else {
+                            respOpt = resp;
+                          }
                           // For numeric lists, use just the number (1, 2, 3) instead of c1, r1, etc.
                           const isNumericListType = question.type?.toLowerCase().includes('numeric list');
                           const hasResponseOpts = question.responseOptions && question.responseOptions.length > 0;
@@ -5989,7 +7125,16 @@ function QuestionBox({
                             ? String(respIndex + 1)
                             : (respOpt.code || `c${respIndex + 1}`);
                           const shouldTerminate = terminateCodes.has(codeForTerminate);
-                          const { cleanText, hasExclusive, hasAnchor, hasSpecify } = parseOptionTags(respOpt.text);
+                          const { cleanText: rawCleanText, hasExclusive, hasAnchor, hasSpecify } = parseOptionTags(respOpt.text);
+                          // If the text starts with the same code we're displaying, remove it to avoid duplication
+                          // e.g., if displayCode is "99" and text is "99 Don't know", show just "Don't know"
+                          // Escape special regex characters in displayCode
+                          let cleanText = rawCleanText;
+                          const escapedCode = displayCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                          const codePattern = new RegExp(`^${escapedCode}\\s+`, 'i');
+                          if (cleanText.match(codePattern)) {
+                            cleanText = cleanText.replace(codePattern, '').trim();
+                          }
                           const definition = getOptionDefinition(question.terminateLogic, codeForTerminate);
                           
                           // Get logic for this response option (logic is an array matching response options in order)
@@ -6051,13 +7196,30 @@ function QuestionBox({
                 </div>
                 <div className="space-y-1">
                   {optionsToDisplay.map((resp, respIndex) => {
-                    const respOpt = typeof resp === 'string'
-                      ? { code: `c${respIndex + 1}`, text: resp }
-                      : resp;
+                    // If resp is a string, try to extract code from it (e.g., "99 Don't know" -> code: "99", text: "Don't know")
+                    let respOpt: { code: string; text: string };
+                    if (typeof resp === 'string') {
+                      // Try to extract leading number as code
+                      const codeMatch = resp.match(/^(\d+):?\s+(.+)$/);
+                      if (codeMatch) {
+                        respOpt = { code: `c${codeMatch[1]}`, text: codeMatch[2].trim() };
+                      } else {
+                        respOpt = { code: `c${respIndex + 1}`, text: resp };
+                      }
+                    } else {
+                      respOpt = resp;
+                    }
                     // For numeric lists, use just the number (1, 2, 3) instead of c1, r1, etc.
-                    const displayCode = isNumericListWithOptions 
-                      ? String(respIndex + 1)
-                      : (respOpt.code?.replace(/^[rc]/i, '') || String(respIndex + 1));
+                    // But if the code exists, extract the numeric part from it
+                    let displayCode: string;
+                    if (isNumericListWithOptions) {
+                      // For numeric lists, try to extract the numeric code, otherwise use index
+                      const numericCode = respOpt.code?.replace(/^[rc]/i, '') || String(respIndex + 1);
+                      displayCode = numericCode;
+                    } else {
+                      // For other types, remove prefix and use the code, or fallback to index
+                      displayCode = respOpt.code?.replace(/^[rc]/i, '') || String(respIndex + 1);
+                    }
                     const codeForTerminate = isNumericListWithOptions 
                       ? String(respIndex + 1)
                       : (respOpt.code || `c${respIndex + 1}`);
@@ -6065,8 +7227,10 @@ function QuestionBox({
                     const { cleanText: rawCleanText, hasExclusive, hasAnchor, hasSpecify } = parseOptionTags(respOpt.text);
                     // If the text starts with the same code we're displaying, remove it to avoid duplication
                     // e.g., if displayCode is "1" and text is "1 Yes", show just "Yes"
+                    // Escape special regex characters in displayCode
                     let cleanText = rawCleanText;
-                    const codePattern = new RegExp(`^${displayCode}\\s+`, 'i');
+                    const escapedCode = displayCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const codePattern = new RegExp(`^${escapedCode}\\s+`, 'i');
                     if (cleanText.match(codePattern)) {
                       cleanText = cleanText.replace(codePattern, '').trim();
                     }
@@ -6249,9 +7413,16 @@ function SurveyQuestionView({
     if (!question.options) return [];
     return question.options.map((opt, idx) => {
       if (typeof opt === 'string') {
+        // Try to extract leading number as code (e.g., "1 Yes" -> code: "1", text: "Yes")
+        const codeMatch = opt.match(/^(\d+):?\s+(.+)$/);
+        if (codeMatch) {
+          return { code: codeMatch[1], text: codeMatch[2].trim() };
+        }
         return { code: String(idx + 1), text: opt };
       }
-      return { code: opt.code || String(idx + 1), text: opt.text || '' };
+      // If it's already an object, extract numeric part of code if it has a prefix
+      const numericCode = opt.code?.replace(/^[rc]/i, '') || String(idx + 1);
+      return { code: numericCode, text: opt.text || opt.code || '' };
     });
   };
 
@@ -6292,7 +7463,14 @@ function SurveyQuestionView({
                 <tbody>
                   <tr>
                     {options.map((opt, optIdx) => {
-                      const { cleanText, hasExclusive, hasAnchor, hasSpecify } = parseOptionTags(opt.text || opt.code);
+                      // Remove the code from the beginning of the text if it's still there
+                      let displayText = opt.text || opt.code || '';
+                      const escapedCode = opt.code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                      const codePattern = new RegExp(`^${escapedCode}\\s+`, 'i');
+                      if (displayText.match(codePattern)) {
+                        displayText = displayText.replace(codePattern, '').trim();
+                      }
+                      const { cleanText, hasExclusive, hasAnchor, hasSpecify } = parseOptionTags(displayText);
                       const numColumns = options.length;
                       const columnWidth = `${100 / numColumns}%`;
                       return (
@@ -6347,7 +7525,14 @@ function SurveyQuestionView({
         return (
           <div className="space-y-2">
             {options.map((opt, optIdx) => {
-              const { cleanText, hasExclusive, hasAnchor, hasSpecify } = parseOptionTags(opt.text || opt.code);
+              // Remove the code from the beginning of the text if it's still there
+              let displayText = opt.text || opt.code || '';
+              const escapedCode = opt.code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+              const codePattern = new RegExp(`^${escapedCode}\\s+`, 'i');
+              if (displayText.match(codePattern)) {
+                displayText = displayText.replace(codePattern, '').trim();
+              }
+              const { cleanText, hasExclusive, hasAnchor, hasSpecify } = parseOptionTags(displayText);
               return (
                 <div key={optIdx}>
                   <label className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded cursor-pointer">
@@ -6389,7 +7574,14 @@ function SurveyQuestionView({
       {isMultiSelect && (
         <div className="space-y-2">
           {getOptions().map((opt, optIdx) => {
-            const { cleanText, hasExclusive, hasAnchor, hasSpecify } = parseOptionTags(opt.text || opt.code);
+            // Remove the code from the beginning of the text if it's still there
+            let displayText = opt.text || opt.code || '';
+            const escapedCode = opt.code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const codePattern = new RegExp(`^${escapedCode}\\s+`, 'i');
+            if (displayText.match(codePattern)) {
+              displayText = displayText.replace(codePattern, '').trim();
+            }
+            const { cleanText, hasExclusive, hasAnchor, hasSpecify } = parseOptionTags(displayText);
             return (
               <div key={optIdx}>
                 <label className="flex items-start gap-3 p-2 hover:bg-gray-50 rounded cursor-pointer">
@@ -6464,10 +7656,27 @@ function SurveyQuestionView({
                 <div className="text-xs font-medium text-gray-600 mb-2">Or select:</div>
                 <div className="space-y-1">
                   {optOutOptions.map((opt, optIdx) => {
-                    const optObj = typeof opt === 'string'
-                      ? { code: String(optIdx + 1), text: opt }
-                      : opt;
-                    const { cleanText, hasExclusive, hasAnchor, hasSpecify } = parseOptionTags(optObj.text || optObj.code);
+                    // Extract code from string if it starts with a number
+                    let optObj: { code: string; text: string };
+                    if (typeof opt === 'string') {
+                      const codeMatch = opt.match(/^(\d+):?\s+(.+)$/);
+                      if (codeMatch) {
+                        optObj = { code: codeMatch[1], text: codeMatch[2].trim() };
+                      } else {
+                        optObj = { code: String(optIdx + 1), text: opt };
+                      }
+                    } else {
+                      const numericCode = opt.code?.replace(/^[rc]/i, '') || String(optIdx + 1);
+                      optObj = { code: numericCode, text: opt.text || opt.code || '' };
+                    }
+                    // Remove the code from the beginning of the text if it's still there
+                    let displayText = optObj.text;
+                    const escapedCode = optObj.code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const codePattern = new RegExp(`^${escapedCode}\\s+`, 'i');
+                    if (displayText.match(codePattern)) {
+                      displayText = displayText.replace(codePattern, '').trim();
+                    }
+                    const { cleanText, hasExclusive, hasAnchor, hasSpecify } = parseOptionTags(displayText);
                     return (
                       <div key={optIdx}>
                         <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
@@ -6516,12 +7725,30 @@ function SurveyQuestionView({
               <tr className="bg-gray-50">
                 <th className="px-4 py-2 text-left text-sm font-medium text-gray-700 border-b border-gray-300"></th>
                 {displayResponseOptions.map((resp, respIdx) => {
-                  const respOpt = typeof resp === 'string' 
-                    ? { code: `c${respIdx + 1}`, text: resp } 
-                    : resp;
+                  // Extract code from string if it starts with a number
+                  let respOpt: { code: string; text: string };
+                  if (typeof resp === 'string') {
+                    const codeMatch = resp.match(/^(\d+):?\s+(.+)$/);
+                    if (codeMatch) {
+                      respOpt = { code: codeMatch[1], text: codeMatch[2].trim() };
+                    } else {
+                      respOpt = { code: `c${respIdx + 1}`, text: resp };
+                    }
+                  } else {
+                    const numericCode = resp.code?.replace(/^[rc]/i, '') || `c${respIdx + 1}`;
+                    respOpt = { code: numericCode, text: resp.text || resp.code || '' };
+                  }
+                  // Remove the code from the beginning of the text if it's still there
+                  let displayText = respOpt.text;
+                  const escapedCode = respOpt.code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                  const codePattern = new RegExp(`^${escapedCode}\\s+`, 'i');
+                  if (displayText.match(codePattern)) {
+                    displayText = displayText.replace(codePattern, '').trim();
+                  }
+                  const { cleanText } = parseOptionTags(displayText);
                   return (
                     <th key={respIdx} className="px-4 py-2 text-center text-sm font-medium text-gray-700 border-b border-gray-300">
-                      {formatDescriptionWithBrackets(respOpt.text || respOpt.code)}
+                      {formatDescriptionWithBrackets(cleanText || displayText)}
                     </th>
                   );
                 })}
@@ -6529,12 +7756,30 @@ function SurveyQuestionView({
             </thead>
             <tbody>
               {displayStatementOptions.map((stmt, stmtIdx) => {
-                const stmtOpt = typeof stmt === 'string' 
-                  ? { code: `r${stmtIdx + 1}`, text: stmt } 
-                  : stmt;
+                // Extract code from string if it starts with a number
+                let stmtOpt: { code: string; text: string };
+                if (typeof stmt === 'string') {
+                  const codeMatch = stmt.match(/^(\d+):?\s+(.+)$/);
+                  if (codeMatch) {
+                    stmtOpt = { code: codeMatch[1], text: codeMatch[2].trim() };
+                  } else {
+                    stmtOpt = { code: `r${stmtIdx + 1}`, text: stmt };
+                  }
+                } else {
+                  const numericCode = stmt.code?.replace(/^[rc]/i, '') || `r${stmtIdx + 1}`;
+                  stmtOpt = { code: numericCode, text: stmt.text || stmt.code || '' };
+                }
+                // Remove the code from the beginning of the text if it's still there
+                let displayText = stmtOpt.text;
+                const escapedCode = stmtOpt.code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const codePattern = new RegExp(`^${escapedCode}\\s+`, 'i');
+                if (displayText.match(codePattern)) {
+                  displayText = displayText.replace(codePattern, '').trim();
+                }
+                const { cleanText } = parseOptionTags(displayText);
                 return (
                   <tr key={stmtIdx} className="border-b border-gray-200">
-                    <td className="px-4 py-3 text-sm text-gray-700">{formatDescriptionWithBrackets(stmtOpt.text || stmtOpt.code)}</td>
+                    <td className="px-4 py-3 text-sm text-gray-700">{formatDescriptionWithBrackets(cleanText || displayText)}</td>
                     {displayResponseOptions?.map((resp, respIdx) => (
                       <td key={respIdx} className="px-4 py-3 text-center">
                         <input
@@ -6562,12 +7807,30 @@ function SurveyQuestionView({
               <tr className="bg-gray-50">
                 <th className="px-4 py-2 text-left text-sm font-medium text-gray-700 border-b border-gray-300"></th>
                 {displayResponseOptions.map((resp, respIdx) => {
-                  const respOpt = typeof resp === 'string' 
-                    ? { code: `c${respIdx + 1}`, text: resp } 
-                    : resp;
+                  // Extract code from string if it starts with a number
+                  let respOpt: { code: string; text: string };
+                  if (typeof resp === 'string') {
+                    const codeMatch = resp.match(/^(\d+):?\s+(.+)$/);
+                    if (codeMatch) {
+                      respOpt = { code: codeMatch[1], text: codeMatch[2].trim() };
+                    } else {
+                      respOpt = { code: `c${respIdx + 1}`, text: resp };
+                    }
+                  } else {
+                    const numericCode = resp.code?.replace(/^[rc]/i, '') || `c${respIdx + 1}`;
+                    respOpt = { code: numericCode, text: resp.text || resp.code || '' };
+                  }
+                  // Remove the code from the beginning of the text if it's still there
+                  let displayText = respOpt.text;
+                  const escapedCode = respOpt.code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                  const codePattern = new RegExp(`^${escapedCode}\\s+`, 'i');
+                  if (displayText.match(codePattern)) {
+                    displayText = displayText.replace(codePattern, '').trim();
+                  }
+                  const { cleanText } = parseOptionTags(displayText);
                   return (
                     <th key={respIdx} className="px-4 py-2 text-center text-sm font-medium text-gray-700 border-b border-gray-300">
-                      {formatDescriptionWithBrackets(respOpt.text || respOpt.code)}
+                      {formatDescriptionWithBrackets(cleanText || displayText)}
                     </th>
                   );
                 })}
@@ -6575,12 +7838,30 @@ function SurveyQuestionView({
             </thead>
             <tbody>
               {displayStatementOptions.map((stmt, stmtIdx) => {
-                const stmtOpt = typeof stmt === 'string' 
-                  ? { code: `r${stmtIdx + 1}`, text: stmt } 
-                  : stmt;
+                // Extract code from string if it starts with a number
+                let stmtOpt: { code: string; text: string };
+                if (typeof stmt === 'string') {
+                  const codeMatch = stmt.match(/^(\d+):?\s+(.+)$/);
+                  if (codeMatch) {
+                    stmtOpt = { code: codeMatch[1], text: codeMatch[2].trim() };
+                  } else {
+                    stmtOpt = { code: `r${stmtIdx + 1}`, text: stmt };
+                  }
+                } else {
+                  const numericCode = stmt.code?.replace(/^[rc]/i, '') || `r${stmtIdx + 1}`;
+                  stmtOpt = { code: numericCode, text: stmt.text || stmt.code || '' };
+                }
+                // Remove the code from the beginning of the text if it's still there
+                let displayText = stmtOpt.text;
+                const escapedCode = stmtOpt.code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const codePattern = new RegExp(`^${escapedCode}\\s+`, 'i');
+                if (displayText.match(codePattern)) {
+                  displayText = displayText.replace(codePattern, '').trim();
+                }
+                const { cleanText } = parseOptionTags(displayText);
                 return (
                   <tr key={stmtIdx} className="border-b border-gray-200">
-                    <td className="px-4 py-3 text-sm text-gray-700">{formatDescriptionWithBrackets(stmtOpt.text || stmtOpt.code)}</td>
+                    <td className="px-4 py-3 text-sm text-gray-700">{formatDescriptionWithBrackets(cleanText || displayText)}</td>
                     {displayResponseOptions?.map((resp, respIdx) => (
                       <td key={respIdx} className="px-4 py-3 text-center">
                         <input
@@ -6606,7 +7887,7 @@ function SurveyQuestionView({
         const hasPercentTag = question.tags && question.tags.includes('%');
         const hasNumberTag = question.tags && question.tags.includes('Number');
         const fallbackColumnLabel = hasPercentTag ? '%' : (hasNumberTag ? '#' : '#');
-        const displayResponseOptions: Array<{ code: string; text: string } | string> = hasResponseOptions ? question.responseOptions : [{ code: 'c1', text: fallbackColumnLabel }];
+        const displayResponseOptions: Array<{ code: string; text: string } | string> = hasResponseOptions ? (question.responseOptions || []) : [{ code: 'c1', text: fallbackColumnLabel }];
         
         return (
           <div className="overflow-x-auto">
@@ -6615,9 +7896,27 @@ function SurveyQuestionView({
                 <tr className="bg-gray-50">
                   <th className="px-4 py-2 text-left text-sm font-medium text-gray-700 border-b border-gray-300"></th>
                   {displayResponseOptions.map((resp, respIdx) => {
-                    const respOpt = typeof resp === 'string'
-                      ? { code: `c${respIdx + 1}`, text: resp }
-                      : resp;
+                    // Extract code from string if it starts with a number
+                    let respOpt: { code: string; text: string };
+                    if (typeof resp === 'string') {
+                      const codeMatch = resp.match(/^(\d+):?\s+(.+)$/);
+                      if (codeMatch) {
+                        respOpt = { code: codeMatch[1], text: codeMatch[2].trim() };
+                      } else {
+                        respOpt = { code: `c${respIdx + 1}`, text: resp };
+                      }
+                    } else {
+                      const numericCode = resp.code?.replace(/^[rc]/i, '') || `c${respIdx + 1}`;
+                      respOpt = { code: numericCode, text: resp.text || resp.code || '' };
+                    }
+                    // Remove the code from the beginning of the text if it's still there
+                    let displayText = respOpt.text;
+                    const escapedCode = respOpt.code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const codePattern = new RegExp(`^${escapedCode}\\s+`, 'i');
+                    if (displayText.match(codePattern)) {
+                      displayText = displayText.replace(codePattern, '').trim();
+                    }
+                    const { cleanText } = parseOptionTags(displayText);
                     const numColumns = displayResponseOptions.length;
                     // Response columns share remaining space equally (assuming first column takes ~30%)
                     const columnWidth = `${70 / numColumns}%`;
@@ -6627,7 +7926,7 @@ function SurveyQuestionView({
                         className="px-4 py-2 text-center text-sm font-medium text-gray-700 border-b border-gray-300"
                         style={{ width: columnWidth }}
                       >
-                        {formatDescriptionWithBrackets(respOpt.text || respOpt.code)}
+                        {formatDescriptionWithBrackets(cleanText || displayText)}
                       </th>
                     );
                   })}
@@ -6635,14 +7934,32 @@ function SurveyQuestionView({
               </thead>
               <tbody>
                 {question.statementOptions.map((stmt, stmtIdx) => {
-                  const stmtOpt = typeof stmt === 'string'
-                    ? { code: `r${stmtIdx + 1}`, text: stmt }
-                    : stmt;
+                  // Extract code from string if it starts with a number
+                  let stmtOpt: { code: string; text: string };
+                  if (typeof stmt === 'string') {
+                    const codeMatch = stmt.match(/^(\d+):?\s+(.+)$/);
+                    if (codeMatch) {
+                      stmtOpt = { code: codeMatch[1], text: codeMatch[2].trim() };
+                    } else {
+                      stmtOpt = { code: `r${stmtIdx + 1}`, text: stmt };
+                    }
+                  } else {
+                    const numericCode = stmt.code?.replace(/^[rc]/i, '') || `r${stmtIdx + 1}`;
+                    stmtOpt = { code: numericCode, text: stmt.text || stmt.code || '' };
+                  }
+                  // Remove the code from the beginning of the text if it's still there
+                  let displayText = stmtOpt.text;
+                  const escapedCode = stmtOpt.code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                  const codePattern = new RegExp(`^${escapedCode}\\s+`, 'i');
+                  if (displayText.match(codePattern)) {
+                    displayText = displayText.replace(codePattern, '').trim();
+                  }
+                  const { cleanText } = parseOptionTags(displayText);
                   const numColumns = displayResponseOptions.length;
                   const columnWidth = `${70 / numColumns}%`;
                   return (
                     <tr key={stmtIdx} className="border-b border-gray-200">
-                      <td className="px-4 py-3 text-sm text-gray-700">{formatDescriptionWithBrackets(stmtOpt.text || stmtOpt.code)}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{formatDescriptionWithBrackets(cleanText || displayText)}</td>
                       {displayResponseOptions.map((resp, respIdx) => (
                         <td
                           key={respIdx}
@@ -6675,13 +7992,31 @@ function SurveyQuestionView({
       {isOpenEndList && question.responseOptions && (
         <div className="space-y-3">
           {question.responseOptions.map((resp, respIdx) => {
-            const respOpt = typeof resp === 'string' 
-              ? { code: `r${respIdx + 1}`, text: resp } 
-              : resp;
+            // Extract code from string if it starts with a number
+            let respOpt: { code: string; text: string };
+            if (typeof resp === 'string') {
+              const codeMatch = resp.match(/^(\d+):?\s+(.+)$/);
+              if (codeMatch) {
+                respOpt = { code: codeMatch[1], text: codeMatch[2].trim() };
+              } else {
+                respOpt = { code: `r${respIdx + 1}`, text: resp };
+              }
+            } else {
+              const numericCode = resp.code?.replace(/^[rc]/i, '') || `r${respIdx + 1}`;
+              respOpt = { code: numericCode, text: resp.text || resp.code || '' };
+            }
+            // Remove the code from the beginning of the text if it's still there
+            let displayText = respOpt.text;
+            const escapedCode = respOpt.code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const codePattern = new RegExp(`^${escapedCode}\\s+`, 'i');
+            if (displayText.match(codePattern)) {
+              displayText = displayText.replace(codePattern, '').trim();
+            }
+            const { cleanText } = parseOptionTags(displayText);
             return (
               <div key={respIdx}>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {formatDescriptionWithBrackets(respOpt.text || respOpt.code)}
+                  {formatDescriptionWithBrackets(cleanText || displayText)}
                 </label>
                 <textarea
                   name={`question-${question.id || index}-resp-${respIdx}`}
@@ -6717,13 +8052,37 @@ function SurveyQuestionView({
             <table className="w-full border border-gray-300 rounded-lg">
               <tbody>
                 {responseOptions.map((resp, respIdx) => {
-                  const respOpt = typeof resp === 'string' 
-                    ? { code: `r${respIdx + 1}`, text: resp } 
-                    : resp;
+                  // Extract code from string if it starts with a number (e.g., "1 Treated with..." -> code: "1", text: "Treated with...")
+                  let respOpt: { code: string; text: string };
+                  if (typeof resp === 'string') {
+                    // Try to extract leading number as code
+                    const codeMatch = resp.match(/^(\d+):?\s+(.+)$/);
+                    if (codeMatch) {
+                      respOpt = { code: codeMatch[1], text: codeMatch[2].trim() };
+                    } else {
+                      respOpt = { code: String(respIdx + 1), text: resp };
+                    }
+                  } else {
+                    // If it's already an object, use the numeric part of the code for numeric lists
+                    const numericCode = resp.code?.replace(/^[rc]/i, '') || String(respIdx + 1);
+                    respOpt = { code: numericCode, text: resp.text || resp.code || '' };
+                  }
+                  
+                  // Remove the code from the beginning of the text if it's still there
+                  let displayText = respOpt.text;
+                  const escapedCode = respOpt.code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                  const codePattern = new RegExp(`^${escapedCode}\\s+`, 'i');
+                  if (displayText.match(codePattern)) {
+                    displayText = displayText.replace(codePattern, '').trim();
+                  }
+                  
+                  // Parse option tags and format the text
+                  const { cleanText } = parseOptionTags(displayText);
+                  
                   return (
                     <tr key={respIdx} className="border-b border-gray-200 last:border-b-0">
                       <td className="px-4 py-3 text-sm text-gray-700">
-                        {formatDescriptionWithBrackets(respOpt.text || respOpt.code)}
+                        {formatDescriptionWithBrackets(cleanText || displayText)}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-start gap-1">

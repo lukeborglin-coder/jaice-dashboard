@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { PlusIcon, TrashIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 
 const BRAND = {
@@ -175,6 +175,58 @@ const StatTesting: React.FC = () => {
     }));
   };
 
+  // Handle paste event for Excel-like copy/paste
+  const handlePaste = (e: React.ClipboardEvent, startColIndex: number, startRowIndex: number) => {
+    e.preventDefault();
+    const pastedData = e.clipboardData.getData('text');
+    
+    // Parse tab-separated values (Excel format)
+    const rows = pastedData.split(/\r?\n/).filter(row => row.trim() !== '');
+    const pasteData: string[][] = rows.map(row => row.split(/\t/));
+
+    if (pasteData.length === 0) return;
+
+    setColumns(prevColumns => {
+      const newColumns = prevColumns.map((col, colIndex) => {
+        const newValues = [...col.values];
+        
+        pasteData.forEach((row, rowOffset) => {
+          const targetRowIndex = startRowIndex + rowOffset;
+          const targetColIndex = colIndex - startColIndex;
+          
+          // Only paste if we have data for this column
+          if (targetColIndex >= 0 && targetColIndex < row.length) {
+            const cellValue = row[targetColIndex].trim();
+            
+            // Ensure array is long enough
+            while (newValues.length <= targetRowIndex) {
+              newValues.push('');
+            }
+            
+            // Validate and set value
+            if (cellValue === '') {
+              newValues[targetRowIndex] = '';
+            } else {
+              // Remove % sign if present
+              const cleanValue = cellValue.replace('%', '').trim();
+              // Only allow numbers 0-100
+              if (/^\d{1,3}$/.test(cleanValue)) {
+                const numValue = parseInt(cleanValue);
+                if (numValue >= 0 && numValue <= 100) {
+                  newValues[targetRowIndex] = cleanValue;
+                }
+              }
+            }
+          }
+        });
+        
+        return { ...col, values: newValues };
+      });
+      
+      return newColumns;
+    });
+  };
+
   const exportToExcel = () => {
     // Create CSV content with proper formatting
     let csvContent = '';
@@ -274,34 +326,39 @@ const StatTesting: React.FC = () => {
           </button>
         </div>
         
-        <div className="bg-white rounded-lg border border-gray-200 overflow-auto w-full">
+        <div className="bg-white rounded-lg border border-gray-300 overflow-auto w-full shadow-sm">
           <table className="border-collapse" style={{ width: 'auto', minWidth: '100%' }}>
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
+              <tr className="bg-gray-100 border-b-2 border-gray-400">
+                <th className="w-12 px-2 py-2 text-center border-r-2 border-gray-400 bg-gray-200 font-semibold text-xs text-gray-700 sticky left-0 z-10">
+                  #
+                </th>
                 {columns.map((col) => (
-                  <th key={col.id} className="px-4 py-3 text-center border-r border-gray-200 last:border-r-0">
+                  <th key={col.id} className="px-3 py-2 text-center border-r border-gray-300 min-w-[150px]">
                     <input
                       type="text"
                       value={col.title}
                       onChange={(e) => updateColumnTitle(col.id, e.target.value)}
                       placeholder="Subgroup Title"
-                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500 text-center"
+                      className="w-full px-2 py-1 text-xs border border-gray-400 rounded-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center bg-white"
+                      style={{ fontFamily: 'inherit' }}
                     />
                   </th>
                 ))}
-                <th className="w-16 px-4 py-3 border-r border-gray-200" rowSpan={3}>
+                <th className="w-12 px-2 py-2 border-r-2 border-gray-400 bg-gray-200" rowSpan={3}>
                   <button
                     onClick={addColumn}
-                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors flex items-center justify-center mx-auto"
+                    className="p-1 hover:bg-gray-300 rounded transition-colors flex items-center justify-center mx-auto w-full h-full"
                     title="Add column"
                   >
-                    <PlusIcon className="w-5 h-5 text-gray-600" />
+                    <PlusIcon className="w-4 h-4 text-gray-700" />
                   </button>
                 </th>
               </tr>
-              <tr className="bg-gray-50 border-b border-gray-200">
+              <tr className="bg-gray-100 border-b border-gray-300">
+                <th className="px-2 py-2 text-center border-r-2 border-gray-400 bg-gray-200 sticky left-0 z-10"></th>
                 {columns.map((col) => (
-                  <th key={`sample-${col.id}`} className="px-4 py-3 text-center border-r border-gray-200">
+                  <th key={`sample-${col.id}`} className="px-3 py-2 text-center border-r border-gray-300">
                     <input
                       type="text"
                       value={col.sampleSize}
@@ -311,26 +368,28 @@ const StatTesting: React.FC = () => {
                           updateColumnSampleSize(col.id, value);
                         }
                       }}
-                      placeholder="sample size"
-                      className="w-full px-2 py-1 text-sm text-center border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500"
+                      placeholder="n="
+                      className="w-full px-2 py-1 text-xs text-center border border-gray-400 rounded-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                      style={{ fontFamily: 'inherit' }}
                     />
                   </th>
                 ))}
               </tr>
-              <tr className="bg-gray-50 border-b border-gray-200">
+              <tr className="bg-gray-100 border-b-2 border-gray-400">
+                <th className="px-2 py-2 text-center border-r-2 border-gray-400 bg-gray-200 sticky left-0 z-10"></th>
                 {columns.map((col) => (
-                  <th key={`header-${col.id}`} className="px-4 py-2 text-center border-r border-gray-200">
+                  <th key={`header-${col.id}`} className="px-3 py-2 text-center border-r border-gray-300">
                     <div className="flex items-center justify-center gap-2">
-                      <span className="text-xs" style={{ color: BRAND.gray }}>
+                      <span className="text-xs font-semibold" style={{ color: BRAND.gray }}>
                         ({col.letter})
                       </span>
                       {columns.length > 2 && (
                         <button
                           onClick={() => removeColumn(col.id)}
-                          className="p-1 hover:bg-red-50 rounded transition-colors"
+                          className="p-1 hover:bg-red-100 rounded transition-colors"
                           title="Remove column"
                         >
-                          <TrashIcon className="w-4 h-4 text-red-600" />
+                          <TrashIcon className="w-3 h-3 text-red-600" />
                         </button>
                       )}
                     </div>
@@ -348,35 +407,49 @@ const StatTesting: React.FC = () => {
                 return (
                   <tr
                     key={rowIndex}
-                    className={`border-b border-gray-200 last:border-b-0 ${isLastRow ? 'bg-gray-50' : 'hover:bg-gray-50'}`}
+                    className={`${isLastRow ? 'bg-gray-50' : 'hover:bg-blue-50'} transition-colors`}
                   >
+                    <td className="px-2 py-1 text-center border-r-2 border-gray-400 border-b border-gray-300 bg-gray-200 font-semibold text-xs text-gray-700 sticky left-0 z-10">
+                      {rowIndex + 1}
+                    </td>
                     {columns.map((col, colIndex) => {
                       const significantDiffs = getSignificantDifferences(rowIndex, colIndex);
+                      const cellValue = col.values[rowIndex] || '';
                       return (
-                        <td key={col.id} className="px-4 py-2 border-r border-gray-200 last:border-r-0">
-                          <div className="flex items-center justify-center gap-1">
-                            <div className="flex items-center gap-1">
-                              <input
-                                type="text"
-                                value={col.values[rowIndex] || ''}
-                                onChange={(e) => updateCellValue(col.id, rowIndex, e.target.value)}
-                                onFocus={(e) => e.target.placeholder = ''}
-                                onBlur={(e) => e.target.placeholder = '0'}
-                                placeholder="0"
-                                className={`w-16 px-2 py-1 text-sm text-center border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500 ${isLastRow ? 'bg-gray-50' : ''}`}
-                              />
-                              <span className="text-sm text-gray-500">%</span>
-                            </div>
+                        <td key={col.id} className="px-0 py-0 border-r border-gray-300 border-b border-gray-300 relative group" style={{ minWidth: '100px' }}>
+                          <div className="flex items-center justify-center h-full relative">
+                            <input
+                              type="text"
+                              value={cellValue}
+                              onChange={(e) => updateCellValue(col.id, rowIndex, e.target.value)}
+                              onPaste={(e) => handlePaste(e, colIndex, rowIndex)}
+                              onFocus={(e) => {
+                                e.target.placeholder = '';
+                                e.target.select();
+                              }}
+                              onBlur={(e) => e.target.placeholder = ''}
+                              placeholder=""
+                              className={`w-full px-2 py-1.5 text-sm text-center border-0 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:z-20 relative bg-transparent ${isLastRow ? 'bg-gray-50' : ''}`}
+                              style={{ 
+                                fontFamily: 'inherit',
+                                minHeight: '28px'
+                              }}
+                            />
+                            {cellValue && (
+                              <span className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs text-gray-500 pointer-events-none">
+                                %
+                              </span>
+                            )}
                             {significantDiffs.length > 0 && (
-                              <span className="text-xs font-bold text-red-600 ml-1">
-                                {significantDiffs.join('')}
+                              <span className="absolute top-0.5 right-8 text-xs font-bold text-red-600 pointer-events-none whitespace-nowrap">
+                                ({significantDiffs.join(',')})
                               </span>
                             )}
                           </div>
                         </td>
                       );
                     })}
-                    <td className="px-4 py-2"></td>
+                    <td className="px-2 py-1 border-r-2 border-gray-400 border-b border-gray-300 bg-gray-200"></td>
                   </tr>
                 );
               })}

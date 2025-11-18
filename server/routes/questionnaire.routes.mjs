@@ -2156,208 +2156,356 @@ IMPORTANT: Return ONLY valid JSON. Do not include any explanatory text outside t
   }
 }
 
-// Generate XML for Forsta/Decipher compatibility
-function generateXml(questionnaire) {
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<survey>
-  <title>${questionnaire.name}</title>
-  <created>${questionnaire.createdAt}</created>
-  <description>Generated from JAICE Questionnaire Parser</description>
+// XML escaping and sanitization helpers
+function escapeXmlText(text) {
+  if (!text) return '';
+  let result = String(text);
   
-  ${questionnaire.questions.map(question => {
-    let xml = `  <question id="${question.id}" type="${question.type}"`;
+  // Use placeholders to protect styled text from later processing
+  const placeholderPrefix = '___STYLED_TEXT_';
+  const placeholders = [];
+  let placeholderIndex = 0;
+  
+  // Find all [text] patterns and wrap just the content in blue italic styling (no brackets)
+  result = result.replace(/\[([^\]]+)\]/g, (match, content) => {
+    // Escape HTML entities in the content
+    const escapedContent = content
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    // Create styled version without brackets - just the text in blue italic
+    const styled = '<span style="color: blue; font-style: italic;">' + escapedContent + '</span>';
+    // Store and return placeholder
+    const placeholder = placeholderPrefix + placeholderIndex++ + '___';
+    placeholders.push(styled);
+    return placeholder;
+  });
+  
+  // Now escape & < > in the remaining text
+  result = result
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  
+  // Escape any remaining single brackets that weren't part of [text] patterns
+  result = result.replace(/\[/g, '[[');
+  result = result.replace(/\]/g, ']]');
+  
+  // Restore the styled text (unescape the HTML tags)
+  placeholders.forEach((styled, index) => {
+    const placeholder = placeholderPrefix + index + '___';
+    // Unescape HTML entities in the span tags
+    const unescapedStyled = styled
+      .replace(/&lt;span/g, '<span')
+      .replace(/&lt;\/span&gt;/g, '</span>');
+    result = result.replace(placeholder, unescapedStyled);
+  });
+  
+  return result;
+}
+
+function escapeXmlAttribute(text) {
+  if (!text) return '';
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;')
+    .replace(/\[/g, '[[')  // Escape [ to [[ to prevent Forsta from interpreting as variable (double bracket = literal bracket)
+    .replace(/\]/g, ']]'); // Escape ] to ]] to prevent Forsta from interpreting as variable (double bracket = literal bracket)
+}
+
+function sanitizeXmlName(name) {
+  if (!name) return 'unnamed';
+  // XML element names must start with letter or underscore, and can only contain letters, digits, hyphens, underscores, and periods
+  let sanitized = String(name)
+    .replace(/[^a-zA-Z0-9_\-\.]/g, '_') // Replace invalid characters with underscore
+    .replace(/^[^a-zA-Z_]/, '_'); // Ensure it starts with letter or underscore
+
+  // Ensure the name is not empty
+  return sanitized || 'unnamed';
+}
+
+// Generate XML for Forsta/Decipher compatibility - Simple/Legacy Structure
+// Outputs XML using <radio>, <checkbox>, <grid>, <text>, <number>, <info> tags
+function generateXml(questionnaire) {
+  // Helper function to determine row label (r1, r2, r3, etc.)
+  // Special cases: r97 for "Other", r98 for "Don't know", r99 for "Prefer not to answer" or "None"
+  function getRowLabel(optionText, index, options) {
+    const textLower = String(optionText || '').toLowerCase().trim();
     
-    // Add show logic if present
-    if (question.showLogic) {
-      xml += ` showif="${question.showLogic}"`;
+    // Check for special cases
+    if (textLower.includes('other') && (textLower.includes('specify') || textLower.includes('please specify'))) {
+      return 'r97';
+    }
+    if (textLower.includes("don't know") || textLower.includes('dont know') || textLower.includes('don\'t know')) {
+      return 'r98';
+    }
+    if (textLower.includes('prefer not to answer') || textLower.includes('none of the above') || textLower.includes('none')) {
+      return 'r99';
     }
     
-    xml += `>
-    <text>${question.text}</text>`;
-    
-    // Handle enhanced options structure
+    // Default: r1, r2, r3, etc.
+    return `r${index + 1}`;
+  }
+
+  // Helper function to check if option is "Other (specify)"
+  function isOtherSpecify(optionText) {
+    const textLower = String(optionText || '').toLowerCase().trim();
+    // Must contain "other" and ("specify" or "please specify")
+    // Exclude "none of the above" which might contain "other" in some contexts
+    return textLower.includes('other') && 
+           (textLower.includes('specify') || textLower.includes('please specify')) &&
+           !textLower.includes('none of the above');
+  }
+
+  // Helper function to check if option is exclusive (None of the above, Prefer not to answer)
+  function isExclusive(optionText) {
+    const textLower = String(optionText || '').toLowerCase().trim();
+    return textLower.includes('prefer not to answer') || 
+           textLower.includes('none of the above') || 
+           (textLower.includes('none') && !textLower.includes('other'));
+  }
+
+  // Helper function to get question label (QID)
+  function getQuestionLabel(question) {
+    // Use question.number if available, otherwise use question.id
+    return question.number || question.id || 'Q1';
+  }
+
+  // Helper function to get options from question
+  function getOptions(question) {
+    // Try options first, then responseOptions
     if (question.options && question.options.length > 0) {
-      xml += `
-    <options>`;
-      
-      question.options.forEach((option, index) => {
-        let optionXml = `
-      <option`;
-        
-        // Handle both string and object option formats
-        if (typeof option === 'string') {
-          const value = option.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
-          optionXml += ` value="${value}" code="${index + 1}">${option}</option>`;
+      return question.options;
+    }
+    if (question.responseOptions && question.responseOptions.length > 0) {
+      return question.responseOptions;
+    }
+    return [];
+  }
+
+  // Helper function to get option text
+  function getOptionText(option) {
+    let text = '';
+    if (typeof option === 'string') {
+      text = option;
+    } else {
+      text = option.text || option.value || '';
+    }
+    
+    // Remove leading numbers followed by a space (e.g., "1 Yes" -> "Yes")
+    // This is because row labels (r1, r2, etc.) already serve as the codes
+    text = text.replace(/^\d+\s+/, '').trim();
+    
+    return text;
+  }
+
+  const xml = questionnaire.questions.map(question => {
+    const questionType = (question.type || '').toLowerCase();
+    const questionLabel = getQuestionLabel(question);
+    const questionText = question.text || '';
+    
+    // Determine XML tag type based on question type
+    let tagName = '';
+    let isGrid = false;
+    let isSingleSelectGrid = false;
+    let isMultiSelectGrid = false;
+    
+    if (questionType.includes('single select grid')) {
+      tagName = 'radio';
+      isGrid = true;
+      isSingleSelectGrid = true;
+    } else if (questionType.includes('multi-select grid')) {
+      tagName = 'checkbox';
+      isGrid = true;
+      isMultiSelectGrid = true;
+    } else if (questionType.includes('single select') || questionType.includes('single-select')) {
+      tagName = 'radio';
+    } else if (questionType.includes('multi-select') || questionType.includes('multi select')) {
+      tagName = 'checkbox';
+    } else if (questionType.includes('open end') || questionType.includes('open-end') || questionType.includes('text/open-ended')) {
+      tagName = 'text';
+    } else if (questionType.includes('numeric') || questionType.includes('number')) {
+      tagName = 'number';
+    } else if (questionType.includes('info') || questionType.includes('text-only')) {
+      tagName = 'info';
         } else {
-          const value = option.value || (index + 1).toString();
-          const code = option.code || (index + 1).toString();
-          optionXml += ` value="${value}" code="${code}"`;
-          
-          // Add action if present
-          if (option.action) {
-            optionXml += ` action="${option.action}"`;
+      // Default to text for unknown types
+      tagName = 'text';
+    }
+
+    // Build opening tag with attributes
+    let openingTag = `<${tagName} label="${escapeXmlAttribute(questionLabel)}"`;
+    
+    // For text (open end) questions, add size attribute for larger response box
+    if (tagName === 'text') {
+      openingTag += ` size="100"`;
+    }
+    
+    // For number questions, add range attribute (required by Forsta/Decipher)
+    if (tagName === 'number') {
+      if (question.validation && question.validation.type === 'range') {
+        // Use explicit checks to handle 0 correctly (0 is falsy but valid)
+        const min = (question.validation.min !== undefined && question.validation.min !== null) 
+          ? question.validation.min 
+          : 0;
+        const max = (question.validation.max !== undefined && question.validation.max !== null) 
+          ? question.validation.max 
+          : 999;
+        openingTag += ` range="${min}-${max}"`;
+        } else {
+        // Default range if no validation specified
+        openingTag += ` range="0-999"`;
+      }
+    }
+    
+    openingTag += `>\n`;
+    let xml = openingTag;
+    
+    // Add title
+    xml += `  <title>${escapeXmlText(questionText)}</title>\n`;
+    
+    // Add comment if available (optional)
+    if (question.comment || question.instruction) {
+      const commentText = question.comment || question.instruction;
+      xml += `  <comment>${escapeXmlText(commentText)}</comment>\n`;
+    } else if (tagName === 'radio') {
+      if (isGrid) {
+        xml += `  <comment>1 = Strongly disagree, 5 = Strongly agree</comment>\n`;
+        } else {
+        xml += `  <comment>Select one</comment>\n`;
+      }
+    } else if (tagName === 'checkbox') {
+      if (isGrid) {
+        xml += `  <comment>Select all that apply</comment>\n`;
+      } else {
+        xml += `  <comment>Select all that apply</comment>\n`;
+      }
+    } else if (tagName === 'text') {
+      xml += `  <comment>Type your response below</comment>\n`;
+    } else if (tagName === 'number') {
+      xml += `  <comment>Enter a number</comment>\n`;
+    }
+    
+    xml += '\n';
+
+    // Handle GRID questions (use radio for single-select grid, checkbox for multi-select grid)
+    if (isGrid) {
+      // Grid has columns (responseOptions) and rows (statementOptions)
+      const columns = question.responseOptions || [];
+      const rows = question.statementOptions || [];
+      
+      // Add columns first
+      columns.forEach((col, index) => {
+        const colText = getOptionText(col);
+        xml += `  <col label="c${index + 1}">${escapeXmlText(colText)}</col>\n`;
+      });
+      
+      xml += '\n';
+      
+      // Add rows
+      rows.forEach((row, index) => {
+        const rowText = getOptionText(row);
+        xml += `  <row label="r${index + 1}">${escapeXmlText(rowText)}</row>\n`;
+      });
+    }
+    // Handle RADIO and CHECKBOX questions
+    else if (tagName === 'radio' || tagName === 'checkbox') {
+      const options = getOptions(question);
+      
+      // Track used labels to avoid duplicates
+      const usedLabels = new Set();
+      let regularIndex = 1;
+      
+      options.forEach((option, index) => {
+        const optionText = getOptionText(option);
+        let rowLabel = getRowLabel(optionText, index, options);
+        
+        // If the special label is already used, use regular numbering
+        if (usedLabels.has(rowLabel)) {
+          // Find next available regular label
+          while (usedLabels.has(`r${regularIndex}`) || 
+                 regularIndex === 97 || regularIndex === 98 || regularIndex === 99) {
+            regularIndex++;
           }
-          
-          // Add tags if present
-          if (option.tags && option.tags.length > 0) {
-            optionXml += ` tags="${option.tags.join(',')}"`;
-          }
-          
-          optionXml += `>${option.text}</option>`;
+          rowLabel = `r${regularIndex}`;
+          regularIndex++;
         }
         
-        xml += optionXml;
+        usedLabels.add(rowLabel);
+        
+        let rowXml = `  <row label="${rowLabel}"`;
+        
+        // Add open="1" for "Other (specify)" options
+        if (isOtherSpecify(optionText)) {
+          rowXml += ` open="1" openSize="200"`;
+        }
+        
+        // Add exclusive="1" for exclusive options
+        if (isExclusive(optionText)) {
+          rowXml += ` exclusive="1"`;
+        }
+        
+        rowXml += `>${escapeXmlText(optionText)}</row>\n`;
+        xml += rowXml;
       });
-      
-      xml += `
-    </options>`;
     }
-    
-    // Add randomize attribute
-    if (question.randomize) {
-      xml += `
-    <randomize>true</randomize>`;
+    // Handle NUMBER questions
+    // Range is already added as an attribute on the opening tag
+    else if (tagName === 'number') {
+      // Number questions don't have additional elements in the simple structure
     }
+    // TEXT and INFO questions don't have rows/columns
     
-    // Add validation rules
-    if (question.validation) {
-      xml += `
-    <validation>`;
-      if (question.validation.type === 'range') {
-        xml += `
-      <range min="${question.validation.min}" max="${question.validation.max}"/>`;
-      } else if (question.validation.type === 'sum') {
-        xml += `
-      <sum value="${question.validation.value}" unit="${question.validation.unit}"/>`;
-      }
-      xml += `
-    </validation>`;
-    }
+    xml += `</${tagName}>`;
     
-    // Add grid structure
-    if (question.grid) {
-      xml += `
-    <grid>`;
-      if (question.grid.rows) {
-        xml += `
-      <rows>`;
-        question.grid.rows.forEach(row => {
-          xml += `
-        <row code="${row.code}">${row.text}</row>`;
-          if (row.validation) {
-            xml += ` <!-- ${row.validation} -->`;
-          }
-        });
-        xml += `
-      </rows>`;
-      }
-      if (question.grid.columns) {
-        xml += `
-      <columns>`;
-        question.grid.columns.forEach(col => {
-          xml += `
-        <column code="${col.code}" type="${col.type}">${col.text}</column>`;
-        });
-        xml += `
-      </columns>`;
-      }
-      if (question.grid.autofill) {
-        xml += `
-      <autofill>${question.grid.autofill}</autofill>`;
-      }
-      if (question.grid.sumValidation) {
-        xml += `
-      <sumValidation>${question.grid.sumValidation}</sumValidation>`;
-      }
-      xml += `
-    </grid>`;
-    }
-    
-    // Add skip logic
-    if (question.skipLogic && question.skipLogic.length > 0) {
-      xml += `
-    <skipLogic>`;
-      question.skipLogic.forEach(logic => {
-        xml += `
-      <condition logic="${logic.condition}" action="${logic.action}"/>`;
-      });
-      xml += `
-    </skipLogic>`;
-    }
-    
-    // Add piping variables
-    if (question.piping && question.piping.length > 0) {
-      xml += `
-    <piping>`;
-      question.piping.forEach(pipe => {
-        xml += `
-      <variable>${pipe}</variable>`;
-      });
-      xml += `
-    </piping>`;
-    }
-    
-    // Add hidden variable
-    if (question.hiddenVariable) {
-      xml += `
-    <hiddenVariable name="${question.hiddenVariable.name}">`;
-      if (question.hiddenVariable.options) {
-        question.hiddenVariable.options.forEach(option => {
-          xml += `
-      <option value="${option.value}" label="${option.label}" logic="${option.logic}"/>`;
-        });
-      }
-      xml += `
-    </hiddenVariable>`;
-    }
-    
-    // Add legacy tags for backward compatibility
-    if (question.tags && question.tags.length > 0) {
-      xml += `
-    <tags>`;
-      question.tags.forEach(tag => {
-        xml += `
-      <tag>${tag}</tag>`;
-      });
-      xml += `
-    </tags>`;
-    }
-    
-    // Add legacy logic for backward compatibility
-    if (question.logic) {
-      xml += `
-    <logic>${question.logic}</logic>`;
-    }
-    
-    // Add question attributes based on type
-    if (question.type === 'scale' || question.type === 'Slider Rating') {
-      xml += `
-    <attributes>
-      <min>1</min>
-      <max>10</max>
-      <step>1</step>
-    </attributes>`;
-    } else if (question.type === 'open-end' || question.type === 'Text/Open-Ended' || question.type === 'Open End') {
-      xml += `
-    <attributes>
-      <maxLength>1000</maxLength>
-      <multiline>true</multiline>
-    </attributes>`;
-    }
-    
-    xml += `
-  </question>`;
     return xml;
-  }).join('\n')}
-  
-  <metadata>
-    <generator>JAICE Questionnaire Parser</generator>
-    <version>2.0</version>
-    <exportDate>${new Date().toISOString()}</exportDate>
-  </metadata>
+  }).join('\n\n<suspend/>\n\n');
+
+  // Wrap the questions in the complete Forsta survey structure
+  const surveyName = escapeXmlAttribute(questionnaire.name || 'Survey');
+  const fullXml = `<?xml version="1.0" encoding="UTF-8"?>
+
+<survey 
+  alt="${surveyName}"
+  autosave="0"
+  builder:wizardCompleted="1"
+  builderCompatible="1"
+  compat="154"
+  delphi="1"
+  extraVariables="source,record,decLang,list,userAgent"
+  fir="on"
+  html:showNumber="0"
+  mobile="compat"
+  mobileDevices="smartphone,tablet,desktop"
+  name="${surveyName}"
+  secure="1"
+  setup="term,decLang,quota,time"
+  ss:disableBackButton="1"
+  ss:enableNavigation="1"
+  ss:hideProgressBar="0"
+  state="testing">
+
+<samplesources default="0">
+  <samplesource list="0">
+    <title>Open Survey</title>
+    <invalid>You are missing information in the URL. Please verify the URL with the original invite.</invalid>
+    <completed>It seems you have already completed this survey.</completed>
+    <exit cond="terminated">Thank you for taking our survey.</exit>
+    <exit cond="qualified">Thank you for taking our survey. Your efforts are greatly appreciated!</exit>
+    <exit cond="overquota">Thank you for taking our survey.</exit>
+  </samplesource>
+</samplesources>
+
+<suspend/>
+
+${xml}
+
 </survey>`;
 
-  return xml;
+  return fullXml;
 }
 
 // GET /api/questionnaire/all - Get all questionnaires across all projects
@@ -2995,6 +3143,27 @@ router.post('/xml', async (req, res) => {
   } catch (error) {
     console.error('Error generating XML:', error);
     res.status(500).json({ error: 'Failed to generate XML' });
+  }
+});
+
+// POST /api/questionnaire/forsta-xml - Generate XML for Forsta survey programming
+// This endpoint expects a questionnaire that has already been filtered to exclude
+// quotas and hidden variables (questions with 'hid_' prefix)
+router.post('/forsta-xml', async (req, res) => {
+  try {
+    const questionnaire = req.body;
+    // Ensure quotas are not included and questions are already filtered
+    const forstaQuestionnaire = {
+      ...questionnaire,
+      quotas: undefined
+    };
+    const xml = generateXml(forstaQuestionnaire);
+
+    res.setHeader('Content-Type', 'text/plain');
+    res.send(xml);
+  } catch (error) {
+    console.error('Error generating Forsta XML:', error);
+    res.status(500).json({ error: 'Failed to generate Forsta XML' });
   }
 });
 
