@@ -14,6 +14,27 @@ const router = express.Router();
 // Enforce auth + company access for all questionnaire endpoints
 router.use(authenticateToken, requireCognitiveOrAdmin);
 
+// Mutex lock for questionnaire file writes to prevent race conditions during parallel parsing
+const questionnaireLocks = new Map();
+
+async function withQuestionnaireLock(questionnaireId, fn) {
+  // Get or create a lock for this questionnaire
+  if (!questionnaireLocks.has(questionnaireId)) {
+    questionnaireLocks.set(questionnaireId, Promise.resolve());
+  }
+
+  // Chain this operation after the previous one
+  const previousLock = questionnaireLocks.get(questionnaireId);
+  const currentLock = previousLock.then(fn).catch(err => {
+    console.error('Error in locked operation:', err);
+    throw err;
+  });
+
+  questionnaireLocks.set(questionnaireId, currentLock);
+
+  return currentLock;
+}
+
 // Consistent data roots for persistence
 const dataRoot = process.env.DATA_DIR || path.join(process.cwd(), 'data');
 const filesDir = process.env.FILES_DIR || path.join(dataRoot, 'uploads');
@@ -99,24 +120,352 @@ function parseOptionString(optionString) {
   if (typeof optionString !== 'string') {
     return optionString; // Already an object, return as-is
   }
-  
-  // Match leading number(s) followed by space, then the rest of the text
-  // Pattern: one or more digits at the start, followed by a space, then the rest
-  // Examples: "1 Text" -> code: "1", text: "Text"
-  //           "99 None of the above apply [EXCLUSIVE, ANCHOR]" -> code: "99", text: "None of the above apply [EXCLUSIVE, ANCHOR]"
-  const match = optionString.match(/^(\d+)\s+(.+)$/);
-  
+
+  // Clean up the string: remove extra whitespace, normalize newlines to spaces
+  const cleaned = optionString.replace(/\s+/g, ' ').trim();
+
+  // Match leading number(s) optionally followed by colon, then whitespace, then the rest of the text
+  // Pattern: one or more digits at the start, optional colon, whitespace, then the rest
+  // Examples:
+  //   "1 Text" -> code: "1", text: "Text"
+  //   "1: Text" -> code: "1", text: "Text"
+  //   "8:\n99 Prefer not to answer" -> code: "8", text: "99 Prefer not to answer"
+  //   "99 None of the above apply [EXCLUSIVE, ANCHOR]" -> code: "99", text: "None of the above apply [EXCLUSIVE, ANCHOR]"
+  const match = cleaned.match(/^(\d+):?\s+(.+)$/);
+
   if (match) {
-    const code = match[1]; // The extracted code (e.g., "1", "99")
-    const text = match[2].trim(); // The remaining text (without the leading number)
+    const code = match[1]; // The extracted code (e.g., "1", "8", "99")
+    const text = match[2].trim(); // The remaining text (without the leading number and colon)
     return { code, text };
   }
-  
+
   // If no code found, return as-is (will use index as code later)
-  return optionString;
+  return cleaned || optionString;
 }
 
 // Helper function to identify sections using AI
+// Helper function to count quotas in a section text
+function countQuotasInSection(sectionText) {
+  if (!sectionText || !sectionText.trim()) {
+    return { count: 0, quotaNames: [] };
+  }
+  
+  // Look for quota tables or quota definitions
+  // Quotas are typically in tables with rows like:
+  // - "Age 18-34" | "n=100"
+  // - "Gender = Male" | "50"
+  // - "TOTAL" | "n=500"
+  // - Subquotas may be indented or have hierarchical structures
+  // Or in lists with conditions and limits
+  
+  const quotaNames = [];
+  const seenQuotas = new Set();
+  
+  // Pattern 1: Look for table-like structures with quota names and sample sizes
+  // Match patterns like "Quota Name" followed by "n=" or numbers, tabs, pipes
+  const quotaTablePattern = /(?:^|\n)(\s*)([A-Z][A-Za-z0-9\s\-=<>()]+?)\s*(?:\||\t|n\s*=\s*|Complete\s+|Total\s+)?\d+/gi;
+  let match;
+  while ((match = quotaTablePattern.exec(sectionText)) !== null) {
+    const indent = match[1] || '';
+    let quotaName = match[2].trim();
+    
+    // Clean up quota name - remove trailing colons, equals signs, etc.
+    quotaName = quotaName.replace(/[:=]\s*$/, '').trim();
+    
+    // Skip common false positives
+    if (quotaName && 
+        !quotaName.match(/^(Response Option|Quota|Total Sample|Sample Size|n=|TOTAL|Total|Complete|Limit|Count)$/i) &&
+        quotaName.length > 1 &&
+        !seenQuotas.has(quotaName.toLowerCase())) {
+      quotaNames.push(quotaName);
+      seenQuotas.add(quotaName.toLowerCase());
+    }
+  }
+  
+  // Pattern 2: Look for explicit quota definitions with "n=" or sample sizes
+  const quotaDefPattern = /(?:^|\n)(\s*)([A-Z][A-Za-z0-9\s\-=<>()]+?)\s*:?\s*(?:n\s*=\s*|Complete\s+|Total\s+)?\d+/gi;
+  while ((match = quotaDefPattern.exec(sectionText)) !== null) {
+    const indent = match[1] || '';
+    let quotaName = match[2].trim();
+    
+    // Clean up quota name
+    quotaName = quotaName.replace(/[:=]\s*$/, '').trim();
+    
+    if (quotaName && 
+        !quotaName.match(/^(Response Option|Quota|Total Sample|Sample Size|n=|TOTAL|Total|Complete|Limit|Count)$/i) &&
+        quotaName.length > 1 &&
+        !seenQuotas.has(quotaName.toLowerCase())) {
+      quotaNames.push(quotaName);
+      seenQuotas.add(quotaName.toLowerCase());
+    }
+  }
+  
+  // Pattern 3: Look for quota names in bulleted or numbered lists
+  // Match lines that start with bullet points or numbers followed by quota-like text
+  const quotaListPattern = /(?:^|\n)(\s*)[•\-\*\d+\.]\s*([A-Z][A-Za-z0-9\s\-=<>()]+?)(?:\s*:|\s*-\s*|\s*\||\s*n\s*=|$)/gi;
+  while ((match = quotaListPattern.exec(sectionText)) !== null) {
+    const indent = match[1] || '';
+    let quotaName = match[2].trim();
+    
+    // Clean up quota name
+    quotaName = quotaName.replace(/[:=]\s*$/, '').trim();
+    
+    if (quotaName && 
+        !quotaName.match(/^(Response Option|Quota|Total Sample|Sample Size|n=|TOTAL|Total|Complete|Limit|Count)$/i) &&
+        quotaName.length > 1 &&
+        !seenQuotas.has(quotaName.toLowerCase())) {
+      quotaNames.push(quotaName);
+      seenQuotas.add(quotaName.toLowerCase());
+    }
+  }
+  
+  // Pattern 4: Look for subquotas (indented lines that look like quota conditions)
+  // These are often nested under main quotas
+  const subQuotaPattern = /(?:^|\n)(\s{2,})([A-Z][A-Za-z0-9\s\-=<>()]+?)(?:\s*:|\s*-\s*|\s*\||\s*n\s*=|$)/gi;
+  while ((match = subQuotaPattern.exec(sectionText)) !== null) {
+    const indent = match[1] || '';
+    let quotaName = match[2].trim();
+    
+    // Clean up quota name
+    quotaName = quotaName.replace(/[:=]\s*$/, '').trim();
+    
+    // Subquotas are typically shorter and more specific
+    if (quotaName && 
+        !quotaName.match(/^(Response Option|Quota|Total Sample|Sample Size|n=|TOTAL|Total|Complete|Limit|Count|And|Or)$/i) &&
+        quotaName.length > 1 &&
+        !seenQuotas.has(quotaName.toLowerCase())) {
+      quotaNames.push(quotaName);
+      seenQuotas.add(quotaName.toLowerCase());
+    }
+  }
+  
+  // Remove duplicates and sort
+  const uniqueQuotas = [...new Set(quotaNames)];
+  
+  return { count: uniqueQuotas.length, quotaNames: uniqueQuotas };
+}
+
+// Helper function to count questions in a section text and return the found question numbers
+function countQuestionsInSection(sectionText, questionPrefix) {
+  if (!sectionText || !sectionText.trim()) {
+    return { count: 0, questionNumbers: [] };
+  }
+  
+  // For Quota section, we don't count here - use countQuotasInSection instead
+  // This function is only for regular question sections
+  if (!questionPrefix) {
+    // Return empty - quotas should be counted separately
+    return { count: 0, questionNumbers: [] };
+  }
+  
+  // STRICT pattern to match question numbers with the given prefix
+  // Format: Prefix + 1-2 digits + Optional letter + Period (REQUIRED)
+  // Examples: S1., A2., C20., C20A., B2B.
+  // This prevents false positives like "E953" in response options
+
+  // Escape special regex characters in the prefix
+  const escapedPrefix = questionPrefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  // STRICT: Prefix + 1-2 digits + Optional letter + Period
+  const strictPattern = new RegExp(
+    `\\b${escapedPrefix}(\\d{1,2})([A-Za-z]?)\\.`,
+    'gi'
+  );
+
+  const allMatches = [];
+
+  // Collect all matches using the strict pattern
+  let match;
+  strictPattern.lastIndex = 0;
+  while ((match = strictPattern.exec(sectionText)) !== null) {
+    const digits = match[1];
+    const letter = (match[2] || '').toUpperCase();
+    const questionNumber = `${questionPrefix}${digits}${letter}`.toUpperCase();
+    allMatches.push({
+      number: questionNumber,
+      index: match.index,
+      fullMatch: match[0]
+    });
+  }
+  
+  if (allMatches.length === 0) {
+    return { count: 0, questionNumbers: [] };
+  }
+  
+  // Remove duplicates - prefer matches that appear earlier in the text
+  const uniqueQuestions = new Map();
+  allMatches.forEach(m => {
+    if (!uniqueQuestions.has(m.number) || uniqueQuestions.get(m.number).index > m.index) {
+      uniqueQuestions.set(m.number, m);
+    }
+  });
+  
+  // Sort the question numbers for better display
+  const questionNumbers = Array.from(uniqueQuestions.keys()).sort((a, b) => {
+    // Extract numeric part for sorting
+    const numA = parseInt(a.replace(/[^0-9]/g, '')) || 0;
+    const numB = parseInt(b.replace(/[^0-9]/g, '')) || 0;
+    if (numA !== numB) return numA - numB;
+    // If numbers are equal, sort by letter suffix
+    return a.localeCompare(b);
+  });
+  
+  return { count: questionNumbers.length, questionNumbers };
+}
+
+// Extract all question numbers from the full document and group them by prefix
+function extractAllQuestionNumbersByPrefix(text) {
+  if (!text || !text.trim()) {
+    return {};
+  }
+  
+  // STRICT Pattern to match question numbers:
+  // - Must have 1-2 letter prefix (S, A, B, C, QS, etc.)
+  // - Must have 1-2 digit numbers (1-99, not 100+)
+  // - Optional letter suffix (A, B, C, etc.)
+  // - MUST end with a period (.)
+  // Examples: S1., A2., C20., C20A., B2B., QS14.
+  // This prevents false positives like "E953" in response options
+
+  const patterns = [
+    // Strict format: Prefix(1-2 letters) + Digits(1-2) + Optional Letter + Period (REQUIRED)
+    /\b([A-Z]{1,2})(\d{1,2})([A-Za-z]?)\./gi
+  ];
+  
+  const questionMap = new Map(); // prefix -> Set of question numbers
+  
+  patterns.forEach(pattern => {
+    let match;
+    // Reset lastIndex to avoid issues with global regex
+    pattern.lastIndex = 0;
+    while ((match = pattern.exec(text)) !== null) {
+      const prefix = match[1].toUpperCase();
+      const digits = match[2];
+      const letter = (match[3] || '').toUpperCase();
+      const questionNumber = `${prefix}${digits}${letter}`;
+      
+      // Additional validation: skip if it looks like a date, time, or other non-question pattern
+      const beforeChar = text[match.index - 1] || ' ';
+      const afterChar = text[match.index + match[0].length] || ' ';
+      
+      // Skip if it's clearly part of a larger word (but allow common question markers)
+      if (/[A-Za-z0-9]/.test(beforeChar)) {
+        // If there's a letter/digit before, it's likely part of a word - skip
+        continue;
+      }
+      
+      // Allow if followed by common question markers or whitespace
+      if (/[A-Za-z0-9]/.test(afterChar) && !/[.,:;)\]\}\s\n\r\t]/.test(afterChar)) {
+        // If followed by alphanumeric that's not a question marker, skip
+        continue;
+      }
+      
+      if (!questionMap.has(prefix)) {
+        questionMap.set(prefix, new Set());
+      }
+      questionMap.get(prefix).add(questionNumber);
+    }
+  });
+  
+  // Convert Sets to sorted arrays
+  const result = {};
+  questionMap.forEach((questionSet, prefix) => {
+    const questionNumbers = Array.from(questionSet).sort((a, b) => {
+      // Extract numeric part for sorting
+      const numA = parseInt(a.replace(/[^0-9]/g, '')) || 0;
+      const numB = parseInt(b.replace(/[^0-9]/g, '')) || 0;
+      if (numA !== numB) return numA - numB;
+      // If numbers are equal, sort by letter suffix
+      return a.localeCompare(b);
+    });
+    result[prefix] = questionNumbers;
+  });
+  
+  return result;
+}
+
+// Create sections based on question number prefixes found in the document
+function createSectionsFromQuestionNumbers(text, questionNumbersByPrefix) {
+  const sections = [];
+  let sectionNumber = 1;
+  
+  // Always create a Quota section first (sectionNumber: 1)
+  // Find where quotas end and questions begin by finding the first question number
+  // STRICT: Question must have 1-2 letter prefix, 1-2 digits, optional letter, and period
+  let quotaEndIndex = 0;
+  const firstQuestionPattern = /\b([A-Z]{1,2})(\d{1,2})([A-Za-z]?)\./i;
+  const firstQuestionMatch = text.match(firstQuestionPattern);
+  if (firstQuestionMatch) {
+    quotaEndIndex = firstQuestionMatch.index;
+  }
+  
+  // Extract quota text
+  const quotaText = quotaEndIndex > 0 ? text.substring(0, quotaEndIndex) : text;
+
+  // Don't hard-code quota counting - let AI handle it during parsing
+  sections.push({
+    sectionNumber: sectionNumber++,
+    sectionName: 'Quota',
+    questionPrefix: null,
+    startIndex: 0,
+    endIndex: quotaEndIndex > 0 ? quotaEndIndex : null,
+    text: quotaText,
+    expectedQuestionCount: 0,
+    foundQuestionNumbers: []
+  });
+  
+  // Create sections for each prefix found, in order of first appearance
+  const prefixOrder = [];
+  const prefixFirstIndex = new Map();
+  
+  Object.keys(questionNumbersByPrefix).forEach(prefix => {
+    // Find first occurrence of this prefix in the text (STRICT: must have period)
+    const firstMatch = text.search(new RegExp(`\\b${prefix}\\d{1,2}[A-Za-z]?\\.`, 'i'));
+    if (firstMatch !== -1) {
+      prefixFirstIndex.set(prefix, firstMatch);
+      prefixOrder.push(prefix);
+    }
+  });
+  
+  // Sort prefixes by their first appearance in the document
+  prefixOrder.sort((a, b) => {
+    const indexA = prefixFirstIndex.get(a);
+    const indexB = prefixFirstIndex.get(b);
+    return indexA - indexB;
+  });
+  
+  // Create a section for each prefix
+  prefixOrder.forEach((prefix, index) => {
+    const questionNumbers = questionNumbersByPrefix[prefix];
+    const firstIndex = prefixFirstIndex.get(prefix);
+    
+    // Find the end index (start of next section or end of document)
+    let endIndex = null;
+    if (index < prefixOrder.length - 1) {
+      const nextPrefix = prefixOrder[index + 1];
+      endIndex = prefixFirstIndex.get(nextPrefix);
+    }
+    
+    // Extract section text
+    const sectionText = endIndex !== null 
+      ? text.substring(firstIndex, endIndex)
+      : text.substring(firstIndex);
+    
+    sections.push({
+      sectionNumber: sectionNumber++,
+      sectionName: `Section ${prefix}`,
+      questionPrefix: prefix,
+      startIndex: firstIndex,
+      endIndex: endIndex,
+      text: sectionText,
+      expectedQuestionCount: questionNumbers.length,
+      foundQuestionNumbers: questionNumbers
+    });
+  });
+  
+  return sections;
+}
+
 async function identifySectionsWithAI(text, projectId) {
   const client = new OpenAI({ 
     apiKey: process.env.OPENAI_API_KEY,
@@ -132,14 +481,22 @@ A section is a logical grouping of questions that belong together. Sections can 
 3. Thematic groupings (e.g., all questions about demographics, all questions about satisfaction, etc.)
 4. Visual separators or page breaks that indicate a new section
 
-For each section you identify, provide:
-- sectionNumber: A sequential number (1, 2, 3, etc.)
+CRITICAL: You MUST ALWAYS create a "Quota" section as the FIRST section (sectionNumber: 1). This section should contain any quota tables or quota definitions found at the beginning of the document, before the main questions begin. The Quota section should have:
+- sectionNumber: 1
+- sectionName: "Quota"
+- questionPrefix: null (quotas don't have question prefixes)
+- startIndex: 0 (beginning of document)
+- endIndex: The character index where quotas end and main questions begin
+
+For each section you identify (after the Quota section), provide:
+- sectionNumber: A sequential number (2, 3, 4, etc. - starting from 2 since Quota is 1)
 - sectionName: A descriptive name. ALWAYS use the question prefix letter format (e.g., "Section S", "Section A", "Section C") even if there's a descriptive header. The prefix letter is critical for parsing.
 - questionPrefix: The letter prefix used by questions in this section (e.g., "S", "A", "B", "C", "QS", "F", "G", etc.). This is REQUIRED and must match the actual question numbering.
 - startIndex: The character index where this section begins in the text
 - endIndex: The character index where this section ends (or null if it's the last section)
 
 IMPORTANT RULES:
+- ALWAYS create a "Quota" section first (sectionNumber: 1) containing quota tables/definitions from the beginning of the document
 - ALWAYS identify the question prefix (the letter(s) before the number in questions like S1, A1, C1, QS14, F1, etc.)
 - ALWAYS use "Section {prefix}" format for sectionName (e.g., "Section S", "Section A", "Section C")
 - The questionPrefix field is CRITICAL - it must accurately reflect the letter prefix used by ALL questions in that section
@@ -147,8 +504,16 @@ IMPORTANT RULES:
 - Each section should contain ALL questions that belong to that logical group, including the first question (e.g., C1, F1, S1, etc.)
 - Do not create duplicate section names - if multiple sections use the same prefix, add a number (e.g., "Section S", "Section S (2)")
 - Be precise with start and end indices to avoid overlapping sections and ensure the first question of each section is included
-- Return sections in the order they appear in the document
-- Make sure startIndex includes any section headers or introductory text before the first question`;
+- Return sections in the order they appear in the document (with Quota always first)
+- Make sure startIndex includes any section headers or introductory text before the first question
+- HIDDEN VARIABLES: Hidden variables (questions with "hid_" prefix) should be included in the Quota section (sectionNumber: 1). Do NOT create a separate "Section H" for hidden variables. All hidden variables should be placed in the Quota section, appearing after the quota tables but before the first regular question section.
+
+AVOID FALSE POSITIVES:
+- DO NOT identify a section based on isolated references like "Q1", "Q2", "Q3", "Q4" when they refer to quarters (Q1 2024, Q4 2023, etc.), not questions
+- Only identify a section when there is a CLEAR PATTERN of multiple questions with the same prefix (e.g., Q1, Q2, Q3, Q4, Q5, Q6, etc. as questions)
+- Look for context: actual questions have question text, response options, and programming logic - not just a reference
+- A single mention of "Q4" or "Q1-Q4" referring to time periods or other context is NOT a question section
+- Only create a section when you see at least 3+ questions with the same prefix pattern consistently used throughout a portion of the document`;
 
   const userPrompt = `Please analyze this questionnaire document and identify all distinct sections:
 
@@ -159,13 +524,20 @@ Return a JSON object with this structure:
   "sections": [
     {
       "sectionNumber": 1,
-      "sectionName": "Section S",
-      "questionPrefix": "S",
+      "sectionName": "Quota",
+      "questionPrefix": null,
       "startIndex": 0,
-      "endIndex": 1843
+      "endIndex": 500
     },
     {
       "sectionNumber": 2,
+      "sectionName": "Section S",
+      "questionPrefix": "S",
+      "startIndex": 500,
+      "endIndex": 1843
+    },
+    {
+      "sectionNumber": 3,
       "sectionName": "Section A",
       "questionPrefix": "A",
       "startIndex": 1843,
@@ -174,10 +546,13 @@ Return a JSON object with this structure:
   ]
 }
 
-CRITICAL: 
-- The questionPrefix field is REQUIRED and must match the actual letter prefix used by questions in that section
+CRITICAL:
+- ALWAYS include a "Quota" section as the FIRST section (sectionNumber: 1) containing quota tables/definitions from the beginning of the document
+- The questionPrefix field is REQUIRED for all sections except Quota (where it should be null)
 - Make sure startIndex includes the first question of the section (e.g., if the section starts with C1, the startIndex should be before C1)
 - Make sure endIndex is after the last question of the section
+- HIDDEN VARIABLES: All hidden variables should be included in the Quota section (sectionNumber: 1). Do NOT create a separate "Section H" for hidden variables. Hidden variables should appear in the Quota section after quota tables.
+- AVOID FALSE POSITIVES: Do NOT create a "Section Q" if you only see references like "Q1", "Q2", "Q3", "Q4" in the context of quarters/time periods. Only create sections when you see a CLEAR PATTERN of multiple actual questions (with question text, options, logic) using that prefix.
 
 Return ONLY valid JSON. Do not include any explanatory text outside the JSON object.`;
 
@@ -220,8 +595,123 @@ Return ONLY valid JSON. Do not include any explanatory text outside the JSON obj
     const sections = [];
     const aiSections = parsedData.sections || [];
     
+    // Check if Quota section exists, if not create it
+    let hasQuotaSection = false;
+    for (let i = 0; i < aiSections.length; i++) {
+      if (aiSections[i].sectionName === 'Quota' || 
+          aiSections[i].sectionName === 'Quotas' ||
+          aiSections[i].sectionName?.toLowerCase() === 'quota' ||
+          aiSections[i].sectionName?.toLowerCase() === 'quotas') {
+        hasQuotaSection = true;
+        // Normalize to "Quotas"
+        if (aiSections[i].sectionName?.toLowerCase() === 'quota') {
+          aiSections[i].sectionName = 'Quotas';
+        }
+        break;
+      }
+    }
+    
+    // If no Quota section found, create one at the beginning
+    if (!hasQuotaSection && aiSections.length > 0) {
+      // Find where the first question section starts (excluding hidden variables)
+      // STRICT: Question must have 1-2 letter prefix, 1-2 digits, optional letter, and period
+      let firstQuestionIndex = text.length;
+      const firstQuestionMatch = text.match(/(?:^|\n)([A-Z]{1,2})(\d{1,2})([A-Za-z]?)\./i);
+      if (firstQuestionMatch) {
+        firstQuestionIndex = firstQuestionMatch.index || 0;
+      } else if (aiSections.length > 0 && aiSections[0].startIndex) {
+        firstQuestionIndex = aiSections[0].startIndex;
+      }
+      
+      // Find all hidden variables in the document and include them in the Quota section
+      // Hidden variables typically appear before the first regular question
+      // They may be in the quota area or scattered, but we want them in the Quota section
+      const hiddenVariablePattern = /(?:^|\n)([A-Z][A-Z\s]+)\s*\(Hidden Variable\)/gi;
+      let hiddenVariableEndIndex = firstQuestionIndex;
+      let match;
+      while ((match = hiddenVariablePattern.exec(text)) !== null) {
+        // Extend the Quota section to include hidden variables
+        const hiddenVarEnd = match.index + match[0].length;
+        if (hiddenVarEnd > hiddenVariableEndIndex && hiddenVarEnd < firstQuestionIndex) {
+          hiddenVariableEndIndex = hiddenVarEnd;
+        }
+      }
+      
+      // Create Quota section from beginning to first question (including hidden variables)
+      const quotaSectionText = text.substring(0, Math.max(firstQuestionIndex, hiddenVariableEndIndex)).trim();
+
+      sections.push({
+        text: quotaSectionText,
+        sectionNumber: 1,
+        sectionName: 'Quotas',
+        questionPrefix: null,
+        expectedQuestionCount: null,
+        foundQuestionNumbers: []
+      });
+    } else if (hasQuotaSection) {
+      // If Quota section exists, extend it to include hidden variables that appear before the first regular question
+      const quotaSection = aiSections.find(s => 
+        s.sectionName === 'Quota' || 
+        s.sectionName === 'Quotas' ||
+        s.sectionName?.toLowerCase() === 'quota' ||
+        s.sectionName?.toLowerCase() === 'quotas'
+      );
+      if (quotaSection) {
+        // Normalize to "Quotas"
+        if (quotaSection.sectionName?.toLowerCase() === 'quota') {
+          quotaSection.sectionName = 'Quotas';
+        }
+        // Find the first regular question section (not hidden variables)
+        let firstRegularQuestionIndex = text.length;
+        for (let i = 0; i < aiSections.length; i++) {
+          const section = aiSections[i];
+          const isQuota = section.sectionName === 'Quota' || 
+                         section.sectionName === 'Quotas' ||
+                         section.sectionName?.toLowerCase() === 'quota' ||
+                         section.sectionName?.toLowerCase() === 'quotas';
+          if (!isQuota && section.questionPrefix && section.questionPrefix !== 'H') {
+            if (section.startIndex < firstRegularQuestionIndex) {
+              firstRegularQuestionIndex = section.startIndex;
+            }
+          }
+        }
+        
+        // Find hidden variables between quota section end and first regular question
+        const hiddenVariablePattern = /(?:^|\n)([A-Z][A-Z\s]+)\s*\(Hidden Variable\)/gi;
+        let hiddenVariableEndIndex = quotaSection.endIndex || firstRegularQuestionIndex;
+        let match;
+        const searchStart = quotaSection.endIndex || 0;
+        const searchEnd = firstRegularQuestionIndex;
+        const searchText = text.substring(searchStart, searchEnd);
+        while ((match = hiddenVariablePattern.exec(searchText)) !== null) {
+          const hiddenVarEnd = searchStart + match.index + match[0].length;
+          if (hiddenVarEnd > hiddenVariableEndIndex) {
+            hiddenVariableEndIndex = hiddenVarEnd;
+          }
+        }
+        
+        // Extend the Quota section endIndex to include hidden variables
+        if (hiddenVariableEndIndex > (quotaSection.endIndex || 0)) {
+          quotaSection.endIndex = hiddenVariableEndIndex;
+        }
+      }
+    }
+    
     for (let i = 0; i < aiSections.length; i++) {
       const aiSection = aiSections[i];
+      
+      // Skip "Section H" or sections with "H" prefix - hidden variables should be in Quota section
+      if (aiSection.sectionName === 'Section H' || 
+          aiSection.sectionName?.toLowerCase() === 'section h' ||
+          aiSection.questionPrefix === 'H' ||
+          (aiSection.sectionName && aiSection.sectionName.match(/^Section\s+H/i))) {
+        console.log(`⚠️ Skipping Section H - hidden variables should be in Quota section`);
+        continue;
+      }
+      
+      // If AI created a Quota section, we'll use it (but extend it to include hidden variables if needed)
+      // The extension logic above already handles this
+      
       const startIndex = aiSection.startIndex || 0;
       const endIndex = aiSection.endIndex !== null && aiSection.endIndex !== undefined 
         ? aiSection.endIndex 
@@ -231,51 +721,54 @@ Return ONLY valid JSON. Do not include any explanatory text outside the JSON obj
       const safeStartIndex = Math.max(0, Math.min(startIndex, text.length));
       const safeEndIndex = Math.max(safeStartIndex, Math.min(endIndex, text.length));
       
-      const sectionText = text.substring(safeStartIndex, safeEndIndex).trim();
+      let sectionText = text.substring(safeStartIndex, safeEndIndex).trim();
       
       if (sectionText.length > 0) {
-        // Extract question prefix if not provided by AI
+        // Extract question prefix if not provided by AI (skip for Quota section)
         let questionPrefix = aiSection.questionPrefix;
-        if (!questionPrefix) {
+        const isQuotaSection = aiSection.sectionName === 'Quota' || 
+                              aiSection.sectionName === 'Quotas' ||
+                              aiSection.sectionName?.toLowerCase() === 'quota' ||
+                              aiSection.sectionName?.toLowerCase() === 'quotas';
+        if (!questionPrefix && !isQuotaSection) {
           // Try to extract from section name (e.g., "Section S" -> "S")
           const nameMatch = aiSection.sectionName?.match(/Section\s+([A-Z]+(?:[A-Z]+)?)/i);
           if (nameMatch) {
             questionPrefix = nameMatch[1].toUpperCase();
           } else {
             // Try to extract from first question in the section
-            const firstQuestionMatch = sectionText.match(/(?:^|\n)(QS\d+|S\d+|Q\d+|A\d+|([A-Z]+)\d+)/i);
+            // STRICT: Question must have 1-2 letter prefix, 1-2 digits, optional letter, and period
+            const firstQuestionMatch = sectionText.match(/(?:^|\n)([A-Z]{1,2})(\d{1,2})([A-Za-z]?)\./i);
             if (firstQuestionMatch) {
-              const fullMatch = firstQuestionMatch[0].trim();
-              if (fullMatch.startsWith('QS')) {
-                questionPrefix = 'QS';
-              } else if (fullMatch.match(/^S\d+/i)) {
-                questionPrefix = 'S';
-              } else if (fullMatch.match(/^Q\d+/i)) {
-                questionPrefix = 'Q';
-              } else if (fullMatch.match(/^A\d+/i)) {
-                questionPrefix = 'A';
-              } else if (firstQuestionMatch[2]) {
-                questionPrefix = firstQuestionMatch[2].toUpperCase();
-              }
+              questionPrefix = firstQuestionMatch[1].toUpperCase();
             }
           }
         }
         
+        // Normalize Quota section name to "Quotas"
+        let sectionName = aiSection.sectionName || `Section ${questionPrefix || i + 1}`;
+        if (isQuotaSection) {
+          sectionName = 'Quotas';
+        }
+
         sections.push({
           text: sectionText,
-          sectionNumber: aiSection.sectionNumber || i + 1,
-          sectionName: aiSection.sectionName || `Section ${questionPrefix || i + 1}`,
-          questionPrefix: questionPrefix || null
+          sectionNumber: aiSection.sectionNumber || (hasQuotaSection ? i + 1 : i + 2),
+          sectionName: sectionName,
+          questionPrefix: questionPrefix || null,
+          expectedQuestionCount: null,
+          foundQuestionNumbers: []
         });
       }
     }
-    
+
+    // Return sections without any pre-parsing or counting of questions
     console.log(`📦 AI identified ${sections.length} sections`);
     sections.forEach((section, idx) => {
       const prefixInfo = section.questionPrefix ? ` [prefix: ${section.questionPrefix}]` : '';
       console.log(`   Section ${idx + 1}: ${section.sectionName}${prefixInfo} (${section.text.length} chars)`);
     });
-    
+
     return sections;
   } catch (error) {
     console.error('Error identifying sections with AI:', error);
@@ -292,9 +785,10 @@ function splitQuestionnaireIntoSections(text) {
   // Matches: "Section 1", "SECTION 1", "Section 1:", "SECTION 1:", etc.
   const sectionHeaderPattern = /(?:^|\n)(?:Section\s+\d+|SECTION\s+\d+)[:\s]*/i;
   
-  // Pattern to match question markers and extract their prefix
-  // Matches: QS14, S1, A1, Q1, etc. - captures the letter prefix
-  const questionPattern = /(?:^|\n)(QS\d+|S\d+|Q\d+|A\d+|([A-Z]+)\d+)/i;
+  // STRICT pattern to match question markers and extract their prefix
+  // Format: Prefix(1-2 letters) + Digits(1-2) + Optional letter + Period (REQUIRED)
+  // Examples: S1., A2., C20., QS14., B2B.
+  const questionPattern = /(?:^|\n)([A-Z]{1,2})(\d{1,2})([A-Za-z]?)\./i;
   
   // Find all section headers
   const sectionHeaders = [];
@@ -316,23 +810,8 @@ function splitQuestionnaireIntoSections(text) {
   
   while ((match = questionRegex.exec(text)) !== null) {
     const fullMatch = match[0].trim();
-    // Extract prefix (first letter(s) before digits)
-    let prefix = null;
-    if (match[1]) {
-      // Handle QS, S, Q, A explicitly
-      if (fullMatch.startsWith('QS')) {
-        prefix = 'QS';
-      } else if (fullMatch.match(/^S\d+/i)) {
-        prefix = 'S';
-      } else if (fullMatch.match(/^Q\d+/i)) {
-        prefix = 'Q';
-      } else if (fullMatch.match(/^A\d+/i)) {
-        prefix = 'A';
-      } else if (match[2]) {
-        // Generic letter prefix
-        prefix = match[2].toUpperCase();
-      }
-    }
+    // Extract prefix from capture group 1
+    const prefix = match[1] ? match[1].toUpperCase() : null;
     
     // If prefix changed, mark this as a section boundary
     if (prefix && currentPrefix !== null && prefix !== currentPrefix) {
@@ -366,25 +845,23 @@ function splitQuestionnaireIntoSections(text) {
   // If no sections found, return the whole text as a single section
   if (allBoundaries.length === 0) {
     console.log(`📦 No sections found, treating entire questionnaire as one section`);
-    return [{ text: text, sectionNumber: 1, sectionName: 'Section 1' }];
+    const countResult = countQuestionsInSection(text, null);
+    return [{ 
+      text: text, 
+      sectionNumber: 1, 
+      sectionName: 'Section 1',
+      questionPrefix: null,
+      expectedQuestionCount: countResult.count,
+      foundQuestionNumbers: countResult.questionNumbers
+    }];
   }
   
   // Helper function to extract prefix from first question in a section
+  // STRICT: Question must have 1-2 letter prefix, 1-2 digits, optional letter, and period
   const getPrefixFromSectionText = (sectionText) => {
-    const firstQuestionMatch = sectionText.match(/(?:^|\n)(QS\d+|S\d+|Q\d+|A\d+|([A-Z]+)\d+)/i);
+    const firstQuestionMatch = sectionText.match(/(?:^|\n)([A-Z]{1,2})(\d{1,2})([A-Za-z]?)\./i);
     if (firstQuestionMatch) {
-      const fullMatch = firstQuestionMatch[0].trim();
-      if (fullMatch.startsWith('QS')) {
-        return 'QS';
-      } else if (fullMatch.match(/^S\d+/i)) {
-        return 'S';
-      } else if (fullMatch.match(/^Q\d+/i)) {
-        return 'Q';
-      } else if (fullMatch.match(/^A\d+/i)) {
-        return 'A';
-      } else if (firstQuestionMatch[2]) {
-        return firstQuestionMatch[2].toUpperCase();
-      }
+      return firstQuestionMatch[1].toUpperCase();
     }
     return null;
   };
@@ -401,17 +878,24 @@ function splitQuestionnaireIntoSections(text) {
       const sectionText = text.substring(sectionStart, boundary.index).trim();
       if (sectionText.length > 0) {
         let sectionName;
+        let prefix = null;
         if (boundary.type === 'header') {
           sectionName = boundary.text;
         } else {
           // Determine prefix from the section text (first question in the section)
-          const prefix = getPrefixFromSectionText(sectionText) || boundary.previousPrefix || 'Unknown';
+          prefix = getPrefixFromSectionText(sectionText) || boundary.previousPrefix || 'Unknown';
           sectionName = `Section ${prefix}`;
         }
+        // Count questions in this section
+        const countResult = countQuestionsInSection(sectionText, prefix);
+        
         sections.push({
           text: sectionText,
           sectionNumber: sectionNumber,
-          sectionName: sectionName
+          sectionName: sectionName,
+          questionPrefix: prefix,
+          expectedQuestionCount: countResult.count,
+          foundQuestionNumbers: countResult.questionNumbers
         });
         sectionNumber++;
       }
@@ -432,21 +916,40 @@ function splitQuestionnaireIntoSections(text) {
       const prefix = getPrefixFromSectionText(finalSectionText) || lastBoundary.prefix || 'Unknown';
       sectionName = `Section ${prefix}`;
     }
+    // Count questions in this section
+    const finalPrefix = getPrefixFromSectionText(finalSectionText) || lastBoundary.prefix || null;
+    const finalCountResult = countQuestionsInSection(finalSectionText, finalPrefix);
+    
     sections.push({
       text: finalSectionText,
       sectionNumber: sectionNumber,
-      sectionName: sectionName
+      sectionName: sectionName,
+      questionPrefix: finalPrefix,
+      expectedQuestionCount: finalCountResult.count,
+      foundQuestionNumbers: finalCountResult.questionNumbers
     });
   }
   
   // If we somehow have no sections, return the whole text
   if (sections.length === 0) {
-    return [{ text: text, sectionNumber: 1, sectionName: 'Section 1' }];
+    const countResult = countQuestionsInSection(text, null);
+    return [{ 
+      text: text, 
+      sectionNumber: 1, 
+      sectionName: 'Section 1',
+      questionPrefix: null,
+      expectedQuestionCount: countResult.count,
+      foundQuestionNumbers: countResult.questionNumbers
+    }];
   }
   
   console.log(`📦 Split into ${sections.length} sections based on section headers and question prefix changes`);
   sections.forEach((section, idx) => {
-    console.log(`   Section ${idx + 1}: ${section.sectionName} (${section.text.length} chars)`);
+    const countInfo = section.expectedQuestionCount !== undefined ? ` (${section.expectedQuestionCount} questions)` : '';
+    const numbersInfo = section.foundQuestionNumbers && section.foundQuestionNumbers.length > 0 
+      ? ` [Found: ${section.foundQuestionNumbers.join(', ')}]` 
+      : '';
+    console.log(`   Section ${idx + 1}: ${section.sectionName}${countInfo}${numbersInfo} (${section.text.length} chars)`);
   });
   
   return sections;
@@ -469,27 +972,96 @@ async function parseQuestionnaireSection(section, sectionIndex, totalSections, s
     : '';
   
   // Build section context with question prefix information
-  const sectionContext = section.questionPrefix 
+  const sectionContext = section.questionPrefix
     ? `Section: ${section.sectionName} (Questions in this section use the "${section.questionPrefix}" prefix, e.g., ${section.questionPrefix}1, ${section.questionPrefix}2, etc.)`
     : `Section: ${section.sectionName || 'unnamed section'}`;
-  
-  const questionPrefixHint = section.questionPrefix
-    ? `\n\nCRITICAL: Questions in this section use the "${section.questionPrefix}" prefix. You MUST find and parse ALL questions with this prefix in this section. Look for questions like ${section.questionPrefix}1, ${section.questionPrefix}2, ${section.questionPrefix}3, ${section.questionPrefix}4, ${section.questionPrefix}5, etc. The FIRST question in this section should be ${section.questionPrefix}1 - make sure you include it! Continue parsing ALL questions with the "${section.questionPrefix}" prefix until you reach the next section or the end of the document. Do not stop after finding just one question - parse ALL of them!`
+
+  // Check if this is the Quota section
+  const isQuotaSection = section.sectionName === 'Quota' || section.sectionName === 'Quotas' || section.sectionName?.toLowerCase() === 'quota' || section.sectionName?.toLowerCase() === 'quotas';
+
+  // For non-quota sections, use the identified question numbers to guide parsing
+  // For quota section, don't provide any hints - let AI parse from beginning to first section
+  const foundQuestionsHint = !isQuotaSection && section.foundQuestionNumbers && section.foundQuestionNumbers.length > 0
+    ? `\n\nIMPORTANT: During initial parsing, we identified the following ${section.foundQuestionNumbers.length} questions in this section: ${section.foundQuestionNumbers.join(', ')}. You MUST parse ALL of these specific questions. Use these question numbers to locate each question in the text and extract all the required details for each one. Do NOT search for or identify other questions - only parse these identified questions.`
     : '';
   
-  const userPrompt = `Please parse this ${sectionLabel} of a questionnaire document and extract ALL questions with their details:
+  const userPrompt = isQuotaSection 
+    ? `Please parse this QUOTA section of a questionnaire document and extract ALL quotas AND hidden variables:
+
+${section.text}
+
+CRITICAL: This is the Quota section. You MUST extract:
+1. ALL quotas from this section
+2. ALL hidden variables from this section
+
+QUOTAS:
+Quotas are typically formatted as tables with:
+- Response options or conditions (e.g., "Age 18-34", "Gender = Male", "Treatment Group A", etc.)
+- Total sample limits (e.g., "n=100", "Complete 50", "100", etc.)
+
+Look for quota tables or quota definitions. Each quota should have:
+- A name or identifier (often the response option/condition)
+- Conditions (array of conditions that define the quota)
+- A limit (the total sample size to collect)
+- Optional description
+
+HIDDEN VARIABLES:
+Hidden variables are sections with titles like "VARIABLE NAME (Hidden Variable)". For each hidden variable:
+- Include it in the "questions" array (NOT in quotas)
+- Use "number": "hid_VARIABLE_NAME" format (convert title to UPPERCASE, replace spaces with underscores, remove "(Hidden Variable)")
+- Example: "SPINRAZA RESTART GAP (Hidden Variable)" → number: "hid_SPINRAZA_RESTART_GAP"
+- Extract all options/conditions from the hidden variable table
+- Include the full title as the "text" field
+- Set "type" to "Hidden Variable" or "Single Select" (depending on the structure)
+
+Extract ALL quotas found in this section and return them in the "quotas" array. Extract ALL hidden variables and return them in the "questions" array.
+
+Return a JSON object with this structure:
+{
+  "quotas": [
+    {
+      "name": "quota name or response option identifier",
+      "conditions": ["condition1", "condition2", ...],
+      "limit": 100,
+      "description": "quota description or details (optional)"
+    }
+  ],
+  "questions": [
+    {
+      "number": "hid_VARIABLE_NAME",
+      "text": "VARIABLE NAME (Hidden Variable)",
+      "type": "Hidden Variable",
+      "options": ["option1", "option2", ...],
+      ...
+    }
+  ]
+}
+
+IMPORTANT: 
+- Populate the "quotas" array with quota definitions
+- Populate the "questions" array with hidden variables (if any are found in this section)
+- Hidden variables should use the "hid_" prefix in their number field`
+    : `Please parse this ${sectionLabel} of a questionnaire document and extract ALL questions with their details:
 
 ${sectionContext}
 
 ${section.text}
 
-${totalSections > 1 ? `\nCRITICAL: This is section ${sectionIndex + 1} of ${totalSections} (${section.sectionName || 'unnamed section'}). You MUST parse EVERY SINGLE question in this section, including the FIRST question. Do not skip any questions.${questionPrefixHint}\n\nLook for all question markers and extract every question you find. Count how many questions there are in this section and make sure you parse ALL of them. If a section should have 20 questions, you must return 20 questions, not just 1 or 2.\n\nHIDDEN VARIABLES: You MUST also parse any hidden variables found in this section. Hidden variables are sections with titles like "VARIABLE NAME (Hidden Variable)". For each hidden variable:\n- Include it in the questions array\n- Use "number": "h_VARIABLE_NAME" format (convert title to UPPERCASE, replace spaces with underscores, remove "(Hidden Variable)")\n- Example: "SPINRAZA RESTART GAP (Hidden Variable)" → number: "h_SPINRAZA_RESTART_GAP"\n- Extract all options/conditions from the hidden variable table\n- Include the full title as the "text" field` : `\nCRITICAL: You MUST parse EVERY SINGLE question in this document, including the FIRST question. Do not skip any questions.${questionPrefixHint}\n\nLook for all question markers and extract every question you find. Count how many questions there are in this document and make sure you parse ALL of them. If a section should have 20 questions, you must return 20 questions, not just 1 or 2.\n\nHIDDEN VARIABLES: You MUST also parse any hidden variables found in this document. Hidden variables are sections with titles like "VARIABLE NAME (Hidden Variable)". For each hidden variable:\n- Include it in the questions array\n- Use "number": "h_VARIABLE_NAME" format (convert title to UPPERCASE, replace spaces with underscores, remove "(Hidden Variable)")\n- Example: "SPINRAZA RESTART GAP (Hidden Variable)" → number: "h_SPINRAZA_RESTART_GAP"\n- Extract all options/conditions from the hidden variable table\n- Include the full title as the "text" field`}
+${totalSections > 1 ? `\nCRITICAL: This is section ${sectionIndex + 1} of ${totalSections} (${section.sectionName || 'unnamed section'}). You MUST parse EVERY SINGLE question in this section, including the FIRST question. Do not skip any questions.${foundQuestionsHint}\n\nHIDDEN VARIABLES: You MUST also parse any hidden variables found in this section. Hidden variables are sections with titles like "VARIABLE NAME (Hidden Variable)". For each hidden variable:\n- Include it in the questions array IN THE SAME ORDER it appears in the QNR (do NOT group them in a separate section)\n- Use "number": "hid_VARIABLE_NAME" format (convert title to UPPERCASE, replace spaces with underscores, remove "(Hidden Variable)")\n- Example: "SPINRAZA RESTART GAP (Hidden Variable)" → number: "hid_SPINRAZA_RESTART_GAP"\n- Extract all options/conditions from the hidden variable table\n- Include the full title as the "text" field` : `\nCRITICAL: You MUST parse EVERY SINGLE question in this document, including the FIRST question. Do not skip any questions.${foundQuestionsHint}\n\nHIDDEN VARIABLES: You MUST also parse any hidden variables found in this document. Hidden variables are sections with titles like "VARIABLE NAME (Hidden Variable)". For each hidden variable:\n- Include it in the questions array IN THE SAME ORDER it appears in the QNR (do NOT group them in a separate section)\n- Use "number": "hid_VARIABLE_NAME" format (convert title to UPPERCASE, replace spaces with underscores, remove "(Hidden Variable)")\n- Example: "SPINRAZA RESTART GAP (Hidden Variable)" → number: "hid_SPINRAZA_RESTART_GAP"\n- Extract all options/conditions from the hidden variable table\n- Include the full title as the "text" field`}
 
 Return a JSON object with this structure:
 {
+  "quotas": [
+    {
+      "name": "quota name or identifier",
+      "conditions": ["condition1", "condition2", ...],
+      "limit": 100,
+      "description": "quota description or details"
+    }
+  ],
   "questions": [
     {
-      "number": "question number (e.g., S1, A1, Q1) - this will be used as the unique identifier. For hidden variables, use format 'h_VARIABLE_NAME' (e.g., 'h_SPINRAZA_RESTART_GAP')",
+      "number": "question number (e.g., S1, A1, Q1) - this will be used as the unique identifier. For hidden variables, use format 'hid_VARIABLE_NAME' (e.g., 'hid_SPINRAZA_RESTART_GAP')",
       "text": "full question text",
       "type": "specific Forsta question type from the library above",
       "options": ["option1", "option2", ...],  // For non-grid questions: response options
@@ -504,6 +1076,8 @@ Return a JSON object with this structure:
     }
   ]
 }
+
+NOTE: The "quotas" array is optional. Only include it if quotas are found in the document. If no quotas are found, you can omit the "quotas" field or set it to an empty array.
 
 CRITICAL STRUCTURE RULES:
 - For NUMERIC GRID: 
@@ -605,6 +1179,7 @@ IMPORTANT: Return ONLY valid JSON. Do not include any explanatory text outside t
   }
 
   const questions = parsedData.questions || [];
+  const quotas = parsedData.quotas || [];
   
   // Log cost for this section
   if (projectId && response.usage) {
@@ -626,7 +1201,8 @@ IMPORTANT: Return ONLY valid JSON. Do not include any explanatory text outside t
     }
   }
   
-  return questions;
+  // Return both questions and quotas
+  return { questions, quotas };
 }
 
 // Hard-coded parser to extract questions from standardized format
@@ -810,6 +1386,26 @@ IMPORTANT: Only use structured format (optionCodes array) for Single Select and 
    - Examples: "How many patients by age group?" (rows = treatments, columns = age groups), "Enter numbers for each category" (rows = items, columns = categories)
    - Type: "Numeric Grid"
    - Key indicator: Look for multiple columns with headers that represent categories (age groups, time periods, etc.) where numeric values are entered, AND rows that represent statements/items
+
+   CRITICAL FOR NUMERIC GRID PARSING:
+   - You MUST extract BOTH the row labels AND the column headers
+   - Row labels go in "statementOptions" array (these are the items being measured)
+   - Column headers go in "responseOptions" array (these are the categories/time periods/groups)
+   - Look for table structure with headers at the top and row labels on the left
+   - Common column header patterns: "Q1 2024", "Q2 2024", "Q3 2024", "Q4 2024" OR "0-17", "18-34", "35-54", "55+" OR "Week 1", "Week 2", "Week 3"
+   - If you see a table with rows on the left and columns at the top where numbers are entered, you MUST populate BOTH statementOptions AND responseOptions
+   - Example structure:
+     {
+       "statementOptions": [
+         {"code": "r1", "text": "Row 1 label"},
+         {"code": "r2", "text": "Row 2 label"}
+       ],
+       "responseOptions": [
+         {"code": "c1", "text": "Column 1 header"},
+         {"code": "c2", "text": "Column 2 header"},
+         {"code": "c3", "text": "Column 3 header"}
+       ]
+     }
    
    NUMERIC LIST:
    - Respondents enter numeric values (numbers, counts, percentages, etc.)
@@ -865,21 +1461,31 @@ IMPORTANT: Only use structured format (optionCodes array) for Single Select and 
    "TIME ON PAST TREATMENT (Hidden Variable)"
    
    CRITICAL: Hidden variables MUST be included in the questions array as regular questions with:
-   - "number": Use format "h_VARIABLE_NAME" where VARIABLE_NAME is derived from the hidden variable title
+   - "number": Use format "hid_VARIABLE_NAME" where VARIABLE_NAME is derived from the hidden variable title
    - Convert the title to UPPERCASE and replace spaces with underscores
    - Remove "(Hidden Variable)" text from the name
    - Examples:
-     * "SPINRAZA RESTART GAP (Hidden Variable)" → number: "h_SPINRAZA_RESTART_GAP"
-     * "TIME ON PAST TREATMENT (Hidden Variable)" → number: "h_TIME_ON_PAST_TREATMENT"
-     * "PATIENT COUNT (Hidden Variable)" → number: "h_PATIENT_COUNT"
+     * "SPINRAZA RESTART GAP (Hidden Variable)" → number: "hid_SPINRAZA_RESTART_GAP"
+     * "TIME ON PAST TREATMENT (Hidden Variable)" → number: "hid_TIME_ON_PAST_TREATMENT"
+     * "PATIENT COUNT (Hidden Variable)" → number: "hid_PATIENT_COUNT"
    - "text": The full title of the hidden variable (e.g., "SPINRAZA RESTART GAP (Hidden Variable)")
    - "type": "Single Select" (hidden variables typically have conditional logic options)
    - "options": Extract all the options/conditions from the hidden variable table/logic
    - "logic": Extract the calculation/conditional logic for each option
-   - Include hidden variables in the questions array - they should appear in the question list
+   - CRITICAL ORDERING: Hidden variables MUST appear in the questions array in the SAME ORDER they appear in the QNR document. Do NOT group them together in a separate section or at the end. If a hidden variable appears between question S5 and S6, it should be placed between S5 and S6 in the questions array.
 
 6. QUOTAS:
-   Extract quota tables with conditions
+   CRITICAL: Quotas are typically found at the FRONT of the questionnaire document, before the main questions begin.
+   - Look for quota tables or quota definitions near the beginning of the document
+   - Quotas typically have conditions (e.g., "Age 18-34", "Gender = Male") and limits (e.g., "n=100", "Complete 50")
+   - Extract ALL quotas found in the document
+   - Return quotas in a separate "quotas" array at the top level of the JSON response (NOT in the questions array)
+   - Each quota should include:
+     * "name": The quota name or identifier
+     * "conditions": Array of conditions (e.g., ["Age 18-34", "Gender = Male"])
+     * "limit": The quota limit (e.g., 100, 50)
+     * "description": Any additional details about the quota
+   - If quotas are found, include them in a "quotas" section at the beginning of the output
 
 COMPREHENSIVE QUESTION TYPE LIBRARY:
 Basic Question Types:
@@ -955,9 +1561,29 @@ Return enhanced JSON with all logic preserved.`;
     try {
       const sectionPromises = sections.map((section, i) =>
         parseQuestionnaireSection(section, i, sections.length, systemPrompt, projectId)
-          .then(questions => {
-            console.log(`✅ Section ${i + 1} (${section.sectionName || 'unnamed'}) completed - found ${questions.length} questions`);
-            return questions;
+          .then(result => {
+            const questionCount = result.questions?.length || 0;
+            const quotaCount = result.quotas?.length || 0;
+            const isQuotaSection = section.sectionName === 'Quota' || section.sectionName === 'Quotas' || section.sectionName?.toLowerCase() === 'quota' || section.sectionName?.toLowerCase() === 'quotas';
+            
+            // Validate question/quota count if expected count is available
+            if (section.expectedQuestionCount !== undefined && section.expectedQuestionCount !== null) {
+              const expectedCount = section.expectedQuestionCount;
+              const actualCount = isQuotaSection ? quotaCount : questionCount;
+              
+              if (actualCount !== expectedCount) {
+                console.warn(`⚠️ Section ${i + 1} (${section.sectionName || 'unnamed'}) - Expected ${expectedCount} ${isQuotaSection ? 'quotas' : 'questions'}, but found ${actualCount}`);
+              } else {
+                console.log(`✅ Section ${i + 1} (${section.sectionName || 'unnamed'}) - Found ${actualCount} ${isQuotaSection ? 'quotas' : 'questions'} (matches expected count)`);
+              }
+            } else {
+              if (isQuotaSection && quotaCount > 0) {
+                console.log(`✅ Section ${i + 1} (${section.sectionName || 'unnamed'}) completed - found ${quotaCount} quotas`);
+              } else if (!isQuotaSection) {
+                console.log(`✅ Section ${i + 1} (${section.sectionName || 'unnamed'}) completed - found ${questionCount} questions`);
+              }
+            }
+            return result;
           })
           .catch(error => {
             console.error(`❌ Error parsing section ${i + 1} (${section.sectionName || 'unnamed'}):`, error);
@@ -966,10 +1592,11 @@ Return enhanced JSON with all logic preserved.`;
       );
 
       const results = await Promise.all(sectionPromises);
-      const allQuestions = results.flat();
+      const allQuestions = results.flatMap(r => r.questions || []);
+      const allQuotas = results.flatMap(r => r.quotas || []);
 
       const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
-      console.log(`✅ Successfully parsed ${allQuestions.length} questions from ${sections.length} sections in ${totalTime}s (parallel processing)`);
+      console.log(`✅ Successfully parsed ${allQuestions.length} questions and ${allQuotas.length} quotas from ${sections.length} sections in ${totalTime}s (parallel processing)`);
     } catch (error) {
       throw error; // Re-throw to be caught by outer error handler
     }
@@ -1008,22 +1635,33 @@ Return enhanced JSON with all logic preserved.`;
         // Process tags
         let processedTags = Array.isArray(question.tags) ? [...question.tags] : [];
 
-        // Convert Button Rating to Single Select
-        if (question.type === 'Button Rating') {
-          question.type = 'Single Select';
-        }
-
-        // Detect scale questions
+        // Detect scale questions first
         const questionText = (question.text || '').toLowerCase();
-        const mentionsScale = questionText.includes('point scale') || questionText.includes('-point scale') || 
-                             questionText.includes('rating scale') || 
+        const mentionsScale = questionText.includes('point scale') || questionText.includes('-point scale') ||
+                             questionText.includes('rating scale') ||
                              (questionText.includes('scale') && (questionText.includes('rate') || questionText.includes('rate from') || questionText.includes('on a scale'))) ||
-                             questionText.includes('how satisfied') || questionText.includes('how likely') || 
+                             questionText.includes('how satisfied') || questionText.includes('how likely') ||
                              questionText.includes('how much do you agree') || questionText.includes('rate your') ||
                              questionText.includes('how important') || questionText.includes('how would you rate');
-        
+
+        // Check if this question has a Scale tag (either from AI or from mentions above)
+        const hasScaleTag = processedTags.includes('Scale') || mentionsScale;
+
         if (mentionsScale && !processedTags.includes('Scale')) {
           processedTags.push('Scale');
+        }
+
+        // Convert Button Rating or Single Select with Scale tag to Rating Scale (Dynamic)
+        if (question.type === 'Button Rating' || (question.type === 'Single Select' && hasScaleTag)) {
+          question.type = 'Rating Scale (Dynamic)';
+        }
+
+        // Ensure hidden variables have the correct type
+        const isHiddenVariable = question.number?.startsWith('hid_') ||
+                                 question.text?.includes('(Hidden Variable)') ||
+                                 question.type === 'Hidden Variable';
+        if (isHiddenVariable) {
+          question.type = 'Hidden Variable';
         }
 
         // Detect numeric type tags
@@ -1057,7 +1695,7 @@ Return enhanced JSON with all logic preserved.`;
         };
       });
       
-      return processedQuestions;
+      return { questions: processedQuestions, quotas: allQuotas };
   } catch (error) {
     console.error('Error parsing questionnaire:', error);
     throw new Error('Failed to parse questionnaire file: ' + error.message);
@@ -1085,13 +1723,30 @@ async function parseQuestionnaireLegacy(filePath, projectId, extractedText = nul
 
 ${text}
 
+QUOTAS: Look for quota tables or quota definitions near the beginning of the document. Quotas are typically found at the FRONT of the questionnaire document, before the main questions begin. Extract ALL quotas found and include them in a "quotas" array.
+
+HIDDEN VARIABLES: You MUST also parse any hidden variables found in this document. Hidden variables are sections with titles like "VARIABLE NAME (Hidden Variable)". For each hidden variable:
+- Include it in the questions array IN THE SAME ORDER it appears in the QNR (do NOT group them in a separate section)
+- Use "number": "hid_VARIABLE_NAME" format (convert title to UPPERCASE, replace spaces with underscores, remove "(Hidden Variable)")
+- Example: "SPINRAZA RESTART GAP (Hidden Variable)" → number: "hid_SPINRAZA_RESTART_GAP"
+- Extract all options/conditions from the hidden variable table
+- Include the full title as the "text" field
+
 Analyze the document thoroughly and return the structured data as JSON. Focus on extracting the core question information first, then add logic details where clearly present.
 
 Return a JSON object with this structure:
 {
+  "quotas": [
+    {
+      "name": "quota name or identifier",
+      "conditions": ["condition1", "condition2", ...],
+      "limit": 100,
+      "description": "quota description or details"
+    }
+  ],
   "questions": [
     {
-      "number": "question number (e.g., S1, A1, Q1) - this will be used as the unique identifier. For hidden variables, use format 'h_VARIABLE_NAME' (e.g., 'h_SPINRAZA_RESTART_GAP')",
+      "number": "question number (e.g., S1, A1, Q1) - this will be used as the unique identifier. For hidden variables, use format 'hid_VARIABLE_NAME' (e.g., 'hid_SPINRAZA_RESTART_GAP')",
       "text": "full question text",
       "type": "specific Forsta question type from the library above",
       "options": ["option1", "option2", ...],  // For non-grid questions: response options
@@ -1106,6 +1761,8 @@ Return a JSON object with this structure:
     }
   ]
 }
+
+NOTE: The "quotas" array is optional. Only include it if quotas are found in the document. If no quotas are found, you can omit the "quotas" field or set it to an empty array.
 
 CRITICAL STRUCTURE RULES:
 - For NUMERIC GRID: 
@@ -1262,20 +1919,33 @@ IMPORTANT: Return ONLY valid JSON. Do not include any explanatory text outside t
 
         let processedTags = Array.isArray(question.tags) ? [...question.tags] : [];
 
-        if (question.type === 'Button Rating') {
-          question.type = 'Single Select';
-        }
-
+        // Detect scale questions first
         const questionText = (question.text || '').toLowerCase();
-        const mentionsScale = questionText.includes('point scale') || questionText.includes('-point scale') || 
-                             questionText.includes('rating scale') || 
+        const mentionsScale = questionText.includes('point scale') || questionText.includes('-point scale') ||
+                             questionText.includes('rating scale') ||
                              (questionText.includes('scale') && (questionText.includes('rate') || questionText.includes('rate from') || questionText.includes('on a scale'))) ||
-                             questionText.includes('how satisfied') || questionText.includes('how likely') || 
+                             questionText.includes('how satisfied') || questionText.includes('how likely') ||
                              questionText.includes('how much do you agree') || questionText.includes('rate your') ||
                              questionText.includes('how important') || questionText.includes('how would you rate');
-        
+
+        // Check if this question has a Scale tag (either from AI or from mentions above)
+        const hasScaleTag = processedTags.includes('Scale') || mentionsScale;
+
         if (mentionsScale && !processedTags.includes('Scale')) {
           processedTags.push('Scale');
+        }
+
+        // Convert Button Rating or Single Select with Scale tag to Rating Scale (Dynamic)
+        if (question.type === 'Button Rating' || (question.type === 'Single Select' && hasScaleTag)) {
+          question.type = 'Rating Scale (Dynamic)';
+        }
+
+        // Ensure hidden variables have the correct type
+        const isHiddenVariable = question.number?.startsWith('hid_') ||
+                                 question.text?.includes('(Hidden Variable)') ||
+                                 question.type === 'Hidden Variable';
+        if (isHiddenVariable) {
+          question.type = 'Hidden Variable';
         }
 
         const isNumericQuestion = question.type === 'Numeric' || question.type === 'Numeric Grid' || question.type === 'Numeric List';
@@ -1411,25 +2081,36 @@ IMPORTANT: Return ONLY valid JSON. Do not include any explanatory text outside t
       // Process tags - ensure we have an array
       let processedTags = Array.isArray(question.tags) ? [...question.tags] : [];
 
-      // Convert Button Rating to Single Select
-      if (question.type === 'Button Rating') {
-        question.type = 'Single Select';
-      }
-
-      // Detect scale questions - ONLY if actually a rating/evaluation question, not just based on number of options
+      // Detect scale questions first - ONLY if actually a rating/evaluation question, not just based on number of options
       // The AI should have already determined this in the prompt, but we do a final check for explicit scale mentions
       const questionText = (question.text || '').toLowerCase();
-      const mentionsScale = questionText.includes('point scale') || questionText.includes('-point scale') || 
-                           questionText.includes('rating scale') || 
+      const mentionsScale = questionText.includes('point scale') || questionText.includes('-point scale') ||
+                           questionText.includes('rating scale') ||
                            (questionText.includes('scale') && (questionText.includes('rate') || questionText.includes('rate from') || questionText.includes('on a scale'))) ||
-                           questionText.includes('how satisfied') || questionText.includes('how likely') || 
+                           questionText.includes('how satisfied') || questionText.includes('how likely') ||
                            questionText.includes('how much do you agree') || questionText.includes('rate your') ||
                            questionText.includes('how important') || questionText.includes('how would you rate');
-      
+
+      // Check if this question has a Scale tag (either from AI or from mentions above)
+      const hasScaleTag = processedTags.includes('Scale') || mentionsScale;
+
       // Only add Scale tag if AI already added it OR if question explicitly mentions scale terminology
       // DO NOT automatically add based on number of options - let AI determine from context
       if (mentionsScale && !processedTags.includes('Scale')) {
         processedTags.push('Scale');
+      }
+
+      // Convert Button Rating or Single Select with Scale tag to Rating Scale (Dynamic)
+      if (question.type === 'Button Rating' || (question.type === 'Single Select' && hasScaleTag)) {
+        question.type = 'Rating Scale (Dynamic)';
+      }
+
+      // Ensure hidden variables have the correct type
+      const isHiddenVariable = question.number?.startsWith('hid_') ||
+                               question.text?.includes('(Hidden Variable)') ||
+                               question.type === 'Hidden Variable';
+      if (isHiddenVariable) {
+        question.type = 'Hidden Variable';
       }
 
       // Detect numeric type tags for Numeric questions and Numeric Grids
@@ -1828,16 +2509,47 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       // Continue even if file deletion fails
     }
     
-    // Identify sections using AI
-    console.log('🤖 Using AI to identify sections...');
-    let sections;
-    try {
-      sections = await identifySectionsWithAI(text, projectId);
-    } catch (error) {
-      console.error('AI section identification failed, falling back to regex method:', error);
-      // Fallback to regex-based method if AI fails
-      sections = splitQuestionnaireIntoSections(text);
+    // Extract all question numbers and group by prefix (hard-coded approach)
+    console.log('🔍 Extracting question numbers from document...');
+    const questionNumbersByPrefix = extractAllQuestionNumbersByPrefix(text);
+    
+    // Log found question numbers by prefix
+    console.log('📋 Found question numbers by prefix:');
+    let totalQuestionCount = 0;
+    Object.keys(questionNumbersByPrefix).forEach(prefix => {
+      const questions = questionNumbersByPrefix[prefix];
+      totalQuestionCount += questions.length;
+      console.log(`   Section ${prefix}: ${questions.length} questions - ${questions.slice(0, 10).join(', ')}${questions.length > 10 ? '...' : ''}`);
+    });
+    
+    // Create sections based on question number prefixes
+    let sections = createSectionsFromQuestionNumbers(text, questionNumbersByPrefix);
+
+    // Filter out false positive "Section Q" with only 1-2 questions (likely quarter references like Q1, Q2, Q3, Q4)
+    const filteredSections = sections.filter(section => {
+      const isQuestionQ = section.questionPrefix === 'Q' || section.sectionName === 'Section Q';
+      const hasVeryFewQuestions = section.expectedQuestionCount !== undefined && section.expectedQuestionCount <= 2;
+
+      if (isQuestionQ && hasVeryFewQuestions) {
+        console.log(`🚫 Filtering out "${section.sectionName}" with only ${section.expectedQuestionCount} question(s) - likely a false positive (quarter reference)`);
+        return false;
+      }
+      return true;
+    });
+
+    // Renumber sections after filtering
+    sections = filteredSections.map((section, index) => ({
+      ...section,
+      sectionNumber: index + 1
+    }));
+
+    // Log quota section info if it exists
+    const quotaSection = sections.find(s => s.sectionName === 'Quota' || s.sectionName?.toLowerCase() === 'quota');
+    if (quotaSection && quotaSection.foundQuestionNumbers && quotaSection.foundQuestionNumbers.length > 0) {
+      console.log(`📊 Quota section: Found ${quotaSection.foundQuestionNumbers.length} quotas/subquotas - ${quotaSection.foundQuestionNumbers.slice(0, 10).join(', ')}${quotaSection.foundQuestionNumbers.length > 10 ? '...' : ''}`);
     }
+    
+    console.log(`✅ Created ${sections.length} sections from question number prefixes (Total questions: ${totalQuestionCount})`);
     
     // Create a temporary questionnaire object with sections but no questions yet
     const questionnaireId = `qnr-${Date.now()}`;
@@ -1846,9 +2558,13 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       name: name || req.file.originalname.replace('.docx', ''),
       questions: [], // Will be populated as sections are parsed
       sections: sections.map((section, index) => ({
+        expectedQuestionCount: section.expectedQuestionCount,
+        foundQuestionNumbers: section.foundQuestionNumbers || [],
         sectionNumber: section.sectionNumber,
         sectionName: section.sectionName,
         questionPrefix: section.questionPrefix || null,
+        startIndex: section.startIndex,
+        endIndex: section.endIndex,
         textLength: section.text.length,
         parsed: false,
         questions: []
@@ -1885,7 +2601,9 @@ router.post('/upload', upload.single('file'), async (req, res) => {
         sectionName: section.sectionName,
         questionPrefix: section.questionPrefix || null,
         textLength: section.text.length,
-        parsed: false
+        parsed: false,
+        expectedQuestionCount: section.expectedQuestionCount,
+        foundQuestionNumbers: section.foundQuestionNumbers || []
       }))
     });
   } catch (error) {
@@ -1955,26 +2673,35 @@ router.post('/:questionnaireId/parse-section', async (req, res) => {
     }
     
     if (section.parsed) {
-      return res.json({ 
+      return res.json({
         message: 'Section already parsed',
         questions: section.questions || []
       });
     }
-    
-    // Re-identify sections to get the exact section text (use AI for consistency)
-    console.log('🤖 Re-identifying sections with AI...');
-    let allSections;
-    try {
-      allSections = await identifySectionsWithAI(text, projectId);
-    } catch (error) {
-      console.error('AI section re-identification failed, falling back to regex method:', error);
-      // Fallback to regex-based method if AI fails
-      allSections = splitQuestionnaireIntoSections(text);
-    }
-    const sectionToParse = allSections.find(s => s.sectionNumber === sectionNumber);
-    
-    if (!sectionToParse) {
-      return res.status(404).json({ error: `Section ${sectionNumber} not found in file` });
+
+    // Extract section text using saved startIndex and endIndex (don't re-identify with AI)
+    console.log(`📄 Extracting section ${sectionNumber} text using saved boundaries...`);
+    const startIndex = section.startIndex !== undefined ? section.startIndex : 0;
+    const endIndex = section.endIndex !== undefined && section.endIndex !== null
+      ? section.endIndex
+      : text.length;
+
+    const sectionText = text.substring(startIndex, endIndex);
+
+    // Create section object for parsing
+    const sectionToParse = {
+      text: sectionText,
+      sectionNumber: section.sectionNumber,
+      sectionName: section.sectionName,
+      questionPrefix: section.questionPrefix,
+      expectedQuestionCount: section.expectedQuestionCount,
+      foundQuestionNumbers: section.foundQuestionNumbers || []
+    };
+
+    console.log(`✅ Extracted section text (${sectionText.length} chars, ${section.foundQuestionNumbers?.length || 0} identified questions)`);
+
+    if (!sectionToParse || !sectionText) {
+      return res.status(404).json({ error: `Section ${sectionNumber} text not found` });
     }
     
     // Get the system prompt (same as used in parseQuestionnaire)
@@ -2024,6 +2751,26 @@ IMPORTANT: Only use structured format (optionCodes array) for Single Select and 
    - Examples: "How many patients by age group?" (rows = treatments, columns = age groups), "Enter numbers for each category" (rows = items, columns = categories)
    - Type: "Numeric Grid"
    - Key indicator: Look for multiple columns with headers that represent categories (age groups, time periods, etc.) where numeric values are entered, AND rows that represent statements/items
+
+   CRITICAL FOR NUMERIC GRID PARSING:
+   - You MUST extract BOTH the row labels AND the column headers
+   - Row labels go in "statementOptions" array (these are the items being measured)
+   - Column headers go in "responseOptions" array (these are the categories/time periods/groups)
+   - Look for table structure with headers at the top and row labels on the left
+   - Common column header patterns: "Q1 2024", "Q2 2024", "Q3 2024", "Q4 2024" OR "0-17", "18-34", "35-54", "55+" OR "Week 1", "Week 2", "Week 3"
+   - If you see a table with rows on the left and columns at the top where numbers are entered, you MUST populate BOTH statementOptions AND responseOptions
+   - Example structure:
+     {
+       "statementOptions": [
+         {"code": "r1", "text": "Row 1 label"},
+         {"code": "r2", "text": "Row 2 label"}
+       ],
+       "responseOptions": [
+         {"code": "c1", "text": "Column 1 header"},
+         {"code": "c2", "text": "Column 2 header"},
+         {"code": "c3", "text": "Column 3 header"}
+       ]
+     }
    
    NUMERIC LIST:
    - Respondents enter numeric values (numbers, counts, percentages, etc.)
@@ -2079,21 +2826,31 @@ IMPORTANT: Only use structured format (optionCodes array) for Single Select and 
    "TIME ON PAST TREATMENT (Hidden Variable)"
    
    CRITICAL: Hidden variables MUST be included in the questions array as regular questions with:
-   - "number": Use format "h_VARIABLE_NAME" where VARIABLE_NAME is derived from the hidden variable title
+   - "number": Use format "hid_VARIABLE_NAME" where VARIABLE_NAME is derived from the hidden variable title
    - Convert the title to UPPERCASE and replace spaces with underscores
    - Remove "(Hidden Variable)" text from the name
    - Examples:
-     * "SPINRAZA RESTART GAP (Hidden Variable)" → number: "h_SPINRAZA_RESTART_GAP"
-     * "TIME ON PAST TREATMENT (Hidden Variable)" → number: "h_TIME_ON_PAST_TREATMENT"
-     * "PATIENT COUNT (Hidden Variable)" → number: "h_PATIENT_COUNT"
+     * "SPINRAZA RESTART GAP (Hidden Variable)" → number: "hid_SPINRAZA_RESTART_GAP"
+     * "TIME ON PAST TREATMENT (Hidden Variable)" → number: "hid_TIME_ON_PAST_TREATMENT"
+     * "PATIENT COUNT (Hidden Variable)" → number: "hid_PATIENT_COUNT"
    - "text": The full title of the hidden variable (e.g., "SPINRAZA RESTART GAP (Hidden Variable)")
    - "type": "Single Select" (hidden variables typically have conditional logic options)
    - "options": Extract all the options/conditions from the hidden variable table/logic
    - "logic": Extract the calculation/conditional logic for each option
-   - Include hidden variables in the questions array - they should appear in the question list
+   - CRITICAL ORDERING: Hidden variables MUST appear in the questions array in the SAME ORDER they appear in the QNR document. Do NOT group them together in a separate section or at the end. If a hidden variable appears between question S5 and S6, it should be placed between S5 and S6 in the questions array.
 
 6. QUOTAS:
-   Extract quota tables with conditions
+   CRITICAL: Quotas are typically found at the FRONT of the questionnaire document, before the main questions begin.
+   - Look for quota tables or quota definitions near the beginning of the document
+   - Quotas typically have conditions (e.g., "Age 18-34", "Gender = Male") and limits (e.g., "n=100", "Complete 50")
+   - Extract ALL quotas found in the document
+   - Return quotas in a separate "quotas" array at the top level of the JSON response (NOT in the questions array)
+   - Each quota should include:
+     * "name": The quota name or identifier
+     * "conditions": Array of conditions (e.g., ["Age 18-34", "Gender = Male"])
+     * "limit": The quota limit (e.g., 100, 50)
+     * "description": Any additional details about the quota
+   - If quotas are found, include them in a "quotas" section at the beginning of the output
 
 COMPREHENSIVE QUESTION TYPE LIBRARY:
 Basic Question Types:
@@ -2146,32 +2903,79 @@ Structural Elements:
 OUTPUT STRUCTURE:
 Return enhanced JSON with all logic preserved.`;
     
-    // Parse the section
-    const questions = await parseQuestionnaireSection(
+    // Parse the section (AI call - can happen in parallel)
+    const result = await parseQuestionnaireSection(
       sectionToParse,
       sectionNumber - 1,
-      allSections.length,
+      questionnaire.sections.length,
       systemPrompt,
       projectId
     );
-    
-    // Update the section in the questionnaire
-    section.parsed = true;
-    section.questions = questions;
-    
-    // Add questions to the main questions array
-    if (!questionnaire.questions) {
-      questionnaire.questions = [];
-    }
-    questionnaire.questions.push(...questions);
-    
-    // Save updated questionnaire
-    await fs.writeFile(questionnairesPath, JSON.stringify(questionnaires, null, 2));
+
+    const questions = result.questions || [];
+    const quotas = result.quotas || [];
+
+    // Use mutex lock for file operations to prevent race conditions during parallel parsing
+    await withQuestionnaireLock(questionnaireId, async () => {
+      // Re-read the questionnaire file to get the latest state
+      const latestData = await fs.readFile(questionnairesPath, 'utf8');
+      const latestQuestionnaires = JSON.parse(latestData);
+
+      // Find the questionnaire again with latest data
+      let latestQuestionnaire = null;
+      for (const pid in latestQuestionnaires) {
+        const qnr = latestQuestionnaires[pid].find(q => q.id === questionnaireId);
+        if (qnr) {
+          latestQuestionnaire = qnr;
+          break;
+        }
+      }
+
+      if (!latestQuestionnaire) {
+        throw new Error('Questionnaire not found during update');
+      }
+
+      // Find the section in the latest questionnaire
+      const latestSection = latestQuestionnaire.sections?.find(s => s.sectionNumber === sectionNumber);
+      if (!latestSection) {
+        throw new Error(`Section ${sectionNumber} not found during update`);
+      }
+
+      // Update the section
+      latestSection.parsed = true;
+      latestSection.questions = questions;
+
+      // Rebuild the main questions array from all sections in correct order
+      // This ensures questions appear in section order, not completion order
+      latestQuestionnaire.questions = [];
+      const sortedSections = (latestQuestionnaire.sections || []).sort((a, b) => a.sectionNumber - b.sectionNumber);
+      for (const sect of sortedSections) {
+        if (sect.parsed && sect.questions) {
+          latestQuestionnaire.questions.push(...sect.questions);
+        }
+      }
+
+      // Add quotas to the questionnaire if this is the Quota section
+      const isQuotaSection = latestSection.sectionName === 'Quota' || latestSection.sectionName === 'Quotas' || latestSection.sectionName?.toLowerCase() === 'quota' || latestSection.sectionName?.toLowerCase() === 'quotas';
+      if (isQuotaSection) {
+        latestQuestionnaire.quotas = quotas;
+      } else if (quotas.length > 0) {
+        // If quotas found in a non-quota section, merge them
+        if (!latestQuestionnaire.quotas) {
+          latestQuestionnaire.quotas = [];
+        }
+        latestQuestionnaire.quotas.push(...quotas);
+      }
+
+      // Save updated questionnaire
+      await fs.writeFile(questionnairesPath, JSON.stringify(latestQuestionnaires, null, 2));
+    });
     
     res.json({
       sectionNumber: sectionNumber,
       sectionName: section.sectionName,
       questions: questions,
+      quotas: quotas,
       totalQuestions: questionnaire.questions.length
     });
   } catch (error) {
@@ -2247,7 +3051,9 @@ router.post('/:questionnaireId/reparse', async (req, res) => {
     }
     
     // Re-parse the questionnaire with updated prompt
-    const questions = await parseQuestionnaire(null, projectId, text);
+    const parseResult = await parseQuestionnaire(null, projectId, text);
+    const questions = parseResult.questions || [];
+    const quotas = parseResult.quotas || [];
     
     // Update the questionnaire in the array
     for (const pid in questionnaires) {
@@ -2257,6 +3063,7 @@ router.post('/:questionnaireId/reparse', async (req, res) => {
           questionnaires[pid][index] = {
             ...questionnaires[pid][index],
             questions: questions,
+            quotas: quotas,
             updatedAt: new Date().toISOString(),
             reparsedAt: new Date().toISOString()
           };
