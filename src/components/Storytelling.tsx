@@ -793,19 +793,50 @@ export default function Storytelling({ analysisId, projectId, onNavigate, setAna
       const project = projects.find(p => p.id === projectId);
       if (project) {
         setSelectedProject(project);
-        setForceListView(false); // Switch to project view
+        setViewMode('project'); // Switch to project view
+        setForceListView(false);
         console.log('🔍 Switched to project:', project.name);
       }
     };
 
     window.addEventListener('selectProjectInStorytelling', handleProjectSelection as EventListener);
 
+    // Check for project navigation from sessionStorage (similar to Transcripts)
+    try {
+      const storedProjectId = sessionStorage.getItem('cognitive_dash_storytelling_focus_project');
+      const storedViewMode = sessionStorage.getItem('cognitive_dash_storytelling_view_mode');
+      
+      if (storedProjectId && (projects.length > 0 || archivedProjects.length > 0)) {
+        // Check both active and archived projects
+        const allProjects = [...projects, ...archivedProjects];
+        const targetProject = allProjects.find(p => p.id === storedProjectId);
+        if (targetProject) {
+          setSelectedProject(targetProject);
+          if (storedViewMode === 'project') {
+            setViewMode('project');
+          }
+          setForceListView(false);
+          // Set the correct tab if project is archived
+          if (targetProject.archived) {
+            setProjectTab('archived');
+          } else {
+            setProjectTab('active');
+          }
+          // Clear sessionStorage after reading
+          sessionStorage.removeItem('cognitive_dash_storytelling_focus_project');
+          sessionStorage.removeItem('cognitive_dash_storytelling_view_mode');
+        }
+      }
+    } catch (error) {
+      console.warn('Unable to read storytelling navigation target', error);
+    }
+
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('selectProjectInStorytelling', handleProjectSelection as EventListener);
     };
-  }, [projects]);
+  }, [projects, archivedProjects]);
   const [quotes, setQuotes] = useState<VerbatimQuote[]>([]);
   const [loadingQuotes, setLoadingQuotes] = useState(false);
   const [quotesError, setQuotesError] = useState<string | null>(null);
@@ -1273,6 +1304,13 @@ export default function Storytelling({ analysisId, projectId, onNavigate, setAna
       return null;
     }
   };
+
+  // Load content analyses when a project is selected and view mode is 'project'
+  useEffect(() => {
+    if (selectedProject && viewMode === 'project') {
+      loadContentAnalysesForProject(selectedProject.id);
+    }
+  }, [selectedProject?.id, viewMode]);
 
   const loadProjects = useCallback(async () => {
     if (!user?.id) return;

@@ -1499,7 +1499,8 @@ Basic Question Types:
 - Numeric List: List where respondents enter numeric values. Has ONLY response options (use "options" field), NO statementOptions. Each option gets a single numeric input. Use when asking for numbers for a list of items (no grid structure with rows and columns).
 - Multi-Select Grid: Grid allowing multiple selections per row/cell. Has statementOptions (rows) and responseOptions (columns). Typically has "Values: 0-1"
 - Button Multi-Select/Grid: Button-based multi-select including grid variants
-- Open End: Freeform alphanumeric text input
+- Open End: Freeform alphanumeric text input (SINGLE text box only - NO statement options/rows). If an Open End question has statement options/rows, it MUST be classified as "Open End List" instead.
+- Open End List: Multiple freeform text inputs (one text box per item). Has responseOptions (list items), NOT statementOptions. If an Open End question has statement options/rows, it MUST be classified as "Open End List" instead.
 - Numeric: Numeric values only (single numeric input, not a grid)
 
 Dynamic/Advanced Types:
@@ -2113,6 +2114,22 @@ IMPORTANT: Return ONLY valid JSON. Do not include any explanatory text outside t
         question.type = 'Hidden Variable';
       }
 
+      // CRITICAL: If an Open End question has statementOptions (rows), it must be an Open End List
+      // Open End questions do not have statement options - only Open End List questions do
+      const isOpenEnd = question.type?.toLowerCase() === 'open end' || 
+                       (question.type?.toLowerCase().includes('open end') && !question.type?.toLowerCase().includes('list'));
+      const hasStatementOptions = normalizedStatementOptions && normalizedStatementOptions.length > 0;
+      if (isOpenEnd && hasStatementOptions) {
+        console.log(`⚠️ Converting question ${question.number} from "Open End" to "Open End List" - it has ${normalizedStatementOptions.length} statement options`);
+        question.type = 'Open End List';
+        // Move statementOptions to responseOptions for Open End List
+        // Open End List uses responseOptions to store the list items (each gets a text box)
+        if (!normalizedResponseOptions || normalizedResponseOptions.length === 0) {
+          question.responseOptions = normalizedStatementOptions;
+          question.statementOptions = undefined;
+        }
+      }
+
       // Detect numeric type tags for Numeric questions and Numeric Grids
       const isNumericQuestion = question.type === 'Numeric' || question.type === 'Numeric Grid';
       if (isNumericQuestion) {
@@ -2541,7 +2558,7 @@ router.get('/:projectId', async (req, res) => {
   try {
     const { projectId } = req.params;
     const questionnairesPath = path.join(dataRoot, 'questionnaires.json');
-    
+
     let questionnaires = {};
     try {
       const data = await fs.readFile(questionnairesPath, 'utf8');
@@ -2549,8 +2566,42 @@ router.get('/:projectId', async (req, res) => {
     } catch (error) {
       // File doesn't exist yet, that's fine
     }
-    
-    const projectQuestionnaires = questionnaires[projectId] || [];
+
+    let projectQuestionnaires = questionnaires[projectId] || [];
+
+    // Migrate Open End questions with statementOptions to Open End List
+    let needsSave = false;
+    projectQuestionnaires = projectQuestionnaires.map(qnr => {
+      if (qnr.questions && Array.isArray(qnr.questions)) {
+        qnr.questions = qnr.questions.map(question => {
+          const isOpenEnd = question.type?.toLowerCase() === 'open end' ||
+                           (question.type?.toLowerCase().includes('open end') && !question.type?.toLowerCase().includes('list'));
+          const hasStatementOptions = question.statementOptions && Array.isArray(question.statementOptions) && question.statementOptions.length > 0;
+
+          if (isOpenEnd && hasStatementOptions) {
+            console.log(`⚠️ Auto-migrating question ${question.number || question.id} from "Open End" to "Open End List" on load - it has ${question.statementOptions.length} statement options`);
+            question.type = 'Open End List';
+            // Move statementOptions to responseOptions if responseOptions doesn't exist
+            if (!question.responseOptions || question.responseOptions.length === 0) {
+              question.responseOptions = question.statementOptions;
+            }
+            // Clear statementOptions
+            question.statementOptions = undefined;
+            needsSave = true;
+          }
+          return question;
+        });
+      }
+      return qnr;
+    });
+
+    // Save back if any migrations were made
+    if (needsSave) {
+      questionnaires[projectId] = projectQuestionnaires;
+      await fs.writeFile(questionnairesPath, JSON.stringify(questionnaires, null, 2));
+      console.log('✅ Saved migrated questionnaires to disk');
+    }
+
     res.json(projectQuestionnaires);
   } catch (error) {
     console.error('Error loading questionnaires:', error);
@@ -3012,7 +3063,8 @@ Basic Question Types:
 - Numeric List: List where respondents enter numeric values. Has ONLY response options (use "options" field), NO statementOptions. Each option gets a single numeric input. Use when asking for numbers for a list of items (no grid structure with rows and columns).
 - Multi-Select Grid: Grid allowing multiple selections per row/cell. Has statementOptions (rows) and responseOptions (columns). Typically has "Values: 0-1"
 - Button Multi-Select/Grid: Button-based multi-select including grid variants
-- Open End: Freeform alphanumeric text input
+- Open End: Freeform alphanumeric text input (SINGLE text box only - NO statement options/rows). If an Open End question has statement options/rows, it MUST be classified as "Open End List" instead.
+- Open End List: Multiple freeform text inputs (one text box per item). Has responseOptions (list items), NOT statementOptions. If an Open End question has statement options/rows, it MUST be classified as "Open End List" instead.
 - Numeric: Numeric values only (single numeric input, not a grid)
 
 Dynamic/Advanced Types:
@@ -3262,17 +3314,38 @@ router.put('/:questionnaireId', async (req, res) => {
   try {
     const { questionnaireId } = req.params;
     const updates = req.body;
-    
+
+    // Migrate Open End questions with statementOptions to Open End List before saving
+    if (updates.questions && Array.isArray(updates.questions)) {
+      updates.questions = updates.questions.map(question => {
+        const isOpenEnd = question.type?.toLowerCase() === 'open end' ||
+                         (question.type?.toLowerCase().includes('open end') && !question.type?.toLowerCase().includes('list'));
+        const hasStatementOptions = question.statementOptions && Array.isArray(question.statementOptions) && question.statementOptions.length > 0;
+
+        if (isOpenEnd && hasStatementOptions) {
+          console.log(`⚠️ Auto-migrating question ${question.number || question.id} from "Open End" to "Open End List" on save - it has ${question.statementOptions.length} statement options`);
+          question.type = 'Open End List';
+          // Move statementOptions to responseOptions if responseOptions doesn't exist
+          if (!question.responseOptions || question.responseOptions.length === 0) {
+            question.responseOptions = question.statementOptions;
+          }
+          // Clear statementOptions
+          question.statementOptions = undefined;
+        }
+        return question;
+      });
+    }
+
     const questionnairesPath = path.join(dataRoot, 'questionnaires.json');
     let questionnaires = {};
-    
+
     try {
       const data = await fs.readFile(questionnairesPath, 'utf8');
       questionnaires = JSON.parse(data);
     } catch (error) {
       return res.status(404).json({ error: 'Questionnaires not found' });
     }
-    
+
     // Find and update the questionnaire
     let found = false;
     for (const projectId in questionnaires) {
@@ -3283,17 +3356,91 @@ router.put('/:questionnaireId', async (req, res) => {
         break;
       }
     }
-    
+
     if (!found) {
       return res.status(404).json({ error: 'Questionnaire not found' });
     }
-    
+
     await fs.writeFile(questionnairesPath, JSON.stringify(questionnaires, null, 2));
-    
+
     res.json({ success: true });
   } catch (error) {
     console.error('Error updating questionnaire:', error);
     res.status(500).json({ error: 'Failed to update questionnaire' });
+  }
+});
+
+// POST /api/questionnaire/migrate-open-end-list - Migrate Open End questions with statementOptions to Open End List
+router.post('/migrate-open-end-list', async (req, res) => {
+  try {
+    const questionnairesPath = path.join(dataRoot, 'questionnaires.json');
+    let questionnaires = {};
+    
+    try {
+      const data = await fs.readFile(questionnairesPath, 'utf8');
+      questionnaires = JSON.parse(data);
+    } catch (error) {
+      return res.status(404).json({ error: 'Questionnaires not found' });
+    }
+    
+    let totalFixed = 0;
+    const fixedQuestions = [];
+    
+    // Iterate through all questionnaires
+    for (const projectId in questionnaires) {
+      const projectQuestionnaires = questionnaires[projectId];
+      
+      for (const questionnaire of projectQuestionnaires) {
+        if (!questionnaire.questions || !Array.isArray(questionnaire.questions)) {
+          continue;
+        }
+        
+        // Check each question
+        for (const question of questionnaire.questions) {
+          const isOpenEnd = question.type?.toLowerCase() === 'open end' || 
+                           (question.type?.toLowerCase().includes('open end') && !question.type?.toLowerCase().includes('list'));
+          const hasStatementOptions = question.statementOptions && Array.isArray(question.statementOptions) && question.statementOptions.length > 0;
+          
+          if (isOpenEnd && hasStatementOptions) {
+            console.log(`⚠️ Migrating question ${question.number || question.id} from "Open End" to "Open End List" - it has ${question.statementOptions.length} statement options`);
+            
+            // Convert to Open End List
+            question.type = 'Open End List';
+            
+            // Move statementOptions to responseOptions if responseOptions doesn't exist
+            if (!question.responseOptions || question.responseOptions.length === 0) {
+              question.responseOptions = question.statementOptions;
+            }
+            
+            // Clear statementOptions
+            question.statementOptions = undefined;
+            
+            totalFixed++;
+            fixedQuestions.push({
+              questionnaireId: questionnaire.id,
+              questionNumber: question.number || question.id,
+              statementOptionsCount: question.responseOptions?.length || 0
+            });
+          }
+        }
+      }
+    }
+    
+    // Save updated questionnaires
+    if (totalFixed > 0) {
+      await fs.writeFile(questionnairesPath, JSON.stringify(questionnaires, null, 2));
+      console.log(`✅ Migration complete: Fixed ${totalFixed} questions`);
+    }
+    
+    res.json({ 
+      success: true, 
+      message: `Migration complete: Fixed ${totalFixed} question(s)`,
+      totalFixed,
+      fixedQuestions
+    });
+  } catch (error) {
+    console.error('Error migrating Open End questions:', error);
+    res.status(500).json({ error: 'Failed to migrate questions: ' + error.message });
   }
 });
 
@@ -3405,7 +3552,8 @@ Basic Question Types:
 - Numeric List: List where respondents enter numeric values. Has ONLY response options (use "options" field), NO statementOptions. Each option gets a single numeric input. Use when asking for numbers for a list of items (no grid structure with rows and columns).
 - Multi-Select Grid: Grid allowing multiple selections per row/cell. Has statementOptions (rows) and responseOptions (columns). Typically has "Values: 0-1"
 - Button Multi-Select/Grid: Button-based multi-select including grid variants
-- Open End: Freeform alphanumeric text input
+- Open End: Freeform alphanumeric text input (SINGLE text box only - NO statement options/rows). If an Open End question has statement options/rows, it MUST be classified as "Open End List" instead.
+- Open End List: Multiple freeform text inputs (one text box per item). Has responseOptions (list items), NOT statementOptions. If an Open End question has statement options/rows, it MUST be classified as "Open End List" instead.
 - Numeric: Numeric values only (single numeric input, not a grid)
 
 Dynamic/Advanced Types:
@@ -3614,7 +3762,8 @@ Basic Question Types:
 - Numeric List: List where respondents enter numeric values. Has ONLY response options (use "options" field), NO statementOptions. Each option gets a single numeric input. Use when asking for numbers for a list of items (no grid structure with rows and columns).
 - Multi-Select Grid: Grid allowing multiple selections per row/cell. Has statementOptions (rows) and responseOptions (columns). Typically has "Values: 0-1"
 - Button Multi-Select/Grid: Button-based multi-select including grid variants
-- Open End: Freeform alphanumeric text input
+- Open End: Freeform alphanumeric text input (SINGLE text box only - NO statement options/rows). If an Open End question has statement options/rows, it MUST be classified as "Open End List" instead.
+- Open End List: Multiple freeform text inputs (one text box per item). Has responseOptions (list items), NOT statementOptions. If an Open End question has statement options/rows, it MUST be classified as "Open End List" instead.
 - Numeric: Numeric values only (single numeric input, not a grid)
 
 Dynamic/Advanced Types:
@@ -4132,6 +4281,10 @@ router.post('/upload-data-file', uploadDataFile.single('file'), async (req, res)
     metadata.dataFileName = fileName;
     metadata.originalFileName = req.file.originalname;
     metadata.uploadedAt = new Date().toISOString();
+    // Clear old mapping since this is a new file - mapping must be re-done
+    delete metadata.columnMapping;
+    delete metadata.mappingCreatedAt;
+    delete metadata.columnHeaders;
     await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2));
     
     res.json({ fileName, originalFileName: req.file.originalname, message: 'File uploaded successfully' });
@@ -4428,6 +4581,653 @@ router.get('/raw-data/:questionnaireId', async (req, res) => {
   } catch (error) {
     console.error('Error fetching raw data:', error);
     res.status(500).json({ error: 'Failed to fetch raw data' });
+  }
+});
+
+// GET /api/questionnaire/datamap/:questionnaireId - Get datamap (second sheet) from data file
+router.get('/datamap/:questionnaireId', async (req, res) => {
+  try {
+    const { questionnaireId } = req.params;
+    const qnrDataDir = path.join(dataRoot, 'questionnaire-data', questionnaireId);
+    const metadataPath = path.join(qnrDataDir, 'metadata.json');
+    
+    try {
+      const metadata = JSON.parse(await fs.readFile(metadataPath, 'utf-8'));
+      if (!metadata.dataFileName) {
+        return res.status(404).json({ error: 'No data file found. Please upload a data file first.' });
+      }
+      
+      const filePath = path.join(qnrDataDir, metadata.dataFileName);
+      
+      // Check if file exists
+      try {
+        await fs.access(filePath);
+      } catch (e) {
+        return res.status(404).json({ error: 'Data file not found' });
+      }
+      
+      // Read and parse the Excel file
+      const workbook = XLSX.readFile(filePath);
+      
+      // Check if second sheet exists
+      if (workbook.SheetNames.length < 2) {
+        return res.status(404).json({ 
+          error: 'No datamap sheet found. File must have at least 2 sheets.',
+          availableSheets: workbook.SheetNames
+        });
+      }
+      
+      // Try to find datamap sheet (could be named "Datamap", "Data Map", or be the second sheet)
+      let datamapSheetName = workbook.SheetNames.find(name => 
+        name.toLowerCase().includes('datamap') || 
+        name.toLowerCase().includes('data map') ||
+        name.toLowerCase().includes('data_map')
+      ) || workbook.SheetNames[1]; // Fallback to second sheet
+      
+      const datamapWorksheet = workbook.Sheets[datamapSheetName];
+      
+      if (!datamapWorksheet) {
+        return res.status(404).json({ 
+          error: `Could not find datamap sheet: ${datamapSheetName}`,
+          availableSheets: workbook.SheetNames
+        });
+      }
+      
+      // Convert sheet to JSON with raw values to preserve formatting
+      const rawData = XLSX.utils.sheet_to_json(datamapWorksheet, { 
+        defval: '', 
+        blankrows: false,
+        raw: true,
+        header: 1 // Get as array of arrays
+      });
+      
+      if (!rawData || rawData.length === 0) {
+        return res.status(404).json({ 
+          error: 'Datamap sheet is empty',
+          sheetName: datamapSheetName
+        });
+      }
+      
+      // Parse the datamap structure
+      // Based on the structure: question IDs in brackets, question text, values, response options
+      const parsedDatamap = [];
+      let currentQuestion = null;
+      
+      for (let i = 0; i < rawData.length; i++) {
+        const row = rawData[i];
+        if (!row || row.length === 0) continue;
+        
+        // Convert row to array of strings, handling empty cells
+        const rowCells = [];
+        for (let j = 0; j < Math.max(row.length || 0, 4); j++) {
+          rowCells.push(String(row[j] || '').trim());
+        }
+        
+        const firstCell = rowCells[0];
+        const secondCell = rowCells[1] || '';
+        const thirdCell = rowCells[2] || '';
+        const fourthCell = rowCells[3] || '';
+        
+        // Check if this is a question ID (starts with [ and ends with ])
+        if (firstCell.match(/^\[.+\]$/)) {
+          // Save previous question if exists
+          if (currentQuestion) {
+            parsedDatamap.push(currentQuestion);
+          }
+          
+          // Start new question
+          // Question text might be in second or third cell
+          let questionText = secondCell || thirdCell || '';
+          let values = '';
+          let purpose = '';
+          
+          // Try to identify which cell contains what
+          // Values typically look like "1-98", "0-75", "0-100", "0-999", "0-1"
+          if (secondCell.match(/^\d+-\d+$/) || secondCell.match(/^\d+$/)) {
+            values = secondCell;
+            questionText = thirdCell || '';
+            purpose = fourthCell || '';
+          } else if (thirdCell.match(/^\d+-\d+$/) || thirdCell.match(/^\d+$/)) {
+            values = thirdCell;
+            purpose = fourthCell || '';
+          } else {
+            // No clear values pattern, assume question text is in second cell
+            questionText = secondCell;
+            purpose = thirdCell || fourthCell || '';
+          }
+          
+          currentQuestion = {
+            questionId: firstCell,
+            questionText: questionText,
+            values: values,
+            purpose: purpose,
+            responseOptions: [],
+            categories: []
+          };
+        } else if (currentQuestion) {
+          // Check if this is a response option (starts with a number followed by text)
+          const optionMatch = firstCell.match(/^(\d+)\s+(.+)$/);
+          if (optionMatch) {
+            currentQuestion.responseOptions.push({
+              code: optionMatch[1],
+              label: optionMatch[2].trim()
+            });
+          } else {
+            // Check if this is a category (starts with [ and contains category identifier)
+            // Categories look like [hQS11Maskc1], [hQS11Ager2], etc.
+            const categoryMatch = firstCell.match(/^\[(.+)\]\s*(.+)$/);
+            if (categoryMatch) {
+              currentQuestion.categories.push({
+                id: categoryMatch[1],
+                label: categoryMatch[2].trim()
+              });
+            } else if (firstCell && firstCell.length > 0) {
+              // Check if it's a header row (Values, Purpose, etc.) - skip these
+              if (!firstCell.match(/^(Values?|Purpose|Question|Category|Options?)/i)) {
+                // Might be additional question text or description on continuation rows
+                // Only add if we don't already have question text or if it looks like continuation
+                if (!currentQuestion.questionText || firstCell.length > 20) {
+                  if (currentQuestion.questionText && !currentQuestion.questionText.includes(firstCell)) {
+                    currentQuestion.questionText += ' ' + firstCell;
+                  } else if (!currentQuestion.questionText) {
+                    currentQuestion.questionText = firstCell;
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+      
+      // Don't forget the last question
+      if (currentQuestion) {
+        parsedDatamap.push(currentQuestion);
+      }
+      
+      // Extract column definitions from raw data
+      // Look for patterns like [columnName]: Description in the first column
+      const columnDefinitions = [];
+
+      for (let i = 0; i < rawData.length; i++) {
+        const row = rawData[i];
+        if (!row || row.length === 0) continue;
+
+        const firstCell = String(row[0] || '').trim();
+
+        // Check for multi-select pattern: Text without brackets but with colon (e.g., "QS4: xxx")
+        // Next line should have "Value: 0-1" or "Values: 0-1"
+        // Make sure the line doesn't start with a bracket
+        if (!firstCell.startsWith('[') && firstCell.includes(':')) {
+          const multiSelectMatch = firstCell.match(/^([^:\[\]]+):\s*(.*)$/);
+
+          if (multiSelectMatch && i + 1 < rawData.length) {
+            const nextRow = rawData[i + 1];
+            const nextRowFirstCell = String(nextRow?.[0] || '').trim();
+
+            console.log(`🔍 Checking potential multi-select: "${firstCell}"`);
+            console.log(`   Next row: "${nextRowFirstCell}"`);
+
+            // Check if next row is "Value: 0-1" or "Values: 0-1"
+            if (nextRowFirstCell.match(/^values?:\s*0\s*-\s*1$/i)) {
+            const baseQuestion = multiSelectMatch[1].trim();
+            const baseDescription = multiSelectMatch[2].trim();
+
+            console.log(`📋 Found multi-select question: ${baseQuestion}`);
+            console.log(`   Question row (${i}):`, rawData[i]);
+            console.log(`   Values row (${i+1}):`, rawData[i+1]);
+            console.log(`   Next row (${i+2}):`, rawData[i+2]);
+            console.log(`   Row after (${i+3}):`, rawData[i+3]);
+            console.log(`   Row after that (${i+4}):`, rawData[i+4]);
+
+            // Skip the "Value: 0-1" row and the next 2 rows (0-Unchecked, 1-Checked)
+            let rowIndex = i + 2; // Start after "Value: 0-1"
+
+            // Skip the 0 and 1 rows if they exist
+            let skippedCount = 0;
+            while (rowIndex < rawData.length && skippedCount < 2) {
+              const checkRow = rawData[rowIndex];
+              const code = String(checkRow?.[1] || '').trim();
+              const codeText = String(checkRow?.[2] || '').trim().toLowerCase();
+
+              if ((code === '0' && codeText === 'unchecked') ||
+                  (code === '1' && codeText === 'checked')) {
+                rowIndex++;
+                skippedCount++;
+              } else {
+                break;
+              }
+            }
+
+            // Now extract the actual column headers from column 2 (in brackets)
+            while (rowIndex < rawData.length) {
+              const dataRow = rawData[rowIndex];
+              if (!dataRow || dataRow.length === 0) {
+                console.log(`  ⚠️ Row ${rowIndex}: Empty row, stopping`);
+                break;
+              }
+
+              // Check if we've hit another question definition (first column has content with colon or bracket)
+              const firstCol = String(dataRow[0] || '').trim();
+              if (firstCol && (firstCol.includes(':') || firstCol.match(/^\[.+\]/))) {
+                console.log(`  ⚠️ Row ${rowIndex}: Hit next question "${firstCol}", stopping`);
+                break;
+              }
+
+              // Look for column headers in column 2 (index 1) with brackets
+              const columnHeaderCell = String(dataRow[1] || '').trim();
+              const columnDescCell = String(dataRow[2] || '').trim();
+
+              console.log(`  🔍 Row ${rowIndex}: Col A="${dataRow[0]}" | Col B="${dataRow[1]}" | Col C="${dataRow[2]}"`);
+
+              const headerMatch = columnHeaderCell.match(/^\[([^\]]+)\]$/);
+              if (headerMatch && columnDescCell) {
+                const columnName = headerMatch[1].trim();
+                const description = columnDescCell;
+
+                columnDefinitions.push({
+                  columnName: columnName,
+                  description: description,
+                  nextRowText: 'Values: 0-1',
+                  responseCodes: [
+                    { code: '0', text: 'Unchecked' },
+                    { code: '1', text: 'Checked' }
+                  ]
+                });
+
+                console.log(`  ✅ Added multi-select column: ${columnName}`);
+              } else if (!columnHeaderCell) {
+                // Empty column 2, we're done with this multi-select
+                console.log(`  ⚠️ Row ${rowIndex}: Empty column B, stopping multi-select extraction`);
+                break;
+              } else {
+                console.log(`  ❌ Row ${rowIndex}: Column B "${columnHeaderCell}" doesn't match bracket pattern [xxx]`);
+              }
+
+              rowIndex++;
+            }
+
+            console.log(`📊 Multi-select "${baseQuestion}" extraction complete. Found ${columnDefinitions.filter(cd => cd.nextRowText === 'Values: 0-1').length} columns.`);
+
+            // Skip ahead in the main loop
+            i = rowIndex - 1;
+            continue;
+          }
+        }
+        }
+
+        // Match pattern: [columnName]: Description
+        // Example: [record]: Record number
+        const definitionMatch = firstCell.match(/^\[([^\]]+)\]:\s*(.+)$/);
+        if (definitionMatch) {
+          const columnName = definitionMatch[1].trim();
+          const description = definitionMatch[2].trim();
+          if (columnName && description) {
+            // Get the next row's text (if it exists)
+            // This shows: "Open numeric response", "Open text response", or value ranges like "Values: 1-99"
+            let nextRowText = '';
+            if (i + 1 < rawData.length) {
+              const nextRow = rawData[i + 1];
+              if (nextRow && nextRow.length > 0) {
+                // Get the first cell of the next row
+                nextRowText = String(nextRow[0] || '').trim();
+                // If the next row starts with a bracket, it's probably another column definition, so skip it
+                if (nextRowText.match(/^\[.+\]/)) {
+                  nextRowText = '';
+                }
+                // Also check if it's a "Values:" line - might be in first or second cell
+                if (!nextRowText && nextRow.length > 1) {
+                  const secondCell = String(nextRow[1] || '').trim();
+                  if (secondCell.toLowerCase().startsWith('values:')) {
+                    nextRowText = secondCell;
+                  }
+                }
+              }
+            }
+            
+            // Extract response codes
+            // Skip code extraction only for "Open numeric response" or "Open text response"
+            // If it has "Values: 1-4", that means it HAS codes, so extract them
+            const isOpenResponse = nextRowText.toLowerCase().includes('open numeric') || 
+                                  nextRowText.toLowerCase().includes('open text');
+            
+            const responseCodes = [];
+            if (!isOpenResponse && i + 1 < rawData.length) {
+              // Start looking from the row after the column definition
+              // Look for codes in column 2 (index 1) and text in column 3 (index 2)
+              let rowIndex = i + 1;
+              
+              // Skip the response type row if it exists (the row with "Values: 1-4" or similar)
+              if (nextRowText && !nextRowText.match(/^\[.+\]/)) {
+                rowIndex = i + 2;
+              }
+              
+              // Continue until we hit a blank column 2 or another column definition
+              while (rowIndex < rawData.length) {
+                const codeRow = rawData[rowIndex];
+                if (!codeRow || codeRow.length === 0) {
+                  break;
+                }
+                
+                // Check if this is another column definition (starts with [ in column 1)
+                const firstCell = String(codeRow[0] || '').trim();
+                if (firstCell.match(/^\[.+\]/)) {
+                  break;
+                }
+                
+                // Get code from column 2 (index 1) and text from column 3 (index 2)
+                const code = String(codeRow[1] || '').trim();
+                const codeText = String(codeRow[2] || '').trim();
+                
+                // Stop if column 2 is blank (this is the key check)
+                if (!code) {
+                  break;
+                }
+                
+                // Add the code and text (both must exist)
+                if (code && codeText) {
+                  responseCodes.push({
+                    code: code,
+                    text: codeText
+                  });
+                }
+                
+                rowIndex++;
+              }
+            }
+            
+            columnDefinitions.push({
+              columnName: columnName,
+              description: description,
+              nextRowText: nextRowText,
+              responseCodes: responseCodes
+            });
+          }
+        }
+      }
+      
+      // Extract questions from raw data for debug table
+      // Questions are in first column, either "[QS4]: description" or "QS4: description"
+      // Response type/value range is in the row AFTER the question
+      const parsedQuestions = [];
+      
+      for (let i = 0; i < rawData.length; i++) {
+        const row = rawData[i];
+        if (!row || row.length === 0) continue;
+        
+        const firstCell = String(row[0] || '').trim();
+        const secondCell = String(row[1] || '').trim();
+        const thirdCell = String(row[2] || '').trim();
+        
+        // Check for question pattern: [QS4]: description or QS4: description
+        let questionMatch = null;
+        let questionNumber = '';
+        let description = '';
+        
+        // Pattern 1: [QS4]: description
+        const bracketMatch = firstCell.match(/^\[([^\]]+)\]:\s*(.+)$/);
+        if (bracketMatch) {
+          questionNumber = bracketMatch[1].trim();
+          description = bracketMatch[2].trim();
+          questionMatch = bracketMatch;
+        } else {
+          // Pattern 2: QS4: description (no brackets)
+          // Make sure it's not just a number or generic text
+          const noBracketMatch = firstCell.match(/^([A-Za-z0-9]+):\s*(.+)$/);
+          if (noBracketMatch) {
+            const potentialQNum = noBracketMatch[1].trim();
+            // Check if it looks like a question number (starts with letter or has letter+number pattern)
+            // Exclude things like "Values:", "Purpose:", etc.
+            if (potentialQNum.match(/^[A-Za-z]/) && 
+                !potentialQNum.match(/^(Values?|Purpose|Question|Category|Options?|Open|Response)$/i)) {
+              questionNumber = potentialQNum;
+              description = noBracketMatch[2].trim();
+              questionMatch = noBracketMatch;
+            }
+          }
+        }
+        
+        if (questionMatch && questionNumber) {
+          // Get response type/value range from the next row (row AFTER the question)
+          let responseType = '';
+          let isOpenResponse = false;
+          let responseCodes = [];
+          
+          if (i + 1 < rawData.length) {
+            const nextRow = rawData[i + 1];
+            if (nextRow && nextRow.length > 0) {
+              const nextFirstCell = String(nextRow[0] || '').trim();
+              const nextSecondCell = String(nextRow[1] || '').trim();
+              
+              // Check if next row is another question (starts with [ or has colon pattern with question number)
+              const isNextQuestion = nextFirstCell.match(/^\[.+\]:/) || 
+                                    (nextFirstCell.match(/^([A-Za-z0-9]+):/) && 
+                                     !nextFirstCell.match(/^(Values?|Purpose|Question|Category|Options?|Open|Response):/i));
+              
+              if (!isNextQuestion) {
+                // Use first cell if it has content, otherwise try second cell
+                responseType = nextFirstCell || nextSecondCell;
+                
+                // Check if this is an open response type
+                isOpenResponse = responseType.toLowerCase().includes('open numeric') || 
+                                responseType.toLowerCase().includes('open numeric response') ||
+                                responseType.toLowerCase().includes('open text') || 
+                                responseType.toLowerCase().includes('open text response');
+                
+                // Clean up and normalize common patterns
+                if (responseType.toLowerCase().includes('open numeric') || 
+                    responseType.toLowerCase().includes('open numeric response')) {
+                  responseType = 'Open Numeric';
+                } else if (responseType.toLowerCase().includes('open text') || 
+                          responseType.toLowerCase().includes('open text response')) {
+                  responseType = 'Open Text';
+                } else if (responseType.match(/values?:\s*0\s*-\s*1/i)) {
+                  responseType = 'Values: 0-1';
+                } else if (responseType.toLowerCase().startsWith('values:')) {
+                  // Keep the full values range (e.g., "Values: 1-4", "Values: 1-98")
+                  responseType = responseType;
+                } else if (responseType.match(/^\d+-\d+$/)) {
+                  // Just a range like "1-4" or "0-98"
+                  responseType = `Values: ${responseType}`;
+                } else if (responseType && responseType.length > 0) {
+                  // Keep as-is if it's not empty
+                  responseType = responseType;
+                } else {
+                  responseType = 'Unknown';
+                }
+                
+                // Extract response codes if not an open response
+                // For all "Values:" types, extract everything from column 2 (code) and column 3 (text)
+                // No special handling - just grab all codes from column 2 and text from column 3
+                if (!isOpenResponse) {
+                  // Check if this is a "Values:" response type
+                  const isValuesType = responseType.toLowerCase().includes('values:') || responseType.match(/values?:\s*\d+/i);
+                  
+                  if (isValuesType) {
+                    // For all "Values:" types, codes are in column 2, text in column 3
+                    // Start looking from the row after the response type row
+                    let rowIndex = i + 2;
+                    
+                    // Continue until we hit a blank column 2, another question, or end of data
+                    while (rowIndex < rawData.length) {
+                      const codeRow = rawData[rowIndex];
+                      if (!codeRow || codeRow.length === 0) {
+                        break;
+                      }
+                      
+                      // Ensure we have at least 3 columns, pad with empty strings if needed
+                      const codeRowFirstCell = String(codeRow[0] || '').trim();
+                      const codeRowSecondCell = codeRow.length > 1 ? String(codeRow[1] || '').trim() : ''; // Column 2 - code
+                      const codeRowThirdCell = codeRow.length > 2 ? String(codeRow[2] || '').trim() : ''; // Column 3 - text
+                      
+                      // Check if this is another question (starts with [ or has colon pattern with question number)
+                      // Only check column 1 for question patterns - column 1 can be empty for multi-select
+                      const isAnotherQuestion = codeRowFirstCell && (
+                        codeRowFirstCell.match(/^\[.+\]:/) || 
+                        (codeRowFirstCell.match(/^([A-Za-z0-9]+):/) && 
+                         !codeRowFirstCell.match(/^(Values?|Purpose|Question|Category|Options?|Open|Response):/i))
+                      );
+                      
+                      if (isAnotherQuestion) {
+                        break;
+                      }
+                      
+                      // Check if it's a header row (Values, Purpose, etc.) - skip these
+                      if (codeRowFirstCell && codeRowFirstCell.match(/^(Values?|Purpose|Question|Category|Options?)/i)) {
+                        rowIndex++;
+                        continue;
+                      }
+                      
+                      // Get code from column 2 and text from column 3
+                      // Include everything - 0, 1, bracketed codes, etc.
+                      // Column A can be empty for "Values: 0-1" questions, so only check column B
+                      // Skip code "1" with "Checked" text for "Values: 0-1" questions
+                      if (codeRowSecondCell) {
+                        const isCheckedCode = codeRowSecondCell === '1' && 
+                                            (codeRowThirdCell.toLowerCase().includes('checked') || 
+                                             codeRowThirdCell === '1');
+                        const isValues01 = responseType.match(/values?:\s*0\s*-\s*1/i);
+                        
+                        // Skip the "1" (Checked) code for "Values: 0-1" questions
+                        if (isValues01 && isCheckedCode) {
+                          rowIndex++;
+                          continue;
+                        }
+                        
+                        responseCodes.push({
+                          code: codeRowSecondCell,
+                          text: codeRowThirdCell || codeRowSecondCell
+                        });
+                        rowIndex++;
+                        continue;
+                      }
+                      
+                      // If column 2 is blank AND column 3 is also blank, we're done
+                      // Don't stop just because column 1 is empty - column 1 can be empty for multi-select
+                      if (!codeRowSecondCell && !codeRowThirdCell) {
+                        break;
+                      }
+                      
+                      // If we get here, move on
+                      rowIndex++;
+                    }
+                  } else {
+                    // For other types, try first column pattern "1 Option text"
+                    let rowIndex = i + 2;
+                    
+                    while (rowIndex < rawData.length) {
+                      const codeRow = rawData[rowIndex];
+                      if (!codeRow || codeRow.length === 0) {
+                        break;
+                      }
+                      
+                      const codeRowFirstCell = String(codeRow[0] || '').trim();
+                      
+                      // Check if this is another question
+                      const isAnotherQuestion = codeRowFirstCell.match(/^\[.+\]:/) || 
+                                               (codeRowFirstCell.match(/^([A-Za-z0-9]+):/) && 
+                                                !codeRowFirstCell.match(/^(Values?|Purpose|Question|Category|Options?|Open|Response):/i));
+                      
+                      if (isAnotherQuestion) {
+                        break;
+                      }
+                      
+                      // Check if it's a header row - skip these
+                      if (codeRowFirstCell.match(/^(Values?|Purpose|Question|Category|Options?)/i)) {
+                        rowIndex++;
+                        continue;
+                      }
+                      
+                      // Check if this is a response option (starts with a number followed by text)
+                      const optionMatch = codeRowFirstCell.match(/^(\d+)\s+(.+)$/);
+                      if (optionMatch) {
+                        responseCodes.push({
+                          code: optionMatch[1],
+                          text: optionMatch[2].trim()
+                        });
+                        rowIndex++;
+                        continue;
+                      }
+                      
+                      // If first column is empty, we're done
+                      if (!codeRowFirstCell) {
+                        break;
+                      }
+                      
+                      rowIndex++;
+                    }
+                  }
+                }
+              }
+            }
+          }
+          
+          // Only add if we haven't seen this question number yet (to avoid duplicates)
+          const existingQuestion = parsedQuestions.find(q => q.questionNumber === questionNumber);
+          if (!existingQuestion) {
+            // Try to get response codes from parsedDatamap if we didn't find any
+            // Match by question number (remove brackets and Q prefix if present)
+            let matchedResponseCodes = responseCodes;
+            if (responseCodes.length === 0 && parsedDatamap.length > 0) {
+              // Try to find matching question in parsedDatamap
+              const cleanQuestionNumber = questionNumber.replace(/^\[|\]$/g, '').replace(/^Q/, '');
+              const matchingQuestion = parsedDatamap.find((q) => {
+                const qId = q.questionId || '';
+                const cleanQId = qId.replace(/^\[|\]$/g, '').replace(/^Q/, '');
+                return cleanQId === cleanQuestionNumber || qId === questionNumber || qId === `[${questionNumber}]` || qId === `Q${questionNumber}`;
+              });
+              
+              if (matchingQuestion && matchingQuestion.responseOptions && matchingQuestion.responseOptions.length > 0) {
+                // Convert responseOptions format to responseCodes format
+                matchedResponseCodes = matchingQuestion.responseOptions.map((opt) => ({
+                  code: opt.code,
+                  text: opt.label || opt.text || ''
+                }));
+              }
+            }
+            
+            parsedQuestions.push({
+              questionNumber: questionNumber,
+              description: description,
+              responseType: responseType || 'Unknown',
+              responseCodes: matchedResponseCodes,
+              isOpenResponse: isOpenResponse
+            });
+          }
+        }
+      }
+      
+      // If no questions were parsed, return raw data for debugging
+      if (parsedDatamap.length === 0) {
+        // Try a simpler parsing approach - just return the raw structure
+        return res.json({
+          sheetName: datamapSheetName,
+          questions: [],
+          totalQuestions: 0,
+          columnDefinitions: columnDefinitions,
+          parsedQuestions: parsedQuestions, // Add parsed questions for debug table
+          rawData: rawData.slice(0, 100), // Include first 100 rows for debugging
+          warning: 'Could not parse datamap structure. Raw data included for debugging.',
+          availableSheets: workbook.SheetNames
+        });
+      }
+      
+      res.json({
+        sheetName: datamapSheetName,
+        questions: parsedDatamap,
+        totalQuestions: parsedDatamap.length,
+        columnDefinitions: columnDefinitions,
+        parsedQuestions: parsedQuestions, // Add parsed questions for debug table
+        rawData: rawData.slice(0, 50) // Include first 50 rows for debugging
+      });
+    } catch (e) {
+      res.status(404).json({ 
+        error: 'No datamap found for this questionnaire', 
+        details: e.message,
+        stack: process.env.NODE_ENV === 'development' ? e.stack : undefined
+      });
+    }
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch datamap' });
   }
 });
 

@@ -177,6 +177,26 @@ async function codeResponses(question, themes, responses, userId) {
   let totalTokens = 0;
   let totalCost = 0;
 
+  // Find the highest code number to assign "Other" code
+  const maxCode = Math.max(...themes.map(t => t.code), 0);
+  let otherCode = maxCode + 1;
+  const hasOtherTheme = themes.some(t => t.theme.toLowerCase() === 'other');
+  
+  // Add "Other" theme if it doesn't exist
+  if (!hasOtherTheme) {
+    themes.push({
+      code: otherCode,
+      theme: 'Other',
+      description: 'Responses that do not fit into any other category'
+    });
+  } else {
+    // Find existing "Other" code
+    const otherTheme = themes.find(t => t.theme.toLowerCase() === 'other');
+    if (otherTheme) {
+      otherCode = otherTheme.code;
+    }
+  }
+
   for (const batch of batches) {
     const themesText = themes.map(t => `${t.code}: ${t.theme} - ${t.description || ''}`).join('\n');
 
@@ -186,13 +206,16 @@ async function codeResponses(question, themes, responses, userId) {
 Available codes/themes:
 ${themesText}
 
-Please assign one or more codes to each response below. A response can have multiple codes if it mentions multiple themes.
+IMPORTANT: Every response MUST be assigned at least one code. If a response does not fit into any of the specific themes, assign it to code ${otherCode} (Other).
+
+Please assign one or more codes to each response below. A response can have multiple codes if it mentions multiple themes. Every response must have at least one code.
 
 Responses to code:
 ${batch.map((item, i) => `${i + 1}. ${item.response}`).join('\n')}
 
 Return a JSON object where keys are the response numbers (1, 2, 3...) and values are arrays of code numbers that apply to that response.
 Format: {"1": [1, 3], "2": [2], "3": [1, 2, 4], ...}
+Every response number must appear in the result with at least one code.
 
 Return ONLY valid JSON, no other text.`;
 
@@ -233,10 +256,19 @@ Return ONLY valid JSON, no other text.`;
     // Map batch indices back to original indices
     Object.keys(batchCodes).forEach(key => {
       const batchIdx = parseInt(key) - 1;
-      const originalIdx = batch[batchIdx].originalIndex;
-      allCodes[originalIdx] = batchCodes[key];
+      if (batchIdx >= 0 && batchIdx < batch.length) {
+        const originalIdx = batch[batchIdx].originalIndex;
+        allCodes[originalIdx] = batchCodes[key] || [];
+      }
     });
   }
+
+  // Ensure all responses are coded - assign "Other" to any uncoded responses
+  validResponseIndices.forEach(item => {
+    if (!allCodes[item.originalIndex] || allCodes[item.originalIndex].length === 0) {
+      allCodes[item.originalIndex] = [otherCode];
+    }
+  });
 
   return { codes: allCodes, totalTokens, totalCost };
 }
@@ -345,6 +377,94 @@ router.post('/process', upload.single('file'), async (req, res) => {
 
     res.status(500).json({
       error: 'Failed to process file',
+      details: error.message
+    });
+  }
+});
+
+// Endpoint for processing a single question from existing data
+router.post('/process-single-question', async (req, res) => {
+  try {
+    const { question, responses, respondentIds, userId } = req.body;
+
+    if (!question || !responses || !Array.isArray(responses) || !respondentIds || !Array.isArray(respondentIds)) {
+      return res.status(400).json({ error: 'Question, responses, and respondentIds are required' });
+    }
+
+    if (responses.length !== respondentIds.length) {
+      return res.status(400).json({ error: 'Responses and respondentIds arrays must have the same length' });
+    }
+
+    const userIdToUse = userId || req.user?.id;
+    if (!userIdToUse) {
+      return res.status(401).json({ error: 'User ID is required' });
+    }
+
+    console.log(`Processing single question: ${question} (${responses.length} responses)`);
+
+    // Generate themes
+    const { themes, totalTokens: themeTokens, totalCost: themeCost } =
+      await generateThemesForQuestion(question, responses, userIdToUse);
+
+    // Code responses
+    const { codes, totalTokens: codeTokens, totalCost: codeCost } =
+      await codeResponses(question, themes, responses, userIdToUse);
+
+    // Calculate frequencies (count unique respondents per code)
+    const frequencies = {};
+    const uniqueRespondents = {};
+
+    themes.forEach(t => {
+      frequencies[t.code] = 0;
+      uniqueRespondents[t.code] = new Set();
+    });
+
+    Object.entries(codes).forEach(([responseIdx, codesArray]) => {
+      const idx = parseInt(responseIdx);
+      if (idx >= 0 && idx < respondentIds.length) {
+        const respondentId = respondentIds[idx];
+        codesArray.forEach((code) => {
+          if (!uniqueRespondents[code].has(respondentId)) {
+            uniqueRespondents[code].add(respondentId);
+            frequencies[code] = (frequencies[code] || 0) + 1;
+          }
+        });
+      }
+    });
+
+    const totalResponses = Object.keys(codes).length;
+
+    const frequencyTable = themes.map(t => ({
+      code: t.code,
+      theme: t.theme,
+      frequency: frequencies[t.code] || 0,
+      percentage: totalResponses > 0
+        ? ((frequencies[t.code] || 0) / totalResponses * 100).toFixed(1)
+        : '0.0'
+    }));
+
+    // Build raw data table
+    const rawData = responses.map((response, idx) => ({
+      respondentId: respondentIds[idx] || '',
+      response: response || '',
+      codes: codes[idx] || []
+    }));
+
+    const result = {
+      question,
+      themes,
+      frequencyTable,
+      rawData,
+      totalTokens: (themeTokens || 0) + (codeTokens || 0),
+      totalCost: (themeCost || 0) + (codeCost || 0)
+    };
+
+    res.json(result);
+
+  } catch (error) {
+    console.error('Error processing single question:', error);
+    res.status(500).json({
+      error: 'Failed to process question',
       details: error.message
     });
   }

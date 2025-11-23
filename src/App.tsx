@@ -6056,17 +6056,17 @@ export default function App() {
   const quantitativeTools = useMemo(
     () => {
       const tools = [
-        { name: "Stat Testing", icon: IconChartBar },
-        { name: "Open-End Coding", icon: IconCode },
         { name: "QNR", icon: IconCheckbox },
         { name: "Tabs", icon: IconChartDonut2 },
         { name: "Utilities", icon: IconChartLine },
+        { name: "Stat Testing", icon: IconChartBar },
+        { name: "Open-End Coding", icon: IconCode },
         { name: "Data QA (Coming Soon)", icon: IconDatabaseExclamation, disabled: true },
       ];
 
       // Only show Conjoint Simulator to admins
       if (user?.role === 'admin') {
-        tools.splice(5, 0, { name: "Conjoint Simulator", icon: IconChartDots });
+        tools.splice(3, 0, { name: "Conjoint Simulator", icon: IconChartDots });
       }
 
       return tools;
@@ -6459,7 +6459,16 @@ export default function App() {
       ) : route === "Open-End Coding" ? (
         <OpenEndCoding />
       ) : route === "Tabs" ? (
-        <Tabs projects={projects} onNavigateToProject={handleProjectView} onHeaderChange={setTabsHeader} />
+        user?.role === 'admin' ? (
+          <Tabs projects={projects} onNavigateToProject={handleProjectView} onHeaderChange={setTabsHeader} />
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center p-8">
+              <h2 className="text-2xl font-semibold text-gray-900 mb-2">Access Restricted</h2>
+              <p className="text-gray-600">The Tabs page is only available to administrators.</p>
+            </div>
+          </div>
+        )
       ) : route === "Conjoint Simulator" ? (
         user?.role === 'admin' ? (
           <ConjointProjects
@@ -12152,6 +12161,7 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
   const [savedTabulations, setSavedTabulations] = useState<any[]>([]);
   const [allQuestionnaires, setAllQuestionnaires] = useState<any[]>([]);
   const [storytellingData, setStorytellingData] = useState<Record<string, any>>({});
+  const [transcriptsData, setTranscriptsData] = useState<Record<string, any[]>>({});
   const [showAddTeamMember, setShowAddTeamMember] = useState(false);
   const [showAddRoleDropdown, setShowAddRoleDropdown] = useState<string | null>(null);
   const [localTeamMembers, setLocalTeamMembers] = useState<Array<{ id: string; name: string; role: string; email?: string }>>([]);
@@ -12259,6 +12269,25 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
       }
     };
     loadAllQuestionnaires();
+  }, []);
+
+  // Load transcripts data
+  useEffect(() => {
+    const loadTranscriptsData = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/transcripts/all`, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          // Transcripts data is keyed by projectId
+          setTranscriptsData(data || {});
+        }
+      } catch (error) {
+        console.error('Error loading transcripts data:', error);
+      }
+    };
+    loadTranscriptsData();
   }, []);
 
   // Load storytelling data
@@ -13842,15 +13871,15 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                   const projectIsQuant = isQuantitative(selectedProject);
                   
                   // Calculate counts
-                  const transcriptsCount = selectedProject.transcripts?.length || 0;
+                  // Transcripts count: get from transcriptsData API response
+                  const transcriptsCount = (transcriptsData[selectedProject.id] || []).length;
                   const contentAnalysisCount = (savedContentAnalyses || []).filter(ca => ca.projectId === selectedProject.id).length;
                   const qnrCount = (allQuestionnaires || []).filter(q => q.projectId === selectedProject.id).length;
                   
-                  // Count storytelling entries for this project
-                  const storytellingCount = Object.keys(storytellingData || {}).filter(key => {
-                    // Keys can be projectId or projectId-analysisId
-                    return key === selectedProject.id || key.startsWith(`${selectedProject.id}-`);
-                  }).length;
+                  // Storytelling count: count content analyses that have storytelling data for this project
+                  // Each content analysis can have storytelling, so count unique analysisIds for this project
+                  const projectContentAnalyses = (savedContentAnalyses || []).filter(ca => ca.projectId === selectedProject.id);
+                  const storytellingCount = projectContentAnalyses.length;
                   
                   const boxes = [];
                   
@@ -13925,6 +13954,13 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                           try {
                             sessionStorage.setItem('cognitive_dash_storytelling_focus_project', selectedProject.id);
                             sessionStorage.setItem('cognitive_dash_storytelling_view_mode', 'project');
+                            // Dispatch custom event to ensure Storytelling component picks it up
+                            window.dispatchEvent(new CustomEvent('selectProjectInStorytelling', { 
+                              detail: { 
+                                projectId: selectedProject.id,
+                                projectName: selectedProject.name
+                              } 
+                            }));
                           } catch (e) {
                             console.warn('Unable to store storytelling navigation info', e);
                           }
@@ -13962,6 +13998,13 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                           try {
                             sessionStorage.setItem('cognitive_dash_qnr_focus_project', selectedProject.id);
                             sessionStorage.setItem('cognitive_dash_qnr_view_mode', 'project');
+                            // Dispatch custom event to ensure QNR component picks it up
+                            window.dispatchEvent(new CustomEvent('selectProjectInQNR', { 
+                              detail: { 
+                                projectId: selectedProject.id,
+                                projectName: selectedProject.name
+                              } 
+                            }));
                           } catch (e) {
                             console.warn('Unable to store QNR navigation info', e);
                           }
@@ -13998,6 +14041,13 @@ function ProjectHub({ projects, onProjectCreated, onArchive, setProjects, savedC
                             try {
                               sessionStorage.setItem('cognitive_dash_tabs_focus_project', selectedProject.id);
                               sessionStorage.setItem('cognitive_dash_tabs_view_mode', 'project');
+                              // Dispatch custom event to ensure Tabs component picks it up
+                              window.dispatchEvent(new CustomEvent('selectProjectInTabs', { 
+                                detail: { 
+                                  projectId: selectedProject.id,
+                                  projectName: selectedProject.name
+                                } 
+                              }));
                             } catch (e) {
                               console.warn('Unable to store Tabs navigation info', e);
                             }

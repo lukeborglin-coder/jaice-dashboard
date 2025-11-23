@@ -50,6 +50,7 @@ interface Question {
   validation?: object;
   randomize?: boolean;
   rawAiOutput?: string; // Raw AI response for this question
+  manuallyFlipped?: boolean; // Flag to indicate question was manually flipped, overriding fallback logic
 }
 
 interface Section {
@@ -267,7 +268,54 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
       });
       if (response.ok) {
         const data = await response.json();
-        setQuestionnaires(data || []);
+        // Convert numeric list questions to numeric grids
+        // Also migrate Open End questions with statementOptions to Open End List
+        const convertedData = (data || []).map((qnr: any) => {
+          if (qnr.questions && Array.isArray(qnr.questions)) {
+            qnr.questions = qnr.questions.map((q: any) => {
+              // Convert numeric list to numeric grid
+              if (q.type && q.type.toLowerCase().includes('numeric list')) {
+                q.type = 'Numeric Grid';
+                // Convert options to statementOptions if they exist
+                if (q.options && Array.isArray(q.options) && q.options.length > 0 && !q.statementOptions) {
+                  q.statementOptions = q.options.map((opt: any, idx: number) => {
+                    if (typeof opt === 'string') {
+                      return { code: `r${idx + 1}`, text: opt };
+                    }
+                    return { code: opt.code || `r${idx + 1}`, text: opt.text || opt.code || '' };
+                  });
+                  q.options = [];
+                }
+                // Ensure there's at least one responseOption (default column)
+                if (!q.responseOptions || q.responseOptions.length === 0) {
+                  const hasPercentTag = q.tags && Array.isArray(q.tags) && q.tags.includes('%');
+                  const hasNumberTag = q.tags && Array.isArray(q.tags) && q.tags.includes('Number');
+                  const columnLabel = hasPercentTag ? '%' : (hasNumberTag ? '#' : '#');
+                  q.responseOptions = [{ code: 'c1', text: columnLabel }];
+                }
+              }
+              
+              // Migrate Open End questions with statementOptions to Open End List
+              const isOpenEnd = q.type?.toLowerCase() === 'open end' || 
+                               (q.type?.toLowerCase().includes('open end') && !q.type?.toLowerCase().includes('list'));
+              const hasStatementOptions = q.statementOptions && Array.isArray(q.statementOptions) && q.statementOptions.length > 0;
+              if (isOpenEnd && hasStatementOptions) {
+                console.log(`⚠️ Auto-migrating question ${q.number || q.id} from "Open End" to "Open End List" - it has ${q.statementOptions.length} statement options`);
+                q.type = 'Open End List';
+                // Move statementOptions to responseOptions if responseOptions doesn't exist
+                if (!q.responseOptions || q.responseOptions.length === 0) {
+                  q.responseOptions = q.statementOptions;
+                }
+                // Clear statementOptions
+                q.statementOptions = undefined;
+              }
+              
+              return q;
+            });
+          }
+          return qnr;
+        });
+        setQuestionnaires(convertedData);
       }
     } catch (error) {
       console.error('Error loading questionnaires:', error);
@@ -284,7 +332,36 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
         });
         if (response.ok) {
           const data = await response.json();
-          setAllQuestionnaires(data || []);
+          // Convert numeric list questions to numeric grids
+          const convertedData = (data || []).map((qnr: any) => {
+            if (qnr.questions && Array.isArray(qnr.questions)) {
+              qnr.questions = qnr.questions.map((q: any) => {
+                if (q.type && q.type.toLowerCase().includes('numeric list')) {
+                  q.type = 'Numeric Grid';
+                  // Convert options to statementOptions if they exist
+                  if (q.options && Array.isArray(q.options) && q.options.length > 0 && !q.statementOptions) {
+                    q.statementOptions = q.options.map((opt: any, idx: number) => {
+                      if (typeof opt === 'string') {
+                        return { code: `r${idx + 1}`, text: opt };
+                      }
+                      return { code: opt.code || `r${idx + 1}`, text: opt.text || opt.code || '' };
+                    });
+                    q.options = [];
+                  }
+                  // Ensure there's at least one responseOption (default column)
+                  if (!q.responseOptions || q.responseOptions.length === 0) {
+                    const hasPercentTag = q.tags && Array.isArray(q.tags) && q.tags.includes('%');
+                    const hasNumberTag = q.tags && Array.isArray(q.tags) && q.tags.includes('Number');
+                    const columnLabel = hasPercentTag ? '%' : (hasNumberTag ? '#' : '#');
+                    q.responseOptions = [{ code: 'c1', text: columnLabel }];
+                  }
+                }
+                return q;
+              });
+            }
+            return qnr;
+          });
+          setAllQuestionnaires(convertedData);
         }
       } catch (error) {
         console.error('Error loading all questionnaires:', error);
@@ -297,10 +374,7 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
   useEffect(() => {
     if (onPageTitleChange) {
       if (viewMode === 'qnr' && selectedQuestionnaire) {
-        // Exclude hidden variables (questions with number starting with 'hid_') from count
-        const allQuestions = selectedQuestionnaire.questions || [];
-        const questionCount = allQuestions.filter(q => !q.number?.startsWith('hid_')).length;
-        onPageTitleChange(`${selectedQuestionnaire.name} (${questionCount})`);
+        onPageTitleChange('Questionnaire');
       } else {
         onPageTitleChange('QNR');
       }
@@ -352,6 +426,39 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
       }
     }
   }, [projects, loadQuestionnaires]);
+
+  // Check for project navigation from Project Hub (similar to Transcripts and Storytelling)
+  useEffect(() => {
+    try {
+      const storedProjectId = sessionStorage.getItem('cognitive_dash_qnr_focus_project');
+      const storedViewMode = sessionStorage.getItem('cognitive_dash_qnr_view_mode');
+      
+      if (storedProjectId && (projects.length > 0 || archivedProjects.length > 0)) {
+        // Check both active and archived projects
+        const allProjects = [...projects, ...archivedProjects];
+        const targetProject = allProjects.find(p => p.id === storedProjectId);
+        if (targetProject) {
+          setSelectedProject(targetProject);
+          if (storedViewMode === 'project') {
+            setViewMode('project');
+            // Load questionnaires for the project
+            loadQuestionnaires(targetProject.id);
+          }
+          // Set the correct tab if project is archived
+          if (targetProject.archived) {
+            setActiveTab('archived');
+          } else {
+            setActiveTab('active');
+          }
+          // Clear sessionStorage after reading
+          sessionStorage.removeItem('cognitive_dash_qnr_focus_project');
+          sessionStorage.removeItem('cognitive_dash_qnr_view_mode');
+        }
+      }
+    } catch (error) {
+      console.warn('Unable to read QNR navigation target', error);
+    }
+  }, [projects, archivedProjects, loadQuestionnaires]);
 
   // When questionnaires are loaded and we have a sync request, select the QNR
   useEffect(() => {
@@ -2063,17 +2170,6 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              setSelectedQuestionnaire(qnr);
-                              setViewMode('qnr');
-                            }}
-                            className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-                            title="View QNR"
-                          >
-                            <EyeIcon className="w-5 h-5" />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
                               handleDeleteQNR(qnr.id);
                             }}
                             className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
@@ -2093,27 +2189,57 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
       )}
 
       {viewMode === 'qnr' && selectedQuestionnaire && (
-        <div className="flex h-[calc(100vh-8rem)]">
+        <div className="flex flex-col h-[calc(100vh-8rem)]">
+          {/* Header - spans full width above sidebar and content */}
+          <div className="flex-shrink-0 pr-6 pt-0">
+            <div className="flex items-start justify-between">
+              <div className="flex items-start gap-3">
+                <button
+                  onClick={() => {
+                    setViewMode('project');
+                    setSelectedQuestionnaire(null);
+                    setSelectedQuestionTypes(new Set());
+                  }}
+                  className="text-gray-600 hover:text-gray-800 hover:bg-gray-100 p-2 rounded-lg transition-colors flex-shrink-0"
+                  title="Back to QNRs"
+                >
+                  <ArrowLeftIcon className="h-6 w-6" />
+                </button>
+                <div>
+                  <div className="text-3xl font-semibold" style={{ color: BRAND_GRAY }}>
+                    {selectedSection === 'QUOTA' ? selectedQuestionnaire?.name || 'OVERVIEW' : `SECTION ${selectedSection || ''}`}
+                  </div>
+                  {selectedSection === 'QUOTA' ? (
+                    selectedQuestionnaire?.projectId && (() => {
+                      const project = projects.find(p => p.id === selectedQuestionnaire.projectId) ||
+                                    archivedProjects.find(p => p.id === selectedQuestionnaire.projectId);
+                      const clientName = project?.client || '';
+                      return clientName ? (
+                        <div className="text-sm italic mt-1" style={{ color: BRAND_GRAY }}>{clientName}</div>
+                      ) : null;
+                    })()
+                  ) : (
+                    selectedQuestionnaire?.name && (
+                      <div className="text-sm italic mt-1" style={{ color: BRAND_GRAY }}>{selectedQuestionnaire.name}</div>
+                    )
+                  )}
+                </div>
+              </div>
+              <img
+                src="/CogDashLogo.png"
+                alt="Cognitive Dash Logo"
+                className="h-[3.5rem] w-auto object-contain"
+              />
+            </div>
+            <div className="border-b border-gray-300 mt-4"></div>
+          </div>
+
+          {/* Sidebar and Content Container */}
+          <div className="flex flex-1 overflow-hidden pt-4">
           {/* Left Sidebar - reduced width */}
           <div className="w-[22%] bg-gray-50 border-r border-gray-200 flex flex-col overflow-hidden">
-            {/* Back Button */}
-            <div className="pr-4 pt-0 pb-4 flex-shrink-0">
-              <button
-                onClick={() => {
-                  setViewMode('project');
-                  setSelectedQuestionnaire(null);
-                  setSelectedQuestionTypes(new Set());
-                }}
-                className="flex items-center gap-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 px-3 py-2 rounded-lg transition-colors whitespace-nowrap"
-                title="Back to QNRs"
-              >
-                <ArrowLeftIcon className="h-5 w-5 flex-shrink-0" />
-                <span className="text-sm font-medium">Back to QNRs</span>
-              </button>
-            </div>
-
             {/* Filter Boxes Container - Sections static, Question Types fill remaining */}
-            <div className="flex-1 flex flex-col gap-4 pr-4 overflow-hidden">
+            <div className="flex-1 flex flex-col gap-4 pr-4 pt-0 overflow-hidden">
               {/* Sections - No scrolling, always show all */}
               {sectionKeys.length > 0 && (
                 <div className="space-y-2 flex-shrink-0">
@@ -2203,32 +2329,8 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
             {selectedSection === 'QUOTA' ? (
               // Always show quota table for quota section (no survey view)
               <>
-                {/* Sticky Header */}
-                <div className="sticky top-0 z-10 pb-4 pt-0">
-                  <div className="mb-4">
-                    <div className="flex items-start justify-between mb-4">
-                      <div>
-                        <div className="text-3xl font-semibold" style={{ color: BRAND_GRAY }}>{selectedQuestionnaire?.name || 'QUOTA'}</div>
-                        {selectedQuestionnaire?.projectId && (() => {
-                          const project = projects.find(p => p.id === selectedQuestionnaire.projectId) || 
-                                        archivedProjects.find(p => p.id === selectedQuestionnaire.projectId);
-                          const clientName = project?.client || '';
-                          return clientName ? (
-                            <div className="text-sm italic mt-1 mb-3" style={{ color: BRAND_GRAY }}>{clientName}</div>
-                          ) : null;
-                        })()}
-                      </div>
-                      <img 
-                        src="/CogDashLogo.png" 
-                        alt="Cognitive Dash Logo" 
-                        className="h-[3.5rem] w-auto object-contain"
-                      />
-                    </div>
-                    <div className="border-b border-gray-300 mb-4"></div>
-                  </div>
-                </div>
                 {/* Scrollable Content */}
-                <div className="flex-1 overflow-y-auto pb-6">
+                <div className="flex-1 overflow-y-auto pt-0">
                   {/* QNR Statistics Cards */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
                     <div className="rounded-lg p-3 text-white" style={{ backgroundColor: BRAND_ORANGE }}>
@@ -2505,57 +2607,40 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
             ) : surveyView ? (
               /* Survey View */
               <>
-                {/* Sticky Header */}
-                {selectedSection && (
-                  <div className="sticky top-0 z-10 pb-4 pt-0">
-                    <div className="mb-4">
-                      <div className="flex items-start justify-between mb-4">
-                        <div>
-                          <div className="text-3xl font-semibold" style={{ color: BRAND_GRAY }}>
-                            {selectedSection === 'QUOTA' ? 'QUOTA' : `SECTION ${selectedSection}`}
-                          </div>
-                          <button
-                            onClick={() => setSurveyView(!surveyView)}
-                            className={`flex items-center justify-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded transition-colors w-28 mt-1 ${
-                              surveyView
-                                ? 'text-white'
-                                : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                            }`}
-                            style={surveyView ? { backgroundColor: BRAND_ORANGE } : {}}
-                            onMouseEnter={(e) => {
-                              if (surveyView) {
-                                e.currentTarget.style.backgroundColor = '#B83D25';
-                              }
-                            }}
-                            onMouseLeave={(e) => {
-                              if (surveyView) {
-                                e.currentTarget.style.backgroundColor = BRAND_ORANGE;
-                              }
-                            }}
-                            title={surveyView ? 'Switch to QNR view' : 'Switch to Survey view'}
-                          >
-                            <DocumentTextIcon className="w-3.5 h-3.5" />
-                            {surveyView ? 'QNR View' : 'Survey View'}
-                          </button>
-                        </div>
-                        <img 
-                          src="/CogDashLogo.png" 
-                          alt="Cognitive Dash Logo" 
-                          className="h-[3.5rem] w-auto object-contain"
-                        />
-                      </div>
-                      <div className="border-b border-gray-300 mb-4"></div>
-                    </div>
-                  </div>
-                )}
                 {/* Scrollable Content */}
-                <div className="flex-1 overflow-y-auto pb-6">
+                <div className="flex-1 overflow-y-auto pt-0">
                   {selectedSectionQuestions.length === 0 ? (
                     <div className="text-center py-12 bg-white border border-gray-200 rounded-lg">
                       <p className="text-gray-500">No questions in the selected section.</p>
                     </div>
                   ) : (
                     <div className="space-y-6">
+                      <button
+                        onClick={() => setSurveyView(!surveyView)}
+                        className={`flex items-center justify-start gap-1.5 px-2.5 py-1 text-xs font-medium rounded transition-colors w-28 mb-4 ${
+                          surveyView
+                            ? 'text-white'
+                            : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                        }`}
+                        style={surveyView ? { backgroundColor: BRAND_ORANGE } : {}}
+                        onMouseEnter={(e) => {
+                          if (surveyView) {
+                            e.currentTarget.style.backgroundColor = '#B83D25';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (surveyView) {
+                            e.currentTarget.style.backgroundColor = BRAND_ORANGE;
+                          }
+                        }}
+                        title={surveyView ? 'Switch to QNR view' : 'Switch to Survey view'}
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <circle cx="12" cy="12" r="8" strokeWidth="2" />
+                          {surveyView && <circle cx="12" cy="12" r="4" fill="currentColor" />}
+                        </svg>
+                        {surveyView ? 'QNR View' : 'Survey View'}
+                      </button>
                       {selectedSectionQuestions.map((question, index) => (
                       <SurveyQuestionView 
                         key={question.number || question.id || index}
@@ -2706,57 +2791,40 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
                   </>
                 ) : (
                   <>
-                    {/* Sticky Header */}
-                    {selectedSection && (
-                      <div className="sticky top-0 z-10 pb-4 pt-0">
-                        <div className="mb-4">
-                          <div className="flex items-start justify-between mb-4">
-                            <div>
-                              <div className="text-3xl font-semibold" style={{ color: BRAND_GRAY }}>
-                                {selectedSection === 'QUOTA' ? 'QUOTA' : `SECTION ${selectedSection}`}
-                              </div>
-                              <button
-                                onClick={() => setSurveyView(!surveyView)}
-                                className={`flex items-center justify-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded transition-colors w-28 mt-1 ${
-                                  surveyView
-                                    ? 'text-white'
-                                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                                }`}
-                                style={surveyView ? { backgroundColor: BRAND_ORANGE } : {}}
-                                onMouseEnter={(e) => {
-                                  if (surveyView) {
-                                    e.currentTarget.style.backgroundColor = '#B83D25';
-                                  }
-                                }}
-                                onMouseLeave={(e) => {
-                                  if (surveyView) {
-                                    e.currentTarget.style.backgroundColor = BRAND_ORANGE;
-                                  }
-                                }}
-                                title={surveyView ? 'Switch to QNR view' : 'Switch to Survey view'}
-                              >
-                                <DocumentTextIcon className="w-3.5 h-3.5" />
-                                {surveyView ? 'QNR View' : 'Survey View'}
-                              </button>
-                            </div>
-                            <img 
-                              src="/CogDashLogo.png" 
-                              alt="Cognitive Dash Logo" 
-                              className="h-[3.5rem] w-auto object-contain"
-                            />
-                          </div>
-                          <div className="border-b border-gray-300 mb-4"></div>
-                        </div>
-                      </div>
-                    )}
                     {/* Scrollable Content */}
-                    <div className="flex-1 overflow-y-auto pb-6">
+                    <div className="flex-1 overflow-y-auto pt-0">
                       {selectedSectionQuestions.length === 0 ? (
                         <div className="text-center py-12 bg-white border border-gray-200 rounded-lg">
                           <p className="text-gray-500">No questions in the selected section.</p>
                         </div>
                       ) : (
                         <div className="space-y-4">
+                          <button
+                            onClick={() => setSurveyView(!surveyView)}
+                            className={`flex items-center justify-start gap-1.5 px-2.5 py-1 text-xs font-medium rounded transition-colors w-28 mb-4 ${
+                              surveyView
+                                ? 'text-white'
+                                : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                            }`}
+                            style={surveyView ? { backgroundColor: BRAND_ORANGE } : {}}
+                            onMouseEnter={(e) => {
+                              if (surveyView) {
+                                e.currentTarget.style.backgroundColor = '#B83D25';
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (surveyView) {
+                                e.currentTarget.style.backgroundColor = BRAND_ORANGE;
+                              }
+                            }}
+                            title={surveyView ? 'Switch to QNR view' : 'Switch to Survey view'}
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <circle cx="12" cy="12" r="8" strokeWidth="2" />
+                              {surveyView && <circle cx="12" cy="12" r="4" fill="currentColor" />}
+                            </svg>
+                            {surveyView ? 'QNR View' : 'Survey View'}
+                          </button>
                           {selectedSectionQuestions.map((question, index) => (
                       <React.Fragment key={question.id || index}>
                         <QuestionBox 
@@ -2806,6 +2874,7 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
                 )}
               </>
             )}
+          </div>
           </div>
         </div>
       )}
@@ -3080,7 +3149,7 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
                                   </table>
                                 ) : null}
                               </div>
-                            ) : (type === 'Numeric' || type === 'Numeric List' || type === 'Open End' || type === 'Open End List') ? (
+                            ) : (type === 'Numeric' || type === 'Numeric Grid' || type === 'Open End' || type === 'Open End List') ? (
                               <div className="text-xs space-y-2">
                                 {example.split('\n').map((line, lineIdx) => {
                                   const parts = line.split(/(\[[^\]]+\])/);
@@ -3348,7 +3417,7 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
                                   </table>
                                 ) : null}
                               </div>
-                            ) : (type === 'Numeric' || type === 'Numeric List' || type === 'Open End' || type === 'Open End List') ? (
+                            ) : (type === 'Numeric' || type === 'Numeric Grid' || type === 'Open End' || type === 'Open End List') ? (
                               <div className="text-xs space-y-2">
                                 {example.split('\n').map((line, lineIdx) => {
                                   const parts = line.split(/(\[[^\]]+\])/);
@@ -3396,13 +3465,6 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
                       icon: HashtagIcon,
                       example: 'How many years of experience?\n[____] years'
                     },
-                    { 
-                      type: 'Numeric List', 
-                      description: 'Multiple numeric inputs', 
-                      icon: ListBulletIcon,
-                      example: 'Enter number of patients:\nTreatment A: [____]\nTreatment B: [____]\nTreatment C: [____]',
-                      exampleTable: false
-                    }
                   ].map(({ type, description, icon: Icon, example, exampleTable = false }, index, array) => {
                         const totalItems = array.length;
                         const isTopRow = index < 3;
@@ -3608,7 +3670,7 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
                                   </table>
                                 ) : null}
                               </div>
-                            ) : (type === 'Numeric' || type === 'Numeric List' || type === 'Open End' || type === 'Open End List') ? (
+                            ) : (type === 'Numeric' || type === 'Numeric Grid' || type === 'Open End' || type === 'Open End List') ? (
                               <div className="text-xs space-y-2">
                                 {example.split('\n').map((line, lineIdx) => {
                                   const parts = line.split(/(\[[^\]]+\])/);
@@ -3868,7 +3930,7 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
                                   </table>
                                 ) : null}
                               </div>
-                            ) : (type === 'Numeric' || type === 'Numeric List' || type === 'Open End' || type === 'Open End List') ? (
+                            ) : (type === 'Numeric' || type === 'Numeric Grid' || type === 'Open End' || type === 'Open End List') ? (
                               <div className="text-xs space-y-2">
                                 {example.split('\n').map((line, lineIdx) => {
                                   const parts = line.split(/(\[[^\]]+\])/);
@@ -3936,9 +3998,9 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
       {/* Upload Modal */}
       {showUploadModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style={{ margin: 0, padding: 0, top: 0, left: 0, right: 0, bottom: 0 }}>
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto mx-4">
+          <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] mx-4 flex flex-col">
             {uploading && !uploadedQuestionnaire ? (
-              <div className="text-center py-8">
+              <div className="p-6 text-center py-8">
                 <div className="w-16 h-16 mx-auto mb-4">
                   <svg className="animate-spin w-16 h-16" fill="none" viewBox="0 0 24 24" style={{ color: BRAND_ORANGE }}>
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -3949,14 +4011,17 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
                 <p className="text-sm text-gray-600 mt-2">Analyzing questionnaire structure...</p>
               </div>
             ) : uploadedQuestionnaire && uploadedQuestionnaire.sections && uploadedQuestionnaire.sections.length > 0 ? (
-              <div>
-                <div className="mb-4">
+              <div className="flex flex-col h-full max-h-[90vh]">
+                {/* Fixed Header */}
+                <div className="p-6 pb-4 border-b flex-shrink-0">
                   <h3 className="text-lg font-semibold">Questionnaire Sections</h3>
                   <p className="text-sm text-gray-600 mt-1">
                     Found {uploadedQuestionnaire.sections.length} section{uploadedQuestionnaire.sections.length !== 1 ? 's' : ''} • Select sections to parse
                   </p>
                 </div>
-                <div className="space-y-3 mb-4">
+                {/* Scrollable Sections List */}
+                <div className="flex-1 overflow-y-auto px-6 py-4">
+                  <div className="space-y-3">
                   {uploadedQuestionnaire.sections.map((section) => {
                     // Extract the letter prefix for section name (e.g., "Section S" -> "Section S", "Quotas" -> "Quotas")
                     let displayName = section.sectionName;
@@ -4032,6 +4097,7 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
                       </div>
                     );
                   })}
+                  </div>
                 </div>
                 
                 {/* Edit Section Modal */}
@@ -4283,7 +4349,8 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
                   );
                 })()}
                 
-                <div className="flex justify-end items-center gap-3 mt-6 pt-4 border-t">
+                {/* Fixed Footer */}
+                <div className="p-6 pt-4 border-t flex-shrink-0 flex justify-end items-center gap-3">
                   {!uploadedQuestionnaire.sections?.every(s => s.parsed) && (
                     <>
                       <button
@@ -4463,7 +4530,7 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
                 </div>
               </div>
             ) : uploadSuccess ? (
-              <div className="text-center py-8">
+              <div className="p-6 text-center py-8">
                 <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center rounded-full" style={{ backgroundColor: '#dcfce7' }}>
                   <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" style={{ color: '#16a34a' }}>
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" stroke="currentColor" d="M5 13l4 4L19 7" />
@@ -4495,7 +4562,7 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
                 </button>
               </div>
             ) : (
-              <>
+              <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold">Upload QNR</h3>
                   <button
@@ -4569,7 +4636,7 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
                     Upload
                   </button>
                 </div>
-              </>
+              </div>
             )}
           </div>
         </div>
@@ -4824,7 +4891,7 @@ function QuestionPreviewView({
       needsStatementOptions: typeLower.includes('grid'),
       needsResponseOptions: typeLower.includes('grid') ||
                             typeLower.includes('open end list') ||
-                            typeLower.includes('numeric list') ||
+                            typeLower.includes('numeric grid') ||
                             (typeLower.includes('open end') && !typeLower.includes('list'))
     };
   };
@@ -4970,6 +5037,142 @@ function getOptionDefinition(terminateLogic: string | { optionCodes: string[] } 
   }
   
   return '';
+}
+
+// Helper function to parse logic string and extract logic for each option
+// Logic string may contain conditions for all options, separated by patterns like "for [Option Text]"
+function parseLogicByOption(logicString: string, options: Array<string | { code: string; text: string }>): string[] {
+  if (!logicString || !options || options.length === 0) {
+    return [];
+  }
+  
+  const logicArray: string[] = new Array(options.length).fill('');
+  
+  // Extract option texts for matching
+  const optionTexts = options.map((opt, idx) => {
+    if (typeof opt === 'string') {
+      // Try to extract text after code
+      const codeMatch = opt.match(/^\d+:?\s+(.+)$/);
+      return codeMatch ? codeMatch[1].trim() : opt;
+    }
+    return opt.text || '';
+  });
+  
+  // Try to split logic by "for [Option Text]" patterns
+  // First, try to find all "for [text]" patterns in the logic string
+  const forPattern = /for\s+([^:]+?)(?:\s*[:]|\s+if|\s+when|$)/gi;
+  const matches: Array<{ text: string; index: number; fullMatch: string }> = [];
+  let forMatch;
+  while ((forMatch = forPattern.exec(logicString)) !== null) {
+    matches.push({
+      text: forMatch[1].trim(),
+      index: forMatch.index,
+      fullMatch: forMatch[0]
+    });
+  }
+  
+  // Try to match each "for [text]" with an option
+  if (matches.length > 0) {
+    for (let i = 0; i < matches.length; i++) {
+      const matchText = matches[i].text.toLowerCase();
+      // Find the option that best matches this text
+      for (let optIdx = 0; optIdx < optionTexts.length; optIdx++) {
+        const optionText = optionTexts[optIdx].toLowerCase();
+        // Check if the match text contains key words from the option text
+        // or if the option text contains key words from the match text
+        const optionWords = optionText.split(/\s+/).filter(w => w.length > 3);
+        const matchWords = matchText.split(/\s+/).filter(w => w.length > 3);
+        const hasCommonWords = optionWords.some(w => matchText.includes(w)) || 
+                              matchWords.some(w => optionText.includes(w));
+        
+        if (hasCommonWords || optionText.includes(matchText) || matchText.includes(optionText)) {
+          // Extract the logic for this option
+          // Find where the "for [text]" pattern ends
+          const patternEnd = matches[i].index + matches[i].fullMatch.length;
+          const endIndex = i < matches.length - 1 ? matches[i + 1].index : logicString.length;
+          let optionLogic = logicString.substring(patternEnd, endIndex).trim();
+          
+          // Clean up the logic (remove leading colons, "if", "when", etc.)
+          optionLogic = optionLogic.replace(/^[:]\s*/, '').replace(/^(if|when)\s+/i, '').trim();
+          
+          // Also try to extract from the full match if the above doesn't work well
+          if (!optionLogic || optionLogic.length < 10) {
+            // Try extracting from the full match including the "for" part
+            const fullMatch = logicString.substring(matches[i].index, endIndex);
+            const logicMatch = fullMatch.match(/for\s+[^:]+[:]?\s*(.+)/i);
+            if (logicMatch && logicMatch[1]) {
+              optionLogic = logicMatch[1].trim();
+            }
+          }
+          
+          if (optionLogic && (!logicArray[optIdx] || optionLogic.length > logicArray[optIdx].length)) {
+            logicArray[optIdx] = optionLogic;
+          }
+          break;
+        }
+      }
+    }
+  }
+  
+  // If we found some matches, return what we have
+  if (logicArray.some(logic => logic)) {
+    return logicArray;
+  }
+  
+  // Fallback: Try to split by option numbers or other delimiters
+  // Try splitting by numbered patterns like "1.", "2.", etc.
+  const numberedPattern = /(\d+)\.\s*([^]*?)(?=\d+\.|$)/g;
+  let numberedMatch;
+  while ((numberedMatch = numberedPattern.exec(logicString)) !== null) {
+    const optionNum = parseInt(numberedMatch[1]);
+    if (optionNum >= 1 && optionNum <= options.length) {
+      logicArray[optionNum - 1] = numberedMatch[2].trim();
+    }
+  }
+  
+  // If still no matches, try pattern matching with option text directly
+  if (logicArray.every(logic => !logic)) {
+    for (let i = 0; i < optionTexts.length; i++) {
+      const optionText = optionTexts[i];
+      if (!optionText) continue;
+      
+      // Escape special regex characters in option text
+      const escapedText = optionText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      
+      // Try to find "for [Option Text]" pattern
+      const pattern = new RegExp(`for\\s+${escapedText}\\s*[:]?\\s*([^]*?)(?=for\\s+[^:]+:|$)`, 'i');
+      const match = logicString.match(pattern);
+      if (match && match[1]) {
+        const logic = match[1].trim();
+        if (logic) {
+          logicArray[i] = logic;
+        }
+      }
+    }
+  }
+  
+  // Last resort: If logic is long and contains multiple conditions, try to split by common patterns
+  if (logicArray.every(logic => !logic) && logicString.length > 100) {
+    // Try to split by patterns that might separate options (like variable assignments)
+    // Look for patterns that might indicate different conditions for different options
+    const conditionPattern = /(S\d+[^]*?)(?=S\d+|for\s+|$)/g;
+    const conditions: string[] = [];
+    let conditionMatch;
+    while ((conditionMatch = conditionPattern.exec(logicString)) !== null) {
+      conditions.push(conditionMatch[1].trim());
+    }
+    
+    // If we found multiple conditions, distribute them to options
+    if (conditions.length > 0 && conditions.length <= options.length) {
+      conditions.forEach((condition, idx) => {
+        if (idx < logicArray.length) {
+          logicArray[idx] = condition;
+        }
+      });
+    }
+  }
+  
+  return logicArray;
 }
 
 // Helper function to parse terminate logic and extract option codes that trigger termination
@@ -5129,7 +5332,8 @@ function QuestionBox({
         responseOptions: question.statementOptions?.map((opt, idx) => ({
           code: `c${idx + 1}`,
           text: opt.text
-        }))
+        })),
+        manuallyFlipped: true // Mark as manually flipped to override fallback logic
       };
 
       // Update locally first for immediate feedback
@@ -5177,7 +5381,7 @@ function QuestionBox({
       needsStatementOptions: typeLower.includes('grid'),
       needsResponseOptions: typeLower.includes('grid') ||
                             typeLower.includes('open end list') ||
-                            typeLower.includes('numeric list') ||
+                            typeLower.includes('numeric grid') ||
                             (typeLower.includes('open end') && !typeLower.includes('list')) // Open End can have opt-out options
     };
   };
@@ -5199,8 +5403,8 @@ function QuestionBox({
       }
     }
 
-    // Numeric List - no validation (can have responseOptions or options)
-    // Removed validation error for numeric list questions
+    // Numeric Grid - no validation (can have responseOptions or options)
+    // Removed validation error for numeric grid questions
 
     // Numeric Grid - no validation (don't show error icon)
     // Removed validation error for numeric grid questions
@@ -5339,7 +5543,12 @@ function QuestionBox({
       // This preserves the user's edits while syncing with the updated question
       setEditedQuestionNumber(question.number || `Q${index + 1}`);
       setEditedQuestionText(question.text || '');
-      setEditedType(question.type || '');
+      // Normalize question type - convert "Numeric grid" to "Numeric Grid" to match dropdown
+      let normalizedType = question.type || '';
+      if (normalizedType.toLowerCase() === 'numeric grid') {
+        normalizedType = 'Numeric Grid';
+      }
+      setEditedType(normalizedType);
       
       // Parse options - extract leading number as code if present
       const parseOption = (opt: string | { code?: string; text?: string }, idx: number) => {
@@ -5377,38 +5586,57 @@ function QuestionBox({
         });
         setEditedStatementOptions(statementOptions);
       } else if (question.statementOptions && question.statementOptions.length > 0) {
-        const statementOptions = question.statementOptions.map((opt, idx) => {
-          const stmtOpt = typeof opt === 'string' ? { code: `r${idx + 1}`, text: opt } : { code: opt.code || `r${idx + 1}`, text: opt.text || '' };
-          let numericCode = stmtOpt.code.replace(/^[rc]/i, '');
-          if (!numericCode || numericCode.trim() === '') {
-            numericCode = String(idx + 1);
-          }
-          return { code: numericCode, text: stmtOpt.text || '' };
-        });
-        setEditedStatementOptions(statementOptions);
+        // For Open End List questions, don't set statementOptions - they should be in responseOptions
+        const isOpenEndListForStmt = question.type?.toLowerCase().includes('open end list');
+        if (!isOpenEndListForStmt) {
+          const statementOptions = question.statementOptions.map((opt, idx) => {
+            const stmtOpt = typeof opt === 'string' ? { code: `r${idx + 1}`, text: opt } : { code: opt.code || `r${idx + 1}`, text: opt.text || '' };
+            let numericCode = stmtOpt.code.replace(/^[rc]/i, '');
+            if (!numericCode || numericCode.trim() === '') {
+              numericCode = String(idx + 1);
+            }
+            return { code: numericCode, text: stmtOpt.text || '' };
+          });
+          setEditedStatementOptions(statementOptions);
+        } else {
+          // Open End List should not have statementOptions - clear them
+          setEditedStatementOptions([]);
+        }
       } else {
         setEditedStatementOptions([]);
       }
       
       // Initialize response options
-      // For numeric lists:
-      // 1. Use responseOptions if available (for converted numeric grids)
-      // 2. Use options if available (for original numeric lists)
-      // 3. Use statementOptions if available (for fallback numeric grids)
-      const isNumericListForResponse = question.type?.toLowerCase().includes('numeric list');
+      // For numeric grids:
+      // 1. Use responseOptions if available
+      // 2. Use options if available (for legacy data)
+      // 3. Use statementOptions if available (for fallback)
+      // For Open End List: If it has statementOptions (incorrectly stored), convert them to responseOptions
       const isNumericGridForResponse = question.type?.toLowerCase().includes('numeric grid');
+      const isOpenEndList = question.type?.toLowerCase().includes('open end list');
       const hasResponseOptionsForResponse = question.responseOptions && Array.isArray(question.responseOptions) && question.responseOptions.length > 0;
       const hasOptionsForResponse = question.options && Array.isArray(question.options) && question.options.length > 0;
       const hasStatementOptionsForResponse = question.statementOptions && Array.isArray(question.statementOptions) && question.statementOptions.length > 0;
       const hasNoResponseOptionsForResponse = !hasResponseOptionsForResponse;
-      const shouldUseStatementOptionsForResponse = isNumericListForResponse && hasNoResponseOptionsForResponse && hasStatementOptionsForResponse;
+      const shouldUseStatementOptionsForResponse = isNumericGridForResponse && hasNoResponseOptionsForResponse && hasStatementOptionsForResponse;
+      
+      // CRITICAL: For Open End List questions, if they have statementOptions, convert them to responseOptions
+      // Open End List should use responseOptions, not statementOptions
+      if (isOpenEndList && hasStatementOptionsForResponse && !hasResponseOptionsForResponse) {
+        console.log(`⚠️ Converting statementOptions to responseOptions for Open End List question ${question.number}`);
+        // The statementOptions will be converted to responseOptions below
+      }
 
-      // Always try to use responseOptions first, then options, then statementOptions for fallback numeric lists
+      // Always try to use responseOptions first, then options, then statementOptions for fallback numeric grids
+      // For Open End List: prioritize responseOptions, but if only statementOptions exist, use those
       let optionsToUseForResponse: any[] = [];
       if (hasResponseOptionsForResponse && question.responseOptions) {
         optionsToUseForResponse = question.responseOptions;
+      } else if (isOpenEndList && hasStatementOptionsForResponse && question.statementOptions) {
+        // For Open End List, if only statementOptions exist, use them (they should be responseOptions)
+        optionsToUseForResponse = question.statementOptions;
       } else if (hasOptionsForResponse && question.options) {
-        // For original numeric lists, use the options field
+        // For legacy numeric grids, use the options field
         optionsToUseForResponse = question.options;
       } else if (shouldUseStatementOptionsForResponse && question.statementOptions) {
         optionsToUseForResponse = question.statementOptions;
@@ -5422,15 +5650,11 @@ function QuestionBox({
 
       const responseOptions = optionsToUseForResponse.map((opt, idx) => {
         const respOpt = typeof opt === 'string' ? { code: `c${idx + 1}`, text: opt } : { code: opt.code || `c${idx + 1}`, text: opt.text || '' };
-        // For numeric lists, use just the number (1, 2, 3) instead of c1, r1, etc.
+        // For numeric grids, extract the numeric code
         let numericCode: string;
-        if (isNumericListForResponse) {
+        numericCode = respOpt.code.replace(/^[rc]/i, '');
+        if (!numericCode || numericCode.trim() === '') {
           numericCode = String(idx + 1);
-        } else {
-          numericCode = respOpt.code.replace(/^[rc]/i, '');
-          if (!numericCode || numericCode.trim() === '') {
-            numericCode = String(idx + 1);
-          }
         }
         return { code: numericCode, text: respOpt.text || '' };
       });
@@ -5450,7 +5674,12 @@ function QuestionBox({
       setIsEditing(true);
       setEditedQuestionNumber(question.number || `Q${index + 1}`);
       setEditedQuestionText(question.text || '');
-      setEditedType(question.type || '');
+      // Normalize question type - convert "Numeric grid" to "Numeric Grid" to match dropdown
+      let normalizedType = question.type || '';
+      if (normalizedType.toLowerCase() === 'numeric grid') {
+        normalizedType = 'Numeric Grid';
+      }
+      setEditedType(normalizedType);
       
       // Parse options - extract leading number as code if present
       const parseOption = (opt: string | { code?: string; text?: string }, idx: number) => {
@@ -5493,29 +5722,51 @@ function QuestionBox({
           return { code: numericCode, text: stmtOpt.text || '' };
         });
         setEditedStatementOptions(statementOptions);
+      } else if (question.statementOptions && question.statementOptions.length > 0) {
+        // For Open End List questions, don't set statementOptions - they should be in responseOptions
+        const isOpenEndListForStmt = question.type?.toLowerCase().includes('open end list');
+        if (!isOpenEndListForStmt) {
+          const statementOptions = question.statementOptions.map((opt, idx) => {
+            const stmtOpt = typeof opt === 'string' ? { code: `r${idx + 1}`, text: opt } : { code: opt.code || `r${idx + 1}`, text: opt.text || '' };
+            let numericCode = stmtOpt.code.replace(/^[rc]/i, '');
+            if (!numericCode || numericCode.trim() === '') {
+              numericCode = String(idx + 1);
+            }
+            return { code: numericCode, text: stmtOpt.text || '' };
+          });
+          setEditedStatementOptions(statementOptions);
+        } else {
+          // Open End List should not have statementOptions - clear them
+          setEditedStatementOptions([]);
+        }
       } else {
         setEditedStatementOptions([]);
       }
       
       // Initialize response options
-      // For numeric lists:
-      // 1. Use responseOptions if available (for converted numeric grids)
-      // 2. Use options if available (for original numeric lists)
-      // 3. Use statementOptions if available (for fallback numeric grids)
-      const isNumericListForInit = question.type?.toLowerCase().includes('numeric list');
+      // For numeric grids:
+      // 1. Use responseOptions if available
+      // 2. Use options if available (for legacy data)
+      // 3. Use statementOptions if available (for fallback)
+      // For Open End List: If it has statementOptions (incorrectly stored), convert them to responseOptions
       const isNumericGridForInit = question.type?.toLowerCase().includes('numeric grid');
+      const isOpenEndList = question.type?.toLowerCase().includes('open end list');
       const hasResponseOptionsForInit = question.responseOptions && Array.isArray(question.responseOptions) && question.responseOptions.length > 0;
       const hasOptionsForInit = question.options && Array.isArray(question.options) && question.options.length > 0;
       const hasStatementOptionsForInit = question.statementOptions && Array.isArray(question.statementOptions) && question.statementOptions.length > 0;
       const hasNoResponseOptionsForInit = !hasResponseOptionsForInit;
-      const shouldUseStatementOptionsForInit = isNumericListForInit && hasNoResponseOptionsForInit && hasStatementOptionsForInit;
+      const shouldUseStatementOptionsForInit = isNumericGridForInit && hasNoResponseOptionsForInit && hasStatementOptionsForInit;
 
-      // Always try to use responseOptions first, then options, then statementOptions for fallback numeric lists
+      // Always try to use responseOptions first, then options, then statementOptions for fallback numeric grids
+      // For Open End List: prioritize responseOptions, but if only statementOptions exist, use those
       let optionsToUseForInit: any[] = [];
       if (hasResponseOptionsForInit && question.responseOptions) {
         optionsToUseForInit = question.responseOptions;
+      } else if (isOpenEndList && hasStatementOptionsForInit && question.statementOptions) {
+        // For Open End List, if only statementOptions exist, use them (they should be responseOptions)
+        optionsToUseForInit = question.statementOptions;
       } else if (hasOptionsForInit && question.options) {
-        // For original numeric lists, use the options field
+        // For legacy numeric grids, use the options field
         optionsToUseForInit = question.options;
       } else if (shouldUseStatementOptionsForInit && question.statementOptions) {
         optionsToUseForInit = question.statementOptions;
@@ -5529,15 +5780,11 @@ function QuestionBox({
 
       const responseOptions = optionsToUseForInit.map((opt, idx) => {
         const respOpt = typeof opt === 'string' ? { code: `c${idx + 1}`, text: opt } : { code: opt.code || `c${idx + 1}`, text: opt.text || '' };
-        // For numeric lists, use just the number (1, 2, 3) instead of c1, r1, etc.
+        // For numeric grids, extract the numeric code
         let numericCode: string;
-        if (isNumericListForInit) {
+        numericCode = respOpt.code.replace(/^[rc]/i, '');
+        if (!numericCode || numericCode.trim() === '') {
           numericCode = String(idx + 1);
-        } else {
-          numericCode = respOpt.code.replace(/^[rc]/i, '');
-          if (!numericCode || numericCode.trim() === '') {
-            numericCode = String(idx + 1);
-          }
         }
         return { code: numericCode, text: respOpt.text || '' };
       });
@@ -5560,7 +5807,12 @@ function QuestionBox({
   const handleStartEdit = () => {
     setEditedQuestionNumber(question.number || `Q${index + 1}`);
     setEditedQuestionText(question.text || '');
-    setEditedType(question.type || '');
+    // Normalize question type - convert "Numeric grid" to "Numeric Grid" to match dropdown
+    let normalizedType = question.type || '';
+    if (normalizedType.toLowerCase() === 'numeric grid') {
+      normalizedType = 'Numeric Grid';
+    }
+    setEditedType(normalizedType);
     
     // Parse options - extract leading number as code if present
     const parseOption = (opt: string | { code?: string; text?: string }, idx: number) => {
@@ -5594,38 +5846,50 @@ function QuestionBox({
       });
       setEditedStatementOptions(statementOptions);
     } else if (question.statementOptions && question.statementOptions.length > 0) {
-      const statementOptions = question.statementOptions.map((opt, idx) => {
-        const stmtOpt = typeof opt === 'string' ? { code: `r${idx + 1}`, text: opt } : { code: opt.code || `r${idx + 1}`, text: opt.text || '' };
-        let numericCode = stmtOpt.code.replace(/^[rc]/i, '');
-        if (!numericCode || numericCode.trim() === '') {
-          numericCode = String(idx + 1);
-        }
-        return { code: numericCode, text: stmtOpt.text || '' };
-      });
-      setEditedStatementOptions(statementOptions);
+      // For Open End List questions, don't set statementOptions - they should be in responseOptions
+      const isOpenEndListForStmt = question.type?.toLowerCase().includes('open end list');
+      if (!isOpenEndListForStmt) {
+        const statementOptions = question.statementOptions.map((opt, idx) => {
+          const stmtOpt = typeof opt === 'string' ? { code: `r${idx + 1}`, text: opt } : { code: opt.code || `r${idx + 1}`, text: opt.text || '' };
+          let numericCode = stmtOpt.code.replace(/^[rc]/i, '');
+          if (!numericCode || numericCode.trim() === '') {
+            numericCode = String(idx + 1);
+          }
+          return { code: numericCode, text: stmtOpt.text || '' };
+        });
+        setEditedStatementOptions(statementOptions);
+      } else {
+        // Open End List should not have statementOptions - clear them
+        setEditedStatementOptions([]);
+      }
     } else {
       setEditedStatementOptions([]);
     }
     
     // Initialize response options
-    // For numeric lists:
-    // 1. Use responseOptions if available (for converted numeric grids)
-    // 2. Use options if available (for original numeric lists)
-    // 3. Use statementOptions if available (for fallback numeric grids)
-    const isNumericList = question.type?.toLowerCase().includes('numeric list');
+    // For numeric grids:
+    // 1. Use responseOptions if available
+    // 2. Use options if available (for legacy data)
+    // 3. Use statementOptions if available (for fallback)
+    // For Open End List: If it has statementOptions (incorrectly stored), convert them to responseOptions
     const isNumericGrid = question.type?.toLowerCase().includes('numeric grid');
+    const isOpenEndList = question.type?.toLowerCase().includes('open end list');
     const hasResponseOptions = question.responseOptions && Array.isArray(question.responseOptions) && question.responseOptions.length > 0;
     const hasOptions = question.options && Array.isArray(question.options) && question.options.length > 0;
     const hasStatementOptions = question.statementOptions && Array.isArray(question.statementOptions) && question.statementOptions.length > 0;
     const hasNoResponseOptions = !hasResponseOptions;
-    const shouldUseStatementOptions = isNumericList && hasNoResponseOptions && hasStatementOptions;
+    const shouldUseStatementOptions = isNumericGrid && hasNoResponseOptions && hasStatementOptions;
 
-    // Always try to use responseOptions first, then options, then statementOptions for fallback numeric lists
+    // Always try to use responseOptions first, then options, then statementOptions for fallback numeric grids
+    // For Open End List: prioritize responseOptions, but if only statementOptions exist, use those
     let optionsToUse: any[] = [];
     if (hasResponseOptions && question.responseOptions) {
       optionsToUse = question.responseOptions;
+    } else if (isOpenEndList && hasStatementOptions && question.statementOptions) {
+      // For Open End List, if only statementOptions exist, use them (they should be responseOptions)
+      optionsToUse = question.statementOptions;
     } else if (hasOptions && question.options) {
-      // For original numeric lists, use the options field
+      // For legacy numeric grids, use the options field
       optionsToUse = question.options;
     } else if (shouldUseStatementOptions && question.statementOptions) {
       optionsToUse = question.statementOptions;
@@ -5639,15 +5903,11 @@ function QuestionBox({
 
     const responseOptions = optionsToUse.map((opt, idx) => {
       const respOpt = typeof opt === 'string' ? { code: `c${idx + 1}`, text: opt } : { code: opt.code || `c${idx + 1}`, text: opt.text || '' };
-      // For numeric lists, use just the number (1, 2, 3) instead of c1, r1, etc.
+      // For numeric grids, extract the numeric code
       let numericCode: string;
-      if (isNumericList) {
+      numericCode = respOpt.code.replace(/^[rc]/i, '');
+      if (!numericCode || numericCode.trim() === '') {
         numericCode = String(idx + 1);
-      } else {
-        numericCode = respOpt.code.replace(/^[rc]/i, '');
-        if (!numericCode || numericCode.trim() === '') {
-          numericCode = String(idx + 1);
-        }
       }
       return { code: numericCode, text: respOpt.text || '' };
     });
@@ -5821,7 +6081,7 @@ function QuestionBox({
             }))
           : [])
         : question.options || [],
-      // Only include responseOptions if the type needs them (Numeric Grid, Numeric List, Open End List)
+      // Only include responseOptions if the type needs them (Numeric Grid, Open End List)
       // Plain Numeric questions should NOT have responseOptions
       responseOptions: fields.needsResponseOptions && editedResponseOptions.length > 0
         ? editedResponseOptions.map(opt => ({
@@ -6078,7 +6338,6 @@ function QuestionBox({
                 <option value="Multi-Select Grid">Multi-Select Grid</option>
                 <option value="Open End">Open End</option>
                 <option value="Open End List">Open End List</option>
-                <option value="Numeric List">Numeric List</option>
               </select>
               {(() => {
                 const fields = getFieldsForType(editedType);
@@ -6402,7 +6661,7 @@ function QuestionBox({
             );
           })()}
 
-          {/* Response Options (for grid questions, open end list, numeric list) */}
+          {/* Response Options (for grid questions, open end list) */}
           {(() => {
             const fields = getFieldsForType(editedType);
             const responsesToShow = fields.needsResponseOptions && editedResponseOptions.length === 0 ? [{ code: '1', text: '' }] : editedResponseOptions;
@@ -6701,7 +6960,12 @@ function QuestionBox({
                 try {
                   // Try parsing as JSON array first
                   const parsed = JSON.parse(question.logic);
-                  logicArray = Array.isArray(parsed) ? parsed : [question.logic];
+                  if (Array.isArray(parsed)) {
+                    logicArray = parsed;
+                  } else {
+                    // If it's a single string, try to parse it by option
+                    logicArray = parseLogicByOption(question.logic, question.options || []);
+                  }
                 } catch {
                   // If not valid JSON, check if it looks like an array string
                   const arrayMatch = question.logic.match(/\[(.*?)\]/);
@@ -6714,7 +6978,8 @@ function QuestionBox({
                       logicArray = items;
                     }
                   } else {
-                    logicArray = [question.logic];
+                    // If it's a single string with all logic, parse it by option
+                    logicArray = parseLogicByOption(question.logic, question.options || []);
                   }
                 }
               } else if (Array.isArray(question.logic)) {
@@ -6879,13 +7144,13 @@ function QuestionBox({
           {question.statementOptions && question.statementOptions.length > 0 && 
            !(question.type?.toLowerCase().includes('numeric grid')) && (() => {
             const terminateCodes = parseTerminateLogic(question.terminateLogic, question.statementOptions, question.type);
-            // Check if this is a numeric list that fell back from numeric grid (has statementOptions but no responseOptions)
-            const isNumericList = question.type?.toLowerCase().includes('numeric list');
+            // Check if this is a numeric grid that fell back (has statementOptions but no responseOptions)
+            const isNumericGrid = question.type?.toLowerCase().includes('numeric grid');
             const hasNoResponseOptions = !question.responseOptions || question.responseOptions.length === 0;
-            const hasOptions = isNumericList && question.options && question.options.length > 0;
+            const hasOptions = isNumericGrid && question.options && question.options.length > 0;
             
-            // DEBUG: Log for numeric lists
-            if (isNumericList && question.number) {
+            // DEBUG: Log for numeric grids
+            if (isNumericGrid && question.number) {
               console.log(`[${question.number}] Statement Options Section Check:`, {
                 hasStatementOptions: !!question.statementOptions,
                 statementOptionsLength: question.statementOptions?.length,
@@ -6893,36 +7158,36 @@ function QuestionBox({
                 optionsLength: question.options?.length,
                 hasResponseOptions: !hasNoResponseOptions,
                 responseOptionsLength: question.responseOptions?.length,
-                willShow: !(isNumericList && (hasOptions || hasNoResponseOptions === false))
+                willShow: !(isNumericGrid && (hasOptions || hasNoResponseOptions === false))
               });
             }
             
-            // For numeric lists: only show Statement Options if it's a fallback (no options, no responseOptions)
+            // For numeric grids: only show Statement Options if it's a fallback (no options, no responseOptions)
             // Otherwise, Response Options section will show the data, so hide this section to avoid duplicates
-            // IMPORTANT: If numeric list has ANY options or responseOptions, never show Statement Options section
-            if (isNumericList) {
+            // IMPORTANT: If numeric grid has ANY options or responseOptions, never show Statement Options section
+            if (isNumericGrid) {
               const hasAnyResponseData = hasOptions || (question.responseOptions && question.responseOptions.length > 0);
               if (hasAnyResponseData) {
-                console.log(`[${question.number}] HIDING Statement Options section - numeric list has options or responseOptions`);
+                console.log(`[${question.number}] HIDING Statement Options section - numeric grid has options or responseOptions`);
                 return null;
               }
             }
-            const isFallbackNumericList = isNumericList && hasNoResponseOptions;
+            const isFallbackNumericGrid = isNumericGrid && hasNoResponseOptions;
             
-            // Prevent duplicate rendering for numeric lists - use a ref to track if we've already rendered this section
+            // Prevent duplicate rendering for numeric grids - use a ref to track if we've already rendered this section
             const statementSectionKey = `statement-options-${question.id || question.number}`;
             const responseSectionKey = `response-options-${question.id || question.number}`;
             // If Response Options section has already been rendered, don't render Statement Options
-            if (isNumericList && renderedSectionsRef.current.has(responseSectionKey)) {
+            if (isNumericGrid && renderedSectionsRef.current.has(responseSectionKey)) {
               console.log(`[${question.number}] HIDING Statement Options section - Response Options section already rendered`);
               return null;
             }
-            if (isNumericList && renderedSectionsRef.current.has(statementSectionKey)) {
+            if (isNumericGrid && renderedSectionsRef.current.has(statementSectionKey)) {
               console.log(`[${question.number}] DUPLICATE PREVENTED: Statement Options section already rendered`);
               return null;
             }
             // Mark that we're about to render Statement Options section, so Response Options section knows to hide
-            if (isNumericList) {
+            if (isNumericGrid) {
               renderedSectionsRef.current.add(statementSectionKey);
               renderedSectionsRef.current.add(responseSectionKey); // Block Response Options too
             }
@@ -6931,7 +7196,7 @@ function QuestionBox({
               <div className="mb-3">
                 <div className="flex items-end gap-2 mb-2">
                   <h4 className="text-xs font-medium text-gray-700">
-                    {isFallbackNumericList ? 'Response Options:' : 'Statement Options (Rows):'}
+                    {isFallbackNumericGrid ? 'Response Options:' : 'Statement Options (Rows):'}
                   </h4>
                   {question.randomize && (
                     <span className="text-[10px] px-1 py-0 rounded bg-blue-100 text-blue-800">RANDOMIZE</span>
@@ -6941,7 +7206,6 @@ function QuestionBox({
                   {question.statementOptions.map((stmt, stmtIndex) => {
                     const isNumericGrid = question.type?.toLowerCase().includes('numeric grid');
                     // For numeric grids, use c1, c2, etc. For other grids, use r1, r2, etc. or existing code
-                    // For numeric lists that fell back, use just the number (1, 2, 3)
                     const defaultCode = isNumericGrid ? `c${stmtIndex + 1}` : `r${stmtIndex + 1}`;
                     const stmtOpt = typeof stmt === 'string' 
                       ? { code: defaultCode, text: stmt } 
@@ -6949,11 +7213,11 @@ function QuestionBox({
                           code: isNumericGrid ? `c${stmtIndex + 1}` : (stmt.code || defaultCode), 
                           text: stmt.text 
                         };
-                    // For fallback numeric lists, display just the number
-                    const displayCode = isFallbackNumericList 
+                    // For fallback numeric grids, display just the number
+                    const displayCode = isFallbackNumericGrid 
                       ? String(stmtIndex + 1)
                       : (stmtOpt.code || defaultCode);
-                    const codeForTerminate = isFallbackNumericList 
+                    const codeForTerminate = isFallbackNumericGrid 
                       ? String(stmtIndex + 1)
                       : (stmtOpt.code || defaultCode);
                     const shouldTerminate = terminateCodes.has(codeForTerminate);
@@ -6982,17 +7246,17 @@ function QuestionBox({
           })()}
 
           {/* Response Options (for grid questions - column headers/scale) - only show if not already shown in grid table */}
-          {/* For numeric lists, also check the options field if responseOptions is not available */}
+          {/* For numeric grids, also check the options field if responseOptions is not available */}
           {(() => {
-            const isNumericList = question.type?.toLowerCase().includes('numeric list');
+            const isNumericGrid = question.type?.toLowerCase().includes('numeric grid');
             const hasResponseOptions = question.responseOptions && question.responseOptions.length > 0;
-            const hasOptions = isNumericList && question.options && question.options.length > 0;
-            // For numeric lists, prioritize options over responseOptions to avoid duplicates
-            // If numeric list has options, use those. Otherwise use responseOptions.
-            const optionsToDisplay = (isNumericList && hasOptions) ? question.options : (hasResponseOptions ? question.responseOptions : (hasOptions ? question.options : null));
+            const hasOptions = isNumericGrid && question.options && question.options.length > 0;
+            // For numeric grids, prioritize options over responseOptions to avoid duplicates
+            // If numeric grid has options, use those. Otherwise use responseOptions.
+            const optionsToDisplay = (isNumericGrid && hasOptions) ? question.options : (hasResponseOptions ? question.responseOptions : (hasOptions ? question.options : null));
             
-            // DEBUG: Log for numeric lists
-            if (isNumericList && question.number) {
+            // DEBUG: Log for numeric grids
+            if (isNumericGrid && question.number) {
               console.log(`[${question.number}] Response Options Section Check:`, {
                 hasOptions,
                 optionsLength: question.options?.length,
@@ -7006,24 +7270,24 @@ function QuestionBox({
                 optionsToDisplayLength: optionsToDisplay?.length,
                 optionsToDisplay: optionsToDisplay,
                 willShow: !(!optionsToDisplay || optionsToDisplay.length === 0) && 
-                         !(isNumericList && !hasOptions && !hasResponseOptions && question.statementOptions && question.statementOptions.length > 0)
+                         !(isNumericGrid && !hasOptions && !hasResponseOptions && question.statementOptions && question.statementOptions.length > 0)
               });
             }
             
             if (!optionsToDisplay || optionsToDisplay.length === 0) return null;
             if (question.type?.toLowerCase().includes('numeric grid') && question.statementOptions && question.statementOptions.length > 0) return null;
             if (question.type?.toLowerCase() === 'numeric') return null; // Exclude plain Numeric questions (single response box - no responseOptions)
-            // For numeric lists: 
+            // For numeric grids: 
             // - If they have options OR responseOptions, show in this Response Options section
             // - If they only have statementOptions (fallback case), they'll be shown in Statement Options section instead
-            // So don't show this Response Options section for fallback numeric lists (they're shown in Statement Options section)
-            if (isNumericList && !hasOptions && !hasResponseOptions && question.statementOptions && question.statementOptions.length > 0) {
-              console.log(`[${question.number}] HIDING Response Options section - numeric list only has statementOptions (fallback case)`);
+            // So don't show this Response Options section for fallback numeric grids (they're shown in Statement Options section)
+            if (isNumericGrid && !hasOptions && !hasResponseOptions && question.statementOptions && question.statementOptions.length > 0) {
+              console.log(`[${question.number}] HIDING Response Options section - numeric grid only has statementOptions (fallback case)`);
               return null;
             }
-            // Additional safety check: if this is a numeric list and we're about to show the same data that's in statementOptions,
+            // Additional safety check: if this is a numeric grid and we're about to show the same data that's in statementOptions,
             // and statementOptions section is also showing, hide this one to avoid duplicates
-            if (isNumericList && question.statementOptions && question.statementOptions.length > 0 && 
+            if (isNumericGrid && question.statementOptions && question.statementOptions.length > 0 && 
                 optionsToDisplay && optionsToDisplay.length > 0 &&
                 optionsToDisplay.length === question.statementOptions.length &&
                 JSON.stringify(optionsToDisplay) === JSON.stringify(question.statementOptions) &&
@@ -7032,14 +7296,14 @@ function QuestionBox({
               return null;
             }
             
-            // Prevent duplicate rendering for numeric lists - use a ref to track if we've already rendered this section
+            // Prevent duplicate rendering for numeric grids - use a ref to track if we've already rendered this section
             const sectionKey = `response-options-${question.id || question.number}`;
-            if (isNumericList && renderedSectionsRef.current.has(sectionKey)) {
+            if (isNumericGrid && renderedSectionsRef.current.has(sectionKey)) {
               console.log(`[${question.number}] DUPLICATE PREVENTED: Response Options section already rendered`);
               return null;
             }
             // Mark that we're about to render Response Options section, so Statement Options section knows to hide
-            if (isNumericList) {
+            if (isNumericGrid) {
               renderedSectionsRef.current.add(sectionKey);
               renderedSectionsRef.current.add(`statement-options-${question.id || question.number}`); // Block Statement Options too
             }
@@ -7052,31 +7316,47 @@ function QuestionBox({
             // For hidden variables, show as table with definition column
             if (isHiddenVariable) {
               // Parse logic array once for all options
+              // Check both question.logic and question.showLogic for hidden variables
               let logicArray: string[] = [];
-              if (question.logic) {
-                if (typeof question.logic === 'string') {
+              let originalLogicString: string | null = null;
+              const logicSource = question.logic || question.showLogic;
+              
+              if (logicSource) {
+                if (typeof logicSource === 'string') {
+                  originalLogicString = logicSource;
                   try {
                     // Try parsing as JSON array first
-                    const parsed = JSON.parse(question.logic);
-                    logicArray = Array.isArray(parsed) ? parsed : [question.logic];
+                    const parsed = JSON.parse(logicSource);
+                    if (Array.isArray(parsed)) {
+                      logicArray = parsed;
+                    } else {
+                      // If it's a single string, try to parse it by option
+                      logicArray = parseLogicByOption(logicSource, optionsToDisplay);
+                    }
                   } catch {
                     // If not valid JSON, check if it looks like an array string
-                    const arrayMatch = question.logic.match(/\[(.*?)\]/);
+                    const arrayMatch = logicSource.match(/\[(.*?)\]/);
                     if (arrayMatch) {
                       try {
-                        logicArray = JSON.parse(question.logic);
+                        logicArray = JSON.parse(logicSource);
                       } catch {
                         // Try to parse manually if JSON.parse fails
-                        const items = question.logic.replace(/[\[\]"]/g, '').split(',').map(s => s.trim());
+                        const items = logicSource.replace(/[\[\]"]/g, '').split(',').map(s => s.trim());
                         logicArray = items;
                       }
                     } else {
-                      logicArray = [question.logic];
+                      // If it's a single string with all logic, parse it by option
+                      logicArray = parseLogicByOption(logicSource, optionsToDisplay);
                     }
                   }
-                } else if (Array.isArray(question.logic)) {
-                  logicArray = question.logic;
+                } else if (Array.isArray(logicSource)) {
+                  logicArray = logicSource;
                 }
+              }
+              
+              // Fallback: If parsing returned all empty strings, use the original logic string for all options
+              if (originalLogicString && logicArray.every(logic => !logic)) {
+                logicArray = new Array(optionsToDisplay.length).fill(originalLogicString);
               }
               
               return (
@@ -7113,15 +7393,15 @@ function QuestionBox({
                           } else {
                             respOpt = resp;
                           }
-                          // For numeric lists, use just the number (1, 2, 3) instead of c1, r1, etc.
-                          const isNumericListType = question.type?.toLowerCase().includes('numeric list');
+                          // For numeric grids, use just the number (1, 2, 3) instead of c1, r1, etc.
+                          const isNumericGridType = question.type?.toLowerCase().includes('numeric grid');
                           const hasResponseOpts = question.responseOptions && question.responseOptions.length > 0;
                           const hasOpts = question.options && question.options.length > 0;
-                          const isNumericListDisplay = isNumericListType && !hasResponseOpts && hasOpts;
-                          const displayCode = isNumericListDisplay 
+                          const isNumericGridDisplay = isNumericGridType && !hasResponseOpts && hasOpts;
+                          const displayCode = isNumericGridDisplay 
                             ? String(respIndex + 1)
                             : (respOpt.code?.replace(/^[rc]/i, '') || String(respIndex + 1));
-                          const codeForTerminate = isNumericListDisplay 
+                          const codeForTerminate = isNumericGridDisplay 
                             ? String(respIndex + 1)
                             : (respOpt.code || `c${respIndex + 1}`);
                           const shouldTerminate = terminateCodes.has(codeForTerminate);
@@ -7139,6 +7419,9 @@ function QuestionBox({
                           
                           // Get logic for this response option (logic is an array matching response options in order)
                           const logicText = logicArray[respIndex] || null;
+                          
+                          // For hidden variables, use the parsed logic as the definition if available
+                          const displayDefinition = logicText || definition || '-';
                           
                           return (
                             <tr key={respIndex} className="hover:bg-gray-50">
@@ -7167,8 +7450,12 @@ function QuestionBox({
                                   )}
                                 </div>
                               </td>
-                              <td className="px-3 py-2 text-sm text-blue-600 italic uppercase">
-                                {definition || '-'}
+                              <td className="px-3 py-2 text-sm text-blue-600 italic">
+                                {displayDefinition !== '-' ? (
+                                  <span className="normal-case">{displayDefinition}</span>
+                                ) : (
+                                  <span className="uppercase">{displayDefinition}</span>
+                                )}
                               </td>
                             </tr>
                           );
@@ -7181,14 +7468,14 @@ function QuestionBox({
             }
             
             // For regular questions, show as list (original format)
-            // For numeric lists with options, show as "Response Options:" not "Response Options (Columns):"
-            const isNumericListType = question.type?.toLowerCase().includes('numeric list');
-            const isNumericListWithOptions = isNumericListType && !question.responseOptions && question.options && question.options.length > 0;
+            // For numeric grids with options, show as "Response Options:" not "Response Options (Columns):"
+            const isNumericGridType = question.type?.toLowerCase().includes('numeric grid');
+            const isNumericGridWithOptions = isNumericGridType && !question.responseOptions && question.options && question.options.length > 0;
             return (
               <div key={`response-options-${question.id || question.number}`} className="mb-3">
                 <div className="flex items-end gap-2 mb-2">
                   <h4 className="text-xs font-medium text-gray-700">
-                    {isOpenEnd ? 'Opt-out Options:' : (isNumericListWithOptions ? 'Response Options:' : 'Response Options (Columns):')}
+                    {isOpenEnd ? 'Opt-out Options:' : (isNumericGridWithOptions ? 'Response Options:' : 'Response Options (Columns):')}
                   </h4>
                   {question.randomize && (
                     <span className="text-[10px] px-1 py-0 rounded bg-blue-100 text-blue-800">RANDOMIZE</span>
@@ -7212,15 +7499,15 @@ function QuestionBox({
                     // For numeric lists, use just the number (1, 2, 3) instead of c1, r1, etc.
                     // But if the code exists, extract the numeric part from it
                     let displayCode: string;
-                    if (isNumericListWithOptions) {
-                      // For numeric lists, try to extract the numeric code, otherwise use index
+                    if (isNumericGridWithOptions) {
+                      // For numeric grids, try to extract the numeric code, otherwise use index
                       const numericCode = respOpt.code?.replace(/^[rc]/i, '') || String(respIndex + 1);
                       displayCode = numericCode;
                     } else {
                       // For other types, remove prefix and use the code, or fallback to index
                       displayCode = respOpt.code?.replace(/^[rc]/i, '') || String(respIndex + 1);
                     }
-                    const codeForTerminate = isNumericListWithOptions 
+                    const codeForTerminate = isNumericGridWithOptions 
                       ? String(respIndex + 1)
                       : (respOpt.code || `c${respIndex + 1}`);
                     const shouldTerminate = terminateCodes.has(codeForTerminate);
@@ -7333,7 +7620,6 @@ function SurveyQuestionView({
   const isMultiSelectGrid = questionType.includes('multi-select grid');
   const isOpenEnd = questionType.includes('open end') && !questionType.includes('list');
   const isOpenEndList = questionType.includes('open end list');
-  const isNumericList = questionType.includes('numeric list');
   
   
   // Check if question can be flipped (has both statement and response options)
@@ -7369,7 +7655,8 @@ function SurveyQuestionView({
             code: `c${idx + 1}`,
             text: optObj.text
           };
-        })
+        }),
+        manuallyFlipped: true // Mark as manually flipped to override fallback logic
       };
 
       // Update locally first for immediate feedback
@@ -8030,9 +8317,9 @@ function SurveyQuestionView({
         </div>
       )}
 
-      {/* Numeric List */}
-      {isNumericList && (() => {
-        // For numeric lists, use responseOptions if available, then options, then fall back to statementOptions
+      {/* Numeric Grid */}
+      {isNumericGrid && (() => {
+        // For numeric grids, use responseOptions if available, then options, then fall back to statementOptions
         // (This handles different cases: converted grids use responseOptions, original lists use options, fallback grids use statementOptions)
         const responseOptions = question.responseOptions && question.responseOptions.length > 0 
           ? question.responseOptions 
@@ -8063,7 +8350,7 @@ function SurveyQuestionView({
                       respOpt = { code: String(respIdx + 1), text: resp };
                     }
                   } else {
-                    // If it's already an object, use the numeric part of the code for numeric lists
+                    // If it's already an object, use the numeric part of the code for numeric grids
                     const numericCode = resp.code?.replace(/^[rc]/i, '') || String(respIdx + 1);
                     respOpt = { code: numericCode, text: resp.text || resp.code || '' };
                   }
@@ -8108,4 +8395,5 @@ function SurveyQuestionView({
     </div>
   );
 }
+
 

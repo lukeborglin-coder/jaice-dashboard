@@ -19,6 +19,7 @@ interface CrossTabDisplayProps {
   currentBannerGroupIndex?: number;
   onEdit?: () => void;
   onDelete?: () => void;
+  disableHorizontalScroll?: boolean;
 }
 
 const CrossTabDisplay: React.FC<CrossTabDisplayProps> = ({
@@ -36,7 +37,8 @@ const CrossTabDisplay: React.FC<CrossTabDisplayProps> = ({
   allBannerGroups = [],
   currentBannerGroupIndex = 0,
   onEdit,
-  onDelete
+  onDelete,
+  disableHorizontalScroll = false
 }) => {
   // Apply the same filtering as the Tables subtab
   const categoricalVariables = useMemo(() => {
@@ -107,17 +109,58 @@ const CrossTabDisplay: React.FC<CrossTabDisplayProps> = ({
 
     const groups: Array<{ title: string; cutCount: number }> = [];
 
+    // Helper to find variable with flexible name matching
+    const findVariable = (varName: string) => {
+      // Try exact match first
+      let variable = parsedFile.variables.find(v => v.name === varName);
+      if (variable) return variable;
+
+      // Try case-insensitive match
+      variable = parsedFile.variables.find(v => v.name.toLowerCase() === varName.toLowerCase());
+      if (variable) return variable;
+
+      // Try with/without Q prefix
+      const withQ = varName.startsWith('Q') ? varName : `Q${varName}`;
+      const withoutQ = varName.startsWith('Q') ? varName.substring(1) : varName;
+
+      variable = parsedFile.variables.find(v =>
+        v.name === withQ || v.name === withoutQ ||
+        v.name.toLowerCase() === withQ.toLowerCase() ||
+        v.name.toLowerCase() === withoutQ.toLowerCase()
+      );
+      if (variable) return variable;
+
+      // Handle hidden variables: "hid_SPECIALTY" might be stored as "hid_SPECIALTY" or just need exact match
+      // Also try converting hidden variable format
+      if (varName.toLowerCase().startsWith('hid_')) {
+        const hiddenName = 'h' + varName.substring(4); // Convert "hid_SPECIALTY" to "hSPECIALTY"
+        variable = parsedFile.variables.find(v =>
+          v.name === hiddenName ||
+          v.name.toLowerCase() === hiddenName.toLowerCase()
+        );
+        if (variable) return variable;
+      }
+
+      return undefined;
+    };
+
     // Handle both old structure (cuts directly) and new structure (groups with cuts)
     if (bannerGroup.groups && bannerGroup.groups.length > 0) {
       // New structure: groups with cuts
       bannerGroup.groups.forEach(subGroup => {
         const cutIds: string[] = [];
         subGroup.cuts.forEach(cut => {
-          const variable = parsedFile.variables.find(v => v.name === cut.variableName);
+          const variable = findVariable(cut.variableName);
           if (!variable) {
-            console.warn(`[Banner] Variable "${cut.variableName}" not found in parsed file`);
+            // Show all hidden variables and first 10 regular variables for debugging
+            const hiddenVars = parsedFile.variables.filter(v => v.name.toLowerCase().startsWith('hid')).map(v => v.name);
+            const regularVars = parsedFile.variables.filter(v => !v.name.toLowerCase().startsWith('hid')).map(v => v.name).slice(0, 10);
+            console.warn(`[Banner] Variable "${cut.variableName}" not found. Hidden vars: [${hiddenVars.join(', ')}], Regular vars (first 10): [${regularVars.join(', ')}], Total: ${parsedFile.variables.length}`);
             return;
           }
+
+          // Capture the matched variable name for use in filterFn
+          const matchedVarName = variable.name;
 
           columns.push({
             id: cut.id,
@@ -126,30 +169,67 @@ const CrossTabDisplay: React.FC<CrossTabDisplayProps> = ({
             groupTitle: subGroup.title,
             isTotal: false,
             filterFn: (row: Record<string, any>) => {
-              const value = row[cut.variableName];
+              // Try multiple ways to access the value
+              let value = row[matchedVarName];
+              if (value === undefined) {
+                value = row[cut.variableName];
+              }
+              // Also try the hidden variable converted name
+              if (value === undefined && cut.variableName.toLowerCase().startsWith('hid_')) {
+                const hiddenName = 'h' + cut.variableName.substring(4);
+                value = row[hiddenName];
+              }
+              // Try case-insensitive key lookup
+              if (value === undefined) {
+                const rowKeys = Object.keys(row);
+                const matchingKey = rowKeys.find(k =>
+                  k.toLowerCase() === matchedVarName.toLowerCase() ||
+                  k.toLowerCase() === cut.variableName.toLowerCase()
+                );
+                if (matchingKey) {
+                  value = row[matchingKey];
+                }
+              }
+
               if (value === null || value === undefined || value === '') return false;
-              
+
               const valueStr = String(value).trim();
-              
+              const numValue = Number(valueStr);
+
               // Check if value matches stored codes directly (codes are stored as strings like "1", "2")
               const codeStr = cut.codes.map(c => String(c).trim());
               if (codeStr.includes(valueStr)) {
                 return true;
               }
-              
+
+              // Also check numeric equality (in case "1" vs 1)
+              if (!isNaN(numValue) && cut.codes.some(c => Number(c) === numValue)) {
+                return true;
+              }
+
+              // Check if codes have 'c' prefix (e.g., 'c1', 'c5') and data has numeric value
+              // Strip 'c' prefix and compare
+              const codesWithoutPrefix = cut.codes.map(c => String(c).replace(/^c/i, ''));
+              if (codesWithoutPrefix.includes(valueStr)) {
+                return true;
+              }
+              if (!isNaN(numValue) && codesWithoutPrefix.some(c => Number(c) === numValue && !isNaN(Number(c)))) {
+                return true;
+              }
+
               // If value doesn't match codes, it might be a label (like "Pediatric", "Adult")
               // Check if the value matches any of the labels for the stored codes
-              const variable = parsedFile.variables.find(v => v.name === cut.variableName);
-              if (variable && variable.codes) {
+              const foundVar = findVariable(cut.variableName);
+              if (foundVar && foundVar.codes) {
                 // Check if value matches the label for any of our stored codes
                 for (const code of cut.codes) {
-                  const codeLabel = variable.codes[String(code)] || variable.codes[code];
-                  if (codeLabel && String(codeLabel).trim() === valueStr) {
+                  const codeLabel = foundVar.codes[String(code)] || foundVar.codes[code];
+                  if (codeLabel && String(codeLabel).trim().toLowerCase() === valueStr.toLowerCase()) {
                     return true;
                   }
                 }
               }
-              
+
               return false;
             }
           });
@@ -160,11 +240,14 @@ const CrossTabDisplay: React.FC<CrossTabDisplayProps> = ({
     } else if ((bannerGroup as any).cuts && (bannerGroup as any).cuts.length > 0) {
       // Old structure: cuts directly (for backward compatibility)
       (bannerGroup as any).cuts.forEach((cut: any) => {
-        const variable = parsedFile.variables.find(v => v.name === cut.variableName);
+        const variable = findVariable(cut.variableName);
         if (!variable) {
           console.warn(`[Banner] Variable "${cut.variableName}" not found in parsed file`);
           return;
         }
+
+        // Capture the matched variable name for use in filterFn
+        const matchedVarName = variable.name;
 
         columns.push({
           id: cut.id,
@@ -172,30 +255,49 @@ const CrossTabDisplay: React.FC<CrossTabDisplayProps> = ({
           cutTitle: cut.title,
           isTotal: false,
             filterFn: (row: Record<string, any>) => {
-              const value = row[cut.variableName];
+              // Try the matched variable name first, then fall back to cut.variableName
+              let value = row[matchedVarName];
+              if (value === undefined) {
+                value = row[cut.variableName];
+              }
               if (value === null || value === undefined || value === '') return false;
-              
+
               const valueStr = String(value).trim();
-              
+              const numValue = Number(valueStr);
+
               // Check if value matches stored codes directly (codes are stored as strings like "1", "2")
               const codeStr = cut.codes.map((c: any) => String(c).trim());
               if (codeStr.includes(valueStr)) {
                 return true;
               }
-              
+
+              // Also check numeric equality (in case "1" vs 1)
+              if (!isNaN(numValue) && cut.codes.some((c: any) => Number(c) === numValue)) {
+                return true;
+              }
+
+              // Check if codes have 'c' prefix (e.g., 'c1', 'c5') and data has numeric value
+              const codesWithoutPrefix = cut.codes.map((c: any) => String(c).replace(/^c/i, ''));
+              if (codesWithoutPrefix.includes(valueStr)) {
+                return true;
+              }
+              if (!isNaN(numValue) && codesWithoutPrefix.some((c: string) => Number(c) === numValue && !isNaN(Number(c)))) {
+                return true;
+              }
+
               // If value doesn't match codes, it might be a label (like "Pediatric", "Adult")
-              // Check if the value matches any of the labels for the stored codes
-              const variable = parsedFile.variables.find(v => v.name === cut.variableName);
-              if (variable && variable.codes) {
+              // Check if the value matches any of the labels for the stored codes (case-insensitive)
+              const foundVar = findVariable(cut.variableName);
+              if (foundVar && foundVar.codes) {
                 // Check if value matches the label for any of our stored codes
                 for (const code of cut.codes) {
-                  const codeLabel = variable.codes[String(code)] || variable.codes[code];
-                  if (codeLabel && String(codeLabel).trim() === valueStr) {
+                  const codeLabel = foundVar.codes[String(code)] || foundVar.codes[code];
+                  if (codeLabel && String(codeLabel).trim().toLowerCase() === valueStr.toLowerCase()) {
                     return true;
                   }
                 }
               }
-              
+
               return false;
             }
         });
@@ -212,8 +314,18 @@ const CrossTabDisplay: React.FC<CrossTabDisplayProps> = ({
   // Get stub variable rows (codes)
   const stubRows = useMemo(() => {
     if (!selectedStubVariable) return [];
-    
+
     const variable = parsedFile.variables.find(v => v.name === selectedStubVariable);
+
+    // DEBUG: Log variable info
+    console.log('🟣 [CROSSTAB DEBUG] stubRows calculation:', {
+      selectedStubVariable,
+      variableFound: !!variable,
+      variableType: variable?.type,
+      variableCodes: variable?.codes,
+      codesCount: variable?.codes ? Object.keys(variable.codes).length : 0
+    });
+
     if (!variable || variable.type !== 'categorical') return [];
 
     // Get all codes from the variable definition
@@ -224,6 +336,26 @@ const CrossTabDisplay: React.FC<CrossTabDisplayProps> = ({
   const crossTabData = useMemo(() => {
     if (!selectedStubVariable || stubRows.length === 0) return [];
 
+    // DEBUG: Log data info
+    console.log('🟣 [CROSSTAB DEBUG] crossTabData calculation:', {
+      selectedStubVariable,
+      stubRowsCount: stubRows.length,
+      stubRows: stubRows.slice(0, 10),
+      dataRowCount: parsedFile.data.length,
+      sampleDataRowKeys: parsedFile.data.length > 0 ? Object.keys(parsedFile.data[0]).slice(0, 20) : [],
+      stubVarInFirstRow: parsedFile.data.length > 0 ? parsedFile.data[0][selectedStubVariable] : 'NO DATA'
+    });
+
+    // DEBUG: Log unique values for the stub variable
+    const uniqueStubValues = new Set<string>();
+    parsedFile.data.forEach(row => {
+      const val = row[selectedStubVariable];
+      if (val !== null && val !== undefined && val !== '') {
+        uniqueStubValues.add(String(val));
+      }
+    });
+    console.log('🟣 [CROSSTAB DEBUG] Unique values in data for stub variable:', Array.from(uniqueStubValues).slice(0, 20));
+
     return stubRows.map(stubCode => {
       const row: Record<string, { count: number; percentage: number; base: number }> = {};
 
@@ -231,28 +363,52 @@ const CrossTabDisplay: React.FC<CrossTabDisplayProps> = ({
         let base = 0;
         let count = 0;
 
-        parsedFile.data.forEach(dataRow => {
+        parsedFile.data.forEach((dataRow, dataRowIndex) => {
           // Check if row matches the column filter (for banner cuts)
           const matchesColumn = column.filterFn(dataRow);
           if (!matchesColumn) return;
 
           base++;
-          
+
           // Check if stub variable value matches this stub code
           const stubValue = dataRow[selectedStubVariable];
+
+          // DEBUG: Log first few rows for the first stub code and Total column
+          if (stubCode === stubRows[0] && column.isTotal && dataRowIndex < 3) {
+            console.log('🟣 [CROSSTAB DEBUG] Row matching:', {
+              dataRowIndex,
+              stubCode,
+              stubValue,
+              stubValueType: typeof stubValue,
+              hasStubVar: selectedStubVariable in dataRow
+            });
+          }
+
           if (stubValue !== null && stubValue !== undefined && stubValue !== '') {
             const stubValueStr = String(stubValue).trim();
-            
+
             // Check if value matches the code directly
             if (stubValueStr === stubCode) {
               count++;
             } else {
-              // Check if value matches the label for this code
-              const stubVariable = parsedFile.variables.find(v => v.name === selectedStubVariable);
-              if (stubVariable && stubVariable.codes) {
-                const codeLabel = stubVariable.codes[stubCode];
-                if (codeLabel && String(codeLabel).trim() === stubValueStr) {
+              // Also check numeric equality (in case "1" vs 1)
+              const numValue = Number(stubValueStr);
+              if (!isNaN(numValue) && String(numValue) === stubCode) {
+                count++;
+              } else {
+                // Check if stub code has 'c' prefix (e.g., 'c1', 'c5') and data has numeric value
+                const codeWithoutPrefix = stubCode.replace(/^c/i, '');
+                if (stubValueStr === codeWithoutPrefix || (numValue === Number(codeWithoutPrefix) && !isNaN(Number(codeWithoutPrefix)))) {
                   count++;
+                } else {
+                  // Check if value matches the label for this code (case-insensitive)
+                  const stubVariable = parsedFile.variables.find(v => v.name === selectedStubVariable);
+                  if (stubVariable && stubVariable.codes) {
+                    const codeLabel = stubVariable.codes[stubCode];
+                    if (codeLabel && String(codeLabel).trim().toLowerCase() === stubValueStr.toLowerCase()) {
+                      count++;
+                    }
+                  }
                 }
               }
             }
@@ -534,16 +690,28 @@ const CrossTabDisplay: React.FC<CrossTabDisplayProps> = ({
           const stubValue = dataRow[variableName];
           if (stubValue !== null && stubValue !== undefined && stubValue !== '') {
             const stubValueStr = String(stubValue).trim();
-            
+
             // Check if value matches the code directly
             if (stubValueStr === stubCode) {
               count++;
             } else {
-              // Check if value matches the label for this code
-              if (variable && variable.codes) {
-                const codeLabel = variable.codes[stubCode];
-                if (codeLabel && String(codeLabel).trim() === stubValueStr) {
+              // Also check numeric equality (in case "1" vs 1)
+              const numValue = Number(stubValueStr);
+              if (!isNaN(numValue) && String(numValue) === stubCode) {
+                count++;
+              } else {
+                // Check if stub code has 'c' prefix (e.g., 'c1', 'c5') and data has numeric value
+                const codeWithoutPrefix = stubCode.replace(/^c/i, '');
+                if (stubValueStr === codeWithoutPrefix || (numValue === Number(codeWithoutPrefix) && !isNaN(Number(codeWithoutPrefix)))) {
                   count++;
+                } else {
+                  // Check if value matches the label for this code (case-insensitive)
+                  if (variable && variable.codes) {
+                    const codeLabel = variable.codes[stubCode];
+                    if (codeLabel && String(codeLabel).trim().toLowerCase() === stubValueStr.toLowerCase()) {
+                      count++;
+                    }
+                  }
                 }
               }
             }
@@ -713,7 +881,7 @@ const CrossTabDisplay: React.FC<CrossTabDisplayProps> = ({
                   {variable.description && (
                     <p className="text-xs text-gray-600">{variable.description}</p>
                   )}
-                  <div className="overflow-x-auto border border-gray-200 rounded-lg min-w-0">
+                  <div className={`${disableHorizontalScroll ? 'overflow-x-hidden' : 'overflow-x-auto'} border border-gray-200 rounded-lg min-w-0`}>
                   <table className="w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed' }}>
                     <colgroup>
                       <col style={{ width: '256px' }} />
@@ -873,7 +1041,7 @@ const CrossTabDisplay: React.FC<CrossTabDisplayProps> = ({
           })}
         </div>
       ) : selectedStubVariable && crossTabData.length > 0 && (
-        <div className="overflow-x-auto border border-gray-200 rounded-lg min-w-0">
+        <div className={`${disableHorizontalScroll ? 'overflow-x-hidden' : 'overflow-x-auto'} border border-gray-200 rounded-lg min-w-0`}>
           <table className="w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed' }}>
             <colgroup>
               <col style={{ width: '256px' }} />
