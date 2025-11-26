@@ -3901,8 +3901,6 @@ export default function ContentAnalysisX({ projects = [], onNavigate, onNavigate
               </table>
                 </div>
               </div>
-
-
             </div>
           )}
         </div>

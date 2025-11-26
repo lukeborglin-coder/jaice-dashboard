@@ -1,21 +1,748 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
-import { XMarkIcon, PlusIcon, TrashIcon, ChevronDownIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
-import { type ParsedDataFile } from '../utils/dataTabulationHelpers';
-import { type BannerGroup, type BannerCut, type BannerSubGroup } from '../types/dataTabulation';
+import React, { useState, useRef, useEffect } from 'react';
+import { XMarkIcon, PlusIcon, TrashIcon, PencilIcon } from '@heroicons/react/24/outline';
+import { type BannerGroup, type BannerCut, type BannerSubGroup, type BannerCondition, type BannerConditionGroup, type BannerSumCondition } from '../types/dataTabulation';
 
 const BRAND_ORANGE = '#D14A2D';
 
 interface BannerBuilderProps {
-  variables: any[]; // Variables directly from Variables tab
+  variables: any[];
   onSave: (group: BannerGroup) => void;
   onCancel: () => void;
   editingGroup?: BannerGroup | null;
-  existingBannerCount?: number; // Number of existing banners to generate "Banner N" title
+  existingBannerCount?: number;
+  rawData?: { rows: any[]; columns: string[] } | null;
+  columnMapping?: Record<string, string>;
 }
 
-const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onCancel, editingGroup, existingBannerCount = 0 }) => {
+interface PopupProps {
+  onClose: () => void;
+  anchorRef: React.RefObject<HTMLButtonElement>;
+  children: React.ReactNode;
+  minWidth?: string;
+}
+
+const Popup: React.FC<PopupProps> = ({ onClose, anchorRef, children, minWidth = '250px' }) => {
+  const popupRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState({ top: 0, left: 0 });
+
+  useEffect(() => {
+    if (anchorRef.current) {
+      const rect = anchorRef.current.getBoundingClientRect();
+      setPosition({
+        top: rect.bottom + window.scrollY + 4,
+        left: rect.left + window.scrollX
+      });
+    }
+  }, [anchorRef]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (popupRef.current && !popupRef.current.contains(e.target as Node) &&
+          anchorRef.current && !anchorRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [onClose, anchorRef]);
+
+  return (
+    <div
+      ref={popupRef}
+      className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-3 max-h-80 overflow-y-auto"
+      style={{ top: position.top, left: position.left, minWidth, maxWidth: '500px' }}
+    >
+      {children}
+    </div>
+  );
+};
+
+interface VariableSelectorPopupProps {
+  variables: any[];
+  selectedVariable: string;
+  onSelect: (variableName: string) => void;
+  onClose: () => void;
+  anchorRef: React.RefObject<HTMLButtonElement>;
+}
+
+const VariableSelectorPopup: React.FC<VariableSelectorPopupProps> = ({ variables, selectedVariable, onSelect, onClose, anchorRef }) => {
+  const [search, setSearch] = useState('');
+  const popupRef = useRef<HTMLDivElement>(null);
+
+  const filteredVariables = variables.filter(v =>
+    v.name.toLowerCase().includes(search.toLowerCase()) ||
+    (v.description && v.description.toLowerCase().includes(search.toLowerCase()))
+  );
+
+  // Handle click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (popupRef.current && !popupRef.current.contains(e.target as Node) &&
+          anchorRef.current && !anchorRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [onClose, anchorRef]);
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div className="fixed inset-0 bg-black/20 z-40" onClick={onClose} />
+      {/* Centered Modal */}
+      <div
+        ref={popupRef}
+        className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-xl p-4"
+        style={{
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: '500px',
+          maxWidth: '90vw',
+          maxHeight: '80vh'
+        }}
+      >
+        <div className="flex items-center gap-2 mb-3">
+          <input
+            type="text"
+            placeholder="Search variables..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D14A2D] focus:border-[#D14A2D]"
+            autoFocus
+          />
+          <button
+            onClick={onClose}
+            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+            title="Close"
+          >
+            <XMarkIcon className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="space-y-1 max-h-96 overflow-y-auto">
+          {filteredVariables.map(v => (
+            <button
+              key={v.name}
+              onClick={() => {
+                onSelect(v.name);
+                onClose();
+              }}
+              className={`w-full text-left px-3 py-2.5 text-sm rounded-lg transition-colors ${
+                selectedVariable === v.name
+                  ? 'bg-orange-100 text-orange-800'
+                  : 'hover:bg-gray-100 text-gray-700'
+              }`}
+            >
+              <div className="flex flex-col">
+                <span>
+                  <span className="font-medium">{v.name}</span>
+                  {v._cellLabel && (
+                    <span className="text-gray-500 ml-1">{v._cellLabel}</span>
+                  )}
+                </span>
+                {v.description && (
+                  <span className="text-gray-500 text-xs leading-tight mt-0.5 line-clamp-1">
+                    {v.description}
+                  </span>
+                )}
+              </div>
+            </button>
+          ))}
+          {filteredVariables.length === 0 && (
+            <div className="text-sm text-gray-400 italic py-4 text-center">No variables found</div>
+          )}
+        </div>
+      </div>
+    </>
+  );
+};
+
+interface CodeSelectorPopupProps {
+  variable: any;
+  selectedCodes: string[];
+  onCodesChange: (codes: string[]) => void;
+  onClose: () => void;
+  anchorRef: React.RefObject<HTMLButtonElement>;
+}
+
+const CodeSelectorPopup: React.FC<CodeSelectorPopupProps> = ({ variable, selectedCodes, onCodesChange, onClose, anchorRef }) => {
+  if (!variable || !variable.codes) return null;
+
+  return (
+    <Popup onClose={onClose} anchorRef={anchorRef}>
+      <div className="flex flex-wrap gap-2">
+        {Object.entries(variable.codes || {}).map(([code, label]: [string, any]) => (
+          <label
+            key={code}
+            className={`inline-flex items-center gap-1 px-2 py-1 text-xs rounded border cursor-pointer transition-colors ${
+              selectedCodes.includes(code)
+                ? 'bg-orange-100 border-orange-300 text-orange-800'
+                : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            <input
+              type="checkbox"
+              checked={selectedCodes.includes(code)}
+              onChange={(e) => {
+                const newCodes = e.target.checked
+                  ? [...selectedCodes, code]
+                  : selectedCodes.filter(c => c !== code);
+                onCodesChange(newCodes);
+              }}
+              className="sr-only"
+            />
+            <span>{code}: {String(label).substring(0, 25)}{String(label).length > 25 ? '...' : ''}</span>
+          </label>
+        ))}
+      </div>
+      <div className="mt-3 pt-2 border-t border-gray-200 flex justify-end">
+        <button
+          onClick={onClose}
+          className="px-3 py-1 text-xs text-white rounded hover:opacity-90"
+          style={{ backgroundColor: BRAND_ORANGE }}
+        >
+          Done
+        </button>
+      </div>
+    </Popup>
+  );
+};
+
+interface NumericConditionPopupProps {
+  variableName: string;
+  currentCondition: string;
+  onConditionChange: (condition: string) => void;
+  onClose: () => void;
+  anchorRef: React.RefObject<HTMLButtonElement>;
+}
+
+const NumericConditionPopup: React.FC<NumericConditionPopupProps> = ({ variableName, currentCondition, onConditionChange, onClose, anchorRef }) => {
+  // Parse existing condition
+  const parseCondition = (cond: string): { operator: string; value: string; value2: string } => {
+    if (!cond) return { operator: '>=', value: '', value2: '' };
+
+    // Check for "between" format: "10-50" or "10 AND 50"
+    const betweenMatch = cond.match(/^(\d+(?:\.\d+)?)\s*(?:-|AND)\s*(\d+(?:\.\d+)?)$/i);
+    if (betweenMatch) {
+      return { operator: 'between', value: betweenMatch[1], value2: betweenMatch[2] };
+    }
+
+    // Check for standard operators: >=50, <=50, >50, <50, =50
+    const opMatch = cond.match(/^(>=|<=|>|<|=)\s*(\d+(?:\.\d+)?)$/);
+    if (opMatch) {
+      return { operator: opMatch[1], value: opMatch[2], value2: '' };
+    }
+
+    return { operator: '>=', value: cond.replace(/[^0-9.]/g, ''), value2: '' };
+  };
+
+  const parsed = parseCondition(currentCondition);
+  const [operator, setOperator] = useState(parsed.operator);
+  const [value, setValue] = useState(parsed.value);
+  const [value2, setValue2] = useState(parsed.value2);
+
+  const handleApply = () => {
+    if (!value) {
+      onConditionChange('');
+      onClose();
+      return;
+    }
+
+    let condition = '';
+    if (operator === 'between') {
+      if (value && value2) {
+        condition = `${value}-${value2}`;
+      }
+    } else {
+      condition = `${operator}${value}`;
+    }
+
+    onConditionChange(condition);
+    onClose();
+  };
+
+  return (
+    <Popup onClose={onClose} anchorRef={anchorRef} minWidth="280px">
+      <div className="space-y-3">
+        <div className="text-xs font-medium text-gray-700 mb-2">
+          Define condition for {variableName}
+        </div>
+        <div className="flex items-center gap-2">
+          <select
+            value={operator}
+            onChange={(e) => setOperator(e.target.value)}
+            className="px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-[#D14A2D] focus:border-[#D14A2D]"
+          >
+            <option value=">=">≥ (greater or equal)</option>
+            <option value="<=">≤ (less or equal)</option>
+            <option value=">">{'>'} (greater than)</option>
+            <option value="<">{'<'} (less than)</option>
+            <option value="=">=  (equal to)</option>
+            <option value="between">Between</option>
+          </select>
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder={operator === 'between' ? 'Min' : 'Value'}
+            className="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-[#D14A2D] focus:border-[#D14A2D]"
+          />
+          {operator === 'between' && (
+            <>
+              <span className="text-gray-500 text-sm">to</span>
+              <input
+                type="number"
+                value={value2}
+                onChange={(e) => setValue2(e.target.value)}
+                placeholder="Max"
+                className="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-[#D14A2D] focus:border-[#D14A2D]"
+              />
+            </>
+          )}
+        </div>
+        <div className="text-xs text-gray-500">
+          Preview: <span className="font-mono">{variableName}{operator === 'between' ? ` ${value || '?'} to ${value2 || '?'}` : `${operator}${value || '?'}`}</span>
+        </div>
+      </div>
+      <div className="mt-3 pt-2 border-t border-gray-200 flex justify-end gap-2">
+        <button
+          onClick={onClose}
+          className="px-3 py-1 text-xs text-gray-600 hover:bg-gray-100 rounded"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleApply}
+          className="px-3 py-1 text-xs text-white rounded hover:opacity-90"
+          style={{ backgroundColor: BRAND_ORANGE }}
+        >
+          Apply
+        </button>
+      </div>
+    </Popup>
+  );
+};
+
+// Component for editing cut conditions with AND/OR/SUM support
+interface CutConditionsEditorProps {
+  cut: BannerCut;
+  subGroupId: string;
+  selectableVariables: any[];
+  categoricalVariables: any[];
+  isNumericVariable: (varName: string) => boolean;
+  updateCut: (subGroupId: string, cutId: string, updates: Partial<BannerCut>) => void;
+  openVariableSelector: { subGroupId: string; cutId: string; conditionIndex?: number } | null;
+  setOpenVariableSelector: (value: { subGroupId: string; cutId: string; conditionIndex?: number } | null) => void;
+  openCodeSelector: { subGroupId: string; cutId: string; conditionIndex?: number } | null;
+  setOpenCodeSelector: (value: { subGroupId: string; cutId: string; conditionIndex?: number } | null) => void;
+  getButtonRef: (refs: React.MutableRefObject<Record<string, React.RefObject<HTMLButtonElement>>>, subGroupId: string, cutId: string, suffix?: string) => React.RefObject<HTMLButtonElement>;
+  codeButtonRefs: React.MutableRefObject<Record<string, React.RefObject<HTMLButtonElement>>>;
+  variableButtonRefs: React.MutableRefObject<Record<string, React.RefObject<HTMLButtonElement>>>;
+}
+
+const CutConditionsEditor: React.FC<CutConditionsEditorProps> = ({
+  cut,
+  subGroupId,
+  selectableVariables,
+  categoricalVariables,
+  isNumericVariable,
+  updateCut,
+  openVariableSelector,
+  setOpenVariableSelector,
+  openCodeSelector,
+  setOpenCodeSelector,
+  getButtonRef,
+  codeButtonRefs,
+  variableButtonRefs
+}) => {
+  // Initialize conditions from cut data
+  const getConditions = (): BannerCondition[] => {
+    // If we have conditionGroups, use those
+    if (cut.conditionGroups && cut.conditionGroups.length > 0) {
+      return cut.conditionGroups.flatMap(g => g.conditions);
+    }
+    // Legacy: single variable/codes
+    if (cut.variableName) {
+      return [{ id: '0', variableName: cut.variableName, codes: cut.codes }];
+    }
+    return [];
+  };
+
+  const conditions = getConditions();
+  const operator = cut.conditionGroups?.[0]?.operator || 'OR';
+  const isSumMode = !!cut.sumCondition;
+
+  // Get display text for a condition
+  const getConditionDisplay = (cond: BannerCondition) => {
+    const isNumeric = isNumericVariable(cond.variableName);
+    if (isNumeric && cond.codes.length > 0) {
+      return `${cond.variableName}${cond.codes[0]}`;
+    }
+    const variable = categoricalVariables.find(v => v.name === cond.variableName);
+    if (variable && cond.codes.length > 0) {
+      return `${cond.variableName}=${cond.codes.join(',')}`;
+    }
+    return cond.variableName || 'Select variable';
+  };
+
+  // Add a new condition
+  const addCondition = () => {
+    const newCondition: BannerCondition = { id: Date.now().toString(), variableName: '', codes: [] };
+    const currentConditions = conditions.length > 0 ? conditions : [];
+    const newConditions = [...currentConditions, newCondition];
+
+    updateCut(subGroupId, cut.id, {
+      conditionGroups: [{
+        conditions: newConditions,
+        operator: operator
+      }],
+      // Clear legacy fields when using compound conditions
+      variableName: newConditions[0]?.variableName || '',
+      codes: newConditions[0]?.codes || []
+    });
+  };
+
+  // Remove a condition
+  const removeCondition = (index: number) => {
+    const newConditions = conditions.filter((_, i) => i !== index);
+    if (newConditions.length === 0) {
+      updateCut(subGroupId, cut.id, {
+        conditionGroups: undefined,
+        variableName: '',
+        codes: []
+      });
+    } else {
+      updateCut(subGroupId, cut.id, {
+        conditionGroups: [{
+          conditions: newConditions,
+          operator: operator
+        }],
+        variableName: newConditions[0]?.variableName || '',
+        codes: newConditions[0]?.codes || []
+      });
+    }
+  };
+
+  // Update a specific condition
+  const updateCondition = (index: number, updates: Partial<BannerCondition>) => {
+    const newConditions = conditions.map((c, i) => i === index ? { ...c, ...updates } : c);
+    updateCut(subGroupId, cut.id, {
+      conditionGroups: [{
+        conditions: newConditions,
+        operator: operator
+      }],
+      // Keep legacy fields in sync with first condition
+      variableName: newConditions[0]?.variableName || '',
+      codes: newConditions[0]?.codes || []
+    });
+  };
+
+  // Toggle operator
+  const toggleOperator = () => {
+    const newOp = operator === 'OR' ? 'AND' : 'OR';
+    if (conditions.length > 0) {
+      updateCut(subGroupId, cut.id, {
+        conditionGroups: [{
+          conditions: conditions,
+          operator: newOp
+        }]
+      });
+    }
+  };
+
+  // Toggle SUM mode
+  const toggleSumMode = () => {
+    if (isSumMode) {
+      // Convert back to regular conditions
+      updateCut(subGroupId, cut.id, {
+        sumCondition: undefined,
+        conditionGroups: undefined,
+        variableName: '',
+        codes: []
+      });
+    } else {
+      // Convert to SUM mode
+      const numericVars = conditions
+        .filter(c => isNumericVariable(c.variableName))
+        .map(c => c.variableName);
+      updateCut(subGroupId, cut.id, {
+        sumCondition: {
+          id: Date.now().toString(),
+          type: 'SUM',
+          variables: numericVars.length > 0 ? numericVars : [],
+          condition: '>=0'
+        },
+        conditionGroups: undefined
+      });
+    }
+  };
+
+  // Update SUM condition
+  const updateSumCondition = (updates: Partial<BannerSumCondition>) => {
+    if (cut.sumCondition) {
+      updateCut(subGroupId, cut.id, {
+        sumCondition: { ...cut.sumCondition, ...updates }
+      });
+    }
+  };
+
+  // Add variable to SUM
+  const addSumVariable = (varName: string) => {
+    if (cut.sumCondition) {
+      updateCut(subGroupId, cut.id, {
+        sumCondition: {
+          ...cut.sumCondition,
+          variables: [...cut.sumCondition.variables, varName]
+        }
+      });
+    }
+  };
+
+  // Remove variable from SUM
+  const removeSumVariable = (index: number) => {
+    if (cut.sumCondition) {
+      updateCut(subGroupId, cut.id, {
+        sumCondition: {
+          ...cut.sumCondition,
+          variables: cut.sumCondition.variables.filter((_, i) => i !== index)
+        }
+      });
+    }
+  };
+
+  // Render SUM mode UI
+  if (isSumMode && cut.sumCondition) {
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs font-medium text-purple-700 bg-purple-100 px-2 py-0.5 rounded">SUM</span>
+          {cut.sumCondition.variables.map((varName, idx) => (
+            <React.Fragment key={idx}>
+              {idx > 0 && <span className="text-xs text-gray-400">+</span>}
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded bg-blue-100 border border-blue-300 text-blue-800 font-mono">
+                {varName}
+                <button
+                  onClick={() => removeSumVariable(idx)}
+                  className="ml-0.5 text-blue-600 hover:text-blue-800 hover:bg-blue-200 rounded-full p-0.5 transition-colors"
+                >
+                  <XMarkIcon className="h-3 w-3" />
+                </button>
+              </span>
+            </React.Fragment>
+          ))}
+          <button
+            onClick={() => setOpenVariableSelector({ subGroupId, cutId: cut.id, conditionIndex: -1 })}
+            className="p-1 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors"
+            title="Add variable to sum"
+          >
+            <PlusIcon className="h-4 w-4" />
+          </button>
+          {openVariableSelector?.subGroupId === subGroupId && openVariableSelector?.cutId === cut.id && openVariableSelector?.conditionIndex === -1 && (
+            <VariableSelectorPopup
+              variables={selectableVariables.filter(v => isNumericVariable(v.name))}
+              selectedVariable=""
+              onSelect={(varName) => {
+                addSumVariable(varName);
+                setOpenVariableSelector(null);
+              }}
+              onClose={() => setOpenVariableSelector(null)}
+              anchorRef={{ current: null } as React.RefObject<HTMLButtonElement>}
+            />
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            value={cut.sumCondition.condition}
+            onChange={(e) => updateSumCondition({ condition: e.target.value })}
+            placeholder=">=50"
+            className="w-24 px-2 py-1 text-xs font-mono border border-gray-300 rounded focus:ring-2 focus:ring-[#D14A2D] focus:border-[#D14A2D]"
+          />
+          <button
+            onClick={toggleSumMode}
+            className="text-xs text-gray-500 hover:text-gray-700 underline"
+          >
+            Switch to OR/AND
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Render regular conditions UI
+  return (
+    <div className="space-y-2">
+      {conditions.length === 0 ? (
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-400 italic">No conditions</span>
+          <button
+            onClick={addCondition}
+            className="p-1 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors"
+            title="Add condition"
+          >
+            <PlusIcon className="h-4 w-4" />
+          </button>
+        </div>
+      ) : (
+        <>
+          {conditions.map((cond, idx) => {
+            const isNumeric = isNumericVariable(cond.variableName);
+            const variable = categoricalVariables.find(v => v.name === cond.variableName);
+            const varButtonRef = getButtonRef(variableButtonRefs, subGroupId, `${cut.id}-${idx}`);
+            const codeButtonRef = getButtonRef(codeButtonRefs, subGroupId, `${cut.id}-${idx}`);
+
+            return (
+              <div key={cond.id || idx} className="flex items-center gap-2 flex-wrap">
+                {idx > 0 && (
+                  <button
+                    onClick={toggleOperator}
+                    className="text-xs font-medium px-2 py-0.5 rounded border cursor-pointer transition-colors"
+                    style={{
+                      backgroundColor: operator === 'OR' ? '#FEF3C7' : '#DBEAFE',
+                      borderColor: operator === 'OR' ? '#F59E0B' : '#3B82F6',
+                      color: operator === 'OR' ? '#B45309' : '#1D4ED8'
+                    }}
+                  >
+                    {operator}
+                  </button>
+                )}
+
+                {/* Variable pill */}
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded bg-orange-100 border border-orange-300 text-orange-800 font-medium">
+                  {cond.variableName || 'Select'}
+                  <button
+                    ref={varButtonRef}
+                    onClick={() => setOpenVariableSelector({ subGroupId, cutId: cut.id, conditionIndex: idx })}
+                    className="p-0.5 text-orange-600 hover:text-orange-800 hover:bg-orange-200 rounded transition-colors"
+                  >
+                    <PencilIcon className="h-3 w-3" />
+                  </button>
+                </span>
+                {openVariableSelector?.subGroupId === subGroupId && openVariableSelector?.cutId === cut.id && openVariableSelector?.conditionIndex === idx && (
+                  <VariableSelectorPopup
+                    variables={selectableVariables}
+                    selectedVariable={cond.variableName}
+                    onSelect={(varName) => {
+                      updateCondition(idx, { variableName: varName, codes: [] });
+                      setOpenVariableSelector(null);
+                    }}
+                    onClose={() => setOpenVariableSelector(null)}
+                    anchorRef={varButtonRef}
+                  />
+                )}
+
+                {/* Codes/Condition */}
+                {cond.variableName && (
+                  isNumeric ? (
+                    <>
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded bg-blue-100 border border-blue-300 text-blue-800 font-mono">
+                        {cond.codes[0] || '?'}
+                        <button
+                          ref={codeButtonRef}
+                          onClick={() => setOpenCodeSelector({ subGroupId, cutId: cut.id, conditionIndex: idx })}
+                          className="p-0.5 text-blue-600 hover:text-blue-800 hover:bg-blue-200 rounded transition-colors"
+                        >
+                          <PencilIcon className="h-3 w-3" />
+                        </button>
+                      </span>
+                      {openCodeSelector?.subGroupId === subGroupId && openCodeSelector?.cutId === cut.id && openCodeSelector?.conditionIndex === idx && (
+                        <NumericConditionPopup
+                          variableName={cond.variableName}
+                          currentCondition={cond.codes[0] || ''}
+                          onConditionChange={(condition) => {
+                            updateCondition(idx, { codes: condition ? [condition] : [] });
+                            setOpenCodeSelector(null);
+                          }}
+                          onClose={() => setOpenCodeSelector(null)}
+                          anchorRef={codeButtonRef}
+                        />
+                      )}
+                    </>
+                  ) : variable ? (
+                    <>
+                      {cond.codes.length > 0 ? (
+                        cond.codes.map(code => (
+                          <span
+                            key={code}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded bg-orange-100 border border-orange-300 text-orange-800"
+                          >
+                            {code}
+                            <button
+                              onClick={() => {
+                                const newCodes = cond.codes.filter(c => c !== code);
+                                updateCondition(idx, { codes: newCodes });
+                              }}
+                              className="p-0.5 text-orange-600 hover:text-orange-800 hover:bg-orange-200 rounded-full transition-colors"
+                            >
+                              <XMarkIcon className="h-3 w-3" />
+                            </button>
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-xs text-gray-400 italic">No codes</span>
+                      )}
+                      <button
+                        ref={codeButtonRef}
+                        onClick={() => setOpenCodeSelector({ subGroupId, cutId: cut.id, conditionIndex: idx })}
+                        className="p-1 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors"
+                      >
+                        <PencilIcon className="h-3 w-3" />
+                      </button>
+                      {openCodeSelector?.subGroupId === subGroupId && openCodeSelector?.cutId === cut.id && openCodeSelector?.conditionIndex === idx && (
+                        <CodeSelectorPopup
+                          variable={variable}
+                          selectedCodes={cond.codes}
+                          onCodesChange={(codes) => {
+                            updateCondition(idx, { codes });
+                          }}
+                          onClose={() => setOpenCodeSelector(null)}
+                          anchorRef={codeButtonRef}
+                        />
+                      )}
+                    </>
+                  ) : null
+                )}
+
+                {/* Remove condition button */}
+                {conditions.length > 1 && (
+                  <button
+                    onClick={() => removeCondition(idx)}
+                    className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                  >
+                    <XMarkIcon className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Add condition and SUM toggle buttons */}
+          <div className="flex items-center gap-2 pt-1">
+            <button
+              onClick={addCondition}
+              className="text-xs text-[#D14A2D] hover:bg-orange-50 px-2 py-1 rounded border border-dashed border-[#D14A2D] transition-colors"
+            >
+              + Add {operator}
+            </button>
+            <button
+              onClick={toggleSumMode}
+              className="text-xs text-purple-600 hover:bg-purple-50 px-2 py-1 rounded border border-dashed border-purple-400 transition-colors"
+            >
+              Use SUM
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onCancel, editingGroup, existingBannerCount = 0, rawData, columnMapping }) => {
   const [confidenceLevel, setConfidenceLevel] = useState<95 | 90 | 80>(editingGroup?.confidenceLevel || 95);
+  const [includeTotal, setIncludeTotal] = useState<boolean>(editingGroup?.includeTotal !== false);
   const [subGroups, setSubGroups] = useState<BannerSubGroup[]>(
     editingGroup?.groups || [
       {
@@ -28,111 +755,319 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onCanc
       }
     ]
   );
-  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
-  const dropdownRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
-  const buttonRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({});
-  const [dropdownPosition, setDropdownPosition] = useState<{ [key: string]: { top: number; left: number; width: number; maxHeight: number } }>({});
-  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [openCodeSelector, setOpenCodeSelector] = useState<{ subGroupId: string; cutId: string; conditionIndex?: number } | null>(null);
+  const [openVariableSelector, setOpenVariableSelector] = useState<{ subGroupId: string; cutId: string; conditionIndex?: number } | null>(null);
+  const codeButtonRefs = useRef<Record<string, React.RefObject<HTMLButtonElement>>>({});
+  const variableButtonRefs = useRef<Record<string, React.RefObject<HTMLButtonElement>>>({});
 
-  // Filter for variables that have codes (categorical variables)
+  // Filter for variables that have codes (categorical variables) OR are numeric
   const categoricalVariables = variables.filter(v =>
     v.codes && Object.keys(v.codes).length > 0
   );
 
-  // Close dropdown when clicking outside and update position on scroll/resize
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (openDropdown) {
-        const dropdownElement = dropdownRefs.current[openDropdown];
-        const buttonElement = buttonRefs.current[openDropdown];
-        if (
-          dropdownElement && 
-          !dropdownElement.contains(event.target as Node) &&
-          buttonElement &&
-          !buttonElement.contains(event.target as Node)
-        ) {
-          setOpenDropdown(null);
-        }
+  // Get all selectable variables (categorical + numeric + expanded numeric grid cells)
+  const selectableVariables = React.useMemo(() => {
+    const result: any[] = [];
+
+    variables.forEach(v => {
+      const isNumericGrid = v.type?.toLowerCase().includes('numeric') && v.type?.toLowerCase().includes('grid');
+
+      // Include categorical variables (have codes) - but NOT numeric grids
+      if (v.codes && Object.keys(v.codes).length > 0 && !isNumericGrid) {
+        result.push(v);
       }
-    };
-
-    const updatePosition = () => {
-      if (openDropdown) {
-        const button = buttonRefs.current[openDropdown];
-        if (button) {
-          const rect = button.getBoundingClientRect();
-          const viewportHeight = window.innerHeight;
-          const availableSpace = viewportHeight - rect.bottom - 8; // 8px gap below button
-          const maxHeight = Math.max(200, availableSpace - 20); // Minimum 200px, with 20px padding from bottom
-          
-          setDropdownPosition(prev => ({
-            ...prev,
-            [openDropdown]: {
-              top: rect.bottom + 8,
-              left: rect.left,
-              width: rect.width,
-              maxHeight: maxHeight
-            }
-          }));
-        }
+      // Include single numeric variables (not grids)
+      else if (v.type?.toLowerCase().includes('numeric') && !v.type?.toLowerCase().includes('grid')) {
+        result.push(v);
       }
-    };
+      // For numeric grids, expand each cell (row × column) into a separate selectable item
+      else if (isNumericGrid && v.statements) {
+        const baseNumber = v.name.replace(/^Q/, '');
 
-    if (openDropdown) {
-      document.addEventListener('mousedown', handleClickOutside);
-      window.addEventListener('scroll', updatePosition, true);
-      window.addEventListener('resize', updatePosition);
-      return () => {
-        document.removeEventListener('mousedown', handleClickOutside);
-        window.removeEventListener('scroll', updatePosition, true);
-        window.removeEventListener('resize', updatePosition);
-      };
-    }
-  }, [openDropdown]);
+        // Get columns - either from codes or default to c1
+        const columns = v.codes && Object.keys(v.codes).length > 0
+          ? Object.entries(v.codes)
+          : [['c1', 'Value']];
 
-  const getDropdownKey = (subGroupId: string, cutId: string) => `${subGroupId}-${cutId}`;
-
-  const toggleDropdown = (subGroupId: string, cutId: string) => {
-    const key = getDropdownKey(subGroupId, cutId);
-    if (openDropdown === key) {
-      setOpenDropdown(null);
-      setSearchTerm(''); // Reset search when closing
-    } else {
-      const button = buttonRefs.current[key];
-      if (button) {
-        const rect = button.getBoundingClientRect();
-        const viewportHeight = window.innerHeight;
-        const availableSpace = viewportHeight - rect.bottom - 8; // 8px gap below button
-        const maxHeight = Math.max(200, availableSpace - 20); // Minimum 200px, with 20px padding from bottom
-        
-        setDropdownPosition({
-          ...dropdownPosition,
-          [key]: {
-            top: rect.bottom + 8, // 8px gap below button
-            left: rect.left,
-            width: rect.width,
-            maxHeight: maxHeight
-          }
+        Object.entries(v.statements).forEach(([rowCode, rowText]) => {
+          columns.forEach(([colCode, colText]) => {
+            // Create a synthetic variable for each cell
+            // Variable name format: Q{base}r{row}c{col} (e.g., QS5r1c1, QS5r2c1)
+            // rowCode may already include 'r' prefix (e.g., "r1") or just be a number (e.g., "1")
+            const rowPart = rowCode.toLowerCase().startsWith('r') ? rowCode : `r${rowCode}`;
+            const syntheticName = `Q${baseNumber}${rowPart}${colCode}`;
+            // cellLabel shows column and row text: "(#: Evrysdi)"
+            const cellLabel = `(${colText}: ${rowText})`;
+            result.push({
+              name: syntheticName,
+              description: v.description || v.name, // Question text
+              _cellLabel: cellLabel, // Cell-specific label to show after variable name
+              type: 'open-numeric', // Treat as single numeric for condition handling
+              codes: {},
+              _isGridCell: true,
+              _parentVariable: v.name,
+              _rowCode: rowCode,
+              _rowText: rowText,
+              _colCode: colCode,
+              _colText: colText
+            });
+          });
         });
       }
-      setOpenDropdown(key);
-      setSearchTerm(''); // Reset search when opening
+    });
+
+    return result;
+  }, [variables]);
+
+  // Check if a variable is numeric (no codes, type includes numeric)
+  const isNumericVariable = (varName: string): boolean => {
+    // First check if it's a synthetic grid cell variable
+    const syntheticVar = selectableVariables.find(sv => sv.name === varName && sv._isGridCell);
+    if (syntheticVar) return true;
+
+    const v = variables.find(variable => variable.name === varName);
+    if (!v) return false;
+    const hasCodes = v.codes && Object.keys(v.codes).length > 0;
+    const isNumericType = v.type?.toLowerCase().includes('numeric') && !v.type?.toLowerCase().includes('grid');
+    return !hasCodes && isNumericType;
+  };
+
+  // Calculate sample size for a cut
+  const calculateSampleSize = (variableName: string, codes: string[]): number => {
+    if (!rawData || !rawData.rows || !columnMapping || !variableName || codes.length === 0) {
+      return 0;
     }
+
+    // Find the column header for this variable
+    const getColumnHeader = (varName: string): string | null => {
+      const variations = [varName, `Q${varName}`, varName.replace(/^Q/, ''), `${varName}r1`, `Q${varName.replace(/^Q/, '')}r1`];
+      for (const v of variations) {
+        if (columnMapping[v]) return columnMapping[v];
+        const match = Object.keys(columnMapping).find(k => k.toLowerCase() === v.toLowerCase());
+        if (match) return columnMapping[match];
+      }
+      return null;
+    };
+
+    const colHeader = getColumnHeader(variableName);
+    if (!colHeader) return 0;
+
+    // Check if this is a numeric condition
+    const isNumeric = isNumericVariable(variableName);
+
+    let count = 0;
+    rawData.rows.forEach((row: any) => {
+      const val = row[colHeader];
+      if (val === null || val === undefined || val === '') return;
+      const valStr = String(val).trim();
+      const numVal = Number(valStr);
+
+      if (isNumeric && codes.length === 1) {
+        // Parse numeric condition
+        const condition = codes[0];
+        let matches = false;
+
+        // Check for "between" format: "10-50"
+        const betweenMatch = condition.match(/^(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)$/);
+        if (betweenMatch) {
+          const min = parseFloat(betweenMatch[1]);
+          const max = parseFloat(betweenMatch[2]);
+          if (!isNaN(numVal) && numVal >= min && numVal <= max) {
+            matches = true;
+          }
+        } else {
+          // Check for standard operators: >=50, <=50, >50, <50, =50
+          const opMatch = condition.match(/^(>=|<=|>|<|=)(\d+(?:\.\d+)?)$/);
+          if (opMatch) {
+            const op = opMatch[1];
+            const compareVal = parseFloat(opMatch[2]);
+            if (!isNaN(numVal)) {
+              switch (op) {
+                case '>=': matches = numVal >= compareVal; break;
+                case '<=': matches = numVal <= compareVal; break;
+                case '>': matches = numVal > compareVal; break;
+                case '<': matches = numVal < compareVal; break;
+                case '=': matches = numVal === compareVal; break;
+              }
+            }
+          }
+        }
+
+        if (matches) count++;
+      } else {
+        // Categorical matching
+        for (const code of codes) {
+          let matches = false;
+          if (valStr === code) matches = true;
+          else if (!isNaN(numVal) && String(numVal) === code) matches = true;
+          else {
+            const codeNoC = code.replace(/^c/i, '');
+            if (valStr === codeNoC || (!isNaN(numVal) && !isNaN(Number(codeNoC)) && numVal === Number(codeNoC))) {
+              matches = true;
+            }
+          }
+          if (matches) {
+            count++;
+            break;
+          }
+        }
+      }
+    });
+
+    return count;
   };
 
-  const selectVariable = (subGroupId: string, cutId: string, variableName: string) => {
-    updateCut(subGroupId, cutId, { variableName, codes: [] });
-    setOpenDropdown(null);
-    setSearchTerm(''); // Reset search when selecting
-  };
+  // Calculate sample size for a cut with compound conditions
+  const calculateCutSampleSize = (cut: BannerCut): number => {
+    if (!rawData || !rawData.rows || !columnMapping) return 0;
 
-  // Filter variables based on search term
-  const filteredVariables = searchTerm.trim() === '' 
-    ? categoricalVariables 
-    : categoricalVariables.filter(v => 
-        v.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (v.description && v.description.toLowerCase().includes(searchTerm.toLowerCase()))
-      );
+    // Handle SUM condition
+    if (cut.sumCondition && cut.sumCondition.variables.length > 0) {
+      const getColumnHeader = (varName: string): string | null => {
+        const variations = [varName, `Q${varName}`, varName.replace(/^Q/, ''), `${varName}r1`, `Q${varName.replace(/^Q/, '')}r1`];
+        for (const v of variations) {
+          if (columnMapping[v]) return columnMapping[v];
+          const match = Object.keys(columnMapping).find(k => k.toLowerCase() === v.toLowerCase());
+          if (match) return columnMapping[match];
+        }
+        return null;
+      };
+
+      // Parse the condition
+      const parseCondition = (cond: string): { operator: string; value: number } | null => {
+        const match = cond.match(/^(>=|<=|>|<|=)(\d+(?:\.\d+)?)$/);
+        if (match) {
+          return { operator: match[1], value: parseFloat(match[2]) };
+        }
+        return null;
+      };
+
+      const parsedCond = parseCondition(cut.sumCondition.condition);
+      if (!parsedCond) return 0;
+
+      let count = 0;
+      rawData.rows.forEach((row: any) => {
+        let sum = 0;
+        let hasValidValue = false;
+
+        for (const varName of cut.sumCondition!.variables) {
+          const colHeader = getColumnHeader(varName);
+          if (!colHeader) continue;
+          const val = row[colHeader];
+          if (val !== null && val !== undefined && val !== '') {
+            const numVal = Number(val);
+            if (!isNaN(numVal)) {
+              sum += numVal;
+              hasValidValue = true;
+            }
+          }
+        }
+
+        if (hasValidValue) {
+          let matches = false;
+          switch (parsedCond.operator) {
+            case '>=': matches = sum >= parsedCond.value; break;
+            case '<=': matches = sum <= parsedCond.value; break;
+            case '>': matches = sum > parsedCond.value; break;
+            case '<': matches = sum < parsedCond.value; break;
+            case '=': matches = sum === parsedCond.value; break;
+          }
+          if (matches) count++;
+        }
+      });
+      return count;
+    }
+
+    // Handle compound conditions
+    if (cut.conditionGroups && cut.conditionGroups.length > 0) {
+      const group = cut.conditionGroups[0];
+      const conditions = group.conditions;
+      const operator = group.operator;
+
+      if (conditions.length === 0) return 0;
+
+      // Helper to check if a row matches a single condition
+      const rowMatchesCondition = (row: any, cond: BannerCondition): boolean => {
+        if (!cond.variableName || cond.codes.length === 0) return false;
+
+        const getColumnHeader = (varName: string): string | null => {
+          const variations = [varName, `Q${varName}`, varName.replace(/^Q/, ''), `${varName}r1`, `Q${varName.replace(/^Q/, '')}r1`];
+          for (const v of variations) {
+            if (columnMapping[v]) return columnMapping[v];
+            const match = Object.keys(columnMapping).find(k => k.toLowerCase() === v.toLowerCase());
+            if (match) return columnMapping[match];
+          }
+          return null;
+        };
+
+        const colHeader = getColumnHeader(cond.variableName);
+        if (!colHeader) return false;
+
+        const val = row[colHeader];
+        if (val === null || val === undefined || val === '') return false;
+        const valStr = String(val).trim();
+        const numVal = Number(valStr);
+
+        const isNumeric = isNumericVariable(cond.variableName);
+
+        if (isNumeric && cond.codes.length === 1) {
+          const condition = cond.codes[0];
+          // Between format
+          const betweenMatch = condition.match(/^(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)$/);
+          if (betweenMatch) {
+            const min = parseFloat(betweenMatch[1]);
+            const max = parseFloat(betweenMatch[2]);
+            return !isNaN(numVal) && numVal >= min && numVal <= max;
+          }
+          // Operator format
+          const opMatch = condition.match(/^(>=|<=|>|<|=)(\d+(?:\.\d+)?)$/);
+          if (opMatch) {
+            const op = opMatch[1];
+            const compareVal = parseFloat(opMatch[2]);
+            if (isNaN(numVal)) return false;
+            switch (op) {
+              case '>=': return numVal >= compareVal;
+              case '<=': return numVal <= compareVal;
+              case '>': return numVal > compareVal;
+              case '<': return numVal < compareVal;
+              case '=': return numVal === compareVal;
+            }
+          }
+          return false;
+        } else {
+          // Categorical
+          for (const code of cond.codes) {
+            if (valStr === code) return true;
+            if (!isNaN(numVal) && String(numVal) === code) return true;
+            const codeNoC = code.replace(/^c/i, '');
+            if (valStr === codeNoC || (!isNaN(numVal) && !isNaN(Number(codeNoC)) && numVal === Number(codeNoC))) {
+              return true;
+            }
+          }
+          return false;
+        }
+      };
+
+      let count = 0;
+      rawData.rows.forEach((row: any) => {
+        let matches: boolean;
+        if (operator === 'OR') {
+          matches = conditions.some(cond => rowMatchesCondition(row, cond));
+        } else {
+          matches = conditions.every(cond => rowMatchesCondition(row, cond));
+        }
+        if (matches) count++;
+      });
+      return count;
+    }
+
+    // Legacy: single variable/codes
+    if (cut.variableName && cut.codes.length > 0) {
+      return calculateSampleSize(cut.variableName, cut.codes);
+    }
+
+    return 0;
+  };
 
   const addSubGroup = () => {
     setSubGroups([...subGroups, {
@@ -154,19 +1089,11 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onCanc
     setSubGroups(subGroups.map(g => g.id === subGroupId ? { ...g, ...updates } : g));
   };
 
-  const addCut = (subGroupId: string, afterCutIndex?: number) => {
+  const addCut = (subGroupId: string) => {
     setSubGroups(subGroups.map(g => {
       if (g.id === subGroupId) {
         const newCut = { id: `${Date.now()}-${g.cuts.length + 1}`, title: '', variableName: '', codes: [] };
-        if (afterCutIndex !== undefined && afterCutIndex >= 0) {
-          // Insert after the specified cut index
-          const newCuts = [...g.cuts];
-          newCuts.splice(afterCutIndex + 1, 0, newCut);
-          return { ...g, cuts: newCuts };
-        } else {
-          // Add to the end (fallback)
-          return { ...g, cuts: [...g.cuts, newCut] };
-        }
+        return { ...g, cuts: [...g.cuts, newCut] };
       }
       return g;
     }));
@@ -174,12 +1101,8 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onCanc
 
   const removeCut = (subGroupId: string, cutId: string) => {
     setSubGroups(subGroups.map(g => {
-      if (g.id === subGroupId && g.cuts.length > 2) {
-        const newCuts = g.cuts.filter(c => c.id !== cutId);
-        // Ensure minimum of 2 cuts
-        if (newCuts.length >= 2) {
-          return { ...g, cuts: newCuts };
-        }
+      if (g.id === subGroupId && g.cuts.length > 1) {
+        return { ...g, cuts: g.cuts.filter(c => c.id !== cutId) };
       }
       return g;
     }));
@@ -197,295 +1120,226 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onCanc
     }));
   };
 
-  const handleSave = () => {
-    // Auto-generate title: "Banner 1", "Banner 2", etc.
-    const generatedTitle = editingGroup?.title || `Banner ${existingBannerCount + 1}`;
+  const getButtonRef = (refs: React.MutableRefObject<Record<string, React.RefObject<HTMLButtonElement>>>, subGroupId: string, cutId: string, suffix?: string): React.RefObject<HTMLButtonElement> => {
+    const key = suffix ? `${subGroupId}-${cutId}-${suffix}` : `${subGroupId}-${cutId}`;
+    if (!refs.current[key]) {
+      refs.current[key] = React.createRef<HTMLButtonElement>();
+    }
+    return refs.current[key];
+  };
 
+  const handleSave = () => {
+    const generatedTitle = editingGroup?.title || `Banner ${existingBannerCount + 1}`;
     const group: BannerGroup = {
       id: editingGroup?.id || Date.now().toString(),
       title: generatedTitle,
       confidenceLevel,
+      includeTotal,
       groups: subGroups
     };
-
     onSave(group);
   };
+
+  // Subtract 1 to account for the header row in raw data
+  const totalSampleSize = rawData?.rows?.length ? rawData.rows.length - 1 : 0;
 
   return (
     <div className="flex flex-col h-full bg-white">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-gray-200">
-        <h2 className="text-xl font-semibold text-gray-900">
-          {editingGroup ? 'Edit Banner Group' : 'Create Banner Group'}
-        </h2>
+        <div className="flex items-center gap-4">
+          <h2 className="text-xl font-semibold text-gray-900">
+            {editingGroup ? 'Edit Banner Group' : 'Create Banner Group'}
+          </h2>
+          <select
+            value={confidenceLevel}
+            onChange={(e) => setConfidenceLevel(Number(e.target.value) as 95 | 90 | 80)}
+            className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D14A2D] focus:border-[#D14A2D]"
+          >
+            <option value={95}>95% Confidence</option>
+            <option value={90}>90% Confidence</option>
+            <option value={80}>80% Confidence</option>
+          </select>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={includeTotal}
+              onChange={(e) => setIncludeTotal(e.target.checked)}
+              className="w-4 h-4 rounded border-gray-300 text-[#D14A2D] focus:ring-[#D14A2D]"
+            />
+            <span className="text-sm text-gray-700">Include Total</span>
+          </label>
+          {includeTotal && (
+            <span className="text-sm text-gray-600">
+              Total Sample: <span className="font-semibold">{totalSampleSize.toLocaleString()}</span>
+            </span>
+          )}
+        </div>
         <button onClick={onCancel} className="text-gray-400 hover:text-gray-600">
           <XMarkIcon className="h-6 w-6" />
         </button>
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-6">
-
-        {/* Sub-Groups */}
-        <div className="mb-4">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <h3 className="text-lg font-medium text-gray-900">Sub-Groups</h3>
-              <select
-                value={confidenceLevel}
-                onChange={(e) => setConfidenceLevel(Number(e.target.value) as 95 | 90 | 80)}
-                className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D14A2D] focus:border-[#D14A2D]"
-              >
-                <option value={95}>95% Confidence</option>
-                <option value={90}>90% Confidence</option>
-                <option value={80}>80% Confidence</option>
-              </select>
+      <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        {subGroups.map((subGroup, subGroupIndex) => (
+          <div key={subGroup.id} className="border border-gray-200 rounded-lg overflow-hidden">
+            {/* Subgroup Header - Brand Orange */}
+            <div className="px-4 py-3 flex items-center justify-between" style={{ backgroundColor: BRAND_ORANGE }}>
+              <input
+                type="text"
+                value={subGroup.title}
+                onChange={(e) => updateSubGroup(subGroup.id, { title: e.target.value })}
+                placeholder={`Sub-Group ${subGroupIndex + 1} Title (e.g., "COE", "Specialty")`}
+                className="flex-1 px-3 py-1.5 text-sm font-medium border-0 rounded-lg focus:ring-2 focus:ring-white mr-3 bg-white/90 placeholder-gray-400"
+              />
+              {subGroups.length > 1 && (
+                <button
+                  onClick={() => removeSubGroup(subGroup.id)}
+                  className="p-1.5 text-white hover:bg-white/20 rounded transition-colors"
+                  title="Remove sub-group"
+                >
+                  <TrashIcon className="h-4 w-4" />
+                </button>
+              )}
             </div>
-            <button
-              onClick={addSubGroup}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm text-[#D14A2D] hover:bg-orange-50 rounded-lg"
-            >
-              <PlusIcon className="h-4 w-4" />
-              Add Sub-Group
-            </button>
-          </div>
 
-          {subGroups.map((subGroup, subGroupIndex) => (
-            <div key={subGroup.id} className="mb-6">
-              <div className="flex items-center justify-end mb-2">
-                {subGroups.length > 1 && (
-                  <button
-                    onClick={() => removeSubGroup(subGroup.id)}
-                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
-                    title="Remove sub-group"
-                  >
-                    <TrashIcon className="h-5 w-5" />
-                  </button>
-                )}
-              </div>
+            {/* Cuts Table */}
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase w-32">Cut Title</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Conditions</th>
+                  <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase w-20">N</th>
+                  <th className="px-4 py-2 w-10"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {subGroup.cuts.map((cut, cutIndex) => {
+                  const selectedVariable = categoricalVariables.find(v => v.name === cut.variableName);
+                  const statLetter = String.fromCharCode(65 + cutIndex);
+                  const codeButtonRef = getButtonRef(codeButtonRefs, subGroup.id, cut.id);
+                  const variableButtonRef = getButtonRef(variableButtonRefs, subGroup.id, cut.id);
 
-              {/* Cuts - Displayed as table matching final banner format */}
-              <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        {/* Subgroup title row - merged across all cuts */}
-                        <tr>
-                          <th 
-                            colSpan={subGroup.cuts.length}
-                            className="px-3 py-2 text-xs font-bold text-gray-900 uppercase tracking-wider text-center border-r border-gray-300 border-b border-gray-300"
+                  return (
+                    <tr key={cut.id} className="hover:bg-gray-50">
+                      {/* Cut Title */}
+                      <td className="px-4 py-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-medium text-gray-400">({statLetter})</span>
+                          <input
+                            type="text"
+                            value={cut.title}
+                            onChange={(e) => updateCut(subGroup.id, cut.id, { title: e.target.value })}
+                            placeholder="e.g., Yes, No, Male..."
+                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-[#D14A2D] focus:border-[#D14A2D]"
+                          />
+                        </div>
+                      </td>
+
+                      {/* Conditions - unified column for all condition types */}
+                      <td className="px-4 py-2">
+                        <CutConditionsEditor
+                          cut={cut}
+                          subGroupId={subGroup.id}
+                          selectableVariables={selectableVariables}
+                          categoricalVariables={categoricalVariables}
+                          isNumericVariable={isNumericVariable}
+                          updateCut={updateCut}
+                          openVariableSelector={openVariableSelector}
+                          setOpenVariableSelector={setOpenVariableSelector}
+                          openCodeSelector={openCodeSelector}
+                          setOpenCodeSelector={setOpenCodeSelector}
+                          getButtonRef={getButtonRef}
+                          codeButtonRefs={codeButtonRefs}
+                          variableButtonRefs={variableButtonRefs}
+                        />
+                      </td>
+
+                      {/* Sample Size */}
+                      <td className="px-4 py-2 text-center">
+                        {(() => {
+                          const sampleSize = calculateCutSampleSize(cut);
+                          return sampleSize > 0 ? (
+                            <span className="text-sm font-medium text-gray-700">
+                              {sampleSize.toLocaleString()}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-400">-</span>
+                          );
+                        })()}
+                      </td>
+
+                      {/* Delete */}
+                      <td className="px-4 py-2">
+                        {subGroup.cuts.length > 1 && (
+                          <button
+                            onClick={() => removeCut(subGroup.id, cut.id)}
+                            className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                            title="Remove cut"
                           >
-                            <div className="relative flex items-center justify-center px-2">
-                              {subGroups.length > 1 && (
-                                <button
-                                  onClick={() => removeSubGroup(subGroup.id)}
-                                  className="absolute left-2 text-gray-500 hover:text-red-600 p-1 rounded transition-colors z-10"
-                                  title="Remove sub-group"
-                                >
-                                  <XMarkIcon className="h-4 w-4" />
-                                </button>
-                              )}
-                              <input
-                                type="text"
-                                value={subGroup.title}
-                                onChange={(e) => updateSubGroup(subGroup.id, { title: e.target.value })}
-                                placeholder={`Sub-Group ${subGroupIndex + 1} Title`}
-                                className="flex-1 max-w-[90%] px-2 py-1 text-xs font-bold border border-gray-300 rounded focus:ring-2 focus:ring-[#D14A2D] focus:border-[#D14A2D] text-center bg-transparent"
-                              />
-                            </div>
-                          </th>
-                        </tr>
-                        {/* Cut titles row */}
-                        <tr>
-                          {subGroup.cuts.map((cut, cutIndex) => {
-                            const statLetter = String.fromCharCode(65 + cutIndex); // A, B, C, etc.
-                            return (
-                              <th key={cut.id} className="px-3 py-2 text-xs font-medium text-gray-700 uppercase tracking-wider text-center border-r border-gray-300 relative" style={{ width: `${100 / subGroup.cuts.length}%` }}>
-                                <div className="flex flex-col items-center gap-1">
-                                  <div className="relative flex items-center justify-center w-full px-2">
-                                    {subGroup.cuts.length > 2 && (
-                                      <button
-                                        onClick={() => removeCut(subGroup.id, cut.id)}
-                                        className="absolute left-2 text-gray-500 hover:text-red-600 p-1 rounded transition-colors z-10"
-                                        title="Remove cut"
-                                      >
-                                        <XMarkIcon className="h-4 w-4" />
-                                      </button>
-                                    )}
-                                    <input
-                                      type="text"
-                                      value={cut.title}
-                                      onChange={(e) => updateCut(subGroup.id, cut.id, { title: e.target.value })}
-                                      placeholder={`Cut ${cutIndex + 1} Title`}
-                                      className="flex-1 max-w-[85%] px-2 py-1 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-[#D14A2D] focus:border-[#D14A2D] text-center"
-                                    />
-                                    <button
-                                      onClick={() => addCut(subGroup.id, cutIndex)}
-                                      className="absolute right-2 text-gray-500 hover:text-[#D14A2D] p-1 rounded transition-colors z-10"
-                                      title="Add cut after this one"
-                                    >
-                                      <PlusIcon className="h-4 w-4" />
-                                    </button>
-                                  </div>
-                                  <span className="text-xs font-semibold text-gray-600">({statLetter})</span>
-                                </div>
-                              </th>
-                            );
-                          })}
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {/* Variable Selection Row */}
-                        <tr>
-                          {subGroup.cuts.map((cut) => {
-                            const dropdownKey = getDropdownKey(subGroup.id, cut.id);
-                            const isOpen = openDropdown === dropdownKey;
-                            const selectedVariable = categoricalVariables.find(v => v.name === cut.variableName);
-                            const displayText = selectedVariable 
-                              ? `${selectedVariable.name}${selectedVariable.description ? ` - ${selectedVariable.description}` : ''}`
-                              : 'Select Variable';
+                            <TrashIcon className="h-4 w-4" />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
 
-                            return (
-                              <td key={cut.id} className="px-3 py-2 border-r border-gray-300 relative" style={{ width: `${100 / subGroup.cuts.length}%` }}>
-                                <div className="relative">
-                                  <button
-                                    ref={(el) => { buttonRefs.current[dropdownKey] = el; }}
-                                    type="button"
-                                    onClick={() => toggleDropdown(subGroup.id, cut.id)}
-                                    className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-[#D14A2D] focus:border-[#D14A2D] bg-white hover:bg-gray-50 flex items-center justify-between text-left"
-                                  >
-                                    <span className="truncate flex-1">{displayText}</span>
-                                    <ChevronDownIcon className={`h-4 w-4 flex-shrink-0 ml-1 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-                                  </button>
-                                  
-                                  {isOpen && dropdownPosition[dropdownKey] && typeof document !== 'undefined' && createPortal(
-                                    <div
-                                      ref={(el) => { dropdownRefs.current[dropdownKey] = el; }}
-                                      className="fixed bg-white border border-gray-300 rounded shadow-lg z-[9999] overflow-hidden flex flex-col"
-                                      style={{
-                                        top: `${dropdownPosition[dropdownKey].top}px`,
-                                        left: `${dropdownPosition[dropdownKey].left}px`,
-                                        width: `${dropdownPosition[dropdownKey].width}px`,
-                                        maxHeight: `${dropdownPosition[dropdownKey].maxHeight}px`
-                                      }}
-                                    >
-                                      {/* Search bar */}
-                                      <div className="p-2 border-b border-gray-200">
-                                        <div className="relative">
-                                          <MagnifyingGlassIcon className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                          <input
-                                            type="text"
-                                            value={searchTerm}
-                                            onChange={(e) => setSearchTerm(e.target.value)}
-                                            placeholder="Search variables..."
-                                            className="w-full pl-8 pr-8 py-1.5 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-[#D14A2D] focus:border-[#D14A2D]"
-                                            autoFocus
-                                            onClick={(e) => e.stopPropagation()}
-                                          />
-                                          <button
-                                            type="button"
-                                            onClick={() => {
-                                              setOpenDropdown(null);
-                                              setSearchTerm('');
-                                            }}
-                                            className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5 rounded transition-colors"
-                                            title="Close"
-                                          >
-                                            <XMarkIcon className="h-4 w-4" />
-                                          </button>
-                                        </div>
-                                      </div>
-                                      
-                                      {/* Options list */}
-                                      <div className="overflow-y-auto flex-1">
-                                        <div className="py-1">
-                                          <button
-                                            type="button"
-                                            onClick={() => selectVariable(subGroup.id, cut.id, '')}
-                                            className={`w-full px-3 py-2 text-xs text-left hover:bg-gray-100 ${!cut.variableName ? 'bg-gray-100 font-semibold' : ''}`}
-                                          >
-                                            Select Variable
-                                          </button>
-                                          {filteredVariables.length > 0 ? (
-                                            filteredVariables.map(v => {
-                                              const displayText = v.description 
-                                                ? `${v.name} | ${v.description}`
-                                                : v.name;
-                                              return (
-                                                <button
-                                                  key={v.name}
-                                                  type="button"
-                                                  onClick={() => selectVariable(subGroup.id, cut.id, v.name)}
-                                                  className={`w-full px-3 py-2 text-xs text-left hover:bg-gray-100 ${cut.variableName === v.name ? 'bg-gray-100 font-semibold' : ''}`}
-                                                  title={displayText}
-                                                >
-                                                  <div className="truncate">
-                                                    <span className="font-bold">{v.name}</span>
-                                                    {v.description && (
-                                                      <>
-                                                        <span className="mx-1">|</span>
-                                                        <span>{v.description}</span>
-                                                      </>
-                                                    )}
-                                                  </div>
-                                                </button>
-                                              );
-                                            })
-                                          ) : (
-                                            <div className="px-3 py-2 text-xs text-gray-500 text-center">
-                                              No variables found
-                                            </div>
-                                          )}
-                                        </div>
-                                      </div>
-                                    </div>,
-                                    document.body
-                                  )}
-                                </div>
-                              </td>
-                            );
-                          })}
-                        </tr>
-                        {/* Codes Selection Row - One row showing codes for all cuts */}
-                        <tr>
-                          {subGroup.cuts.map((cut) => {
-                            const selectedVariable = categoricalVariables.find(v => v.name === cut.variableName);
-                            
-                            return (
-                              <td key={cut.id} className="px-3 py-2 border-r border-gray-300 align-top" style={{ width: `${100 / subGroup.cuts.length}%` }}>
-                                {selectedVariable ? (
-                                  <div className="max-h-40 overflow-y-auto space-y-1">
-                                    {Object.entries(selectedVariable.codes || {}).map(([code, label]: [string, any]) => (
-                                      <label key={code} className="flex items-center gap-1 text-xs cursor-pointer hover:bg-gray-50 p-1 rounded">
-                                        <input
-                                          type="checkbox"
-                                          checked={cut.codes.includes(code)}
-                                          onChange={(e) => {
-                                            const newCodes = e.target.checked
-                                              ? [...cut.codes, code]
-                                              : cut.codes.filter(c => c !== code);
-                                            updateCut(subGroup.id, cut.id, { codes: newCodes });
-                                          }}
-                                          className="rounded border-gray-300 text-[#D14A2D] focus:ring-[#D14A2D]"
-                                        />
-                                        <span className="text-xs flex-1">{code}: {String(label).substring(0, 25)}{String(label).length > 25 ? '...' : ''}</span>
-                                      </label>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <span className="text-xs text-gray-400">Select variable first</span>
-                                )}
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      </tbody>
-                    </table>
+            {/* Warning if sum of N doesn't equal total sample */}
+            {(() => {
+              const subGroupTotal = subGroup.cuts.reduce((sum, cut) => {
+                return sum + calculateCutSampleSize(cut);
+              }, 0);
+              const hasAllCutsDefined = subGroup.cuts.every(cut => {
+                // Check if cut has valid conditions defined
+                if (cut.sumCondition && cut.sumCondition.variables.length > 0) return true;
+                if (cut.conditionGroups && cut.conditionGroups.length > 0 &&
+                    cut.conditionGroups[0].conditions.some(c => c.variableName && c.codes.length > 0)) return true;
+                if (cut.variableName && cut.codes.length > 0) return true;
+                return false;
+              });
+
+              if (hasAllCutsDefined && subGroupTotal !== totalSampleSize && totalSampleSize > 0) {
+                const difference = totalSampleSize - subGroupTotal;
+                return (
+                  <div className="px-4 py-2 bg-red-50 border-t border-red-200">
+                    <span className="text-xs text-red-600 font-medium">
+                      Warning: Sum of N ({subGroupTotal.toLocaleString()}) does not equal Total Sample ({totalSampleSize.toLocaleString()}).
+                      {difference > 0
+                        ? ` Missing ${difference.toLocaleString()} respondents.`
+                        : ` Overlap of ${Math.abs(difference).toLocaleString()} respondents.`
+                      }
+                    </span>
                   </div>
-                </div>
+                );
+              }
+              return null;
+            })()}
+
+            {/* Add Cut Button - Below the cuts */}
+            <div className="px-4 py-3 border-t border-gray-100 bg-gray-50">
+              <button
+                onClick={() => addCut(subGroup.id)}
+                className="flex items-center gap-1 px-3 py-1.5 text-xs text-[#D14A2D] hover:bg-orange-50 rounded border border-dashed border-[#D14A2D] transition-colors"
+              >
+                <PlusIcon className="h-4 w-4" />
+                Add Cut
+              </button>
             </div>
-          ))}
-        </div>
+          </div>
+        ))}
+
+        {/* Add Sub-Group Button */}
+        <button
+          onClick={addSubGroup}
+          className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:border-[#D14A2D] hover:text-[#D14A2D] transition-colors flex items-center justify-center gap-2"
+        >
+          <PlusIcon className="h-5 w-5" />
+          Add Sub-Group
+        </button>
       </div>
 
       {/* Footer */}
@@ -498,7 +1352,8 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onCanc
         </button>
         <button
           onClick={handleSave}
-          className="px-4 py-2 text-sm text-white bg-[#D14A2D] hover:bg-[#B83E25] rounded-lg"
+          className="px-4 py-2 text-sm text-white rounded-lg hover:opacity-90"
+          style={{ backgroundColor: BRAND_ORANGE }}
         >
           {editingGroup ? 'Update Banner Group' : 'Create Banner Group'}
         </button>

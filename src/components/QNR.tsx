@@ -475,6 +475,73 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
   }, [questionnaires, selectedProject]);
 
 
+  // Migrate Scale tags to include point count (only 5pt, 7pt, 10pt)
+  useEffect(() => {
+    if (!selectedQuestionnaire) return;
+
+    let needsUpdate = false;
+    const updatedQuestions = selectedQuestionnaire.questions?.map((q: Question) => {
+      if (!q.tags) return q;
+
+      // Check if question has any Scale tag (with or without point count)
+      const hasScaleTag = q.tags.some(tag => tag === 'Scale' || tag.startsWith('Scale ('));
+
+      if (hasScaleTag) {
+        needsUpdate = true;
+
+        // For grids (single select grid, multi-select grid), count responseOptions (columns)
+        // For regular single select, count options
+        const isGrid = q.type?.toLowerCase().includes('grid');
+        const numPoints = isGrid
+          ? (q.responseOptions?.length || 0)
+          : (q.options?.length || 0);
+
+        // Only keep Scale tag if it's 5pt, 7pt, 10pt, or 11pt - otherwise remove it completely
+        if (numPoints === 5 || numPoints === 7 || numPoints === 10 || numPoints === 11) {
+          const newTag = `Scale (${numPoints}pt)`;
+          // Replace any Scale tag (with or without point count) with the correct one
+          return {
+            ...q,
+            tags: q.tags.map(tag =>
+              (tag === 'Scale' || tag.startsWith('Scale (')) ? newTag : tag
+            )
+          };
+        } else {
+          // Remove all Scale tags for other point counts
+          return {
+            ...q,
+            tags: q.tags.filter(tag => tag !== 'Scale' && !tag.startsWith('Scale ('))
+          };
+        }
+      }
+      return q;
+    });
+
+    if (needsUpdate && updatedQuestions) {
+      const updatedQnr = {
+        ...selectedQuestionnaire,
+        questions: updatedQuestions
+      };
+      setSelectedQuestionnaire(updatedQnr);
+
+      // Save to backend
+      fetch(`${API_BASE_URL}/api/questionnaire/${selectedQuestionnaire.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}`
+        },
+        body: JSON.stringify(updatedQnr)
+      })
+        .then(() => {
+          // Trigger a reload by updating the questionnaire reference
+          // Force a re-render in other components that depend on this questionnaire
+          console.log('Scale tags migration completed and saved');
+        })
+        .catch(err => console.error('Failed to update Scale tags:', err));
+    }
+  }, [selectedQuestionnaire?.id]);
+
   // Load variable data when a questionnaire is selected
   useEffect(() => {
     const loadVariableData = async () => {
@@ -1163,7 +1230,7 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
                       new Paragraph({
                         children: [
                           new TextRun({
-                            text: `SECTION ${sectionKey}`,
+                            text: `SECTION ${sectionKey}${sectionKey === 'S' ? ' (SCREENING)' : ''}`,
                             font: 'Trebuchet MS',
                             size: 24,
                             bold: true
@@ -2207,7 +2274,7 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
                 </button>
                 <div>
                   <div className="text-3xl font-semibold" style={{ color: BRAND_GRAY }}>
-                    {selectedSection === 'QUOTA' ? selectedQuestionnaire?.name || 'OVERVIEW' : `SECTION ${selectedSection || ''}`}
+                    {selectedSection === 'QUOTA' ? selectedQuestionnaire?.name || 'OVERVIEW' : `SECTION ${selectedSection || ''}${selectedSection === 'S' ? ' (SCREENING)' : ''}`}
                   </div>
                   {selectedSection === 'QUOTA' ? (
                     selectedQuestionnaire?.projectId && (() => {
@@ -2262,7 +2329,7 @@ export default function QNR({ projects = [], onNavigateToProject, onPageTitleCha
                           style={isSelected ? { backgroundColor: BRAND_ORANGE, borderColor: BRAND_ORANGE } : {}}
                         >
                           <span className="text-xs font-medium">
-                            {sectionKey === 'QUOTA' ? 'OVERVIEW' : `SECTION ${sectionKey}`}
+                            {sectionKey === 'QUOTA' ? 'OVERVIEW' : `SECTION ${sectionKey}${sectionKey === 'S' ? ' (SCREENING)' : ''}`}
                           </span>
                           {sectionKey !== 'QUOTA' && (
                             <span className={`ml-1.5 text-xs ${isSelected ? 'text-white' : 'text-gray-500'}`}>
@@ -4869,7 +4936,22 @@ function QuestionPreviewView({
   // Determine if this is a Scale Rating Single Select (needs special handling)
   const isScaleRating = questionType === 'Scale Rating Single Select';
   const actualType = isScaleRating ? 'Single Select' : questionType;
-  const questionTags = isScaleRating ? ['Scale'] : [];
+
+  // Calculate scale points for Scale tag (only 5pt, 7pt, 10pt)
+  const getScaleTag = (question: Question): string[] => {
+    if (!isScaleRating) return [];
+
+    // Count the number of options to determine scale points
+    const numPoints = question.options?.length || 0;
+
+    // Only return Scale tag if it's 5pt, 7pt, 10pt, or 11pt
+    if (numPoints === 5 || numPoints === 7 || numPoints === 10 || numPoints === 11) {
+      return [`Scale (${numPoints}pt)`];
+    }
+
+    // Don't add Scale tag for other point counts
+    return [];
+  };
 
   // Create a temporary question for preview with suggested number
   const previewQuestion: Question = {
@@ -4878,7 +4960,7 @@ function QuestionPreviewView({
     text: '',
     type: actualType,
     options: [],
-    tags: questionTags,
+    tags: [],
     needsReview: false
   };
 
@@ -4917,11 +4999,24 @@ function QuestionPreviewView({
 
   // State to track the current edited question for preview
   const [currentEditedQuestion, setCurrentEditedQuestion] = useState<Question>(previewQuestion);
-  
+
   // Update currentEditedQuestion when previewQuestion changes
   React.useEffect(() => {
     setCurrentEditedQuestion(previewQuestion);
   }, [previewQuestion.id]);
+
+  // Update tags whenever options change (for Scale questions)
+  React.useEffect(() => {
+    if (isScaleRating && currentEditedQuestion) {
+      const scaleTag = getScaleTag(currentEditedQuestion);
+      if (JSON.stringify(currentEditedQuestion.tags) !== JSON.stringify(scaleTag)) {
+        setCurrentEditedQuestion(prev => ({
+          ...prev,
+          tags: scaleTag
+        }));
+      }
+    }
+  }, [currentEditedQuestion.options, isScaleRating]);
 
   return (
     <>
@@ -5617,8 +5712,6 @@ function QuestionBox({
       const hasResponseOptionsForResponse = question.responseOptions && Array.isArray(question.responseOptions) && question.responseOptions.length > 0;
       const hasOptionsForResponse = question.options && Array.isArray(question.options) && question.options.length > 0;
       const hasStatementOptionsForResponse = question.statementOptions && Array.isArray(question.statementOptions) && question.statementOptions.length > 0;
-      const hasNoResponseOptionsForResponse = !hasResponseOptionsForResponse;
-      const shouldUseStatementOptionsForResponse = isNumericGridForResponse && hasNoResponseOptionsForResponse && hasStatementOptionsForResponse;
       
       // CRITICAL: For Open End List questions, if they have statementOptions, convert them to responseOptions
       // Open End List should use responseOptions, not statementOptions
@@ -5627,21 +5720,37 @@ function QuestionBox({
         // The statementOptions will be converted to responseOptions below
       }
 
-      // Always try to use responseOptions first, then options, then statementOptions for fallback numeric grids
+      // Always try to use responseOptions first, then options, then use # or % from tags for numeric grids
       // For Open End List: prioritize responseOptions, but if only statementOptions exist, use those
       let optionsToUseForResponse: any[] = [];
       if (hasResponseOptionsForResponse && question.responseOptions) {
-        optionsToUseForResponse = question.responseOptions;
+        // For numeric grids, check if responseOptions are valid (have at least one column with a label)
+        if (isNumericGridForResponse) {
+          const validResponseOptions = question.responseOptions.filter((opt: any) => {
+            const text = typeof opt === 'string' ? opt : (opt.text || '');
+            return text.trim() !== '';
+          });
+          // If we have valid response options (at least one with a label), use them
+          if (validResponseOptions.length > 0) {
+            optionsToUseForResponse = question.responseOptions;
+          } else {
+            // Invalid or empty response options - use # or % from tags
+            const hasPercentTag = question.tags && question.tags.includes('%');
+            const hasNumberTag = question.tags && question.tags.includes('Number');
+            const fallbackColumnLabel = hasPercentTag ? '%' : (hasNumberTag ? '#' : '#');
+            optionsToUseForResponse = [{ code: '1', text: fallbackColumnLabel }];
+          }
+        } else {
+          optionsToUseForResponse = question.responseOptions;
+        }
       } else if (isOpenEndList && hasStatementOptionsForResponse && question.statementOptions) {
         // For Open End List, if only statementOptions exist, use them (they should be responseOptions)
         optionsToUseForResponse = question.statementOptions;
       } else if (hasOptionsForResponse && question.options) {
         // For legacy numeric grids, use the options field
         optionsToUseForResponse = question.options;
-      } else if (shouldUseStatementOptionsForResponse && question.statementOptions) {
-        optionsToUseForResponse = question.statementOptions;
-      } else if (isNumericGridForResponse && !hasResponseOptionsForResponse && hasStatementOptionsForResponse) {
-        // For numeric grids without response options, create fallback column with % or # based on tags
+      } else if (isNumericGridForResponse) {
+        // For numeric grids without response options or with invalid response options, create fallback column with % or # based on tags
         const hasPercentTag = question.tags && question.tags.includes('%');
         const hasNumberTag = question.tags && question.tags.includes('Number');
         const fallbackColumnLabel = hasPercentTag ? '%' : (hasNumberTag ? '#' : '#');
@@ -5754,24 +5863,38 @@ function QuestionBox({
       const hasResponseOptionsForInit = question.responseOptions && Array.isArray(question.responseOptions) && question.responseOptions.length > 0;
       const hasOptionsForInit = question.options && Array.isArray(question.options) && question.options.length > 0;
       const hasStatementOptionsForInit = question.statementOptions && Array.isArray(question.statementOptions) && question.statementOptions.length > 0;
-      const hasNoResponseOptionsForInit = !hasResponseOptionsForInit;
-      const shouldUseStatementOptionsForInit = isNumericGridForInit && hasNoResponseOptionsForInit && hasStatementOptionsForInit;
 
-      // Always try to use responseOptions first, then options, then statementOptions for fallback numeric grids
+      // Always try to use responseOptions first, then options, then use # or % from tags for numeric grids
       // For Open End List: prioritize responseOptions, but if only statementOptions exist, use those
       let optionsToUseForInit: any[] = [];
       if (hasResponseOptionsForInit && question.responseOptions) {
-        optionsToUseForInit = question.responseOptions;
+        // For numeric grids, check if responseOptions are valid (have at least one column with a label)
+        if (isNumericGridForInit) {
+          const validResponseOptions = question.responseOptions.filter((opt: any) => {
+            const text = typeof opt === 'string' ? opt : (opt.text || '');
+            return text.trim() !== '';
+          });
+          // If we have valid response options (at least one with a label), use them
+          if (validResponseOptions.length > 0) {
+            optionsToUseForInit = question.responseOptions;
+          } else {
+            // Invalid or empty response options - use # or % from tags
+            const hasPercentTag = question.tags && question.tags.includes('%');
+            const hasNumberTag = question.tags && question.tags.includes('Number');
+            const fallbackColumnLabel = hasPercentTag ? '%' : (hasNumberTag ? '#' : '#');
+            optionsToUseForInit = [{ code: '1', text: fallbackColumnLabel }];
+          }
+        } else {
+          optionsToUseForInit = question.responseOptions;
+        }
       } else if (isOpenEndList && hasStatementOptionsForInit && question.statementOptions) {
         // For Open End List, if only statementOptions exist, use them (they should be responseOptions)
         optionsToUseForInit = question.statementOptions;
       } else if (hasOptionsForInit && question.options) {
         // For legacy numeric grids, use the options field
         optionsToUseForInit = question.options;
-      } else if (shouldUseStatementOptionsForInit && question.statementOptions) {
-        optionsToUseForInit = question.statementOptions;
-      } else if (isNumericGridForInit && !hasResponseOptionsForInit && hasStatementOptionsForInit) {
-        // For numeric grids without response options, create fallback column with % or # based on tags
+      } else if (isNumericGridForInit) {
+        // For numeric grids without response options or with invalid response options, create fallback column with % or # based on tags
         const hasPercentTag = question.tags && question.tags.includes('%');
         const hasNumberTag = question.tags && question.tags.includes('Number');
         const fallbackColumnLabel = hasPercentTag ? '%' : (hasNumberTag ? '#' : '#');
@@ -5877,24 +6000,38 @@ function QuestionBox({
     const hasResponseOptions = question.responseOptions && Array.isArray(question.responseOptions) && question.responseOptions.length > 0;
     const hasOptions = question.options && Array.isArray(question.options) && question.options.length > 0;
     const hasStatementOptions = question.statementOptions && Array.isArray(question.statementOptions) && question.statementOptions.length > 0;
-    const hasNoResponseOptions = !hasResponseOptions;
-    const shouldUseStatementOptions = isNumericGrid && hasNoResponseOptions && hasStatementOptions;
 
-    // Always try to use responseOptions first, then options, then statementOptions for fallback numeric grids
+    // Always try to use responseOptions first, then options, then use # or % from tags for numeric grids
     // For Open End List: prioritize responseOptions, but if only statementOptions exist, use those
     let optionsToUse: any[] = [];
     if (hasResponseOptions && question.responseOptions) {
-      optionsToUse = question.responseOptions;
+      // For numeric grids, check if responseOptions are valid (have at least one column with a label)
+      if (isNumericGrid) {
+        const validResponseOptions = question.responseOptions.filter((opt: any) => {
+          const text = typeof opt === 'string' ? opt : (opt.text || '');
+          return text.trim() !== '';
+        });
+        // If we have valid response options (at least one with a label), use them
+        if (validResponseOptions.length > 0) {
+          optionsToUse = question.responseOptions;
+        } else {
+          // Invalid or empty response options - use # or % from tags
+          const hasPercentTag = question.tags && question.tags.includes('%');
+          const hasNumberTag = question.tags && question.tags.includes('Number');
+          const fallbackColumnLabel = hasPercentTag ? '%' : (hasNumberTag ? '#' : '#');
+          optionsToUse = [{ code: '1', text: fallbackColumnLabel }];
+        }
+      } else {
+        optionsToUse = question.responseOptions;
+      }
     } else if (isOpenEndList && hasStatementOptions && question.statementOptions) {
       // For Open End List, if only statementOptions exist, use them (they should be responseOptions)
       optionsToUse = question.statementOptions;
     } else if (hasOptions && question.options) {
       // For legacy numeric grids, use the options field
       optionsToUse = question.options;
-    } else if (shouldUseStatementOptions && question.statementOptions) {
-      optionsToUse = question.statementOptions;
-    } else if (isNumericGrid && !hasResponseOptions && hasStatementOptions) {
-      // For numeric grids without response options, create fallback column with % or # based on tags
+    } else if (isNumericGrid) {
+      // For numeric grids without response options or with invalid response options, create fallback column with % or # based on tags
       const hasPercentTag = question.tags && question.tags.includes('%');
       const hasNumberTag = question.tags && question.tags.includes('Number');
       const fallbackColumnLabel = hasPercentTag ? '%' : (hasNumberTag ? '#' : '#');
@@ -6666,6 +6803,7 @@ function QuestionBox({
             const fields = getFieldsForType(editedType);
             const responsesToShow = fields.needsResponseOptions && editedResponseOptions.length === 0 ? [{ code: '1', text: '' }] : editedResponseOptions;
             const isOpenEnd = editedType?.toLowerCase().includes('open end') && !editedType?.toLowerCase().includes('list');
+            const isNumericGrid = editedType?.toLowerCase().includes('numeric grid');
             return fields.needsResponseOptions && (
               <div>
                 <div className="flex items-center justify-between mb-2">
@@ -6742,74 +6880,78 @@ function QuestionBox({
                         className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[#D14A2D]"
                         placeholder="Text"
                       />
-                      <button
-                        onClick={() => {
-                          const currentResponses = editedResponseOptions.length === 0 ? [{ code: '1', text: '' }] : editedResponseOptions;
-                          const updated = [...currentResponses];
-                          updated[respIndex] = { ...updated[respIndex], text: toggleOptionTag(respOpt.text, 'EXCLUSIVE', !hasExclusive) };
-                          setEditedResponseOptions(updated);
-                        }}
-                        className={`text-xs font-bold rounded inline-flex items-center justify-center w-5 h-5 ${
-                          hasExclusive ? 'bg-blue-100 text-blue-800' : 'bg-gray-200 text-gray-500'
-                        }`}
-                        title="Toggle Exclusive"
-                      >
-                        E
-                      </button>
-                      <button
-                        onClick={() => {
-                          const currentResponses = editedResponseOptions.length === 0 ? [{ code: '1', text: '' }] : editedResponseOptions;
-                          const updated = [...currentResponses];
-                          updated[respIndex] = { ...updated[respIndex], text: toggleOptionTag(respOpt.text, 'ANCHOR', !hasAnchor) };
-                          setEditedResponseOptions(updated);
-                        }}
-                        className={`text-xs font-bold rounded inline-flex items-center justify-center w-5 h-5 ${
-                          hasAnchor ? 'bg-blue-100 text-blue-800' : 'bg-gray-200 text-gray-500'
-                        }`}
-                        title="Toggle Anchor"
-                      >
-                        A
-                      </button>
-                      <button
-                        onClick={() => {
-                          const currentResponses = editedResponseOptions.length === 0 ? [{ code: '1', text: '' }] : editedResponseOptions;
-                          const updated = [...currentResponses];
-                          updated[respIndex] = { ...updated[respIndex], text: toggleOptionTag(respOpt.text, 'SPECIFY', !hasSpecify) };
-                          setEditedResponseOptions(updated);
-                        }}
-                        className={`text-xs font-bold rounded inline-flex items-center justify-center w-5 h-5 ${
-                          hasSpecify ? 'bg-blue-100 text-blue-800' : 'bg-gray-200 text-gray-500'
-                        }`}
-                        title="Toggle Specify"
-                      >
-                        S
-                      </button>
-                      <button
-                        onClick={() => {
-                          // Toggle terminate logic using edited state
-                          let newTerminateCodes = editedTerminateLogic.split(',').map(c => c.trim()).filter(Boolean);
-                          const respCode = `c${respOpt.code}`;
+                      {!isNumericGrid && (
+                        <>
+                          <button
+                            onClick={() => {
+                              const currentResponses = editedResponseOptions.length === 0 ? [{ code: '1', text: '' }] : editedResponseOptions;
+                              const updated = [...currentResponses];
+                              updated[respIndex] = { ...updated[respIndex], text: toggleOptionTag(respOpt.text, 'EXCLUSIVE', !hasExclusive) };
+                              setEditedResponseOptions(updated);
+                            }}
+                            className={`text-xs font-bold rounded inline-flex items-center justify-center w-5 h-5 ${
+                              hasExclusive ? 'bg-blue-100 text-blue-800' : 'bg-gray-200 text-gray-500'
+                            }`}
+                            title="Toggle Exclusive"
+                          >
+                            E
+                          </button>
+                          <button
+                            onClick={() => {
+                              const currentResponses = editedResponseOptions.length === 0 ? [{ code: '1', text: '' }] : editedResponseOptions;
+                              const updated = [...currentResponses];
+                              updated[respIndex] = { ...updated[respIndex], text: toggleOptionTag(respOpt.text, 'ANCHOR', !hasAnchor) };
+                              setEditedResponseOptions(updated);
+                            }}
+                            className={`text-xs font-bold rounded inline-flex items-center justify-center w-5 h-5 ${
+                              hasAnchor ? 'bg-blue-100 text-blue-800' : 'bg-gray-200 text-gray-500'
+                            }`}
+                            title="Toggle Anchor"
+                          >
+                            A
+                          </button>
+                          <button
+                            onClick={() => {
+                              const currentResponses = editedResponseOptions.length === 0 ? [{ code: '1', text: '' }] : editedResponseOptions;
+                              const updated = [...currentResponses];
+                              updated[respIndex] = { ...updated[respIndex], text: toggleOptionTag(respOpt.text, 'SPECIFY', !hasSpecify) };
+                              setEditedResponseOptions(updated);
+                            }}
+                            className={`text-xs font-bold rounded inline-flex items-center justify-center w-5 h-5 ${
+                              hasSpecify ? 'bg-blue-100 text-blue-800' : 'bg-gray-200 text-gray-500'
+                            }`}
+                            title="Toggle Specify"
+                          >
+                            S
+                          </button>
+                          <button
+                            onClick={() => {
+                              // Toggle terminate logic using edited state
+                              let newTerminateCodes = editedTerminateLogic.split(',').map(c => c.trim()).filter(Boolean);
+                              const respCode = `c${respOpt.code}`;
 
-                          if (hasTerminate) {
-                            // Remove this code (both with and without 'c' prefix)
-                            newTerminateCodes = newTerminateCodes.filter(c => c !== respCode && c !== respOpt.code);
-                          } else {
-                            // Add this code
-                            if (!newTerminateCodes.includes(respCode)) {
-                              newTerminateCodes.push(respCode);
-                            }
-                          }
+                              if (hasTerminate) {
+                                // Remove this code (both with and without 'c' prefix)
+                                newTerminateCodes = newTerminateCodes.filter(c => c !== respCode && c !== respOpt.code);
+                              } else {
+                                // Add this code
+                                if (!newTerminateCodes.includes(respCode)) {
+                                  newTerminateCodes.push(respCode);
+                                }
+                              }
 
-                          // Update terminate logic
-                          setEditedTerminateLogic(newTerminateCodes.length > 0 ? newTerminateCodes.join(', ') : '');
-                        }}
-                        className={`text-xs font-bold rounded inline-flex items-center justify-center w-5 h-5 ${
-                          hasTerminate ? 'bg-red-100 text-red-800' : 'bg-gray-200 text-gray-500'
-                        }`}
-                        title="Toggle Terminate"
-                      >
-                        T
-                      </button>
+                              // Update terminate logic
+                              setEditedTerminateLogic(newTerminateCodes.length > 0 ? newTerminateCodes.join(', ') : '');
+                            }}
+                            className={`text-xs font-bold rounded inline-flex items-center justify-center w-5 h-5 ${
+                              hasTerminate ? 'bg-red-100 text-red-800' : 'bg-gray-200 text-gray-500'
+                            }`}
+                            title="Toggle Terminate"
+                          >
+                            T
+                          </button>
+                        </>
+                      )}
                       <button
                         onClick={() => {
                           const currentResponses = editedResponseOptions.length === 0 ? [{ code: '1', text: '' }] : editedResponseOptions;
@@ -7562,16 +7704,61 @@ function QuestionBox({
       {/* Terminate Logic is now displayed as T badges on individual options, no need for separate section */}
 
       {/* Validation */}
-      {question.validation && (
-        <div className="mb-3">
-          <h4 className="text-xs font-medium text-gray-700 mb-1">Validation:</h4>
-          <p className="text-xs text-gray-600 font-mono bg-gray-50 p-2 rounded">
-            {typeof question.validation === 'string' 
-              ? question.validation 
-              : JSON.stringify(question.validation)}
-          </p>
-        </div>
-      )}
+      {question.validation && (() => {
+        // Helper function to resolve validation value (e.g., "S4r5" -> "S4r5c1" for numeric grids with 1 column)
+        const resolveValidationValue = (value: any, allQuestions: Question[]): any => {
+          if (!value || typeof value !== 'string') return value;
+          
+          // Pattern: S4r5 or Q1r3 (question number + row number, no column)
+          const match = value.match(/^([A-Z0-9]+)(r\d+)$/i);
+          if (!match) return value; // Already has column or doesn't match pattern
+          
+          const [, questionNum, rowNum] = match;
+          
+          // Find the referenced question
+          const refQuestion = allQuestions.find(q => {
+            const qNum = (q.number || q.id || '').toUpperCase();
+            return qNum === questionNum.toUpperCase();
+          });
+          
+          if (!refQuestion) return value;
+          
+          // Check if it's a numeric grid with responseOptions (columns)
+          const refQuestionType = (refQuestion.type || '').toLowerCase();
+          const isNumericGrid = refQuestionType.includes('numeric grid');
+          const hasColumns = refQuestion.responseOptions && refQuestion.responseOptions.length > 0;
+          
+          // If it's a numeric grid with exactly 1 column, add c1
+          if (isNumericGrid && hasColumns && refQuestion.responseOptions.length === 1) {
+            return `${questionNum}${rowNum}c1`;
+          }
+          
+          return value;
+        };
+        
+        // Create a resolved validation object for display
+        let displayValidation = question.validation;
+        if (typeof question.validation === 'object' && question.validation !== null) {
+          const validation = question.validation as any;
+          if (validation.type === 'sum' && typeof validation.value === 'string') {
+            displayValidation = {
+              ...validation,
+              value: resolveValidationValue(validation.value, allQuestions)
+            };
+          }
+        }
+        
+        return (
+          <div className="mb-3">
+            <h4 className="text-xs font-medium text-gray-700 mb-1">Validation:</h4>
+            <p className="text-xs text-gray-600 font-mono bg-gray-50 p-2 rounded">
+              {typeof displayValidation === 'string' 
+                ? displayValidation 
+                : JSON.stringify(displayValidation)}
+            </p>
+          </div>
+        );
+      })()}
 
           {/* Other Tags (excluding metadata tags that are shown as pills) */}
           {question.tags && question.tags.filter(tag => 
@@ -8169,12 +8356,33 @@ function SurveyQuestionView({
 
       {/* Numeric Grid */}
       {isNumericGrid && question.statementOptions && question.statementOptions.length > 0 && (() => {
-        // For numeric grids, if no responseOptions are detected, show a single column with # or % based on tags
+        // For numeric grids, if no responseOptions are detected or they're invalid, show a single column with # or % based on tags
         const hasResponseOptions = question.responseOptions && question.responseOptions.length > 0;
-        const hasPercentTag = question.tags && question.tags.includes('%');
-        const hasNumberTag = question.tags && question.tags.includes('Number');
-        const fallbackColumnLabel = hasPercentTag ? '%' : (hasNumberTag ? '#' : '#');
-        const displayResponseOptions: Array<{ code: string; text: string } | string> = hasResponseOptions ? (question.responseOptions || []) : [{ code: 'c1', text: fallbackColumnLabel }];
+        let displayResponseOptions: Array<{ code: string; text: string } | string> = [];
+        
+        if (hasResponseOptions && question.responseOptions) {
+          // Check if responseOptions are valid (have at least one column with a label)
+          const validResponseOptions = question.responseOptions.filter((opt: any) => {
+            const text = typeof opt === 'string' ? opt : (opt.text || '');
+            return text.trim() !== '';
+          });
+          // If we have valid response options (at least one with a label), use them
+          if (validResponseOptions.length > 0) {
+            displayResponseOptions = question.responseOptions;
+          } else {
+            // Invalid or empty response options - use # or % from tags
+            const hasPercentTag = question.tags && question.tags.includes('%');
+            const hasNumberTag = question.tags && question.tags.includes('Number');
+            const fallbackColumnLabel = hasPercentTag ? '%' : (hasNumberTag ? '#' : '#');
+            displayResponseOptions = [{ code: 'c1', text: fallbackColumnLabel }];
+          }
+        } else {
+          // No response options - use # or % from tags
+          const hasPercentTag = question.tags && question.tags.includes('%');
+          const hasNumberTag = question.tags && question.tags.includes('Number');
+          const fallbackColumnLabel = hasPercentTag ? '%' : (hasNumberTag ? '#' : '#');
+          displayResponseOptions = [{ code: 'c1', text: fallbackColumnLabel }];
+        }
         
         return (
           <div className="overflow-x-auto">
@@ -8317,81 +8525,6 @@ function SurveyQuestionView({
         </div>
       )}
 
-      {/* Numeric Grid */}
-      {isNumericGrid && (() => {
-        // For numeric grids, use responseOptions if available, then options, then fall back to statementOptions
-        // (This handles different cases: converted grids use responseOptions, original lists use options, fallback grids use statementOptions)
-        const responseOptions = question.responseOptions && question.responseOptions.length > 0 
-          ? question.responseOptions 
-          : (question.options && question.options.length > 0
-            ? question.options
-            : (question.statementOptions || []));
-        const hasResponseOptions = responseOptions.length > 0;
-        
-        if (!hasResponseOptions) {
-          return (
-            <div className="text-sm text-gray-500 italic">No response options available</div>
-          );
-        }
-        
-        return (
-          <div className="overflow-x-auto">
-            <table className="w-full border border-gray-300 rounded-lg">
-              <tbody>
-                {responseOptions.map((resp, respIdx) => {
-                  // Extract code from string if it starts with a number (e.g., "1 Treated with..." -> code: "1", text: "Treated with...")
-                  let respOpt: { code: string; text: string };
-                  if (typeof resp === 'string') {
-                    // Try to extract leading number as code
-                    const codeMatch = resp.match(/^(\d+):?\s+(.+)$/);
-                    if (codeMatch) {
-                      respOpt = { code: codeMatch[1], text: codeMatch[2].trim() };
-                    } else {
-                      respOpt = { code: String(respIdx + 1), text: resp };
-                    }
-                  } else {
-                    // If it's already an object, use the numeric part of the code for numeric grids
-                    const numericCode = resp.code?.replace(/^[rc]/i, '') || String(respIdx + 1);
-                    respOpt = { code: numericCode, text: resp.text || resp.code || '' };
-                  }
-                  
-                  // Remove the code from the beginning of the text if it's still there
-                  let displayText = respOpt.text;
-                  const escapedCode = respOpt.code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                  const codePattern = new RegExp(`^${escapedCode}\\s+`, 'i');
-                  if (displayText.match(codePattern)) {
-                    displayText = displayText.replace(codePattern, '').trim();
-                  }
-                  
-                  // Parse option tags and format the text
-                  const { cleanText } = parseOptionTags(displayText);
-                  
-                  return (
-                    <tr key={respIdx} className="border-b border-gray-200 last:border-b-0">
-                      <td className="px-4 py-3 text-sm text-gray-700">
-                        {formatDescriptionWithBrackets(cleanText || displayText)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-start gap-1">
-                          <input
-                            type="number"
-                            name={`question-${question.id || index}-resp-${respIdx}`}
-                            className="w-16 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[#D14A2D] text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                            placeholder="0"
-                          />
-                          {question.tags && question.tags.includes('%') && (
-                            <span className="text-sm text-gray-700">%</span>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        );
-      })()}
     </div>
   );
 }

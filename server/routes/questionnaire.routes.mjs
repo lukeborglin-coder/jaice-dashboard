@@ -2174,7 +2174,7 @@ IMPORTANT: Return ONLY valid JSON. Do not include any explanatory text outside t
 }
 
 // XML escaping and sanitization helpers
-function escapeXmlText(text) {
+function escapeXmlText(text, questionnaire = null) {
   if (!text) return '';
   let result = String(text);
   
@@ -2183,8 +2183,85 @@ function escapeXmlText(text) {
   const placeholders = [];
   let placeholderIndex = 0;
   
-  // Find all [text] patterns and wrap just the content in blue italic styling (no brackets)
+  // Find all [INSERT ...] patterns and convert to Forsta format and make bold
+  // Pattern: [INSERT S4r5] or [INSERT S4r5c1] (flexible whitespace)
+  result = result.replace(/\[INSERT\s+([A-Z0-9]+)(r\d+)(c\d+)?\s*\]/gi, (match, questionNum, rowNum, colNum) => {
+    let forstaFormat = '';
+    
+    // If column is already specified, use it
+    if (colNum) {
+      // Convert to Forsta format: ${S4.r5.c1}
+      forstaFormat = `\${${questionNum}.${rowNum}.${colNum}}`;
+    } else {
+      // If no column specified, check if the referenced question is a numeric grid with columns
+      if (questionnaire && questionnaire.questions) {
+        // Find the referenced question
+        const refQuestion = questionnaire.questions.find(q => {
+          const qNum = (q.number || q.id || '').toUpperCase();
+          return qNum === questionNum.toUpperCase();
+        });
+        
+        // Check if it's a numeric grid with responseOptions (columns)
+        if (refQuestion) {
+          const refQuestionType = (refQuestion.type || '').toLowerCase();
+          const isNumericGrid = refQuestionType.includes('numeric grid');
+          const hasColumns = refQuestion.responseOptions && refQuestion.responseOptions.length > 0;
+          
+          // If it's a numeric grid with exactly 1 column, use c1
+          if (isNumericGrid && hasColumns && refQuestion.responseOptions.length === 1) {
+            forstaFormat = `\${${questionNum}.${rowNum}.c1}`;
+          } else if (isNumericGrid && hasColumns && refQuestion.responseOptions.length > 1) {
+            // If it's a numeric grid with multiple columns, also use c1 (first column)
+            forstaFormat = `\${${questionNum}.${rowNum}.c1}`;
+          } else {
+            // Default: no column (for non-numeric grids or questions without columns)
+            forstaFormat = `\${${questionNum}.${rowNum}}`;
+          }
+        } else {
+          // Default: no column (for non-numeric grids or questions without columns)
+          forstaFormat = `\${${questionNum}.${rowNum}}`;
+        }
+      } else {
+        // Default: no column (for non-numeric grids or questions without columns)
+        forstaFormat = `\${${questionNum}.${rowNum}}`;
+      }
+    }
+    
+    // Make INSERT text bold
+    return `<b>${forstaFormat}</b>`;
+  });
+  
+  // Also make any existing ${...} patterns bold (in case they weren't from [INSERT])
+  // But skip if already wrapped in bold tags - use a simpler approach
+  // First, protect already-bolded patterns
+  const boldPlaceholder = '___BOLD_PLACEHOLDER___';
+  const boldedPatterns = [];
+  let boldIndex = 0;
+  
+  result = result.replace(/<b>\$\{([^}]+)\}<\/b>/g, (match) => {
+    const placeholder = boldPlaceholder + boldIndex++ + '___';
+    boldedPatterns.push(match);
+    return placeholder;
+  });
+  
+  // Now make remaining ${...} patterns bold
+  result = result.replace(/\$\{([^}]+)\}/g, (match) => {
+    return `<b>${match}</b>`;
+  });
+  
+  // Restore the already-bolded patterns
+  boldedPatterns.forEach((pattern, index) => {
+    const placeholder = boldPlaceholder + index + '___';
+    result = result.replace(placeholder, pattern);
+  });
+  
+  // Find all other [text] patterns and wrap just the content in blue italic styling (no brackets)
   result = result.replace(/\[([^\]]+)\]/g, (match, content) => {
+    // Skip if this was already processed as an INSERT pattern (shouldn't happen, but safety check)
+    if (content.trim().toUpperCase().startsWith('INSERT')) {
+      return match;
+    }
+    
     // Escape HTML entities in the content
     const escapedContent = content
       .replace(/&/g, '&amp;')
@@ -2198,6 +2275,17 @@ function escapeXmlText(text) {
     return placeholder;
   });
   
+  // Protect bold tags before escaping
+  const boldTagPlaceholder = '___BOLD_TAG_PLACEHOLDER___';
+  const boldTagPatterns = [];
+  let boldTagIndex = 0;
+  
+  result = result.replace(/<b>(.*?)<\/b>/g, (match, content) => {
+    const placeholder = boldTagPlaceholder + boldTagIndex++ + '___';
+    boldTagPatterns.push(match);
+    return placeholder;
+  });
+  
   // Now escape & < > in the remaining text
   result = result
     .replace(/&/g, '&amp;')
@@ -2207,6 +2295,12 @@ function escapeXmlText(text) {
   // Escape any remaining single brackets that weren't part of [text] patterns
   result = result.replace(/\[/g, '[[');
   result = result.replace(/\]/g, ']]');
+  
+  // Restore bold tags (they're valid XML/HTML)
+  boldTagPatterns.forEach((pattern, index) => {
+    const placeholder = boldTagPlaceholder + index + '___';
+    result = result.replace(placeholder, pattern);
+  });
   
   // Restore the styled text (unescape the HTML tags)
   placeholders.forEach((styled, index) => {
@@ -2231,6 +2325,22 @@ function escapeXmlAttribute(text) {
     .replace(/'/g, '&apos;')
     .replace(/\[/g, '[[')  // Escape [ to [[ to prevent Forsta from interpreting as variable (double bracket = literal bracket)
     .replace(/\]/g, ']]'); // Escape ] to ]] to prevent Forsta from interpreting as variable (double bracket = literal bracket)
+}
+
+// Special escaping for condition expressions - Forsta needs actual operators, not HTML entities
+// In XML attributes, > is safe and doesn't need escaping, but < and & must be escaped
+function escapeConditionExpr(text) {
+  if (!text) return '';
+  return String(text)
+    .replace(/&/g, '&amp;')  // Must escape & first (required in XML)
+    .replace(/</g, '&lt;')    // Must escape < (required in XML)
+    .replace(/"/g, '&quot;')  // Escape quotes if using double quotes for attribute
+    .replace(/'/g, '&apos;')  // Escape apostrophes if using single quotes for attribute
+    .replace(/\[/g, '[[')     // Escape [ to [[ to prevent Forsta variable interpretation
+    .replace(/\]/g, ']]');    // Escape ] to ]] to prevent Forsta variable interpretation
+    // NOTE: We intentionally do NOT escape > because:
+    // 1. > is safe in XML attributes (doesn't need escaping)
+    // 2. Forsta evaluates condition expressions as Python code and needs actual > operator
 }
 
 function sanitizeXmlName(name) {
@@ -2319,6 +2429,175 @@ function generateXml(questionnaire) {
     return text;
   }
 
+  // Helper function to resolve validation value (e.g., "S4r5" -> "S4r5c1" for numeric grids with 1 column)
+  function resolveValidationValue(value, questionnaire) {
+    if (!value || typeof value !== 'string') return value;
+    
+    // Pattern: S4r5 or Q1r3 (question number + row number, no column)
+    const match = value.match(/^([A-Z0-9]+)(r\d+)$/i);
+    if (!match) return value; // Already has column or doesn't match pattern
+    
+    const [, questionNum, rowNum] = match;
+    
+    // Find the referenced question
+    const refQuestion = questionnaire.questions.find(q => {
+      const qNum = (q.number || q.id || '').toUpperCase();
+      return qNum === questionNum.toUpperCase();
+    });
+    
+    if (!refQuestion) return value;
+    
+    // Check if it's a numeric grid with responseOptions (columns)
+    const refQuestionType = (refQuestion.type || '').toLowerCase();
+    const isNumericGrid = refQuestionType.includes('numeric grid');
+    const hasColumns = refQuestion.responseOptions && refQuestion.responseOptions.length > 0;
+    
+    // If it's a numeric grid with exactly 1 column, add c1
+    if (isNumericGrid && hasColumns && refQuestion.responseOptions.length === 1) {
+      return `${questionNum}${rowNum}c1`;
+    }
+    
+    return value;
+  }
+
+  // Helper function to convert showLogic to Forsta XML cond format (OLD - for backward compatibility)
+  // Examples: "S6=1" -> "(S6.r1)", "Q5=2" -> "(Q5.r2)", "S6=1 AND S7=2" -> "(S6.r1) AND (S7.r2)"
+  function convertShowLogicToCond(showLogic, questionnaire) {
+    if (!showLogic || typeof showLogic !== 'string') return null;
+    
+    // Convert simple patterns like "S6=1" to "(S6.r1)"
+    // Handle AND, OR, and other operators
+    let result = showLogic.trim();
+    
+    // Pattern to match: QuestionNumber=OptionNumber (e.g., "S6=1", "Q5=2")
+    // Replace with: (QuestionNumber.rOptionNumber)
+    result = result.replace(/([A-Z0-9]+)=(\d+)/gi, (match, questionNum, optionNum) => {
+      // Check if the referenced question is a numeric grid with columns
+      const refQuestion = questionnaire.questions.find(q => {
+        const qNum = (q.number || q.id || '').toUpperCase();
+        return qNum === questionNum.toUpperCase();
+      });
+      
+      if (refQuestion) {
+        const refQuestionType = (refQuestion.type || '').toLowerCase();
+        const isNumericGrid = refQuestionType.includes('numeric grid');
+        const hasColumns = refQuestion.responseOptions && refQuestion.responseOptions.length > 0;
+        
+        // If it's a numeric grid with exactly 1 column, use c1
+        if (isNumericGrid && hasColumns && refQuestion.responseOptions.length === 1) {
+          return `(${questionNum}.r${optionNum}.c1)`;
+        }
+      }
+      
+      // Default: convert to (QuestionNumber.rOptionNumber)
+      return `(${questionNum}.r${optionNum})`;
+    });
+    
+    return result;
+  }
+
+  // Helper function to convert showLogic to new condition format with proper dot notation
+  // Examples: "S11r2c2>0 OR S11r2c3>0" -> "S11.r2.c2 > 0 OR S11.r2.c3 > 0"
+  // Removes "SHOW COLUMN IF" or "SHOW IF" prefixes and converts to dot notation
+  function convertShowLogicToConditionExpr(showLogic, questionnaire) {
+    if (!showLogic || typeof showLogic !== 'string') return null;
+    
+    let result = showLogic.trim();
+    
+    // Remove "SHOW COLUMN IF" or "SHOW IF" prefixes (case insensitive)
+    result = result.replace(/^(SHOW\s+COLUMN\s+IF|SHOW\s+IF)\s+/i, '');
+    
+    // First, convert patterns like "S11r2c2" to "S11.r2.c2" (add dots between question, row, column)
+    // This must come before the simpler patterns to avoid partial matches
+    // Pattern: QuestionNumber + 'r' + row number + 'c' + column number (no dots)
+    result = result.replace(/([A-Z0-9]+)(r\d+)(c\d+)(?![.\w])/gi, (match, questionNum, rowNum, colNum) => {
+      // Only convert if there's no dot already in the match
+      if (!match.includes('.')) {
+        return `${questionNum}.${rowNum}.${colNum}`;
+      }
+      return match;
+    });
+    
+    // Then convert patterns like "S11r2" to "S11.r2" (add dot between question and row)
+    // Only if it doesn't already have a dot and isn't part of a larger pattern
+    result = result.replace(/([A-Z0-9]+)(r\d+)(?![.\w])/gi, (match, questionNum, rowNum) => {
+      // Check if this is already part of a larger pattern (e.g., already converted to S11.r2.c2)
+      if (!match.includes('.')) {
+        return `${questionNum}.${rowNum}`;
+      }
+      return match;
+    });
+    
+    // Convert patterns like "S6=1" to "S6.r1" (for simple equality checks)
+    result = result.replace(/([A-Z0-9]+)=(\d+)/gi, (match, questionNum, optionNum) => {
+      // Check if the referenced question is a numeric grid with columns
+      const refQuestion = questionnaire.questions.find(q => {
+        const qNum = (q.number || q.id || '').toUpperCase();
+        return qNum === questionNum.toUpperCase();
+      });
+      
+      if (refQuestion) {
+        const refQuestionType = (refQuestion.type || '').toLowerCase();
+        const isNumericGrid = refQuestionType.includes('numeric grid');
+        const hasColumns = refQuestion.responseOptions && refQuestion.responseOptions.length > 0;
+        
+        // If it's a numeric grid with exactly 1 column, use c1
+        if (isNumericGrid && hasColumns && refQuestion.responseOptions.length === 1) {
+          return `${questionNum}.r${optionNum}.c1`;
+        }
+      }
+      
+      // Default: convert to QuestionNumber.rOptionNumber
+      return `${questionNum}.r${optionNum}`;
+    });
+    
+    // Convert HTML entities if present (e.g., &gt; to >)
+    result = result.replace(/&gt;/g, '>');
+    result = result.replace(/&lt;/g, '<');
+    result = result.replace(/&amp;/g, '&');
+    
+    // Ensure proper spacing around operators (>, <, >=, <=, =, !=, AND, OR)
+    // But preserve spacing that's already there
+    result = result.replace(/([A-Z0-9.]+)\s*([><=!]+)\s*(\d+)/g, '$1 $2 $3');
+    result = result.replace(/\s*(AND|OR)\s*/gi, ' $1 ');
+    
+    // Clean up multiple spaces but preserve single spaces
+    result = result.replace(/\s+/g, ' ').trim();
+    
+    // DO NOT convert back to HTML entities - Forsta evaluates condition expressions as Python code
+    // The escapeXmlAttribute function will handle proper escaping when used in XML attributes
+    // Condition expressions need actual operators (>, <) not HTML entities
+    
+    return result;
+  }
+
+  // Helper function to check if an option code should terminate
+  function shouldTerminate(optionCode, terminateLogic, questionType) {
+    if (!terminateLogic) return false;
+    
+    // For structured terminate logic with optionCodes (simple single/multi-select)
+    if (typeof terminateLogic === 'object' && terminateLogic !== null && 'optionCodes' in terminateLogic) {
+      if (Array.isArray(terminateLogic.optionCodes)) {
+        // Check if the option code (without r/c prefix) matches
+        const codeWithoutPrefix = String(optionCode).replace(/^[rc]/i, '');
+        // Also check the numeric part if optionCode has a prefix
+        const numericPart = codeWithoutPrefix.match(/\d+/);
+        const numericCode = numericPart ? numericPart[0] : codeWithoutPrefix;
+        
+        return terminateLogic.optionCodes.some(code => {
+          const codeStr = String(code);
+          return codeStr === codeWithoutPrefix || 
+                 codeStr === String(optionCode) || 
+                 codeStr === numericCode ||
+                 (codeWithoutPrefix.startsWith('r') && codeStr === codeWithoutPrefix.substring(1)) ||
+                 (codeWithoutPrefix.startsWith('c') && codeStr === codeWithoutPrefix.substring(1));
+        });
+      }
+    }
+    
+    return false;
+  }
+
   const xml = questionnaire.questions.map(question => {
     const questionType = (question.type || '').toLowerCase();
     const questionLabel = getQuestionLabel(question);
@@ -2329,6 +2608,7 @@ function generateXml(questionnaire) {
     let isGrid = false;
     let isSingleSelectGrid = false;
     let isMultiSelectGrid = false;
+    let isNumericGrid = false;
     
     if (questionType.includes('single select grid')) {
       tagName = 'radio';
@@ -2338,6 +2618,10 @@ function generateXml(questionnaire) {
       tagName = 'checkbox';
       isGrid = true;
       isMultiSelectGrid = true;
+    } else if (questionType.includes('numeric grid')) {
+      tagName = 'number';
+      isGrid = true;
+      isNumericGrid = true;
     } else if (questionType.includes('single select') || questionType.includes('single-select')) {
       tagName = 'radio';
     } else if (questionType.includes('multi-select') || questionType.includes('multi select')) {
@@ -2356,13 +2640,66 @@ function generateXml(questionnaire) {
     // Build opening tag with attributes
     let openingTag = `<${tagName} label="${escapeXmlAttribute(questionLabel)}"`;
     
+    // Note: Condition logic (showLogic) is removed from XML generation for now
+    
+    // Add shuffle="rows" if randomize is true
+    if (question.randomize === true) {
+      openingTag += ` shuffle="rows"`;
+    }
+    
+    // Make all questions mandatory
+    openingTag += ` optional="0"`;
+    
+    // Check if this is an Open End List (has responseOptions)
+    const isOpenEndList = questionType.includes('open end list') || 
+                          (tagName === 'text' && question.responseOptions && question.responseOptions.length > 0);
+    
     // For text (open end) questions, add size attribute for larger response box
     if (tagName === 'text') {
       openingTag += ` size="100"`;
+      
+      // For Open End List, add ss:listDisplay="0"
+      if (isOpenEndList) {
+        openingTag += ` ss:listDisplay="0"`;
+      }
     }
     
     // For number questions, add range attribute (required by Forsta/Decipher)
     if (tagName === 'number') {
+      // Check if this is a sum validation (must equal 100%)
+      const isSumValidation = question.validation && 
+                              question.validation.type === 'sum' && 
+                              question.validation.value === 100 && 
+                              question.validation.unit === '%';
+      
+      // Check if this is a sum validation with a reference value (e.g., "S4r5")
+      let sumReferenceValue = null;
+      if (question.validation && 
+          question.validation.type === 'sum' && 
+          typeof question.validation.value === 'string') {
+        // Resolve the validation value (e.g., "S4r5" -> "S4r5c1" for numeric grids with 1 column)
+        sumReferenceValue = resolveValidationValue(question.validation.value, questionnaire);
+      }
+      
+      // Check if question has % tag
+      const hasPercentTag = question.tags && Array.isArray(question.tags) && question.tags.includes('%');
+      
+      // For numeric grids, add size and ss:listDisplay attributes
+      if (isNumericGrid) {
+        // If sum validation, use size="3", otherwise size="10"
+        openingTag += ` size="${isSumValidation ? '3' : '10'}"`;
+        openingTag += ` ss:listDisplay="0"`;
+      } else {
+        // For plain numeric questions (not grids), add size="10"
+        openingTag += ` size="10"`;
+        
+        // Add ss:postText="%" and verify="range(0,100)" if question has % tag
+        if (hasPercentTag) {
+          openingTag += ` ss:postText="%"`;
+          openingTag += ` verify="range(0,100)"`;
+        }
+      }
+      
       if (question.validation && question.validation.type === 'range') {
         // Use explicit checks to handle 0 correctly (0 is falsy but valid)
         const min = (question.validation.min !== undefined && question.validation.min !== null) 
@@ -2382,12 +2719,12 @@ function generateXml(questionnaire) {
     let xml = openingTag;
     
     // Add title
-    xml += `  <title>${escapeXmlText(questionText)}</title>\n`;
+    xml += `  <title>${escapeXmlText(questionText, questionnaire)}</title>\n`;
     
     // Add comment if available (optional)
     if (question.comment || question.instruction) {
       const commentText = question.comment || question.instruction;
-      xml += `  <comment>${escapeXmlText(commentText)}</comment>\n`;
+      xml += `  <comment>${escapeXmlText(commentText, questionnaire)}</comment>\n`;
     } else if (tagName === 'radio') {
       if (isGrid) {
         xml += `  <comment>1 = Strongly disagree, 5 = Strongly agree</comment>\n`;
@@ -2408,24 +2745,102 @@ function generateXml(questionnaire) {
     
     xml += '\n';
 
-    // Handle GRID questions (use radio for single-select grid, checkbox for multi-select grid)
+    // Handle GRID questions (use radio for single-select grid, checkbox for multi-select grid, number for numeric grid)
     if (isGrid) {
       // Grid has columns (responseOptions) and rows (statementOptions)
       const columns = question.responseOptions || [];
       const rows = question.statementOptions || [];
       
-      // Add columns first
-      columns.forEach((col, index) => {
-        const colText = getOptionText(col);
-        xml += `  <col label="c${index + 1}">${escapeXmlText(colText)}</col>\n`;
-      });
+      // For numeric grids, validate responseOptions - if invalid or empty, add fallback column
+      if (isNumericGrid) {
+        // Check if this is a sum validation (must equal 100%)
+        const isSumValidation = question.validation && 
+                                question.validation.type === 'sum' && 
+                                question.validation.value === 100 && 
+                                question.validation.unit === '%';
+        
+        // Check if responseOptions are valid (have at least one column with a label)
+        const validColumns = columns.filter((col) => {
+          const text = typeof col === 'string' ? col : (col.text || '');
+          return text.trim() !== '';
+        });
+        
+        // Only add columns if we have valid response options (at least one with a label)
+        if (validColumns.length > 0) {
+          validColumns.forEach((col, index) => {
+            const colText = getOptionText(col);
+            const colCode = `c${index + 1}`;
+            let colXml = `  <col label="${colCode}"`;
+            
+            // For sum validation, add amount="100" to the column
+            if (isSumValidation) {
+              colXml += ` amount="100"`;
+            }
+            
+            
+            colXml += `>${escapeXmlText(colText)}</col>\n`;
+            xml += colXml;
+          });
+          xml += '\n';
+        } else {
+          // If no valid columns, add fallback column with # or % based on tags
+          const hasPercentTag = question.tags && Array.isArray(question.tags) && question.tags.includes('%');
+          const hasNumberTag = question.tags && Array.isArray(question.tags) && question.tags.includes('Number');
+          const fallbackColumnLabel = hasPercentTag ? '%' : (hasNumberTag ? '#' : '#');
+          let fallbackColXml = `  <col label="c1"`;
+          
+          // For sum validation, add amount="100" to the fallback column
+          if (isSumValidation) {
+            fallbackColXml += ` amount="100"`;
+          }
+          
+          
+          fallbackColXml += `>${escapeXmlText(fallbackColumnLabel)}</col>\n`;
+          xml += fallbackColXml;
+          xml += '\n';
+        }
+      } else {
+        // For non-numeric grids, always add columns if they exist
+        if (columns.length > 0) {
+          columns.forEach((col, index) => {
+            const colText = getOptionText(col);
+            const colCode = `c${index + 1}`;
+            let colXml = `  <col label="${colCode}"`;
+            
+            
+            colXml += `>${escapeXmlText(colText)}</col>\n`;
+            xml += colXml;
+          });
+          xml += '\n';
+        }
+      }
       
-      xml += '\n';
-      
-      // Add rows
+      // Add rows (statements) - always add these for grids
       rows.forEach((row, index) => {
         const rowText = getOptionText(row);
-        xml += `  <row label="r${index + 1}">${escapeXmlText(rowText)}</row>\n`;
+        const rowCode = `r${index + 1}`;
+        let rowXml = `  <row label="${rowCode}"`;
+        
+        // For numeric grids, add ss:postText="%" if question has % tag
+        if (isNumericGrid) {
+          const hasPercentTag = question.tags && Array.isArray(question.tags) && question.tags.includes('%');
+          if (hasPercentTag) {
+            rowXml += ` ss:postText="%"`;
+          }
+          
+          // For sum validation (must equal 100%), add verify="range(0,100)" to each row
+          const isSumValidation = question.validation && 
+                                  question.validation.type === 'sum' && 
+                                  question.validation.value === 100 && 
+                                  question.validation.unit === '%';
+          if (isSumValidation) {
+            rowXml += ` verify="range(0,100)"`;
+          }
+        }
+        
+        
+        rowXml += `>${escapeXmlText(rowText)}</row>\n`;
+        xml += rowXml;
       });
     }
     // Handle RADIO and CHECKBOX questions
@@ -2465,6 +2880,7 @@ function generateXml(questionnaire) {
           rowXml += ` exclusive="1"`;
         }
         
+        
         rowXml += `>${escapeXmlText(optionText)}</row>\n`;
         xml += rowXml;
       });
@@ -2474,9 +2890,101 @@ function generateXml(questionnaire) {
     else if (tagName === 'number') {
       // Number questions don't have additional elements in the simple structure
     }
-    // TEXT and INFO questions don't have rows/columns
+    // Handle TEXT questions - check if it's an Open End List
+    else if (tagName === 'text') {
+      // Check if this is an Open End List (has responseOptions)
+      const isOpenEndList = questionType.includes('open end list') || 
+                            (question.responseOptions && question.responseOptions.length > 0);
+      
+      if (isOpenEndList) {
+        // For Open End List, add rows for each responseOption
+        const responseOptions = question.responseOptions || [];
+        responseOptions.forEach((resp, index) => {
+          const respText = getOptionText(resp);
+          // Wrap text in span with styling
+          xml += `  <row label="r${index + 1}"><span style="font-weight: 500; color: #374151;">${escapeXmlText(respText)}</span></row>\n`;
+        });
+      }
+      // Regular text questions don't have rows/columns
+    }
+    // INFO questions don't have rows/columns
+    
+    // Add validate tag for sum validation with reference value (e.g., sum must equal S4.r5.c1)
+    if (tagName === 'number' && isNumericGrid && question.validation && 
+        question.validation.type === 'sum' && 
+        typeof question.validation.value === 'string') {
+      const sumReferenceValue = resolveValidationValue(question.validation.value, questionnaire);
+      if (sumReferenceValue) {
+        // Parse the reference value (e.g., "S4r5c1" -> question "S4", row "r5", col "c1")
+        const refMatch = sumReferenceValue.match(/^([A-Z0-9]+)(r\d+)(c\d+)?$/i);
+        if (refMatch) {
+          const [, refQuestionNum, refRowNum, refColNum] = refMatch;
+          const currentQuestionLabel = getQuestionLabel(question);
+          const unit = question.validation.unit || 'items';
+          
+          // Generate validate tag with simplified Python code
+          xml += `\n\n    <validate>\n`;
+          
+          // Determine which column to sum (default to c1 for numeric grids)
+          const columnToSum = refColNum ? refColNum : 'c1';
+          
+          // Build the reference path for comparison with dot notation
+          let expectedPath = `${refQuestionNum}.${refRowNum}`;
+          if (refColNum) {
+            expectedPath += `.${refColNum}`;
+          } else {
+            // If no column specified, check if it's a numeric grid with columns
+            const refQuestion = questionnaire.questions.find(q => {
+              const qNum = (q.number || q.id || '').toUpperCase();
+              return qNum === refQuestionNum.toUpperCase();
+            });
+            if (refQuestion) {
+              const refQuestionType = (refQuestion.type || '').toLowerCase();
+              const isRefNumericGrid = refQuestionType.includes('numeric grid');
+              const hasRefColumns = refQuestion.responseOptions && refQuestion.responseOptions.length > 0;
+              if (isRefNumericGrid && hasRefColumns && refQuestion.responseOptions.length === 1) {
+                expectedPath += '.c1';
+              } else if (isRefNumericGrid && hasRefColumns) {
+                // If it's a numeric grid with multiple columns, default to c1
+                expectedPath += '.c1';
+              }
+            }
+          }
+          
+          // Use simplified validation format - Python code must start at column 0 (no indentation)
+          xml += `total = ${currentQuestionLabel}.sum("${columnToSum}")\n`;
+          xml += `expected = ${expectedPath}\n`;
+          xml += `if total != expected:\n`;
+          xml += `    error("The total across all ${unit} must equal %d (you entered %d)." % (expected, total))\n`;
+          xml += `    </validate>`;
+        }
+      }
+    }
     
     xml += `</${tagName}>`;
+    
+    // Add term tag if terminateLogic exists (for structured optionCodes only)
+    // This goes AFTER the question closes, as a separate element
+    if (question.terminateLogic && 
+        typeof question.terminateLogic === 'object' && 
+        question.terminateLogic !== null && 
+        'optionCodes' in question.terminateLogic &&
+        Array.isArray(question.terminateLogic.optionCodes) &&
+        question.terminateLogic.optionCodes.length > 0) {
+      const termLabel = `${questionLabel}_term`;
+      // Build cond attribute: "S1.r1 or S1.r2 or S1.r3"
+      const condParts = question.terminateLogic.optionCodes.map(code => {
+        // Convert code to row format (e.g., "1" -> "r1", "r1" -> "r1")
+        const codeStr = String(code);
+        const rowCode = codeStr.startsWith('r') ? codeStr : `r${codeStr}`;
+        return `${questionLabel}.${rowCode}`;
+      });
+      const condValue = condParts.join(' or ');
+      
+      xml += `\n\n<term label="${escapeXmlAttribute(termLabel)}" cond="${escapeXmlAttribute(condValue)}">\n`;
+      xml += `  ${questionLabel}: Excluded specialty\n`;
+      xml += `</term>`;
+    }
     
     return xml;
   }).join('\n\n<suspend/>\n\n');
