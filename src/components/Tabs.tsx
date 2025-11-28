@@ -7477,16 +7477,28 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
         return { sum, mean, median, mode, stdDev, max, min };
       };
 
-      // Build banner columns structure
+      // Build banner columns structure with group information
       const bannerGroup = selectedBannerGroup;
-      const bannerCols: Array<{ id: string; title: string }> = [];
+      const bannerCols: Array<{ id: string; title: string; groupTitle: string; groupIdx: number }> = [];
+      const groupStructure: Array<{ title: string; cutCount: number; startIdx: number }> = [];
       if (bannerGroup.groups) {
-        bannerGroup.groups.forEach(g => {
+        let cutIdx = 0;
+        bannerGroup.groups.forEach((g, gIdx) => {
+          const groupStartIdx = cutIdx;
+          const groupCutCount = g.cuts.length;
+          groupStructure.push({
+            title: g.title,
+            cutCount: groupCutCount,
+            startIdx: groupStartIdx
+          });
           g.cuts.forEach(cut => {
             bannerCols.push({
               id: cut.id,
-              title: cut.title
+              title: cut.title,
+              groupTitle: g.title,
+              groupIdx: gIdx
             });
+            cutIdx++;
           });
         });
       }
@@ -7571,12 +7583,18 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
           // Empty row
           currentRow++;
 
-          // Build header structure
+          // Build 3-row header structure
+          // Row 1: Empty | Total | Group Titles (merged across cuts)
+          // Row 2: Empty | Total | Cut Titles
+          // Row 3: Empty | Empty | Stat Letters (A), (B), (C)...
           const headerStartRow = currentRow;
+          const groupTitleRow = headerStartRow;
+          const cutTitleRow = headerStartRow + 1;
+          const statLetterRow = headerStartRow + 2;
           let currentCol = 2; // Start at column B
 
-          // Empty cell in top-left
-          const rowLabelCell = dataCutsWorksheet.getRow(headerStartRow).getCell(currentCol);
+          // Row label cell (merged across all 3 rows)
+          const rowLabelCell = dataCutsWorksheet.getRow(groupTitleRow).getCell(currentCol);
           rowLabelCell.value = '';
           rowLabelCell.border = {
             top: { style: 'thin' },
@@ -7584,31 +7602,57 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
             left: { style: 'thin' },
             right: { style: 'thin' }
           };
-          dataCutsWorksheet.mergeCells(headerStartRow, currentCol, headerStartRow + 1, currentCol);
+          dataCutsWorksheet.mergeCells(groupTitleRow, currentCol, statLetterRow, currentCol);
+          // Apply borders to all rows of merged cell
+          [cutTitleRow, statLetterRow].forEach(row => {
+            const cell = dataCutsWorksheet.getRow(row).getCell(currentCol);
+            cell.border = {
+              top: { style: 'thin' },
+              bottom: { style: 'thin' },
+              left: { style: 'thin' },
+              right: { style: 'thin' }
+            };
+          });
           currentCol++;
 
-          // Total column header
-          const totalHeaderCell = dataCutsWorksheet.getRow(headerStartRow).getCell(currentCol);
-          totalHeaderCell.value = 'Total';
-          totalHeaderCell.alignment = { horizontal: 'center', vertical: 'middle' };
-          totalHeaderCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-          totalHeaderCell.fill = {
+          // Total column (merged across first 2 rows, with empty stat letter row)
+          const totalGroupCell = dataCutsWorksheet.getRow(groupTitleRow).getCell(currentCol);
+          totalGroupCell.value = 'Total';
+          totalGroupCell.alignment = { horizontal: 'center', vertical: 'middle' };
+          totalGroupCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+          totalGroupCell.fill = {
             type: 'pattern',
             pattern: 'solid',
             fgColor: { argb: 'FFD14A2D' }
           };
-          totalHeaderCell.border = {
+          totalGroupCell.border = {
             top: { style: 'thin' },
             bottom: { style: 'thin' },
             left: { style: 'thin' },
             right: { style: 'thin' }
           };
-          dataCutsWorksheet.mergeCells(headerStartRow, currentCol, headerStartRow + 1, currentCol);
-          // Set same formatting on second row of merged cell
-          const totalCell2ndRow = dataCutsWorksheet.getRow(headerStartRow + 1).getCell(currentCol);
-          totalCell2ndRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD14A2D' } };
-          totalCell2ndRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-          totalCell2ndRow.border = {
+          dataCutsWorksheet.mergeCells(groupTitleRow, currentCol, cutTitleRow, currentCol);
+          // Apply same formatting to cut title row
+          const totalCutCell = dataCutsWorksheet.getRow(cutTitleRow).getCell(currentCol);
+          totalCutCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD14A2D' } };
+          totalCutCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+          totalCutCell.border = {
+            top: { style: 'thin' },
+            bottom: { style: 'thin' },
+            left: { style: 'thin' },
+            right: { style: 'thin' }
+          };
+
+          // Empty stat letter cell for Total column
+          const totalStatCell = dataCutsWorksheet.getRow(statLetterRow).getCell(currentCol);
+          totalStatCell.value = '';
+          totalStatCell.alignment = { horizontal: 'center', vertical: 'middle' };
+          totalStatCell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFD14A2D' }
+          };
+          totalStatCell.border = {
             top: { style: 'thin' },
             bottom: { style: 'thin' },
             left: { style: 'thin' },
@@ -7616,38 +7660,75 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
           };
           currentCol++;
 
-          // Banner cut columns
-          bannerCols.forEach(col => {
-            const cutHeaderCell = dataCutsWorksheet.getRow(headerStartRow).getCell(currentCol);
-            cutHeaderCell.value = col.title;
-            cutHeaderCell.alignment = { horizontal: 'center', vertical: 'middle' };
-            cutHeaderCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-            cutHeaderCell.fill = {
+          // Banner group titles and cut columns
+          groupStructure.forEach((group, groupIdx) => {
+            const groupStartCol = currentCol;
+
+            // Group title (merged across all cuts in this group)
+            const groupCell = dataCutsWorksheet.getRow(groupTitleRow).getCell(groupStartCol);
+            groupCell.value = group.title;
+            groupCell.alignment = { horizontal: 'center', vertical: 'middle' };
+            groupCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+            groupCell.fill = {
               type: 'pattern',
               pattern: 'solid',
               fgColor: { argb: 'FFD14A2D' }
             };
-            cutHeaderCell.border = {
+            groupCell.border = {
               top: { style: 'thin' },
               bottom: { style: 'thin' },
               left: { style: 'thin' },
               right: { style: 'thin' }
             };
-            dataCutsWorksheet.mergeCells(headerStartRow, currentCol, headerStartRow + 1, currentCol);
-            // Set same formatting on second row of merged cell
-            const cutCell2ndRow = dataCutsWorksheet.getRow(headerStartRow + 1).getCell(currentCol);
-            cutCell2ndRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD14A2D' } };
-            cutCell2ndRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-            cutCell2ndRow.border = {
-              top: { style: 'thin' },
-              bottom: { style: 'thin' },
-              left: { style: 'thin' },
-              right: { style: 'thin' }
-            };
-            currentCol++;
+            if (group.cutCount > 1) {
+              dataCutsWorksheet.mergeCells(groupTitleRow, groupStartCol, groupTitleRow, groupStartCol + group.cutCount - 1);
+            }
+
+            // Individual cut titles and stat letters for this group
+            for (let i = 0; i < group.cutCount; i++) {
+              const cutCol = groupStartCol + i;
+              const bannerCol = bannerCols[group.startIdx + i];
+
+              // Cut title (row 2)
+              const cutCell = dataCutsWorksheet.getRow(cutTitleRow).getCell(cutCol);
+              cutCell.value = bannerCol.title;
+              cutCell.alignment = { horizontal: 'center', vertical: 'middle' };
+              cutCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+              cutCell.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FFD14A2D' }
+              };
+              cutCell.border = {
+                top: { style: 'thin' },
+                bottom: { style: 'thin' },
+                left: { style: 'thin' },
+                right: { style: 'thin' }
+              };
+
+              // Stat letter (row 3) - starts at (A) for first cut
+              const statCell = dataCutsWorksheet.getRow(statLetterRow).getCell(cutCol);
+              const statLetter = String.fromCharCode(65 + group.startIdx + i); // A, B, C, etc.
+              statCell.value = `(${statLetter})`;
+              statCell.alignment = { horizontal: 'center', vertical: 'middle' };
+              statCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+              statCell.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FFD14A2D' }
+              };
+              statCell.border = {
+                top: { style: 'thin' },
+                bottom: { style: 'thin' },
+                left: { style: 'thin' },
+                right: { style: 'thin' }
+              };
+            }
+
+            currentCol += group.cutCount;
           });
 
-          currentRow += 2; // Move past header rows
+          currentRow += 3; // Move past 3 header rows
 
           // Add Base (total responding) row
           const baseRespondingRow = dataCutsWorksheet.getRow(currentRow++);
