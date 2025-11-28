@@ -7975,7 +7975,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
 
           // Show stats for numeric questions OR single select questions (which can have numeric codes)
           if ((isNumeric || isSingleSelect) && statsSelections && Object.values(statsSelections).some(v => v)) {
-            // Define stats to show
+            // Define stats to show (exclude sum for single select)
             const statsToShow = [
               { key: 'sum', label: 'Sum' },
               { key: 'mean', label: 'Mean' },
@@ -7984,7 +7984,32 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
               { key: 'stdDev', label: 'Std Dev' },
               { key: 'max', label: 'Max' },
               { key: 'min', label: 'Min' }
-            ];
+            ].filter(stat => {
+              // Exclude sum for single select questions
+              if (isSingleSelect && stat.key === 'sum') {
+                return false;
+              }
+              return true;
+            });
+
+            // Helper to calculate weighted mean for single select
+            const calculateSingleSelectMean = (codeData: any): number => {
+              if (!codeData || !variable.codes) return 0;
+
+              let totalWeightedValue = 0;
+              let totalCount = 0;
+
+              Object.keys(variable.codes).forEach(code => {
+                const numericCode = parseFloat(code);
+                if (!isNaN(numericCode)) {
+                  const count = codeData[code]?.count || 0;
+                  totalWeightedValue += numericCode * count;
+                  totalCount += count;
+                }
+              });
+
+              return totalCount > 0 ? totalWeightedValue / totalCount : 0;
+            };
 
             // Add each selected stat as a row
             statsToShow.forEach(stat => {
@@ -8006,8 +8031,16 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                   right: { style: 'thin' }
                 };
 
-                // Get stat value from banner table data for Total
-                const totalStatValue = firstEntry && firstEntry[1] ? (firstEntry[1] as any)['total']?.[stat.key] || 0 : 0;
+                // Calculate stat value for Total
+                let totalStatValue: number;
+                if (isSingleSelect && stat.key === 'mean') {
+                  // Calculate weighted mean for single select
+                  totalStatValue = calculateSingleSelectMean(bannerTableData);
+                } else {
+                  // Get from banner table data for numeric questions or other stats
+                  totalStatValue = firstEntry && firstEntry[1] ? (firstEntry[1] as any)['total']?.[stat.key] || 0 : 0;
+                }
+
                 statRow.getCell(3).value = totalStatValue;
                 statRow.getCell(3).numFmt = '0.00';
                 statRow.getCell(3).alignment = { horizontal: 'center' };
@@ -8026,8 +8059,33 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                 // Banner cut stats
                 let col = 4;
                 bannerCols.forEach(bannerCol => {
-                  // Get stat value for this banner cut
-                  const cutStatValue = firstEntry && firstEntry[1] ? (firstEntry[1] as any)[bannerCol.id]?.[stat.key] || 0 : 0;
+                  let cutStatValue: number;
+
+                  if (isSingleSelect && stat.key === 'mean') {
+                    // Calculate weighted mean for this banner cut
+                    if (!variable.codes) {
+                      cutStatValue = 0;
+                    } else {
+                      let totalWeightedValue = 0;
+                      let totalCount = 0;
+
+                      Object.keys(variable.codes).forEach(code => {
+                        const numericCode = parseFloat(code);
+                        if (!isNaN(numericCode)) {
+                          const codeData = bannerTableData[code] as any;
+                          const count = codeData?.[bannerCol.id]?.count || 0;
+                          totalWeightedValue += numericCode * count;
+                          totalCount += count;
+                        }
+                      });
+
+                      cutStatValue = totalCount > 0 ? totalWeightedValue / totalCount : 0;
+                    }
+                  } else {
+                    // Get from banner table data
+                    cutStatValue = firstEntry && firstEntry[1] ? (firstEntry[1] as any)[bannerCol.id]?.[stat.key] || 0 : 0;
+                  }
+
                   statRow.getCell(col).value = cutStatValue;
                   statRow.getCell(col).numFmt = '0.00';
                   statRow.getCell(col).alignment = { horizontal: 'center' };
