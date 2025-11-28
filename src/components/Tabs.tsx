@@ -7970,8 +7970,11 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
           const statsKey = variable.name;
           const statsSelections = variableStatsSelections[statsKey];
           const isNumeric = variable.type?.toLowerCase().includes('numeric');
+          const isSingleSelect = variable.type?.toLowerCase().includes('single select') &&
+                                 !variable.type?.toLowerCase().includes('grid');
 
-          if (isNumeric && statsSelections && Object.values(statsSelections).some(v => v)) {
+          // Show stats for numeric questions OR single select questions (which can have numeric codes)
+          if ((isNumeric || isSingleSelect) && statsSelections && Object.values(statsSelections).some(v => v)) {
             // Define stats to show
             const statsToShow = [
               { key: 'sum', label: 'Sum' },
