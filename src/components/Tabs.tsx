@@ -7731,13 +7731,14 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
           currentRow += 3; // Move past 3 header rows
 
           // Add Base (total responding) row
+          const STATS_GREY = 'FFE8E8E8'; // Lighter grey for base and stats rows
           const baseRespondingRow = dataCutsWorksheet.getRow(currentRow++);
           baseRespondingRow.getCell(2).value = 'Base (total responding):';
           baseRespondingRow.getCell(2).font = { bold: true };
           baseRespondingRow.getCell(2).fill = {
             type: 'pattern',
             pattern: 'solid',
-            fgColor: { argb: 'FFD3D3D3' } // Light grey
+            fgColor: { argb: STATS_GREY }
           };
           baseRespondingRow.getCell(2).border = {
             top: { style: 'thin' },
@@ -7752,7 +7753,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
           baseRespondingRow.getCell(3).fill = {
             type: 'pattern',
             pattern: 'solid',
-            fgColor: { argb: 'FFD3D3D3' } // Light grey
+            fgColor: { argb: STATS_GREY }
           };
           baseRespondingRow.getCell(3).border = {
             top: { style: 'thin' },
@@ -7769,7 +7770,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
             baseRespondingRow.getCell(baseCol).fill = {
               type: 'pattern',
               pattern: 'solid',
-              fgColor: { argb: 'FFD3D3D3' } // Light grey
+              fgColor: { argb: STATS_GREY }
             };
             baseRespondingRow.getCell(baseCol).border = {
               top: { style: 'thin' },
@@ -7971,15 +7972,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
           const isNumeric = variable.type?.toLowerCase().includes('numeric');
 
           if (isNumeric && statsSelections && Object.values(statsSelections).some(v => v)) {
-            // Empty row before stats
-            currentRow++;
-
-            // Stats header
-            const statsHeaderRow = dataCutsWorksheet.getRow(currentRow++);
-            statsHeaderRow.getCell(2).value = 'Statistics';
-            statsHeaderRow.getCell(2).font = { bold: true };
-
-            // Calculate stats from banner table data if available
+            // Define stats to show
             const statsToShow = [
               { key: 'sum', label: 'Sum' },
               { key: 'mean', label: 'Mean' },
@@ -7990,24 +7983,62 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
               { key: 'min', label: 'Min' }
             ];
 
+            // Add each selected stat as a row
             statsToShow.forEach(stat => {
               if (statsSelections[stat.key]) {
                 const statRow = dataCutsWorksheet.getRow(currentRow++);
-                statRow.getCell(2).value = stat.label;
 
-                // Try to get stat value from banner table data (if it exists)
-                // For now, just show placeholder
-                const statValue = firstEntry && firstEntry[1] ? (firstEntry[1] as any)['total']?.[stat.key] || 0 : 0;
-                statRow.getCell(3).value = statValue;
+                // Stat label
+                statRow.getCell(2).value = stat.label;
+                statRow.getCell(2).font = { bold: true };
+                statRow.getCell(2).fill = {
+                  type: 'pattern',
+                  pattern: 'solid',
+                  fgColor: { argb: STATS_GREY }
+                };
+                statRow.getCell(2).border = {
+                  top: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  left: { style: 'thin' },
+                  right: { style: 'thin' }
+                };
+
+                // Get stat value from banner table data for Total
+                const totalStatValue = firstEntry && firstEntry[1] ? (firstEntry[1] as any)['total']?.[stat.key] || 0 : 0;
+                statRow.getCell(3).value = totalStatValue;
                 statRow.getCell(3).numFmt = '0.00';
                 statRow.getCell(3).alignment = { horizontal: 'center' };
+                statRow.getCell(3).fill = {
+                  type: 'pattern',
+                  pattern: 'solid',
+                  fgColor: { argb: STATS_GREY }
+                };
+                statRow.getCell(3).border = {
+                  top: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  left: { style: 'thin' },
+                  right: { style: 'thin' }
+                };
 
-                // Banner cut stats (placeholder for now)
+                // Banner cut stats
                 let col = 4;
-                bannerCols.forEach(() => {
-                  statRow.getCell(col).value = statValue;
+                bannerCols.forEach(bannerCol => {
+                  // Get stat value for this banner cut
+                  const cutStatValue = firstEntry && firstEntry[1] ? (firstEntry[1] as any)[bannerCol.id]?.[stat.key] || 0 : 0;
+                  statRow.getCell(col).value = cutStatValue;
                   statRow.getCell(col).numFmt = '0.00';
                   statRow.getCell(col).alignment = { horizontal: 'center' };
+                  statRow.getCell(col).fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: STATS_GREY }
+                  };
+                  statRow.getCell(col).border = {
+                    top: { style: 'thin' },
+                    bottom: { style: 'thin' },
+                    left: { style: 'thin' },
+                    right: { style: 'thin' }
+                  };
                   col++;
                 });
               }
