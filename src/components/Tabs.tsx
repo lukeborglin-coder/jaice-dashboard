@@ -7649,6 +7649,56 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
 
           currentRow += 2; // Move past header rows
 
+          // Add Base (total responding) row
+          const baseRespondingRow = dataCutsWorksheet.getRow(currentRow++);
+          baseRespondingRow.getCell(2).value = 'Base (total responding):';
+          baseRespondingRow.getCell(2).font = { bold: true };
+          baseRespondingRow.getCell(2).fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFD3D3D3' } // Light grey
+          };
+          baseRespondingRow.getCell(2).border = {
+            top: { style: 'thin' },
+            bottom: { style: 'thin' },
+            left: { style: 'thin' },
+            right: { style: 'thin' }
+          };
+
+          // Total base
+          baseRespondingRow.getCell(3).value = totalBase;
+          baseRespondingRow.getCell(3).alignment = { horizontal: 'center' };
+          baseRespondingRow.getCell(3).fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFD3D3D3' } // Light grey
+          };
+          baseRespondingRow.getCell(3).border = {
+            top: { style: 'thin' },
+            bottom: { style: 'thin' },
+            left: { style: 'thin' },
+            right: { style: 'thin' }
+          };
+
+          // Banner cut bases
+          let baseCol = 4;
+          bannerCols.forEach(bannerCol => {
+            baseRespondingRow.getCell(baseCol).value = cutBases[bannerCol.id];
+            baseRespondingRow.getCell(baseCol).alignment = { horizontal: 'center' };
+            baseRespondingRow.getCell(baseCol).fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFD3D3D3' } // Light grey
+            };
+            baseRespondingRow.getCell(baseCol).border = {
+              top: { style: 'thin' },
+              bottom: { style: 'thin' },
+              left: { style: 'thin' },
+              right: { style: 'thin' }
+            };
+            baseCol++;
+          });
+
           // Get response codes from banner table data
           const responseCodes = Object.keys(bannerTableData);
 
