@@ -7236,7 +7236,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
 
   // Export Tab Specs tables to Excel
   // This function exports all tables configured in Tab Specs to an Excel workbook
-  // Each table is placed on its own worksheet with proper formatting
+  // All tables are placed in a single "Data Cuts" worksheet with a Table of Contents
   // Respects all tab spec settings: table selections, stats selections, nets, and sort by frequency
   const handleExportTabSpecsToExcel = useCallback(async () => {
     if (!fullRawData || !variables.length) {
@@ -7469,22 +7469,35 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
         return { sum, mean, median, mode, stdDev, max, min };
       };
 
+      // Create Table of Contents worksheet
+      const tocWorksheet = workbook.addWorksheet('Table of Contents');
+
+      // Create Data Cuts worksheet
+      const dataCutsWorksheet = workbook.addWorksheet('Data Cuts');
+      let currentRow = 1;
+
+      // Track table positions for TOC
+      const tablePositions: Array<{ tableNumber: number; tableName: string; rowNumber: number; variable: Variable }> = [];
+
       for (const variable of variablesToExport) {
         const tables = getTablesForExport(variable);
 
         for (const tableName of tables) {
-          // Create worksheet for this table
-          const worksheetName = `Table ${tableNumber}`;
-          const worksheet = workbook.addWorksheet(worksheetName);
-          let currentRow = 1;
+          // Record position for TOC
+          tablePositions.push({
+            tableNumber,
+            tableName,
+            rowNumber: currentRow,
+            variable
+          });
 
           // Table title
-          const titleRow = worksheet.getRow(currentRow++);
+          const titleRow = dataCutsWorksheet.getRow(currentRow++);
           titleRow.getCell(1).value = `Table ${tableNumber}: ${tableName}`;
           titleRow.getCell(1).font = { bold: true, size: 12 };
 
           // Question text
-          const questionRow = worksheet.getRow(currentRow++);
+          const questionRow = dataCutsWorksheet.getRow(currentRow++);
           questionRow.getCell(1).value = variable.description || variable.name;
           questionRow.getCell(1).font = { size: 11 };
 
@@ -7493,7 +7506,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
           const totalCount = freqData?.totalCount || 0;
 
           // Base metadata
-          const baseRow = worksheet.getRow(currentRow++);
+          const baseRow = dataCutsWorksheet.getRow(currentRow++);
           baseRow.getCell(1).value = totalCount === 0 ? 'Base: no respondents' : 'Base: All Respondents';
           baseRow.getCell(1).font = {
             size: 8,
@@ -7505,7 +7518,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
           currentRow++;
 
           // Add headers
-          const headerRow = worksheet.getRow(currentRow++);
+          const headerRow = dataCutsWorksheet.getRow(currentRow++);
           headerRow.getCell(1).value = 'Response';
           headerRow.getCell(2).value = 'Count';
           headerRow.getCell(3).value = '%';
@@ -7541,7 +7554,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                 }, 0);
                 const netPct = totalCount > 0 ? (netCount / totalCount) * 100 : 0;
 
-                const dataRow = worksheet.getRow(currentRow++);
+                const dataRow = dataCutsWorksheet.getRow(currentRow++);
                 dataRow.getCell(1).value = `NET: ${net.name}`;
                 dataRow.getCell(1).font = { bold: true };
                 dataRow.getCell(2).value = netCount;
@@ -7566,7 +7579,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
               const count = freqData.frequencyMap[code] || 0;
               const pct = totalCount > 0 ? (count / totalCount) * 100 : 0;
 
-              const dataRow = worksheet.getRow(currentRow++);
+              const dataRow = dataCutsWorksheet.getRow(currentRow++);
               dataRow.getCell(1).value = text;
               dataRow.getCell(2).value = count;
               dataRow.getCell(2).alignment = { horizontal: 'center' };
@@ -7611,7 +7624,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                 currentRow++;
 
                 // Add stats header
-                const statsHeaderRow = worksheet.getRow(currentRow++);
+                const statsHeaderRow = dataCutsWorksheet.getRow(currentRow++);
                 statsHeaderRow.getCell(1).value = 'Statistics';
                 statsHeaderRow.getCell(1).font = { bold: true };
 
@@ -7628,7 +7641,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
 
                 statsToShow.forEach(stat => {
                   if (statsSelections[stat.key]) {
-                    const statRow = worksheet.getRow(currentRow++);
+                    const statRow = dataCutsWorksheet.getRow(currentRow++);
                     statRow.getCell(1).value = stat.label;
                     statRow.getCell(2).value = stat.value;
                     statRow.getCell(2).numFmt = '0.00';
@@ -7639,14 +7652,80 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
             }
           }
 
-          // Auto-fit columns
-          worksheet.getColumn(1).width = 40;
-          worksheet.getColumn(2).width = 15;
-          worksheet.getColumn(3).width = 15;
+          // Add spacing between tables
+          currentRow += 3;
 
           tableNumber++;
         }
       }
+
+      // Set column widths for Data Cuts
+      dataCutsWorksheet.getColumn(1).width = 40;
+      dataCutsWorksheet.getColumn(2).width = 15;
+      dataCutsWorksheet.getColumn(3).width = 15;
+
+      // Populate Table of Contents
+      let tocRow = 1;
+
+      // TOC Title
+      const tocTitleRow = tocWorksheet.getRow(tocRow++);
+      tocTitleRow.getCell(1).value = 'Table of Contents';
+      tocTitleRow.getCell(1).font = { bold: true, size: 14 };
+      tocRow++; // Empty row
+
+      // TOC Headers
+      const tocHeaderRow = tocWorksheet.getRow(tocRow++);
+      tocHeaderRow.getCell(1).value = 'Table #';
+      tocHeaderRow.getCell(2).value = 'Table Name';
+      tocHeaderRow.getCell(3).value = 'Description';
+      [1, 2, 3].forEach(col => {
+        tocHeaderRow.getCell(col).font = { bold: true };
+        tocHeaderRow.getCell(col).fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFD14A2D' }
+        };
+        tocHeaderRow.getCell(col).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        tocHeaderRow.getCell(col).border = {
+          top: { style: 'thin' },
+          bottom: { style: 'thin' },
+          left: { style: 'thin' },
+          right: { style: 'thin' }
+        };
+      });
+
+      // TOC Entries with hyperlinks
+      tablePositions.forEach(({ tableNumber, tableName, rowNumber, variable }) => {
+        const tocEntryRow = tocWorksheet.getRow(tocRow++);
+
+        // Table number with hyperlink
+        tocEntryRow.getCell(1).value = {
+          text: `Table ${tableNumber}`,
+          hyperlink: `#'Data Cuts'!A${rowNumber}`,
+          tooltip: `Go to Table ${tableNumber}`
+        };
+        tocEntryRow.getCell(1).font = { color: { argb: 'FF0000FF' }, underline: true };
+
+        // Table name
+        tocEntryRow.getCell(2).value = tableName;
+
+        // Description
+        tocEntryRow.getCell(3).value = variable.description || variable.name;
+
+        [1, 2, 3].forEach(col => {
+          tocEntryRow.getCell(col).border = {
+            top: { style: 'thin' },
+            bottom: { style: 'thin' },
+            left: { style: 'thin' },
+            right: { style: 'thin' }
+          };
+        });
+      });
+
+      // Set column widths for TOC
+      tocWorksheet.getColumn(1).width = 15;
+      tocWorksheet.getColumn(2).width = 40;
+      tocWorksheet.getColumn(3).width = 60;
 
       // Generate file and download
       const buffer = await workbook.xlsx.writeBuffer();
