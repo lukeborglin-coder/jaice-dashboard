@@ -52,6 +52,65 @@ interface Variable {
   isScaleSummary?: boolean;
 }
 
+type VariableStatsSelection = {
+  t2b: boolean;
+  m3b: boolean;
+  mb: boolean;
+  b2b: boolean;
+  b3b: boolean;
+  t3b: boolean;
+  rated9_10: boolean;
+  rated7_8: boolean;
+  rated0_6: boolean;
+  sum: boolean;
+  mean: boolean;
+  median: boolean;
+  mode: boolean;
+  stdDev: boolean;
+  max: boolean;
+  min: boolean;
+  summaryTable: boolean;
+  meanNoOutliers: boolean;
+  sumNoOutliers: boolean;
+  sum9: boolean;
+};
+
+interface NetRange {
+  name: string;
+  low: string;
+  high: string;
+  enabled?: boolean;
+}
+
+interface NetCodeSelection {
+  name: string;
+  codes: string[];
+  enabled?: boolean;
+}
+
+const createDefaultStatsSelection = (): VariableStatsSelection => ({
+  t2b: false,
+  m3b: false,
+  mb: false,
+  b2b: false,
+  b3b: false,
+  t3b: false,
+  rated9_10: false,
+  rated7_8: false,
+  rated0_6: false,
+  sum: false,
+  mean: false,
+  median: false,
+  mode: false,
+  stdDev: false,
+  max: false,
+  min: false,
+  summaryTable: false,
+  meanNoOutliers: false,
+  sumNoOutliers: false,
+  sum9: false,
+});
+
 // Helper function to format text with brackets styled in blue italic
 const formatDescriptionWithBrackets = (text: string) => {
   if (!text) return null;
@@ -119,33 +178,17 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
   
   // Track which tables are included for each variable
   const [variableTableSelections, setVariableTableSelections] = useState<Record<string, Set<string>>>({});
-  const [variableStatsSelections, setVariableStatsSelections] = useState<Record<string, {
-    t2b: boolean;
-    m3b: boolean;
-    mb: boolean;
-    b2b: boolean;
-    b3b: boolean;
-    t3b: boolean;
-    rated9_10: boolean;
-    rated7_8: boolean;
-    rated0_6: boolean;
-    sum: boolean;
-    mean: boolean;
-    median: boolean;
-    mode: boolean;
-    stdDev: boolean;
-    max: boolean;
-    min: boolean;
-    summaryTable: boolean;
-  }>>({});
-  const [netSummaryTableRanges, setNetSummaryTableRanges] = useState<Record<string, Array<{ name: string; low: string; high: string }>>>({});
-  const [netSummaryTableSelectedCodes, setNetSummaryTableSelectedCodes] = useState<Record<string, Array<{ name: string; codes: string[] }>>>({});
+  const [variableStatsSelections, setVariableStatsSelections] = useState<Record<string, VariableStatsSelection>>({});
+  const [netSummaryTableRanges, setNetSummaryTableRanges] = useState<Record<string, NetRange[]>>({});
+  const [netSummaryTableSelectedCodes, setNetSummaryTableSelectedCodes] = useState<Record<string, NetCodeSelection[]>>({});
   const [variableSortByFrequency, setVariableSortByFrequency] = useState<Record<string, boolean>>({});
+  const [showConfigPopup, setShowConfigPopup] = useState(false);
+  const [configPopupVariable, setConfigPopupVariable] = useState<Variable | null>(null);
   const [showNetPopup, setShowNetPopup] = useState<Record<string, boolean>>({});
   const [netPopupTableNames, setNetPopupTableNames] = useState<Record<string, string>>({});
   // Temporary state for net popup edits (only committed on Save)
-  const [tempNetRanges, setTempNetRanges] = useState<Record<string, Array<{ name: string; low: string; high: string }>>>({});
-  const [tempNetCodes, setTempNetCodes] = useState<Record<string, Array<{ name: string; codes: string[] }>>>({});
+  const [tempNetRanges, setTempNetRanges] = useState<Record<string, NetRange[]>>({});
+  const [tempNetCodes, setTempNetCodes] = useState<Record<string, NetCodeSelection[]>>({});
   // Reset key to force re-render when resetting specs
   const [specsResetKey, setSpecsResetKey] = useState(0);
   // Track which net dropdowns are open in the popup
@@ -196,6 +239,114 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
   const [showSingleSelectGridSummary, setShowSingleSelectGridSummary] = useState<Record<string, boolean>>({});
   const [selectedSummaryNets, setSelectedSummaryNets] = useState<Record<string, Set<string>>>({});
   const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Array<{ id: string, selectedNets: string[], baseQuestionNumber: string, customName?: string }>>>({});
+  const [summaryPreferences, setSummaryPreferences] = useState<Record<string, Record<string, boolean>>>({});
+
+  const getStatsSelectionsForVariable = useCallback((variableName: string): VariableStatsSelection => {
+    if (!variableName) return createDefaultStatsSelection();
+    const current = variableStatsSelections[variableName];
+    if (!current) {
+      return createDefaultStatsSelection();
+    }
+    return { ...createDefaultStatsSelection(), ...current };
+  }, [variableStatsSelections]);
+
+  const handleToggleStatSelection = useCallback((variableName: string, key: keyof VariableStatsSelection) => {
+    if (!variableName) return;
+    setVariableStatsSelections(prev => {
+      const existing = prev[variableName];
+      const merged = existing ? { ...createDefaultStatsSelection(), ...existing } : createDefaultStatsSelection();
+      const updatedValue = !merged[key];
+      const updatedSelection = { ...merged, [key]: updatedValue };
+      return {
+        ...prev,
+        [variableName]: updatedSelection,
+      };
+    });
+  }, []);
+
+  const handleToggleShowInBanner = useCallback((variableName: string) => {
+    if (!variableName) return;
+    setHiddenFromBanners(prev => {
+      const next = new Set(prev);
+      if (next.has(variableName)) {
+        next.delete(variableName);
+      } else {
+        next.add(variableName);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleSortPreferenceChange = useCallback((variableName: string, value: 'default' | 'frequency') => {
+    if (!variableName) return;
+    setVariableSortByFrequency(prev => {
+      if (value === 'frequency') {
+        return { ...prev, [variableName]: true };
+      }
+      const { [variableName]: _removed, ...rest } = prev;
+      return rest;
+    });
+  }, []);
+
+  const handleToggleIndividualTable = useCallback((variableName: string, tableName: string, allTableNames: string[]) => {
+    if (!variableName || !tableName) return;
+    setVariableTableSelections(prev => {
+      const existingSet = prev[variableName];
+      const baseSet = existingSet ? new Set(existingSet) : new Set(allTableNames);
+      if (baseSet.has(tableName)) {
+        baseSet.delete(tableName);
+      } else {
+        baseSet.add(tableName);
+      }
+      return {
+        ...prev,
+        [variableName]: baseSet,
+      };
+    });
+  }, []);
+
+  const handleOpenNetManager = useCallback((variableName: string) => {
+    if (!variableName) return;
+    setShowNetPopup(prev => ({ ...prev, [variableName]: true }));
+    setNetPopupTableNames(prev => ({ ...prev, [variableName]: variableName }));
+  }, []);
+
+  const handleToggleNetRangeEnabled = useCallback((variableName: string, index: number) => {
+    setNetSummaryTableRanges(prev => {
+      const ranges = prev[variableName];
+      if (!ranges || !ranges[index]) return prev;
+      const updatedRanges = [...ranges];
+      const target = updatedRanges[index];
+      updatedRanges[index] = { ...target, enabled: !target.enabled };
+      return { ...prev, [variableName]: updatedRanges };
+    });
+  }, []);
+
+  const handleToggleNetCodeEnabled = useCallback((variableName: string, index: number) => {
+    setNetSummaryTableSelectedCodes(prev => {
+      const codes = prev[variableName];
+      if (!codes || !codes[index]) return prev;
+      const updatedCodes = [...codes];
+      const target = updatedCodes[index];
+      updatedCodes[index] = { ...target, enabled: !target.enabled };
+      return { ...prev, [variableName]: updatedCodes };
+    });
+  }, []);
+
+  const handleToggleSummaryPreference = useCallback((variableName: string, key: string) => {
+    if (!variableName || !key) return;
+    setSummaryPreferences(prev => {
+      const prefsForVariable = prev[variableName] || {};
+      const updatedPrefs = {
+        ...prefsForVariable,
+        [key]: !prefsForVariable[key],
+      };
+      return {
+        ...prev,
+        [variableName]: updatedPrefs,
+      };
+    });
+  }, []);
   const [openSummaryDropdown, setOpenSummaryDropdown] = useState<Record<string, boolean>>({});
   const [editingTableName, setEditingTableName] = useState<Record<string, boolean>>({});
   const [tableNameInputs, setTableNameInputs] = useState<Record<string, string>>({});
@@ -293,7 +444,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
     if (selectedQuestionnaire?.id && variables.length > 0) {
       const key = `netSummaryTableRanges_${selectedQuestionnaire.id}`;
       const stored = localStorage.getItem(key);
-      let existingNets: Record<string, Array<{ name: string; low: string; high: string }>> = {};
+      let existingNets: Record<string, NetRange[]> = {};
       
       if (stored) {
         try {
@@ -352,12 +503,22 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
     }
   }, [selectedQuestionnaire?.id, variables, questionnaireQuestions]);
 
+  useEffect(() => {
+    if (!selectedQuestionnaire?.id) return;
+    const key = `netSummaryTableRanges_${selectedQuestionnaire.id}`;
+    if (Object.keys(netSummaryTableRanges).length > 0) {
+      localStorage.setItem(key, JSON.stringify(netSummaryTableRanges));
+    } else {
+      localStorage.removeItem(key);
+    }
+  }, [netSummaryTableRanges, selectedQuestionnaire?.id]);
+
   // Auto-initialize scale nets (T2B, M3B, B2B) for single select questions with Scale (7pt) tag
   useEffect(() => {
     if (selectedQuestionnaire?.id && variables.length > 0) {
       const key = `netSummaryTableSelectedCodes_${selectedQuestionnaire.id}`;
       const stored = localStorage.getItem(key);
-      let existingCodes: Record<string, Array<{ name: string; codes: string[] }>> = {};
+      let existingCodes: Record<string, NetCodeSelection[]> = {};
       
       if (stored) {
         try {
@@ -432,6 +593,16 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
       }
     }
   }, [selectedQuestionnaire?.id, variables]);
+
+  useEffect(() => {
+    if (!selectedQuestionnaire?.id) return;
+    const key = `netSummaryTableSelectedCodes_${selectedQuestionnaire.id}`;
+    if (Object.keys(netSummaryTableSelectedCodes).length > 0) {
+      localStorage.setItem(key, JSON.stringify(netSummaryTableSelectedCodes));
+    } else {
+      localStorage.removeItem(key);
+    }
+  }, [netSummaryTableSelectedCodes, selectedQuestionnaire?.id]);
 
   const [dataFile, setDataFile] = useState<File | null>(null);
   const [uploadingFile, setUploadingFile] = useState(false);
@@ -7968,13 +8139,13 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
 
           // Add stats rows if enabled
           const statsKey = variable.name;
-          const statsSelections = variableStatsSelections[statsKey];
+          const statsSelections = getStatsSelectionsForVariable(statsKey);
           const isNumeric = variable.type?.toLowerCase().includes('numeric');
           const isSingleSelect = variable.type?.toLowerCase().includes('single select') &&
                                  !variable.type?.toLowerCase().includes('grid');
 
           // Show stats for numeric questions OR single select questions (which can have numeric codes)
-          if ((isNumeric || isSingleSelect) && statsSelections && Object.values(statsSelections).some(v => v)) {
+          if ((isNumeric || isSingleSelect) && Object.values(statsSelections).some(v => v)) {
             // Define stats to show (exclude sum for single select)
             const statsToShow = [
               { key: 'sum', label: 'Sum' },
@@ -11776,954 +11947,56 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                   <table key={specsResetKey} className="min-w-full text-sm border-collapse">
                     <thead className="sticky top-0 z-10">
                       <tr className="border-b-2 border-gray-300">
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-gray-300 whitespace-nowrap w-auto" style={{ backgroundColor: BRAND_ORANGE }}>Q#</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-gray-300" style={{ backgroundColor: BRAND_ORANGE }}>Q Type</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-gray-300 whitespace-nowrap" style={{ backgroundColor: BRAND_ORANGE }}>Q#</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-gray-300" style={{ backgroundColor: BRAND_ORANGE }}>Type</th>
                         <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-gray-300" style={{ backgroundColor: BRAND_ORANGE }}>Tags</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-gray-300 whitespace-nowrap" style={{ maxWidth: '200px', backgroundColor: BRAND_ORANGE }}>Tables Included</th>
-                        <th className="px-2 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-300 whitespace-nowrap bg-gray-50">SUMMARY</th>
-                        <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-300 bg-gray-50" style={{ minWidth: '110px' }}>Nets</th>
-                        <th className="px-2 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-300 bg-gray-50" style={{ width: '80px' }}>SORT</th>
-                        <th className="px-2 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-300 bg-gray-50" style={{ width: '80px' }}>Sum</th>
-                        <th className="px-2 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-300 bg-gray-50" style={{ width: '80px' }}>Mean</th>
-                        <th className="px-2 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-300 bg-gray-50" style={{ width: '80px' }}>Median</th>
-                        <th className="px-2 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-300 bg-gray-50" style={{ width: '80px' }}>Mode</th>
-                        <th className="px-2 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-300 bg-gray-50" style={{ width: '80px' }}>Std Dev</th>
-                        <th className="px-2 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-300 bg-gray-50" style={{ width: '80px' }}>Max</th>
-                        <th className="px-2 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-300 bg-gray-50" style={{ width: '80px' }}>Min</th>
-                        <th className="px-2 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider bg-gray-50" style={{ width: '80px' }}>Debug</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider" style={{ backgroundColor: BRAND_ORANGE }}>Question Text</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {(() => {
-                        // Flatten variables into table rows - each table gets its own row
-                        const tableRows: Array<{
-                          variable: Variable;
-                          tableName: string;
-                          isFirstTable: boolean;
-                          variableIndex: number;
-                          isMainQuestionRow?: boolean;
-                        }> = [];
-                        
-                        variables.forEach((variable, varIdx) => {
-                          // Determine all tables that will be generated for this variable
-                          const getAllTablesForVariable = (v: Variable): string[] => {
-                            const tables: string[] = [];
-                            const baseName = v.name;
-                            const isSingleSelectGrid = v.type?.toLowerCase().includes('single select grid') && !(v as any).isSummaryTable;
-                            const isNumericGrid = v.type?.toLowerCase().includes('numeric grid');
-                            const isMultiSelectGrid = v.type?.toLowerCase().includes('multi-select grid');
-                            const hasScaleTag = (v as any).tags && Array.isArray((v as any).tags) && (v as any).tags.includes('Scale');
-                            const hasPercentTag = (v as any).tags && Array.isArray((v as any).tags) && (v as any).tags.includes('%');
-                            const hasNumberTag = (v as any).tags && Array.isArray((v as any).tags) && (v as any).tags.includes('Number');
-                            const isNumericGridWithPercentOnly = isNumericGrid && hasPercentTag && !hasNumberTag && v.statements;
-                            const isScaleSummary = (v as any).isScaleSummary;
-                            
-                            // Skip scale summary variables themselves (they're generated from main variables)
-                            if (isScaleSummary) {
-                              return tables;
-                            }
-                            
-                            // For single select grids, the main table is skipped and individual statement tables are created instead
-                            // For numeric grids, skip the main table and only show summary tables
-                            // For multi-select grids, skip the main table and show individual column tables
-                            if (!isSingleSelectGrid && !isNumericGrid && !isMultiSelectGrid) {
-                              // Main table (always included unless it's a summary table that generates others)
-                              if (!(v as any).isSummaryTable || !v.statements) {
-                                tables.push(baseName);
-                              }
-                            }
-                            
-                            // For single select grids, add individual statement tables
-                            // Note: T2B, M3B, B2B for Scale grids are handled as Nets in the summary row, not as separate tables
-                            if (isSingleSelectGrid && v.statements) {
-                              Object.keys(v.statements).forEach(stmtCode => {
-                                tables.push(`${baseName}_${stmtCode}`);
-                              });
-                            }
-                            
-                            // For multi-select grids, add a table for each column (code)
-                            if (isMultiSelectGrid && v.codes) {
-                              Object.keys(v.codes).forEach(colCode => {
-                                const colLabel = v.codes[colCode] || colCode;
-                                tables.push(`${baseName}_${colCode} (${colLabel})`);
-                              });
-                            }
-                            
-                            // Check if this is a single-column numeric grid
-                            let isSingleColumnGrid = false;
-                            if (isNumericGrid) {
-                              const baseNumber = baseName.replace(/^Q/, '');
-                              const question = questionnaireQuestions.find(q => {
-                                const qNum = q.number || q.id;
-                                return qNum === baseNumber ||
-                                       qNum === baseNumber.replace(/^Q/, '') ||
-                                       String(qNum) === String(baseNumber);
-                              });
-                              if (question && question.responseOptions && Array.isArray(question.responseOptions)) {
-                                isSingleColumnGrid = question.responseOptions.length === 1;
-                              }
-                            }
-
-                            // For numeric grids with % tag only, add separate tables for each response option
-                            // BUT for single-column grids, we want to show summary table AND individual frequency tables
-                            if (isNumericGridWithPercentOnly && v.statements && !isSingleColumnGrid) {
-                              // Find the question to get response options
-                              const baseNumber = baseName.replace(/^Q/, '');
-                              const question = questionnaireQuestions.find(q => {
-                                const qNum = q.number || q.id;
-                                return qNum === baseNumber || 
-                                       qNum === baseNumber.replace(/^Q/, '') ||
-                                       String(qNum) === String(baseNumber);
-                              });
-                              
-                              if (question && question.responseOptions && Array.isArray(question.responseOptions)) {
-                                question.responseOptions.forEach((respOpt, respIdx) => {
-                                  const respIndex = respIdx + 1;
-                                  const respText = typeof respOpt === 'string' ? respOpt : (respOpt.text || `Response ${respIndex}`);
-                                  tables.push(`${baseName}_${respIndex} (${respText})`);
-                                });
-                              }
-                            }
-                            
-                            // For numeric grids (not just % tag only), add a row for each column
-                            // For single-column grids, also add individual frequency tables even with % tag
-                            if (isNumericGrid && (!isNumericGridWithPercentOnly || isSingleColumnGrid)) {
-                              // Find the question to get response options (columns)
-                              const baseNumber = baseName.replace(/^Q/, '');
-                              const question = questionnaireQuestions.find(q => {
-                                const qNum = q.number || q.id;
-                                return qNum === baseNumber || 
-                                       qNum === baseNumber.replace(/^Q/, '') ||
-                                       String(qNum) === String(baseNumber);
-                              });
-                              
-                              // Add a row for each column (even if there's only 1)
-                              // For each column, add a Summary table and then frequency distribution tables for each row (statement)
-                              if (question && question.responseOptions && Array.isArray(question.responseOptions) && question.responseOptions.length > 0) {
-                                question.responseOptions.forEach((respOpt, respIdx) => {
-                                  const respIndex = respIdx + 1;
-                                  const respText = typeof respOpt === 'string' ? respOpt : (respOpt.text || `Column ${respIndex}`);
-                                  const columnCode = `c${respIndex}`;
-                                  
-                                  // Add Summary table for mean
-                                  tables.push(`${baseName}_${columnCode}_Summary (${respText})`);
-                                  
-                                  // Add frequency distribution table for each statement (row) in this column
-                                  if (variable.statements && Object.keys(variable.statements).length > 0) {
-                                    Object.keys(variable.statements).forEach((stmtCode) => {
-                                      // Normalize statement code (add "r" prefix if needed)
-                                      let normalizedStmtCode = stmtCode;
-                                      if (!/^r\d+/i.test(stmtCode) && /^\d+$/.test(stmtCode)) {
-                                        normalizedStmtCode = `r${stmtCode}`;
-                                      }
-                                      const stmtText = variable.statements[stmtCode];
-                                      // Add table name like S4r1c1 (Row 1 text)
-                                      tables.push(`${baseName}${normalizedStmtCode}${columnCode} (${stmtText})`);
-                                    });
-                                  }
-                                });
-                              }
-                            }
-                            
-                            return tables;
-                          };
-                          
-                          const allTables = getAllTablesForVariable(variable);
-                          const isSingleSelectGrid = variable.type?.toLowerCase().includes('single select grid') && !(variable as any).isSummaryTable;
-                          
-                          if (allTables.length === 0) {
-                            // If no tables, still create one row to show the variable
-                            tableRows.push({
-                              variable,
-                              tableName: '',
-                              isFirstTable: true,
-                              variableIndex: varIdx,
-                              isMainQuestionRow: false
-                            });
-                          } else {
-                            // For single select grids, add a main question row first (before individual statement tables)
-                            // This row shows the summary tables (Mean and any Nets)
-                            if (isSingleSelectGrid) {
-                              // Determine what summary tables will be shown
-                              const summaryTables: string[] = [];
-
-                              // Check if Mean is selected (default)
-                              const statsKey = variable.name;
-                              const statsSelections = variableStatsSelections[statsKey];
-                              const hasMean = statsSelections?.mean !== false; // Default to true
-
-                              if (hasMean) {
-                                summaryTables.push(`${variable.name}_Mean Summary`);
-                              }
-
-                              // Check for custom Net summary tables (from netSummaryTableSelectedCodes)
-                              const netCodes = netSummaryTableSelectedCodes[variable.name];
-                              if (netCodes && netCodes.length > 0) {
-                                netCodes.forEach((net, idx) => {
-                                  if (net.codes && net.codes.length > 0) {
-                                    const netName = net.name || `Net ${idx + 1}`;
-                                    summaryTables.push(`${variable.name}_${netName}`);
-                                  }
-                                });
-                              }
-
-                              // Add the main summary row
-                              tableRows.push({
-                                variable,
-                                tableName: summaryTables.join(', ') || `${variable.name} (Summary)`, // Show all summary tables
-                                isFirstTable: true,
-                                variableIndex: varIdx,
-                                isMainQuestionRow: true
-                              });
-                            }
-
-                            allTables.forEach((tableName, tableIdx) => {
-                              tableRows.push({
-                                variable,
-                                tableName,
-                                isFirstTable: !isSingleSelectGrid && tableIdx === 0, // Only first table is first if not single select grid
-                                variableIndex: varIdx,
-                                isMainQuestionRow: false
-                              });
-                            });
-                          }
-                        });
-                        
-                        return tableRows.map((row, rowIdx) => {
-                          const { variable, tableName, isFirstTable, variableIndex, isMainQuestionRow = false } = row;
-                          
-                          // Get question type
-                          const qType = variable.type || 'Unknown';
-                          
-                          // Get tags
-                          const tags = (variable as any).tags || [];
-                          
-                          // Get all tables for this variable (for selection state)
-                          const getAllTablesForVariable = (v: Variable): string[] => {
-                            const tables: string[] = [];
-                            const baseName = v.name;
-                            const isSingleSelectGrid = v.type?.toLowerCase().includes('single select grid') && !(v as any).isSummaryTable;
-                            const isNumericGrid = v.type?.toLowerCase().includes('numeric grid');
-                            const isMultiSelectGrid = v.type?.toLowerCase().includes('multi-select grid');
-                            const hasScaleTag = (v as any).tags && Array.isArray((v as any).tags) && (v as any).tags.includes('Scale');
-                            const hasPercentTag = (v as any).tags && Array.isArray((v as any).tags) && (v as any).tags.includes('%');
-                            const hasNumberTag = (v as any).tags && Array.isArray((v as any).tags) && (v as any).tags.includes('Number');
-                            const isNumericGridWithPercentOnly = isNumericGrid && hasPercentTag && !hasNumberTag && v.statements;
-                            const isScaleSummary = (v as any).isScaleSummary;
-                            
-                            if (isScaleSummary) {
-                              return tables;
-                            }
-                            
-                            // For single select grids, the main table is skipped and individual statement tables are created instead
-                            // For numeric grids, skip the main table and only show summary tables
-                            // For multi-select grids, skip the main table and show individual column tables
-                            if (!isSingleSelectGrid && !isNumericGrid && !isMultiSelectGrid) {
-                              if (!(v as any).isSummaryTable || !v.statements) {
-                                tables.push(baseName);
-                              }
-                            }
-                            
-                            // For single select grids, add individual statement tables
-                            // Note: T2B, M3B, B2B for Scale grids are handled as Nets in the summary row, not as separate tables
-                            if (isSingleSelectGrid && v.statements) {
-                              Object.keys(v.statements).forEach(stmtCode => {
-                                tables.push(`${baseName}_${stmtCode}`);
-                              });
-                            }
-                            
-                            // For multi-select grids, add a table for each column (code)
-                            if (isMultiSelectGrid && v.codes) {
-                              Object.keys(v.codes).forEach(colCode => {
-                                const colLabel = v.codes[colCode] || colCode;
-                                tables.push(`${baseName}_${colCode} (${colLabel})`);
-                              });
-                            }
-                            
-                            // For numeric grids with Number or % tags, add summary tables and frequency distribution tables
-                            if (isNumericGrid && (hasNumberTag || hasPercentTag) && v.statements) {
-                              const baseNumber = baseName.replace(/^Q/, '');
-                              const question = questionnaireQuestions.find(q => {
-                                const qNum = q.number || q.id;
-                                return qNum === baseNumber ||
-                                       qNum === baseNumber.replace(/^Q/, '') ||
-                                       String(qNum) === String(baseNumber);
-                              });
-
-                              // For each column, add a Summary table and then frequency distribution tables for each row (statement)
-                              if (question && question.responseOptions && Array.isArray(question.responseOptions) && question.responseOptions.length > 0) {
-                                question.responseOptions.forEach((respOpt, respIdx) => {
-                                  const respIndex = respIdx + 1;
-                                  const respText = typeof respOpt === 'string' ? respOpt : (respOpt.text || `Column ${respIndex}`);
-                                  const columnCode = `c${respIndex}`;
-
-                                  // Add Summary table for mean
-                                  tables.push(`${baseName}_${columnCode}_Summary (${respText})`);
-
-                                  // Add frequency distribution table for each statement (row) in this column
-                                  if (variable.statements && Object.keys(variable.statements).length > 0) {
-                                    Object.keys(variable.statements).forEach((stmtCode) => {
-                                      // Normalize statement code (add "r" prefix if needed)
-                                      let normalizedStmtCode = stmtCode;
-                                      if (!/^r\d+/i.test(stmtCode) && /^\d+$/.test(stmtCode)) {
-                                        normalizedStmtCode = `r${stmtCode}`;
-                                      }
-
-                                      const statementText = variable.statements![stmtCode];
-                                      tables.push(`${baseName}${normalizedStmtCode}${columnCode} (${statementText})`);
-                                    });
-                                  }
-                                });
-                              }
-                            }
-
-                            return tables;
-                          };
-                          
-                          const allTables = getAllTablesForVariable(variable);
-                          // Default to excluding open end tables
-                          const isOpenEnd = variable.type?.toLowerCase().includes('open end');
-                          // For numeric grids, include summary tables by default (especially when sum/mean are selected)
-                          const isNumericGridSummaryTable = variable.type?.toLowerCase().includes('numeric grid') &&
-                                                            tableName &&
-                                                            tableName.match(/^[A-Z0-9]+_c\d+_Summary\s*\(.+\)$/);
-
-                          // For numeric grids, only select SUMMARY tables by default, not individual row tables
-                          // For multi-select grids, include all tables by default
-                          let defaultTables: Set<string>;
-                          if (isOpenEnd) {
-                            defaultTables = new Set<string>();
-                          } else if (variable.type?.toLowerCase().includes('numeric grid')) {
-                            // Only include Summary tables (pattern: S4_c1_Summary (text))
-                            // Exclude individual row tables (pattern: S4r1c1 (text))
-                            defaultTables = new Set(allTables.filter(t => t.includes('_Summary (')));
-                          } else {
-                            // For all other question types (including multi-select grids), include all tables by default
-                            defaultTables = new Set(allTables);
-                          }
-
-                          const selectedTables = variableTableSelections[variable.name] || defaultTables;
-                          const isSelected = tableName ? selectedTables.has(tableName) : false;
-                          
-                          // Determine which stats are available for this variable
-                          const isSingleSelect = variable.type?.toLowerCase().includes('single select') &&
-                                                !variable.type?.toLowerCase().includes('grid');
-                          const isSingleSelectGrid = variable.type?.toLowerCase().includes('single select grid') && !(variable as any).isSummaryTable;
-                          const isNumericGrid = variable.type?.toLowerCase().includes('numeric grid');
-                          const isMultiSelectGrid = variable.type?.toLowerCase().includes('multi-select grid');
-                          const hasScaleTag = tags.includes('Scale');
-                          const isScaleSummary = (variable as any).isScaleSummary;
-
-                          // Determine available stats
-                          // Single select questions can have nets based on their scale tag
-                          const scaleTag = tags.find(tag => tag.startsWith('Scale ('));
-                          const scaleType = scaleTag ? scaleTag.match(/Scale \((\d+)pt\)/)?.[1] : null;
-
-                          // Allow custom nets for all single selects, single select grids, and regular numerics
-                          const isNumericQuestion = variable.type?.toLowerCase().includes('numeric') && !variable.type?.toLowerCase().includes('grid');
-                          const hasCustomNets = (isSingleSelect || isSingleSelectGrid || isNumericQuestion) && !isScaleSummary;
-                          const hasNets = hasCustomNets;
-                          const hasSum = (isSingleSelect || isSingleSelectGrid || isNumericGrid || isNumericQuestion) && !isScaleSummary;
-                          const hasMean = (isSingleSelect || isSingleSelectGrid || isNumericGrid || isNumericQuestion) && !isScaleSummary;
-                          const hasNumericStats = (isNumericGrid || isNumericQuestion) && !isScaleSummary;
-                          
-                          // Check if this table is a summary table
-                          // Also show checkmark for all grid questions (they have summary tables)
-                          const isGridQuestion = isNumericGrid || isSingleSelectGrid || isMultiSelectGrid;
-                          const isSummaryTable = isMainQuestionRow || (tableName ? (
-                            tableName.endsWith('_T2B') ||
-                            tableName.endsWith('_M3B') ||
-                            tableName.endsWith('_B2B') ||
-                            tableName.includes('_Mean Summary') ||
-                            tableName.includes('Summary') && (tableName.includes(variable.name)) || // Any table with Summary and the variable name
-                            (isNumericGrid && tableName.match(/^[A-Z0-9]+_\d+\s*\(.+\)$/)) || // Pattern: S4_1 (text) for numeric grid summary tables
-                            (isNumericGrid && tableName.match(/^[A-Z0-9]+_c\d+_Summary\s*\(.+\)$/)) // Pattern: S4_c1_Summary (text) for numeric grid column summary tables
-                          ) : false);
-                          
-                          // Get or initialize stats selections for this variable
-                          // Create a unique key for this row - use tableName for individual row tables, otherwise use variable.name
-                          // This ensures each row has independent checkbox states
-                          // EXCEPTION: For main question rows, always use variable.name as the key
-                          const statsKey = isMainQuestionRow ? variable.name : (tableName || variable.name);
-
-                          const getStatsSelections = () => {
-                          // Check if this is a frequency distribution table for numeric grid columns (not summary)
-                          // Pattern: S4r1c1 (text) - individual row tables for numeric grids
-                          const isNumericGridFreqTable = isNumericGrid && tableName &&
-                            tableName.match(/^[A-Z0-9]+r\d+c\d+\s*\(.+\)$/) &&
-                            !tableName.includes('_Summary');
-
-                            // Check if this is a single-column numeric grid
-                            let isSingleColumnGrid = false;
-                            if (isNumericGrid) {
-                              const baseNumber = variable.name.replace(/^Q/, '');
-                              const question = questionnaireQuestions.find(q => {
-                                const qNum = q.number || q.id;
-                                return qNum === baseNumber ||
-                                       qNum === baseNumber.replace(/^Q/, '') ||
-                                       String(qNum) === String(baseNumber);
-                              });
-                              if (question && question.responseOptions && Array.isArray(question.responseOptions)) {
-                                isSingleColumnGrid = question.responseOptions.length === 1;
-                              }
-                            }
-
-                            if (!variableStatsSelections[statsKey]) {
-                              // Default summaryTable to true for grid questions (including numeric grid summary tables), but false for single select grids
-                              const isGridQuestion = isNumericGrid || isSingleSelectGrid || isMultiSelectGrid;
-                              const isNumericGridSummaryTable = isNumericGrid && isSummaryTable && tableName && tableName.match(/^[A-Z0-9]+_c\d+_Summary\s*\(.+\)$/);
-                              const defaultSummaryTable = isGridQuestion && !isSingleSelectGrid;
-
-                              // Check if this is a single select question with Scale (7pt) tag - auto-check T2B, M3B, B2B
-                              const scaleTag = tags.find((tag: string) => tag.startsWith('Scale ('));
-                              const scaleType = scaleTag ? scaleTag.match(/Scale \((\d+)pt\)/)?.[1] : null;
-                              const is7PointScale = isSingleSelect && !isScaleSummary && scaleType === '7';
-
-                              // Auto-select stats based on tags for numeric grids
-                              const hasNumberTag = tags.includes('Number');
-                              const hasPercentTag = tags.includes('%');
-
-                              // For numeric grids with summary tables:
-                              // - Number tag: select sum and mean
-                              // - % tag: select only mean
-                              // For single-column grids (both summary tables AND individual frequency tables):
-                              // - % tag: select mean for both summary table AND individual frequency tables
-                              // - Number tag: select mean AND sum for both summary table AND individual frequency tables
-                              let defaultSum = isNumericGridSummaryTable && hasNumberTag;
-                              let defaultMean = (isNumericGridSummaryTable && (hasNumberTag || hasPercentTag)) || (isSingleSelectGrid && isMainQuestionRow);
-                              
-                              if (isSingleColumnGrid && (isNumericGridSummaryTable || isNumericGridFreqTable)) {
-                                if (hasPercentTag) {
-                                  // For single-column grids with % tag: select mean for both summary and individual tables
-                                  defaultMean = true;
-                                  defaultSum = false;
-                                } else if (hasNumberTag) {
-                                  // For single-column grids with Number tag: select mean AND sum for both summary and individual tables
-                                  defaultMean = true;
-                                  defaultSum = true;
-                                }
-                              }
-
-                              // Auto-select all stats for regular numeric questions (non-grid)
-                              const autoSelectAllStats = isNumericQuestion;
-
-                              return {
-                                t2b: false,
-                                m3b: false,
-                                mb: false,
-                                b2b: false,
-                                b3b: false,
-                                t3b: false,
-                                rated9_10: false,
-                                rated7_8: false,
-                                rated0_6: false,
-                                sum: defaultSum || autoSelectAllStats,
-                                mean: defaultMean || autoSelectAllStats,
-                                median: autoSelectAllStats,
-                                mode: autoSelectAllStats,
-                                stdDev: autoSelectAllStats,
-                                max: autoSelectAllStats,
-                                min: autoSelectAllStats,
-                                summaryTable: defaultSummaryTable
-                              };
-                            }
-                            // Ensure summaryTable exists in existing selections (for backward compatibility)
-                            const existing = variableStatsSelections[statsKey];
-                            if (existing.summaryTable === undefined) {
-                              const isGridQuestion = isNumericGrid || isSingleSelectGrid || isMultiSelectGrid;
-                              const isNumericGridSummaryTable = isNumericGrid && isSummaryTable && tableName && tableName.match(/^[A-Z0-9]+_c\d+_Summary\s*\(.+\)$/);
-                              const defaultSummaryTable = isGridQuestion && !isSingleSelectGrid;
-
-                              // Check if this is a single select question with Scale (7pt) tag - auto-check T2B, M3B, B2B
-                              const scaleTag = tags.find((tag: string) => tag.startsWith('Scale ('));
-                              const scaleType = scaleTag ? scaleTag.match(/Scale \((\d+)pt\)/)?.[1] : null;
-                              const is7PointScale = isSingleSelect && !isScaleSummary && scaleType === '7';
-
-                              // Auto-select stats based on tags for numeric grids
-                              const hasNumberTag = tags.includes('Number');
-                              const hasPercentTag = tags.includes('%');
-
-                              // For numeric grids with summary tables:
-                              // - Number tag: select sum and mean
-                              // - % tag: select only mean
-                              // For single-column grids (both summary tables AND individual frequency tables):
-                              // - % tag: select mean for both summary table AND individual frequency tables
-                              // - Number tag: select mean AND sum for both summary table AND individual frequency tables
-                              let defaultSum = isNumericGridSummaryTable && hasNumberTag;
-                              let defaultMean = (isNumericGridSummaryTable && (hasNumberTag || hasPercentTag)) || (isSingleSelectGrid && isMainQuestionRow);
-                              
-                              if (isSingleColumnGrid && (isNumericGridSummaryTable || isNumericGridFreqTable)) {
-                                if (hasPercentTag) {
-                                  // For single-column grids with % tag: select mean for both summary and individual tables
-                                  defaultMean = true;
-                                  defaultSum = false;
-                                } else if (hasNumberTag) {
-                                  // For single-column grids with Number tag: select mean AND sum for both summary and individual tables
-                                  defaultMean = true;
-                                  defaultSum = true;
-                                }
-                              }
-
-                              // Auto-select all stats for regular numeric questions (non-grid)
-                              const autoSelectAllStats = isNumericQuestion;
-
-                              return {
-                                ...existing,
-                                t2b: existing.t2b === undefined ? false : existing.t2b,
-                                m3b: existing.m3b === undefined ? false : existing.m3b,
-                                b2b: existing.b2b === undefined ? false : existing.b2b,
-                                sum: existing.sum === undefined ? (defaultSum || autoSelectAllStats) : existing.sum,
-                                mean: existing.mean === undefined ? (defaultMean || autoSelectAllStats) : existing.mean,
-                                median: existing.median === undefined ? autoSelectAllStats : existing.median,
-                                mode: existing.mode === undefined ? autoSelectAllStats : existing.mode,
-                                stdDev: existing.stdDev === undefined ? autoSelectAllStats : existing.stdDev,
-                                max: existing.max === undefined ? autoSelectAllStats : existing.max,
-                                min: existing.min === undefined ? autoSelectAllStats : existing.min,
-                                summaryTable: defaultSummaryTable
-                              };
-                            }
-                            return existing;
-                          };
-                          const statsSelections = getStatsSelections();
-
-                          const toggleStat = (statType: 't2b' | 'm3b' | 'mb' | 'b2b' | 'b3b' | 't3b' | 'rated9_10' | 'rated7_8' | 'rated0_6' | 'sum' | 'mean' | 'median' | 'mode' | 'stdDev' | 'max' | 'min' | 'summaryTable') => {
-                            setVariableStatsSelections(prev => {
-                              const current = prev[statsKey] || getStatsSelections();
-                              return {
-                                ...prev,
-                                [statsKey]: {
-                                  ...current,
-                                  [statType]: !current[statType]
-                                }
-                              };
-                            });
-                          };
-                          
-                          // Check if this is a frequency distribution table for numeric grid columns (not summary)
-                          const isNumericGridFrequencyTable = isNumericGrid && tableName && 
-                            tableName.match(/^[A-Z0-9]+r\d+c\d+\s*\(.+\)$/) && 
-                            !tableName.includes('_Summary');
-                          
-                          // Check if this is an individual statement table for single select grids (e.g., S13_r1)
-                          // These should NOT show summary table checkbox
-                          const isIndividualStatementTable = isSingleSelectGrid && tableName && tableName !== variable.name && 
-                            (tableName.match(/^[A-Z0-9]+_r\d+$/i) || tableName.match(/^[A-Z0-9]+_\d+$/i));
-                          
-                          // Show summary table checkbox for:
-                          // 1. Summary tables (T2B, M3B, B2B, Mean Summary, numeric grid _Summary)
-                          // 2. Main question row for single select grids
-                          // 3. First table for numeric grids only (not multi-select grids)
-                          // NOT for individual statement tables
-                          // NOT for multi-select grids (they don't have summary tables)
-                          // NOT for numeric grid frequency distribution tables (they don't have summary tables)
-                          const shouldShowSummaryTableCheck = (isSummaryTable || isMainQuestionRow || (isFirstTable && isNumericGrid && !isNumericGridFrequencyTable)) && !isIndividualStatementTable && !isMultiSelectGrid && !isNumericGridFrequencyTable;
-                          
-                          // Determine summary table type text
-                          const getSummaryTableTypeText = (): string => {
-                            if (isSummaryTable && tableName) {
-                              if (tableName.endsWith('_T2B')) return 'T2B';
-                              if (tableName.endsWith('_M3B')) return 'M3B';
-                              if (tableName.endsWith('_B2B')) return 'B2B';
-                              if (tableName.includes('_Mean Summary')) {
-                                return 'Mean';
-                              }
-                              // Check for numeric grid summary table pattern: S4_1 (text) or S4_c1_Summary (text)
-                              if (isNumericGrid && (tableName.match(/^[A-Z0-9]+_\d+\s*\(.+\)$/) || tableName.match(/^[A-Z0-9]+_c\d+_Summary\s*\(.+\)$/))) {
-                                return 'Mean, Net';
-                              }
-                            }
-                            
-                            // For main question row of single select grids, show available summary tables
-                            if (isMainQuestionRow && isSingleSelectGrid) {
-                              return 'Mean, Net';
-                            }
-                            
-                            // For grid questions, determine what summary tables they have
-                            if (isFirstTable && isGridQuestion && !isMainQuestionRow) {
-                              const hasNumberTag = tags.includes('Number');
-                              const hasPercentTag = tags.includes('%');
-                              
-                              if (isNumericGrid) {
-                                if (hasNumberTag && hasPercentTag) {
-                                  return 'Sum & Mean';
-                                } else if (hasNumberTag) {
-                                  return 'Sum & Mean';
-                                } else if (hasPercentTag) {
-                                  return 'Mean';
-                                } else {
-                                  return 'Summary';
-                                }
-                              } else if (isSingleSelectGrid && hasScaleTag) {
-                                return 'T2B, M3B, B2B';
-                              } else if (isSingleSelectGrid) {
-                                return 'Summary';
-                              } else if (isMultiSelectGrid) {
-                                return 'Summary';
-                              }
-                            }
-                            
-                            return '';
-                          };
-                          const summaryTableTypeText = getSummaryTableTypeText();
-                          
-                          return (
-                            <tr key={`${variableIndex}-${rowIdx}`} className="hover:bg-gray-50 border-b border-gray-200">
-                            <td className="px-4 py-3 text-xs text-gray-900 border-r border-gray-200 font-medium whitespace-nowrap w-auto">
-                              {isFirstTable ? variable.name : ''}
+                      {variables.filter(variable => !(variable as any).isScaleSummary).map(variable => {
+                        const tags = (variable as any).tags || [];
+                        const questionText = variable.description || (variable as any).label || variable.name;
+                        return (
+                          <tr
+                            key={variable.name}
+                            className="hover:bg-gray-50 cursor-pointer transition-colors"
+                            onClick={() => {
+                              setConfigPopupVariable(variable);
+                              setShowConfigPopup(true);
+                            }}
+                          >
+                            <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-100 font-medium whitespace-nowrap">
+                              {variable.name}
                             </td>
-                            <td className="px-4 py-3 text-xs text-gray-700 border-r border-gray-200">
-                              {isFirstTable ? qType : ''}
+                            <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-100 whitespace-nowrap">
+                              {variable.type || 'Unknown'}
                             </td>
-                            <td className="px-4 py-3 text-xs text-gray-700 border-r border-gray-200">
-                              {isFirstTable ? (
-                                tags.length > 0 ? (
-                                  <div className="flex flex-wrap gap-1">
-                                    {tags.filter((tag: string) => tag.toLowerCase() !== 'terminate' && tag.toLowerCase() !== 'specify').map((tag: string, tagIdx: number) => (
-                                      <span key={tagIdx} className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
-                                        {tag}
-                                      </span>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <span className="text-gray-400">-</span>
-                                )
-                              ) : ''}
-                            </td>
-                            <td className="px-4 py-3 text-xs text-gray-700 border-r border-gray-200 whitespace-nowrap" style={{ maxWidth: '200px' }}>
-                              {tableName ? (
-                                <div className="flex items-center gap-2">
-                                  {isMainQuestionRow && isSingleSelectGrid ? (
-                                    // For main question row of single select grids, checkbox is based on mean or net summary table selection
-                                    <>
-                                      <input
-                                        type="checkbox"
-                                        checked={(statsSelections.mean || statsSelections.summaryTable) || false}
-                                        onChange={() => {
-                                          // If neither is checked, check mean. If checked, uncheck both.
-                                          const hasAnyChecked = statsSelections.mean || statsSelections.summaryTable;
-                                          if (!hasAnyChecked) {
-                                            // Check mean by default
-                                            toggleStat('mean');
-                                          } else {
-                                            // Uncheck both mean and net summary table
-                                            setVariableStatsSelections(prev => {
-                                              const current = prev[statsKey] || getStatsSelections();
-                                              return {
-                                                ...prev,
-                                                [statsKey]: {
-                                                  ...current,
-                                                  mean: false,
-                                                  summaryTable: false
-                                                }
-                                              };
-                                            });
-                                          }
-                                        }}
-                                        className="w-3 h-3 border-gray-300 rounded text-orange-600 checked:bg-orange-600 checked:border-orange-600"
-                                        title="Include summary tables (Mean or Net Summary Table)"
-                                      />
-                                      <span className="text-gray-900 truncate">{tableName}</span>
-                                    </>
-                                  ) : (
-                                    // For other tables, each table has its own independent checkbox
-                                    <>
-                                      <input
-                                        type="checkbox"
-                                        checked={isSelected}
-                                        onChange={() => {
-                                          setVariableTableSelections(prev => {
-                                            const current = prev[variable.name] || defaultTables;
-                                            const newSet = new Set(current);
-                                            if (newSet.has(tableName)) {
-                                              newSet.delete(tableName);
-                                            } else {
-                                              newSet.add(tableName);
-                                            }
-                                            return {
-                                              ...prev,
-                                              [variable.name]: newSet
-                                            };
-                                          });
-                                        }}
-                                        className="w-3 h-3 border-gray-300 rounded text-orange-600 checked:bg-orange-600 checked:border-orange-600"
-                                        title={isSelected ? "Exclude this table" : "Include this table"}
-                                      />
-                                      <span className="text-gray-900 truncate">{tableName}</span>
-                                    </>
-                                  )}
-                                </div>
-                              ) : (
-                                <span className="text-gray-400">-</span>
-                              )}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200 text-center">
-                              {isSummaryTable ? (
-                                <CheckCircleIcon className="h-5 w-5 text-green-500 mx-auto" title="Summary Table" />
-                              ) : (
-                                <span className="text-gray-400">-</span>
-                              )}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200 text-center">
-                              {isNumericGridFrequencyTable || isSummaryTable ? (
-                                // For numeric grid frequency distribution tables or summary tables, show + Net link or net text with icons
-                                netSummaryTableRanges[variable.name] && netSummaryTableRanges[variable.name].length > 0 ? (
-                                  // Show net text with edit and remove icons when nets exist
-                                  <div className="flex items-center gap-1 justify-center">
-                                    <span className="text-xs text-gray-600">
-                                      Net ({netSummaryTableRanges[variable.name].filter(net => {
-                                        const low = parseFloat(net.low);
-                                        const high = parseFloat(net.high);
-                                        return !isNaN(low) && !isNaN(high) && low < high;
-                                      }).length})
+                            <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-100">
+                              {tags.length > 0 ? (
+                                <div className="flex flex-wrap gap-1">
+                                  {tags.filter((tag: string) => tag.toLowerCase() !== 'terminate' && tag.toLowerCase() !== 'specify').map((tag: string, idx: number) => (
+                                    <span key={`${variable.name}-tag-${idx}`} className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
+                                      {tag}
                                     </span>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        // Store tableName and open popup to edit
-                                        setNetPopupTableNames(prev => ({ ...prev, [variable.name]: tableName || variable.name }));
-                                        setShowNetPopup(prev => ({ ...prev, [variable.name]: true }));
-                                      }}
-                                      className="text-orange-600 hover:text-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 rounded p-0.5"
-                                      title="Edit nets"
-                                    >
-                                      <PencilIcon className="h-3 w-3" />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        // Remove all nets
-                                        setNetSummaryTableRanges(prev => {
-                                          const updated = { ...prev };
-                                          delete updated[variable.name];
-                                          return updated;
-                                        });
-                                      }}
-                                      className="text-red-600 hover:text-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 rounded p-0.5"
-                                      title="Remove nets"
-                                    >
-                                      <XMarkIcon className="h-3 w-3" />
-                                    </button>
-                                  </div>
-                                ) : (
-                                  // Show "+ Net" text button when no nets exist
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      // Just open the popup - don't add to main state yet
-                                      // The popup will initialize temp state with an empty net
-                                      // Only on Save will it be committed to main state
-                                      setNetPopupTableNames(prev => ({ ...prev, [variable.name]: tableName || variable.name }));
-                                      setShowNetPopup(prev => ({ ...prev, [variable.name]: true }));
-                                    }}
-                                    className="text-xs text-orange-600 hover:text-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 rounded"
-                                    title="Add net range"
-                                  >
-                                    + Net
-                                  </button>
-                                )
-                              ) : hasNets ? (
-                                <div className="flex flex-col gap-1 items-center">
-                                  {/* Custom nets only - no pre-made scale nets */}
-                                  {hasCustomNets && (
-                                    <div>
-                                      {(() => {
-                                        const hasExistingNets = isNumericQuestion 
-                                          ? !!(netSummaryTableRanges[variable.name] && netSummaryTableRanges[variable.name].length > 0)
-                                          : !!(netSummaryTableSelectedCodes[variable.name] && netSummaryTableSelectedCodes[variable.name].length > 0);
-                                        
-                                        return hasExistingNets ? (
-                                          <div className="flex items-center gap-1">
-                                            <span className="text-xs text-gray-600">
-                                              Net ({isNumericQuestion
-                                                ? netSummaryTableRanges[variable.name].filter(net => {
-                                                    const low = parseFloat(net.low);
-                                                    const high = parseFloat(net.high);
-                                                    return !isNaN(low) && !isNaN(high) && low < high;
-                                                  }).length
-                                                : netSummaryTableSelectedCodes[variable.name].filter(net => net.codes.length > 0).length})
-                                            </span>
-                                            <button
-                                              type="button"
-                                              onClick={() => {
-                                                setNetPopupTableNames(prev => ({ ...prev, [variable.name]: variable.name }));
-                                                setShowNetPopup(prev => ({ ...prev, [variable.name]: true }));
-                                              }}
-                                              className="text-orange-600 hover:text-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 rounded p-0.5"
-                                              title="Edit nets"
-                                            >
-                                              <PencilIcon className="h-3 w-3" />
-                                            </button>
-                                            <button
-                                              type="button"
-                                              onClick={() => {
-                                                if (isNumericQuestion) {
-                                                  setNetSummaryTableRanges(prev => {
-                                                    const updated = { ...prev };
-                                                    delete updated[variable.name];
-                                                    return updated;
-                                                  });
-                                                } else {
-                                                  setNetSummaryTableSelectedCodes(prev => {
-                                                    const updated = { ...prev };
-                                                    delete updated[variable.name];
-                                                    return updated;
-                                                  });
-                                                }
-                                              }}
-                                              className="text-red-600 hover:text-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 rounded p-0.5"
-                                              title="Remove nets"
-                                            >
-                                              <XMarkIcon className="h-3 w-3" />
-                                            </button>
-                                          </div>
-                                        ) : (
-                                          <div className="text-center">
-                                            <button
-                                              type="button"
-                                              onClick={() => {
-                                                // Just open the popup - initialization happens in the popup itself
-                                                setNetPopupTableNames(prev => ({ ...prev, [variable.name]: variable.name }));
-                                                setShowNetPopup(prev => ({ ...prev, [variable.name]: true }));
-                                              }}
-                                              className="text-xs text-orange-600 hover:text-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 rounded"
-                                              title={isNumericQuestion ? "Add net range" : "Add net codes"}
-                                            >
-                                              + Net
-                                            </button>
-                                          </div>
-                                        );
-                                      })()}
-                                    </div>
-                                  )}
+                                  ))}
                                 </div>
                               ) : (
-                                <div className="text-center">
-                                  <span className="text-gray-400">-</span>
-                                </div>
+                                <span className="text-gray-400">-</span>
                               )}
                             </td>
-                            <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200 text-center">
-                              {(() => {
-                                // Check if it's a multi-select or multi-select grid
-                                const isMultiSelect = variable.type?.toLowerCase().includes('multi-select') &&
-                                                      !variable.type?.toLowerCase().includes('grid');
-                                const isMultiSelectGridType = variable.type?.toLowerCase().includes('multi-select grid');
-
-                                // Default to sorted by frequency for multi-select and multi-select grid questions
-                                const defaultSortByFrequency = (isMultiSelect || isMultiSelectGridType);
-
-                                // Disable sorting for scale questions (check for any tag that starts with "Scale")
-                                const hasAnyScaleTag = tags.some((tag: string) => tag.startsWith('Scale'));
-                                const isScaleQuestion = hasAnyScaleTag || isScaleSummary;
-                                const isDisabled = isScaleQuestion;
-
-                                const isSortedByFrequency = variableSortByFrequency[variable.name] !== undefined
-                                  ? variableSortByFrequency[variable.name]
-                                  : defaultSortByFrequency;
-
-                                return (
-                                  <input
-                                    type="checkbox"
-                                    checked={isSortedByFrequency}
-                                    onChange={() => {
-                                      setVariableSortByFrequency(prev => ({
-                                        ...prev,
-                                        [variable.name]: !isSortedByFrequency
-                                      }));
-                                    }}
-                                    disabled={isDisabled}
-                                    className="w-3 h-3 text-orange-600 border-gray-300 rounded focus:ring-orange-500 disabled:opacity-30 disabled:cursor-not-allowed"
-                                    title={isDisabled ? "Sorting not available for scale questions" : (isSortedByFrequency ? "Sorted by frequency/count" : "Sorted by code order")}
-                                  />
-                                );
-                              })()}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200 text-center">
-                              <input
-                                type="checkbox"
-                                checked={hasSum && statsSelections.sum}
-                                onChange={() => hasSum && toggleStat('sum')}
-                                disabled={!hasSum}
-                                className="w-3 h-3 text-orange-600 border-gray-300 rounded focus:ring-orange-500 disabled:opacity-30 disabled:cursor-not-allowed"
-                              />
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200 text-center">
-                              <input
-                                type="checkbox"
-                                checked={hasMean && statsSelections.mean}
-                                onChange={() => hasMean && toggleStat('mean')}
-                                disabled={!hasMean}
-                                className="w-3 h-3 text-orange-600 border-gray-300 rounded focus:ring-orange-500 disabled:opacity-30 disabled:cursor-not-allowed"
-                              />
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200 text-center">
-                              <input
-                                type="checkbox"
-                                checked={!!(hasNumericStats && statsSelections.median)}
-                                onChange={() => hasNumericStats && toggleStat('median')}
-                                disabled={!hasNumericStats || !!isSummaryTable}
-                                className="w-3 h-3 text-orange-600 border-gray-300 rounded focus:ring-orange-500 disabled:opacity-30 disabled:cursor-not-allowed"
-                              />
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200 text-center">
-                              <input
-                                type="checkbox"
-                                checked={!!(hasNumericStats && statsSelections.mode)}
-                                onChange={() => hasNumericStats && toggleStat('mode')}
-                                disabled={!hasNumericStats || !!isSummaryTable}
-                                className="w-3 h-3 text-orange-600 border-gray-300 rounded focus:ring-orange-500 disabled:opacity-30 disabled:cursor-not-allowed"
-                              />
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200 text-center">
-                              <input
-                                type="checkbox"
-                                checked={!!(hasNumericStats && statsSelections.stdDev)}
-                                onChange={() => hasNumericStats && toggleStat('stdDev')}
-                                disabled={!hasNumericStats || !!isSummaryTable}
-                                className="w-3 h-3 text-orange-600 border-gray-300 rounded focus:ring-orange-500 disabled:opacity-30 disabled:cursor-not-allowed"
-                              />
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200 text-center">
-                              <input
-                                type="checkbox"
-                                checked={!!(hasNumericStats && statsSelections.max)}
-                                onChange={() => hasNumericStats && toggleStat('max')}
-                                disabled={!hasNumericStats || !!isSummaryTable}
-                                className="w-3 h-3 text-orange-600 border-gray-300 rounded focus:ring-orange-500 disabled:opacity-30 disabled:cursor-not-allowed"
-                              />
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-300 text-center">
-                              <input
-                                type="checkbox"
-                                checked={!!(hasNumericStats && statsSelections.min)}
-                                onChange={() => hasNumericStats && toggleStat('min')}
-                                disabled={!hasNumericStats || !!isSummaryTable}
-                                className="w-3 h-3 text-orange-600 border-gray-300 rounded focus:ring-orange-500 disabled:opacity-30 disabled:cursor-not-allowed"
-                              />
-                            </td>
-                            <td className="px-2 py-3 text-center">
-                              {isFirstTable && (
-                                <button
-                                  onClick={() => {
-                                    setDebugInfoModalVariable(variable);
-                                    setDebugInfoModalTableName(tableName);
-                                    setShowDebugInfoModal(true);
-                                  }}
-                                  className="px-2 py-1 hover:bg-gray-200 text-gray-600 hover:text-gray-900 transition-colors rounded"
-                                  title="Show debug info"
-                                >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                  </svg>
-                                </button>
-                              )}
+                            <td className="px-4 py-3 text-sm text-gray-700" style={{ maxWidth: '320px' }}>
+                              <span
+                                className="block"
+                                title={questionText}
+                                style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                              >
+                                {questionText || '-'}
+                              </span>
                             </td>
                           </tr>
                         );
-                      });
-                      
-                      return tableRows;
-                    })()}
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -24886,6 +24159,268 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
       )}
 
       {/* Question Modal */}
+      {showConfigPopup && configPopupVariable && (() => {
+        const popupVariableName = configPopupVariable.name;
+        const popupStatsSelections = getStatsSelectionsForVariable(popupVariableName);
+        const isHiddenFromBanners = hiddenFromBanners.has(popupVariableName);
+        const isSortedByFrequency = variableSortByFrequency[popupVariableName] ?? false;
+        const individualTableOptions = (() => {
+          const options: Array<{ id: string; label: string }> = [];
+          options.push({ id: popupVariableName, label: 'Overall Table' });
+          if (configPopupVariable.statements && Object.keys(configPopupVariable.statements).length > 0) {
+            Object.entries(configPopupVariable.statements).forEach(([code, label]) => {
+              options.push({
+                id: `${popupVariableName}_${code}`,
+                label: String(label || code),
+              });
+            });
+          }
+          return options;
+        })();
+        const allIndividualTableNames = individualTableOptions.map(option => option.id);
+        const individualSelectionSet = variableTableSelections[popupVariableName];
+        const isTableSelected = (tableName: string) => {
+          if (!individualSelectionSet) return true;
+          return individualSelectionSet.has(tableName);
+        };
+        const typeLower = configPopupVariable.type?.toLowerCase() || '';
+        const isNumericGrid = typeLower.includes('numeric grid');
+        const isSingleSelectGrid = typeLower.includes('single select grid');
+        const isNumericQuestion = typeLower.includes('numeric') && !typeLower.includes('grid') && !typeLower.includes('list');
+        const isSingleSelectQuestion = typeLower.includes('single select') && !typeLower.includes('grid');
+        const summaryOptions = (() => {
+          const options: Array<{ id: string; title: string; description: string }> = [];
+          if (isNumericGrid) {
+            options.push(
+              { id: 'meanSummary', title: 'Mean Summary Table', description: 'Display the average response for each statement or column.' },
+              { id: 'sumSummary', title: 'Sum Summary Table', description: 'Display the total value contributed by each statement.' }
+            );
+          } else if (isSingleSelectGrid) {
+            options.push({ id: 'meanSummary', title: 'Mean Summary Table', description: 'Display the average selection for each statement.' });
+          }
+          return options;
+        })();
+        const summaryPrefs = summaryPreferences[popupVariableName] || {};
+        const statsCheckboxes: Array<{ key: keyof VariableStatsSelection; label: string }> = [
+          { key: 'mean', label: 'Mean' },
+          { key: 'meanNoOutliers', label: 'Mean (outliers removed)' },
+          { key: 'sum', label: 'Sum' },
+          { key: 'sum9', label: 'Sum 9' },
+          { key: 'sumNoOutliers', label: 'Sum (outliers removed)' },
+          { key: 'stdDev', label: 'Std deviation' },
+          { key: 'median', label: 'Median' },
+          { key: 'mode', label: 'Mode' },
+          { key: 'max', label: 'Max' },
+          { key: 'min', label: 'Min' },
+        ];
+        const rangeNets = netSummaryTableRanges[popupVariableName] || [];
+        const codeNets = netSummaryTableSelectedCodes[popupVariableName] || [];
+        const supportsRangeNets = isNumericGrid || isNumericQuestion;
+        const supportsCodeNets = isSingleSelectGrid || isSingleSelectQuestion;
+        const supportsNets = supportsRangeNets || supportsCodeNets;
+        const hasRangeNets = rangeNets.length > 0;
+        const hasCodeNets = codeNets.length > 0;
+
+        return createPortal(
+          <div className="fixed inset-0 bg-black/40 z-[2000] flex items-start justify-center p-4 sm:p-6 md:p-10" onClick={() => setShowConfigPopup(false)}>
+            <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+              <div className="px-6 py-5 border-b border-gray-200">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-xl font-semibold text-gray-900">Q{popupVariableName}</h3>
+                      {configPopupVariable.type && (
+                        <span className="inline-flex items-center px-2.5 py-0.5 text-xs font-medium rounded-full bg-orange-50 text-orange-700 border border-orange-100">
+                          {configPopupVariable.type}
+                        </span>
+                      )}
+                      {(configPopupVariable as any)?.tags?.length ? (
+                        (configPopupVariable as any).tags
+                          .filter((tag: string) => tag.toLowerCase() !== 'terminate' && tag.toLowerCase() !== 'specify')
+                          .map((tag: string, idx: number) => (
+                            <span key={`${popupVariableName}-tag-${idx}`} className="px-2 py-0.5 text-xs rounded bg-blue-100 text-blue-800">
+                              {tag}
+                            </span>
+                          ))
+                      ) : null}
+                    </div>
+                    <p className="text-sm text-gray-600">
+                      {configPopupVariable.description || (configPopupVariable as any)?.label || 'No description available.'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowConfigPopup(false)}
+                    className="text-gray-400 hover:text-gray-600 transition"
+                  >
+                    <XMarkIcon className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
+              <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6 bg-gray-50/60">
+                {summaryOptions.length > 0 && (
+                  <div className="rounded-2xl border border-gray-200 bg-white p-5">
+                    <h4 className="text-base font-semibold text-gray-900 mb-4">Summary Tables</h4>
+                    <div className="space-y-3">
+                      {summaryOptions.map(option => (
+                        <label key={option.id} className="flex items-start gap-3 rounded-xl border border-gray-200 bg-white p-4">
+                          <input
+                            type="checkbox"
+                            className="mt-1 h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                            checked={!!summaryPrefs[option.id]}
+                            onChange={() => handleToggleSummaryPreference(popupVariableName, option.id)}
+                          />
+                          <div>
+                            <p className="text-sm font-semibold text-gray-900">{option.title}</p>
+                            <p className="text-sm text-gray-600 mt-1">{option.description}</p>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <div className="rounded-2xl border border-gray-200 bg-white p-5 h-full">
+                    <div className="mb-4">
+                      <h4 className="text-base font-semibold text-gray-900">Individual Tables</h4>
+                      <p className="text-sm text-gray-600">Choose which statement tables to include.</p>
+                    </div>
+                    {individualTableOptions.length === 0 ? (
+                      <p className="text-sm text-gray-500">No additional tables available.</p>
+                    ) : (
+                      <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                        {individualTableOptions.map(option => (
+                          <label key={option.id} className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-800">
+                            <span className="truncate">{option.label}</span>
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                              checked={isTableSelected(option.id)}
+                              onChange={() => handleToggleIndividualTable(popupVariableName, option.id, allIndividualTableNames)}
+                            />
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="rounded-2xl border border-gray-200 bg-white p-5 h-full flex flex-col">
+                    <div className="mb-4">
+                      <h4 className="text-base font-semibold text-gray-900">Statistics & Options</h4>
+                      <p className="text-sm text-gray-600">Stacked controls to include key stats.</p>
+                    </div>
+                    <div className="space-y-3">
+                      <label className="flex items-center gap-3 text-sm text-gray-800">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                          checked={!isHiddenFromBanners}
+                          onChange={() => handleToggleShowInBanner(popupVariableName)}
+                        />
+                        <span>Show in banner</span>
+                      </label>
+                      <label className="flex items-center gap-3 text-sm text-gray-800">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                          checked={isSortedByFrequency}
+                          onChange={() => handleSortPreferenceChange(popupVariableName, isSortedByFrequency ? 'default' : 'frequency')}
+                        />
+                        <span>Sort by frequency</span>
+                      </label>
+                    </div>
+                    <div className="mt-4 border-t border-gray-200 pt-4 space-y-2">
+                      {statsCheckboxes.map(option => (
+                        <label key={option.key} className="flex items-center gap-3 text-sm text-gray-800">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                            checked={!!popupStatsSelections[option.key]}
+                            onChange={() => handleToggleStatSelection(popupVariableName, option.key)}
+                          />
+                          <span>{option.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                {supportsNets && (
+                  <div className="rounded-2xl border border-gray-200 bg-white p-5 space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <h4 className="text-base font-semibold text-gray-900">Nets</h4>
+                        <p className="text-sm text-gray-600">
+                          {supportsRangeNets ? 'Define numeric ranges for summary tables.' : 'Group response options into custom nets.'}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleOpenNetManager(popupVariableName)}
+                        className="inline-flex items-center gap-2 text-sm font-medium text-orange-600 hover:text-orange-700"
+                      >
+                        <PlusCircleIcon className="h-5 w-5" />
+                        <span>Add Net Summary</span>
+                      </button>
+                    </div>
+                    {hasRangeNets && rangeNets.map((net, idx) => (
+                      <div key={`range-net-${idx}`} className="flex items-start gap-3 rounded-xl border border-gray-200 bg-white p-4">
+                        <input
+                          type="checkbox"
+                          className="mt-1 h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                          checked={!!net.enabled}
+                          onChange={() => handleToggleNetRangeEnabled(popupVariableName, idx)}
+                        />
+                        <div className="flex-1 space-y-1">
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-semibold text-gray-900">{net.name || `Net ${idx + 1}`}</p>
+                              <p className="text-xs uppercase tracking-wide text-gray-500">Net Summary</p>
+                            </div>
+                            <button
+                              onClick={() => handleOpenNetManager(popupVariableName)}
+                              className="text-gray-400 hover:text-gray-600"
+                            >
+                              <PencilIcon className="h-4 w-4" />
+                            </button>
+                          </div>
+                          <p className="text-sm text-gray-600">Range: {net.low || '—'} – {net.high || '—'}</p>
+                        </div>
+                      </div>
+                    ))}
+                    {hasCodeNets && codeNets.map((net, idx) => (
+                      <div key={`code-net-${idx}`} className="flex items-start gap-3 rounded-xl border border-gray-200 bg-white p-4">
+                        <input
+                          type="checkbox"
+                          className="mt-1 h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                          checked={!!net.enabled}
+                          onChange={() => handleToggleNetCodeEnabled(popupVariableName, idx)}
+                        />
+                        <div className="flex-1 space-y-1">
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-semibold text-gray-900">{net.name || `Net ${idx + 1}`}</p>
+                              <p className="text-xs uppercase tracking-wide text-gray-500">Net Summary</p>
+                            </div>
+                            <button
+                              onClick={() => handleOpenNetManager(popupVariableName)}
+                              className="text-gray-400 hover:text-gray-600"
+                            >
+                              <PencilIcon className="h-4 w-4" />
+                            </button>
+                          </div>
+                          <p className="text-sm text-gray-600">Codes: {net.codes.length > 0 ? net.codes.join(', ') : 'None selected'}</p>
+                        </div>
+                      </div>
+                    ))}
+                    {!hasRangeNets && !hasCodeNets && (
+                      <p className="text-sm text-gray-500">No nets defined yet. Use the button above to create your first net.</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>,
+          document.body
+        );
+      })()}
+
       {showQuestionModal && createPortal(
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style={{ top: 0, left: 0, right: 0, bottom: 0, position: 'fixed' }} onClick={() => setShowQuestionModal(false)}>
           <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
@@ -27394,7 +26929,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                 // For main question rows, use variable.name
                 // For all other rows (including summary tables), use tableName if available, otherwise variable.name
                 const statsKey = isMainQuestionRow ? variable.name : (tableName || variable.name);
-                const statsSelections = variableStatsSelections[statsKey] || {};
+                const statsSelections = getStatsSelectionsForVariable(statsKey);
 
                 return (
                   <div>
