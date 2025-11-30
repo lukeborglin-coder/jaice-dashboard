@@ -72,7 +72,6 @@ type VariableStatsSelection = {
   summaryTable: boolean;
   meanNoOutliers: boolean;
   sumNoOutliers: boolean;
-  sum9: boolean;
 };
 
 interface NetRange {
@@ -108,8 +107,9 @@ const createDefaultStatsSelection = (): VariableStatsSelection => ({
   summaryTable: false,
   meanNoOutliers: false,
   sumNoOutliers: false,
-  sum9: false,
 });
+
+const STAT_KEYS = Object.keys(createDefaultStatsSelection()) as (keyof VariableStatsSelection)[];
 
 // Helper function to format text with brackets styled in blue italic
 const formatDescriptionWithBrackets = (text: string) => {
@@ -175,6 +175,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
   const [showQuestionTypeFilter, setShowQuestionTypeFilter] = useState(false);
   const [allQuestionnaires, setAllQuestionnaires] = useState<any[]>([]);
   const [qnrViewMode, setQnrViewMode] = useState<'tabSpecs' | 'variables' | 'banners' | 'data' | 'rawdata' | 'datamap' | 'crosstabDownload'>('tabSpecs');
+  const [tabSpecsTypeFilter, setTabSpecsTypeFilter] = useState<string>('all');
   
   // Track which tables are included for each variable
   const [variableTableSelections, setVariableTableSelections] = useState<Record<string, Set<string>>>({});
@@ -182,6 +183,8 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
   const [netSummaryTableRanges, setNetSummaryTableRanges] = useState<Record<string, NetRange[]>>({});
   const [netSummaryTableSelectedCodes, setNetSummaryTableSelectedCodes] = useState<Record<string, NetCodeSelection[]>>({});
   const [variableSortByFrequency, setVariableSortByFrequency] = useState<Record<string, boolean>>({});
+  const [variableHoldResponseCodes, setVariableHoldResponseCodes] = useState<Record<string, string[]>>({});
+const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<string, boolean>>({});
   const [showConfigPopup, setShowConfigPopup] = useState(false);
   const [configPopupVariable, setConfigPopupVariable] = useState<Variable | null>(null);
   const [showNetPopup, setShowNetPopup] = useState<Record<string, boolean>>({});
@@ -238,8 +241,20 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
   const [dataCutsReady, setDataCutsReady] = useState(false);
   const [showSingleSelectGridSummary, setShowSingleSelectGridSummary] = useState<Record<string, boolean>>({});
   const [selectedSummaryNets, setSelectedSummaryNets] = useState<Record<string, Set<string>>>({});
-  const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Array<{ id: string, selectedNets: string[], baseQuestionNumber: string, customName?: string }>>>({});
-  const [summaryPreferences, setSummaryPreferences] = useState<Record<string, Record<string, boolean>>>({});
+const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Array<{ id: string, selectedNets: string[], baseQuestionNumber: string, customName?: string }>>>({});
+
+  const tabSpecsTypeOptions = useMemo(() => {
+    const typeSet = new Set<string>();
+    variables.forEach(variable => {
+      if ((variable as any).isScaleSummary) return;
+      if (!variable.type) {
+        typeSet.add('Unknown');
+      } else {
+        typeSet.add(variable.type);
+      }
+    });
+    return Array.from(typeSet).sort((a, b) => a.localeCompare(b));
+  }, [variables]);
 
   const getStatsSelectionsForVariable = useCallback((variableName: string): VariableStatsSelection => {
     if (!variableName) return createDefaultStatsSelection();
@@ -264,35 +279,41 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
     });
   }, []);
 
-  const handleToggleShowInBanner = useCallback((variableName: string) => {
-    if (!variableName) return;
-    setHiddenFromBanners(prev => {
-      const next = new Set(prev);
-      if (next.has(variableName)) {
-        next.delete(variableName);
-      } else {
-        next.add(variableName);
-      }
-      return next;
-    });
-  }, []);
-
-  const handleSortPreferenceChange = useCallback((variableName: string, value: 'default' | 'frequency') => {
+  const handleSortPreferenceChange = useCallback((variableName: string, value: 'default' | 'frequency', persistFalse = false) => {
     if (!variableName) return;
     setVariableSortByFrequency(prev => {
       if (value === 'frequency') {
         return { ...prev, [variableName]: true };
       }
+      if (persistFalse) {
+        return { ...prev, [variableName]: false };
+      }
       const { [variableName]: _removed, ...rest } = prev;
       return rest;
     });
+    if (value === 'default') {
+      setVariableHoldResponseCodes(prev => {
+        if (!(variableName in prev)) {
+          return prev;
+        }
+        const { [variableName]: _removed, ...rest } = prev;
+        return rest;
+      });
+      setHoldOptionsDropdownOpen(prev => {
+        if (!(variableName in prev)) {
+          return prev;
+        }
+        const { [variableName]: _removed, ...rest } = prev;
+        return rest;
+      });
+    }
   }, []);
 
   const handleToggleIndividualTable = useCallback((variableName: string, tableName: string, allTableNames: string[]) => {
     if (!variableName || !tableName) return;
     setVariableTableSelections(prev => {
-      const existingSet = prev[variableName];
-      const baseSet = existingSet ? new Set(existingSet) : new Set(allTableNames);
+      const currentSet = prev[variableName];
+      const baseSet = currentSet ? new Set(currentSet) : new Set(allTableNames);
       if (baseSet.has(tableName)) {
         baseSet.delete(tableName);
       } else {
@@ -305,48 +326,98 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
     });
   }, []);
 
-  const handleOpenNetManager = useCallback((variableName: string) => {
+  const handleHoldOptionsToggle = useCallback((variableName: string, enabled: boolean, defaultCodes: string[] = []) => {
     if (!variableName) return;
-    setShowNetPopup(prev => ({ ...prev, [variableName]: true }));
-    setNetPopupTableNames(prev => ({ ...prev, [variableName]: variableName }));
+    setVariableHoldResponseCodes(prev => {
+      if (!enabled) {
+        const { [variableName]: _removed, ...rest } = prev;
+        return rest;
+      }
+      const existing = prev[variableName];
+      if (existing && existing.length > 0) {
+        return prev;
+      }
+      return { ...prev, [variableName]: defaultCodes };
+    });
+    if (!enabled) {
+      setHoldOptionsDropdownOpen(prev => {
+        if (!(variableName in prev)) return prev;
+        const { [variableName]: _removed, ...rest } = prev;
+        return rest;
+      });
+    }
   }, []);
 
-  const handleToggleNetRangeEnabled = useCallback((variableName: string, index: number) => {
+  const handleHoldOptionSelection = useCallback((variableName: string, code: string) => {
+    if (!variableName) return;
+    setVariableHoldResponseCodes(prev => {
+      const current = prev[variableName] || [];
+      const exists = current.includes(code);
+      const updated = exists ? current.filter(c => c !== code) : [...current, code];
+      return { ...prev, [variableName]: updated };
+    });
+  }, []);
+
+  const openHoldOptionsDropdown = useCallback((variableName: string) => {
+    if (!variableName) return;
+    setHoldOptionsDropdownOpen(prev => ({ ...prev, [variableName]: true }));
+  }, []);
+  const closeHoldOptionsDropdown = useCallback((variableName: string) => {
+    if (!variableName) return;
+    setHoldOptionsDropdownOpen(prev => {
+      if (!prev[variableName]) return prev;
+      const { [variableName]: _removed, ...rest } = prev;
+      return rest;
+    });
+  }, []);
+
+  const handleAddInlineNumericNet = useCallback((variableName: string) => {
+    if (!variableName) return;
     setNetSummaryTableRanges(prev => {
-      const ranges = prev[variableName];
-      if (!ranges || !ranges[index]) return prev;
-      const updatedRanges = [...ranges];
-      const target = updatedRanges[index];
-      updatedRanges[index] = { ...target, enabled: !target.enabled };
-      return { ...prev, [variableName]: updatedRanges };
-    });
-  }, []);
-
-  const handleToggleNetCodeEnabled = useCallback((variableName: string, index: number) => {
-    setNetSummaryTableSelectedCodes(prev => {
-      const codes = prev[variableName];
-      if (!codes || !codes[index]) return prev;
-      const updatedCodes = [...codes];
-      const target = updatedCodes[index];
-      updatedCodes[index] = { ...target, enabled: !target.enabled };
-      return { ...prev, [variableName]: updatedCodes };
-    });
-  }, []);
-
-  const handleToggleSummaryPreference = useCallback((variableName: string, key: string) => {
-    if (!variableName || !key) return;
-    setSummaryPreferences(prev => {
-      const prefsForVariable = prev[variableName] || {};
-      const updatedPrefs = {
-        ...prefsForVariable,
-        [key]: !prefsForVariable[key],
-      };
+      const existing = prev[variableName] || [];
       return {
         ...prev,
-        [variableName]: updatedPrefs,
+        [variableName]: [...existing, { name: '', low: '', high: '' }],
       };
     });
   }, []);
+
+  const handleUpdateInlineNumericNet = useCallback((variableName: string, index: number, key: 'name' | 'low' | 'high', value: string) => {
+    if (!variableName) return;
+    setNetSummaryTableRanges(prev => {
+      const existing = prev[variableName] || [];
+      if (!existing[index]) return prev;
+      const updated = [...existing];
+      updated[index] = { ...updated[index], [key]: value };
+      const lowVal = parseFloat(updated[index].low);
+      const highVal = parseFloat(updated[index].high);
+      if (!isNaN(lowVal) && !isNaN(highVal) && lowVal > highVal) {
+        if (key === 'low') {
+          updated[index].high = updated[index].low;
+        } else if (key === 'high') {
+          updated[index].low = updated[index].high;
+        }
+      }
+      return {
+        ...prev,
+        [variableName]: updated,
+      };
+    });
+  }, []);
+
+  const handleRemoveInlineNumericNet = useCallback((variableName: string, index: number) => {
+    if (!variableName) return;
+    setNetSummaryTableRanges(prev => {
+      const existing = prev[variableName] || [];
+      if (!existing[index]) return prev;
+      const updated = existing.filter((_, idx) => idx !== index);
+      return {
+        ...prev,
+        [variableName]: updated,
+      };
+    });
+  }, []);
+
   const [openSummaryDropdown, setOpenSummaryDropdown] = useState<Record<string, boolean>>({});
   const [editingTableName, setEditingTableName] = useState<Record<string, boolean>>({});
   const [tableNameInputs, setTableNameInputs] = useState<Record<string, string>>({});
@@ -917,8 +988,130 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
     // Remove any trailing underscores
     base = base.replace(/_+$/, '');
     
-    return base;
-  }, []);
+  return base;
+}, []);
+
+  const multiSelectSortDefaultsApplied = React.useRef<Set<string>>(new Set());
+  const multiSelectHoldDefaultsApplied = React.useRef<Set<string>>(new Set());
+
+  const getResponseCodesForVariable = useCallback((variable: Variable): string[] => {
+    if (variable.statements && Object.keys(variable.statements).length > 0) {
+      return Object.keys(variable.statements);
+    }
+    if (variable.codes && Object.keys(variable.codes).length > 0) {
+      return Object.keys(variable.codes);
+    }
+    const baseNumber = getBaseQuestionNumber(variable.name);
+    const matchingQuestion = questionnaireQuestions.find(question => {
+      const qNum = question.number || question.id;
+      if (!qNum) return false;
+      const qNumStr = String(qNum);
+      const normalizedQuestion = qNumStr.replace(/^Q/i, '');
+      const normalizedBase = baseNumber.replace(/^Q/i, '');
+      return (
+        qNumStr === baseNumber ||
+        normalizedQuestion === normalizedBase ||
+        `Q${normalizedQuestion}` === baseNumber ||
+        `Q${normalizedBase}` === qNumStr
+      );
+    });
+    if (matchingQuestion && Array.isArray(matchingQuestion.responseOptions)) {
+      return matchingQuestion.responseOptions.map((opt: any, idx: number) => {
+        if (typeof opt === 'string') {
+          return opt;
+        }
+        return opt.code || opt.value || `c${idx + 1}`;
+      });
+    }
+    return [];
+  }, [questionnaireQuestions, getBaseQuestionNumber]);
+
+  useEffect(() => {
+    setVariableSortByFrequency(prev => {
+      let changed = false;
+      const updated = { ...prev };
+      variables.forEach(variable => {
+        const typeLower = variable.type?.toLowerCase() || '';
+        const isMultiSelectType = typeLower.includes('multi-select');
+        if (!isMultiSelectType) return;
+        if (multiSelectSortDefaultsApplied.current.has(variable.name)) return;
+        if (prev[variable.name] !== undefined) {
+          multiSelectSortDefaultsApplied.current.add(variable.name);
+          return;
+        }
+        updated[variable.name] = true;
+        multiSelectSortDefaultsApplied.current.add(variable.name);
+        changed = true;
+      });
+      return changed ? updated : prev;
+    });
+  }, [variables, specsResetKey]);
+
+  useEffect(() => {
+    setVariableHoldResponseCodes(prev => {
+      let changed = false;
+      const updated = { ...prev };
+      variables.forEach(variable => {
+        const typeLower = variable.type?.toLowerCase() || '';
+        const isMultiSelectType = typeLower.includes('multi-select');
+        if (!isMultiSelectType) return;
+        if (multiSelectHoldDefaultsApplied.current.has(variable.name)) return;
+        const existing = prev[variable.name];
+        if (existing && existing.length > 0) {
+          multiSelectHoldDefaultsApplied.current.add(variable.name);
+          return;
+        }
+        const responseCodes = getResponseCodesForVariable(variable);
+        if (!responseCodes || responseCodes.length === 0) {
+          multiSelectHoldDefaultsApplied.current.add(variable.name);
+          return;
+        }
+        const holdCodes = responseCodes.filter(code => {
+          const numeric = parseInt(String(code).replace(/[^0-9-]/g, ''), 10);
+          return !isNaN(numeric) && numeric >= 90 && numeric <= 99;
+        });
+        if (holdCodes.length === 0) {
+          multiSelectHoldDefaultsApplied.current.add(variable.name);
+          return;
+        }
+        updated[variable.name] = holdCodes;
+        multiSelectHoldDefaultsApplied.current.add(variable.name);
+        changed = true;
+      });
+      return changed ? updated : prev;
+    });
+  }, [variables, specsResetKey, getResponseCodesForVariable]);
+
+  useEffect(() => {
+    setVariableStatsSelections(prev => {
+      let changed = false;
+      const updated = { ...prev };
+      variables.forEach(variable => {
+        if (prev[variable.name]) return;
+        const typeLower = variable.type?.toLowerCase() || '';
+        const isNumericType = typeLower.includes('numeric') && !typeLower.includes('grid');
+        if (!isNumericType) return;
+        const tags: string[] = ((variable as any).tags || []).map((tag: string) => tag.toLowerCase());
+        const hasNumberTag = tags.includes('number');
+        const hasPercentTag = tags.includes('%');
+        if (!hasNumberTag && !hasPercentTag) return;
+        const defaults = createDefaultStatsSelection();
+        STAT_KEYS.forEach(key => {
+          if (hasNumberTag) {
+            defaults[key] = true;
+          } else if (hasPercentTag) {
+            defaults[key] = key === 'sum' || key === 'sumNoOutliers' ? false : true;
+          }
+        });
+        ['max', 'min', 'median', 'stdDev', 'mode'].forEach(statKey => {
+          defaults[statKey as keyof VariableStatsSelection] = false;
+        });
+        updated[variable.name] = defaults;
+        changed = true;
+      });
+      return changed ? updated : prev;
+    });
+  }, [variables, specsResetKey]);
 
   const convertQuestionsToVariables = useCallback((questions: any[], dataColumnHeaders: string[]) => {
     const vars: Variable[] = [];
@@ -11918,8 +12111,12 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                         setVariableTableSelections({});
                         setVariableStatsSelections({});
                         setVariableSortByFrequency({});
+                        setVariableHoldResponseCodes({});
+                        setHoldOptionsDropdownOpen({});
                         setNetSummaryTableRanges({});
                         setNetSummaryTableSelectedCodes({});
+                        multiSelectSortDefaultsApplied.current = new Set();
+                        multiSelectHoldDefaultsApplied.current = new Set();
                         // Force re-render by changing key
                         setSpecsResetKey(prev => prev + 1);
                       }}
@@ -11944,6 +12141,23 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                 </div>
               ) : (
                 <div className="overflow-x-auto max-h-[600px] relative">
+                  <div className="flex justify-end mb-3">
+                    <label className="text-xs font-medium text-gray-700 flex items-center gap-2">
+                      <span>Filter by type:</span>
+                      <select
+                        className="border border-gray-300 rounded-md text-xs py-1 px-2 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                        value={tabSpecsTypeFilter}
+                        onChange={(e) => setTabSpecsTypeFilter(e.target.value)}
+                      >
+                        <option value="all">All types</option>
+                        {tabSpecsTypeOptions.map(type => (
+                          <option key={type} value={type}>
+                            {type}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
                   <table key={specsResetKey} className="min-w-full text-sm border-collapse">
                     <thead className="sticky top-0 z-10">
                       <tr className="border-b-2 border-gray-300">
@@ -11951,15 +12165,25 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                         <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-gray-300" style={{ backgroundColor: BRAND_ORANGE }}>Type</th>
                         <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-gray-300" style={{ backgroundColor: BRAND_ORANGE }}>Tags</th>
                         <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider" style={{ backgroundColor: BRAND_ORANGE }}>Question Text</th>
+                        <th className="px-4 py-3 text-center text-xs font-semibold text-white uppercase tracking-wider" style={{ backgroundColor: BRAND_ORANGE }}>Included</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {variables.filter(variable => !(variable as any).isScaleSummary).map(variable => {
-                        const tags = (variable as any).tags || [];
-                        const questionText = variable.description || (variable as any).label || variable.name;
-                        return (
-                          <tr
-                            key={variable.name}
+                      {variables
+                        .filter(variable => !(variable as any).isScaleSummary)
+                        .filter(variable => {
+                          if (tabSpecsTypeFilter === 'all') return true;
+                          const vType = variable.type || 'Unknown';
+                          return vType === tabSpecsTypeFilter;
+                        })
+                        .map(variable => {
+                          const tags = (variable as any).tags || [];
+                          const questionText = variable.description || (variable as any).label || variable.name;
+                          const selectionSet = variableTableSelections[variable.name];
+                          const isIncluded = !selectionSet || selectionSet.size > 0;
+                          return (
+                            <tr
+                              key={variable.name}
                             className="hover:bg-gray-50 cursor-pointer transition-colors"
                             onClick={() => {
                               setConfigPopupVariable(variable);
@@ -11993,6 +12217,13 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                               >
                                 {questionText || '-'}
                               </span>
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              {isIncluded ? (
+                                <CheckCircleIcon className="h-5 w-5 text-green-500 inline-block" />
+                              ) : (
+                                <span className="text-xs text-gray-400">—</span>
+                              )}
                             </td>
                           </tr>
                         );
@@ -24161,12 +24392,107 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
       {/* Question Modal */}
       {showConfigPopup && configPopupVariable && (() => {
         const popupVariableName = configPopupVariable.name;
+        const typeLower = configPopupVariable.type?.toLowerCase() || '';
+        const isNumericGrid = typeLower.includes('numeric grid');
+        const isSingleSelect = typeLower.includes('single select') && !typeLower.includes('grid');
+        const isMultiSelectGrid = typeLower.includes('multi-select grid');
+        const isMultiSelect = typeLower.includes('multi-select') && !typeLower.includes('grid');
+        const isMultiSelectType = isMultiSelect || isMultiSelectGrid;
+        const isNumericQuestion = typeLower.includes('numeric') && !typeLower.includes('grid') && !typeLower.includes('list');
         const popupStatsSelections = getStatsSelectionsForVariable(popupVariableName);
-        const isHiddenFromBanners = hiddenFromBanners.has(popupVariableName);
-        const isSortedByFrequency = variableSortByFrequency[popupVariableName] ?? false;
+        const isHoldDropdownOpen = holdOptionsDropdownOpen[popupVariableName] ?? false;
+        const baseQuestionNumberForPopup = getBaseQuestionNumber(popupVariableName);
+        const matchingQuestion = questionnaireQuestions.find(question => {
+          const qNum = question.number || question.id;
+          if (!qNum) return false;
+          const qNumStr = String(qNum);
+          const normalizedQNum = qNumStr.replace(/^Q/i, '');
+          const normalizedBase = baseQuestionNumberForPopup.replace(/^Q/i, '');
+          return (
+            qNumStr === baseQuestionNumberForPopup ||
+            normalizedQNum === normalizedBase ||
+            `Q${normalizedQNum}` === baseQuestionNumberForPopup
+          );
+        });
+        const responseOptions = (() => {
+          if (isMultiSelectGrid) {
+            if (configPopupVariable.statements && Object.keys(configPopupVariable.statements).length > 0) {
+              return Object.entries(configPopupVariable.statements).map(([code, text]) => ({
+                code,
+                text: String(text || code),
+              }));
+            }
+            if (matchingQuestion && Array.isArray(matchingQuestion.statementOptions)) {
+              return matchingQuestion.statementOptions.map((stmt: any, idx: number) => {
+                if (typeof stmt === 'string') {
+                  return { code: `r${idx + 1}`, text: stmt };
+                }
+                return {
+                  code: stmt.code || `r${idx + 1}`,
+                  text: stmt.text || stmt.label || stmt.code || `Row ${idx + 1}`,
+                };
+              });
+            }
+            return [];
+          }
+          if (configPopupVariable.codes && Object.keys(configPopupVariable.codes).length > 0) {
+            return Object.entries(configPopupVariable.codes).map(([code, text]) => ({
+              code,
+              text: String(text || code),
+            }));
+          }
+          if (matchingQuestion && Array.isArray(matchingQuestion.responseOptions)) {
+            return matchingQuestion.responseOptions.map((opt: any, idx: number) => {
+              if (typeof opt === 'string') {
+                return { code: `c${idx + 1}`, text: opt };
+              }
+              return {
+                code: opt.code || `c${idx + 1}`,
+                text: opt.text || opt.label || opt.value || opt.code || `Option ${idx + 1}`,
+              };
+            });
+          }
+          return [];
+        })();
+        const summaryColumns = (() => {
+          if (!isMultiSelectGrid) return [];
+          if (matchingQuestion && Array.isArray(matchingQuestion.responseOptions) && matchingQuestion.responseOptions.length > 0) {
+            return matchingQuestion.responseOptions.map((opt: any, idx: number) => {
+              if (typeof opt === 'string') {
+                return opt;
+              }
+              return opt.text || opt.label || opt.value || opt.code || `Column ${idx + 1}`;
+            });
+          }
+          if (configPopupVariable.codes && Object.keys(configPopupVariable.codes).length > 0) {
+            return Object.values(configPopupVariable.codes).map(text => String(text));
+          }
+          return [];
+        })();
+        const defaultSortByFrequency = isMultiSelectType;
+        const isSortedByFrequencyState = variableSortByFrequency[popupVariableName];
+        const isSortedByFrequency = isSortedByFrequencyState !== undefined ? isSortedByFrequencyState : defaultSortByFrequency;
+        const defaultHoldCodes = isMultiSelectType
+          ? responseOptions
+              .map(option => option.code)
+              .filter(code => {
+                const numeric = parseInt(String(code).replace(/[^0-9-]/g, ''), 10);
+                return !isNaN(numeric) && numeric >= 90 && numeric <= 99;
+              })
+          : [];
+        const holdSelection = variableHoldResponseCodes[popupVariableName];
+        const holdSelectionArray = holdSelection && holdSelection.length > 0
+          ? holdSelection
+          : defaultHoldCodes;
+        const hasHoldSelection = holdSelectionArray.length > 0;
         const individualTableOptions = (() => {
           const options: Array<{ id: string; label: string }> = [];
-          options.push({ id: popupVariableName, label: 'Overall Table' });
+          if (!isNumericGrid && !isMultiSelectGrid) {
+            const baseLabel = (isSingleSelect || isMultiSelect)
+              ? 'Frequency Table'
+              : (isNumericQuestion ? 'Frequency Distribution Table' : 'Overall Table');
+            options.push({ id: popupVariableName, label: baseLabel });
+          }
           if (configPopupVariable.statements && Object.keys(configPopupVariable.statements).length > 0) {
             Object.entries(configPopupVariable.statements).forEach(([code, label]) => {
               options.push({
@@ -24177,35 +24503,24 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
           }
           return options;
         })();
-        const allIndividualTableNames = individualTableOptions.map(option => option.id);
+        const summaryTableOptions = (() => {
+          if (!isMultiSelectGrid) return [];
+          return summaryColumns.map((col, idx) => ({
+            id: `${popupVariableName}_Summary_${idx}`,
+            label: col,
+          }));
+        })();
+        const allTableOptions = [...individualTableOptions, ...summaryTableOptions];
+        const allTableOptionIds = allTableOptions.map(option => option.id);
         const individualSelectionSet = variableTableSelections[popupVariableName];
         const isTableSelected = (tableName: string) => {
           if (!individualSelectionSet) return true;
           return individualSelectionSet.has(tableName);
         };
-        const typeLower = configPopupVariable.type?.toLowerCase() || '';
-        const isNumericGrid = typeLower.includes('numeric grid');
-        const isSingleSelectGrid = typeLower.includes('single select grid');
-        const isNumericQuestion = typeLower.includes('numeric') && !typeLower.includes('grid') && !typeLower.includes('list');
-        const isSingleSelectQuestion = typeLower.includes('single select') && !typeLower.includes('grid');
-        const summaryOptions = (() => {
-          const options: Array<{ id: string; title: string; description: string }> = [];
-          if (isNumericGrid) {
-            options.push(
-              { id: 'meanSummary', title: 'Mean Summary Table', description: 'Display the average response for each statement or column.' },
-              { id: 'sumSummary', title: 'Sum Summary Table', description: 'Display the total value contributed by each statement.' }
-            );
-          } else if (isSingleSelectGrid) {
-            options.push({ id: 'meanSummary', title: 'Mean Summary Table', description: 'Display the average selection for each statement.' });
-          }
-          return options;
-        })();
-        const summaryPrefs = summaryPreferences[popupVariableName] || {};
         const statsCheckboxes: Array<{ key: keyof VariableStatsSelection; label: string }> = [
           { key: 'mean', label: 'Mean' },
           { key: 'meanNoOutliers', label: 'Mean (outliers removed)' },
           { key: 'sum', label: 'Sum' },
-          { key: 'sum9', label: 'Sum 9' },
           { key: 'sumNoOutliers', label: 'Sum (outliers removed)' },
           { key: 'stdDev', label: 'Std deviation' },
           { key: 'median', label: 'Median' },
@@ -24213,20 +24528,15 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
           { key: 'max', label: 'Max' },
           { key: 'min', label: 'Min' },
         ];
-        const rangeNets = netSummaryTableRanges[popupVariableName] || [];
-        const codeNets = netSummaryTableSelectedCodes[popupVariableName] || [];
-        const supportsRangeNets = isNumericGrid || isNumericQuestion;
-        const supportsCodeNets = isSingleSelectGrid || isSingleSelectQuestion;
-        const supportsNets = supportsRangeNets || supportsCodeNets;
-        const hasRangeNets = rangeNets.length > 0;
-        const hasCodeNets = codeNets.length > 0;
+        const netRanges = netSummaryTableRanges[popupVariableName] || [];
 
         return createPortal(
-          <div className="fixed inset-0 bg-black/40 z-[2000] flex items-start justify-center p-4 sm:p-6 md:p-10" onClick={() => setShowConfigPopup(false)}>
-            <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
-              <div className="px-6 py-5 border-b border-gray-200">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 space-y-2">
+          <div className="fixed inset-0 bg-black/40 z-[2000]" onClick={() => setShowConfigPopup(false)}>
+            <div className="flex items-start justify-center w-full h-full p-4 sm:p-6 md:p-10">
+              <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                <div className="px-6 py-5 border-b border-gray-200">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="text-xl font-semibold text-gray-900">Q{popupVariableName}</h3>
                       {configPopupVariable.type && (
@@ -24257,165 +24567,274 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
                 </div>
               </div>
               <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6 bg-gray-50/60">
-                {summaryOptions.length > 0 && (
-                  <div className="rounded-2xl border border-gray-200 bg-white p-5">
-                    <h4 className="text-base font-semibold text-gray-900 mb-4">Summary Tables</h4>
-                    <div className="space-y-3">
-                      {summaryOptions.map(option => (
-                        <label key={option.id} className="flex items-start gap-3 rounded-xl border border-gray-200 bg-white p-4">
-                          <input
-                            type="checkbox"
-                            className="mt-1 h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
-                            checked={!!summaryPrefs[option.id]}
-                            onChange={() => handleToggleSummaryPreference(popupVariableName, option.id)}
-                          />
-                          <div>
-                            <p className="text-sm font-semibold text-gray-900">{option.title}</p>
-                            <p className="text-sm text-gray-600 mt-1">{option.description}</p>
-                          </div>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                )}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  <div className="rounded-2xl border border-gray-200 bg-white p-5 h-full">
-                    <div className="mb-4">
-                      <h4 className="text-base font-semibold text-gray-900">Individual Tables</h4>
-                      <p className="text-sm text-gray-600">Choose which statement tables to include.</p>
-                    </div>
-                    {individualTableOptions.length === 0 ? (
-                      <p className="text-sm text-gray-500">No additional tables available.</p>
-                    ) : (
-                      <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                        {individualTableOptions.map(option => (
-                          <label key={option.id} className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-800">
-                            <span className="truncate">{option.label}</span>
-                            <input
-                              type="checkbox"
-                              className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
-                              checked={isTableSelected(option.id)}
-                              onChange={() => handleToggleIndividualTable(popupVariableName, option.id, allIndividualTableNames)}
-                            />
-                          </label>
-                        ))}
+                  {isMultiSelectGrid && summaryColumns.length > 0 && (
+                    <div className="rounded-2xl border border-gray-200 bg-white p-5 h-full flex flex-col">
+                      <div className="mb-4">
+                        <h4 className="text-base font-semibold text-gray-900">Summary Tables</h4>
+                        <p className="text-sm text-gray-600">Select which grid columns should be included as summary tables.</p>
                       </div>
-                    )}
-                  </div>
+                      <div className="flex-1 overflow-y-auto pr-1">
+                        <div className="space-y-2">
+                          {summaryTableOptions.map(option => (
+                            <label
+                              key={option.id}
+                              className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800"
+                            >
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                                checked={isTableSelected(option.id)}
+                                onChange={() => handleToggleIndividualTable(popupVariableName, option.id, allTableOptionIds)}
+                            />
+                              <div className="flex items-center justify-between w-full gap-3">
+                                <span className="truncate">{option.label}</span>
+                                <span className="text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-full">
+                                  Frequency
+                                </span>
+                              </div>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {!isMultiSelectGrid && (
+                    <div className="rounded-2xl border border-gray-200 bg-white p-5 h-full flex flex-col">
+                      <div className="mb-4">
+                        <h4 className="text-base font-semibold text-gray-900">Individual Tables</h4>
+                        <p className="text-sm text-gray-600">Preview the available statement tables for this question.</p>
+                      </div>
+                      <div className="flex-1 overflow-y-auto pr-1">
+                        {individualTableOptions.length === 0 ? (
+                          <p className="text-sm text-gray-500">No additional tables available.</p>
+                        ) : (
+                          <div className="space-y-2">
+                            {individualTableOptions.map(option => (
+                              <label
+                                key={option.id}
+                                className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800"
+                              >
+                                <input
+                                  type="checkbox"
+                                  className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                                  checked={isTableSelected(option.id)}
+                                  onChange={() => handleToggleIndividualTable(popupVariableName, option.id, allTableOptionIds)}
+                                />
+                                <span className="truncate">{option.label}</span>
+                              </label>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                   <div className="rounded-2xl border border-gray-200 bg-white p-5 h-full flex flex-col">
                     <div className="mb-4">
                       <h4 className="text-base font-semibold text-gray-900">Statistics & Options</h4>
                       <p className="text-sm text-gray-600">Stacked controls to include key stats.</p>
                     </div>
-                    <div className="space-y-3">
-                      <label className="flex items-center gap-3 text-sm text-gray-800">
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
-                          checked={!isHiddenFromBanners}
-                          onChange={() => handleToggleShowInBanner(popupVariableName)}
-                        />
-                        <span>Show in banner</span>
-                      </label>
-                      <label className="flex items-center gap-3 text-sm text-gray-800">
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
-                          checked={isSortedByFrequency}
-                          onChange={() => handleSortPreferenceChange(popupVariableName, isSortedByFrequency ? 'default' : 'frequency')}
-                        />
-                        <span>Sort by frequency</span>
-                      </label>
-                    </div>
-                    <div className="mt-4 border-t border-gray-200 pt-4 space-y-2">
-                      {statsCheckboxes.map(option => (
-                        <label key={option.key} className="flex items-center gap-3 text-sm text-gray-800">
+                    {!isNumericQuestion && (
+                      <div className="space-y-3">
+                        <label className="flex items-center gap-3 text-sm text-gray-800">
                           <input
                             type="checkbox"
                             className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
-                            checked={!!popupStatsSelections[option.key]}
-                            onChange={() => handleToggleStatSelection(popupVariableName, option.key)}
+                            checked={isSortedByFrequency}
+                            onChange={() => handleSortPreferenceChange(popupVariableName, isSortedByFrequency ? 'default' : 'frequency', isMultiSelectType)}
                           />
-                          <span>{option.label}</span>
+                          <span>Sort by frequency</span>
                         </label>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-                {supportsNets && (
-                  <div className="rounded-2xl border border-gray-200 bg-white p-5 space-y-4">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <h4 className="text-base font-semibold text-gray-900">Nets</h4>
-                        <p className="text-sm text-gray-600">
-                          {supportsRangeNets ? 'Define numeric ranges for summary tables.' : 'Group response options into custom nets.'}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => handleOpenNetManager(popupVariableName)}
-                        className="inline-flex items-center gap-2 text-sm font-medium text-orange-600 hover:text-orange-700"
-                      >
-                        <PlusCircleIcon className="h-5 w-5" />
-                        <span>Add Net Summary</span>
-                      </button>
-                    </div>
-                    {hasRangeNets && rangeNets.map((net, idx) => (
-                      <div key={`range-net-${idx}`} className="flex items-start gap-3 rounded-xl border border-gray-200 bg-white p-4">
-                        <input
-                          type="checkbox"
-                          className="mt-1 h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
-                          checked={!!net.enabled}
-                          onChange={() => handleToggleNetRangeEnabled(popupVariableName, idx)}
-                        />
-                        <div className="flex-1 space-y-1">
-                          <div className="flex items-center justify-between gap-3">
-                            <div>
-                              <p className="text-sm font-semibold text-gray-900">{net.name || `Net ${idx + 1}`}</p>
-                              <p className="text-xs uppercase tracking-wide text-gray-500">Net Summary</p>
-                            </div>
-                            <button
-                              onClick={() => handleOpenNetManager(popupVariableName)}
-                              className="text-gray-400 hover:text-gray-600"
-                            >
-                              <PencilIcon className="h-4 w-4" />
-                            </button>
+                        {isSortedByFrequency && (
+                          <div className="space-y-2">
+                            <label className="flex items-center gap-3 text-sm text-gray-800">
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                                checked={hasHoldSelection}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    handleHoldOptionsToggle(popupVariableName, true, defaultHoldCodes);
+                                    if ((!hasHoldSelection || defaultHoldCodes.length === 0) && responseOptions.length > 0) {
+                                      openHoldOptionsDropdown(popupVariableName);
+                                    }
+                                  } else {
+                                    handleHoldOptionsToggle(popupVariableName, false);
+                                    closeHoldOptionsDropdown(popupVariableName);
+                                  }
+                                }}
+                              />
+                              <div className="flex items-center gap-2">
+                                <span>Hold response options in sort</span>
+                                {hasHoldSelection && (
+                                  <button
+                                    type="button"
+                                    onClick={() => openHoldOptionsDropdown(popupVariableName)}
+                                    className="text-orange-600 font-semibold hover:text-orange-700"
+                                  >
+                                    Select
+                                  </button>
+                                )}
+                              </div>
+                            </label>
+                            {hasHoldSelection && responseOptions.length > 0 && (
+                              <div className="text-xs text-gray-600">
+                                {`${holdSelectionArray.length} option${holdSelectionArray.length === 1 ? '' : 's'} held`}
+                              </div>
+                            )}
                           </div>
-                          <p className="text-sm text-gray-600">Range: {net.low || '—'} – {net.high || '—'}</p>
-                        </div>
+                        )}
                       </div>
-                    ))}
-                    {hasCodeNets && codeNets.map((net, idx) => (
-                      <div key={`code-net-${idx}`} className="flex items-start gap-3 rounded-xl border border-gray-200 bg-white p-4">
-                        <input
-                          type="checkbox"
-                          className="mt-1 h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
-                          checked={!!net.enabled}
-                          onChange={() => handleToggleNetCodeEnabled(popupVariableName, idx)}
-                        />
-                        <div className="flex-1 space-y-1">
-                          <div className="flex items-center justify-between gap-3">
-                            <div>
-                              <p className="text-sm font-semibold text-gray-900">{net.name || `Net ${idx + 1}`}</p>
-                              <p className="text-xs uppercase tracking-wide text-gray-500">Net Summary</p>
-                            </div>
-                            <button
-                              onClick={() => handleOpenNetManager(popupVariableName)}
-                              className="text-gray-400 hover:text-gray-600"
-                            >
-                              <PencilIcon className="h-4 w-4" />
-                            </button>
+                    )}
+                    {!(isMultiSelect || isMultiSelectGrid) && (
+                      <div className={`${isNumericQuestion ? 'mt-2' : 'mt-4 border-t border-gray-200 pt-4'} space-y-2`}>
+                        {statsCheckboxes.map(option => (
+                          <label key={option.key} className="flex items-center gap-3 text-sm text-gray-800">
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                              checked={!!popupStatsSelections[option.key]}
+                              onChange={() => handleToggleStatSelection(popupVariableName, option.key)}
+                            />
+                            <span>{option.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                    {isNumericQuestion && (
+                      <div className="mt-4 border-t border-gray-200 pt-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h5 className="text-sm font-semibold text-gray-900">Nets</h5>
+                          <button
+                            type="button"
+                            onClick={() => handleAddInlineNumericNet(popupVariableName)}
+                            className="text-sm font-medium text-orange-600 hover:text-orange-700"
+                          >
+                            + Net
+                          </button>
+                        </div>
+                        {netRanges.length === 0 ? (
+                          <p className="text-xs text-gray-500">No nets defined. Click + Net to create one.</p>
+                        ) : (
+                          <div className="overflow-x-auto">
+                            <table className="w-full border border-gray-200 text-sm">
+                              <thead className="bg-gray-50 text-xs font-semibold text-gray-600">
+                                <tr>
+                                  <th className="py-2 px-3 text-left border-b border-gray-200">Net Name</th>
+                                  <th className="py-2 px-3 text-center border-b border-gray-200 w-16">Low</th>
+                                  <th className="py-2 px-3 text-center border-b border-gray-200 w-16">High</th>
+                                  <th className="py-2 text-center border-b border-gray-200 w-12"> </th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {netRanges.map((net, idx) => (
+                                  <tr key={`${popupVariableName}-net-${idx}`}>
+                                    <td className="py-2 px-3 border-b border-gray-200">
+                                      <input
+                                        type="text"
+                                        value={net.name}
+                                        onChange={(e) => handleUpdateInlineNumericNet(popupVariableName, idx, 'name', e.target.value)}
+                                        className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-orange-500"
+                                      />
+                                    </td>
+                                    <td className="py-2 px-2 border-b border-gray-200 text-center">
+                                      <input
+                                        type="text"
+                                        inputMode="decimal"
+                                        pattern="[0-9.-]*"
+                                        value={net.low}
+                                        onChange={(e) => handleUpdateInlineNumericNet(popupVariableName, idx, 'low', e.target.value.replace(/[^0-9.-]/g, ''))}
+                                        className="w-16 border border-gray-300 rounded-md px-2 py-1 text-sm text-center focus:outline-none focus:ring-1 focus:ring-orange-500"
+                                      />
+                                    </td>
+                                    <td className="py-2 px-2 border-b border-gray-200 text-center">
+                                      <input
+                                        type="text"
+                                        inputMode="decimal"
+                                        pattern="[0-9.-]*"
+                                        value={net.high}
+                                        onChange={(e) => handleUpdateInlineNumericNet(popupVariableName, idx, 'high', e.target.value.replace(/[^0-9.-]/g, ''))}
+                                        className="w-16 border border-gray-300 rounded-md px-2 py-1 text-sm text-center focus:outline-none focus:ring-1 focus:ring-orange-500"
+                                      />
+                                    </td>
+                                    <td className="py-2 border-b border-gray-200 text-center">
+                                      <button
+                                        type="button"
+                                        className="text-sm text-red-500 hover:text-red-600 font-semibold"
+                                        onClick={() => handleRemoveInlineNumericNet(popupVariableName, idx)}
+                                      >
+                                        ✕
+                                      </button>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
                           </div>
-                          <p className="text-sm text-gray-600">Codes: {net.codes.length > 0 ? net.codes.join(', ') : 'None selected'}</p>
-                        </div>
+                        )}
                       </div>
-                    ))}
-                    {!hasRangeNets && !hasCodeNets && (
-                      <p className="text-sm text-gray-500">No nets defined yet. Use the button above to create your first net.</p>
                     )}
                   </div>
-                )}
+                </div>
               </div>
             </div>
+            </div>
+            {isHoldDropdownOpen && responseOptions.length > 0 && (
+              <div className="fixed inset-0 z-[2500] flex items-center justify-center p-4" onClick={() => closeHoldOptionsDropdown(popupVariableName)}>
+                <div className="absolute inset-0 bg-black/30"></div>
+                <div
+                  className="relative z-[2501] bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[70vh] flex flex-col"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                    <div>
+                      <h4 className="text-sm font-semibold text-gray-900">Select response options</h4>
+                      <p className="text-xs text-gray-500">Choose which responses stay fixed when sorting.</p>
+                    </div>
+                    <button
+                      type="button"
+                      className="text-gray-400 hover:text-gray-600"
+                      onClick={() => closeHoldOptionsDropdown(popupVariableName)}
+                    >
+                      <XMarkIcon className="h-5 w-5" />
+                    </button>
+                  </div>
+                  <div className="flex-1 overflow-y-auto px-4 py-3 space-y-1 text-sm">
+                    {responseOptions.map(option => (
+                      <label
+                        key={option.code}
+                        className="flex items-center gap-2 rounded-lg px-2 py-1 hover:bg-gray-50 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                          checked={holdSelectionArray.includes(option.code)}
+                          onChange={() => handleHoldOptionSelection(popupVariableName, option.code)}
+                        />
+                        <span className="truncate">{option.code} – {option.text}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <div className="border-t border-gray-100 px-4 py-3 flex justify-end gap-3">
+                    <button
+                      type="button"
+                      className="px-3 py-1.5 text-xs font-medium text-gray-600 hover:text-gray-800"
+                      onClick={() => closeHoldOptionsDropdown(popupVariableName)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="inline-flex items-center px-4 py-1.5 rounded-md text-xs font-semibold text-white"
+                      style={{ backgroundColor: BRAND_ORANGE }}
+                      onClick={() => closeHoldOptionsDropdown(popupVariableName)}
+                    >
+                      Done
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>,
           document.body
         );
