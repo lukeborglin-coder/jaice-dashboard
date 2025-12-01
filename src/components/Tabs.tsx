@@ -79,12 +79,73 @@ interface NetRange {
   low: string;
   high: string;
   enabled?: boolean;
+  context?: 'stats' | 'summary';
 }
 
 interface NetCodeSelection {
   name: string;
   codes: string[];
   enabled?: boolean;
+}
+
+interface NetSummaryModalState {
+  variableName: string | null;
+  isOpen: boolean;
+  name: string;
+  low: string;
+  high: string;
+  error?: string;
+  mode: 'range' | 'codes';
+  responseOptions: Array<{ code: string; text: string }>;
+  selectedCodes: string[];
+  editingIndex: number | null;
+}
+
+interface TableDebugEntry {
+  tableTitle: string;
+  variableName: string;
+  variableType: string;
+  isMultiSelectGridColumn: boolean;
+  columnCode?: string | null;
+  sampleStatements?: Array<{
+    key: string;
+    label: string;
+    totalCount: number;
+    totalPercentage: number;
+    totalBase: number;
+    cutCounts: Array<{ title: string; count: number; percentage: number }>;
+  }>;
+}
+
+type NumericStatsSummary = {
+  sum: number;
+  mean: number;
+  median: number;
+  mode: number;
+  stdDev: number;
+  max: number;
+  min: number;
+  meanNoOutliers: number;
+  sumNoOutliers: number;
+};
+
+const NET_SUMMARY_MODAL_DEFAULT: NetSummaryModalState = {
+  variableName: null,
+  isOpen: false,
+  name: '',
+  low: '',
+  high: '',
+  mode: 'range',
+  responseOptions: [],
+  selectedCodes: [],
+  editingIndex: null,
+};
+
+interface PreviewTableSection {
+  title: string;
+  question: string;
+  base: string;
+  tableHtml: string;
 }
 
 const createDefaultStatsSelection = (): VariableStatsSelection => ({
@@ -154,6 +215,79 @@ const formatDescriptionWithBrackets = (text: string) => {
   return <>{parts}</>;
 };
 
+const getBaseQuestionNumber = (variableName: string): string => {
+  let base = variableName;
+
+  base = base.replace(/_Summary Tables$/, '');
+  base = base.replace(/_Summary$/, '');
+  base = base.replace(/_T2B$/, '');
+  base = base.replace(/_B2B$/, '');
+  base = base.replace(/_M3B$/, '');
+  base = base.replace(/_\d+$/, '');
+  base = base.replace(/_[rR]\d+$/i, '');
+  base = base.replace(/_[cC]\d+$/, '');
+  base = base.replace(/[rR]\d+/gi, '');
+  base = base.replace(/[cC]\d+/gi, '');
+  base = base.replace(/_+$/, '');
+
+  return base;
+};
+
+const normalizeCodeForComparison = (value?: string | number): string => {
+  if (value === null || value === undefined) return '';
+  const str = String(value).trim().toLowerCase();
+  if (!str) return '';
+  return str.replace(/^[rc]/, '');
+};
+
+const getNumericCodeValueForMean = (code: string, fallback?: string): number | null => {
+  const candidates = [code, fallback].filter((c): c is string => Boolean(c));
+
+  for (const candidate of candidates) {
+    const stripped = candidate.replace(/^[rc]/i, '').trim();
+    if (!stripped) continue;
+
+    const numericMatch = stripped.match(/-?\d+(\.\d+)?/);
+    if (!numericMatch) continue;
+
+    const value = Number(numericMatch[0]);
+    if (!Number.isFinite(value)) continue;
+
+    if (value >= 90 && value <= 99) {
+      continue;
+    }
+
+    return value;
+  }
+
+  return null;
+};
+
+const createSerializedTableSelections = (selections: Record<string, Set<string>>): Record<string, string[]> => {
+  const serialized: Record<string, string[]> = {};
+  Object.entries(selections).forEach(([key, value]) => {
+    serialized[key] = Array.from(value);
+  });
+  return serialized;
+};
+
+const parseSerializedTableSelections = (data: Record<string, string[]> | null | undefined): Record<string, Set<string>> => {
+  if (!data) return {};
+  const parsed: Record<string, Set<string>> = {};
+  Object.entries(data).forEach(([key, value]) => {
+    parsed[key] = new Set(value);
+  });
+  return parsed;
+};
+
+const getDefaultSortFlagForVariable = (variable: Variable): boolean => {
+  const typeLower = variable.type?.toLowerCase() || '';
+  const isMultiSelectType = typeLower.includes('multi-select') && !typeLower.includes('grid');
+  const isMultiSelectGridType = typeLower.includes('multi-select grid');
+  const isOpenEndType = typeLower.includes('open end') && !typeLower.includes('list');
+  return isMultiSelectType || isMultiSelectGridType || isOpenEndType;
+};
+
 export default function Tabs({ projects = [], onNavigateToProject, onHeaderChange }: TabsProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -180,6 +314,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
   // Track which tables are included for each variable
   const [variableTableSelections, setVariableTableSelections] = useState<Record<string, Set<string>>>({});
   const [variableStatsSelections, setVariableStatsSelections] = useState<Record<string, VariableStatsSelection>>({});
+  const [summaryTableSortSelections, setSummaryTableSortSelections] = useState<Record<string, Set<string>>>({});
   const [netSummaryTableRanges, setNetSummaryTableRanges] = useState<Record<string, NetRange[]>>({});
   const [netSummaryTableSelectedCodes, setNetSummaryTableSelectedCodes] = useState<Record<string, NetCodeSelection[]>>({});
   const [variableSortByFrequency, setVariableSortByFrequency] = useState<Record<string, boolean>>({});
@@ -196,6 +331,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
   const [specsResetKey, setSpecsResetKey] = useState(0);
   // Track which net dropdowns are open in the popup
   const [openNetDropdowns, setOpenNetDropdowns] = useState<Record<string, Set<number>>>({});
+  const [netSummaryModalState, setNetSummaryModalState] = useState<NetSummaryModalState>(NET_SUMMARY_MODAL_DEFAULT);
   // Debug modal state
   const [showDebugInfoModal, setShowDebugInfoModal] = useState(false);
   const [debugInfoModalVariable, setDebugInfoModalVariable] = useState<Variable | null>(null);
@@ -241,7 +377,123 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
   const [dataCutsReady, setDataCutsReady] = useState(false);
   const [showSingleSelectGridSummary, setShowSingleSelectGridSummary] = useState<Record<string, boolean>>({});
   const [selectedSummaryNets, setSelectedSummaryNets] = useState<Record<string, Set<string>>>({});
-const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Array<{ id: string, selectedNets: string[], baseQuestionNumber: string, customName?: string }>>>({});
+  const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Array<{ id: string, selectedNets: string[], baseQuestionNumber: string, customName?: string }>>>({});
+  const [previewVariable, setPreviewVariable] = useState<Variable | null>(null);
+  const [previewSectionsHtml, setPreviewSectionsHtml] = useState<PreviewTableSection[]>([]);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [previewDebugInfo, setPreviewDebugInfo] = useState<Record<string, TableDebugEntry>>({});
+  const getTabSpecsStorageKey = useCallback((suffix: string) => {
+    return selectedQuestionnaire?.id ? `tabSpecs_${suffix}_${selectedQuestionnaire.id}` : null;
+  }, [selectedQuestionnaire?.id]);
+
+  const getCodeValueForMean = useCallback((variableRef: Variable | { name?: string } | string | null, code: string, fallback?: string): number | null => {
+    const directValue = getNumericCodeValueForMean(code, fallback);
+    if (directValue !== null) return directValue;
+    if (!variableRef) return null;
+
+    const variableName = typeof variableRef === 'string' ? variableRef : variableRef?.name;
+    if (!variableName) return null;
+
+    const baseQuestionNumber = getBaseQuestionNumber(variableName);
+    const normalizedBase = baseQuestionNumber.replace(/^Q/i, '');
+    const question = questionnaireQuestions.find((q: any) => {
+      const qNum = q.number || q.id;
+      if (!qNum) return false;
+      const qStr = String(qNum);
+      const normalizedQ = qStr.replace(/^Q/i, '');
+      return qStr === baseQuestionNumber ||
+             normalizedQ === normalizedBase ||
+             qStr === normalizedBase ||
+             `Q${normalizedQ}` === baseQuestionNumber;
+    });
+
+    const tryParseCandidate = (candidate?: string | number): number | null => {
+      if (candidate === null || candidate === undefined || candidate === '') return null;
+      if (typeof candidate === 'number' && Number.isFinite(candidate)) {
+        if (candidate >= 90 && candidate <= 99) return null;
+        return candidate;
+      }
+      return getNumericCodeValueForMean(String(candidate));
+    };
+
+    const deriveValueFromOption = (option: any): number | null => {
+      if (!option) return null;
+      const fromCode = tryParseCandidate(option.code);
+      if (fromCode !== null) return fromCode;
+      const fromDisplay = tryParseCandidate(option.displayCode);
+      if (fromDisplay !== null) return fromDisplay;
+      const fromValue = tryParseCandidate(option.value);
+      if (fromValue !== null) return fromValue;
+      const fromOrder = tryParseCandidate(option.order);
+      if (fromOrder !== null) return fromOrder;
+      return null;
+    };
+
+    const normalizedTarget = normalizeCodeForComparison(code) || normalizeCodeForComparison(fallback);
+    const labelValue = typeof variableRef === 'object' ? (variableRef as Variable)?.codes?.[code] : undefined;
+    const normalizedLabel = typeof labelValue === 'string' ? labelValue.trim().toLowerCase() : '';
+
+    const findMatchingOption = (options?: any[]) => {
+      if (!options || options.length === 0) return null;
+      return options.find((opt: any) => {
+        if (normalizedTarget) {
+          const optionCandidates = [
+            opt?.code,
+            opt?.value,
+            opt?.displayCode,
+            typeof opt?.order === 'number' ? opt.order : undefined
+          ];
+          if (optionCandidates.some((candidate) => candidate !== undefined && normalizeCodeForComparison(candidate) === normalizedTarget)) {
+            return true;
+          }
+        }
+        if (normalizedLabel) {
+          const potentialLabels = [opt?.text, opt?.label, opt?.description]
+            .filter(Boolean)
+            .map((val: any) => String(val).trim().toLowerCase());
+          if (potentialLabels.some(label => label === normalizedLabel)) {
+            return true;
+          }
+        }
+        return false;
+      }) || null;
+    };
+
+    const variableCodesOrder = typeof variableRef === 'object' ? Object.keys((variableRef as Variable)?.codes || {}) : [];
+
+    if (question && Array.isArray(question.responseOptions) && question.responseOptions.length > 0) {
+      const optionMatch = findMatchingOption(question.responseOptions);
+      if (optionMatch) {
+        const derived = deriveValueFromOption(optionMatch);
+        if (derived !== null) return derived;
+        const optionIndex = question.responseOptions.indexOf(optionMatch);
+        if (optionIndex >= 0) {
+          const positionValue = getNumericCodeValueForMean(String(optionIndex + 1));
+          if (positionValue !== null) return positionValue;
+        }
+      }
+
+      if (variableCodesOrder.length > 0 && variableCodesOrder.length === question.responseOptions.length) {
+        const idx = variableCodesOrder.indexOf(code);
+        if (idx >= 0) {
+          const option = question.responseOptions[idx];
+          const derived = deriveValueFromOption(option);
+          if (derived !== null) return derived;
+        }
+      }
+    }
+
+    if (variableCodesOrder.length > 0) {
+      const idx = variableCodesOrder.indexOf(code);
+      if (idx >= 0) {
+        const fallbackFromOrder = getNumericCodeValueForMean(String(idx + 1));
+        if (fallbackFromOrder !== null) return fallbackFromOrder;
+      }
+    }
+
+    return null;
+  }, [questionnaireQuestions, getBaseQuestionNumber]);
 
   const tabSpecsTypeOptions = useMemo(() => {
     const typeSet = new Set<string>();
@@ -309,11 +561,11 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
     }
   }, []);
 
-  const handleToggleIndividualTable = useCallback((variableName: string, tableName: string, allTableNames: string[]) => {
+  const handleToggleIndividualTable = useCallback((variableName: string, tableName: string, allTableNames: string[], initialSelectedNames?: string[]) => {
     if (!variableName || !tableName) return;
     setVariableTableSelections(prev => {
       const currentSet = prev[variableName];
-      const baseSet = currentSet ? new Set(currentSet) : new Set(allTableNames);
+      const baseSet = currentSet ? new Set(currentSet) : new Set(initialSelectedNames && initialSelectedNames.length > 0 ? initialSelectedNames : allTableNames);
       if (baseSet.has(tableName)) {
         baseSet.delete(tableName);
       } else {
@@ -323,6 +575,84 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
         ...prev,
         [variableName]: baseSet,
       };
+    });
+  }, []);
+
+  const handleSelectAllIndividualTables = useCallback((variableName: string, individualTableIds: string[], allTableIds: string[]) => {
+    if (!variableName) return;
+    setVariableTableSelections(prev => {
+      const baseSet = prev[variableName] ? new Set(prev[variableName]) : new Set(allTableIds);
+      individualTableIds.forEach(id => baseSet.add(id));
+      if (baseSet.size === allTableIds.length) {
+        const next = { ...prev };
+        delete next[variableName];
+        return next;
+      }
+      return {
+        ...prev,
+        [variableName]: baseSet,
+      };
+    });
+  }, []);
+
+  const handleUnselectAllIndividualTables = useCallback((variableName: string, individualTableIds: string[], allTableIds: string[]) => {
+    if (!variableName) return;
+    setVariableTableSelections(prev => {
+      const baseSet = prev[variableName] ? new Set(prev[variableName]) : new Set(allTableIds);
+      individualTableIds.forEach(id => baseSet.delete(id));
+      return {
+        ...prev,
+        [variableName]: baseSet,
+      };
+    });
+  }, []);
+
+  const removeSummarySortSelection = useCallback((variableName: string, tableName: string) => {
+    if (!variableName || !tableName) return;
+    setSummaryTableSortSelections(prev => {
+      const currentSet = prev[variableName];
+      if (!currentSet || !currentSet.has(tableName)) return prev;
+      const updatedSet = new Set(currentSet);
+      updatedSet.delete(tableName);
+      const nextState = { ...prev };
+      if (updatedSet.size === 0) {
+        delete nextState[variableName];
+      } else {
+        nextState[variableName] = updatedSet;
+      }
+      return nextState;
+    });
+  }, []);
+
+  const handleSummaryTableSortToggle = useCallback((variableName: string, tableName: string, defaultOn: boolean) => {
+    if (!variableName || !tableName) return;
+    setSummaryTableSortSelections(prev => {
+      const currentSet = prev[variableName] ? new Set(prev[variableName]) : new Set<string>();
+      const isCurrentlyStored = currentSet.has(tableName);
+      const isCurrentlyOn = defaultOn ? !isCurrentlyStored : isCurrentlyStored;
+      const nextIsOn = !isCurrentlyOn;
+
+      if (defaultOn) {
+        if (nextIsOn) {
+          currentSet.delete(tableName);
+        } else {
+          currentSet.add(tableName);
+        }
+      } else {
+        if (nextIsOn) {
+          currentSet.add(tableName);
+        } else {
+          currentSet.delete(tableName);
+        }
+      }
+
+      const nextState = { ...prev };
+      if (currentSet.size === 0) {
+        delete nextState[variableName];
+      } else {
+        nextState[variableName] = currentSet;
+      }
+      return nextState;
     });
   }, []);
 
@@ -358,6 +688,29 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
     });
   }, []);
 
+  const applyHoldOrdering = useCallback((items: any[], variableName: string, getCode: (item: any) => string) => {
+    const holdList = variableHoldResponseCodes[variableName];
+    if (!holdList || holdList.length === 0) {
+      return items;
+    }
+    const holdSet = new Set(holdList);
+    const remaining: any[] = [];
+    items.forEach(item => {
+      const code = getCode(item);
+      if (!holdSet.has(code)) {
+        remaining.push(item);
+      }
+    });
+    const held: any[] = [];
+    holdList.forEach(code => {
+      const match = items.find(item => getCode(item) === code);
+      if (match) {
+        held.push(match);
+      }
+    });
+    return [...remaining, ...held];
+  }, [variableHoldResponseCodes]);
+
   const openHoldOptionsDropdown = useCallback((variableName: string) => {
     if (!variableName) return;
     setHoldOptionsDropdownOpen(prev => ({ ...prev, [variableName]: true }));
@@ -377,25 +730,25 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
       const existing = prev[variableName] || [];
       return {
         ...prev,
-        [variableName]: [...existing, { name: '', low: '', high: '' }],
+        [variableName]: [...existing, { name: '', low: '', high: '', context: 'stats' }],
       };
     });
   }, []);
 
-  const handleUpdateInlineNumericNet = useCallback((variableName: string, index: number, key: 'name' | 'low' | 'high', value: string) => {
+  const handleUpdateInlineNumericNet = useCallback((variableName: string, globalIndex: number, key: 'name' | 'low' | 'high', value: string) => {
     if (!variableName) return;
     setNetSummaryTableRanges(prev => {
       const existing = prev[variableName] || [];
-      if (!existing[index]) return prev;
+      if (!existing[globalIndex]) return prev;
       const updated = [...existing];
-      updated[index] = { ...updated[index], [key]: value };
-      const lowVal = parseFloat(updated[index].low);
-      const highVal = parseFloat(updated[index].high);
+      updated[globalIndex] = { ...updated[globalIndex], [key]: value };
+      const lowVal = parseFloat(updated[globalIndex].low);
+      const highVal = parseFloat(updated[globalIndex].high);
       if (!isNaN(lowVal) && !isNaN(highVal) && lowVal > highVal) {
         if (key === 'low') {
-          updated[index].high = updated[index].low;
+          updated[globalIndex].high = updated[globalIndex].low;
         } else if (key === 'high') {
-          updated[index].low = updated[index].high;
+          updated[globalIndex].low = updated[globalIndex].high;
         }
       }
       return {
@@ -405,18 +758,214 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
     });
   }, []);
 
-  const handleRemoveInlineNumericNet = useCallback((variableName: string, index: number) => {
+  const handleRemoveInlineNumericNet = useCallback((variableName: string, globalIndex: number) => {
     if (!variableName) return;
     setNetSummaryTableRanges(prev => {
       const existing = prev[variableName] || [];
-      if (!existing[index]) return prev;
-      const updated = existing.filter((_, idx) => idx !== index);
+      if (!existing[globalIndex]) return prev;
+      const updated = existing.filter((_, idx) => idx !== globalIndex);
       return {
         ...prev,
         [variableName]: updated,
       };
     });
   }, []);
+
+  const openNetSummaryModal = useCallback((variableName: string, config?: {
+    mode?: 'range' | 'codes';
+    responseOptions?: Array<{ code: string; text: string }>;
+    initialName?: string;
+    initialLow?: string;
+    initialHigh?: string;
+    initialCodes?: string[];
+    editingIndex?: number | null;
+  }) => {
+    if (!variableName) return;
+    setNetSummaryModalState({
+      ...NET_SUMMARY_MODAL_DEFAULT,
+      variableName,
+      isOpen: true,
+      mode: config?.mode ?? 'range',
+      responseOptions: config?.responseOptions ?? [],
+      name: config?.initialName ?? '',
+      low: config?.initialLow ?? '',
+      high: config?.initialHigh ?? '',
+      selectedCodes: config?.initialCodes ?? [],
+      editingIndex: config?.editingIndex ?? null,
+    });
+  }, []);
+
+  const closeNetSummaryModal = useCallback(() => {
+    setNetSummaryModalState({ ...NET_SUMMARY_MODAL_DEFAULT });
+  }, []);
+
+  const handleNetSummaryModalFieldChange = useCallback((field: 'name' | 'low' | 'high', value: string) => {
+    setNetSummaryModalState(prev => ({
+      ...prev,
+      [field]: field === 'name' ? value : value.replace(/[^0-9.-]/g, ''),
+      error: undefined,
+    }));
+  }, []);
+
+  const handleNetSummaryModalCodeToggle = useCallback((code: string) => {
+    setNetSummaryModalState(prev => {
+      const exists = prev.selectedCodes.includes(code);
+      const updatedCodes = exists
+        ? prev.selectedCodes.filter(c => c !== code)
+        : [...prev.selectedCodes, code];
+      return {
+        ...prev,
+        selectedCodes: updatedCodes,
+        error: undefined,
+      };
+    });
+  }, []);
+
+  const handleEditNetSummary = useCallback((variableName: string, netMeta: { type: 'range' | 'codes'; index: number }, responseOptions: Array<{ code: string; text: string }>) => {
+    if (!variableName) return;
+    if (netMeta.type === 'range') {
+      const net = netSummaryTableRanges[variableName]?.[netMeta.index];
+      if (!net) return;
+      openNetSummaryModal(variableName, {
+        mode: 'range',
+        initialName: net.name || '',
+        initialLow: net.low || '',
+        initialHigh: net.high || '',
+        editingIndex: netMeta.index,
+      });
+    } else {
+      const net = netSummaryTableSelectedCodes[variableName]?.[netMeta.index];
+      if (!net) return;
+      openNetSummaryModal(variableName, {
+        mode: 'codes',
+        responseOptions,
+        initialName: net.name || '',
+        initialCodes: net.codes || [],
+        editingIndex: netMeta.index,
+      });
+    }
+  }, [netSummaryTableRanges, netSummaryTableSelectedCodes, openNetSummaryModal]);
+
+  const handleNetSummaryModalSave = useCallback(() => {
+    const { variableName, name, low, high, mode, selectedCodes } = netSummaryModalState;
+    if (!variableName) {
+      closeNetSummaryModal();
+      return;
+    }
+    const trimmedName = name.trim();
+    const trimmedLow = low.trim();
+    const trimmedHigh = high.trim();
+    if (mode === 'codes') {
+      if (!trimmedName) {
+        setNetSummaryModalState(prev => ({ ...prev, error: 'Enter a net name.' }));
+        return;
+      }
+      if (selectedCodes.length === 0) {
+        setNetSummaryModalState(prev => ({ ...prev, error: 'Select at least one response option.' }));
+        return;
+      }
+      if (netSummaryModalState.editingIndex !== null) {
+        setNetSummaryTableSelectedCodes(prev => {
+          const existing = prev[variableName] || [];
+          if (!existing[netSummaryModalState.editingIndex]) return prev;
+          const updated = [...existing];
+          updated[netSummaryModalState.editingIndex] = {
+            ...updated[netSummaryModalState.editingIndex],
+            name: trimmedName,
+            codes: selectedCodes,
+          };
+          return {
+            ...prev,
+            [variableName]: updated,
+          };
+        });
+        closeNetSummaryModal();
+        return;
+      }
+      let newCodeIndex = 0;
+      setNetSummaryTableSelectedCodes(prev => {
+        const existing = prev[variableName] || [];
+        newCodeIndex = existing.length;
+        return {
+          ...prev,
+          [variableName]: [...existing, { name: trimmedName, codes: selectedCodes }],
+        };
+      });
+      const newTableId = `${variableName}_NetSummaryTable_${newCodeIndex}`;
+      setVariableTableSelections(prev => {
+        const current = prev[variableName];
+        if (!current) return prev;
+        const updated = new Set(current);
+        updated.add(newTableId);
+        return {
+          ...prev,
+          [variableName]: updated,
+        };
+      });
+
+      closeNetSummaryModal();
+      return;
+    }
+
+    if (!trimmedName || !trimmedLow || !trimmedHigh) {
+      setNetSummaryModalState(prev => ({ ...prev, error: 'Enter a name and both range values.' }));
+      return;
+    }
+    const parsedLow = parseFloat(trimmedLow);
+    const parsedHigh = parseFloat(trimmedHigh);
+    if (isNaN(parsedLow) || isNaN(parsedHigh)) {
+      setNetSummaryModalState(prev => ({ ...prev, error: 'Low and high must be numeric.' }));
+      return;
+    }
+    if (parsedHigh < parsedLow) {
+      setNetSummaryModalState(prev => ({ ...prev, error: 'High value must be greater than or equal to low.' }));
+      return;
+    }
+    if (netSummaryModalState.editingIndex !== null) {
+      setNetSummaryTableRanges(prev => {
+        const existing = prev[variableName] || [];
+        if (!existing[netSummaryModalState.editingIndex]) return prev;
+        const updated = [...existing];
+        updated[netSummaryModalState.editingIndex] = {
+          ...updated[netSummaryModalState.editingIndex],
+          name: trimmedName,
+          low: trimmedLow,
+          high: trimmedHigh,
+        };
+        return {
+          ...prev,
+          [variableName]: updated,
+        };
+      });
+      closeNetSummaryModal();
+      return;
+    }
+
+    let newNetIndex = 0;
+    setNetSummaryTableRanges(prev => {
+      const existing = prev[variableName] || [];
+      const summaryCount = existing.filter(net => net.context === 'summary').length;
+      newNetIndex = summaryCount;
+      return {
+        ...prev,
+        [variableName]: [...existing, { name: trimmedName, low: trimmedLow, high: trimmedHigh, context: 'summary' }],
+      };
+    });
+
+    const newTableId = `${variableName}_NetSummaryTable_${newNetIndex}`;
+    setVariableTableSelections(prev => {
+      const current = prev[variableName];
+      if (!current) return prev;
+      const updated = new Set(current);
+      updated.add(newTableId);
+      return {
+        ...prev,
+        [variableName]: updated,
+      };
+    });
+
+    closeNetSummaryModal();
+  }, [netSummaryModalState, closeNetSummaryModal, setNetSummaryTableRanges, setVariableTableSelections]);
 
   const [openSummaryDropdown, setOpenSummaryDropdown] = useState<Record<string, boolean>>({});
   const [editingTableName, setEditingTableName] = useState<Record<string, boolean>>({});
@@ -554,11 +1103,11 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
         // Only auto-initialize if it's a numeric question with % tag OR single-column numeric grid with % tag
         if (hasPercentTag && (isNumericQuestion || isSingleColumnGrid) && (!updatedNets[variable.name] || updatedNets[variable.name].length === 0)) {
           updatedNets[variable.name] = [
-            { name: '0-20%', low: '0', high: '20' },
-            { name: '21-40%', low: '21', high: '40' },
-            { name: '41-60%', low: '41', high: '60' },
-            { name: '61-80%', low: '61', high: '80' },
-            { name: '81-100%', low: '81', high: '100' }
+            { name: '0-20%', low: '0', high: '20', context: 'stats' },
+            { name: '21-40%', low: '21', high: '40', context: 'stats' },
+            { name: '41-60%', low: '41', high: '60', context: 'stats' },
+            { name: '61-80%', low: '61', high: '80', context: 'stats' },
+            { name: '81-100%', low: '81', high: '100', context: 'stats' }
           ];
           hasChanges = true;
         }
@@ -604,11 +1153,12 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
       let hasChanges = false;
 
       variables.forEach(variable => {
-        const isSingleSelect = variable.type?.toLowerCase().includes('single select') &&
-                              !variable.type?.toLowerCase().includes('grid');
+        const isSingleSelect = variable.type?.toLowerCase().includes('single select');
+        const isSingleSelectGrid = variable.type?.toLowerCase().includes('single select grid');
+        const isBaseSingleSelect = isSingleSelect && !isSingleSelectGrid;
         const isScaleSummary = (variable as any).isScaleSummary;
         
-        if (isSingleSelect && !isScaleSummary) {
+        if ((isBaseSingleSelect || isSingleSelectGrid) && !isScaleSummary) {
           // Check for Scale (7pt) tag
           const scaleTag = variable.tags && Array.isArray(variable.tags) 
             ? variable.tags.find((tag: string) => tag.startsWith('Scale ('))
@@ -956,40 +1506,14 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
     }
   }, [projects, archivedProjects, loadQuestionnaires]);
 
-  // Convert questionnaire questions to variables for display
-  // Extract base question number from variable name
-  const getBaseQuestionNumber = useCallback((variableName: string): string => {
-    let base = variableName;
-    
-    // Remove summary suffixes first
-    base = base.replace(/_Summary Tables$/, '');
-    base = base.replace(/_Summary$/, '');
-    // Remove other suffixes like _T2B, _B2B, _M3B
-    base = base.replace(/_T2B$/, '');
-    base = base.replace(/_B2B$/, '');
-    base = base.replace(/_M3B$/, '');
-    
-    // Remove legacy numeric grid response codes with underscore (e.g., _1, _2) - must be just a number
-    // This pattern matches underscore followed by digits at the end, but not _r1 or _c1
-    base = base.replace(/_\d+$/, '');
-    
-    // Remove response codes with underscore (e.g., _r1, _r2) - this handles legacy numeric grids
-    base = base.replace(/_[rR]\d+$/i, '');
-    
-    // Remove column codes with underscore (e.g., _c1, _c2)
-    base = base.replace(/_[cC]\d+$/, '');
-    
-    // Remove response codes without underscore (r1, r2, etc.)
-    base = base.replace(/[rR]\d+/gi, '');
-    
-    // Remove column codes without underscore (c1, c2, etc.)
-    base = base.replace(/[cC]\d+/gi, '');
-    
-    // Remove any trailing underscores
-    base = base.replace(/_+$/, '');
-    
-  return base;
-}, []);
+  useEffect(() => {
+    if (!showConfigPopup) {
+      setNetSummaryModalState(prev => {
+        if (!prev.isOpen) return prev;
+        return { ...NET_SUMMARY_MODAL_DEFAULT };
+      });
+    }
+  }, [showConfigPopup]);
 
   const multiSelectSortDefaultsApplied = React.useRef<Set<string>>(new Set());
   const multiSelectHoldDefaultsApplied = React.useRef<Set<string>>(new Set());
@@ -1089,8 +1613,9 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
       variables.forEach(variable => {
         if (prev[variable.name]) return;
         const typeLower = variable.type?.toLowerCase() || '';
-        const isNumericType = typeLower.includes('numeric') && !typeLower.includes('grid');
-        if (!isNumericType) return;
+        const isNumericQuestionType = typeLower.includes('numeric') && !typeLower.includes('grid');
+        const isNumericGridType = typeLower.includes('numeric grid');
+        if (!isNumericQuestionType && !isNumericGridType) return;
         const tags: string[] = ((variable as any).tags || []).map((tag: string) => tag.toLowerCase());
         const hasNumberTag = tags.includes('number');
         const hasPercentTag = tags.includes('%');
@@ -1699,6 +2224,7 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
                              !variable.type?.toLowerCase().includes('list') &&
                              !isSummaryTable &&
                              !isScaleSummary;
+    const isMultiSelectGridQuestion = variable.type?.toLowerCase().includes('multi-select grid');
 
     console.log(`🔍 Question type check for ${selectedBannerVariable}:`, {
       variableType: variable.type,
@@ -1768,7 +2294,7 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
     const isMultiSelectCheck = variable.type?.toLowerCase().includes('multi-select') &&
                                !variable.type?.toLowerCase().includes('grid');
 
-    if (!isSummaryTable && !isNumericQuestion && !isMultiSelectCheck && !stubColumnHeader) {
+    if (!isSummaryTable && !isNumericQuestion && !isMultiSelectCheck && !isMultiSelectGridQuestion && !stubColumnHeader) {
       console.log(`🔍 Early return for ${selectedBannerVariable}: No stubColumnHeader found`);
       // Return empty object instead of null so the table still renders
       return {};
@@ -3751,13 +4277,14 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
               let meanTotal = 0;
               let meanCount = 0;
               codeEntries.forEach(([code]) => {
-                const codeNum = parseInt(code.replace(/^c/i, ''));
-                if (!isNaN(codeNum)) {
-                  const respDataForCode = respData[code];
-                  const count = respDataForCode?.total || 0;
-                  meanTotal += codeNum * count;
-                  meanCount += count;
+                const codeValue = getCodeValueForMean(variable, code);
+                if (codeValue === null) {
+                  return;
                 }
+                const respDataForCode = respData[code];
+                const count = respDataForCode?.total || 0;
+                meanTotal += codeValue * count;
+                meanCount += count;
               });
               const totalMean = meanCount > 0 ? meanTotal / meanCount : 0;
 
@@ -3767,13 +4294,14 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
                 let cutMeanTotal = 0;
                 let cutMeanCount = 0;
                 codeEntries.forEach(([code]) => {
-                  const codeNum = parseInt(code.replace(/^c/i, ''));
-                  if (!isNaN(codeNum)) {
-                    const respDataForCode = respData[code];
-                    const cutCount = respDataForCode?.cuts[col.id] || 0;
-                    cutMeanTotal += codeNum * cutCount;
-                    cutMeanCount += cutCount;
+                  const codeValue = getCodeValueForMean(variable, code);
+                  if (codeValue === null) {
+                    return;
                   }
+                  const respDataForCode = respData[code];
+                  const cutCount = respDataForCode?.cuts[col.id] || 0;
+                  cutMeanTotal += codeValue * cutCount;
+                  cutMeanCount += cutCount;
                 });
                 cutMeans[col.id] = cutMeanCount > 0 ? cutMeanTotal / cutMeanCount : 0;
               });
@@ -5392,14 +5920,15 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
           let meanTotal = 0;
           let meanCount = 0;
           sortedCodes.forEach(code => {
-            const codeNum = parseInt(code.replace(/^[rc]/i, ''));
-            if (!isNaN(codeNum)) {
-              const codeCellData = (bannerTableData as any)[code];
-              const totalData = codeCellData?.['total'] || { count: 0, percentage: 0, base: 0 };
-              const count = totalData.count || 0;
-              meanTotal += codeNum * count;
-              meanCount += count;
+            const codeValue = getCodeValueForMean(variable, code);
+            if (codeValue === null) {
+              return;
             }
+            const codeCellData = (bannerTableData as any)[code];
+            const totalData = codeCellData?.['total'] || { count: 0, percentage: 0, base: 0 };
+            const count = totalData.count || 0;
+            meanTotal += codeValue * count;
+            meanCount += count;
           });
           const totalMean = meanCount > 0 ? meanTotal / meanCount : 0;
 
@@ -5417,14 +5946,15 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
             let cutMeanTotal = 0;
             let cutMeanCount = 0;
             sortedCodes.forEach(code => {
-              const codeNum = parseInt(code.replace(/^[rc]/i, ''));
-              if (!isNaN(codeNum)) {
-                const codeCellData = (bannerTableData as any)[code];
-                const cutData = codeCellData?.[col.id] || { count: 0, percentage: 0, base: 0 };
-                const count = cutData.count || 0;
-                cutMeanTotal += codeNum * count;
-                cutMeanCount += count;
+              const codeValue = getCodeValueForMean(variable, code);
+              if (codeValue === null) {
+                return;
               }
+              const codeCellData = (bannerTableData as any)[code];
+              const cutData = codeCellData?.[col.id] || { count: 0, percentage: 0, base: 0 };
+              const count = cutData.count || 0;
+              cutMeanTotal += codeValue * count;
+              cutMeanCount += count;
             });
             cutMeans[col.id] = cutMeanCount > 0 ? cutMeanTotal / cutMeanCount : 0;
           });
@@ -5860,7 +6390,17 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
             });
 
             if (values.length === 0) {
-              return { mean: 0, median: 0, stdDev: 0, min: 0, max: 0, sum: 0, mode: 0 };
+              return {
+                mean: 0,
+                median: 0,
+                stdDev: 0,
+                min: 0,
+                max: 0,
+                sum: 0,
+                mode: 0,
+                meanNoOutliers: 0,
+                sumNoOutliers: 0
+              };
             }
 
             const sorted = [...values].sort((a, b) => a - b);
@@ -5888,7 +6428,25 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
             const variance = values.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / values.length;
             const stdDev = Math.sqrt(variance);
 
-            return { mean, median, stdDev, min: sorted[0], max: sorted[sorted.length - 1], sum, mode };
+            let sumNoOutliers = sum;
+            let meanNoOutliers = mean;
+            if (!Number.isNaN(stdDev) && stdDev > 0) {
+              const threshold = 2 * stdDev;
+              let filteredSum = 0;
+              let filteredCount = 0;
+              values.forEach(v => {
+                if (Math.abs(v - mean) <= threshold) {
+                  filteredSum += v;
+                  filteredCount += 1;
+                }
+              });
+              if (filteredCount > 0) {
+                sumNoOutliers = filteredSum;
+                meanNoOutliers = filteredSum / filteredCount;
+              }
+            }
+
+            return { mean, median, stdDev, min: sorted[0], max: sorted[sorted.length - 1], sum, mode, meanNoOutliers, sumNoOutliers };
           };
 
           const totalStats = calculateNumericStats('total');
@@ -5898,17 +6456,23 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
           });
 
           // Add statistics rows (same order as UI: Mean, Sum, Median, Mode, Std Dev, Low, High)
+          const statsSelections = getStatsSelectionsForVariable(variable.name);
           const statsToShow = [
-            { label: 'Mean', key: 'mean' as const, format: '0.00' },
-            { label: 'Sum', key: 'sum' as const, format: '0.00' },
-            { label: 'Median', key: 'median' as const, format: '0.00' },
-            { label: 'Mode', key: 'mode' as const, format: '0.00' },
-            { label: 'Std Dev', key: 'stdDev' as const, format: '0.00' },
-            { label: 'Low', key: 'min' as const, format: '0.00' },
-            { label: 'High', key: 'max' as const, format: '0.00' }
+            { label: 'Mean', key: 'mean' as const, format: '0.00', selectionKey: 'mean' },
+            { label: 'Mean (outliers removed)', key: 'meanNoOutliers' as const, format: '0.00', selectionKey: 'meanNoOutliers' },
+            { label: 'Sum', key: 'sum' as const, format: '0', selectionKey: 'sum' },
+            { label: 'Sum (outliers removed)', key: 'sumNoOutliers' as const, format: '0', selectionKey: 'sumNoOutliers' },
+            { label: 'Median', key: 'median' as const, format: '0', selectionKey: 'median' },
+            { label: 'Mode', key: 'mode' as const, format: '0', selectionKey: 'mode' },
+            { label: 'Std Dev', key: 'stdDev' as const, format: '0.00', selectionKey: 'stdDev' },
+            { label: 'Low', key: 'min' as const, format: '0', selectionKey: 'min' },
+            { label: 'High', key: 'max' as const, format: '0', selectionKey: 'max' }
           ];
 
           statsToShow.forEach(stat => {
+            if (!statsSelections[stat.selectionKey as keyof VariableStatsSelection]) {
+              return;
+            }
             const statRow = worksheet.getRow(dataRowNum);
             statRow.getCell(2).value = stat.label;
             statRow.getCell(2).alignment = { horizontal: 'left', vertical: 'middle' };
@@ -5921,8 +6485,9 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
             statRow.getCell(2).fill = {
               type: 'pattern',
               pattern: 'solid',
-              fgColor: { argb: 'FFF2F2F2' } // Light grey background
+              fgColor: { argb: 'FFF2F2F2' }
             };
+            statRow.getCell(2).font = { italic: true };
 
             currentCol = 3;
             const totalStatCell = statRow.getCell(currentCol);
@@ -5938,8 +6503,9 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
             totalStatCell.fill = {
               type: 'pattern',
               pattern: 'solid',
-              fgColor: { argb: 'FFF2F2F2' } // Light grey background
+              fgColor: { argb: 'FFF2F2F2' }
             };
+            totalStatCell.font = { italic: true };
             currentCol++;
 
             bannerCols.forEach(col => {
@@ -5956,8 +6522,9 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
               cutStatCell.fill = {
                 type: 'pattern',
                 pattern: 'solid',
-                fgColor: { argb: 'FFF2F2F2' } // Light grey background
+                fgColor: { argb: 'FFF2F2F2' }
               };
+              cutStatCell.font = { italic: true };
               currentCol++;
             });
 
@@ -7598,15 +8165,220 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
     }
   }, [fullRawData, newBannerGroups, variables, columnMapping, selectedProject, hiddenFromBanners, calculateBannerTableDataForVariable, getBaseQuestionNumber, questionnaireQuestions, getVariableDataByExpectedHeader]);
 
+  const getTablesForVariable = useCallback((variable: Variable): string[] => {
+    const tables: string[] = [];
+    const baseName = variable.name;
+    const isSingleSelectGrid = variable.type?.toLowerCase().includes('single select grid') && !(variable as any).isSummaryTable;
+    const isNumericGrid = variable.type?.toLowerCase().includes('numeric grid');
+    const isMultiSelectGrid = variable.type?.toLowerCase().includes('multi-select grid');
+    const hasPercentTag = (variable as any).tags && Array.isArray((variable as any).tags) && (variable as any).tags.includes('%');
+    const hasNumberTag = (variable as any).tags && Array.isArray((variable as any).tags) && (variable as any).tags.includes('Number');
+    const isNumericGridWithPercentOnly = isNumericGrid && hasPercentTag && !hasNumberTag && variable.statements;
+    const isScaleSummary = (variable as any).isScaleSummary;
+
+    if (isScaleSummary) {
+      return tables;
+    }
+
+    const selections = variableTableSelections[baseName];
+    const shouldInclude = (tableName: string) => {
+      if (!selections) return true;
+      return selections.has(tableName);
+    };
+
+    if (!isSingleSelectGrid && !isNumericGrid && !isMultiSelectGrid) {
+      if (!(variable as any).isSummaryTable || !variable.statements) {
+        if (shouldInclude(baseName)) {
+          tables.push(baseName);
+        }
+      }
+    }
+
+    if (isSingleSelectGrid && variable.statements) {
+      Object.keys(variable.statements).forEach(stmtCode => {
+        const tableName = `${baseName}_${stmtCode}`;
+        if (shouldInclude(tableName)) {
+          tables.push(tableName);
+        }
+      });
+    }
+
+    if (isMultiSelectGrid && variable.codes) {
+      Object.keys(variable.codes).forEach(colCode => {
+        const colLabel = variable.codes[colCode] || colCode;
+        const tableName = `${baseName}_${colCode} (${colLabel})`;
+        if (shouldInclude(tableName)) {
+          tables.push(tableName);
+        }
+      });
+    }
+
+    if (isNumericGrid && variable.statements) {
+      const baseNumber = baseName.replace(/^Q/, '');
+      const question = questionnaireQuestions.find(q => {
+        const qNum = q.number || q.id;
+        return qNum === baseNumber ||
+               qNum === baseNumber.replace(/^Q/, '') ||
+               String(qNum) === String(baseNumber);
+      });
+
+      let isSingleColumnGrid = false;
+      if (question && question.responseOptions && Array.isArray(question.responseOptions)) {
+        isSingleColumnGrid = question.responseOptions.length === 1;
+      }
+
+      if (isNumericGridWithPercentOnly && !isSingleColumnGrid) {
+        if (question && question.responseOptions && Array.isArray(question.responseOptions)) {
+          question.responseOptions.forEach((respOpt, respIdx) => {
+            const respIndex = respIdx + 1;
+            const respText = typeof respOpt === 'string' ? respOpt : (respOpt.text || `Response ${respIndex}`);
+            const tableName = `${baseName}_${respIndex} (${respText})`;
+            if (shouldInclude(tableName)) {
+              tables.push(tableName);
+            }
+          });
+        }
+      } else {
+        if (question && question.responseOptions && Array.isArray(question.responseOptions)) {
+          question.responseOptions.forEach((respOpt, respIdx) => {
+            const respIndex = respIdx + 1;
+            const respText = typeof respOpt === 'string' ? respOpt : (respOpt.text || `Column ${respIndex}`);
+            const columnCode = `c${respIndex}`;
+
+            const summaryTableName = `${baseName}_${columnCode}_Summary (${respText})`;
+            if (shouldInclude(summaryTableName)) {
+              tables.push(summaryTableName);
+            }
+
+            if (variable.statements) {
+              Object.keys(variable.statements).forEach(stmtCode => {
+                let normalizedStmtCode = stmtCode;
+                if (!/^r\d+/i.test(stmtCode) && /^\d+$/.test(stmtCode)) {
+                  normalizedStmtCode = `r${stmtCode}`;
+                }
+                const stmtText = variable.statements[stmtCode];
+                const tableName = `${baseName}${normalizedStmtCode}${columnCode} (${stmtText})`;
+                if (shouldInclude(tableName)) {
+                  tables.push(tableName);
+                }
+              });
+            }
+          });
+        }
+      }
+    }
+
+    return tables;
+  }, [questionnaireQuestions, variableTableSelections]);
+
+  const previewTableList = useMemo(() => {
+    if (!previewVariable) return [];
+    return getTablesForVariable(previewVariable);
+  }, [previewVariable, getTablesForVariable]);
+  const getEffectiveSortByFrequency = useCallback((variable: Variable): boolean => {
+    const stored = variableSortByFrequency[variable.name];
+    return stored !== undefined ? stored : getDefaultSortFlagForVariable(variable);
+  }, [variableSortByFrequency]);
+
+  const previewVariableTags = useMemo(() => {
+    if (!previewVariable) return [];
+    return Array.isArray((previewVariable as any).tags) ? (previewVariable as any).tags : [];
+  }, [previewVariable]);
+
+  useEffect(() => {
+    if (!selectedQuestionnaire?.id) {
+      setVariableTableSelections({});
+    setVariableStatsSelections({});
+    setVariableSortByFrequency({});
+    setVariableHoldResponseCodes({});
+    setPreviewDebugInfo({});
+    return;
+  }
+
+    const selectionsKey = getTabSpecsStorageKey('tableSelections');
+    const statsKey = getTabSpecsStorageKey('statsSelections');
+    const sortKey = getTabSpecsStorageKey('sortSelections');
+    const holdKey = getTabSpecsStorageKey('holdSelections');
+
+    try {
+      if (selectionsKey) {
+        const storedSelections = localStorage.getItem(selectionsKey);
+        if (storedSelections) {
+          const parsed = JSON.parse(storedSelections);
+          setVariableTableSelections(parseSerializedTableSelections(parsed));
+        } else {
+          setVariableTableSelections({});
+        }
+      }
+
+      if (statsKey) {
+        const storedStats = localStorage.getItem(statsKey);
+        if (storedStats) {
+          setVariableStatsSelections(JSON.parse(storedStats));
+        } else {
+          setVariableStatsSelections({});
+        }
+      }
+
+      if (sortKey) {
+        const storedSorts = localStorage.getItem(sortKey);
+        if (storedSorts) {
+          setVariableSortByFrequency(JSON.parse(storedSorts));
+        } else {
+          setVariableSortByFrequency({});
+        }
+      }
+
+      if (holdKey) {
+        const storedHold = localStorage.getItem(holdKey);
+        if (storedHold) {
+          setVariableHoldResponseCodes(JSON.parse(storedHold));
+        } else {
+          setVariableHoldResponseCodes({});
+        }
+      }
+    } catch (error) {
+      console.error('Error loading Tab Specs settings:', error);
+      setVariableTableSelections({});
+      setVariableStatsSelections({});
+      setVariableSortByFrequency({});
+      setVariableHoldResponseCodes({});
+    }
+  }, [selectedQuestionnaire?.id, getTabSpecsStorageKey]);
+
+  useEffect(() => {
+    const key = getTabSpecsStorageKey('tableSelections');
+    if (!key || !selectedQuestionnaire?.id) return;
+    localStorage.setItem(key, JSON.stringify(createSerializedTableSelections(variableTableSelections)));
+  }, [variableTableSelections, getTabSpecsStorageKey, selectedQuestionnaire?.id]);
+
+  useEffect(() => {
+    const key = getTabSpecsStorageKey('statsSelections');
+    if (!key || !selectedQuestionnaire?.id) return;
+    localStorage.setItem(key, JSON.stringify(variableStatsSelections));
+  }, [variableStatsSelections, getTabSpecsStorageKey, selectedQuestionnaire?.id]);
+
+  useEffect(() => {
+    const key = getTabSpecsStorageKey('sortSelections');
+    if (!key || !selectedQuestionnaire?.id) return;
+    localStorage.setItem(key, JSON.stringify(variableSortByFrequency));
+  }, [variableSortByFrequency, getTabSpecsStorageKey, selectedQuestionnaire?.id]);
+
+  useEffect(() => {
+    const key = getTabSpecsStorageKey('holdSelections');
+    if (!key || !selectedQuestionnaire?.id) return;
+    localStorage.setItem(key, JSON.stringify(variableHoldResponseCodes));
+  }, [variableHoldResponseCodes, getTabSpecsStorageKey, selectedQuestionnaire?.id]);
+
+
   // Export Tab Specs tables to Excel
   // This function exports all tables configured in Tab Specs to an Excel workbook
   // All tables are placed in a single "Data Cuts" worksheet with a Table of Contents
   // Shows Total column + banner cut columns, with counts and percentages on separate rows
   // Respects all tab spec settings: table selections, stats selections, nets, and sort by frequency
-  const handleExportTabSpecsToExcel = useCallback(async () => {
-    if (!fullRawData || !variables.length) {
-      alert('Data not available for export. Please ensure data is loaded.');
-      return;
+  const buildTabSpecsWorkbook = useCallback(async (variablesSubset: Variable[]): Promise<{ workbook: ExcelJS.Workbook; sampleSize: number; debugInfo: Record<string, TableDebugEntry> }> => {
+    if (!fullRawData || !variablesSubset.length) {
+      throw new Error('Data not available for export. Please ensure data is loaded.');
     }
 
     try {
@@ -7615,135 +8387,42 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
       // Get the selected banner group (use first banner if none selected)
       const selectedBannerGroup = newBannerGroups[0];
       if (!selectedBannerGroup) {
-        alert('No banner group found. Please create a banner in the Banners tab first.');
-        return;
+        throw new Error('No banner group found. Please create a banner in the Banners tab first.');
       }
 
-      // Helper to get all tables that should be exported for a variable
-      const getTablesForExport = (variable: Variable): string[] => {
-        const tables: string[] = [];
-        const baseName = variable.name;
-        const isSingleSelectGrid = variable.type?.toLowerCase().includes('single select grid') && !(variable as any).isSummaryTable;
-        const isNumericGrid = variable.type?.toLowerCase().includes('numeric grid');
-        const isMultiSelectGrid = variable.type?.toLowerCase().includes('multi-select grid');
-        const hasPercentTag = (variable as any).tags && Array.isArray((variable as any).tags) && (variable as any).tags.includes('%');
-        const hasNumberTag = (variable as any).tags && Array.isArray((variable as any).tags) && (variable as any).tags.includes('Number');
-        const isNumericGridWithPercentOnly = isNumericGrid && hasPercentTag && !hasNumberTag && variable.statements;
-        const isScaleSummary = (variable as any).isScaleSummary;
-
-        if (isScaleSummary) {
-          return tables;
-        }
-
-        // Check which tables are selected for this variable
-        const selections = variableTableSelections[baseName];
-        const shouldInclude = (tableName: string) => {
-          if (!selections) return true; // Default to all included
-          return selections.has(tableName);
-        };
-
-        // Main table
-        if (!isSingleSelectGrid && !isNumericGrid && !isMultiSelectGrid) {
-          if (!(variable as any).isSummaryTable || !variable.statements) {
-            if (shouldInclude(baseName)) {
-              tables.push(baseName);
-            }
-          }
-        }
-
-        // Single select grid statement tables
-        if (isSingleSelectGrid && variable.statements) {
-          Object.keys(variable.statements).forEach(stmtCode => {
-            const tableName = `${baseName}_${stmtCode}`;
-            if (shouldInclude(tableName)) {
-              tables.push(tableName);
-            }
-          });
-        }
-
-        // Multi-select grid column tables
-        if (isMultiSelectGrid && variable.codes) {
-          Object.keys(variable.codes).forEach(colCode => {
-            const colLabel = variable.codes[colCode] || colCode;
-            const tableName = `${baseName}_${colCode} (${colLabel})`;
-            if (shouldInclude(tableName)) {
-              tables.push(tableName);
-            }
-          });
-        }
-
-        // Numeric grids
-        if (isNumericGrid && variable.statements) {
-          const baseNumber = baseName.replace(/^Q/, '');
-          const question = questionnaireQuestions.find(q => {
-            const qNum = q.number || q.id;
-            return qNum === baseNumber ||
-                   qNum === baseNumber.replace(/^Q/, '') ||
-                   String(qNum) === String(baseNumber);
-          });
-
-          let isSingleColumnGrid = false;
-          if (question && question.responseOptions && Array.isArray(question.responseOptions)) {
-            isSingleColumnGrid = question.responseOptions.length === 1;
-          }
-
-          if (isNumericGridWithPercentOnly && !isSingleColumnGrid) {
-            if (question && question.responseOptions && Array.isArray(question.responseOptions)) {
-              question.responseOptions.forEach((respOpt, respIdx) => {
-                const respIndex = respIdx + 1;
-                const respText = typeof respOpt === 'string' ? respOpt : (respOpt.text || `Response ${respIndex}`);
-                const tableName = `${baseName}_${respIndex} (${respText})`;
-                if (shouldInclude(tableName)) {
-                  tables.push(tableName);
-                }
-              });
-            }
-          } else {
-            if (question && question.responseOptions && Array.isArray(question.responseOptions)) {
-              question.responseOptions.forEach((respOpt, respIdx) => {
-                const respIndex = respIdx + 1;
-                const respText = typeof respOpt === 'string' ? respOpt : (respOpt.text || `Column ${respIndex}`);
-                const columnCode = `c${respIndex}`;
-
-                const summaryTableName = `${baseName}_${columnCode}_Summary (${respText})`;
-                if (shouldInclude(summaryTableName)) {
-                  tables.push(summaryTableName);
-                }
-
-                if (variable.statements) {
-                  Object.keys(variable.statements).forEach(stmtCode => {
-                    let normalizedStmtCode = stmtCode;
-                    if (!/^r\d+/i.test(stmtCode) && /^\d+$/.test(stmtCode)) {
-                      normalizedStmtCode = `r${stmtCode}`;
-                    }
-                    const stmtText = variable.statements[stmtCode];
-                    const tableName = `${baseName}${normalizedStmtCode}${columnCode} (${stmtText})`;
-                    if (shouldInclude(tableName)) {
-                      tables.push(tableName);
-                    }
-                  });
-                }
-              });
-            }
-          }
-        }
-
-        return tables;
-      };
-
       // Filter variables that should be exported
-      const variablesToExport = variables.filter(v => {
+      const variablesToExport = variablesSubset.filter(v => {
         if (v.name.endsWith('_Summary Tables') || ((v as any).isSummaryTable && !(v as any).isScaleSummary)) {
           return false;
         }
         if (hiddenFromBanners.has(v.name)) {
           return false;
         }
-        const tables = getTablesForExport(v);
+        const tables = getTablesForVariable(v);
         return tables.length > 0;
       });
 
       let tableNumber = 1;
+      const tableDebugInfo: Record<string, TableDebugEntry> = {};
+      const findFirstBannerRowWithBase = (data: Record<string, any> | null | undefined): Record<string, any> | null => {
+        if (!data) return null;
+        const queue: any[] = Object.values(data);
+        while (queue.length) {
+          const node = queue.shift();
+          if (!node || typeof node !== 'object') {
+            continue;
+          }
+          if (node.total && typeof node.total.base === 'number') {
+            return node;
+          }
+          Object.values(node).forEach(child => {
+            if (child && typeof child === 'object') {
+              queue.push(child);
+            }
+          });
+        }
+        return null;
+      };
 
       // Helper to calculate frequency table data
       const calculateFrequencyData = (variable: Variable, tableName: string) => {
@@ -7773,9 +8452,10 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
         }
 
         // Check if sorting by frequency is enabled
-        const isSortedByFrequency = variableSortByFrequency[variable.name] || false;
+        const isSortedByFrequency = getEffectiveSortByFrequency(variable);
         if (isSortedByFrequency) {
           codes.sort((a, b) => (frequencyMap[b.code] || 0) - (frequencyMap[a.code] || 0));
+          codes = applyHoldOrdering(codes, variable.name, (item) => item.code);
         }
 
         return { frequencyMap, totalCount, codes };
@@ -7878,7 +8558,7 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
       const tablePositions: Array<{ tableNumber: number; tableName: string; rowNumber: number; variable: Variable }> = [];
 
       for (const variable of variablesToExport) {
-        const tables = getTablesForExport(variable);
+        const tables = getTablesForVariable(variable);
 
         for (const tableName of tables) {
           // Add spacing between tables (except for first table)
@@ -7897,8 +8577,9 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
           });
 
           // Table title
+          const tableTitle = `Table ${tableNumber}: ${tableName}`;
           const titleRow = dataCutsWorksheet.getRow(currentRow++);
-          titleRow.getCell(2).value = `Table ${tableNumber}: ${tableName}`;
+          titleRow.getCell(2).value = tableTitle;
           titleRow.getCell(2).font = { bold: true, size: 12 };
 
           // Question text
@@ -7909,21 +8590,78 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
           // Calculate banner table data for this variable
           const bannerTableData = calculateBannerTableDataForVariable(variable, variable.name, bannerGroup);
 
+          const isMultiSelectGridVariable = variable.type?.toLowerCase().includes('multi-select grid');
+          const extractGridColumnCode = (): string | null => {
+            if (!isMultiSelectGridVariable) return null;
+            const prefix = `${variable.name}_`;
+            if (!tableName.startsWith(prefix)) return null;
+            const remainder = tableName.slice(prefix.length);
+            const parenIndex = remainder.indexOf(' (');
+            const rawCode = parenIndex >= 0 ? remainder.slice(0, parenIndex) : remainder;
+            return rawCode.trim() || null;
+          };
+          const activeGridColumnCode = extractGridColumnCode();
+          const activeGridColumnData = activeGridColumnCode ? (bannerTableData as any)[activeGridColumnCode] : null;
+          const isMultiSelectGridColumnTable = !!activeGridColumnData && typeof activeGridColumnData === 'object';
+          if (isMultiSelectGridColumnTable) {
+            const sampleStatements = Object.entries(activeGridColumnData || {})
+              .filter(([stmtKey, stmtData]) => stmtKey !== 'total' && stmtData && typeof stmtData === 'object')
+              .slice(0, 5)
+              .map(([stmtKey, stmtData]) => {
+                const normalizedKey = stmtKey.replace(/^r/i, '');
+                const label =
+                  variable.statements?.[stmtKey] ||
+                  (normalizedKey ? variable.statements?.[normalizedKey] : undefined) ||
+                  stmtKey;
+                const totalData = (stmtData as any)['total'] || { count: 0, percentage: 0, base: 0 };
+                const cutCounts = bannerCols.map(col => ({
+                  title: col.title,
+                  count: (stmtData as any)?.[col.id]?.count || 0,
+                  percentage: (stmtData as any)?.[col.id]?.percentage || 0,
+                }));
+                return {
+                  key: stmtKey,
+                  label,
+                  totalCount: totalData.count || 0,
+                  totalPercentage: totalData.percentage || 0,
+                  totalBase: totalData.base || 0,
+                  cutCounts,
+                };
+              });
+            tableDebugInfo[tableTitle] = {
+              tableTitle,
+              variableName: variable.name,
+              variableType: variable.type,
+              isMultiSelectGridColumn: true,
+              columnCode: activeGridColumnCode || null,
+              sampleStatements,
+            };
+          } else if (!tableDebugInfo[tableTitle]) {
+            tableDebugInfo[tableTitle] = {
+              tableTitle,
+              variableName: variable.name,
+              variableType: variable.type,
+              isMultiSelectGridColumn: false,
+            };
+          }
+
           // Extract bases from banner table data
           let totalBase = 0;
           const cutBases: Record<string, number> = {};
           bannerCols.forEach(col => { cutBases[col.id] = 0; });
 
-          // Get bases from first code's data
-          const firstEntry = Object.entries(bannerTableData)[0];
-          if (firstEntry && firstEntry[1]) {
-            const firstCodeData = firstEntry[1] as any;
-            if (firstCodeData['total'] && typeof firstCodeData['total'].base === 'number') {
-              totalBase = firstCodeData['total'].base;
+          // Get bases from the first entry that actually contains base data
+          const firstCodeData = isMultiSelectGridColumnTable
+            ? findFirstBannerRowWithBase(activeGridColumnData)
+            : findFirstBannerRowWithBase(bannerTableData);
+          if (firstCodeData) {
+            if (firstCodeData.total && typeof firstCodeData.total.base === 'number') {
+              totalBase = firstCodeData.total.base;
             }
             bannerCols.forEach(col => {
-              if (firstCodeData[col.id] && typeof firstCodeData[col.id].base === 'number') {
-                cutBases[col.id] = firstCodeData[col.id].base;
+              const baseValue = firstCodeData[col.id]?.base;
+              if (typeof baseValue === 'number') {
+                cutBases[col.id] = baseValue;
               }
             });
           }
@@ -8145,21 +8883,59 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
             baseCol++;
           });
 
-          // Get response codes from banner table data
-          const responseCodes = Object.keys(bannerTableData);
+          const resolveGridStatementKey = (code: string) => {
+            if (!isMultiSelectGridColumnTable) return code;
+            const baseCode = code.replace(/^r/i, '');
+            const variations = [code, baseCode && code !== baseCode ? baseCode : null, baseCode ? `r${baseCode}` : null].filter(Boolean) as string[];
+            for (const variant of variations) {
+              if (activeGridColumnData && Object.prototype.hasOwnProperty.call(activeGridColumnData, variant)) {
+                return variant;
+              }
+            }
+            return code;
+          };
+
+          const getCodeDataForRow = (code: string) => {
+            if (isMultiSelectGridColumnTable) {
+              const resolvedKey = resolveGridStatementKey(code);
+              return (activeGridColumnData as any)?.[resolvedKey] || {};
+            }
+            return (bannerTableData as any)?.[code] || {};
+          };
+
+          const getRowLabelForCode = (code: string) => {
+            if (isMultiSelectGridColumnTable) {
+              const resolvedKey = resolveGridStatementKey(code);
+              return variable.statements?.[code] || variable.statements?.[resolvedKey] || code;
+            }
+            return variable.codes?.[code] || code;
+          };
+
+          // Get response codes from banner table data or statements (for grid columns)
+          let responseCodes: string[] = (() => {
+            if (isMultiSelectGridColumnTable) {
+              if (variable.statements && Object.keys(variable.statements).length > 0) {
+                return Object.keys(variable.statements);
+              }
+              return Object.keys(activeGridColumnData || {});
+            }
+            return Object.keys(bannerTableData);
+          })();
 
           // Sort codes by frequency if enabled
-          const isSortedByFrequency = variableSortByFrequency[variable.name] || false;
+          const isSortedByFrequency = getEffectiveSortByFrequency(variable);
           if (isSortedByFrequency) {
             responseCodes.sort((a, b) => {
-              const aTotal = (bannerTableData[a] as any)?.['total']?.count || 0;
-              const bTotal = (bannerTableData[b] as any)?.['total']?.count || 0;
+              const aTotal = getCodeDataForRow(a)?.['total']?.count || 0;
+              const bTotal = getCodeDataForRow(b)?.['total']?.count || 0;
               return bTotal - aTotal;
             });
+            responseCodes = applyHoldOrdering(responseCodes, variable.name, code => code);
           }
 
           // Check for nets
-          const netCodes = netSummaryTableSelectedCodes[variable.name] || [];
+          const netCodes = isMultiSelectGridColumnTable ? [] : (netSummaryTableSelectedCodes[variable.name] || []);
+          const firstEntry = Object.entries(isMultiSelectGridColumnTable ? (activeGridColumnData || {}) : bannerTableData)[0];
 
           // Add net rows first
           netCodes.forEach(net => {
@@ -8181,7 +8957,7 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
               bannerCols.forEach(col => { netCutCounts[col.id] = 0; });
 
               net.codes.forEach(code => {
-                const codeData = bannerTableData[code] as any;
+                const codeData = getCodeDataForRow(code);
                 if (codeData) {
                   netTotalCount += codeData['total']?.count || 0;
                   bannerCols.forEach(col => {
@@ -8254,8 +9030,8 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
 
           // Add regular response rows (count + percentage rows for each response)
           responseCodes.forEach(code => {
-            const codeData = bannerTableData[code] as any;
-            const codeLabel = variable.codes?.[code] || code;
+            const codeData = getCodeDataForRow(code);
+            const codeLabel = getRowLabelForCode(code);
 
             // Count row
             const countRow = dataCutsWorksheet.getRow(currentRow++);
@@ -8337,6 +9113,106 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
           const isSingleSelect = variable.type?.toLowerCase().includes('single select') &&
                                  !variable.type?.toLowerCase().includes('grid');
 
+          // Numeric stats helper (for numeric questions)
+          const getNumericStatsForColumn = (columnId: string): NumericStatsSummary | null => {
+            if (!isNumeric) return null;
+            const entries = Object.entries(bannerTableData || {});
+            const numericEntries = entries
+              .map(([valueKey, valueData]) => {
+                const numericValue = parseFloat(valueKey);
+                if (isNaN(numericValue)) return null;
+                const columnData = columnId === 'total'
+                  ? (valueData as any)['total']
+                  : (valueData as any)[columnId];
+                const count = columnData?.count || 0;
+                return count > 0 ? { value: numericValue, count } : null;
+              })
+              .filter((entry): entry is { value: number; count: number } => !!entry)
+              .sort((a, b) => a.value - b.value);
+            if (!numericEntries.length) return null;
+
+            let totalCount = 0;
+            let sum = 0;
+            let sumSquares = 0;
+            let min = Infinity;
+            let max = -Infinity;
+            let modeValue: number | null = null;
+            let modeCount = -1;
+
+            numericEntries.forEach(({ value, count }) => {
+              totalCount += count;
+              sum += value * count;
+              sumSquares += value * value * count;
+              if (value < min) min = value;
+              if (value > max) max = value;
+              if (count > modeCount) {
+                modeCount = count;
+                modeValue = value;
+              }
+            });
+            if (totalCount === 0) return null;
+
+            const mean = sum / totalCount;
+            const variance = Math.max(sumSquares / totalCount - mean * mean, 0);
+            const stdDev = Math.sqrt(variance);
+
+            const target1 = Math.floor((totalCount - 1) / 2);
+            const target2 = Math.floor(totalCount / 2);
+            let cumulative = 0;
+            let medianVal1: number | null = null;
+            let medianVal2: number | null = null;
+            numericEntries.forEach(({ value, count }) => {
+              const prev = cumulative;
+              cumulative += count;
+              if (medianVal1 === null && target1 < cumulative) {
+                medianVal1 = value;
+              }
+              if (medianVal2 === null && target2 < cumulative) {
+                medianVal2 = value;
+              }
+            });
+            const median = totalCount % 2 === 0 && medianVal1 !== null && medianVal2 !== null
+              ? (medianVal1 + medianVal2) / 2
+              : (medianVal2 ?? medianVal1 ?? 0);
+
+            let sumNoOutliers = sum;
+            let meanNoOutliers = mean;
+            if (stdDev > 0) {
+              let filteredSum = 0;
+              let filteredCount = 0;
+              const threshold = 2 * stdDev;
+              numericEntries.forEach(({ value, count }) => {
+                if (Math.abs(value - mean) <= threshold) {
+                  filteredSum += value * count;
+                  filteredCount += count;
+                }
+              });
+              if (filteredCount > 0) {
+                sumNoOutliers = filteredSum;
+                meanNoOutliers = filteredSum / filteredCount;
+              }
+            }
+
+            return {
+              sum,
+              mean,
+              median,
+              mode: modeValue ?? 0,
+              stdDev,
+              max,
+              min,
+              meanNoOutliers,
+              sumNoOutliers,
+            };
+          };
+          const totalNumericStats = isNumeric ? getNumericStatsForColumn('total') : null;
+          const cutNumericStats: Record<string, NumericStatsSummary | null> = {};
+          if (isNumeric) {
+            bannerCols.forEach(col => {
+              cutNumericStats[col.id] = getNumericStatsForColumn(col.id);
+            });
+          }
+
           // Show stats for numeric questions OR single select questions (which can have numeric codes)
           if ((isNumeric || isSingleSelect) && Object.values(statsSelections).some(v => v)) {
             // Define stats to show (exclude sum for single select)
@@ -8356,20 +9232,24 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
               return true;
             });
 
-            // Helper to calculate weighted mean for single select
-            const calculateSingleSelectMean = (codeData: any): number => {
-              if (!codeData || !variable.codes) return 0;
+            // Helper to calculate weighted mean for single select tables
+            const calculateSingleSelectMean = (tableData: any, cutId?: string): number => {
+              if (!tableData) return 0;
 
               let totalWeightedValue = 0;
               let totalCount = 0;
 
-              Object.keys(variable.codes).forEach(code => {
-                const numericCode = parseFloat(code);
-                if (!isNaN(numericCode)) {
-                  const count = codeData[code]?.count || 0;
-                  totalWeightedValue += numericCode * count;
-                  totalCount += count;
+              const codes = variable.codes ? Object.keys(variable.codes) : Object.keys(tableData || {});
+
+              codes.forEach(code => {
+                const codeValue = getCodeValueForMean(variable, code);
+                if (codeValue === null) {
+                  return;
                 }
+                const codeEntry = tableData[code];
+                const count = cutId ? (codeEntry?.[cutId]?.count || 0) : (codeEntry?.total?.count || 0);
+                totalWeightedValue += codeValue * count;
+                totalCount += count;
               });
 
               return totalCount > 0 ? totalWeightedValue / totalCount : 0;
@@ -8397,8 +9277,9 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
 
                 // Calculate stat value for Total
                 let totalStatValue: number;
-                if (isSingleSelect && stat.key === 'mean') {
-                  // Calculate weighted mean for single select
+                if (isNumeric) {
+                  totalStatValue = totalNumericStats ? (totalNumericStats[stat.key as keyof typeof totalNumericStats] as number ?? 0) : 0;
+                } else if (isSingleSelect && stat.key === 'mean') {
                   totalStatValue = calculateSingleSelectMean(bannerTableData);
                 } else {
                   // Get from banner table data for numeric questions or other stats
@@ -8425,26 +9306,11 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
                 bannerCols.forEach(bannerCol => {
                   let cutStatValue: number;
 
-                  if (isSingleSelect && stat.key === 'mean') {
-                    // Calculate weighted mean for this banner cut
-                    if (!variable.codes) {
-                      cutStatValue = 0;
-                    } else {
-                      let totalWeightedValue = 0;
-                      let totalCount = 0;
-
-                      Object.keys(variable.codes).forEach(code => {
-                        const numericCode = parseFloat(code);
-                        if (!isNaN(numericCode)) {
-                          const codeData = bannerTableData[code] as any;
-                          const count = codeData?.[bannerCol.id]?.count || 0;
-                          totalWeightedValue += numericCode * count;
-                          totalCount += count;
-                        }
-                      });
-
-                      cutStatValue = totalCount > 0 ? totalWeightedValue / totalCount : 0;
-                    }
+                  if (isNumeric) {
+                    const colStats = cutNumericStats[bannerCol.id];
+                    cutStatValue = colStats ? (colStats[stat.key as keyof typeof colStats] as number ?? 0) : 0;
+                  } else if (isSingleSelect && stat.key === 'mean') {
+                    cutStatValue = calculateSingleSelectMean(bannerTableData, bannerCol.id);
                   } else {
                     // Get from banner table data
                     cutStatValue = firstEntry && firstEntry[1] ? (firstEntry[1] as any)[bannerCol.id]?.[stat.key] || 0 : 0;
@@ -8546,7 +9412,27 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
       tocWorksheet.getColumn(2).width = 40;
       tocWorksheet.getColumn(3).width = 60;
 
-      // Generate file and download
+      const sampleSize = fullRawData.rows.filter((row: any) => {
+        const recordValue = row['record'] ?? row['respno'] ?? row['Record'] ?? row['Respno'] ?? row['RECORD'] ?? row['RESPNO'];
+        return recordValue !== null && recordValue !== undefined && recordValue !== '' &&
+               !(typeof recordValue === 'string' && recordValue.trim() === '');
+      }).length;
+
+      return { workbook, sampleSize, debugInfo: tableDebugInfo };
+    } catch (error) {
+      console.error('Error generating workbook:', error);
+      throw error;
+    }
+  }, [fullRawData, variableStatsSelections, variableSortByFrequency, netSummaryTableSelectedCodes, netSummaryTableRanges, hiddenFromBanners, questionnaireQuestions, selectedQuestionnaire, columnMapping, newBannerGroups, calculateBannerTableDataForVariable, getTablesForVariable, getEffectiveSortByFrequency, applyHoldOrdering]);
+
+  const handleExportTabSpecsToExcel = useCallback(async () => {
+    if (!variables.length) {
+      alert('No variables available for export.');
+      return;
+    }
+
+    try {
+      const { workbook } = await buildTabSpecsWorkbook(variables);
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 
@@ -8564,12 +9450,162 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-
     } catch (error) {
       console.error('Error exporting tables to Excel:', error);
-      alert('Error exporting tables to Excel. Please try again.');
+      alert(error instanceof Error ? error.message : 'Error exporting tables to Excel. Please try again.');
     }
-  }, [fullRawData, variables, variableTableSelections, variableStatsSelections, variableSortByFrequency, netSummaryTableSelectedCodes, netSummaryTableRanges, hiddenFromBanners, questionnaireQuestions, selectedQuestionnaire, columnMapping, newBannerGroups, calculateBannerTableDataForVariable]);
+  }, [variables, buildTabSpecsWorkbook, selectedQuestionnaire]);
+
+  useEffect(() => {
+    let isCancelled = false;
+    const generatePreview = async () => {
+      if (!previewVariable) {
+        setPreviewSectionsHtml([]);
+        setPreviewError(null);
+        setPreviewLoading(false);
+        setPreviewDebugInfo({});
+        return;
+      }
+      setPreviewLoading(true);
+      setPreviewError(null);
+      try {
+        const { workbook, debugInfo } = await buildTabSpecsWorkbook([previewVariable]);
+        const buffer = await workbook.xlsx.writeBuffer();
+        const parsedWorkbook = XLSX.read(buffer, { type: 'array' });
+        const dataCutsSheet = parsedWorkbook.Sheets['Data Cuts'];
+        if (!dataCutsSheet) {
+          if (!isCancelled) {
+            setPreviewError('Unable to locate the Data Cuts sheet in the workbook.');
+            setPreviewSectionsHtml([]);
+          }
+          return;
+        }
+        const rawHtml = XLSX.utils.sheet_to_html(dataCutsSheet, { header: '', footer: '' });
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(rawHtml, 'text/html');
+        const tableElement = doc.querySelector('table');
+        if (!tableElement) {
+          if (!isCancelled) {
+            setPreviewError('Unable to parse the preview table.');
+            setPreviewSectionsHtml([]);
+          }
+          return;
+        }
+        const colgroupEl = tableElement.querySelector('colgroup');
+        if (colgroupEl) {
+          colgroupEl.querySelectorAll('col').forEach(col => {
+            (col as HTMLTableColElement).style.width = `${100 / colgroupEl.children.length}%`;
+          });
+        }
+        const colgroupHtml = colgroupEl?.outerHTML || '';
+        const sections: PreviewTableSection[] = [];
+        let currentSection: { title: string; question: string; base: string; rows: HTMLTableRowElement[] } | null = null;
+        const rows = Array.from(tableElement.querySelectorAll('tr'));
+        const setTableLayoutFixed = () => {
+          const tables = doc.querySelectorAll('table');
+          tables.forEach((tbl) => {
+            (tbl as HTMLTableElement).style.tableLayout = 'fixed';
+            const columns = tbl.querySelectorAll('col');
+            if (columns.length > 1) {
+              const colWidth = `${100 / columns.length}%`;
+              columns.forEach((col) => {
+                (col as HTMLTableColElement).style.width = colWidth;
+              });
+            }
+          });
+        };
+        const mergeLabelCells = (rows: HTMLTableRowElement[]) => {
+          if (!rows || rows.length === 0) return;
+          for (let i = 0; i < rows.length - 1; i++) {
+            const firstRow = rows[i];
+            const nextRow = rows[i + 1];
+            if (!firstRow || !nextRow) continue;
+            const firstCell = firstRow.querySelector('td:first-child');
+            const nextCell = nextRow.querySelector('td:first-child');
+            if (!firstCell || !nextCell) continue;
+            const firstText = firstCell.textContent?.trim() || '';
+            const nextText = nextCell.textContent?.trim() || '';
+            if (!firstText || !nextText || firstText !== nextText) continue;
+            const currentRowspan = parseInt(firstCell.getAttribute('rowspan') || '1', 10);
+            firstCell.setAttribute('rowspan', String(currentRowspan + 1));
+            firstCell.style.verticalAlign = 'middle';
+            nextRow.removeChild(nextCell);
+            rows.splice(i + 1, 1);
+            i--;
+          }
+        };
+
+        rows.forEach(row => {
+          const text = row.textContent?.trim() || '';
+          if (text.startsWith('Table ')) {
+            if (currentSection) {
+              mergeLabelCells(currentSection.rows);
+              sections.push({
+                title: currentSection.title,
+                question: currentSection.question,
+                base: currentSection.base,
+                tableHtml: `<table>${colgroupHtml}${currentSection.rows.map(row => row.outerHTML).join('')}</table>`
+              });
+            }
+            currentSection = { title: text, question: '', base: '', rows: [] };
+          } else if (currentSection && !currentSection.question) {
+            currentSection.question = text;
+          } else if (currentSection && !currentSection.base && text.toLowerCase().startsWith('base')) {
+            currentSection.base = text;
+          } else if (currentSection) {
+            if (!text) return;
+            const clone = row.cloneNode(true) as HTMLTableRowElement;
+            const rowIndex = currentSection.rows.length;
+            if (rowIndex <= 2) {
+              clone.classList.add('preview-header-row');
+            }
+            const lowerText = text.toLowerCase();
+            if (lowerText.startsWith('base') || lowerText.includes('base (total responding')) {
+              clone.classList.add('preview-base-row');
+            } else if (lowerText.startsWith('mean') || lowerText.includes('sum') || lowerText.includes('mode') || lowerText.includes('median') || lowerText.includes('std') || lowerText.includes('t2b') || lowerText.includes('b2b') || lowerText.includes('m3b')) {
+              clone.classList.add('preview-stat-row');
+            }
+            currentSection.rows.push(clone);
+          }
+        });
+
+        if (currentSection) {
+          mergeLabelCells(currentSection.rows);
+          sections.push({
+            title: currentSection.title,
+            question: currentSection.question,
+            base: currentSection.base,
+            tableHtml: `<table>${colgroupHtml}${currentSection.rows.map(row => row.outerHTML).join('')}</table>`
+          });
+        }
+        if (!isCancelled) {
+          setPreviewSectionsHtml(sections);
+          setPreviewDebugInfo(debugInfo || {});
+        }
+      } catch (error) {
+        console.error('Preview generation error:', error);
+        if (!isCancelled) {
+          setPreviewError(error instanceof Error ? error.message : 'Failed to generate preview.');
+          setPreviewSectionsHtml([]);
+          setPreviewDebugInfo({});
+        }
+      } finally {
+        if (!isCancelled) {
+          setPreviewLoading(false);
+        }
+      }
+    };
+    void generatePreview();
+    return () => {
+      isCancelled = true;
+    };
+  }, [previewVariable, buildTabSpecsWorkbook]);
+
+  // Secondary download button uses the same workbook that the main export generates.
+  // Keeping the logic in one place ensures both actions always stay aligned.
+  const handleDownloadTabSpecsWorkbook = useCallback(() => {
+    void handleExportTabSpecsToExcel();
+  }, [handleExportTabSpecsToExcel]);
 
   // Generate crosstab and add to downloads queue
   const handleGenerateCrosstab = useCallback(async (bannerIdOverride?: string) => {
@@ -9784,6 +10820,23 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
           theme: t.theme
         })));
         return newMap;
+      });
+
+      setVariableTableSelections(prev => {
+        const summaryId = `${selectedOpenEndVariable.name}_VerbatimSummary`;
+        const currentSet = prev[selectedOpenEndVariable.name];
+        const updatedSet = currentSet ? new Set(currentSet) : new Set<string>();
+        if (updatedSet.has(summaryId)) {
+          if (!currentSet) {
+            return prev;
+          }
+          return prev;
+        }
+        updatedSet.add(summaryId);
+        return {
+          ...prev,
+          [selectedOpenEndVariable.name]: updatedSet,
+        };
       });
 
       setOpenEndCodingSaved(true);
@@ -12099,11 +13152,20 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
                   <div className="flex items-center gap-2">
                     <button
                       onClick={handleExportTabSpecsToExcel}
-                      className="px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors hover:opacity-90 whitespace-nowrap"
+                      disabled
+                      className="px-4 py-2 text-sm font-medium text-white rounded-lg whitespace-nowrap opacity-50 cursor-not-allowed"
                       style={{ backgroundColor: BRAND_ORANGE }}
-                      title="Export tables to Excel"
+                      title="Export tables to Excel (temporarily disabled)"
                     >
                       Export to Excel
+                    </button>
+                    <button
+                      onClick={handleDownloadTabSpecsWorkbook}
+                      className="px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors hover:opacity-90 whitespace-nowrap"
+                      style={{ backgroundColor: BRAND_ORANGE }}
+                      title="Download current tab specs in Excel format"
+                    >
+                      Download Tabs Workbook
                     </button>
                     <button
                       onClick={() => {
@@ -12115,8 +13177,15 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
                         setHoldOptionsDropdownOpen({});
                         setNetSummaryTableRanges({});
                         setNetSummaryTableSelectedCodes({});
+                        setSummaryTableSortSelections({});
                         multiSelectSortDefaultsApplied.current = new Set();
                         multiSelectHoldDefaultsApplied.current = new Set();
+                        ['tableSelections', 'statsSelections', 'sortSelections', 'holdSelections'].forEach(suffix => {
+                          const key = getTabSpecsStorageKey(suffix);
+                          if (key) {
+                            localStorage.removeItem(key);
+                          }
+                        });
                         // Force re-render by changing key
                         setSpecsResetKey(prev => prev + 1);
                       }}
@@ -12161,6 +13230,7 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
                   <table key={specsResetKey} className="min-w-full text-sm border-collapse">
                     <thead className="sticky top-0 z-10">
                       <tr className="border-b-2 border-gray-300">
+                        <th className="px-3 py-3 text-center text-xs font-semibold text-white uppercase tracking-wider border-r border-gray-300" style={{ backgroundColor: BRAND_ORANGE }}>Debug</th>
                         <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-gray-300 whitespace-nowrap" style={{ backgroundColor: BRAND_ORANGE }}>Q#</th>
                         <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-gray-300" style={{ backgroundColor: BRAND_ORANGE }}>Type</th>
                         <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-gray-300" style={{ backgroundColor: BRAND_ORANGE }}>Tags</th>
@@ -12180,7 +13250,12 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
                           const tags = (variable as any).tags || [];
                           const questionText = variable.description || (variable as any).label || variable.name;
                           const selectionSet = variableTableSelections[variable.name];
-                          const isIncluded = !selectionSet || selectionSet.size > 0;
+                          const typeLower = variable.type?.toLowerCase() || '';
+                          const isOpenEndRow = typeLower.includes('open end') && !typeLower.includes('list');
+                          const isOpenEndListRow = typeLower.includes('open end list');
+                          const isIncluded = selectionSet
+                            ? selectionSet.size > 0
+                            : !(isOpenEndRow || isOpenEndListRow);
                           return (
                             <tr
                               key={variable.name}
@@ -12190,6 +13265,19 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
                               setShowConfigPopup(true);
                             }}
                           >
+                            <td className="px-3 py-3 text-center border-r border-gray-100">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setPreviewVariable(variable);
+                                }}
+                                className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 text-gray-600 hover:bg-orange-100 hover:text-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                title="Preview included tables"
+                              >
+                                <InformationCircleIcon className="h-4 w-4" />
+                              </button>
+                            </td>
                             <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-100 font-medium whitespace-nowrap">
                               {variable.name}
                             </td>
@@ -14323,12 +15411,13 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
                                             let meanTotal = 0;
                                             let meanCount = 0;
                                             codeEntries.forEach(([code]) => {
-                                              const codeNum = parseInt(code.replace(/^c/i, ''));
-                                              if (!isNaN(codeNum)) {
-                                                const count = respData[code]?.total || 0;
-                                                meanTotal += codeNum * count;
-                                                meanCount += count;
+                                              const codeValue = getCodeValueForMean(variable, code);
+                                              if (codeValue === null) {
+                                                return;
                                               }
+                                              const count = respData[code]?.total || 0;
+                                              meanTotal += codeValue * count;
+                                              meanCount += count;
                                             });
                                             const totalMean = meanCount > 0 ? meanTotal / meanCount : 0;
 
@@ -14346,12 +15435,13 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
                                               let cutMeanTotal = 0;
                                               let cutMeanCount = 0;
                                               codeEntries.forEach(([code]) => {
-                                                const codeNum = parseInt(code.replace(/^c/i, ''));
-                                                if (!isNaN(codeNum)) {
-                                                  const count = respData[code]?.cuts[col.id] || 0;
-                                                  cutMeanTotal += codeNum * count;
-                                                  cutMeanCount += count;
+                                                const codeValue = getCodeValueForMean(variable, code);
+                                                if (codeValue === null) {
+                                                  return;
                                                 }
+                                                const count = respData[code]?.cuts[col.id] || 0;
+                                                cutMeanTotal += codeValue * count;
+                                                cutMeanCount += count;
                                               });
                                               cutMeans[col.id] = cutMeanCount > 0 ? cutMeanTotal / cutMeanCount : 0;
                                             });
@@ -15514,12 +16604,13 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
                                       let meanTotal = 0;
                                       let meanCount = 0;
                                       sortedCodes.forEach(code => {
-                                        const codeNum = parseInt(code.replace(/^[rc]/i, ''));
-                                        if (!isNaN(codeNum)) {
-                                          const count = counts[code]?.total || 0;
-                                          meanTotal += codeNum * count;
-                                          meanCount += count;
+                                        const codeValue = getCodeValueForMean(variable, code);
+                                        if (codeValue === null) {
+                                          return;
                                         }
+                                        const count = counts[code]?.total || 0;
+                                        meanTotal += codeValue * count;
+                                        meanCount += count;
                                       });
                                       const totalMean = meanCount > 0 ? meanTotal / meanCount : 0;
 
@@ -15537,12 +16628,13 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
                                         let cutMeanTotal = 0;
                                         let cutMeanCount = 0;
                                         sortedCodes.forEach(code => {
-                                          const codeNum = parseInt(code.replace(/^[rc]/i, ''));
-                                          if (!isNaN(codeNum)) {
-                                            const count = counts[code]?.cuts[col.id] || 0;
-                                            cutMeanTotal += codeNum * count;
-                                            cutMeanCount += count;
+                                          const codeValue = getCodeValueForMean(variable, code);
+                                          if (codeValue === null) {
+                                            return;
                                           }
+                                          const count = counts[code]?.cuts[col.id] || 0;
+                                          cutMeanTotal += codeValue * count;
+                                          cutMeanCount += count;
                                         });
                                         cutMeans[col.id] = cutMeanCount > 0 ? cutMeanTotal / cutMeanCount : 0;
                                       });
@@ -16890,11 +17982,19 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
                                                   // Calculate mean
                                                   let meanTotal = 0;
                                                   let meanCount = 0;
-                                                  for (let i = 1; i <= 7; i++) {
-                                                    const count = getCount(String(i));
-                                                    meanTotal += i * count;
+                                                  responseOptions.forEach((resp: any, respIdx: number) => {
+                                                    const respObj = typeof resp === 'string'
+                                                      ? { code: `c${respIdx + 1}`, displayCode: `${respIdx + 1}` }
+                                                      : resp;
+                                                    const respCode = respObj.code || `c${respIdx + 1}`;
+                                                    const codeValue = getCodeValueForMean(variable, respCode, respObj.displayCode || respCode.replace(/^[rc]/i, ''));
+                                                    if (codeValue === null) {
+                                                      return;
+                                                    }
+                                                    const count = getCount(respCode);
+                                                    meanTotal += codeValue * count;
                                                     meanCount += count;
-                                                  }
+                                                  });
                                                   const mean = meanCount > 0 ? meanTotal / meanCount : 0;
 
                                                   return (
@@ -20377,16 +21477,42 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
                                   optionText = optionText.replace(/^[rR]?\d+:\s*/, '');
                                 }
                                 
+                                // Pull any saved coded themes for this response variable
+                                const savedResponseThemes = savedCodingThemes.get(responseVarName) ||
+                                  savedCodingThemes.get(`Q${responseVarName}`) ||
+                                  [];
+                                const hasSavedResponseThemes = savedResponseThemes.length > 0;
+                                const renderCodedHeader = (
+                                  <div className="mb-2">
+                                    <div className="text-sm font-semibold text-gray-900">{optionText}</div>
+                                    {hasSavedResponseThemes ? (
+                                      <div className="mt-1 flex flex-wrap gap-1">
+                                        {savedResponseThemes.map(theme => (
+                                          <span
+                                            key={`${responseVarName}-theme-${theme.code}`}
+                                            className="px-2 py-0.5 text-xs rounded-full bg-green-50 text-green-700 border border-green-100"
+                                          >
+                                            {theme.theme}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <div className="mt-1 text-xs text-gray-400">No coded themes yet</div>
+                                    )}
+                                  </div>
+                                );
+                                
                                 // If no data, show a message
                                 if (!hasFrequencies && !hasValues) {
                                   return (
                                     <div key={idx} className="mt-4">
+                                      {renderCodedHeader}
                                       <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
                                         <div className="overflow-x-auto">
                                           <table className="min-w-full divide-y divide-gray-200">
                                             <thead className="bg-gray-50">
                                               <tr>
-                                                <th className="px-4 py-2 text-left text-sm font-semibold text-gray-900">{optionText}</th>
+                                                <th className="px-4 py-2 text-left text-sm font-semibold text-gray-900">Verbatim Responses</th>
                                                 <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style={{ width: '5rem' }}>Count</th>
                                                 <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap" style={{ width: '5rem' }}>%</th>
                                               </tr>
@@ -20464,6 +21590,7 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
                                 if (filteredFrequencies.length === 0) {
                                   return (
                                     <div key={idx} className="mt-4">
+                                      {renderCodedHeader}
                                       <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
                                         <div className="overflow-x-auto">
                                           <table className="min-w-full divide-y divide-gray-200">
@@ -20517,7 +21644,7 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
                                         </button>
                                       )}
                                     </div>
-                                    
+                                    {renderCodedHeader}
                                     <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
                                       <div className="overflow-x-auto">
                                         <table className="min-w-full divide-y divide-gray-200">
@@ -22409,6 +23536,24 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
                                             const variance = values.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / values.length;
                                             const stdDev = Math.sqrt(variance);
                                             
+                                            let sumNoOutliers = sum;
+                                            let meanNoOutliers = mean;
+                                            if (!Number.isNaN(stdDev) && stdDev > 0) {
+                                              const threshold = 2 * stdDev;
+                                              let filteredSum = 0;
+                                              let filteredCount = 0;
+                                              values.forEach(v => {
+                                                if (Math.abs(v - mean) <= threshold) {
+                                                  filteredSum += v;
+                                                  filteredCount += 1;
+                                                }
+                                              });
+                                              if (filteredCount > 0) {
+                                                sumNoOutliers = filteredSum;
+                                                meanNoOutliers = filteredSum / filteredCount;
+                                              }
+                                            }
+                                            
                                             return {
                                               mean,
                                               median,
@@ -22417,7 +23562,9 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
                                               min: sorted[0],
                                               max: sorted[sorted.length - 1],
                                               sum,
-                                              count: values.length
+                                              count: values.length,
+                                              meanNoOutliers,
+                                              sumNoOutliers
                                             };
                                           };
                                           
@@ -22435,41 +23582,52 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
                                           }
                                           
                                           const statsRows = [
-                                            { label: 'Mean', getValue: (stats: ReturnType<typeof calculateStats> | null) => stats?.mean?.toFixed(2) || '-' },
-                                            { label: 'Sum', getValue: (stats: ReturnType<typeof calculateStats> | null) => stats?.sum?.toFixed(0) || '-' },
-                                            { label: 'Median', getValue: (stats: ReturnType<typeof calculateStats> | null) => stats?.median?.toFixed(2) || '-' },
-                                            { label: 'Mode', getValue: (stats: ReturnType<typeof calculateStats> | null) => {
-                                                if (!stats) return '-';
-                                                const modeValue: number | undefined = stats.mode;
-                                                if (modeValue === undefined) return '-';
-                                                return modeValue.toFixed(2);
-                                              }},
-                                            { label: 'Std Dev', getValue: (stats: ReturnType<typeof calculateStats> | null) => stats?.stdDev?.toFixed(2) || '-' },
-                                            { label: 'Low', getValue: (stats: ReturnType<typeof calculateStats> | null) => stats?.min?.toFixed(2) || '-' },
-                                            { label: 'High', getValue: (stats: ReturnType<typeof calculateStats> | null) => stats?.max?.toFixed(2) || '-' }
+                                            { label: 'Mean', key: 'mean' as const, decimals: 2 },
+                                            { label: 'Mean (outliers removed)', key: 'meanNoOutliers' as const, decimals: 2 },
+                                            { label: 'Sum', key: 'sum' as const, decimals: 0 },
+                                            { label: 'Sum (outliers removed)', key: 'sumNoOutliers' as const, decimals: 0 },
+                                            { label: 'Median', key: 'median' as const, decimals: 0 },
+                                            { label: 'Mode', key: 'mode' as const, decimals: 0 },
+                                            { label: 'Std Dev', key: 'stdDev' as const, decimals: 2 },
+                                            { label: 'Min', key: 'min' as const, decimals: 0 },
+                                            { label: 'Max', key: 'max' as const, decimals: 0 },
                                           ];
-                                          
+
+                                          const formatStatValue = (value: number | undefined | null, decimals: number) => {
+                                            if (value === undefined || value === null || Number.isNaN(value)) return '-';
+                                            return decimals === 0 ? value.toFixed(0) : value.toFixed(decimals);
+                                          };
+
                                           return (
                                             <>
-                                              {statsRows.map((statRow) => (
-                                                <tr key={statRow.label} className="bg-gray-50 hover:bg-gray-100">
-                                                  <td className="px-3 py-1 text-sm font-medium text-gray-900 border-r border-gray-300">
-                                                    {statRow.label}
-                                                  </td>
-                                                  {/* Total column */}
-                                                  <td className="px-3 py-1 text-xs text-gray-900 text-center border-r border-gray-300">
-                                                    {statRow.getValue(totalStats)}
-                                                  </td>
-                                                  {/* Cut columns */}
-                                                  {selectedGroup.groups?.flatMap((group) =>
-                                                    group.cuts.map((cut) => (
-                                                      <td key={`${cut.id}-${statRow.label}`} className="px-3 py-1 text-xs text-gray-900 text-center border-r border-gray-300 last:border-r-0">
-                                                        {statRow.getValue(cutStats[cut.id] || null)}
-                                                      </td>
-                                                    ))
-                                                  )}
-                                                </tr>
-                                              ))}
+                                              {statsRows.map((statRow) => {
+                                                const selectionKey = statRow.key as keyof NumericStatsSummary;
+                                                const shouldShowRow = Boolean(statsSelections[selectionKey as keyof VariableStatsSelection]);
+                                                if (!shouldShowRow) return null;
+
+                                                const totalValue = totalStats ? totalStats[statRow.key] : null;
+
+                                                return (
+                                                  <tr key={statRow.label} className="bg-gray-100 italic hover:bg-gray-200">
+                                                    <td className="px-3 py-1 text-sm font-semibold text-gray-700 border-r border-gray-300 bg-gray-100">
+                                                      {statRow.label}
+                                                    </td>
+                                                    <td className="px-3 py-1 text-xs text-gray-700 text-center border-r border-gray-300 bg-gray-100">
+                                                      {formatStatValue(totalValue, statRow.decimals)}
+                                                    </td>
+                                                    {selectedGroup.groups?.flatMap((group) =>
+                                                      group.cuts.map((cut) => (
+                                                        <td
+                                                          key={`${cut.id}-${statRow.label}`}
+                                                          className="px-3 py-1 text-xs text-gray-700 text-center border-r border-gray-300 bg-gray-100 last:border-r-0"
+                                                        >
+                                                          {formatStatValue(cutStats[cut.id]?.[statRow.key], statRow.decimals)}
+                                                        </td>
+                                                      ))
+                                                    )}
+                                                  </tr>
+                                                );
+                                              })}
                                             </>
                                           );
                                         })()}
@@ -24396,9 +25554,11 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
         const isNumericGrid = typeLower.includes('numeric grid');
         const isSingleSelect = typeLower.includes('single select') && !typeLower.includes('grid');
         const isMultiSelectGrid = typeLower.includes('multi-select grid');
+        const isSingleSelectGrid = typeLower.includes('single select grid');
         const isMultiSelect = typeLower.includes('multi-select') && !typeLower.includes('grid');
         const isMultiSelectType = isMultiSelect || isMultiSelectGrid;
         const isNumericQuestion = typeLower.includes('numeric') && !typeLower.includes('grid') && !typeLower.includes('list');
+        const isOpenEndListType = typeLower.includes('open end list');
         const popupStatsSelections = getStatsSelectionsForVariable(popupVariableName);
         const isHoldDropdownOpen = holdOptionsDropdownOpen[popupVariableName] ?? false;
         const baseQuestionNumberForPopup = getBaseQuestionNumber(popupVariableName);
@@ -24469,9 +25629,15 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
           }
           return [];
         })();
-        const defaultSortByFrequency = isMultiSelectType;
+        const isOpenEndType = configPopupVariable.type?.toLowerCase().includes('open end') &&
+          !configPopupVariable.type?.toLowerCase().includes('list');
+        const scaleTag = (configPopupVariable as any)?.tags?.find((tag: string) => tag.startsWith('Scale'));
+        const isScale7pt = !!scaleTag && /Scale\s*\(7pt\)/i.test(scaleTag);
+        const defaultSortByFrequency = isMultiSelectType || isOpenEndType;
         const isSortedByFrequencyState = variableSortByFrequency[popupVariableName];
-        const isSortedByFrequency = isSortedByFrequencyState !== undefined ? isSortedByFrequencyState : defaultSortByFrequency;
+        const isSortedByFrequency = isOpenEndType
+          ? true
+          : (isSortedByFrequencyState !== undefined ? isSortedByFrequencyState : defaultSortByFrequency);
         const defaultHoldCodes = isMultiSelectType
           ? responseOptions
               .map(option => option.code)
@@ -24480,20 +25646,33 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
                 return !isNaN(numeric) && numeric >= 90 && numeric <= 99;
               })
           : [];
+        const summaryTableGridTemplate = isMultiSelectGrid
+          ? 'minmax(0,1fr) 80px minmax(0,200px) minmax(110px,max-content)'
+          : 'minmax(0,1fr) 80px';
+        const showSummaryPillColumn = isMultiSelectGrid;
         const holdSelection = variableHoldResponseCodes[popupVariableName];
         const holdSelectionArray = holdSelection && holdSelection.length > 0
           ? holdSelection
           : defaultHoldCodes;
         const hasHoldSelection = holdSelectionArray.length > 0;
+        const netEntries = (netSummaryTableRanges[popupVariableName] || []).map((net, idx) => ({ ...net, globalIndex: idx }));
+        const statsNetEntries = netEntries.filter(entry => entry.context === 'summary' ? false : true);
+        const summaryNetEntries = netEntries.filter(entry => entry.context === 'summary');
+        const netCodeSelections = netSummaryTableSelectedCodes[popupVariableName] || [];
+        const savedThemesForPopup = savedCodingThemes.get(popupVariableName) || [];
+        const hasVerbatimSummary = isOpenEndType && savedThemesForPopup.length > 0;
+        const verbatimSummaryTableId = `${popupVariableName}_VerbatimSummary`;
         const individualTableOptions = (() => {
-          const options: Array<{ id: string; label: string }> = [];
-          if (!isNumericGrid && !isMultiSelectGrid) {
-            const baseLabel = (isSingleSelect || isMultiSelect)
+          const options: Array<{ id: string; label: string; disabled?: boolean; helperText?: string }> = [];
+          if (!isNumericGrid && !isMultiSelectGrid && !isOpenEndListType && !isSingleSelectGrid) {
+            const baseLabel = (isSingleSelect || isMultiSelect || isOpenEndType)
               ? 'Frequency Table'
               : (isNumericQuestion ? 'Frequency Distribution Table' : 'Overall Table');
-            options.push({ id: popupVariableName, label: baseLabel });
+            const displayLabel = isOpenEndType ? 'Frequency Distribution Table' : baseLabel;
+            options.push({ id: popupVariableName, label: displayLabel });
           }
-          if (configPopupVariable.statements && Object.keys(configPopupVariable.statements).length > 0) {
+          const shouldUseStatements = configPopupVariable.statements && Object.keys(configPopupVariable.statements).length > 0 && !isOpenEndListType;
+          if (shouldUseStatements) {
             Object.entries(configPopupVariable.statements).forEach(([code, label]) => {
               options.push({
                 id: `${popupVariableName}_${code}`,
@@ -24501,20 +25680,110 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
               });
             });
           }
+          if (isOpenEndListType && responseOptions.length > 0) {
+            responseOptions.forEach((option, idx) => {
+              const optionCode = option.code || `r${idx + 1}`;
+              const optionLabel = option.text || optionCode;
+              options.push({
+                id: `${popupVariableName}_Response_${optionCode}`,
+                label: optionLabel,
+              });
+            });
+          }
+          if (isOpenEndType) {
+            options.push({
+              id: verbatimSummaryTableId,
+              label: 'Verbatim Summary Table',
+              disabled: !hasVerbatimSummary,
+              helperText: hasVerbatimSummary
+                ? 'Uses coded verbatim themes'
+                : 'Unavailable until verbatim coding is saved in Variables tab',
+            });
+          }
           return options;
         })();
+        const selectableIndividualOptions = individualTableOptions.filter(option => !option.disabled);
+        const selectableIndividualTableIds = selectableIndividualOptions.map(option => option.id);
         const summaryTableOptions = (() => {
-          if (!isMultiSelectGrid) return [];
-          return summaryColumns.map((col, idx) => ({
-            id: `${popupVariableName}_Summary_${idx}`,
-            label: col,
-          }));
+          const options: Array<{ id: string; label: string; pill?: string; netMeta?: { type: 'range' | 'codes'; index: number } }> = [];
+          if (isNumericGrid) {
+            options.push(
+              { id: `${popupVariableName}_MeanSummaryTable`, label: 'Mean Summary Table', pill: 'Mean' },
+              { id: `${popupVariableName}_SumSummaryTable`, label: 'Sum Summary Table', pill: 'Sum' }
+            );
+            summaryNetEntries.forEach((net, idx) => {
+              const low = net.low || '';
+              const high = net.high || '';
+              options.push({
+                id: `${popupVariableName}_NetSummaryTable_${idx}`,
+                label: net.name || `Net Summary ${idx + 1}`,
+                pill: `Net (${low || '?'}-${high || '?'})`,
+                netMeta: { type: 'range', index: net.globalIndex },
+              });
+            });
+          }
+          if (isSingleSelectGrid) {
+            options.push({
+              id: `${popupVariableName}_MeanSummaryTable`,
+              label: 'Mean Summary Table',
+              pill: 'Mean'
+            });
+            netCodeSelections.forEach((net, idx) => {
+              const codesDisplay = Array.isArray(net.codes) && net.codes.length > 0
+                ? net.codes.join(', ')
+                : '?';
+              options.push({
+                id: `${popupVariableName}_NetSummaryTable_${idx}`,
+                label: net.name || `Net ${idx + 1}`,
+                pill: `Net (${codesDisplay})`,
+                netMeta: { type: 'codes', index: idx },
+              });
+            });
+          }
+          if (isMultiSelectGrid) {
+            summaryColumns.forEach((col, idx) => {
+              options.push({
+                id: `${popupVariableName}_Summary_${idx}`,
+                label: col,
+                pill: 'Frequency'
+              });
+            });
+          }
+          return options;
         })();
-        const allTableOptions = [...individualTableOptions, ...summaryTableOptions];
+        const singleSelectNetTableOptions = (!isSingleSelectGrid && isSingleSelect)
+          ? netCodeSelections.map((net, idx) => ({
+              id: `${popupVariableName}_NetSummaryTable_${idx}`,
+              label: net.name || `Net ${idx + 1}`,
+              pill: `Net (${Array.isArray(net.codes) && net.codes.length > 0 ? net.codes.join(', ') : '?'})`,
+              netMeta: { type: 'codes', index: idx } as const,
+              codes: net.codes || [],
+            }))
+          : [];
+        const showNetSummaryLink = isNumericGrid || isSingleSelectGrid;
+        const allTableOptions = [...selectableIndividualOptions, ...summaryTableOptions, ...singleSelectNetTableOptions];
         const allTableOptionIds = allTableOptions.map(option => option.id);
+        const defaultIndividualSelectionIds = isOpenEndListType
+          ? []
+          : (isOpenEndType
+              ? selectableIndividualTableIds.filter(id => id !== popupVariableName)
+              : selectableIndividualTableIds);
         const individualSelectionSet = variableTableSelections[popupVariableName];
+        const summarySortSet = summaryTableSortSelections[popupVariableName];
+        const summarySortDefaultsToOn = isMultiSelectGrid;
         const isTableSelected = (tableName: string) => {
-          if (!individualSelectionSet) return true;
+          if (!individualSelectionSet) {
+            if (isOpenEndType && tableName === popupVariableName) {
+              return false;
+            }
+            if (isOpenEndListType) {
+              return false;
+            }
+            if (isSingleSelectGrid && tableName === `${popupVariableName}_MeanSummaryTable`) {
+              return false;
+            }
+            return true;
+          }
           return individualSelectionSet.has(tableName);
         };
         const statsCheckboxes: Array<{ key: keyof VariableStatsSelection; label: string }> = [
@@ -24528,7 +25797,23 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
           { key: 'max', label: 'Max' },
           { key: 'min', label: 'Min' },
         ];
-        const netRanges = netSummaryTableRanges[popupVariableName] || [];
+        const modalNameValue = netSummaryModalState.name.trim();
+        const modalLowValue = netSummaryModalState.low.trim();
+        const modalHighValue = netSummaryModalState.high.trim();
+        const modalLowNumber = parseFloat(modalLowValue);
+        const modalHighNumber = parseFloat(modalHighValue);
+        const modalNumbersReady = modalLowValue !== '' && modalHighValue !== '' && !isNaN(modalLowNumber) && !isNaN(modalHighNumber);
+        const modalRangeValid = modalNumbersReady && modalHighNumber >= modalLowNumber;
+        const disableNetSummarySave = netSummaryModalState.mode === 'range'
+          ? (!modalNameValue || !modalRangeValid)
+          : (!modalNameValue || netSummaryModalState.selectedCodes.length === 0);
+        const statsHeaderSpacing = (isNumericQuestion || isNumericGrid) ? 'mb-2' : 'mb-4';
+        const statsOptionsForDisplay = (() => {
+          if ((isSingleSelect && !isMultiSelect && !isNumericQuestion && !isNumericGrid) || isSingleSelectGrid) {
+            return statsCheckboxes.filter(option => option.key === 'mean');
+          }
+          return statsCheckboxes;
+        })();
 
         return createPortal(
           <div className="fixed inset-0 bg-black/40 z-[2000]" onClick={() => setShowConfigPopup(false)}>
@@ -24567,218 +25852,569 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
                 </div>
               </div>
               <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6 bg-gray-50/60">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {isMultiSelectGrid && summaryColumns.length > 0 && (
-                    <div className="rounded-2xl border border-gray-200 bg-white p-5 h-full flex flex-col">
-                      <div className="mb-4">
+                {summaryTableOptions.length > 0 && (
+                  <div className="rounded-2xl border border-gray-200 bg-white p-5">
+                    <div className="mb-4 flex items-start justify-between gap-3">
+                      <div>
                         <h4 className="text-base font-semibold text-gray-900">Summary Tables</h4>
-                        <p className="text-sm text-gray-600">Select which grid columns should be included as summary tables.</p>
+                        <p className="text-sm text-gray-600">Select which summary tables to include for this question.</p>
                       </div>
-                      <div className="flex-1 overflow-y-auto pr-1">
-                        <div className="space-y-2">
-                          {summaryTableOptions.map(option => (
-                            <label
-                              key={option.id}
-                              className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800"
+                    </div>
+                    <div className="space-y-2 border border-gray-200 rounded-lg">
+                      <div
+                        className="grid text-xs font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-200 bg-gray-50"
+                        style={{ gridTemplateColumns: summaryTableGridTemplate }}
+                      >
+                        <span className="flex items-center px-3 py-2">Table</span>
+                        <span className="flex items-center justify-center px-3 py-2 border-l border-gray-200">Sort</span>
+                        {isMultiSelectGrid && (
+                          <span className="flex items-center justify-center px-3 py-2 border-l border-gray-200">
+                            Hold Options
+                          </span>
+                        )}
+                        {showSummaryPillColumn && (
+                          <span className="flex items-center justify-center px-3 py-2 border-l border-gray-200">
+                            Type
+                          </span>
+                        )}
+                      </div>
+                    {summaryTableOptions.map(option => {
+                        const isSelected = isTableSelected(option.id);
+                        const isSortChecked = summarySortSet
+                          ? (summarySortDefaultsToOn ? !summarySortSet.has(option.id) : summarySortSet.has(option.id))
+                          : summarySortDefaultsToOn;
+                        const pillClassBase = 'text-xs font-semibold px-3 py-0.5 rounded-full min-w-[120px] text-center whitespace-nowrap';
+                        const pillClass = option.pill
+                          ? `${pillClassBase} text-blue-700 bg-blue-50 border border-blue-100`
+                          : pillClassBase;
+                        const pillContent = option.pill ? (
+                          option.netMeta ? (
+                            <button
+                              type="button"
+                              className={`${pillClass} hover:bg-blue-100`}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleEditNetSummary(popupVariableName, option.netMeta!, responseOptions);
+                              }}
                             >
+                              {option.pill}
+                            </button>
+                          ) : (
+                            <span className={pillClass}>{option.pill}</span>
+                          )
+                        ) : null;
+                        return (
+                          <div
+                            key={option.id}
+                            className="grid items-center bg-white text-sm text-gray-800"
+                            style={{ gridTemplateColumns: summaryTableGridTemplate }}
+                          >
+                            <label className="flex items-center gap-3 cursor-pointer px-3 py-2 border-b border-gray-100">
                               <input
                                 type="checkbox"
                                 className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
-                                checked={isTableSelected(option.id)}
-                                onChange={() => handleToggleIndividualTable(popupVariableName, option.id, allTableOptionIds)}
-                            />
-                              <div className="flex items-center justify-between w-full gap-3">
+                                checked={isSelected}
+                                onChange={(e) => {
+                                  const wasSelected = isTableSelected(option.id);
+                                  handleToggleIndividualTable(popupVariableName, option.id, allTableOptionIds);
+                                  if (wasSelected) {
+                                    removeSummarySortSelection(popupVariableName, option.id);
+                                  }
+                                }}
+                              />
+                              <div className={`flex items-center w-full ${!showSummaryPillColumn ? 'justify-between' : ''}`}>
                                 <span className="truncate">{option.label}</span>
-                                <span className="text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-full">
-                                  Frequency
-                                </span>
+                                {!showSummaryPillColumn && pillContent && (
+                                  <span className="ml-3">{pillContent}</span>
+                                )}
                               </div>
                             </label>
-                          ))}
-                        </div>
-                      </div>
+                            <div className="flex items-center justify-center border-l border-gray-100 px-3 py-2">
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                                checked={isSortChecked}
+                                disabled={!isSelected}
+                                onChange={() => handleSummaryTableSortToggle(popupVariableName, option.id, summarySortDefaultsToOn)}
+                              />
+                            </div>
+                            {isMultiSelectGrid && (
+                              <div className="flex items-center gap-2 justify-center text-xs text-gray-600 border-l border-gray-100 px-3 py-2">
+                                {isSelected && isSortChecked ? (
+                                  <>
+                                    <span>
+                                      {holdSelectionArray.length > 0
+                                        ? `${holdSelectionArray.length} hold${holdSelectionArray.length === 1 ? '' : 's'}`
+                                        : 'None'}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      className="text-orange-600 hover:text-orange-700"
+                                      onClick={() => {
+                                        handleHoldOptionsToggle(popupVariableName, true, defaultHoldCodes);
+                                        openHoldOptionsDropdown(popupVariableName);
+                                      }}
+                                    >
+                                      <PencilIcon className="h-4 w-4" />
+                                    </button>
+                                  </>
+                                ) : (
+                                  <span className="text-gray-400 text-center">
+                                    {!isSelected ? 'Select table' : 'Enable sort'}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                            {showSummaryPillColumn && (
+                              <div className="flex items-center justify-center border-l border-gray-100 px-3 py-2">
+                                {pillContent}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                      {showNetSummaryLink && (
+                        <button
+                          type="button"
+                          className="text-sm font-semibold text-left"
+                          style={{ color: BRAND_ORANGE }}
+                          onClick={() => openNetSummaryModal(popupVariableName, {
+                            mode: isSingleSelectGrid ? 'codes' : 'range',
+                            responseOptions: responseOptions.map(opt => ({
+                              code: opt.code || '',
+                              text: opt.text || '',
+                            })),
+                          })}
+                        >
+                          + Net Summary Table
+                        </button>
+                      )}
                     </div>
-                  )}
-                  {!isMultiSelectGrid && (
+                  </div>
+                )}
+                <div className={`grid grid-cols-1 ${!(isOpenEndType || isOpenEndListType) ? 'lg:grid-cols-2' : ''} gap-4`}>
+                 {!isMultiSelectGrid && (
                     <div className="rounded-2xl border border-gray-200 bg-white p-5 h-full flex flex-col">
                       <div className="mb-4">
                         <h4 className="text-base font-semibold text-gray-900">Individual Tables</h4>
                         <p className="text-sm text-gray-600">Preview the available statement tables for this question.</p>
                       </div>
+                      {isNumericGrid && selectableIndividualOptions.length > 0 && (
+                        <div className="flex justify-start gap-4 text-xs font-semibold">
+                          <button
+                            type="button"
+                            className="hover:opacity-80"
+                            style={{ color: BRAND_ORANGE }}
+                            onClick={() => handleSelectAllIndividualTables(popupVariableName, selectableIndividualTableIds, allTableOptionIds)}
+                          >
+                            Select all
+                          </button>
+                          <button
+                            type="button"
+                            className="hover:opacity-80"
+                            style={{ color: BRAND_ORANGE }}
+                            onClick={() => handleUnselectAllIndividualTables(popupVariableName, selectableIndividualTableIds, allTableOptionIds)}
+                          >
+                            Un-select all
+                          </button>
+                        </div>
+                      )}
                       <div className="flex-1 overflow-y-auto pr-1">
                         {individualTableOptions.length === 0 ? (
                           <p className="text-sm text-gray-500">No additional tables available.</p>
                         ) : (
                           <div className="space-y-2">
-                            {individualTableOptions.map(option => (
-                              <label
-                                key={option.id}
-                                className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800"
-                              >
-                                <input
-                                  type="checkbox"
-                                  className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
-                                  checked={isTableSelected(option.id)}
-                                  onChange={() => handleToggleIndividualTable(popupVariableName, option.id, allTableOptionIds)}
-                                />
-                                <span className="truncate">{option.label}</span>
-                              </label>
-                            ))}
+                            {individualTableOptions.map(option => {
+                              const isDisabled = !!option.disabled;
+                              const optionChecked = isDisabled ? false : isTableSelected(option.id);
+                              return (
+                                <label
+                                  key={option.id}
+                                  className={`flex flex-col gap-1 rounded-lg border border-gray-200 px-3 py-2 text-sm ${isDisabled ? 'bg-gray-50 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-800'}`}
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <input
+                                      type="checkbox"
+                                      className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500 disabled:bg-gray-100"
+                                      checked={optionChecked}
+                                      disabled={isDisabled}
+                                      onChange={() => {
+                                        if (isDisabled) return;
+                                        handleToggleIndividualTable(popupVariableName, option.id, allTableOptionIds, defaultIndividualSelectionIds);
+                                      }}
+                                    />
+                                    <span className="truncate">{option.label}</span>
+                                  </div>
+                                  {option.helperText && (
+                                    <span className="text-xs text-gray-500">{option.helperText}</span>
+                                  )}
+                                </label>
+                              );
+                            })}
+                          </div>
+                        )}
+                        {isSingleSelectGrid && isScale7pt && netCodeSelections.length > 0 && (
+                          <div className="mt-6">
+                            <h5 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Pre-made Nets</h5>
+                            <div className="space-y-2">
+                              {netCodeSelections.map((net, idx) => {
+                                const tableId = `${popupVariableName}_NetSummaryTable_${idx}`;
+                                const optionChecked = isTableSelected(tableId);
+                                const codesDisplay = Array.isArray(net.codes) && net.codes.length > 0
+                                  ? net.codes.join(', ')
+                                  : 'No codes selected';
+                                return (
+                                  <label
+                                    key={`${popupVariableName}-premade-net-${idx}`}
+                                    className="flex flex-col gap-1 rounded-lg border border-dashed border-gray-200 px-3 py-2 text-sm bg-gray-50"
+                                  >
+                                    <div className="flex items-center gap-3">
+                                      <input
+                                        type="checkbox"
+                                        className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                                        checked={optionChecked}
+                                        onChange={() => handleToggleIndividualTable(popupVariableName, tableId, allTableOptionIds, defaultIndividualSelectionIds)}
+                                      />
+                                      <span className="truncate font-medium">{net.name || `Net ${idx + 1}`}</span>
+                                    </div>
+                                    <span className="text-xs text-gray-500">Codes: {codesDisplay}</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
                           </div>
                         )}
                       </div>
                     </div>
                   )}
-                  <div className="rounded-2xl border border-gray-200 bg-white p-5 h-full flex flex-col">
-                    <div className="mb-4">
-                      <h4 className="text-base font-semibold text-gray-900">Statistics & Options</h4>
-                      <p className="text-sm text-gray-600">Stacked controls to include key stats.</p>
-                    </div>
-                    {!isNumericQuestion && (
-                      <div className="space-y-3">
-                        <label className="flex items-center gap-3 text-sm text-gray-800">
-                          <input
-                            type="checkbox"
-                            className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
-                            checked={isSortedByFrequency}
-                            onChange={() => handleSortPreferenceChange(popupVariableName, isSortedByFrequency ? 'default' : 'frequency', isMultiSelectType)}
-                          />
-                          <span>Sort by frequency</span>
-                        </label>
-                        {isSortedByFrequency && (
-                          <div className="space-y-2">
-                            <label className="flex items-center gap-3 text-sm text-gray-800">
-                              <input
-                                type="checkbox"
-                                className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
-                                checked={hasHoldSelection}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    handleHoldOptionsToggle(popupVariableName, true, defaultHoldCodes);
-                                    if ((!hasHoldSelection || defaultHoldCodes.length === 0) && responseOptions.length > 0) {
-                                      openHoldOptionsDropdown(popupVariableName);
-                                    }
-                                  } else {
-                                    handleHoldOptionsToggle(popupVariableName, false);
-                                    closeHoldOptionsDropdown(popupVariableName);
-                                  }
-                                }}
-                              />
-                              <div className="flex items-center gap-2">
-                                <span>Hold response options in sort</span>
-                                {hasHoldSelection && (
-                                  <button
-                                    type="button"
-                                    onClick={() => openHoldOptionsDropdown(popupVariableName)}
-                                    className="text-orange-600 font-semibold hover:text-orange-700"
-                                  >
-                                    Select
-                                  </button>
-                                )}
-                              </div>
-                            </label>
-                            {hasHoldSelection && responseOptions.length > 0 && (
-                              <div className="text-xs text-gray-600">
-                                {`${holdSelectionArray.length} option${holdSelectionArray.length === 1 ? '' : 's'} held`}
-                              </div>
-                            )}
-                          </div>
-                        )}
+                  {!(isOpenEndType || isOpenEndListType || isMultiSelectGrid) && (
+                    <div className="rounded-2xl border border-gray-200 bg-white p-5 h-full flex flex-col">
+                      <div className={statsHeaderSpacing}>
+                        <h4 className="text-base font-semibold text-gray-900">Statistics & Options</h4>
+                        <p className="text-sm text-gray-600">Stacked controls to include key stats.</p>
                       </div>
-                    )}
-                    {!(isMultiSelect || isMultiSelectGrid) && (
-                      <div className={`${isNumericQuestion ? 'mt-2' : 'mt-4 border-t border-gray-200 pt-4'} space-y-2`}>
-                        {statsCheckboxes.map(option => (
-                          <label key={option.key} className="flex items-center gap-3 text-sm text-gray-800">
+                      {!isNumericQuestion && !isNumericGrid && (
+                        <div className="space-y-3">
+                          <label className="flex items-center gap-3 text-sm text-gray-800">
                             <input
                               type="checkbox"
                               className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
-                              checked={!!popupStatsSelections[option.key]}
-                              onChange={() => handleToggleStatSelection(popupVariableName, option.key)}
+                              checked={isSortedByFrequency}
+                              onChange={() => handleSortPreferenceChange(popupVariableName, isSortedByFrequency ? 'default' : 'frequency', isMultiSelectType)}
                             />
-                            <span>{option.label}</span>
+                            <span>Sort by frequency</span>
                           </label>
-                        ))}
-                      </div>
-                    )}
-                    {isNumericQuestion && (
-                      <div className="mt-4 border-t border-gray-200 pt-4 space-y-3">
-                        <div className="flex items-center justify-between">
-                          <h5 className="text-sm font-semibold text-gray-900">Nets</h5>
-                          <button
-                            type="button"
-                            onClick={() => handleAddInlineNumericNet(popupVariableName)}
-                            className="text-sm font-medium text-orange-600 hover:text-orange-700"
-                          >
-                            + Net
-                          </button>
+                          {isSortedByFrequency && (
+                            <div className="space-y-2">
+                              <label className="flex items-center gap-3 text-sm text-gray-800">
+                                <input
+                                  type="checkbox"
+                                  className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                                  checked={hasHoldSelection}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      handleHoldOptionsToggle(popupVariableName, true, defaultHoldCodes);
+                                      if ((!hasHoldSelection || defaultHoldCodes.length === 0) && responseOptions.length > 0) {
+                                        openHoldOptionsDropdown(popupVariableName);
+                                      }
+                                    } else {
+                                      handleHoldOptionsToggle(popupVariableName, false);
+                                      closeHoldOptionsDropdown(popupVariableName);
+                                    }
+                                  }}
+                                />
+                                <div className="flex items-center gap-2">
+                                  <span>Hold response options in sort</span>
+                                  {hasHoldSelection && (
+                                    <button
+                                      type="button"
+                                      onClick={() => openHoldOptionsDropdown(popupVariableName)}
+                                      className="text-orange-600 font-semibold hover:text-orange-700"
+                                    >
+                                      Select
+                                    </button>
+                                  )}
+                                </div>
+                              </label>
+                              {hasHoldSelection && responseOptions.length > 0 && (
+                                <div className="text-xs text-gray-600">
+                                  {`${holdSelectionArray.length} option${holdSelectionArray.length === 1 ? '' : 's'} held`}
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
-                        {netRanges.length === 0 ? (
-                          <p className="text-xs text-gray-500">No nets defined. Click + Net to create one.</p>
-                        ) : (
-                          <div className="overflow-x-auto">
-                            <table className="w-full border border-gray-200 text-sm">
-                              <thead className="bg-gray-50 text-xs font-semibold text-gray-600">
-                                <tr>
-                                  <th className="py-2 px-3 text-left border-b border-gray-200">Net Name</th>
-                                  <th className="py-2 px-3 text-center border-b border-gray-200 w-16">Low</th>
-                                  <th className="py-2 px-3 text-center border-b border-gray-200 w-16">High</th>
-                                  <th className="py-2 text-center border-b border-gray-200 w-12"> </th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {netRanges.map((net, idx) => (
-                                  <tr key={`${popupVariableName}-net-${idx}`}>
-                                    <td className="py-2 px-3 border-b border-gray-200">
-                                      <input
-                                        type="text"
-                                        value={net.name}
-                                        onChange={(e) => handleUpdateInlineNumericNet(popupVariableName, idx, 'name', e.target.value)}
-                                        className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-orange-500"
-                                      />
-                                    </td>
-                                    <td className="py-2 px-2 border-b border-gray-200 text-center">
-                                      <input
-                                        type="text"
-                                        inputMode="decimal"
-                                        pattern="[0-9.-]*"
-                                        value={net.low}
-                                        onChange={(e) => handleUpdateInlineNumericNet(popupVariableName, idx, 'low', e.target.value.replace(/[^0-9.-]/g, ''))}
-                                        className="w-16 border border-gray-300 rounded-md px-2 py-1 text-sm text-center focus:outline-none focus:ring-1 focus:ring-orange-500"
-                                      />
-                                    </td>
-                                    <td className="py-2 px-2 border-b border-gray-200 text-center">
-                                      <input
-                                        type="text"
-                                        inputMode="decimal"
-                                        pattern="[0-9.-]*"
-                                        value={net.high}
-                                        onChange={(e) => handleUpdateInlineNumericNet(popupVariableName, idx, 'high', e.target.value.replace(/[^0-9.-]/g, ''))}
-                                        className="w-16 border border-gray-300 rounded-md px-2 py-1 text-sm text-center focus:outline-none focus:ring-1 focus:ring-orange-500"
-                                      />
-                                    </td>
-                                    <td className="py-2 border-b border-gray-200 text-center">
-                                      <button
-                                        type="button"
-                                        className="text-sm text-red-500 hover:text-red-600 font-semibold"
-                                        onClick={() => handleRemoveInlineNumericNet(popupVariableName, idx)}
-                                      >
-                                        ✕
-                                      </button>
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
+                      )}
+                      {!(isMultiSelect || isMultiSelectGrid) && statsOptionsForDisplay.length > 0 && (
+                        <div className={
+                          isNumericQuestion
+                            ? 'space-y-2'
+                            : isNumericGrid
+                              ? 'mt-4 space-y-2'
+                              : 'mt-4 border-t border-gray-200 pt-4 space-y-2'
+                        }>
+                          {statsOptionsForDisplay.map(option => (
+                            <label key={option.key} className="flex items-center gap-3 text-sm text-gray-800">
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                                checked={!!popupStatsSelections[option.key]}
+                                onChange={() => handleToggleStatSelection(popupVariableName, option.key)}
+                              />
+                              <span>{option.label}</span>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                      {isSingleSelect && !isMultiSelect && !isSingleSelectGrid && singleSelectNetTableOptions.length > 0 && (
+                        <div className="mt-4 border-t border-gray-200 pt-4 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <h5 className="text-sm font-semibold text-gray-900">Pre-made Nets</h5>
+                            <button
+                              type="button"
+                              className="text-xs font-semibold"
+                              style={{ color: BRAND_ORANGE }}
+                              onClick={() => openNetSummaryModal(popupVariableName, {
+                                mode: 'codes',
+                                responseOptions: responseOptions.map(opt => ({
+                                  code: opt.code || '',
+                                  text: opt.text || '',
+                                })),
+                              })}
+                            >
+                              + Add Net
+                            </button>
                           </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                          <div className="space-y-2">
+                            {singleSelectNetTableOptions.map((option, idx) => (
+                              <label
+                                key={`${popupVariableName}-single-select-net-${idx}`}
+                                className="flex flex-col gap-1 rounded-lg border border-dashed border-gray-200 px-3 py-2 bg-gray-50 text-sm"
+                              >
+                                <div className="flex items-center gap-3">
+                                  <input
+                                    type="checkbox"
+                                    className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                                    checked={isTableSelected(option.id)}
+                                    onChange={() => handleToggleIndividualTable(popupVariableName, option.id, allTableOptionIds, defaultIndividualSelectionIds)}
+                                  />
+                                  <span className="truncate font-medium">{option.label}</span>
+                                  <button
+                                    type="button"
+                                    className="text-xs text-blue-600 hover:underline"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      handleEditNetSummary(popupVariableName, option.netMeta!, responseOptions);
+                                    }}
+                                  >
+                                    Edit
+                                  </button>
+                                </div>
+                                <span className="text-xs text-gray-500">
+                                  Codes: {Array.isArray(singleSelectNetTableOptions[idx].codes) && singleSelectNetTableOptions[idx].codes.length > 0
+                                    ? singleSelectNetTableOptions[idx].codes.join(', ')
+                                    : '—'}
+                                </span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {(isNumericQuestion || isNumericGrid) && (
+                        <div className="mt-4 border-t border-gray-200 pt-4 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <h5 className="text-sm font-semibold text-gray-900">Nets</h5>
+                            <button
+                              type="button"
+                              onClick={() => handleAddInlineNumericNet(popupVariableName)}
+                              className="text-sm font-medium text-orange-600 hover:text-orange-700"
+                            >
+                              + Net
+                            </button>
+                          </div>
+                          {statsNetEntries.length === 0 ? (
+                            <p className="text-xs text-gray-500">No nets defined. Click + Net to create one.</p>
+                          ) : (
+                            <div className="overflow-x-auto">
+                              <table className="w-full border border-gray-200 text-sm">
+                                <thead className="bg-gray-50 text-xs font-semibold text-gray-600">
+                                  <tr>
+                                    <th className="py-2 px-3 text-left border-b border-gray-200">Net Name</th>
+                                    <th className="py-2 px-3 text-center border-b border-gray-200 w-16">Low</th>
+                                    <th className="py-2 px-3 text-center border-b border-gray-200 w-16">High</th>
+                                    <th className="py-2 text-center border-b border-gray-200 w-12"> </th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {statsNetEntries.map((net) => (
+                                    <tr key={`${popupVariableName}-net-${net.globalIndex}`}>
+                                      <td className="py-2 px-3 border-b border-gray-200">
+                                        <input
+                                          type="text"
+                                          value={net.name}
+                                          onChange={(e) => handleUpdateInlineNumericNet(popupVariableName, net.globalIndex, 'name', e.target.value)}
+                                          className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-orange-500"
+                                        />
+                                      </td>
+                                      <td className="py-2 px-2 border-b border-gray-200 text-center">
+                                        <input
+                                          type="text"
+                                          inputMode="decimal"
+                                          pattern="[0-9.-]*"
+                                          value={net.low}
+                                          onChange={(e) => handleUpdateInlineNumericNet(popupVariableName, net.globalIndex, 'low', e.target.value.replace(/[^0-9.-]/g, ''))}
+                                          className="w-16 border border-gray-300 rounded-md px-2 py-1 text-sm text-center focus:outline-none focus:ring-1 focus:ring-orange-500"
+                                        />
+                                      </td>
+                                      <td className="py-2 px-2 border-b border-gray-200 text-center">
+                                        <input
+                                          type="text"
+                                          inputMode="decimal"
+                                          pattern="[0-9.-]*"
+                                          value={net.high}
+                                          onChange={(e) => handleUpdateInlineNumericNet(popupVariableName, net.globalIndex, 'high', e.target.value.replace(/[^0-9.-]/g, ''))}
+                                          className="w-16 border border-gray-300 rounded-md px-2 py-1 text-sm text-center focus:outline-none focus:ring-1 focus:ring-orange-500"
+                                        />
+                                      </td>
+                                      <td className="py-2 border-b border-gray-200 text-center">
+                                        <button
+                                          type="button"
+                                          className="inline-flex items-center justify-center text-red-500 hover:text-red-600"
+                                          onClick={() => handleRemoveInlineNumericNet(popupVariableName, net.globalIndex)}
+                                        >
+                                          <XMarkIcon className="h-4 w-4" />
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
             </div>
+            {netSummaryModalState.isOpen && (
+              <div className="fixed inset-0 z-[2600] flex items-center justify-center p-4" onClick={closeNetSummaryModal}>
+                <div className="absolute inset-0 bg-black/40"></div>
+                <div
+                  className="relative z-[2601] bg-white rounded-2xl shadow-2xl w-full max-w-md"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                    <div>
+                      <h4 className="text-sm font-semibold text-gray-900">Define Net Summary Table</h4>
+                      {netSummaryModalState.variableName && (
+                        <p className="text-xs text-gray-500">Q{netSummaryModalState.variableName}</p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      className="text-gray-400 hover:text-gray-600"
+                      onClick={closeNetSummaryModal}
+                    >
+                      <XMarkIcon className="h-5 w-5" />
+                    </button>
+                  </div>
+                  <div className="px-4 py-4 space-y-4">
+                    <div>
+                      <label className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Net name</label>
+                      <input
+                        type="text"
+                        value={netSummaryModalState.name}
+                        onChange={(e) => handleNetSummaryModalFieldChange('name', e.target.value)}
+                        className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-orange-500"
+                        placeholder="Enter net name"
+                      />
+                    </div>
+                    {netSummaryModalState.mode === 'range' && (
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Low</label>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            pattern="[0-9.-]*"
+                            value={netSummaryModalState.low}
+                            onChange={(e) => handleNetSummaryModalFieldChange('low', e.target.value)}
+                            className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-1 focus:ring-orange-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-semibold text-gray-700 uppercase tracking-wide">High</label>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            pattern="[0-9.-]*"
+                            value={netSummaryModalState.high}
+                            onChange={(e) => handleNetSummaryModalFieldChange('high', e.target.value)}
+                            className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-1 focus:ring-orange-500"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  {netSummaryModalState.mode === 'codes' && (
+                    <div>
+                      <label className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Select response options</label>
+                      <div className="mt-1 max-h-48 overflow-y-auto border border-gray-200 rounded-md divide-y divide-gray-100">
+                        {netSummaryModalState.responseOptions.map(option => {
+                          const isChecked = netSummaryModalState.selectedCodes.includes(option.code);
+                          return (
+                            <label
+                              key={`${netSummaryModalState.variableName}-net-${option.code}`}
+                              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-800 hover:bg-gray-50 cursor-pointer"
+                            >
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                                checked={isChecked}
+                                onChange={() => handleNetSummaryModalCodeToggle(option.code)}
+                              />
+                              <span className="truncate">
+                                <span className="font-mono text-xs text-gray-500 mr-2">{option.code}</span>
+                                {option.text}
+                              </span>
+                            </label>
+                          );
+                        })}
+                        {netSummaryModalState.responseOptions.length === 0 && (
+                          <div className="px-3 py-2 text-xs text-gray-400">No response options available.</div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {netSummaryModalState.error && (
+                    <p className="text-xs text-red-500">{netSummaryModalState.error}</p>
+                  )}
+                </div>
+                  <div className="flex justify-end gap-3 border-t border-gray-100 px-4 py-3">
+                    <button
+                      type="button"
+                      className="px-3 py-1.5 text-xs font-medium text-gray-600 hover:text-gray-800"
+                      onClick={closeNetSummaryModal}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      disabled={disableNetSummarySave}
+                      className={`inline-flex items-center px-4 py-1.5 rounded-md text-xs font-semibold text-white ${disableNetSummarySave ? 'bg-gray-300 cursor-not-allowed' : ''}`}
+                      style={!disableNetSummarySave ? { backgroundColor: BRAND_ORANGE } : undefined}
+                      onClick={handleNetSummaryModalSave}
+                    >
+                      Save Net
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
             {isHoldDropdownOpen && responseOptions.length > 0 && (
               <div className="fixed inset-0 z-[2500] flex items-center justify-center p-4" onClick={() => closeHoldOptionsDropdown(popupVariableName)}>
                 <div className="absolute inset-0 bg-black/30"></div>
@@ -25276,10 +26912,31 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
                             <span key={idx} className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">
                               {tag}
                             </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                      ))}
+                      {hasNetSummaryPlaceholder && (
+                        <button
+                          type="button"
+                          className="text-sm font-semibold text-left"
+                          style={{ color: BRAND_ORANGE }}
+                          onClick={() => openNetSummaryModal(popupVariableName, {
+                            mode: questionData.type?.toLowerCase().includes('single select grid') ? 'codes' : 'range',
+                            responseOptions: questionData.responseOptions?.map((opt: any, idx: number) => {
+                              if (typeof opt === 'string') {
+                                return { code: `c${idx + 1}`, text: opt };
+                              }
+                              return {
+                                code: opt.code || `c${idx + 1}`,
+                                text: opt.text || opt.label || opt.value || opt.code || `Option ${idx + 1}`,
+                              };
+                            }) || [],
+                          })}
+                        >
+                          + Net Summary Table
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
                   </div>
                 )
               ) : (
@@ -27298,6 +28955,117 @@ const [savedSummaryTables, setSavedSummaryTables] = useState<Record<string, Arra
       })}
 
       {/* Debug Info Modal */}
+      {previewVariable && createPortal(
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4" onClick={() => setPreviewVariable(null)}>
+          <div className="bg-white rounded-xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between p-6 border-b border-gray-200">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-xs font-semibold text-orange-600 uppercase tracking-wide">Tab Preview</span>
+                  <span className="px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-700">{previewTableList.length} tables</span>
+                </div>
+                <div className="flex items-center flex-wrap gap-2">
+                  <h3 className="text-lg font-semibold text-gray-900">{previewVariable.name}</h3>
+                  <span className="px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-800">{previewVariable.type || 'Unknown'}</span>
+                </div>
+                <p className="text-sm text-gray-600 mt-1">
+                  {previewVariable.description || (previewVariable as any).label || 'No question text available'}
+                </p>
+                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                  {previewVariableTags.slice(0, 4).map((tag, idx) => (
+                    <span key={`${previewVariable.name}-preview-tag-${idx}`} className="px-2 py-1 text-xs rounded-full bg-blue-50 text-blue-700">{tag}</span>
+                  ))}
+                  {previewVariableTags.length > 4 && (
+                    <span className="px-2 py-1 text-xs rounded-full bg-blue-50 text-blue-700">+{previewVariableTags.length - 4}</span>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={() => setPreviewVariable(null)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label="Close preview"
+              >
+                <XMarkIcon className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto">
+              {previewLoading ? (
+                <div className="text-center text-sm text-gray-600 border border-dashed border-gray-300 rounded-lg p-6">
+                  Generating preview…
+                </div>
+              ) : previewError ? (
+                <div className="text-center text-sm text-red-600 border border-dashed border-red-300 rounded-lg p-6">
+                  {previewError}
+                </div>
+              ) : previewSectionsHtml.length > 0 ? (
+                <div className="space-y-6">
+                  <style>{`
+                    .preview-table table { border-collapse: collapse; width: 100%; font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 12px; table-layout: fixed; }
+                    .preview-table table td, .preview-table table th { border: 1px solid #d1d5db; padding: 4px 6px; text-align: center; vertical-align: middle; white-space: nowrap; }
+                    .preview-table table .preview-header-row td { background-color: ${BRAND_ORANGE}; color: #fff; font-weight: 600; }
+                    .preview-table table tr.preview-header-row td:first-child { text-align: center; }
+                    .preview-table table tr:not(.preview-header-row) td:first-child { text-align: left; white-space: nowrap; width: auto; overflow: hidden; text-overflow: ellipsis; }
+                    .preview-table table tr.preview-base-row td,
+                    .preview-table table tr.preview-stat-row td { background-color: #f5f5f5; font-style: italic; }
+                  `}</style>
+                  {previewSectionsHtml.map((section, idx) => {
+                    const debugEntry = previewDebugInfo[section.title];
+                    return (
+                      <div key={`${section.title}-${idx}`} className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm">
+                        <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
+                          <div className="text-xs font-semibold text-orange-600 uppercase tracking-wide">{section.title}</div>
+                          <div className="text-sm text-gray-800 mt-1">{section.question}</div>
+                          <div className="text-xs text-gray-500 mt-1">{section.base}</div>
+                        </div>
+                        <div className="preview-table overflow-auto">
+                          <div
+                            className="min-w-[720px]"
+                            dangerouslySetInnerHTML={{ __html: section.tableHtml }}
+                          />
+                        </div>
+                        {debugEntry?.isMultiSelectGridColumn && (
+                          <div className="mt-4 mx-4 mb-4 rounded-lg border border-dashed border-blue-300 bg-blue-50 p-4 text-xs text-blue-900">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="font-semibold text-blue-800">Multi-Select Grid Debug</div>
+                              <div className="text-[11px] uppercase tracking-wide">Column: {debugEntry.columnCode || 'Unknown'}</div>
+                            </div>
+                            {debugEntry.sampleStatements && debugEntry.sampleStatements.length > 0 ? (
+                              <div className="mt-3 space-y-2">
+                                {debugEntry.sampleStatements.map(sample => (
+                                  <div key={`${debugEntry.tableTitle}-${sample.key}`} className="rounded-md border border-blue-200 bg-white/70 p-2">
+                                    <div className="font-semibold text-blue-900">{sample.label || sample.key}</div>
+                                    <div className="text-blue-800 mt-1 flex flex-wrap gap-3">
+                                      <span>Total: {sample.totalCount.toLocaleString()} ({sample.totalPercentage.toFixed(1)}%)</span>
+                                      {sample.cutCounts.map(cut => (
+                                        <span key={`${sample.key}-${cut.title}`} className="text-blue-700">
+                                          {cut.title}: {cut.count.toLocaleString()} ({cut.percentage.toFixed(1)}%)
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="mt-2 text-blue-700">No statement-level data detected for this column.</p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center text-sm text-gray-600 border border-dashed border-gray-300 rounded-lg p-6">
+                  No tables are currently selected for this question.
+                  <div className="mt-2 text-xs text-gray-500">Use the configuration popup to include specific tables.</div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
       {showDebugInfoModal && debugInfoModalVariable && createPortal(
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto m-4">
