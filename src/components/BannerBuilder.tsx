@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { XMarkIcon, PlusIcon, TrashIcon, PencilIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, PlusIcon, TrashIcon, PencilIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
 import { type BannerGroup, type BannerCut, type BannerSubGroup, type BannerCondition, type BannerConditionGroup, type BannerSumCondition } from '../types/dataTabulation';
 
 const BRAND_ORANGE = '#D14A2D';
@@ -343,7 +343,506 @@ interface CutConditionsEditorProps {
   variableButtonRefs: React.MutableRefObject<Record<string, React.RefObject<HTMLButtonElement>>>;
 }
 
+// Configuration Modal Component
+interface ConditionsConfigModalProps {
+  cut: BannerCut;
+  subGroupId: string;
+  selectableVariables: any[];
+  categoricalVariables: any[];
+  isNumericVariable: (varName: string) => boolean;
+  updateCut: (subGroupId: string, cutId: string, updates: Partial<BannerCut>) => void;
+  onClose: () => void;
+}
+
+const ConditionsConfigModal: React.FC<ConditionsConfigModalProps> = ({
+  cut,
+  subGroupId,
+  selectableVariables,
+  categoricalVariables,
+  isNumericVariable,
+  updateCut,
+  onClose
+}) => {
+  const [localConditions, setLocalConditions] = React.useState<BannerCondition[]>(() => {
+    if (cut.conditionGroups && cut.conditionGroups.length > 0) {
+      return cut.conditionGroups.flatMap(g => g.conditions);
+    }
+    if (cut.variableName) {
+      return [{ id: '0', variableName: cut.variableName, codes: cut.codes }];
+    }
+    // Automatically add first condition if none exist
+    return [{ id: Date.now().toString(), variableName: '', codes: [] }];
+  });
+  // Track operators between conditions (for N conditions, there are N-1 operators)
+  const [localOperators, setLocalOperators] = React.useState<('OR' | 'AND')[]>(() => {
+    if (cut.conditionGroups && cut.conditionGroups.length > 0 && cut.conditionGroups[0].conditions.length > 1) {
+      const operator = cut.conditionGroups[0].operator;
+      const count = cut.conditionGroups[0].conditions.length - 1;
+      return Array(count).fill(operator);
+    }
+    // If we auto-added a condition, no operators needed yet (only 1 condition)
+    return [];
+  });
+  const [showVariableSelector, setShowVariableSelector] = React.useState<number | null>(null);
+
+  // Check if all conditions are valid
+  const allConditionsValid = React.useMemo(() => {
+    if (localConditions.length === 0) return true; // Empty is valid (clears conditions)
+    
+    return localConditions.every(cond => {
+      if (!cond.variableName) return false;
+      
+      const isNumeric = isNumericVariable(cond.variableName);
+      if (isNumeric) {
+        // For numeric, need an operator selected and a value entered
+        if (cond.codes.length === 0 || !cond.codes[0]) return false;
+        const conditionStr = cond.codes[0];
+        // Check if it's just "between" without values, or empty operator
+        if (conditionStr === 'between' || conditionStr === '') return false;
+        // Check if it has a value (not just an operator)
+        const hasValue = /^(>=|<=|>|<|=)\s*\d/.test(conditionStr) || /^\d+-\d+/.test(conditionStr) || /^\d+-/.test(conditionStr);
+        return hasValue;
+      } else {
+        // For categorical, need at least one code selected
+        return cond.codes.length > 0;
+      }
+    });
+  }, [localConditions, isNumericVariable]);
+
+  const handleSave = () => {
+    if (!allConditionsValid) {
+      // Don't save if conditions are incomplete
+      return;
+    }
+
+    if (localConditions.length > 0) {
+      // If all operators are the same, use that operator; otherwise use the first one
+      const operator = localOperators.length > 0 && localOperators.every(op => op === localOperators[0])
+        ? localOperators[0]
+        : (localOperators[0] || 'OR');
+      
+      updateCut(subGroupId, cut.id, {
+        conditionGroups: [{
+          conditions: localConditions,
+          operator: operator
+        }],
+        variableName: localConditions[0]?.variableName || '',
+        codes: localConditions[0]?.codes || [],
+        sumCondition: undefined
+      });
+    } else {
+      updateCut(subGroupId, cut.id, {
+        conditionGroups: undefined,
+        variableName: '',
+        codes: [],
+        sumCondition: undefined
+      });
+    }
+    onClose();
+  };
+
+  const addCondition = () => {
+    const newCondition: BannerCondition = { id: Date.now().toString(), variableName: '', codes: [] };
+    setLocalConditions([...localConditions, newCondition]);
+    // Add a new operator (default to 'OR') when adding a condition
+    setLocalOperators([...localOperators, 'OR']);
+  };
+
+  const removeCondition = (index: number) => {
+    setLocalConditions(localConditions.filter((_, i) => i !== index));
+    // Remove the corresponding operator
+    if (index === 0 && localOperators.length > 0) {
+      setLocalOperators(localOperators.slice(1));
+    } else if (index > 0) {
+      setLocalOperators(localOperators.filter((_, i) => i !== index - 1));
+    }
+  };
+
+  const updateCondition = (index: number, updates: Partial<BannerCondition>) => {
+    setLocalConditions(localConditions.map((c, i) => i === index ? { ...c, ...updates } : c));
+  };
+
+
+  return (
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 max-h-[80vh] overflow-hidden flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="p-4 border-b border-gray-200">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-lg font-semibold text-gray-900">Configure Conditions</h3>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <XMarkIcon className="h-6 w-6" />
+            </button>
+          </div>
+          {localConditions.length > 0 && localConditions.some(c => c.variableName && c.codes.length > 0) && (
+            <div className="text-sm text-gray-600 font-mono mt-2">
+              {localConditions
+                .filter(c => c.variableName && c.codes.length > 0)
+                .map((cond, idx) => {
+                  const isNumeric = isNumericVariable(cond.variableName);
+                  const variable = categoricalVariables.find(v => v.name === cond.variableName);
+                  let conditionText = '';
+                  
+                  if (isNumeric && cond.codes.length > 0) {
+                    conditionText = `${cond.variableName}${cond.codes[0]}`;
+                  } else if (variable && cond.codes.length > 0) {
+                    // Remove 'c' prefix from codes for display
+                    const displayCodes = cond.codes.map(code => code.replace(/^c/i, ''));
+                    conditionText = `${cond.variableName} = ${displayCodes.join(', ')}`;
+                  } else {
+                    conditionText = cond.variableName || '';
+                  }
+                  
+                  return (
+                    <React.Fragment key={cond.id || idx}>
+                      {idx > 0 && (
+                        <span className="mx-2 font-semibold" style={{ color: localOperators[idx - 1] === 'OR' ? '#B45309' : '#1D4ED8' }}>
+                          {localOperators[idx - 1] || 'OR'}
+                        </span>
+                      )}
+                      <span>{conditionText}</span>
+                    </React.Fragment>
+                  );
+                })}
+            </div>
+          )}
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              {localConditions.map((cond, idx) => {
+                const isNumeric = isNumericVariable(cond.variableName);
+                const variable = categoricalVariables.find(v => v.name === cond.variableName);
+
+                return (
+                  <React.Fragment key={cond.id || idx}>
+                    <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-semibold text-gray-700">Condition {idx + 1}</span>
+                      {localConditions.length > 1 && (
+                        <button
+                          onClick={() => removeCondition(idx)}
+                          className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                        >
+                          <TrashIcon className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Variable Selection */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Variable:</label>
+                      <button
+                        onClick={() => setShowVariableSelector(idx)}
+                        className="w-full px-3 py-2 text-left text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                      >
+                        {cond.variableName || 'Select variable...'}
+                      </button>
+                      {showVariableSelector === idx && (
+                        <VariableSelectorPopup
+                          variables={selectableVariables}
+                          selectedVariable={cond.variableName}
+                          onSelect={(varName) => {
+                            updateCondition(idx, { variableName: varName, codes: [] });
+                            setShowVariableSelector(null);
+                          }}
+                          onClose={() => setShowVariableSelector(null)}
+                          anchorRef={{ current: null } as React.RefObject<HTMLButtonElement>}
+                        />
+                      )}
+                    </div>
+
+                    {/* Code/Condition Selection */}
+                    {cond.variableName && (
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          {isNumeric ? 'Condition:' : 'Codes:'}
+                        </label>
+                        {isNumeric ? (() => {
+                          const currentCondition = cond.codes[0] || '';
+                          const parseCondition = (condStr: string) => {
+                            if (!condStr) return { operator: '', value: '', value2: '' };
+                            // Check for between format with both values: "5-100" or "5 AND 100"
+                            const betweenMatch = condStr.match(/^(\d+(?:\.\d+)?)\s*(?:-|AND)\s*(\d+(?:\.\d+)?)$/i);
+                            if (betweenMatch) {
+                              return { operator: 'between', value: betweenMatch[1], value2: betweenMatch[2] };
+                            }
+                            // Check for between format with only min value: "5-" (user is typing)
+                            const betweenPartialMatch = condStr.match(/^(\d+(?:\.\d+)?)\s*-\s*$/);
+                            if (betweenPartialMatch) {
+                              return { operator: 'between', value: betweenPartialMatch[1], value2: '' };
+                            }
+                            // Check if it's just the word "between"
+                            if (condStr === 'between') {
+                              return { operator: 'between', value: '', value2: '' };
+                            }
+                            // Check for operator with value
+                            const opMatch = condStr.match(/^(>=|<=|>|<|=)\s*(\d+(?:\.\d+)?)$/);
+                            if (opMatch) {
+                              return { operator: opMatch[1], value: opMatch[2], value2: '' };
+                            }
+                            // Check if it's just an operator (no value yet)
+                            if (/^(>=|<=|>|<|=)$/.test(condStr)) {
+                              return { operator: condStr as '>=' | '<=' | '>' | '<' | '=', value: '', value2: '' };
+                            }
+                            return { operator: '', value: '', value2: '' };
+                          };
+                          const parsed = parseCondition(currentCondition);
+                          const isBetween = parsed.operator === 'between';
+                          
+                          return (
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <select
+                                  value={parsed.operator}
+                                  onChange={(e) => {
+                                    const newOp = e.target.value;
+                                    if (!newOp) {
+                                      updateCondition(idx, { codes: [] });
+                                      return;
+                                    }
+                                    let newCondition = '';
+                                    if (newOp === 'between') {
+                                      // When switching to between, preserve existing value as min if it exists
+                                      newCondition = parsed.value && parsed.value2 
+                                        ? `${parsed.value}-${parsed.value2}`
+                                        : (parsed.value ? `${parsed.value}-` : 'between');
+                                    } else {
+                                      // When switching to a single operator, preserve the value or just set the operator
+                                      newCondition = parsed.value ? `${newOp}${parsed.value}` : newOp;
+                                    }
+                                    updateCondition(idx, { codes: [newCondition] });
+                                  }}
+                                  className="px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-[#D14A2D] focus:border-[#D14A2D]"
+                                >
+                                  <option value="">Select operator...</option>
+                                  <option value=">=">≥ (greater or equal)</option>
+                                  <option value="<=">≤ (less or equal)</option>
+                                  <option value=">">{'>'} (greater than)</option>
+                                  <option value="<">{'<'} (less than)</option>
+                                  <option value="=">=  (equal to)</option>
+                                  <option value="between">Between</option>
+                                </select>
+                                <input
+                                  type="number"
+                                  value={parsed.value}
+                                  onChange={(e) => {
+                                    if (!parsed.operator) {
+                                      // If no operator selected, don't update
+                                      return;
+                                    }
+                                    let newCondition = '';
+                                    if (isBetween) {
+                                      newCondition = e.target.value && parsed.value2 
+                                        ? `${e.target.value}-${parsed.value2}`
+                                        : (e.target.value ? `${e.target.value}-` : '');
+                                    } else {
+                                      newCondition = e.target.value ? `${parsed.operator}${e.target.value}` : parsed.operator;
+                                    }
+                                    updateCondition(idx, { codes: newCondition ? [newCondition] : [] });
+                                  }}
+                                  placeholder={isBetween ? 'Min' : 'Value'}
+                                  disabled={!parsed.operator}
+                                  className="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-[#D14A2D] focus:border-[#D14A2D] disabled:bg-gray-100 disabled:cursor-not-allowed"
+                                />
+                                {isBetween && (
+                                  <>
+                                    <span className="text-gray-500 text-sm">to</span>
+                                    <input
+                                      type="number"
+                                      value={parsed.value2}
+                                      onChange={(e) => {
+                                        const newCondition = parsed.value && e.target.value 
+                                          ? `${parsed.value}-${e.target.value}`
+                                          : (parsed.value ? `${parsed.value}-` : '');
+                                        updateCondition(idx, { codes: newCondition ? [newCondition] : [] });
+                                      }}
+                                      placeholder="Max"
+                                      disabled={!parsed.operator}
+                                      className="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-[#D14A2D] focus:border-[#D14A2D] disabled:bg-gray-100 disabled:cursor-not-allowed"
+                                    />
+                                  </>
+                                )}
+                              </div>
+                              {currentCondition && (
+                                <div className="text-xs text-gray-500 font-mono">
+                                  Preview: {cond.variableName} {currentCondition}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })() : variable ? (
+                          <div className="space-y-2">
+                            <div className="space-y-1 max-h-48 overflow-y-auto p-2 border border-gray-200 rounded-lg bg-white">
+                              {Object.entries(variable.codes || {}).map(([code, label]) => (
+                                <label
+                                  key={code}
+                                  className={`flex items-center gap-2 px-2.5 py-1.5 text-xs rounded border cursor-pointer transition-colors ${
+                                    cond.codes.includes(code)
+                                      ? 'bg-orange-100 border-orange-300 text-orange-800'
+                                      : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                                  }`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={cond.codes.includes(code)}
+                                    onChange={(e) => {
+                                      const newCodes = e.target.checked
+                                        ? [...cond.codes, code]
+                                        : cond.codes.filter(c => c !== code);
+                                      updateCondition(idx, { codes: newCodes });
+                                    }}
+                                    className="rounded border-gray-300 text-[#D14A2D] focus:ring-[#D14A2D]"
+                                  />
+                                  <span className="font-medium">{code}:</span>
+                                  <span>{String(label)}</span>
+                                </label>
+                              ))}
+                            </div>
+                            {cond.codes.length > 0 && (
+                              <div className="text-xs text-gray-500 font-mono">
+                                Preview: {cond.variableName} = {cond.codes.map(code => code.replace(/^c/i, '')).join(', ')}
+                              </div>
+                            )}
+                          </div>
+                        ) : null}
+                      </div>
+                    )}
+                    </div>
+                    {idx < localConditions.length - 1 && (
+                      <div className="flex justify-center py-1">
+                        <button
+                          onClick={() => {
+                            const newOperators = [...localOperators];
+                            newOperators[idx] = newOperators[idx] === 'OR' ? 'AND' : 'OR';
+                            setLocalOperators(newOperators);
+                          }}
+                          className="px-4 py-1.5 text-xs font-medium rounded-lg transition-colors"
+                          style={{
+                            backgroundColor: localOperators[idx] === 'OR' ? '#FEF3C7' : '#DBEAFE',
+                            color: localOperators[idx] === 'OR' ? '#B45309' : '#1D4ED8',
+                            border: `1px solid ${localOperators[idx] === 'OR' ? '#F59E0B' : '#3B82F6'}`
+                          }}
+                        >
+                          {localOperators[idx] || 'OR'}
+                        </button>
+                      </div>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+
+              <button
+                onClick={addCondition}
+                className="w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:border-[#D14A2D] hover:text-[#D14A2D] transition-colors"
+              >
+                + Add Condition
+              </button>
+        </div>
+
+        <div className="flex items-center justify-end gap-3 p-4 border-t border-gray-200 bg-gray-50">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-200 rounded-lg"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={!allConditionsValid}
+            className="px-4 py-2 text-sm text-white rounded-lg transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{ backgroundColor: BRAND_ORANGE }}
+            title={!allConditionsValid ? "Please complete all conditions before saving" : ""}
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const CutConditionsEditor: React.FC<CutConditionsEditorProps> = ({
+  cut,
+  subGroupId,
+  selectableVariables,
+  categoricalVariables,
+  isNumericVariable,
+  updateCut,
+  openVariableSelector,
+  setOpenVariableSelector,
+  openCodeSelector,
+  setOpenCodeSelector,
+  getButtonRef,
+  codeButtonRefs,
+  variableButtonRefs
+}) => {
+  const [showConfigModal, setShowConfigModal] = React.useState(false);
+
+  // Get summary of conditions
+  const getConditionsSummary = () => {
+    if (cut.sumCondition) {
+      return `SUM(${cut.sumCondition.variables.join(', ')}) ${cut.sumCondition.condition}`;
+    }
+    if (cut.conditionGroups && cut.conditionGroups.length > 0) {
+      const conditions = cut.conditionGroups.flatMap(g => g.conditions);
+      const operator = cut.conditionGroups[0].operator;
+      return conditions.map(c => `${c.variableName}=${c.codes.join(',')}`).join(` ${operator} `);
+    }
+    if (cut.variableName) {
+      return `${cut.variableName}=${cut.codes.join(',')}`;
+    }
+    return null;
+  };
+
+  const summary = getConditionsSummary();
+
+  return (
+    <>
+      {summary ? (
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-700 font-mono">{summary}</span>
+          <button
+            onClick={() => setShowConfigModal(true)}
+            className="p-1 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors"
+            title="Edit conditions"
+          >
+            <PencilIcon className="h-4 w-4" />
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={() => setShowConfigModal(true)}
+          className="px-3 py-1.5 text-xs font-medium text-white rounded-lg hover:opacity-90 transition-colors"
+          style={{ backgroundColor: BRAND_ORANGE }}
+        >
+          Configure
+        </button>
+      )}
+
+      {showConfigModal && (
+        <ConditionsConfigModal
+          cut={cut}
+          subGroupId={subGroupId}
+          selectableVariables={selectableVariables}
+          categoricalVariables={categoricalVariables}
+          isNumericVariable={isNumericVariable}
+          updateCut={updateCut}
+          onClose={() => setShowConfigModal(false)}
+        />
+      )}
+    </>
+  );
+};
+
+const OldCutConditionsEditor: React.FC<CutConditionsEditorProps> = ({
   cut,
   subGroupId,
   selectableVariables,
@@ -573,19 +1072,41 @@ const CutConditionsEditor: React.FC<CutConditionsEditorProps> = ({
   }
 
   // Render regular conditions UI
+  const configureButtonRef = getButtonRef(variableButtonRefs, subGroupId, `${cut.id}-configure`);
+
   return (
     <div className="space-y-2">
       {conditions.length === 0 ? (
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-400 italic">No conditions</span>
+        <>
           <button
-            onClick={addCondition}
-            className="p-1 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors"
-            title="Add condition"
+            ref={configureButtonRef}
+            onClick={() => setOpenVariableSelector({ subGroupId, cutId: cut.id, conditionIndex: 0 })}
+            className="px-3 py-1.5 text-xs font-medium text-white rounded-lg hover:opacity-90 transition-colors"
+            style={{ backgroundColor: BRAND_ORANGE }}
           >
-            <PlusIcon className="h-4 w-4" />
+            Configure
           </button>
-        </div>
+          {openVariableSelector?.subGroupId === subGroupId && openVariableSelector?.cutId === cut.id && openVariableSelector?.conditionIndex === 0 && (
+            <VariableSelectorPopup
+              variables={selectableVariables}
+              selectedVariable=""
+              onSelect={(varName) => {
+                const newCondition: BannerCondition = { id: Date.now().toString(), variableName: varName, codes: [] };
+                updateCut(subGroupId, cut.id, {
+                  conditionGroups: [{
+                    conditions: [newCondition],
+                    operator: 'OR'
+                  }],
+                  variableName: varName,
+                  codes: []
+                });
+                setOpenVariableSelector(null);
+              }}
+              onClose={() => setOpenVariableSelector(null)}
+              anchorRef={configureButtonRef}
+            />
+          )}
+        </>
       ) : (
         <>
           {conditions.map((cond, idx) => {
@@ -743,6 +1264,7 @@ const CutConditionsEditor: React.FC<CutConditionsEditorProps> = ({
 const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onCancel, editingGroup, existingBannerCount = 0, rawData, columnMapping }) => {
   const [confidenceLevel, setConfidenceLevel] = useState<95 | 90 | 80>(editingGroup?.confidenceLevel || 95);
   const [includeTotal, setIncludeTotal] = useState<boolean>(editingGroup?.includeTotal !== false);
+  const [bannerTitle, setBannerTitle] = useState<string>(editingGroup?.title || `Banner ${existingBannerCount + 1}`);
   const [subGroups, setSubGroups] = useState<BannerSubGroup[]>(
     editingGroup?.groups || [
       {
@@ -757,6 +1279,8 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onCanc
   );
   const [openCodeSelector, setOpenCodeSelector] = useState<{ subGroupId: string; cutId: string; conditionIndex?: number } | null>(null);
   const [openVariableSelector, setOpenVariableSelector] = useState<{ subGroupId: string; cutId: string; conditionIndex?: number } | null>(null);
+  const [showSettingsPopup, setShowSettingsPopup] = useState(false);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
   const codeButtonRefs = useRef<Record<string, React.RefObject<HTMLButtonElement>>>({});
   const variableButtonRefs = useRef<Record<string, React.RefObject<HTMLButtonElement>>>({});
 
@@ -1129,13 +1653,18 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onCanc
   };
 
   const handleSave = () => {
-    const generatedTitle = editingGroup?.title || `Banner ${existingBannerCount + 1}`;
+    // Auto-generate sub-group titles if not set
+    const subGroupsWithTitles = subGroups.map((sg, idx) => ({
+      ...sg,
+      title: sg.title || `Sub-Group ${idx + 1}`
+    }));
+
     const group: BannerGroup = {
       id: editingGroup?.id || Date.now().toString(),
-      title: generatedTitle,
+      title: bannerTitle,
       confidenceLevel,
       includeTotal,
-      groups: subGroups
+      groups: subGroupsWithTitles
     };
     onSave(group);
   };
@@ -1147,77 +1676,152 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onCanc
     <div className="flex flex-col h-full bg-white">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-gray-200">
-        <div className="flex items-center gap-4">
-          <h2 className="text-xl font-semibold text-gray-900">
-            {editingGroup ? 'Edit Banner Group' : 'Create Banner Group'}
-          </h2>
-          <select
-            value={confidenceLevel}
-            onChange={(e) => setConfidenceLevel(Number(e.target.value) as 95 | 90 | 80)}
-            className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D14A2D] focus:border-[#D14A2D]"
-          >
-            <option value={95}>95% Confidence</option>
-            <option value={90}>90% Confidence</option>
-            <option value={80}>80% Confidence</option>
-          </select>
-          <label className="flex items-center gap-2 cursor-pointer">
+        <div className="flex items-center gap-2">
+          {isEditingTitle ? (
             <input
-              type="checkbox"
-              checked={includeTotal}
-              onChange={(e) => setIncludeTotal(e.target.checked)}
-              className="w-4 h-4 rounded border-gray-300 text-[#D14A2D] focus:ring-[#D14A2D]"
+              type="text"
+              value={bannerTitle}
+              onChange={(e) => setBannerTitle(e.target.value)}
+              onBlur={() => setIsEditingTitle(false)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') setIsEditingTitle(false);
+                if (e.key === 'Escape') {
+                  setBannerTitle(editingGroup?.title || `Banner ${existingBannerCount + 1}`);
+                  setIsEditingTitle(false);
+                }
+              }}
+              autoFocus
+              className="px-3 py-1.5 text-lg font-semibold border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D14A2D] focus:border-[#D14A2D]"
             />
-            <span className="text-sm text-gray-700">Include Total</span>
-          </label>
-          {includeTotal && (
-            <span className="text-sm text-gray-600">
-              Total Sample: <span className="font-semibold">{totalSampleSize.toLocaleString()}</span>
-            </span>
+          ) : (
+            <>
+              <h2 className="text-xl font-semibold text-gray-900">{bannerTitle}</h2>
+              <button
+                onClick={() => setIsEditingTitle(true)}
+                className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                title="Edit banner title"
+              >
+                <PencilIcon className="h-5 w-5" />
+              </button>
+            </>
           )}
         </div>
-        <button onClick={onCancel} className="text-gray-400 hover:text-gray-600">
-          <XMarkIcon className="h-6 w-6" />
+        <button
+          onClick={() => setShowSettingsPopup(true)}
+          className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+          title="Banner Settings"
+        >
+          <Cog6ToothIcon className="h-6 w-6" />
         </button>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-6">
-        {subGroups.map((subGroup, subGroupIndex) => (
-          <div key={subGroup.id} className="border border-gray-200 rounded-lg overflow-hidden">
-            {/* Subgroup Header - Brand Orange */}
-            <div className="px-4 py-3 flex items-center justify-between" style={{ backgroundColor: BRAND_ORANGE }}>
-              <input
-                type="text"
-                value={subGroup.title}
-                onChange={(e) => updateSubGroup(subGroup.id, { title: e.target.value })}
-                placeholder={`Sub-Group ${subGroupIndex + 1} Title (e.g., "COE", "Specialty")`}
-                className="flex-1 px-3 py-1.5 text-sm font-medium border-0 rounded-lg focus:ring-2 focus:ring-white mr-3 bg-white/90 placeholder-gray-400"
-              />
-              {subGroups.length > 1 && (
-                <button
-                  onClick={() => removeSubGroup(subGroup.id)}
-                  className="p-1.5 text-white hover:bg-white/20 rounded transition-colors"
-                  title="Remove sub-group"
-                >
-                  <TrashIcon className="h-4 w-4" />
-                </button>
-              )}
+      {/* Settings Popup */}
+      {showSettingsPopup && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={() => setShowSettingsPopup(false)}
+        >
+          <div
+            className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Banner Settings</h3>
+              <button
+                onClick={() => setShowSettingsPopup(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <XMarkIcon className="h-6 w-6" />
+              </button>
             </div>
 
+            <div className="space-y-4">
+              {/* Stat Level Dropdown */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Statistical Significance Level
+                </label>
+                <select
+                  value={confidenceLevel}
+                  onChange={(e) => setConfidenceLevel(Number(e.target.value) as 95 | 90 | 80)}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D14A2D] focus:border-[#D14A2D]"
+                >
+                  <option value={95}>95% Confidence</option>
+                  <option value={90}>90% Confidence</option>
+                  <option value={80}>80% Confidence</option>
+                </select>
+              </div>
+
+              {/* Include Total Checkbox */}
+              <div>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={includeTotal}
+                    onChange={(e) => setIncludeTotal(e.target.checked)}
+                    className="w-4 h-4 rounded border-gray-300 text-[#D14A2D] focus:ring-[#D14A2D]"
+                  />
+                  <span className="text-sm font-medium text-gray-700">Include Total</span>
+                </label>
+                {includeTotal && (
+                  <div className="mt-2 text-sm text-gray-600">
+                    Total Sample: <span className="font-semibold">{totalSampleSize.toLocaleString()}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setShowSettingsPopup(false)}
+                className="px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors hover:opacity-90"
+                style={{ backgroundColor: BRAND_ORANGE }}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto py-6 space-y-6">
+        {subGroups.map((subGroup, subGroupIndex) => (
+          <div key={subGroup.id} className="border border-gray-200 rounded-lg overflow-hidden">
+            {/* Group Title */}
+            <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+              <div className="flex items-center gap-3">
+                <label className="text-sm font-semibold text-gray-700 whitespace-nowrap">Group Title:</label>
+                <input
+                  type="text"
+                  value={subGroup.title}
+                  onChange={(e) => updateSubGroup(subGroup.id, { title: e.target.value })}
+                  placeholder={`Sub-Group ${subGroupIndex + 1}`}
+                  className="flex-1 px-3 py-1.5 text-sm font-medium border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#D14A2D] focus:border-[#D14A2D]"
+                />
+                {subGroups.length > 1 && (
+                  <button
+                    onClick={() => removeSubGroup(subGroup.id)}
+                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                    title="Remove sub-group"
+                  >
+                    <TrashIcon className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            </div>
             {/* Cuts Table */}
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase w-32">Cut Title</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase w-48">Cut Title</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Conditions</th>
-                  <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase w-20">N</th>
                   <th className="px-4 py-2 w-10"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {subGroup.cuts.map((cut, cutIndex) => {
                   const selectedVariable = categoricalVariables.find(v => v.name === cut.variableName);
-                  const statLetter = String.fromCharCode(65 + cutIndex);
                   const codeButtonRef = getButtonRef(codeButtonRefs, subGroup.id, cut.id);
                   const variableButtonRef = getButtonRef(variableButtonRefs, subGroup.id, cut.id);
 
@@ -1226,12 +1830,10 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onCanc
                       {/* Cut Title */}
                       <td className="px-4 py-2">
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-medium text-gray-400">({statLetter})</span>
                           <input
                             type="text"
                             value={cut.title}
                             onChange={(e) => updateCut(subGroup.id, cut.id, { title: e.target.value })}
-                            placeholder="e.g., Yes, No, Male..."
                             className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-[#D14A2D] focus:border-[#D14A2D]"
                           />
                         </div>
@@ -1254,20 +1856,6 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onCanc
                           codeButtonRefs={codeButtonRefs}
                           variableButtonRefs={variableButtonRefs}
                         />
-                      </td>
-
-                      {/* Sample Size */}
-                      <td className="px-4 py-2 text-center">
-                        {(() => {
-                          const sampleSize = calculateCutSampleSize(cut);
-                          return sampleSize > 0 ? (
-                            <span className="text-sm font-medium text-gray-700">
-                              {sampleSize.toLocaleString()}
-                            </span>
-                          ) : (
-                            <span className="text-xs text-gray-400">-</span>
-                          );
-                        })()}
                       </td>
 
                       {/* Delete */}
@@ -1335,7 +1923,7 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onCanc
         {/* Add Sub-Group Button */}
         <button
           onClick={addSubGroup}
-          className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:border-[#D14A2D] hover:text-[#D14A2D] transition-colors flex items-center justify-center gap-2"
+          className="w-full py-3 border-2 border-dashed border-gray-300 text-sm text-gray-500 hover:border-[#D14A2D] hover:text-[#D14A2D] transition-colors flex items-center justify-center gap-2 bg-white"
         >
           <PlusIcon className="h-5 w-5" />
           Add Sub-Group
@@ -1355,7 +1943,7 @@ const BannerBuilder: React.FC<BannerBuilderProps> = ({ variables, onSave, onCanc
           className="px-4 py-2 text-sm text-white rounded-lg hover:opacity-90"
           style={{ backgroundColor: BRAND_ORANGE }}
         >
-          {editingGroup ? 'Update Banner Group' : 'Create Banner Group'}
+          Save
         </button>
       </div>
     </div>

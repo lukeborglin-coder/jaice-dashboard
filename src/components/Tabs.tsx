@@ -18,6 +18,8 @@ import {
   FunnelIcon,
   CheckCircleIcon,
   TableCellsIcon,
+  Cog6ToothIcon,
+  ArrowDownTrayIcon,
 } from '@heroicons/react/24/outline';
 import { IconTable, IconCheckbox } from '@tabler/icons-react';
 import { API_BASE_URL } from '../config';
@@ -25,9 +27,10 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
-import { type BannerGroup, type BannerCut } from '../types/dataTabulation';
+import { type BannerGroup, type BannerCut, type BannerConditionGroup } from '../types/dataTabulation';
 import BannerBuilder from './BannerBuilder';
 import CrossTabDisplay from './CrossTabDisplay';
+import BannerFilterConfig from './BannerFilterConfig';
 import { type ParsedDataFile } from '../utils/dataTabulationHelpers';
 import { autoMatchHeaders } from '../utils/headerMatcher';
 
@@ -308,8 +311,9 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
   const [questionTypeFilter, setQuestionTypeFilter] = useState<string | null>(null);
   const [showQuestionTypeFilter, setShowQuestionTypeFilter] = useState(false);
   const [allQuestionnaires, setAllQuestionnaires] = useState<any[]>([]);
-  const [qnrViewMode, setQnrViewMode] = useState<'tabSpecs' | 'variables' | 'banners' | 'data' | 'rawdata' | 'datamap' | 'crosstabDownload'>('tabSpecs');
+  const [qnrViewMode, setQnrViewMode] = useState<'tabSpecs' | 'variables' | 'banners' | 'data' | 'rawdata' | 'datamap'>('tabSpecs');
   const [tabSpecsTypeFilter, setTabSpecsTypeFilter] = useState<string>('all');
+  const [tabSpecsSubView, setTabSpecsSubView] = useState<'tables' | 'banners'>('tables');
   
   // Track which tables are included for each variable
   const [variableTableSelections, setVariableTableSelections] = useState<Record<string, Set<string>>>({});
@@ -329,6 +333,12 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
   const [tempNetCodes, setTempNetCodes] = useState<Record<string, NetCodeSelection[]>>({});
   // Reset key to force re-render when resetting specs
   const [specsResetKey, setSpecsResetKey] = useState(0);
+  // Settings popup state
+  const [showSettingsPopup, setShowSettingsPopup] = useState(false);
+  const [significanceLevel, setSignificanceLevel] = useState<95 | 90>(95);
+  const [percentageDecimals, setPercentageDecimals] = useState<0 | 1 | 2>(0);
+  // Filter popup state
+  const [showFilterPopup, setShowFilterPopup] = useState(false);
   // Track which net dropdowns are open in the popup
   const [openNetDropdowns, setOpenNetDropdowns] = useState<Record<string, Set<number>>>({});
   const [netSummaryModalState, setNetSummaryModalState] = useState<NetSummaryModalState>(NET_SUMMARY_MODAL_DEFAULT);
@@ -368,6 +378,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
   const [editingBannerGroup, setEditingBannerGroup] = useState<BannerGroup | null>(null);
   const [selectedNewBannerGroupId, setSelectedNewBannerGroupId] = useState<string | null>(null);
   const [selectedNewBannerVariable, setSelectedNewBannerVariable] = useState<string | null>(null);
+  const [bannerFilterConditions, setBannerFilterConditions] = useState<BannerConditionGroup[] | null>(null);
   const [parsedFile, setParsedFile] = useState<ParsedDataFile | null>(null);
   const [mappingFilter, setMappingFilter] = useState<'all' | 'mapped' | 'unmapped'>('all');
   const [singleSelectSort, setSingleSelectSort] = useState<Record<string, { column: 'code' | 'count' | 'percentage', direction: 'asc' | 'desc' }>>({});
@@ -386,6 +397,11 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
   const getTabSpecsStorageKey = useCallback((suffix: string) => {
     return selectedQuestionnaire?.id ? `tabSpecs_${suffix}_${selectedQuestionnaire.id}` : null;
   }, [selectedQuestionnaire?.id]);
+
+  // Helper function to format percentages based on decimal setting
+  const formatPercentage = useCallback((value: number): string => {
+    return `${value.toFixed(percentageDecimals)}%`;
+  }, [percentageDecimals]);
 
   const getCodeValueForMean = useCallback((variableRef: Variable | { name?: string } | string | null, code: string, fallback?: string): number | null => {
     const directValue = getNumericCodeValueForMean(code, fallback);
@@ -1007,6 +1023,38 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
       localStorage.setItem(key, JSON.stringify(newBannerGroups));
     }
   }, [newBannerGroups, selectedQuestionnaire?.id]);
+
+  // Load banner filter conditions from localStorage when questionnaire changes
+  useEffect(() => {
+    if (selectedQuestionnaire?.id) {
+      const key = `bannerFilterConditions_${selectedQuestionnaire.id}`;
+      const stored = localStorage.getItem(key);
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          setBannerFilterConditions(parsed || null);
+        } catch (e) {
+          setBannerFilterConditions(null);
+        }
+      } else {
+        setBannerFilterConditions(null);
+      }
+    } else {
+      setBannerFilterConditions(null);
+    }
+  }, [selectedQuestionnaire?.id]);
+
+  // Save banner filter conditions to localStorage when they change
+  useEffect(() => {
+    if (selectedQuestionnaire?.id) {
+      const key = `bannerFilterConditions_${selectedQuestionnaire.id}`;
+      if (bannerFilterConditions && bannerFilterConditions.length > 0) {
+        localStorage.setItem(key, JSON.stringify(bannerFilterConditions));
+      } else {
+        localStorage.removeItem(key);
+      }
+    }
+  }, [bannerFilterConditions, selectedQuestionnaire?.id]);
 
   // Initialize hiddenFromBanners: hide open ends and open end lists by default
   useEffect(() => {
@@ -2233,6 +2281,106 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
     return getVariableDataFromRawData(variableName);
   }, [getVariableDataFromRawData]);
 
+  // Helper function to check if a row matches filter conditions
+  const rowMatchesFilterConditions = useCallback((row: any, filterConditions: BannerConditionGroup[] | null): boolean => {
+    if (!filterConditions || filterConditions.length === 0) {
+      return true; // No filter, include all rows
+    }
+
+    const group = filterConditions[0];
+    const conditions = group.conditions;
+    const operator = group.operator;
+
+    if (conditions.length === 0) {
+      return true;
+    }
+
+    // Helper to get column header for a variable
+    const getColumnHeader = (varName: string): string | null => {
+      const variations = [
+        varName,
+        varName.startsWith('Q') ? varName : `Q${varName}`,
+        varName.startsWith('Q') ? varName.substring(1) : varName
+      ];
+
+      for (const variation of variations) {
+        if (columnMapping?.[variation]) {
+          return columnMapping[variation];
+        }
+        const matchingKey = Object.keys(columnMapping || {}).find(
+          key => key.toLowerCase() === variation.toLowerCase()
+        );
+        if (matchingKey) {
+          return columnMapping![matchingKey];
+        }
+      }
+      return null;
+    };
+
+    // Helper to check if a row matches a single condition
+    const rowMatchesCondition = (cond: any): boolean => {
+      if (!cond.variableName || cond.codes.length === 0) return false;
+
+      const colHeader = getColumnHeader(cond.variableName);
+      if (!colHeader) return false;
+
+      const val = row[colHeader];
+      if (val === null || val === undefined || val === '') return false;
+      const valStr = String(val).trim();
+      const numVal = Number(valStr);
+
+      // Check if variable is numeric
+      const v = variables.find(variable => variable.name === cond.variableName);
+      const hasCodes = v?.codes && Object.keys(v.codes).length > 0;
+      const isNumericType = v?.type?.toLowerCase().includes('numeric') && !v?.type?.toLowerCase().includes('grid');
+      const isNumeric = !hasCodes && isNumericType;
+
+      if (isNumeric && cond.codes.length === 1) {
+        const condition = cond.codes[0];
+        // Between format
+        const betweenMatch = condition.match(/^(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)$/);
+        if (betweenMatch) {
+          const min = parseFloat(betweenMatch[1]);
+          const max = parseFloat(betweenMatch[2]);
+          return !isNaN(numVal) && numVal >= min && numVal <= max;
+        }
+        // Operator format
+        const opMatch = condition.match(/^(>=|<=|>|<|=)(\d+(?:\.\d+)?)$/);
+        if (opMatch) {
+          const op = opMatch[1];
+          const compareVal = parseFloat(opMatch[2]);
+          if (isNaN(numVal)) return false;
+          switch (op) {
+            case '>=': return numVal >= compareVal;
+            case '<=': return numVal <= compareVal;
+            case '>': return numVal > compareVal;
+            case '<': return numVal < compareVal;
+            case '=': return numVal === compareVal;
+          }
+        }
+        return false;
+      } else {
+        // Categorical
+        for (const code of cond.codes) {
+          if (valStr === code) return true;
+          if (!isNaN(numVal) && String(numVal) === code) return true;
+          const codeNoC = code.replace(/^c/i, '');
+          if (valStr === codeNoC || (!isNaN(numVal) && !isNaN(Number(codeNoC)) && numVal === Number(codeNoC))) {
+            return true;
+          }
+        }
+        return false;
+      }
+    };
+
+    // Apply operator (AND or OR)
+    if (operator === 'OR') {
+      return conditions.some(cond => rowMatchesCondition(cond));
+    } else {
+      return conditions.every(cond => rowMatchesCondition(cond));
+    }
+  }, [variables, columnMapping]);
+
   // Shared function to calculate banner table data (used by both render and Excel export)
   // This replicates the calculateBannerTableData logic from the render function
   const calculateBannerTableDataForVariable = useCallback((
@@ -2248,11 +2396,22 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
       hasRows: !!fullRawData?.rows,
       rowCount: fullRawData?.rows?.length || 0,
       hasColumnMapping: !!columnMapping,
-      columnMappingSize: columnMapping ? Object.keys(columnMapping).length : 0
+      columnMappingSize: columnMapping ? Object.keys(columnMapping).length : 0,
+      hasFilter: !!bannerFilterConditions
     });
 
     if (!bannerGroup || !fullRawData || !fullRawData.rows || fullRawData.rows.length === 0 || !columnMapping) {
       console.log(`🔍 calculateBannerTableDataForVariable EARLY RETURN for ${selectedBannerVariable}: Missing required data`);
+      return {};
+    }
+
+    // Apply filter conditions to rows
+    const filteredRows = bannerFilterConditions
+      ? fullRawData.rows.filter((row: any) => rowMatchesFilterConditions(row, bannerFilterConditions))
+      : fullRawData.rows;
+
+    if (filteredRows.length === 0) {
+      console.log(`🔍 calculateBannerTableDataForVariable: No rows match filter conditions`);
       return {};
     }
 
@@ -2429,8 +2588,8 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
 
         // Debug: Log sample values for first cut to understand matching
         const debugValues = new Set<string>();
-        if (fullRawData.rows.length > 0 && selectedBannerVariable === 'S1') {
-          fullRawData.rows.slice(0, 10).forEach((row: any) => {
+        if (filteredRows.length > 0 && selectedBannerVariable === 'S1') {
+          filteredRows.slice(0, 10).forEach((row: any) => {
             const val = row[cutColumnHeader];
             if (val !== null && val !== undefined && val !== '') {
               debugValues.add(String(val));
@@ -2627,7 +2786,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
           let sum = 0;
           const values: number[] = [];
 
-          fullRawData.rows.forEach((row: any) => {
+          filteredRows.forEach((row: any) => {
             const matchesColumn = column.filterFn(row);
             if (!matchesColumn) return;
 
@@ -2672,7 +2831,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
       
       const uniqueNumericValues = new Set<number>();
       
-      fullRawData.rows.forEach((row: any) => {
+      filteredRows.forEach((row: any) => {
         const stubValue = row[stubColumnHeader];
         if (stubValue !== null && stubValue !== undefined && stubValue !== '') {
           const numValue = parseFloat(String(stubValue));
@@ -2693,7 +2852,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
           let base = 0;
           let count = 0;
 
-          fullRawData.rows.forEach((row: any) => {
+          filteredRows.forEach((row: any) => {
             const matchesColumn = column.filterFn(row);
             if (!matchesColumn) return;
 
@@ -2849,7 +3008,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
           let base = 0;
           let count = 0;
 
-          fullRawData.rows.forEach((row: any, rowIdx: number) => {
+          filteredRows.forEach((row: any, rowIdx: number) => {
             if (validRowIndices.size > 0 && !validRowIndices.has(rowIdx)) return;
 
             const matchesColumn = column.filterFn(row);
@@ -2950,7 +3109,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
             let base = 0;
             let count = 0;
 
-            fullRawData.rows.forEach((row: any, rowIdx: number) => {
+            filteredRows.forEach((row: any, rowIdx: number) => {
               if (validRowIndices.size > 0 && !validRowIndices.has(rowIdx)) return;
 
               const matchesColumn = column.filterFn(row);
@@ -2996,8 +3155,8 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
     if (variable.codes) {
       // Debug: Log first few values to understand data format
       const debugValues = new Set<string>();
-      if (stubColumnHeader && fullRawData.rows.length > 0) {
-        fullRawData.rows.slice(0, 10).forEach((row: any) => {
+      if (stubColumnHeader && filteredRows.length > 0) {
+        filteredRows.slice(0, 10).forEach((row: any) => {
           const val = row[stubColumnHeader];
           if (val !== null && val !== undefined && val !== '') {
             debugValues.add(String(val));
@@ -3016,7 +3175,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
           let base = 0;
           let count = 0;
 
-          fullRawData.rows.forEach((row: any) => {
+          filteredRows.forEach((row: any) => {
             const matchesColumn = column.filterFn(row);
             if (!matchesColumn) return;
 
@@ -3075,7 +3234,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
     }
 
     return codeData;
-  }, [fullRawData, columnMapping, variables, getVariableDataByExpectedHeader]);
+  }, [fullRawData, columnMapping, variables, getVariableDataByExpectedHeader, bannerFilterConditions, rowMatchesFilterConditions]);
 
   // Export data cuts view to Excel - returns blob and sample size for queue system
   const handleDownloadDataCutsAsExcel = useCallback(async (bannerIdOverride?: string): Promise<{ blob: Blob; sampleSize: number } | null> => {
@@ -3213,11 +3372,18 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
 
           if (thisPct > otherPct) {
             const sig = isSignificant(thisPct, thisBase, otherPct, otherBase);
+            if (significanceLevel === 95) {
+              // Only show 95% significance letters
             if (sig.is95) {
-              // Letter offset: first cut is A, so use otherIdx directly
+                results.push({ letter: String.fromCharCode(65 + otherIdx), is95: true });
+              }
+            } else {
+              // Show both 95% (uppercase) and 90% (lowercase) significance letters
+              if (sig.is95) {
               results.push({ letter: String.fromCharCode(65 + otherIdx), is95: true });
             } else if (sig.is90) {
               results.push({ letter: String.fromCharCode(97 + otherIdx), is95: false });
+              }
             }
           }
         });
@@ -4096,17 +4262,9 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                 });
               });
 
-              // Base row (metadata) - show statement label in bold instead of "Base: All Respondents"
-              const baseMetadataRow = worksheet.getRow(currentRow);
+              // Base row (metadata) - removed for individual statement tables
               const hasNoRespondents = stmtTotalBase === 0;
-              baseMetadataRow.getCell(2).value = String(stmtLabel);
-              baseMetadataRow.getCell(2).font = { 
-                size: 10, 
-                bold: true,
-                color: hasNoRespondents ? { argb: 'FFFF0000' } : undefined // Red if no respondents
-              };
-              baseMetadataRow.height = 16;
-              currentRow++;
+              // Skip the base metadata row - don't add it after question text
 
               // If no respondents, make table title and question text red
               if (hasNoRespondents) {
@@ -8178,25 +8336,31 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
       }
 
       // Populate Table of Contents worksheet
-      tocWorksheet.getColumn(1).width = 15; // Column A - Table number
-      tocWorksheet.getColumn(2).width = 130; // Column B - Question text (changed from 50 to 130)
+      // Add blank spacer column as first column (width 3)
+      tocWorksheet.getColumn(1).width = 3;
+      tocWorksheet.getColumn(2).width = 15; // Column B - Table number (shifted from column 1)
+      tocWorksheet.getColumn(3).width = 130; // Column C - Question text (shifted from column 2)
 
-      // Add header row - starting at row 2
-      const tocHeaderRow = tocWorksheet.getRow(2);
-      tocHeaderRow.getCell(1).value = 'Table #';
-      tocHeaderRow.getCell(1).font = { bold: true, size: 12 };
-      tocHeaderRow.getCell(2).value = 'Question';
+      // Add blank spacer row as first row
+      const blankRow = tocWorksheet.getRow(1);
+      blankRow.height = 15;
+
+      // Add header row - starting at row 3 (row 1 is blank, row 2 is blank, row 3 is header)
+      const tocHeaderRow = tocWorksheet.getRow(3);
+      tocHeaderRow.getCell(2).value = 'Table #'; // Shifted to column 2
       tocHeaderRow.getCell(2).font = { bold: true, size: 12 };
+      tocHeaderRow.getCell(3).value = 'Question'; // Shifted to column 3
+      tocHeaderRow.getCell(3).font = { bold: true, size: 12 };
       tocHeaderRow.height = 25;
       
       // Add borders to header
-      tocHeaderRow.getCell(1).border = {
+      tocHeaderRow.getCell(2).border = {
         top: { style: 'thin' },
         bottom: { style: 'thin' },
         left: { style: 'thin' },
         right: { style: 'thin' }
       };
-      tocHeaderRow.getCell(2).border = {
+      tocHeaderRow.getCell(3).border = {
         top: { style: 'thin' },
         bottom: { style: 'thin' },
         left: { style: 'thin' },
@@ -8205,11 +8369,11 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
       
       // Add each table to TOC
       tablePositions.forEach((table, index) => {
-        const rowNum = index + 3; // Start at row 3 (row 2 is header, data starts at row 3)
+        const rowNum = index + 4; // Start at row 4 (row 1 is blank, row 2 is blank, row 3 is header, data starts at row 4)
         const tocRow = tocWorksheet.getRow(rowNum);
         
         // Table number with hyperlink using HYPERLINK formula
-        const tableNumberCell = tocRow.getCell(1);
+        const tableNumberCell = tocRow.getCell(2); // Shifted to column 2
         const linkText = `Table ${table.tableNumber}: ${table.questionNumber}`;
         // Escape quotes in link text
         const escapedLinkText = linkText.replace(/"/g, '""');
@@ -8224,7 +8388,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
         tableNumberCell.alignment = { vertical: 'top' };
         
         // Question text on next line (merged or wrapped)
-        const questionCell = tocRow.getCell(2);
+        const questionCell = tocRow.getCell(3); // Shifted to column 3
         questionCell.value = table.questionText;
         questionCell.alignment = { vertical: 'top', wrapText: true };
         questionCell.font = { size: 11 };
@@ -8262,7 +8426,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
       alert('Error exporting to Excel. Please try again.');
       return null;
     }
-  }, [fullRawData, newBannerGroups, variables, columnMapping, selectedProject, hiddenFromBanners, calculateBannerTableDataForVariable, getBaseQuestionNumber, questionnaireQuestions, getVariableDataByExpectedHeader]);
+  }, [fullRawData, newBannerGroups, variables, columnMapping, selectedProject, hiddenFromBanners, calculateBannerTableDataForVariable, getBaseQuestionNumber, questionnaireQuestions, getVariableDataByExpectedHeader, formatPercentage, significanceLevel]);
 
   const getTablesForVariable = useCallback((variable: Variable): string[] => {
     const tables: string[] = [];
@@ -8686,6 +8850,10 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
         const tables = getTablesForVariable(variable);
 
         for (const tableName of tables) {
+          // Check if this is a NetSummaryTable for single select grid
+          const isSingleSelectGrid = variable.type?.toLowerCase().includes('single select grid');
+          const isNetSummaryTable = isSingleSelectGrid && tableName.includes('_NetSummaryTable');
+          
           // Add spacing between tables (except for first table)
           if (tableNumber > 1) {
             currentRow += 3;
@@ -8698,6 +8866,20 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
           const isMeanSummaryTable = isNumericGrid && tableName.endsWith('_MeanSummaryTable');
           const isSumSummaryTable = isNumericGrid && tableName.endsWith('_SumSummaryTable');
           const isNumericGridSummaryTable = isMeanSummaryTable || isSumSummaryTable;
+          
+          // Handle NetSummaryTable for single select grids
+          if (isNetSummaryTable) {
+            // Extract net index from table name (e.g., "QB3_NetSummaryTable_0" -> 0)
+            const netIndexMatch = tableName.match(/_NetSummaryTable_(\d+)$/);
+            const netIndex = netIndexMatch ? parseInt(netIndexMatch[1], 10) : -1;
+            const baseName = variable.name;
+            const netCodeSelections = netSummaryTableSelectedCodes[baseName] || [];
+            const net = netIndex >= 0 && netIndex < netCodeSelections.length ? netCodeSelections[netIndex] : null;
+            
+            if (!net || !net.codes || net.codes.length === 0) {
+              tableNumber++;
+              continue;
+            }
 
           // Record position for TOC
           tablePositions.push({
@@ -8707,20 +8889,456 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
             variable
           });
 
-          // Check if this is a NetSummaryTable for single select grid (before setting title)
-          const isSingleSelectGridForTitle = variable.type?.toLowerCase().includes('single select grid');
-          const isNetSummaryTableForTitle = isSingleSelectGridForTitle && tableName.includes('_NetSummaryTable');
-          const netSummaryTableMatchForTitle = isNetSummaryTableForTitle ? tableName.match(/^(.+?)_NetSummaryTable_(\d+)$/) : null;
-          const netSummaryTableIndexForTitle = netSummaryTableMatchForTitle ? parseInt(netSummaryTableMatchForTitle[2], 10) : -1;
-          const netSummaryTableVariableNameForTitle = netSummaryTableMatchForTitle ? netSummaryTableMatchForTitle[1] : null;
-          let netNameForTitle: string | null = null;
-          if (isNetSummaryTableForTitle && netSummaryTableVariableNameForTitle && netSummaryTableIndexForTitle >= 0) {
-            const netCodesForTitle = netSummaryTableSelectedCodes[netSummaryTableVariableNameForTitle] || [];
-            const netForTitle = netCodesForTitle[netSummaryTableIndexForTitle];
-            if (netForTitle) {
-              netNameForTitle = netForTitle.name;
+            // Table title
+            const tableTitle = `Table ${tableNumber}: ${net.name}`;
+            const titleRow = dataCutsWorksheet.getRow(currentRow++);
+            titleRow.getCell(2).value = tableTitle;
+            titleRow.getCell(2).font = { bold: true, size: 12 };
+            
+            // Question text
+            const questionRow = dataCutsWorksheet.getRow(currentRow++);
+            questionRow.getCell(2).value = variable.description || variable.name;
+            questionRow.getCell(2).font = { size: 11 };
+            
+            // Calculate banner table data for this variable
+            const bannerTableData = calculateBannerTableDataForVariable(variable, variable.name, bannerGroup);
+            
+            // Extract bases from banner table data
+            let totalBase = 0;
+            const cutBases: Record<string, number> = {};
+            bannerCols.forEach(col => { cutBases[col.id] = 0; });
+            
+            // Get bases from the first statement entry
+            const statementEntries = variable.statements ? Object.entries(variable.statements) : [];
+            if (statementEntries.length > 0) {
+              const firstStmtCode = statementEntries[0][0];
+              const firstStmtData = (bannerTableData as any)?.[firstStmtCode];
+              if (firstStmtData && firstStmtData.total && typeof firstStmtData.total.base === 'number') {
+                totalBase = firstStmtData.total.base;
+              }
+              bannerCols.forEach(col => {
+                const baseValue = firstStmtData?.[col.id]?.base;
+                if (typeof baseValue === 'number') {
+                  cutBases[col.id] = baseValue;
+                }
+              });
             }
+            
+            // Base metadata
+            const hasNoRespondents = totalBase === 0;
+            const baseRow = dataCutsWorksheet.getRow(currentRow++);
+            baseRow.getCell(2).value = hasNoRespondents ? 'Base: no respondents' : 'Base: All Respondents';
+            baseRow.getCell(2).font = {
+              size: 8,
+              italic: true,
+              color: { argb: hasNoRespondents ? 'FFFF0000' : 'FF0000FF' }
+            };
+            
+            // If no respondents, make table title and question text red
+            if (hasNoRespondents) {
+              titleRow.getCell(2).font = { bold: true, size: 12, color: { argb: 'FFFF0000' } };
+              questionRow.getCell(2).font = { size: 11, color: { argb: 'FFFF0000' } };
+            }
+            
+            // Build 3-row header structure (same as other summary tables)
+            const headerStartRow = currentRow;
+            const groupTitleRow = headerStartRow;
+            const cutTitleRow = headerStartRow + 1;
+            const statLetterRow = headerStartRow + 2;
+            let currentCol = 2; // Start at column B
+            
+            // Row label cell (merged across all 3 rows)
+            const rowLabelCell = dataCutsWorksheet.getRow(groupTitleRow).getCell(currentCol);
+            rowLabelCell.value = '';
+            rowLabelCell.border = {
+              top: { style: 'thin' },
+              bottom: { style: 'thin' },
+              left: { style: 'thin' },
+              right: { style: 'thin' }
+            };
+            dataCutsWorksheet.mergeCells(groupTitleRow, currentCol, statLetterRow, currentCol);
+            [cutTitleRow, statLetterRow].forEach(row => {
+              const cell = dataCutsWorksheet.getRow(row).getCell(currentCol);
+              cell.border = {
+                top: { style: 'thin' },
+                bottom: { style: 'thin' },
+                left: { style: 'thin' },
+                right: { style: 'thin' }
+              };
+            });
+            currentCol++;
+            
+            // Total column
+            const totalGroupCell = dataCutsWorksheet.getRow(groupTitleRow).getCell(currentCol);
+            totalGroupCell.value = 'Total';
+            totalGroupCell.alignment = { horizontal: 'center', vertical: 'middle' };
+            totalGroupCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+            totalGroupCell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFD14A2D' }
+            };
+            totalGroupCell.border = {
+              top: { style: 'thin' },
+              bottom: { style: 'thin' },
+              left: { style: 'thin' },
+              right: { style: 'thin' }
+            };
+            dataCutsWorksheet.mergeCells(groupTitleRow, currentCol, cutTitleRow, currentCol);
+            const totalCutCell = dataCutsWorksheet.getRow(cutTitleRow).getCell(currentCol);
+            totalCutCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD14A2D' } };
+            totalCutCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+            totalCutCell.border = {
+              top: { style: 'thin' },
+              bottom: { style: 'thin' },
+              left: { style: 'thin' },
+              right: { style: 'thin' }
+            };
+            const totalStatCell = dataCutsWorksheet.getRow(statLetterRow).getCell(currentCol);
+            totalStatCell.value = '';
+            totalStatCell.alignment = { horizontal: 'center', vertical: 'middle' };
+            totalStatCell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFD14A2D' }
+            };
+            totalStatCell.border = {
+              top: { style: 'thin' },
+              bottom: { style: 'thin' },
+              left: { style: 'thin' },
+              right: { style: 'thin' }
+            };
+            currentCol++;
+            
+            // Banner group titles and cut columns
+            groupStructure.forEach((group, groupIdx) => {
+              const groupStartCol = currentCol;
+              
+              // Group title
+              const groupCell = dataCutsWorksheet.getRow(groupTitleRow).getCell(groupStartCol);
+              groupCell.value = group.title;
+              groupCell.alignment = { horizontal: 'center', vertical: 'middle' };
+              groupCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+              groupCell.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FFD14A2D' }
+              };
+              groupCell.border = {
+                top: { style: 'thin' },
+                bottom: { style: 'thin' },
+                left: { style: 'thin' },
+                right: { style: 'thin' }
+              };
+              if (group.cutCount > 1) {
+                dataCutsWorksheet.mergeCells(groupTitleRow, groupStartCol, groupTitleRow, groupStartCol + group.cutCount - 1);
+              }
+              
+              // Individual cut titles and stat letters
+              for (let i = 0; i < group.cutCount; i++) {
+                const cutCol = groupStartCol + i;
+                const bannerCol = bannerCols[group.startIdx + i];
+                
+                // Cut title
+                const cutCell = dataCutsWorksheet.getRow(cutTitleRow).getCell(cutCol);
+                cutCell.value = bannerCol.title;
+                cutCell.alignment = { horizontal: 'center', vertical: 'middle' };
+                cutCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+                cutCell.fill = {
+                  type: 'pattern',
+                  pattern: 'solid',
+                  fgColor: { argb: 'FFD14A2D' }
+                };
+                cutCell.border = {
+                  top: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  left: { style: 'thin' },
+                  right: { style: 'thin' }
+                };
+                
+                // Stat letter
+                const statCell = dataCutsWorksheet.getRow(statLetterRow).getCell(cutCol);
+                const statLetter = String.fromCharCode(65 + group.startIdx + i);
+                statCell.value = `(${statLetter})`;
+                statCell.alignment = { horizontal: 'center', vertical: 'middle' };
+                statCell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+                statCell.fill = {
+                  type: 'pattern',
+                  pattern: 'solid',
+                  fgColor: { argb: 'FFD14A2D' }
+                };
+                statCell.border = {
+                  top: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  left: { style: 'thin' },
+                  right: { style: 'thin' }
+                };
+              }
+              
+              currentCol += group.cutCount;
+            });
+            
+            currentRow += 3; // Move past 3 header rows
+            
+            // First pass: Calculate all statement bases to check if they're all the same
+            interface StatementData {
+              stmtCode: string;
+              stmtLabel: string;
+              stmtColHeader: string | null;
+              stmtTotalBase: number;
+              stmtCutBases: Record<string, number>;
+              netTotalCount: number;
+              netCutCounts: Record<string, number>;
+            }
+            
+            const statementDataList: StatementData[] = [];
+            
+            statementEntries.forEach(([stmtCode, stmtLabel]) => {
+              // Build column header for this statement
+              const baseNumber = variable.name.replace(/^Q/, '');
+              const stmtHeader = `Q${baseNumber}${stmtCode}`;
+              let stmtColHeader: string | null = null;
+              const variations = [stmtHeader, stmtHeader.replace(/^Q/, ''), baseNumber + stmtCode];
+              for (const v of variations) {
+                if (columnMapping[v]) { stmtColHeader = columnMapping[v]; break; }
+                const match = Object.keys(columnMapping).find(k => k.toLowerCase() === v.toLowerCase());
+                if (match) { stmtColHeader = columnMapping[match]; break; }
+              }
+              if (!stmtColHeader && fullRawData.columns) {
+                for (const v of variations) {
+                  const found = fullRawData.columns.find((c: string) => c.toLowerCase() === v.toLowerCase());
+                  if (found) { stmtColHeader = found; break; }
+                }
+              }
+              
+              if (!stmtColHeader) return; // Skip if we can't find the column
+              
+              // Calculate statement-specific base (total responding for this statement)
+              let stmtTotalBase = 0;
+              const stmtCutBases: Record<string, number> = {};
+              bannerCols.forEach(col => { stmtCutBases[col.id] = 0; });
+              
+              // Calculate net totals by counting rows that match any of the net codes
+              let netTotalCount = 0;
+              const netCutCounts: Record<string, number> = {};
+              bannerCols.forEach(col => { netCutCounts[col.id] = 0; });
+              
+              // Process all rows
+              fullRawData.rows.forEach((row: any) => {
+                const val = row[stmtColHeader!];
+                if (val === null || val === undefined || val === '') return;
+                
+                // Count this row in the statement base (any response counts)
+                stmtTotalBase++;
+                
+                // Check which banner cuts this row matches for base calculation
+                const matchedCuts: string[] = [];
+                bannerCols.forEach(col => {
+                  if (!col.colHeader) return;
+                  const bannerVal = row[col.colHeader];
+                  if (bannerVal === null || bannerVal === undefined || bannerVal === '') return;
+                  const bannerValStr = String(bannerVal).trim();
+                  const numBannerVal = Number(bannerValStr);
+                  for (const cutCode of col.codes) {
+                    let matches = false;
+                    if (bannerValStr === cutCode) matches = true;
+                    else if (!isNaN(numBannerVal) && String(numBannerVal) === cutCode) matches = true;
+                    else {
+                      const codeNoC = cutCode.replace(/^c/i, '');
+                      if (bannerValStr === codeNoC || (!isNaN(numBannerVal) && !isNaN(Number(codeNoC)) && numBannerVal === Number(codeNoC))) {
+                        matches = true;
+                      }
+                    }
+                    if (matches) {
+                      matchedCuts.push(col.id);
+                      stmtCutBases[col.id]++;
+                      break;
+                    }
+                  }
+                });
+                
+                const valStr = String(val).trim();
+                
+                // Check if this value matches any of the net codes
+                let matchesNet = false;
+                net.codes.forEach(netCode => {
+                  const normalizedNetCode = netCode.replace(/^c/i, '');
+                  // Check various formats
+                  if (valStr === netCode || 
+                      valStr === normalizedNetCode || 
+                      String(Number(valStr)) === normalizedNetCode ||
+                      (!isNaN(Number(valStr)) && !isNaN(Number(normalizedNetCode)) && Number(valStr) === Number(normalizedNetCode))) {
+                    matchesNet = true;
+                  }
+                });
+                
+                if (matchesNet) {
+                  // Count this row in the net total
+                  netTotalCount++;
+                  // Add to net cut counts
+                  matchedCuts.forEach(cutId => {
+                    netCutCounts[cutId]++;
+                  });
+                }
+              });
+              
+              statementDataList.push({
+                stmtCode,
+                stmtLabel,
+                stmtColHeader,
+                stmtTotalBase,
+                stmtCutBases,
+                netTotalCount,
+                netCutCounts
+              });
+            });
+            
+            // Check if sorting by frequency/percentage is enabled
+            const isSortedByFrequency = getEffectiveSortByFrequency(variable);
+            
+            // Sort statements by total percentage (descending) if sorting is enabled
+            if (isSortedByFrequency) {
+              statementDataList.sort((a, b) => {
+                const aPct = a.stmtTotalBase > 0 ? (a.netTotalCount / a.stmtTotalBase) * 100 : 0;
+                const bPct = b.stmtTotalBase > 0 ? (b.netTotalCount / b.stmtTotalBase) * 100 : 0;
+                return bPct - aPct; // Descending order
+              });
+            }
+            
+            // Check if all total bases are the same
+            const allBasesSame = statementDataList.length > 0 && 
+              statementDataList.every(data => data.stmtTotalBase === statementDataList[0].stmtTotalBase);
+            
+            // Second pass: Render statements
+            statementDataList.forEach((data, idx) => {
+              const { stmtCode, stmtLabel, stmtTotalBase, stmtCutBases, netTotalCount, netCutCounts } = data;
+              
+              // Add Base (total responding) row for this statement
+              // Only show if bases differ, or if this is the first statement when bases are the same
+              const shouldShowBase = !allBasesSame || idx === 0;
+              
+              if (shouldShowBase) {
+                const STATS_GREY = 'FFE8E8E8';
+                const stmtBaseRow = dataCutsWorksheet.getRow(currentRow++);
+                stmtBaseRow.getCell(2).value = 'Base (total responding):';
+                stmtBaseRow.getCell(2).font = { bold: true };
+                stmtBaseRow.getCell(2).fill = {
+                  type: 'pattern',
+                  pattern: 'solid',
+                  fgColor: { argb: STATS_GREY }
+                };
+                stmtBaseRow.getCell(2).border = {
+                  top: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  left: { style: 'thin' },
+                  right: { style: 'thin' }
+                };
+                stmtBaseRow.getCell(3).value = stmtTotalBase;
+                stmtBaseRow.getCell(3).alignment = { horizontal: 'center' };
+                stmtBaseRow.getCell(3).fill = {
+                  type: 'pattern',
+                  pattern: 'solid',
+                  fgColor: { argb: STATS_GREY }
+                };
+                stmtBaseRow.getCell(3).border = {
+                  top: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  left: { style: 'thin' },
+                  right: { style: 'thin' }
+                };
+                let baseCol = 4;
+                bannerCols.forEach(bannerCol => {
+                  stmtBaseRow.getCell(baseCol).value = stmtCutBases[bannerCol.id] || 0;
+                  stmtBaseRow.getCell(baseCol).alignment = { horizontal: 'center' };
+                  stmtBaseRow.getCell(baseCol).fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: STATS_GREY }
+                  };
+                  stmtBaseRow.getCell(baseCol).border = {
+                    top: { style: 'thin' },
+                    bottom: { style: 'thin' },
+                    left: { style: 'thin' },
+                    right: { style: 'thin' }
+                  };
+                  baseCol++;
+                });
+              }
+              
+              // Count row
+              const countRow = dataCutsWorksheet.getRow(currentRow++);
+              countRow.getCell(2).value = String(stmtLabel);
+              countRow.getCell(2).border = {
+                top: { style: 'thin' },
+                bottom: { style: 'thin' },
+                left: { style: 'thin' },
+                right: { style: 'thin' }
+              };
+              countRow.getCell(3).value = netTotalCount;
+              countRow.getCell(3).alignment = { horizontal: 'center' };
+              countRow.getCell(3).border = {
+                top: { style: 'thin' },
+                bottom: { style: 'thin' },
+                left: { style: 'thin' },
+                right: { style: 'thin' }
+              };
+              let col = 4;
+              bannerCols.forEach(bannerCol => {
+                countRow.getCell(col).value = netCutCounts[bannerCol.id] || 0;
+                countRow.getCell(col).alignment = { horizontal: 'center' };
+                countRow.getCell(col).border = {
+                  top: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  left: { style: 'thin' },
+                  right: { style: 'thin' }
+                };
+                col++;
+              });
+              
+              // Percentage row (use statement-specific base)
+              const pctRow = dataCutsWorksheet.getRow(currentRow++);
+              pctRow.getCell(2).value = '';
+              pctRow.getCell(2).border = {
+                top: { style: 'thin' },
+                bottom: { style: 'thin' },
+                left: { style: 'thin' },
+                right: { style: 'thin' }
+              };
+              const totalPct = stmtTotalBase > 0 ? (netTotalCount / stmtTotalBase) * 100 : 0;
+              pctRow.getCell(3).value = formatPercentage(totalPct);
+              pctRow.getCell(3).alignment = { horizontal: 'center' };
+              pctRow.getCell(3).border = {
+                top: { style: 'thin' },
+                bottom: { style: 'thin' },
+                left: { style: 'thin' },
+                right: { style: 'thin' }
+              };
+              col = 4;
+              bannerCols.forEach(bannerCol => {
+                const cutPct = stmtCutBases[bannerCol.id] > 0 ? (netCutCounts[bannerCol.id] / stmtCutBases[bannerCol.id]) * 100 : 0;
+                pctRow.getCell(col).value = formatPercentage(cutPct);
+                pctRow.getCell(col).alignment = { horizontal: 'center' };
+                pctRow.getCell(col).border = {
+                  top: { style: 'thin' },
+                  bottom: { style: 'thin' },
+                  left: { style: 'thin' },
+                  right: { style: 'thin' }
+                };
+                col++;
+              });
+            });
+            
+            tableNumber++;
+            continue;
           }
+
+          // Record position for TOC
+          tablePositions.push({
+            tableNumber,
+            tableName,
+            rowNumber: currentRow,
+            variable
+          });
           
           // Table title - format appropriately for summary tables
           let displayTableName = tableName;
@@ -8728,21 +9346,16 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
             displayTableName = 'Mean Summary Table';
           } else if (isSumSummaryTable) {
             displayTableName = 'Sum Summary Table';
-          } else if (netNameForTitle) {
-            displayTableName = netNameForTitle;
           }
           const tableTitle = `Table ${tableNumber}: ${displayTableName}`;
           const titleRow = dataCutsWorksheet.getRow(currentRow++);
           titleRow.getCell(2).value = tableTitle;
           titleRow.getCell(2).font = { bold: true, size: 12 };
           
-          // Question text (skip for NetSummaryTable as it's handled in the custom rendering)
-          let questionRow: any = null;
-          if (!isNetSummaryTableForTitle) {
-            questionRow = dataCutsWorksheet.getRow(currentRow++);
+          // Question text
+          const questionRow = dataCutsWorksheet.getRow(currentRow++);
             questionRow.getCell(2).value = variable.description || variable.name;
             questionRow.getCell(2).font = { size: 11 };
-          }
 
           // Calculate banner table data for this variable
           const bannerTableData = calculateBannerTableDataForVariable(variable, variable.name, bannerGroup);
@@ -8836,9 +9449,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
           // If no respondents, make table title and question text red
           if (hasNoRespondents) {
             titleRow.getCell(2).font = { bold: true, size: 12, color: { argb: 'FFFF0000' } };
-            if (questionRow) {
               questionRow.getCell(2).font = { size: 11, color: { argb: 'FFFF0000' } };
-            }
           }
 
           // Build 3-row header structure
@@ -8990,12 +9601,10 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
 
           // Check if this is a single select grid individual table (will render base row later)
           const isSingleSelectGridForBase = variable.type?.toLowerCase().includes('single select grid');
-          const isNetSummaryTableForBase = isSingleSelectGridForBase && tableName.includes('_NetSummaryTable');
           const isSingleSelectGridIndividualTableForBase = isSingleSelectGridForBase && 
             variable.statements && 
             Object.keys(variable.statements).length > 0 &&
-            !tableName.endsWith('_MeanSummaryTable') &&
-            !isNetSummaryTableForBase;
+            !tableName.endsWith('_MeanSummaryTable');
           
           // Add Base (total responding) row (skip for single select grid individual tables - they render it later)
           if (!isSingleSelectGridIndividualTableForBase) {
@@ -9266,7 +9875,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
 
                 // Total percentage
                 const totalPct = totalSumAll > 0 ? (data.total.sum / totalSumAll) * 100 : 0;
-                pctRow.getCell(3).value = `${totalPct.toFixed(1)}%`;
+                pctRow.getCell(3).value = formatPercentage(totalPct);
                 pctRow.getCell(3).alignment = { horizontal: 'center' };
                 pctRow.getCell(3).border = {
                   top: { style: 'thin' },
@@ -9280,7 +9889,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                 bannerCols.forEach(bannerCol => {
                   const cutTotalSum = cutSumsAll[bannerCol.id] || 0;
                   const cutPct = cutTotalSum > 0 ? (data.cuts[bannerCol.id].sum / cutTotalSum) * 100 : 0;
-                  pctRow.getCell(col).value = `${cutPct.toFixed(1)}%`;
+                  pctRow.getCell(col).value = formatPercentage(cutPct);
                   pctRow.getCell(col).alignment = { horizontal: 'center' };
                   pctRow.getCell(col).border = {
                     top: { style: 'thin' },
@@ -9487,7 +10096,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                   
                   // Total percentage
                   const totalPct = totalBase > 0 ? (freqData.total / totalBase) * 100 : 0;
-                  pctRow.getCell(3).value = `${totalPct.toFixed(1)}%`;
+                  pctRow.getCell(3).value = formatPercentage(totalPct);
                   pctRow.getCell(3).alignment = { horizontal: 'center' };
                   pctRow.getCell(3).border = {
                     top: { style: 'thin' },
@@ -9501,7 +10110,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                   bannerCols.forEach(bannerCol => {
                     const cutBase = cutBases[bannerCol.id] || 0;
                     const cutPct = cutBase > 0 ? ((freqData.cuts[bannerCol.id] || 0) / cutBase) * 100 : 0;
-                    pctRow.getCell(col).value = `${cutPct.toFixed(1)}%`;
+                    pctRow.getCell(col).value = formatPercentage(cutPct);
                     pctRow.getCell(col).alignment = { horizontal: 'center' };
                     pctRow.getCell(col).border = {
                       top: { style: 'thin' },
@@ -9708,285 +10317,10 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
           }
 
           // Check if this is a single select grid individual table
-          const isSingleSelectGrid = variable.type?.toLowerCase().includes('single select grid');
-          
-          // Check if this is a NetSummaryTable for single select grid
-          const isNetSummaryTable = isSingleSelectGrid && tableName.includes('_NetSummaryTable');
-          const netSummaryTableMatch = isNetSummaryTable ? tableName.match(/^(.+?)_NetSummaryTable_(\d+)$/) : null;
-          const netSummaryTableIndex = netSummaryTableMatch ? parseInt(netSummaryTableMatch[2], 10) : -1;
-          const netSummaryTableVariableName = netSummaryTableMatch ? netSummaryTableMatch[1] : null;
-          
-          if (isNetSummaryTable && netSummaryTableVariableName && netSummaryTableIndex >= 0) {
-            // Render NetSummaryTable summary table
-            const netCodes = netSummaryTableSelectedCodes[netSummaryTableVariableName] || [];
-            const net = netCodes[netSummaryTableIndex];
-            
-            if (net && net.codes && net.codes.length > 0) {
-              // Calculate net data per statement
-              const statementNetData: Record<string, { 
-                stmtText: string; 
-                total: number; 
-                cuts: Record<string, number>;
-                totalBase: number;
-                cutBases: Record<string, number>;
-              }> = {};
-              
-              // Process each statement separately
-              if (variable.statements) {
-                Object.keys(variable.statements).forEach(stmtCode => {
-                  const stmtText = variable.statements[stmtCode];
-                  const normalizedStmtCode = /^r\d+/i.test(stmtCode) ? stmtCode : `r${stmtCode}`;
-                  const stmtHeader = `Q${netSummaryTableVariableName}${normalizedStmtCode}`;
-                  let stmtColHeader: string | null = getColumnHeader(stmtHeader);
-                  
-                  // Initialize data for this statement
-                  const cuts: Record<string, number> = {};
-                  const cutBases: Record<string, number> = {};
-                  bannerCols.forEach(col => {
-                    cuts[col.id] = 0;
-                    cutBases[col.id] = 0;
-                  });
-                  
-                  let totalBase = 0;
-                  let totalCount = 0;
-                  
-                  if (stmtColHeader && fullRawData && fullRawData.rows) {
-                    fullRawData.rows.forEach((row: any) => {
-                      const val = row[stmtColHeader!];
-                      if (val === null || val === undefined || val === '') return;
-                      const strValue = String(val).trim();
-                      
-                      // First, determine which banner cuts this row matches (for base calculation)
-                      const matchedCuts: string[] = [];
-                      bannerCols.forEach(col => {
-                        if (!col.colHeader) return;
-                        const bannerVal = row[col.colHeader];
-                        if (bannerVal === null || bannerVal === undefined || bannerVal === '') return;
-                        const bannerValStr = String(bannerVal).trim();
-                        const numBannerVal = Number(bannerValStr);
-                        for (const cutCode of col.codes) {
-                          let matches = false;
-                          if (bannerValStr === cutCode) matches = true;
-                          else if (!isNaN(numBannerVal) && String(numBannerVal) === cutCode) matches = true;
-                          else {
-                            const codeNoC = cutCode.replace(/^c/i, '');
-                            if (bannerValStr === codeNoC || (!isNaN(numBannerVal) && !isNaN(Number(codeNoC)) && numBannerVal === Number(codeNoC))) {
-                              matches = true;
-                            }
-                          }
-                          if (matches) {
-                            matchedCuts.push(col.id);
-                            cutBases[col.id]++;
-                            break;
-                          }
-                        }
-                      });
-                      
-                      // Increment base for all responding rows
-                      totalBase++;
-                      
-                      // Check if value matches any code in the net
-                      const matchesNet = net.codes.some(code => {
-                        const codeStr = String(code).replace(/^c/i, '');
-                        return strValue === code || strValue === codeStr || strValue === String(code);
-                      });
-                      
-                      if (matchesNet) {
-                        totalCount++;
-                        // Increment counts for matched cuts
-                        matchedCuts.forEach(cutId => {
-                          cuts[cutId] = (cuts[cutId] || 0) + 1;
-                        });
-                      }
-                    });
-                  }
-                  
-                  statementNetData[stmtCode] = {
-                    stmtText: String(stmtText),
-                    total: totalCount,
-                    cuts,
-                    totalBase,
-                    cutBases
-                  };
-                });
-              }
-              
-              // Skip the default title row since it's already rendered above with the net name
-              // Just render the column headers
-              
-              // Column headers
-              const colHeaderRow = dataCutsWorksheet.getRow(currentRow++);
-              colHeaderRow.getCell(2).value = '';
-              colHeaderRow.getCell(3).value = 'Total';
-              colHeaderRow.getCell(3).font = { bold: true };
-              colHeaderRow.getCell(3).alignment = { horizontal: 'center' };
-              colHeaderRow.getCell(3).border = {
-                top: { style: 'thin' },
-                bottom: { style: 'thin' },
-                left: { style: 'thin' },
-                right: { style: 'thin' }
-              };
-              colHeaderRow.getCell(3).fill = {
-                type: 'pattern',
-                pattern: 'solid',
-                fgColor: { argb: BRAND_ORANGE }
-              };
-              colHeaderRow.getCell(3).font = { ...colHeaderRow.getCell(3).font, color: { argb: 'FFFFFFFF' } };
-              
-              let col = 4;
-              bannerCols.forEach(bannerCol => {
-                colHeaderRow.getCell(col).value = bannerCol.title;
-                colHeaderRow.getCell(col).font = { bold: true };
-                colHeaderRow.getCell(col).alignment = { horizontal: 'center' };
-                colHeaderRow.getCell(col).border = {
-                  top: { style: 'thin' },
-                  bottom: { style: 'thin' },
-                  left: { style: 'thin' },
-                  right: { style: 'thin' }
-                };
-                colHeaderRow.getCell(col).fill = {
-                  type: 'pattern',
-                  pattern: 'solid',
-                  fgColor: { argb: BRAND_ORANGE }
-                };
-                colHeaderRow.getCell(col).font = { ...colHeaderRow.getCell(col).font, color: { argb: 'FFFFFFFF' } };
-                col++;
-              });
-              
-              // Render a row for each statement
-              if (variable.statements) {
-                Object.keys(variable.statements).forEach(stmtCode => {
-                  const stmtData = statementNetData[stmtCode];
-                  if (!stmtData) return;
-                  
-                  // Base (total responding) row for this statement
-                  const STATS_GREY_SELECT_GRID = 'FFE8E8E8'; // Lighter grey for base and stats rows
-                  const baseRow = dataCutsWorksheet.getRow(currentRow++);
-                  baseRow.getCell(2).value = 'Base (total responding):';
-                  baseRow.getCell(2).font = { bold: true };
-                  baseRow.getCell(2).fill = {
-                    type: 'pattern',
-                    pattern: 'solid',
-                    fgColor: { argb: STATS_GREY_SELECT_GRID }
-                  };
-                  baseRow.getCell(2).border = {
-                    top: { style: 'thin' },
-                    bottom: { style: 'thin' },
-                    left: { style: 'thin' },
-                    right: { style: 'thin' }
-                  };
-                  
-                  baseRow.getCell(3).value = stmtData.totalBase;
-                  baseRow.getCell(3).alignment = { horizontal: 'center' };
-                  baseRow.getCell(3).fill = {
-                    type: 'pattern',
-                    pattern: 'solid',
-                    fgColor: { argb: STATS_GREY_SELECT_GRID }
-                  };
-                  baseRow.getCell(3).border = {
-                    top: { style: 'thin' },
-                    bottom: { style: 'thin' },
-                    left: { style: 'thin' },
-                    right: { style: 'thin' }
-                  };
-                  
-                  col = 4;
-                  bannerCols.forEach(bannerCol => {
-                    baseRow.getCell(col).value = stmtData.cutBases[bannerCol.id] || 0;
-                    baseRow.getCell(col).alignment = { horizontal: 'center' };
-                    baseRow.getCell(col).fill = {
-                      type: 'pattern',
-                      pattern: 'solid',
-                      fgColor: { argb: STATS_GREY_SELECT_GRID }
-                    };
-                    baseRow.getCell(col).border = {
-                      top: { style: 'thin' },
-                      bottom: { style: 'thin' },
-                      left: { style: 'thin' },
-                      right: { style: 'thin' }
-                    };
-                    col++;
-                  });
-                  
-                  // Count row for this statement
-                  const countRow = dataCutsWorksheet.getRow(currentRow++);
-                  countRow.getCell(2).value = stmtData.stmtText;
-                  countRow.getCell(2).border = {
-                    top: { style: 'thin' },
-                    bottom: { style: 'thin' },
-                    left: { style: 'thin' },
-                    right: { style: 'thin' }
-                  };
-                  
-                  countRow.getCell(3).value = stmtData.total;
-                  countRow.getCell(3).alignment = { horizontal: 'center' };
-                  countRow.getCell(3).border = {
-                    top: { style: 'thin' },
-                    bottom: { style: 'thin' },
-                    left: { style: 'thin' },
-                    right: { style: 'thin' }
-                  };
-                  
-                  col = 4;
-                  bannerCols.forEach(bannerCol => {
-                    countRow.getCell(col).value = stmtData.cuts[bannerCol.id] || 0;
-                    countRow.getCell(col).alignment = { horizontal: 'center' };
-                    countRow.getCell(col).border = {
-                      top: { style: 'thin' },
-                      bottom: { style: 'thin' },
-                      left: { style: 'thin' },
-                      right: { style: 'thin' }
-                    };
-                    col++;
-                  });
-                  
-                  // Percentage row for this statement
-                  const pctRow = dataCutsWorksheet.getRow(currentRow++);
-                  pctRow.getCell(2).value = '';
-                  pctRow.getCell(2).border = {
-                    top: { style: 'thin' },
-                    bottom: { style: 'thin' },
-                    left: { style: 'thin' },
-                    right: { style: 'thin' }
-                  };
-                  
-                  const totalPct = stmtData.totalBase > 0 ? (stmtData.total / stmtData.totalBase) * 100 : 0;
-                  pctRow.getCell(3).value = `${totalPct.toFixed(1)}%`;
-                  pctRow.getCell(3).alignment = { horizontal: 'center' };
-                  pctRow.getCell(3).border = {
-                    top: { style: 'thin' },
-                    bottom: { style: 'thin' },
-                    left: { style: 'thin' },
-                    right: { style: 'thin' }
-                  };
-                  
-                  col = 4;
-                  bannerCols.forEach(bannerCol => {
-                    const cutBase = stmtData.cutBases[bannerCol.id] || 0;
-                    const cutPct = cutBase > 0 ? ((stmtData.cuts[bannerCol.id] || 0) / cutBase) * 100 : 0;
-                    pctRow.getCell(col).value = `${cutPct.toFixed(1)}%`;
-                    pctRow.getCell(col).alignment = { horizontal: 'center' };
-                    pctRow.getCell(col).border = {
-                      top: { style: 'thin' },
-                      bottom: { style: 'thin' },
-                      left: { style: 'thin' },
-                      right: { style: 'thin' }
-                    };
-                    col++;
-                  });
-                });
-              }
-              
-              tableNumber++;
-              continue;
-            }
-          }
-          
-          const isSingleSelectGridIndividualTable = isSingleSelectGrid && 
+          const isSingleSelectGridIndividualTable = variable.type?.toLowerCase().includes('single select grid') && 
             variable.statements && 
             Object.keys(variable.statements).length > 0 &&
-            !tableName.endsWith('_MeanSummaryTable') &&
-            !tableName.includes('_NetSummaryTable');
+            !tableName.endsWith('_MeanSummaryTable');
           
           // Handle single select grid individual tables
           if (isSingleSelectGridIndividualTable) {
@@ -10926,6 +11260,8 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
 
           // Show stats for numeric questions OR single select questions (which can have numeric codes)
           if ((isNumeric || isSingleSelect) && Object.values(statsSelections).some(v => v)) {
+            const STATS_GREY = 'FFE8E8E8'; // Lighter grey for base and stats rows
+            
             // Define stats to show (exclude sum for single select)
             const statsToShow = [
               { key: 'sum', label: 'Sum', format: '0' },
@@ -11063,20 +11399,27 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
       }
 
       // Populate Table of Contents
-      let tocRow = 1;
+      // Add blank spacer column as first column (width 3)
+      tocWorksheet.getColumn(1).width = 3;
+      
+      // Add blank spacer row as first row
+      const blankRow = tocWorksheet.getRow(1);
+      blankRow.height = 15;
+      
+      let tocRow = 2; // Start at row 2 (row 1 is blank)
 
       // TOC Title
       const tocTitleRow = tocWorksheet.getRow(tocRow++);
-      tocTitleRow.getCell(1).value = 'Table of Contents';
-      tocTitleRow.getCell(1).font = { bold: true, size: 14 };
+      tocTitleRow.getCell(2).value = 'Table of Contents'; // Shifted to column 2
+      tocTitleRow.getCell(2).font = { bold: true, size: 14 };
       tocRow++; // Empty row
 
       // TOC Headers
       const tocHeaderRow = tocWorksheet.getRow(tocRow++);
-      tocHeaderRow.getCell(1).value = 'Table #';
-      tocHeaderRow.getCell(2).value = 'Table Name';
-      tocHeaderRow.getCell(3).value = 'Description';
-      [1, 2, 3].forEach(col => {
+      tocHeaderRow.getCell(2).value = 'Table #'; // Shifted to column 2
+      tocHeaderRow.getCell(3).value = 'Table Name'; // Shifted to column 3
+      tocHeaderRow.getCell(4).value = 'Description'; // Shifted to column 4
+      [2, 3, 4].forEach(col => {
         tocHeaderRow.getCell(col).font = { bold: true };
         tocHeaderRow.getCell(col).fill = {
           type: 'pattern',
@@ -11097,20 +11440,20 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
         const tocEntryRow = tocWorksheet.getRow(tocRow++);
 
         // Table number with hyperlink
-        tocEntryRow.getCell(1).value = {
+        tocEntryRow.getCell(2).value = { // Shifted to column 2
           text: `Table ${tableNumber}`,
           hyperlink: `#'Data Cuts'!A${rowNumber}`,
           tooltip: `Go to Table ${tableNumber}`
         };
-        tocEntryRow.getCell(1).font = { color: { argb: 'FF0000FF' }, underline: true };
+        tocEntryRow.getCell(2).font = { color: { argb: 'FF0000FF' }, underline: true };
 
         // Table name
-        tocEntryRow.getCell(2).value = tableName;
+        tocEntryRow.getCell(3).value = tableName; // Shifted to column 3
 
         // Description
-        tocEntryRow.getCell(3).value = variable.description || variable.name;
+        tocEntryRow.getCell(4).value = variable.description || variable.name; // Shifted to column 4
 
-        [1, 2, 3].forEach(col => {
+        [2, 3, 4].forEach(col => {
           tocEntryRow.getCell(col).border = {
             top: { style: 'thin' },
             bottom: { style: 'thin' },
@@ -11121,9 +11464,9 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
       });
 
       // Set column widths for TOC
-      tocWorksheet.getColumn(1).width = 15;
-      tocWorksheet.getColumn(2).width = 40;
-      tocWorksheet.getColumn(3).width = 60;
+      tocWorksheet.getColumn(2).width = 15; // Shifted from column 1
+      tocWorksheet.getColumn(3).width = 40; // Shifted from column 2
+      tocWorksheet.getColumn(4).width = 60; // Shifted from column 3
 
       const sampleSize = fullRawData.rows.filter((row: any) => {
         const recordValue = row['record'] ?? row['respno'] ?? row['Record'] ?? row['Respno'] ?? row['RECORD'] ?? row['RESPNO'];
@@ -11136,7 +11479,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
       console.error('Error generating workbook:', error);
       throw error;
     }
-  }, [fullRawData, variableStatsSelections, variableSortByFrequency, netSummaryTableSelectedCodes, netSummaryTableRanges, hiddenFromBanners, questionnaireQuestions, selectedQuestionnaire, columnMapping, newBannerGroups, calculateBannerTableDataForVariable, getTablesForVariable, getEffectiveSortByFrequency, applyHoldOrdering]);
+  }, [fullRawData, variableStatsSelections, variableSortByFrequency, netSummaryTableSelectedCodes, netSummaryTableRanges, hiddenFromBanners, questionnaireQuestions, selectedQuestionnaire, columnMapping, newBannerGroups, calculateBannerTableDataForVariable, getTablesForVariable, getEffectiveSortByFrequency, applyHoldOrdering, formatPercentage, significanceLevel]);
 
   const handleExportTabSpecsToExcel = useCallback(async () => {
     if (!variables.length) {
@@ -11291,8 +11634,54 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
             tableHtml: `<table>${colgroupHtml}${currentSection.rows.map(row => row.outerHTML).join('')}</table>`
           });
         }
+
+        // Separate NetSummaryTable entries from regular tables
+        const netSummaryTableSections: PreviewTableSection[] = [];
+        const regularTableSections: PreviewTableSection[] = [];
+        
+        // Separate regular tables from NetSummaryTables in the parsed sections
+        // NetSummaryTables are now created in Excel export, so they should appear in parsed sections
+        sections.forEach(section => {
+          // Check if this is a NetSummaryTable by looking for net names in the title
+          // NetSummaryTable titles are like "Table X: Net Name" where Net Name comes from netSummaryTableSelectedCodes
+          const isNetSummaryTable = previewVariable && 
+            previewVariable.type?.toLowerCase().includes('single select grid') &&
+            (() => {
+              const baseName = previewVariable.name;
+              const netCodes = netSummaryTableSelectedCodes[baseName] || [];
+              return netCodes.some(net => section.title.includes(net.name));
+            })();
+          
+          if (isNetSummaryTable) {
+            netSummaryTableSections.push(section);
+          } else {
+            regularTableSections.push(section);
+          }
+        });
+        
+        // Sort NetSummaryTables by their original order
+        if (previewVariable) {
+          const baseName = previewVariable.name;
+          const netCodes = netSummaryTableSelectedCodes[baseName] || [];
+          netSummaryTableSections.sort((a, b) => {
+            const aIndex = netCodes.findIndex(net => a.title.includes(net.name));
+            const bIndex = netCodes.findIndex(net => b.title.includes(net.name));
+            return aIndex - bIndex;
+          });
+        }
+        
+        // Renumber regular tables to continue after NetSummaryTables
+        const netTableCount = netSummaryTableSections.length;
+        regularTableSections.forEach((section, idx) => {
+          const tableNumber = netTableCount + idx + 1;
+          section.title = section.title.replace(/^Table \d+:/, `Table ${tableNumber}:`);
+        });
+        
+        // Combine: NetSummaryTables first, then regular tables
+        const finalSections = [...netSummaryTableSections, ...regularTableSections];
+
         if (!isCancelled) {
-          setPreviewSectionsHtml(sections);
+          setPreviewSectionsHtml(finalSections);
           setPreviewDebugInfo(debugInfo || {});
         }
       } catch (error) {
@@ -11312,7 +11701,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
     return () => {
       isCancelled = true;
     };
-  }, [previewVariable, buildTabSpecsWorkbook]);
+  }, [previewVariable, buildTabSpecsWorkbook, getTablesForVariable, netSummaryTableSelectedCodes]);
 
   // Secondary download button uses the same workbook that the main export generates.
   // Keeping the logic in one place ensures both actions always stay aligned.
@@ -14834,17 +15223,6 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                 >
                   Data Map
                 </button>
-                <button
-                  onClick={() => setQnrViewMode('crosstabDownload')}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                    qnrViewMode === 'crosstabDownload'
-                      ? 'text-white'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                  style={qnrViewMode === 'crosstabDownload' ? { borderBottomColor: BRAND_ORANGE, color: BRAND_ORANGE } : {}}
-                >
-                  Crosstab Download
-                </button>
               </nav>
               <div className="flex items-center gap-3">
               </div>
@@ -14859,101 +15237,103 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
               <div className="mb-4 flex items-start justify-between">
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900 mb-2">Table Specifications</h2>
-                  <p className="text-sm text-gray-600">View details for each variable and control what's included in the Excel download</p>
+                  <div className="flex items-center gap-4">
+                    <button
+                      onClick={() => setTabSpecsSubView('tables')}
+                      className={`text-sm font-medium transition-colors ${
+                        tabSpecsSubView === 'tables'
+                          ? 'text-orange-600 underline'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      Tables
+                    </button>
+                    <button
+                      onClick={() => setTabSpecsSubView('banners')}
+                      className={`text-sm font-medium transition-colors ${
+                        tabSpecsSubView === 'banners'
+                          ? 'text-orange-600 underline'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      Banners
+                    </button>
+                  </div>
                 </div>
-                {variables.length > 0 && (
+                {tabSpecsSubView === 'tables' && variables.length > 0 && (
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={handleExportTabSpecsToExcel}
-                      disabled
-                      className="px-4 py-2 text-sm font-medium text-white rounded-lg whitespace-nowrap opacity-50 cursor-not-allowed"
-                      style={{ backgroundColor: BRAND_ORANGE }}
-                      title="Export tables to Excel (temporarily disabled)"
+                      onClick={() => setShowFilterPopup(true)}
+                      className="p-1 hover:bg-gray-100 rounded transition-colors"
+                      title="Filter by type"
                     >
-                      Export to Excel
+                      <FunnelIcon className="h-5 w-5 text-gray-600" />
                     </button>
                     <button
                       onClick={handleDownloadTabSpecsWorkbook}
-                      className="px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors hover:opacity-90 whitespace-nowrap"
-                      style={{ backgroundColor: BRAND_ORANGE }}
+                      className="p-1 hover:bg-gray-100 rounded transition-colors"
                       title="Download current tab specs in Excel format"
                     >
-                      Download Tabs Workbook
+                      <ArrowDownTrayIcon className="h-5 w-5 text-gray-600" />
                     </button>
                     <button
-                      onClick={() => {
-                        // Reset all selections to defaults
-                        setVariableTableSelections({});
-                        setVariableStatsSelections({});
-                        setVariableSortByFrequency({});
-                        setVariableHoldResponseCodes({});
-                        setHoldOptionsDropdownOpen({});
-                        setNetSummaryTableRanges({});
-                        setNetSummaryTableSelectedCodes({});
-                        setSummaryTableSortSelections({});
-                        multiSelectSortDefaultsApplied.current = new Set();
-                        multiSelectHoldDefaultsApplied.current = new Set();
-                        ['tableSelections', 'statsSelections', 'sortSelections', 'holdSelections'].forEach(suffix => {
-                          const key = getTabSpecsStorageKey(suffix);
-                          if (key) {
-                            localStorage.removeItem(key);
-                          }
-                        });
-                        // Clear nets from localStorage so auto-initialization can run fresh
-                        if (selectedQuestionnaire?.id) {
-                          localStorage.removeItem(`netSummaryTableSelectedCodes_${selectedQuestionnaire.id}`);
-                          localStorage.removeItem(`netSummaryTableRanges_${selectedQuestionnaire.id}`);
-                        }
-                        // Force re-render by changing key
-                        setSpecsResetKey(prev => prev + 1);
-                      }}
-                      className="px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors hover:opacity-90 whitespace-nowrap"
-                      style={{ backgroundColor: BRAND_ORANGE }}
-                      title="Reset all table specifications to default values"
+                      onClick={() => setShowSettingsPopup(true)}
+                      className="p-1 hover:bg-gray-100 rounded transition-colors"
+                      title="Table Settings"
                     >
-                      Reset Specs
+                      <Cog6ToothIcon className="h-5 w-5 text-gray-600" />
+                    </button>
+                  </div>
+                )}
+                {tabSpecsSubView === 'banners' && !showBannerBuilder && !selectedNewBannerGroupId && (
+                  <div className="flex items-center gap-2">
+                    {variables.length > 0 && (
+                      <BannerFilterConfig
+                        variables={variables}
+                        filterConditions={bannerFilterConditions}
+                        onFilterChange={setBannerFilterConditions}
+                        rawData={fullRawData}
+                        columnMapping={columnMapping}
+                      />
+                    )}
+                    <button
+                      onClick={() => {
+                        setEditingBannerGroup(null);
+                        setShowBannerBuilder(true);
+                      }}
+                      className="flex items-center gap-2 px-3 py-1.5 text-sm text-white rounded-lg hover:opacity-90"
+                      style={{ backgroundColor: BRAND_ORANGE }}
+                    >
+                      <PlusCircleIcon className="h-5 w-5" />
+                      Create Banner Group
                     </button>
                   </div>
                 )}
               </div>
-              {!selectedQuestionnaire ? (
-                <div className="text-center py-12">
-                  <TableCellsIcon className="mx-auto h-12 w-12 text-gray-300 mb-4" />
-                  <p className="text-gray-500">Please select a questionnaire to view table specifications</p>
-                </div>
-              ) : variables.length === 0 ? (
-                <div className="text-center py-12">
-                  <TableCellsIcon className="mx-auto h-12 w-12 text-gray-300 mb-4" />
-                  <p className="text-gray-500">No variables found. Please upload data to see table specifications.</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto max-h-[600px] relative">
-                  <div className="flex justify-end mb-3">
-                    <label className="text-xs font-medium text-gray-700 flex items-center gap-2">
-                      <span>Filter by type:</span>
-                      <select
-                        className="border border-gray-300 rounded-md text-xs py-1 px-2 focus:outline-none focus:ring-1 focus:ring-orange-500"
-                        value={tabSpecsTypeFilter}
-                        onChange={(e) => setTabSpecsTypeFilter(e.target.value)}
-                      >
-                        <option value="all">All types</option>
-                        {tabSpecsTypeOptions.map(type => (
-                          <option key={type} value={type}>
-                            {type}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  </div>
-                  <table key={specsResetKey} className="min-w-full text-sm border-collapse">
+
+              {tabSpecsSubView === 'tables' ? (
+                <>
+                  {!selectedQuestionnaire ? (
+                    <div className="text-center py-12">
+                      <TableCellsIcon className="mx-auto h-12 w-12 text-gray-300 mb-4" />
+                      <p className="text-gray-500">Please select a questionnaire to view table specifications</p>
+                    </div>
+                  ) : variables.length === 0 ? (
+                    <div className="text-center py-12">
+                      <TableCellsIcon className="mx-auto h-12 w-12 text-gray-300 mb-4" />
+                      <p className="text-gray-500">No variables found. Please upload data to see table specifications.</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto max-h-[600px] relative">
+                      <table key={specsResetKey} className="min-w-full text-sm border-collapse">
                     <thead className="sticky top-0 z-10">
                       <tr className="border-b-2 border-gray-300">
-                        <th className="px-3 py-3 text-center text-xs font-semibold text-white uppercase tracking-wider border-r border-gray-300" style={{ backgroundColor: BRAND_ORANGE }}>Debug</th>
                         <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-gray-300 whitespace-nowrap" style={{ backgroundColor: BRAND_ORANGE }}>Q#</th>
                         <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-gray-300" style={{ backgroundColor: BRAND_ORANGE }}>Type</th>
                         <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-gray-300" style={{ backgroundColor: BRAND_ORANGE }}>Tags</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider" style={{ backgroundColor: BRAND_ORANGE }}>Question Text</th>
-                        <th className="px-4 py-3 text-center text-xs font-semibold text-white uppercase tracking-wider" style={{ backgroundColor: BRAND_ORANGE }}>Included</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-gray-300" style={{ backgroundColor: BRAND_ORANGE }}>Question Text</th>
+                        <th className="px-4 py-3 text-center text-xs font-semibold text-white uppercase tracking-wider border-r border-gray-300" style={{ backgroundColor: BRAND_ORANGE }}>Included</th>
+                        <th className="px-3 py-3 text-center text-xs font-semibold text-white uppercase tracking-wider" style={{ backgroundColor: BRAND_ORANGE }}>Preview</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -14983,19 +15363,6 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                               setShowConfigPopup(true);
                             }}
                           >
-                            <td className="px-3 py-3 text-center border-r border-gray-100">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setPreviewVariable(variable);
-                                }}
-                                className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 text-gray-600 hover:bg-orange-100 hover:text-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500"
-                                title="Preview included tables"
-                              >
-                                <InformationCircleIcon className="h-4 w-4" />
-                              </button>
-                            </td>
                             <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-100 font-medium whitespace-nowrap">
                               {variable.name}
                             </td>
@@ -15015,7 +15382,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                                 <span className="text-gray-400">-</span>
                               )}
                             </td>
-                            <td className="px-4 py-3 text-sm text-gray-700" style={{ maxWidth: '320px' }}>
+                            <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-100" style={{ maxWidth: '320px' }}>
                               <span
                                 className="block"
                                 title={questionText}
@@ -15024,12 +15391,25 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                                 {questionText || '-'}
                               </span>
                             </td>
-                            <td className="px-4 py-3 text-center">
+                            <td className="px-4 py-3 text-center border-r border-gray-100">
                               {isIncluded ? (
                                 <CheckCircleIcon className="h-5 w-5 text-green-500 inline-block" />
                               ) : (
                                 <span className="text-xs text-gray-400">—</span>
                               )}
+                            </td>
+                            <td className="px-3 py-3 text-center">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setPreviewVariable(variable);
+                                }}
+                                className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 text-gray-600 hover:bg-orange-100 hover:text-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                title="Preview included tables"
+                              >
+                                <InformationCircleIcon className="h-4 w-4" />
+                              </button>
                             </td>
                           </tr>
                         );
@@ -15038,8 +15418,360 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                   </table>
                 </div>
               )}
+                </>
+              ) : (
+                /* Banners Configuration within Tab Specs */
+                <div className="bg-white shadow-sm rounded-lg flex flex-col" style={{ minHeight: 0, borderRadius: 0 }}>
+                  {showBannerBuilder ? (
+                    <BannerBuilder
+                      variables={variables}
+                      editingGroup={editingBannerGroup}
+                      existingBannerCount={newBannerGroups.length}
+                      rawData={fullRawData}
+                      columnMapping={columnMapping}
+                      onSave={(group) => {
+                        if (editingBannerGroup) {
+                          setNewBannerGroups(newBannerGroups.map(g => g.id === group.id ? group : g));
+                        } else {
+                          setNewBannerGroups([...newBannerGroups, group]);
+                        }
+                        setShowBannerBuilder(false);
+                        setEditingBannerGroup(null);
+                      }}
+                      onCancel={() => {
+                        setShowBannerBuilder(false);
+                        setEditingBannerGroup(null);
+                      }}
+                    />
+                  ) : selectedNewBannerGroupId ? (
+                    /* Banner Detail View with Variables Sidebar */
+                    (() => {
+                      const selectedGroup = newBannerGroups.find(g => g.id === selectedNewBannerGroupId);
+                      if (!selectedGroup) {
+                        setSelectedNewBannerGroupId(null);
+                        return null;
+                      }
+
+                      return (
+                        <div className="flex h-[calc(100vh-200px)]">
+                          {/* Left Sidebar - Variables List */}
+                          <div className="w-80 border-r border-gray-200 flex flex-col bg-white">
+                            <div className="p-4 border-b border-gray-200">
+                              <button
+                                onClick={() => {
+                                  setSelectedNewBannerGroupId(null);
+                                  setSelectedNewBannerVariable(null);
+                                }}
+                                className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 mb-3"
+                              >
+                                <ArrowLeftIcon className="h-4 w-4" />
+                                Back to Banner Groups
+                              </button>
+                              <h3 className="text-lg font-semibold text-gray-900">
+                                {selectedGroup.title} <span className="font-normal text-xs italic text-gray-600">({filteredBannerVariables.length} tables)</span>
+                              </h3>
+                            </div>
+
+                            {/* Sticky search bar - Same format as Variables tab */}
+                            <div className="p-4 bg-white sticky top-0 z-10">
+                              <div className="relative">
+                                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                <input
+                                  type="text"
+                                  placeholder="Search variables..."
+                                  value={variableFilter}
+                                  onChange={(e) => setVariableFilter(e.target.value)}
+                                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Scrollable variable list */}
+                            <div className="flex-1 overflow-y-auto p-2">
+                              <div className="space-y-1">
+                                {filteredBannerVariables.map((variable) => {
+                                    const isSummaryTable = (variable as any).isSummaryTable && variable.statements;
+                                    const isScaleSummary = (variable as any).isScaleSummary && variable.statements;
+                                    const isNumericQuestion = variable.type?.toLowerCase().includes('numeric') &&
+                                                             !variable.type?.toLowerCase().includes('grid') &&
+                                                             !variable.type?.toLowerCase().includes('list') &&
+                                                             !isSummaryTable;
+                                    // For numeric questions, codes are not needed (they have numeric values instead)
+                                    // For scale summary tables, codes are not needed (they use statements instead)
+                                    // Only show red icon for non-numeric, non-scale-summary questions that don't have codes
+                                    const hasNoResponseOptions = !isSummaryTable && !isScaleSummary && !isNumericQuestion && (!variable.codes || Object.keys(variable.codes).length === 0);
+
+                                    return (
+                                      <button
+                                        key={variable.name}
+                                        onClick={() => setSelectedNewBannerVariable(variable.name)}
+                                        className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+                                          selectedNewBannerVariable === variable.name
+                                            ? 'bg-orange-100 text-orange-900'
+                                            : 'hover:bg-gray-100 text-gray-700'
+                                        }`}
+                                      >
+                                        <div className="flex items-center justify-between gap-2 w-full">
+                                          <div className="flex items-center gap-1.5 min-w-0">
+                                            <span className="font-medium truncate">{variable.name}</span>
+                                          </div>
+                                          {variable.type && (
+                                            <span className="text-xs text-gray-500 flex-shrink-0">
+                                              {variable.type.length > 15 ? variable.type.substring(0, 15) + '...' : variable.type}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </button>
+                                    );
+                                  })}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Right Content Area */}
+                          <div className="flex-1 flex flex-col bg-white" style={{ minHeight: 0, overflow: 'hidden' }}>
+                            {selectedNewBannerVariable ? (
+                              /* Show selected variable with banner table - note: will need to include the calculation logic */
+                              <div className="text-center py-12 text-gray-500">
+                                Variable details with banner cross-tabulation will be shown here
+                              </div>
+                            ) : (
+                              /* Show banner group details when no variable is selected */
+                              <div className="text-center py-12">
+                                <IconTable className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                                <h3 className="text-lg font-medium text-gray-900 mb-2">Select a Variable</h3>
+                                <p className="text-gray-600">Choose a variable from the list to view its details</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()
+                  ) : (
+                    /* Banner Groups List */
+                    <div className="flex flex-col flex-1 py-6 pr-6">
+                      <div className="mb-6">
+                        <h3 className="text-lg font-semibold text-gray-900">Banner Groups</h3>
+                      </div>
+                      {newBannerGroups.length === 0 ? (
+                        <div className="text-center py-12">
+                          <IconTable className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                          <h3 className="text-lg font-medium text-gray-900 mb-2">No Banner Groups</h3>
+                          <p className="text-gray-600 mb-4">Create banner groups to organize your cross-tabulations</p>
+                          <p className="text-sm text-gray-500">Click "Create Banner Group" button above to get started</p>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 gap-4 pl-0">
+                          {newBannerGroups.map((group) => (
+                            <div
+                              key={group.id}
+                              onClick={() => {
+                                setEditingBannerGroup(group);
+                                setShowBannerBuilder(true);
+                              }}
+                              className="border border-gray-200 rounded-lg p-4 hover:border-gray-300 hover:shadow-md transition-all cursor-pointer"
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex-1">
+                                  <h4 className="text-md font-semibold text-gray-900 mb-1">{group.title}</h4>
+                                  <p className="text-sm text-gray-600">
+                                    {group.groups && group.groups.length > 0 ? (
+                                      group.groups.map((subgroup, idx) => (
+                                        <span key={subgroup.id || idx}>
+                                          {idx > 0 && ', '}
+                                          {subgroup.title}
+                                          {subgroup.cuts.length > 0 && (
+                                            <span className="text-gray-500">
+                                              {' '}({subgroup.cuts.map(cut => cut.title).join(', ')})
+                                            </span>
+                                          )}
+                                        </span>
+                                      ))
+                                    ) : (
+                                      <span className="text-gray-400 italic">No cuts defined</span>
+                                    )}
+                                  </p>
+                                </div>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (confirm('Are you sure you want to delete this banner group?')) {
+                                      setNewBannerGroups(newBannerGroups.filter(g => g.id !== group.id));
+                                    }
+                                  }}
+                                  className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                  title="Delete banner group"
+                                >
+                                  <TrashIcon className="h-5 w-5" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-          ) : qnrViewMode === 'variables' ? (
+          ) : null}
+
+          {/* Settings Popup Modal */}
+          {showSettingsPopup && createPortal(
+            <div 
+              className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+              onClick={() => setShowSettingsPopup(false)}
+            >
+              <div 
+                className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-semibold text-gray-900">Table Settings</h2>
+                  <button
+                    onClick={() => setShowSettingsPopup(false)}
+                    className="text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    <XMarkIcon className="h-6 w-6" />
+                  </button>
+                </div>
+
+                <div className="space-y-6">
+                  {/* Significance Level Setting */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Significance Level for Statistical Testing
+                    </label>
+                    <div className="flex gap-4">
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="significanceLevel"
+                          value="95"
+                          checked={significanceLevel === 95}
+                          onChange={() => setSignificanceLevel(95)}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-700">95%</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="significanceLevel"
+                          value="90"
+                          checked={significanceLevel === 90}
+                          onChange={() => setSignificanceLevel(90)}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-gray-700">90%</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Decimal Places Setting */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Decimal Places for Percentages
+                    </label>
+                    <select
+                      value={percentageDecimals}
+                      onChange={(e) => setPercentageDecimals(Number(e.target.value) as 0 | 1 | 2)}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    >
+                      <option value={0}>0 decimals</option>
+                      <option value={1}>1 decimal</option>
+                      <option value={2}>2 decimals</option>
+                    </select>
+                  </div>
+
+                  {/* Reset Specs Button */}
+                  <div className="pt-4 border-t border-gray-200">
+                    <button
+                      onClick={() => {
+                        // Reset all selections to defaults
+                        setVariableTableSelections({});
+                        setVariableStatsSelections({});
+                        setVariableSortByFrequency({});
+                        setVariableHoldResponseCodes({});
+                        setHoldOptionsDropdownOpen({});
+                        setNetSummaryTableRanges({});
+                        setNetSummaryTableSelectedCodes({});
+                        setSummaryTableSortSelections({});
+                        multiSelectSortDefaultsApplied.current = new Set();
+                        multiSelectHoldDefaultsApplied.current = new Set();
+                        ['tableSelections', 'statsSelections', 'sortSelections', 'holdSelections'].forEach(suffix => {
+                          const key = getTabSpecsStorageKey(suffix);
+                          if (key) {
+                            localStorage.removeItem(key);
+                          }
+                        });
+                        // Clear nets from localStorage so auto-initialization can run fresh
+                        if (selectedQuestionnaire?.id) {
+                          localStorage.removeItem(`netSummaryTableSelectedCodes_${selectedQuestionnaire.id}`);
+                          localStorage.removeItem(`netSummaryTableRanges_${selectedQuestionnaire.id}`);
+                        }
+                        // Force re-render by changing key
+                        setSpecsResetKey(prev => prev + 1);
+                        setShowSettingsPopup(false);
+                      }}
+                      className="w-full px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors hover:opacity-90"
+                      style={{ backgroundColor: BRAND_ORANGE }}
+                    >
+                      Reset Specs
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>,
+            document.body
+          )}
+
+          {/* Filter Popup Modal */}
+          {showFilterPopup && createPortal(
+            <div 
+              className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+              onClick={() => setShowFilterPopup(false)}
+            >
+              <div 
+                className="bg-white rounded-lg shadow-xl max-w-sm w-full mx-4 p-6"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-semibold text-gray-900">Filter by Type</h2>
+                  <button
+                    onClick={() => setShowFilterPopup(false)}
+                    className="text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    <XMarkIcon className="h-6 w-6" />
+                  </button>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Select type to filter
+                  </label>
+                  <select
+                    value={tabSpecsTypeFilter}
+                    onChange={(e) => {
+                      setTabSpecsTypeFilter(e.target.value);
+                      setShowFilterPopup(false);
+                    }}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  >
+                    <option value="all">All types</option>
+                    {tabSpecsTypeOptions.map(type => (
+                      <option key={type} value={type}>
+                        {type}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>,
+            document.body
+          )}
+
+          {qnrViewMode !== 'tabSpecs' && (qnrViewMode === 'variables' ? (
             <div className="flex h-[calc(100vh-200px)]">
               {/* Variable List Sidebar */}
               <div className="w-80 border-r border-gray-200 flex flex-col">
@@ -16641,11 +17373,24 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                                                 <th className="border border-white/30 px-3 py-2 text-center font-medium" style={{ minWidth: '100px', backgroundColor: '#D14A2D' }}>Total</th>
                                               </>
                                             )}
-                                            {bannerCols.map((col, idx) => (
+                                            {groupStructure.length > 0 ? (
+                                              groupStructure.flatMap((group) =>
+                                                bannerCols.slice(group.startIdx, group.startIdx + group.cutCount).map((col, cutIdx) => {
+                                                  const idx = group.startIdx + cutIdx;
+                                                  return (
                                               <th key={col.id} className="border border-white/30 px-3 py-2 text-center font-medium" style={{ minWidth: '100px', backgroundColor: '#D14A2D' }}>
                                                 {col.title}<br/><span style={{ color: 'rgba(255,255,255,0.7)' }}>({String.fromCharCode(65 + idx)})</span>
                                               </th>
-                                            ))}
+                                                  );
+                                                })
+                                              )
+                                            ) : (
+                                              bannerCols.map((col, idx) => (
+                                                <th key={col.id} className="border border-white/30 px-3 py-2 text-center font-medium" style={{ minWidth: '100px', backgroundColor: '#D14A2D' }}>
+                                                  {col.title}<br/><span style={{ color: 'rgba(255,255,255,0.7)' }}>({String.fromCharCode(65 + idx)})</span>
+                                                </th>
+                                              ))
+                                            )}
                                           </tr>
                                         </thead>
                                         <tbody>
@@ -16732,141 +17477,8 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
 
                             return (
                               <div className="mt-4 space-y-6">
-                                {/* Render saved summary tables first */}
+                                {/* Render saved summary table titles only (no tables for now) */}
                                 {savedSummaries.filter(s => s.selectedNets.length > 0).map((savedSummary) => {
-                                  // Build column map for statements
-                                  const gridColMap: Record<string, string | null> = {};
-                                  statementEntries.forEach(([stmtCode]) => {
-                                    const cellHeader = `Q${baseNumber}${stmtCode}`;
-                                    let colHeader: string | null = null;
-                                    const variations = [cellHeader, cellHeader.replace(/^Q/, ''), baseNumber + stmtCode];
-                                    for (const v of variations) {
-                                      if (columnMapping[v]) { colHeader = columnMapping[v]; break; }
-                                      const match = Object.keys(columnMapping).find(k => k.toLowerCase() === v.toLowerCase());
-                                      if (match) { colHeader = columnMapping[match]; break; }
-                                    }
-                                    if (!colHeader && fullRawData.columns) {
-                                      for (const v of variations) {
-                                        const found = fullRawData.columns.find((c: string) => c.toLowerCase() === v.toLowerCase());
-                                        if (found) { colHeader = found; break; }
-                                      }
-                                    }
-                                    gridColMap[stmtCode] = colHeader;
-                                  });
-
-                                  // Get valid row indices
-                                  const validRowIndices = new Set<number>();
-                                  const firstStmtCode = statementEntries[0]?.[0];
-                                  if (firstStmtCode) {
-                                    const firstCellHeader = `Q${baseNumber}${firstStmtCode}`;
-                                    const firstCellData = getVariableDataByExpectedHeader(firstCellHeader);
-                                    if (firstCellData && firstCellData.values && Array.isArray(firstCellData.values)) {
-                                      firstCellData.values.forEach((v: any, idx: number) => {
-                                        if (v !== null && v !== undefined && v !== '' && String(v).trim() !== '') {
-                                          validRowIndices.add(idx);
-                                        }
-                                      });
-                                    }
-                                  }
-
-                                  // Calculate data for each statement
-                                  const summaryData: Record<string, { total: { count: number; base: number }; cuts: Record<string, { count: number; base: number }> }> = {};
-                                  const cutBases: Record<string, number> = {};
-                                  bannerCols.forEach(col => { cutBases[col.id] = 0; });
-                                  let totalBase = 0;
-
-                                  // First pass: calculate bases
-                                  fullRawData.rows.forEach((row: any, rowIdx: number) => {
-                                    if (validRowIndices.size > 0 && !validRowIndices.has(rowIdx)) return;
-
-                                    // Check if respondent answered
-                                    const firstColHeader = gridColMap[firstStmtCode];
-                                    if (!firstColHeader) return;
-                                    const val = row[firstColHeader];
-                                    if (val === null || val === undefined || val === '') return;
-
-                                    totalBase++;
-
-                                    // Check banner cuts
-                                    bannerCols.forEach(col => {
-                                      if (!col.colHeader) return;
-                                      const bannerVal = row[col.colHeader];
-                                      if (bannerVal === null || bannerVal === undefined || bannerVal === '') return;
-                                      const bannerValStr = String(bannerVal).trim();
-                                      const numBannerVal = Number(bannerValStr);
-                                      for (const cutCode of col.codes) {
-                                        let matches = false;
-                                        if (bannerValStr === cutCode) matches = true;
-                                        else if (!isNaN(numBannerVal) && String(numBannerVal) === cutCode) matches = true;
-                                        else {
-                                          const codeNoC = cutCode.replace(/^c/i, '');
-                                          if (bannerValStr === codeNoC || (!isNaN(numBannerVal) && !isNaN(Number(codeNoC)) && numBannerVal === Number(codeNoC))) {
-                                            matches = true;
-                                          }
-                                        }
-                                        if (matches) {
-                                          cutBases[col.id]++;
-                                          break;
-                                        }
-                                      }
-                                    });
-                                  });
-
-                                  // Calculate counts for each statement
-                                  statementEntries.forEach(([stmtCode]) => {
-                                    summaryData[stmtCode] = { total: { count: 0, base: totalBase }, cuts: {} };
-                                    bannerCols.forEach(col => { summaryData[stmtCode].cuts[col.id] = { count: 0, base: cutBases[col.id] }; });
-
-                                    const stmtColHeader = gridColMap[stmtCode];
-                                    if (!stmtColHeader) return;
-
-                                    fullRawData.rows.forEach((row: any, rowIdx: number) => {
-                                      if (validRowIndices.size > 0 && !validRowIndices.has(rowIdx)) return;
-
-                                      const val = row[stmtColHeader];
-                                      if (val === null || val === undefined || val === '') return;
-                                      const valStr = String(val).trim();
-
-                                      // Check if value matches any selected net
-                                      let matchesNet = false;
-                                      for (const netCode of savedSummary.selectedNets) {
-                                        const netNum = netCode.replace(/^c/i, '');
-                                        if (valStr === netCode || valStr === netNum || String(Number(valStr)) === netNum) {
-                                          matchesNet = true;
-                                          break;
-                                        }
-                                      }
-
-                                      if (matchesNet) {
-                                        summaryData[stmtCode].total.count++;
-
-                                        // Check banner cuts
-                                        bannerCols.forEach(col => {
-                                          if (!col.colHeader) return;
-                                          const bannerVal = row[col.colHeader];
-                                          if (bannerVal === null || bannerVal === undefined || bannerVal === '') return;
-                                          const bannerValStr = String(bannerVal).trim();
-                                          const numBannerVal = Number(bannerValStr);
-                                          for (const cutCode of col.codes) {
-                                            let matches = false;
-                                            if (bannerValStr === cutCode) matches = true;
-                                            else if (!isNaN(numBannerVal) && String(numBannerVal) === cutCode) matches = true;
-                                            else {
-                                              const codeNoC = cutCode.replace(/^c/i, '');
-                                              if (bannerValStr === codeNoC || (!isNaN(numBannerVal) && !isNaN(Number(codeNoC)) && numBannerVal === Number(codeNoC))) {
-                                                matches = true;
-                                              }
-                                            }
-                                            if (matches) {
-                                              summaryData[stmtCode].cuts[col.id].count++;
-                                              break;
-                                            }
-                                          }
-                                        });
-                                      }
-                                    });
-                                  });
-
                                   // Get summary table title
                                   const selectedCodes = savedSummary.selectedNets.map(code => {
                                     const match = code.match(/\d+/);
@@ -16889,70 +17501,9 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                                   }
 
                                   return (
-                                    <div key={savedSummary.id} className="overflow-x-auto">
-                                      <table className="min-w-full text-sm border-collapse">
-                                        <thead style={{ backgroundColor: '#D14A2D' }}>
-                                          {groupStructure.length > 0 && (
-                                            <tr className="text-white">
-                                              <th className="border border-white/30 px-3 py-2 text-left font-semibold" rowSpan={2} style={{ backgroundColor: '#D14A2D' }}>
-                                                {tableTitle}
-                                              </th>
-                                              <th className="border border-white/30 px-3 py-2 text-center" rowSpan={2} style={{ minWidth: '100px', backgroundColor: '#D14A2D' }}>Total</th>
-                                              {groupStructure.map((group, gIdx) => (
-                                                <th key={gIdx} className="border border-white/30 px-3 py-2 text-center font-medium" colSpan={group.cutCount} style={{ backgroundColor: '#D14A2D' }}>
-                                                  {group.title}
-                                                </th>
-                                              ))}
-                                            </tr>
-                                          )}
-                                          <tr className="text-white">
-                                            {groupStructure.length === 0 && (
-                                              <>
-                                                <th className="border border-white/30 px-3 py-2 text-left font-semibold" style={{ backgroundColor: '#D14A2D' }}>
-                                                  {tableTitle}
-                                                </th>
-                                                <th className="border border-white/30 px-3 py-2 text-center font-medium" style={{ minWidth: '100px', backgroundColor: '#D14A2D' }}>Total</th>
-                                              </>
-                                            )}
-                                            {bannerCols.map((col, idx) => (
-                                              <th key={col.id} className="border border-white/30 px-3 py-2 text-center font-medium" style={{ minWidth: '100px', backgroundColor: '#D14A2D' }}>
-                                                {col.title}<br/><span style={{ color: 'rgba(255,255,255,0.7)' }}>({String.fromCharCode(65 + idx)})</span>
-                                              </th>
-                                            ))}
-                                          </tr>
-                                        </thead>
-                                        <tbody>
-                                          <tr className="bg-gray-50 font-medium">
-                                            <td className="border border-gray-300 px-3 py-2">Base (total answering)</td>
-                                            <td className="border border-gray-300 px-3 py-2 text-center">{totalBase}</td>
-                                            {bannerCols.map(col => (
-                                              <td key={col.id} className="border border-gray-300 px-3 py-2 text-center">{cutBases[col.id]}</td>
-                                            ))}
-                                          </tr>
-                                          {statementEntries.map(([stmtCode, stmtLabel]) => {
-                                            const data = summaryData[stmtCode];
-                                            const totalCount = data?.total.count || 0;
-                                            const totalPct = totalBase > 0 ? Math.round((totalCount / totalBase) * 100) : 0;
-                                            return (
-                                              <tr key={stmtCode} className="hover:bg-gray-50">
-                                                <td className="border border-gray-300 px-3 py-2">{String(stmtLabel)}</td>
-                                                <td className="border border-gray-300 px-3 py-2 text-center">{totalPct}%</td>
-                                                {bannerCols.map(col => {
-                                                  const cutData = data?.cuts[col.id];
-                                                  const cutCount = cutData?.count || 0;
-                                                  const cutBase = cutBases[col.id];
-                                                  const cutPct = cutBase > 0 ? Math.round((cutCount / cutBase) * 100) : 0;
-                                                  return (
-                                                    <td key={col.id} className="border border-gray-300 px-3 py-2 text-center">
-                                                      {cutPct}%
-                                                    </td>
-                                                  );
-                                                })}
-                                              </tr>
-                                            );
-                                          })}
-                                        </tbody>
-                                      </table>
+                                    <div key={savedSummary.id} className="mb-4">
+                                      <h4 className="text-lg font-semibold text-gray-900">{tableTitle || 'Summary Table'}</h4>
+                                      <p className="text-sm text-gray-500 italic">Table content coming soon...</p>
                                     </div>
                                   );
                                 })}
@@ -17068,11 +17619,24 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                                                 <th className="border border-white/30 px-3 py-2 text-center font-medium" style={{ minWidth: '100px', backgroundColor: '#D14A2D' }}>Total</th>
                                               </>
                                             )}
-                                            {bannerCols.map((col, idx) => (
+                                            {groupStructure.length > 0 ? (
+                                              groupStructure.flatMap((group) =>
+                                                bannerCols.slice(group.startIdx, group.startIdx + group.cutCount).map((col, cutIdx) => {
+                                                  const idx = group.startIdx + cutIdx;
+                                                  return (
                                               <th key={col.id} className="border border-white/30 px-3 py-2 text-center font-medium" style={{ minWidth: '100px', backgroundColor: '#D14A2D' }}>
                                                 {col.title}<br/><span style={{ color: 'rgba(255,255,255,0.7)' }}>({String.fromCharCode(65 + idx)})</span>
                                               </th>
-                                            ))}
+                                                  );
+                                                })
+                                              )
+                                            ) : (
+                                              bannerCols.map((col, idx) => (
+                                                <th key={col.id} className="border border-white/30 px-3 py-2 text-center font-medium" style={{ minWidth: '100px', backgroundColor: '#D14A2D' }}>
+                                                  {col.title}<br/><span style={{ color: 'rgba(255,255,255,0.7)' }}>({String.fromCharCode(65 + idx)})</span>
+                                                </th>
+                                              ))
+                                            )}
                                           </tr>
                                         </thead>
                                         <tbody>
@@ -26359,232 +26923,6 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
               })()}
               </div>
             </div>
-            ) : qnrViewMode === 'crosstabDownload' ? (
-            /* Crosstab Download View */
-            <div className="p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Crosstab Download</h3>
-              <p className="text-sm text-gray-500 mb-6">
-                Download crosstab tables for each banner configuration.
-              </p>
-
-              {newBannerGroups.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">
-                  <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  <p className="text-sm">No banners configured</p>
-                  <p className="text-xs text-gray-400 mt-1">Create a banner in the Banners tab first</p>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {newBannerGroups.map((banner) => {
-                    // Calculate sample sizes for each cut
-                    const getCutSampleSizes = () => {
-                      if (!fullRawData || !fullRawData.rows) return {};
-
-                      const sizes: Record<string, number> = {};
-
-                      // Filter rows to only those with a respno/record value
-                      const validRows = fullRawData.rows.filter((row: any) => {
-                        const recordValue = row['record'] ?? row['respno'] ?? row['Record'] ?? row['Respno'] ?? row['RECORD'] ?? row['RESPNO'];
-                        return recordValue !== null && recordValue !== undefined && recordValue !== '' &&
-                               !(typeof recordValue === 'string' && recordValue.trim() === '');
-                      });
-
-                      sizes['total'] = validRows.length;
-
-                      // Helper to get column header (same logic used elsewhere)
-                      const getColHeader = (varName: string): string | null => {
-                        const variations = [
-                          varName,
-                          varName.startsWith('Q') ? varName : `Q${varName}`,
-                          varName.startsWith('Q') ? varName.substring(1) : varName
-                        ];
-
-                        if (columnMapping) {
-                          for (const variation of variations) {
-                            if (columnMapping[variation]) {
-                              return columnMapping[variation];
-                            }
-                            const matchingKey = Object.keys(columnMapping).find(
-                              key => key.toLowerCase() === variation.toLowerCase()
-                            );
-                            if (matchingKey) {
-                              return columnMapping[matchingKey];
-                            }
-                          }
-                        }
-
-                        if (fullRawData.columns) {
-                          for (const variation of variations) {
-                            const directMatch = fullRawData.columns.find(
-                              col => col.toLowerCase() === variation.toLowerCase()
-                            );
-                            if (directMatch) {
-                              return directMatch;
-                            }
-                          }
-                        }
-
-                        return null;
-                      };
-
-                      banner.groups?.forEach(group => {
-                        group.cuts.forEach(cut => {
-                          if (!cut.variableName || cut.codes.length === 0) {
-                            sizes[cut.id] = 0;
-                            return;
-                          }
-
-                          const cutVariable = variables.find(v => v.name === cut.variableName);
-                          const colHeader = getColHeader(cut.variableName);
-
-                          if (!colHeader) {
-                            sizes[cut.id] = 0;
-                            return;
-                          }
-
-                          // Count valid rows matching the cut codes (same logic as calculateBannerTableDataForVariable)
-                          let count = 0;
-                          validRows.forEach((row: any) => {
-                            const value = row[colHeader];
-                            if (value === null || value === undefined || value === '') return;
-
-                            const valueStr = String(value).trim();
-                            const numValue = Number(valueStr);
-
-                            // Check if value matches stored codes directly
-                            const codeStr = cut.codes.map((c: any) => String(c).trim());
-                            if (codeStr.includes(valueStr)) {
-                              count++;
-                              return;
-                            }
-
-                            // Check numeric match (e.g., "1" matches 1, "c1" matches "1")
-                            if (!isNaN(numValue)) {
-                              for (const code of cut.codes) {
-                                const codeStrVal = String(code).trim();
-                                const codeNum = Number(codeStrVal.replace(/^[rc]/i, ''));
-                                if (!isNaN(codeNum) && numValue === codeNum) {
-                                  count++;
-                                  return;
-                                }
-                                if (codeStrVal === String(numValue)) {
-                                  count++;
-                                  return;
-                                }
-                              }
-                            }
-
-                            // Check if value matches any of the labels for the stored codes
-                            if (cutVariable?.codes) {
-                              for (const code of cut.codes) {
-                                const codeLabel = cutVariable.codes[String(code)] || cutVariable.codes[code];
-                                if (codeLabel && String(codeLabel).trim() === valueStr) {
-                                  count++;
-                                  return;
-                                }
-                              }
-                            }
-                          });
-                          sizes[cut.id] = count;
-                        });
-                      });
-
-                      return sizes;
-                    };
-
-                    const cutSizes = getCutSampleSizes();
-                    const totalCuts = banner.groups?.reduce((sum, g) => sum + g.cuts.length, 0) || 0;
-                    const generatingThis = isGeneratingCrosstab && selectedCrosstabBannerId === banner.id;
-
-                    return (
-                      <div key={banner.id} className="border border-gray-200 rounded-lg overflow-hidden">
-                        {/* Banner Header */}
-                        <div className="bg-gray-50 px-4 py-3 flex items-center justify-between border-b border-gray-200">
-                          <div>
-                            <h4 className="text-sm font-semibold text-gray-900">{banner.title}</h4>
-                            <p className="text-xs text-gray-500">{banner.groups?.length || 0} sub-groups • {totalCuts} cuts</p>
-                          </div>
-                          <button
-                            onClick={() => handleGenerateCrosstab(banner.id)}
-                            disabled={isGeneratingCrosstab || !fullRawData || !variables.length}
-                            className="p-2 rounded-lg transition-colors hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                            title="Download crosstab"
-                          >
-                            {generatingThis ? (
-                              <svg className="animate-spin h-5 w-5 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                              </svg>
-                            ) : (
-                              <svg className="h-5 w-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                              </svg>
-                            )}
-                          </button>
-                        </div>
-
-                        {/* Banner Structure Table */}
-                        {banner.groups && banner.groups.length > 0 && (
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-sm table-fixed border-collapse border border-gray-300">
-                              {/* Row 1: Subgroup titles */}
-                              <thead>
-                                <tr className="bg-gray-100">
-                                  <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 border border-gray-300">Total</th>
-                                  {banner.groups.map((group) => (
-                                    <th
-                                      key={group.id}
-                                      colSpan={group.cuts.length}
-                                      className="px-3 py-2 text-center text-xs font-semibold text-gray-700 border border-gray-300"
-                                    >
-                                      {group.title || 'Untitled'}
-                                    </th>
-                                  ))}
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {/* Row 2: Cut labels */}
-                                <tr>
-                                  <td className="px-3 py-2 text-xs text-gray-600 text-center border border-gray-300 font-medium">Total</td>
-                                  {banner.groups.map((group) => (
-                                    group.cuts.map((cut) => (
-                                      <td
-                                        key={cut.id}
-                                        className="px-3 py-2 text-xs text-gray-600 text-center border border-gray-300"
-                                      >
-                                        {cut.title || 'Untitled'}
-                                      </td>
-                                    ))
-                                  ))}
-                                </tr>
-                                {/* Row 3: Sample sizes */}
-                                <tr className="bg-gray-50">
-                                  <td className="px-3 py-2 text-xs text-gray-900 text-center border border-gray-300 font-semibold">
-                                    {(cutSizes['total'] || 0).toLocaleString()}
-                                  </td>
-                                  {banner.groups.map((group) => (
-                                    group.cuts.map((cut) => (
-                                      <td
-                                        key={cut.id}
-                                        className="px-3 py-2 text-xs text-gray-900 text-center border border-gray-300 font-semibold"
-                                      >
-                                        {(cutSizes[cut.id] || 0).toLocaleString()}
-                                      </td>
-                                    ))
-                                  ))}
-                                </tr>
-                              </tbody>
-                            </table>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
             ) : (
             /* Data Upload View */
             <div className="p-6">
@@ -27260,7 +27598,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                         </div>
                   </div>
             </div>
-          )}
+          ))}
           </div>
         </>
       )}
@@ -30764,12 +31102,18 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                           <div className="text-sm text-gray-800 mt-1">{section.question}</div>
                           <div className="text-xs text-gray-500 mt-1">{section.base}</div>
                         </div>
+                        {section.tableHtml ? (
                         <div className="preview-table overflow-auto">
                           <div
                             className="min-w-[720px]"
                             dangerouslySetInnerHTML={{ __html: section.tableHtml }}
                           />
                         </div>
+                        ) : (
+                          <div className="px-4 py-6 text-center text-sm text-gray-500 italic">
+                            Table content coming soon...
+                          </div>
+                        )}
                       </div>
                     );
                   })}
