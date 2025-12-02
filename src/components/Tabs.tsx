@@ -13204,10 +13204,11 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
     // Auto-load data when:
     // 1. Viewing variables tab (existing behavior)
     // 2. On the tabs page (qnr view) - load automatically when page opens
-    if (qnrViewMode === 'variables' || viewMode === 'qnr') {
+    // 3. Viewing raw data tab in the data section
+    if (qnrViewMode === 'variables' || viewMode === 'qnr' || dataTabView === 'rawdata') {
       loadFullRawData();
     }
-  }, [qnrViewMode, fullRawData, loadingFullRawData, selectedQuestionnaire, loadFullRawData, viewMode]);
+  }, [qnrViewMode, fullRawData, loadingFullRawData, selectedQuestionnaire, loadFullRawData, viewMode, dataTabView]);
 
   // Reset pagination when switching to raw data tab or when questionnaire changes
   useEffect(() => {
@@ -26756,6 +26757,7 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                                               <tr>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">File Name</th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Uploaded</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Respondents</th>
                             <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap"></th>
                                               </tr>
                                             </thead>
@@ -26765,6 +26767,9 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                             <td className="px-4 py-3 text-sm text-gray-500">
                               {new Date(uploadedFileInfo.uploadedAt).toLocaleDateString()} {new Date(uploadedFileInfo.uploadedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                   </td>
+                            <td className="px-4 py-3 text-sm text-gray-500">
+                              {fullRawData?.rows?.length || 0}
+                            </td>
                             <td className="px-4 py-3 text-sm text-right whitespace-nowrap">
                               <div className="flex items-center justify-end gap-2 flex-wrap">
                         <button
@@ -26916,14 +26921,20 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                             const fileInput = document.getElementById('data-file-upload') as HTMLInputElement;
                             if (fileInput) fileInput.value = '';
 
-                            // Load datamap in background (non-blocking) BEFORE clearing the upload flag
+                            // Clear full raw data state and attempted ref to force reload with new data
+                            setFullRawData(null);
+                            if (selectedQuestionnaire) {
+                              fullRawDataLoadAttemptedRef.current.delete(selectedQuestionnaire.id);
+                            }
+
+                            // Load datamap and raw data in background after upload
                             // This prevents loadFileInfo from loading old mappings if it gets triggered
                             if (selectedQuestionnaire) {
-                              console.log('🟡 [UPLOAD DEBUG] Loading datamap');
-                              // Load datamap and only clear the flag after it completes
-                              loadDatamap().finally(() => {
+                              console.log('🟡 [UPLOAD DEBUG] Loading datamap and raw data');
+                              // Load both datamap and raw data, then clear the flag
+                              Promise.all([loadDatamap(), loadFullRawData()]).finally(() => {
                                 // Clear the uploading flag AFTER datamap loads to prevent loadFileInfo from loading old mappings
-                                console.log('🟡 [UPLOAD DEBUG] Datamap loaded, now clearing upload flag');
+                                console.log('🟡 [UPLOAD DEBUG] Datamap and raw data loaded, now clearing upload flag');
                                 isUploadingNewFileRef.current = false;
                                 // Record when upload completed to prevent loadFileInfo from running too soon
                                 uploadCompletedAtRef.current = Date.now();
@@ -26972,29 +26983,35 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                               }`}
                               style={dataTabView === 'variables' ? { backgroundColor: BRAND_ORANGE } : {}}
                             >
-                              QNR Variables {questionnaireQuestions.length > 0 ? `(${questionnaireQuestions.length})` : variables.length > 0 ? `(${variables.length})` : ''}
+                              QNR Variables {questionnaireQuestions.length > 0 ? <span className="font-normal text-xs ml-1">({questionnaireQuestions.length})</span> : variables.length > 0 ? <span className="font-normal text-xs ml-1">({variables.length})</span> : ''}
                             </button>
                             <button
-                              onClick={() => setDataTabView('rawdata')}
-                              className={`text-sm font-semibold px-3 py-1.5 rounded cursor-pointer transition-colors ${
-                                dataTabView === 'rawdata'
-                                  ? 'text-white'
-                                  : 'text-gray-900 bg-white border border-gray-300 hover:bg-gray-50'
+                              onClick={() => uploadedFileInfo && setDataTabView('datamap')}
+                              disabled={!uploadedFileInfo}
+                              className={`text-sm font-semibold px-3 py-1.5 rounded transition-colors ${
+                                !uploadedFileInfo
+                                  ? 'text-gray-400 bg-gray-100 border border-gray-200 cursor-not-allowed'
+                                  : dataTabView === 'datamap'
+                                  ? 'text-white cursor-pointer'
+                                  : 'text-gray-900 bg-white border border-gray-300 hover:bg-gray-50 cursor-pointer'
                               }`}
-                              style={dataTabView === 'rawdata' ? { backgroundColor: BRAND_ORANGE } : {}}
+                              style={dataTabView === 'datamap' && uploadedFileInfo ? { backgroundColor: BRAND_ORANGE } : {}}
                             >
-                              Raw Data
+                              Data Map {datamapData?.parsedQuestions?.length > 0 ? <span className="font-normal text-xs ml-1">({datamapData.parsedQuestions.length})</span> : ''}
                             </button>
                             <button
-                              onClick={() => setDataTabView('datamap')}
-                              className={`text-sm font-semibold px-3 py-1.5 rounded cursor-pointer transition-colors ${
-                                dataTabView === 'datamap'
-                                  ? 'text-white'
-                                  : 'text-gray-900 bg-white border border-gray-300 hover:bg-gray-50'
+                              onClick={() => uploadedFileInfo && hasAttemptedMapping && setDataTabView('rawdata')}
+                              disabled={!uploadedFileInfo || !hasAttemptedMapping}
+                              className={`text-sm font-semibold px-3 py-1.5 rounded transition-colors ${
+                                !uploadedFileInfo || !hasAttemptedMapping
+                                  ? 'text-gray-400 bg-gray-100 border border-gray-200 cursor-not-allowed'
+                                  : dataTabView === 'rawdata'
+                                  ? 'text-white cursor-pointer'
+                                  : 'text-gray-900 bg-white border border-gray-300 hover:bg-gray-50 cursor-pointer'
                               }`}
-                              style={dataTabView === 'datamap' ? { backgroundColor: BRAND_ORANGE } : {}}
+                              style={dataTabView === 'rawdata' && uploadedFileInfo && hasAttemptedMapping ? { backgroundColor: BRAND_ORANGE } : {}}
                             >
-                              Data Map
+                              Raw Data {hasAttemptedMapping && columnHeaders.length > 0 ? <span className="font-normal text-xs ml-1">({columnHeaders.length})</span> : ''}
                             </button>
                           </div>
                           {dataTabView === 'variables' && (
@@ -27055,11 +27072,16 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                                 }
                               }}
                               disabled={mappingVariables || !selectedQuestionnaire || !selectedProject}
-                              className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
-                              title="Refresh expected headers from QNR and re-map columns"
+                              className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap ${
+                                !hasAttemptedMapping
+                                  ? 'text-white hover:opacity-90'
+                                  : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                              }`}
+                              style={!hasAttemptedMapping ? { backgroundColor: BRAND_ORANGE } : {}}
+                              title={!hasAttemptedMapping ? "Map QNR to Data File" : "Refresh expected headers from QNR and re-map columns"}
                             >
                               <ArrowPathIcon className={`h-4 w-4 ${mappingVariables ? 'animate-spin' : ''}`} />
-                              {mappingVariables ? 'Mapping...' : 'Refresh & Re-map'}
+                              {mappingVariables ? 'Mapping...' : !hasAttemptedMapping ? 'Map QNR to Data File' : 'Refresh & Re-map'}
                             </button>
                           </div>
                           <div className="border border-gray-200 rounded-lg overflow-hidden flex flex-col">
@@ -27701,6 +27723,953 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                                     </div>
                                   );
                                 })()}
+                            </div>
+                          )}
+                          {dataTabView === 'datamap' && (
+                            <div>
+                              <div className="mb-3 flex items-center gap-3">
+                                <div className="relative flex-1">
+                                  <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                  <input
+                                    type="text"
+                                    id="datamap-search"
+                                    name="datamap-search"
+                                    placeholder="Search questions, descriptions, column headers..."
+                                    value={datamapSearch}
+                                    onChange={(e) => setDatamapSearch(e.target.value)}
+                                    className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                  />
+                                </div>
+                              </div>
+
+                              <div>
+                              {(() => {
+                                // Load datamap if not already loaded
+                                if (!datamapData && !loadingDatamap && selectedQuestionnaire) {
+                                  loadDatamap();
+                                  return <div className="text-center py-8 text-gray-500">Loading datamap...</div>;
+                                }
+
+                                if (loadingDatamap) {
+                                  return <div className="text-center py-8 text-gray-500">Loading datamap...</div>;
+                                }
+
+                                if (!datamapData || !datamapData.questions || datamapData.questions.length === 0) {
+                                  // Show raw data if available for debugging
+                                  const hasRawData = datamapData && datamapData.rawData && datamapData.rawData.length > 0;
+
+                                  return (
+                                    <div className="space-y-4 flex-1">
+                                      {/* DEBUG: Raw Question IDs from Column 1 */}
+                                      {datamapData?.questions && datamapData.questions.length > 0 && (
+                                        <div className="bg-blue-50 border-2 border-blue-400 rounded-lg p-4">
+                                          <h4 className="text-sm font-bold text-blue-900 mb-3">🐛 DEBUG: Raw Question IDs (Column 1)</h4>
+                                          <div className="overflow-x-auto max-h-64 overflow-y-auto">
+                                            <table className="min-w-full divide-y divide-blue-200">
+                                              <thead className="bg-blue-100 sticky top-0">
+                                                <tr>
+                                                  <th className="px-4 py-2 text-left text-xs font-medium text-blue-900 uppercase tracking-wider">
+                                                    Question ID
+                                                  </th>
+                                                  <th className="px-4 py-2 text-left text-xs font-medium text-blue-900 uppercase tracking-wider">
+                                                    Question Text
+                                                  </th>
+                                                  <th className="px-4 py-2 text-left text-xs font-medium text-blue-900 uppercase tracking-wider">
+                                                    Values
+                                                  </th>
+                                                  <th className="px-4 py-2 text-left text-xs font-medium text-blue-900 uppercase tracking-wider">
+                                                    # Response Options
+                                                  </th>
+                                                  <th className="px-4 py-2 text-left text-xs font-medium text-blue-900 uppercase tracking-wider">
+                                                    # Categories
+                                                  </th>
+                                                </tr>
+                                              </thead>
+                                              <tbody className="bg-white divide-y divide-blue-100">
+                                                {datamapData.questions.map((q: any, idx: number) => (
+                                                  <tr key={idx} className="hover:bg-blue-50">
+                                                    <td className="px-4 py-2 whitespace-nowrap">
+                                                      <span className="px-2 py-1 bg-indigo-100 text-indigo-800 text-xs font-mono font-semibold rounded">
+                                                        {q.questionId}
+                                                      </span>
+                                                    </td>
+                                                    <td className="px-4 py-2 text-xs text-gray-700">
+                                                      {q.questionText ? (q.questionText.length > 50 ? q.questionText.substring(0, 50) + '...' : q.questionText) : '-'}
+                                                    </td>
+                                                    <td className="px-4 py-2 text-xs text-gray-600">
+                                                      {q.values || '-'}
+                                                    </td>
+                                                    <td className="px-4 py-2 text-center text-xs text-gray-600">
+                                                      {q.responseOptions?.length || 0}
+                                                    </td>
+                                                    <td className="px-4 py-2 text-center text-xs text-gray-600">
+                                                      {q.categories?.length || 0}
+                                                    </td>
+                                                  </tr>
+                                                ))}
+                                              </tbody>
+                                            </table>
+                                          </div>
+                                          <div className="mt-3 text-xs text-blue-800">
+                                            Total raw questions found in Column 1: <strong>{datamapData.questions.length}</strong>
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      {/* Parsed Questions from Datamap */}
+                                      {datamapData?.parsedQuestions && datamapData.parsedQuestions.length > 0 ? (() => {
+                                            // Filter parsedQuestions based on search
+                                            const searchLower = datamapSearch.toLowerCase().trim();
+                                            const filteredQuestions = datamapSearch
+                                              ? (datamapData.parsedQuestions || []).filter((question: any) => {
+                                                  // Search in question number
+                                                  const questionNumber = String(question.questionNumber || '').toLowerCase();
+                                                  // Search in description
+                                                  const description = String(question.description || '').toLowerCase();
+                                                  // Search in response type
+                                                  const responseType = String(question.responseType || '').toLowerCase();
+                                                  // Search in column names
+                                                  const columnNames = (question.columnDefinitions || [])
+                                                    .map((def: any) => String(def.columnName || '').toLowerCase())
+                                                    .join(' ');
+                                                  // Search in response codes
+                                                  const responseCodes = (question.responseCodes || [])
+                                                    .map((code: any) => String(code.code || '') + ' ' + String(code.label || ''))
+                                                    .join(' ')
+                                                    .toLowerCase();
+
+                                                  return questionNumber.includes(searchLower) ||
+                                                         description.includes(searchLower) ||
+                                                         responseType.includes(searchLower) ||
+                                                         columnNames.includes(searchLower) ||
+                                                         responseCodes.includes(searchLower);
+                                                })
+                                              : (datamapData.parsedQuestions || []);
+
+                                            return (
+                                            <table className="w-full table-fixed divide-y divide-gray-200">
+                                              <thead className="bg-gray-50 sticky top-0">
+                                                <tr>
+                                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider" style={{ width: '12%' }}>
+                                                    Question #
+                                                  </th>
+                                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider" style={{ width: '20%' }}>
+                                                    Description
+                                                  </th>
+                                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider" style={{ width: '14%' }}>
+                                                    Response Type
+                                                  </th>
+                                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider" style={{ width: '12%' }}>
+                                                    Q Type
+                                                  </th>
+                                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider" style={{ width: '22%' }}>
+                                                    Response Codes
+                                                  </th>
+                                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider" style={{ width: '20%' }}>
+                                                    Column headers
+                                                  </th>
+                                                  <th className="px-4 py-2 text-center text-xs font-medium text-gray-700 uppercase tracking-wider" style={{ width: '8%' }}>
+                                                    In QNR
+                                                  </th>
+                                                </tr>
+                                              </thead>
+                                              <tbody className="bg-white divide-y divide-gray-200">
+                                                {filteredQuestions.map((question: any, idx: number) => {
+                                                  // Determine response type styling first (needed for question type detection)
+                                                  const responseType = question.responseType || 'Unknown';
+
+                                                  // Determine question type based on response type
+                                                  const getQuestionType = (type: string): string => {
+                                                    const lowerType = type.toLowerCase();
+
+                                                    // Open text → Open end
+                                                    if (lowerType.includes('open text')) {
+                                                      return 'Open end';
+                                                    }
+
+                                                    // Open numeric → Numeric
+                                                    if (lowerType.includes('open numeric')) {
+                                                      return 'Numeric';
+                                                    }
+
+                                                    // Values: 0-1 → Multi-select
+                                                    if (lowerType.match(/values?:\s*0\s*-\s*1/i)) {
+                                                      return 'Multi-select';
+                                                    }
+
+                                                    // Check for values range
+                                                    const valuesMatch = lowerType.match(/values?:\s*(\d+)\s*-\s*(\d+)/i);
+                                                    if (valuesMatch) {
+                                                      const min = parseInt(valuesMatch[1]);
+                                                      const max = parseInt(valuesMatch[2]);
+
+                                                      // Values 1-99 → Single select
+                                                      if (min >= 1 && max <= 99) {
+                                                        return 'Single select';
+                                                      }
+
+                                                      // Values outside 1-99 → Numeric
+                                                      return 'Numeric';
+                                                    }
+
+                                                    // Check for single number pattern (e.g., "Values: 1-4" as single number)
+                                                    const singleValueMatch = lowerType.match(/values?:\s*(\d+)/i);
+                                                    if (singleValueMatch) {
+                                                      const value = parseInt(singleValueMatch[1]);
+                                                      if (value >= 1 && value <= 99) {
+                                                        return 'Single select';
+                                                      }
+                                                      return 'Numeric';
+                                                    }
+
+                                                    return 'Unknown';
+                                                  };
+
+                                                  let questionType = getQuestionType(responseType);
+
+                                                  // If question type is Numeric and has response codes, re-classify as "Numeric grid"
+                                                  if (questionType === 'Numeric' && question.responseCodes && question.responseCodes.length > 0) {
+                                                    questionType = 'Numeric grid';
+                                                  }
+
+                                                  // Helper function to check if response codes have brackets
+                                                  const hasBracketsInResponseCodes = (responseCodes: any[]): boolean => {
+                                                    return responseCodes.some((codeItem: any) => {
+                                                      const codeStr = String(codeItem.code || '').trim();
+                                                      return /\[([^\]]+)\]|\(([^)]+)\)/.test(codeStr);
+                                                    });
+                                                  };
+
+                                                  // If it's a Single select with value range AND has brackets in response codes, re-classify as "Single select grid"
+                                                  if (questionType === 'Single select' &&
+                                                      question.responseCodes &&
+                                                      question.responseCodes.length > 0 &&
+                                                      responseType &&
+                                                      responseType.toLowerCase().match(/values?:\s*\d+/i) &&
+                                                      hasBracketsInResponseCodes(question.responseCodes)) {
+                                                    questionType = 'Single select grid';
+                                                  }
+
+                                                  // Find matching column headers for this question
+                                                  let matchingColumns: string[] = [];
+
+                                                  // Helper function to extract column headers from brackets in response codes
+                                                  // Only extracts from the CODE field (grey boxes), not from the TEXT field
+                                                  const extractColumnHeadersFromResponseCodes = (responseCodes: any[]): string[] => {
+                                                    const extractedColumnNames: string[] = [];
+
+                                                    responseCodes.forEach((codeItem: any) => {
+                                                      // Only check the code field (the grey boxes), not the text field
+                                                      const codeStr = String(codeItem.code || '').trim();
+
+                                                      // Extract values from brackets: [QS3r1] -> QS3r1
+                                                      // Try multiple patterns to catch different bracket formats
+                                                      const bracketPatterns = [
+                                                        /\[([^\]]+)\]/g,  // [QS3r1]
+                                                        /\(([^)]+)\)/g,   // (QS3r1) - parentheses
+                                                      ];
+
+                                                      // Check code field only
+                                                      bracketPatterns.forEach(pattern => {
+                                                        let match;
+                                                        // Reset regex lastIndex to avoid issues with global regex
+                                                        pattern.lastIndex = 0;
+                                                        while ((match = pattern.exec(codeStr)) !== null) {
+                                                          extractedColumnNames.push(match[1].trim());
+                                                        }
+                                                      });
+                                                    });
+
+                                                    return extractedColumnNames;
+                                                  };
+
+                                                  // Check if it's a multi-select by question type OR by response type pattern
+                                                  const isMultiSelect = questionType === 'Multi-select' ||
+                                                                       (responseType && responseType.toLowerCase().match(/values?:\s*0\s*-\s*1/i));
+
+                                                  if ((isMultiSelect || questionType === 'Numeric grid' || questionType === 'Single select grid') && question.responseCodes && question.responseCodes.length > 0) {
+                                                    // For multi-select, numeric grid, and single select grid questions, extract column headers directly from brackets in response codes
+                                                    // The response codes already contain the column header names in brackets
+                                                    matchingColumns = extractColumnHeadersFromResponseCodes(question.responseCodes);
+                                                  } else {
+                                                    // For other question types, use the original matching logic
+                                                    const qNum = question.questionNumber || '';
+
+                                                    // Check if this is an Open Text response type
+                                                    const isOpenText = responseType && responseType.toLowerCase().includes('open text');
+
+                                                    // For open end questions, also check for Q prefix variations and columns with additional text
+                                                    const isOpenEnd = questionType === 'Open end' || questionType === 'Numeric';
+
+                                                    // For Open Text questions, also check if there are any columns that might match
+                                                    // even if they're not in columnDefinitions (fallback to all available columns)
+                                                    let columnsToCheck = datamapData.columnDefinitions || [];
+
+                                                    // If no matches found in columnDefinitions for Open Text, try to find any column that matches
+                                                    matchingColumns = columnsToCheck
+                                                      ?.filter((def: any) => {
+                                                        if (!def.columnName) return false;
+
+                                                        const colName = def.columnName;
+                                                        const colNameLower = colName.toLowerCase();
+                                                        const qNumLower = qNum.toLowerCase();
+
+                                                        // For Open Text questions, the column header should always match the Question # exactly
+                                                        if (isOpenText) {
+                                                          // Normalize question number - handle Q prefix variations
+                                                          const qNumWithQ = qNumLower.startsWith('q') ? qNumLower : 'q' + qNumLower;
+                                                          const qNumWithoutQ = qNumLower.startsWith('q') ? qNumLower.substring(1) : qNumLower;
+
+                                                          // Match exact question number (with or without Q prefix)
+                                                          if (colNameLower === qNumLower || colNameLower === qNumWithQ || colNameLower === qNumWithoutQ) {
+                                                            return true;
+                                                          }
+
+                                                          // Also match if column starts with question number and has additional text (e.g., "QS1 - Question text")
+                                                          // Check both with and without Q prefix
+                                                          if (colNameLower.startsWith(qNumWithQ)) {
+                                                            const afterMatch = colNameLower.substring(qNumWithQ.length);
+                                                            // If it's followed by space, dash, or end of string, it's a match
+                                                            if (!afterMatch || afterMatch.match(/^[\s\-]/)) {
+                                                              return true;
+                                                            }
+                                                          }
+
+                                                          if (colNameLower.startsWith(qNumWithoutQ)) {
+                                                            const afterMatch = colNameLower.substring(qNumWithoutQ.length);
+                                                            // If it's followed by space, dash, or end of string, it's a match
+                                                            if (!afterMatch || afterMatch.match(/^[\s\-]/)) {
+                                                              return true;
+                                                            }
+                                                          }
+
+                                                          // Also check if column name starts with the question number (case-insensitive substring match)
+                                                          // This handles cases where the column might be "Q512" and question is "512" or vice versa
+                                                          if (qNumWithQ.length > 0 && colNameLower.includes(qNumWithQ)) {
+                                                            // Make sure it's at the start or after a non-alphanumeric character
+                                                            const index = colNameLower.indexOf(qNumWithQ);
+                                                            if (index === 0 || (index > 0 && !/[a-z0-9]/.test(colNameLower[index - 1]))) {
+                                                              const afterMatch = colNameLower.substring(index + qNumWithQ.length);
+                                                              if (!afterMatch || afterMatch.match(/^[\s\-]/)) {
+                                                                return true;
+                                                              }
+                                                            }
+                                                          }
+
+                                                          if (qNumWithoutQ.length > 0 && colNameLower.includes(qNumWithoutQ)) {
+                                                            const index = colNameLower.indexOf(qNumWithoutQ);
+                                                            if (index === 0 || (index > 0 && !/[a-z0-9]/.test(colNameLower[index - 1]))) {
+                                                              const afterMatch = colNameLower.substring(index + qNumWithoutQ.length);
+                                                              if (!afterMatch || afterMatch.match(/^[\s\-]/)) {
+                                                                return true;
+                                                              }
+                                                            }
+                                                          }
+
+                                                          // For Open Text, don't match row/column patterns - only exact matches
+                                                          return false;
+                                                        }
+
+                                                        // For other question types, use the original matching logic
+                                                        // Exact match
+                                                        if (colNameLower === qNumLower) return true;
+
+                                                        // Match with Q prefix variations
+                                                        const qNumWithQ = qNumLower.startsWith('q') ? qNumLower : 'q' + qNumLower;
+                                                        const qNumWithoutQ = qNumLower.startsWith('q') ? qNumLower.substring(1) : qNumLower;
+
+                                                        if (colNameLower === qNumWithQ || colNameLower === qNumWithoutQ) return true;
+
+                                                        // For open end questions, also match columns that start with the question number (with or without Q prefix)
+                                                        // and may have additional text (e.g., "QS1 - Question text")
+                                                        if (isOpenEnd) {
+                                                          if (colNameLower.startsWith(qNumWithQ) || colNameLower.startsWith(qNumWithoutQ)) {
+                                                            // Check if it's followed by a space, dash, or end of string (not a row/column indicator)
+                                                            const afterMatch = colNameLower.substring(
+                                                              colNameLower.startsWith(qNumWithQ) ? qNumWithQ.length : qNumWithoutQ.length
+                                                            );
+                                                            // If it's empty, space, dash, or just whitespace, it's a match
+                                                            if (!afterMatch || afterMatch.match(/^[\s\-]/) || afterMatch.length === 0) {
+                                                              return true;
+                                                            }
+                                                          }
+                                                        }
+
+                                                        // Match columns that start with the question number followed by row/column indicators
+                                                        return (
+                                                          colNameLower.startsWith(qNumLower + 'r') ||
+                                                          colNameLower.startsWith(qNumLower + 'c') ||
+                                                          colNameLower.startsWith(qNumLower + '_r') ||
+                                                          colNameLower.startsWith(qNumLower + '_c') ||
+                                                          colNameLower.startsWith(qNumLower + '-') ||
+                                                          colNameLower.startsWith(qNumWithQ + 'r') ||
+                                                          colNameLower.startsWith(qNumWithQ + 'c') ||
+                                                          colNameLower.startsWith(qNumWithQ + '_r') ||
+                                                          colNameLower.startsWith(qNumWithQ + '_c') ||
+                                                          colNameLower.startsWith(qNumWithQ + '-')
+                                                        );
+                                                      })
+                                                      .map((def: any) => def.columnName) || [];
+
+                                                    // For Open Text questions, if no matching columns were found in columnDefinitions,
+                                                    // use the question number itself as the expected column header
+                                                    if (isOpenText && matchingColumns.length === 0 && qNum) {
+                                                      // Use the question number as-is (it should match the column in the data file)
+                                                      matchingColumns = [qNum];
+                                                    }
+                                                  }
+
+                                                  const getResponseTypeStyle = (type: string) => {
+                                                    const lowerType = type.toLowerCase();
+                                                    if (lowerType.includes('open numeric')) {
+                                                      return 'bg-blue-100 text-blue-800';
+                                                    } else if (lowerType.includes('open text')) {
+                                                      return 'bg-cyan-100 text-cyan-800';
+                                                    } else if (lowerType.match(/values?:\s*0\s*-\s*1/i)) {
+                                                      return 'bg-green-100 text-green-800';
+                                                    } else if (lowerType.includes('values:')) {
+                                                      return 'bg-orange-100 text-orange-800';
+                                                    } else {
+                                                      return 'bg-gray-100 text-gray-800';
+                                                    }
+                                                  };
+
+                                                  const isExpanded = expandedDatamapRows.has(idx);
+                                                  const toggleExpand = () => {
+                                                    setExpandedDatamapRows(prev => {
+                                                      const newSet = new Set(prev);
+                                                      if (newSet.has(idx)) {
+                                                        newSet.delete(idx);
+                                                      } else {
+                                                        newSet.add(idx);
+                                                      }
+                                                      return newSet;
+                                                    });
+                                                  };
+
+                                                  return (
+                                                    <tr
+                                                      key={idx}
+                                                      className="hover:bg-yellow-50 cursor-pointer"
+                                                      onClick={toggleExpand}
+                                                    >
+                                                      <td className="px-4 py-2 text-xs text-gray-700" style={isExpanded ? {} : { maxHeight: '3rem', overflow: 'hidden' }}>
+                                                        <div style={isExpanded ? {} : { display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                                          {question.questionNumber}
+                                                        </div>
+                                                      </td>
+                                                      <td className="px-4 py-2 text-xs text-gray-700" style={isExpanded ? {} : { maxHeight: '3rem', overflow: 'hidden' }}>
+                                                        <div style={isExpanded ? {} : { display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                                          {question.description || '-'}
+                                                        </div>
+                                                      </td>
+                                                      <td className="px-4 py-2 text-xs text-gray-700" style={isExpanded ? {} : { maxHeight: '3rem', overflow: 'hidden' }}>
+                                                        <div style={isExpanded ? {} : { display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                                          {responseType}
+                                                        </div>
+                                                      </td>
+                                                      <td className="px-4 py-2 text-xs text-gray-700" style={isExpanded ? {} : { maxHeight: '3rem', overflow: 'hidden' }}>
+                                                        <div style={isExpanded ? {} : { display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                                          {questionType}
+                                                        </div>
+                                                      </td>
+                                                      <td className="px-4 py-2 text-xs text-gray-600" style={isExpanded ? {} : { maxHeight: '3rem', overflow: 'hidden' }}>
+                                                        {question.responseCodes && question.responseCodes.length > 0 ? (
+                                                          <div style={isExpanded ? {} : { display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                                            {question.responseCodes.map((codeItem: any, codeIdx: number) => (
+                                                              <span key={codeIdx}>
+                                                                {codeItem.code}: {codeItem.text}
+                                                                {codeIdx < question.responseCodes.length - 1 ? ', ' : ''}
+                                                              </span>
+                                                            ))}
+                                                          </div>
+                                                        ) : (
+                                                          <span className="text-gray-400 italic">-</span>
+                                                        )}
+                                                      </td>
+                                                      <td className="px-4 py-2 text-xs text-gray-600" style={isExpanded ? {} : { maxHeight: '3rem', overflow: 'hidden' }}>
+                                                        {matchingColumns.length > 0 ? (
+                                                          <div style={isExpanded ? {} : { display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                                            {matchingColumns.join(', ')}
+                                                          </div>
+                                                        ) : (
+                                                          <span className="text-gray-400 italic">-</span>
+                                                        )}
+                                                      </td>
+                                                      <td className="px-4 py-2 text-center">
+                                                        {(() => {
+                                                          // Check if this question exists in questionnaireQuestions
+                                                          const datamapQuestionNumber = question.questionNumber || '';
+                                                          const isInQNR = questionnaireQuestions.some((qnrQuestion: any) => {
+                                                            const qnrNumber = String(qnrQuestion.number || qnrQuestion.id || '');
+                                                            // Normalize both for comparison (handle Q prefix variations)
+                                                            const datamapNormalized = datamapQuestionNumber.toLowerCase().trim();
+                                                            const qnrNormalized = qnrNumber.toLowerCase().trim();
+
+                                                            // Check exact match
+                                                            if (datamapNormalized === qnrNormalized) return true;
+
+                                                            // Check with/without Q prefix
+                                                            const datamapWithQ = datamapNormalized.startsWith('q') ? datamapNormalized : 'q' + datamapNormalized;
+                                                            const datamapWithoutQ = datamapNormalized.startsWith('q') ? datamapNormalized.substring(1) : datamapNormalized;
+                                                            const qnrWithQ = qnrNormalized.startsWith('q') ? qnrNormalized : 'q' + qnrNormalized;
+                                                            const qnrWithoutQ = qnrNormalized.startsWith('q') ? qnrNormalized.substring(1) : qnrNormalized;
+
+                                                            return datamapWithQ === qnrWithQ ||
+                                                                   datamapWithQ === qnrWithoutQ ||
+                                                                   datamapWithoutQ === qnrWithQ ||
+                                                                   datamapWithoutQ === qnrWithoutQ;
+                                                          });
+
+                                                          return isInQNR ? (
+                                                            <CheckCircleIcon className="h-5 w-5 text-green-500 mx-auto" title="This question is in the QNR" />
+                                                          ) : (
+                                                            <span className="text-gray-300">-</span>
+                                                          );
+                                                        })()}
+                                                      </td>
+                                                    </tr>
+                                                  );
+                                                })}
+                                              </tbody>
+                                            </table>
+                                            );
+                                            })() : null}
+                                    </div>
+                                  );
+                                }
+
+                                return (
+                                  <div className="flex-1 flex flex-col min-h-0">
+                                    {/* Parsed Questions from Datamap */}
+                                    {datamapData?.parsedQuestions && datamapData.parsedQuestions.length > 0 ? (() => {
+                                            // Filter parsedQuestions based on search
+                                            const searchLower = datamapSearch.toLowerCase().trim();
+                                            const filteredQuestions = datamapSearch
+                                              ? (datamapData.parsedQuestions || []).filter((question: any) => {
+                                                  // Search in question number
+                                                  const questionNumber = String(question.questionNumber || '').toLowerCase();
+                                                  // Search in description
+                                                  const description = String(question.description || '').toLowerCase();
+                                                  // Search in response type
+                                                  const responseType = String(question.responseType || '').toLowerCase();
+                                                  // Search in column names
+                                                  const columnNames = (question.columnDefinitions || [])
+                                                    .map((def: any) => String(def.columnName || '').toLowerCase())
+                                                    .join(' ');
+                                                  // Search in response codes
+                                                  const responseCodes = (question.responseCodes || [])
+                                                    .map((code: any) => String(code.code || '') + ' ' + String(code.label || ''))
+                                                    .join(' ')
+                                                    .toLowerCase();
+
+                                                  return questionNumber.includes(searchLower) ||
+                                                         description.includes(searchLower) ||
+                                                         responseType.includes(searchLower) ||
+                                                         columnNames.includes(searchLower) ||
+                                                         responseCodes.includes(searchLower);
+                                                })
+                                              : (datamapData.parsedQuestions || []);
+
+                                            return (
+                                            <div className="overflow-auto">
+                                            <table className="w-full table-fixed divide-y divide-gray-200">
+                                              <thead className="bg-gray-50 sticky top-0">
+                                                <tr>
+                                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider" style={{ width: '12%' }}>
+                                                    Question #
+                                                  </th>
+                                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider" style={{ width: '20%' }}>
+                                                    Description
+                                                  </th>
+                                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider" style={{ width: '14%' }}>
+                                                    Response Type
+                                                  </th>
+                                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider" style={{ width: '12%' }}>
+                                                    Q Type
+                                                  </th>
+                                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider" style={{ width: '22%' }}>
+                                                    Response Codes
+                                                  </th>
+                                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider" style={{ width: '20%' }}>
+                                                    Column headers
+                                                  </th>
+                                                  <th className="px-4 py-2 text-center text-xs font-medium text-gray-700 uppercase tracking-wider" style={{ width: '8%' }}>
+                                                    In QNR
+                                                  </th>
+                                                </tr>
+                                              </thead>
+                                              <tbody className="bg-white divide-y divide-gray-200">
+                                                {filteredQuestions.map((question: any, idx: number) => {
+                                                  // Determine response type styling first (needed for question type detection)
+                                                  const responseType = question.responseType || 'Unknown';
+
+                                                  // Determine question type based on response type
+                                                  const getQuestionType = (type: string): string => {
+                                                    const lowerType = type.toLowerCase();
+
+                                                    // Open text → Open end
+                                                    if (lowerType.includes('open text')) {
+                                                      return 'Open end';
+                                                    }
+
+                                                    // Open numeric → Numeric
+                                                    if (lowerType.includes('open numeric')) {
+                                                      return 'Numeric';
+                                                    }
+
+                                                    // Values: 0-1 → Multi-select
+                                                    if (lowerType.match(/values?:\s*0\s*-\s*1/i)) {
+                                                      return 'Multi-select';
+                                                    }
+
+                                                    // Check for values range
+                                                    const valuesMatch = lowerType.match(/values?:\s*(\d+)\s*-\s*(\d+)/i);
+                                                    if (valuesMatch) {
+                                                      const min = parseInt(valuesMatch[1]);
+                                                      const max = parseInt(valuesMatch[2]);
+
+                                                      // Values 1-99 → Single select
+                                                      if (min >= 1 && max <= 99) {
+                                                        return 'Single select';
+                                                      }
+
+                                                      // Values outside 1-99 → Numeric
+                                                      return 'Numeric';
+                                                    }
+
+                                                    // Check for single number pattern (e.g., "Values: 1-4" as single number)
+                                                    const singleValueMatch = lowerType.match(/values?:\s*(\d+)/i);
+                                                    if (singleValueMatch) {
+                                                      const value = parseInt(singleValueMatch[1]);
+                                                      if (value >= 1 && value <= 99) {
+                                                        return 'Single select';
+                                                      }
+                                                      return 'Numeric';
+                                                    }
+
+                                                    return 'Unknown';
+                                                  };
+
+                                                  let questionType = getQuestionType(responseType);
+
+                                                  // If question type is Numeric and has response codes, re-classify as "Numeric grid"
+                                                  if (questionType === 'Numeric' && question.responseCodes && question.responseCodes.length > 0) {
+                                                    questionType = 'Numeric grid';
+                                                  }
+
+                                                  // Helper function to check if response codes have brackets
+                                                  const hasBracketsInResponseCodes = (responseCodes: any[]): boolean => {
+                                                    return responseCodes.some((codeItem: any) => {
+                                                      const codeStr = String(codeItem.code || '').trim();
+                                                      return /\[([^\]]+)\]|\(([^)]+)\)/.test(codeStr);
+                                                    });
+                                                  };
+
+                                                  // If it's a Single select with value range AND has brackets in response codes, re-classify as "Single select grid"
+                                                  if (questionType === 'Single select' &&
+                                                      question.responseCodes &&
+                                                      question.responseCodes.length > 0 &&
+                                                      responseType &&
+                                                      responseType.toLowerCase().match(/values?:\s*\d+/i) &&
+                                                      hasBracketsInResponseCodes(question.responseCodes)) {
+                                                    questionType = 'Single select grid';
+                                                  }
+
+                                                  // Find matching column headers for this question
+                                                  let matchingColumns: string[] = [];
+
+                                                  // Helper function to extract column headers from brackets in response codes
+                                                  // Only extracts from the CODE field (grey boxes), not from the TEXT field
+                                                  const extractColumnHeadersFromResponseCodes = (responseCodes: any[]): string[] => {
+                                                    const extractedColumnNames: string[] = [];
+
+                                                    responseCodes.forEach((codeItem: any) => {
+                                                      // Only check the code field (the grey boxes), not the text field
+                                                      const codeStr = String(codeItem.code || '').trim();
+
+                                                      // Extract values from brackets: [QS3r1] -> QS3r1
+                                                      // Try multiple patterns to catch different bracket formats
+                                                      const bracketPatterns = [
+                                                        /\[([^\]]+)\]/g,  // [QS3r1]
+                                                        /\(([^)]+)\)/g,   // (QS3r1) - parentheses
+                                                      ];
+
+                                                      // Check code field only
+                                                      bracketPatterns.forEach(pattern => {
+                                                        let match;
+                                                        // Reset regex lastIndex to avoid issues with global regex
+                                                        pattern.lastIndex = 0;
+                                                        while ((match = pattern.exec(codeStr)) !== null) {
+                                                          extractedColumnNames.push(match[1].trim());
+                                                        }
+                                                      });
+                                                    });
+
+                                                    return extractedColumnNames;
+                                                  };
+
+                                                  // Check if it's a multi-select by question type OR by response type pattern
+                                                  const isMultiSelect = questionType === 'Multi-select' ||
+                                                                       (responseType && responseType.toLowerCase().match(/values?:\s*0\s*-\s*1/i));
+
+                                                  if ((isMultiSelect || questionType === 'Numeric grid' || questionType === 'Single select grid') && question.responseCodes && question.responseCodes.length > 0) {
+                                                    // For multi-select, numeric grid, and single select grid questions, extract column headers directly from brackets in response codes
+                                                    // The response codes already contain the column header names in brackets
+                                                    matchingColumns = extractColumnHeadersFromResponseCodes(question.responseCodes);
+                                                  } else {
+                                                    // For other question types, use the original matching logic
+                                                    const qNum = question.questionNumber || '';
+
+                                                    // Check if this is an Open Text response type
+                                                    const isOpenText = responseType && responseType.toLowerCase().includes('open text');
+
+                                                    // For open end questions, also check for Q prefix variations and columns with additional text
+                                                    const isOpenEnd = questionType === 'Open end' || questionType === 'Numeric';
+
+                                                    // For Open Text questions, also check if there are any columns that might match
+                                                    // even if they're not in columnDefinitions (fallback to all available columns)
+                                                    let columnsToCheck = datamapData.columnDefinitions || [];
+
+                                                    // If no matches found in columnDefinitions for Open Text, try to find any column that matches
+                                                    matchingColumns = columnsToCheck
+                                                      ?.filter((def: any) => {
+                                                        if (!def.columnName) return false;
+
+                                                        const colName = def.columnName;
+                                                        const colNameLower = colName.toLowerCase();
+                                                        const qNumLower = qNum.toLowerCase();
+
+                                                        // For Open Text questions, the column header should always match the Question # exactly
+                                                        if (isOpenText) {
+                                                          // Normalize question number - handle Q prefix variations
+                                                          const qNumWithQ = qNumLower.startsWith('q') ? qNumLower : 'q' + qNumLower;
+                                                          const qNumWithoutQ = qNumLower.startsWith('q') ? qNumLower.substring(1) : qNumLower;
+
+                                                          // Match exact question number (with or without Q prefix)
+                                                          if (colNameLower === qNumLower || colNameLower === qNumWithQ || colNameLower === qNumWithoutQ) {
+                                                            return true;
+                                                          }
+
+                                                          // Also match if column starts with question number and has additional text (e.g., "QS1 - Question text")
+                                                          // Check both with and without Q prefix
+                                                          if (colNameLower.startsWith(qNumWithQ)) {
+                                                            const afterMatch = colNameLower.substring(qNumWithQ.length);
+                                                            // If it's followed by space, dash, or end of string, it's a match
+                                                            if (!afterMatch || afterMatch.match(/^[\s\-]/)) {
+                                                              return true;
+                                                            }
+                                                          }
+
+                                                          if (colNameLower.startsWith(qNumWithoutQ)) {
+                                                            const afterMatch = colNameLower.substring(qNumWithoutQ.length);
+                                                            // If it's followed by space, dash, or end of string, it's a match
+                                                            if (!afterMatch || afterMatch.match(/^[\s\-]/)) {
+                                                              return true;
+                                                            }
+                                                          }
+
+                                                          // Also check if column name starts with the question number (case-insensitive substring match)
+                                                          // This handles cases where the column might be "Q512" and question is "512" or vice versa
+                                                          if (qNumWithQ.length > 0 && colNameLower.includes(qNumWithQ)) {
+                                                            // Make sure it's at the start or after a non-alphanumeric character
+                                                            const index = colNameLower.indexOf(qNumWithQ);
+                                                            if (index === 0 || (index > 0 && !/[a-z0-9]/.test(colNameLower[index - 1]))) {
+                                                              const afterMatch = colNameLower.substring(index + qNumWithQ.length);
+                                                              if (!afterMatch || afterMatch.match(/^[\s\-]/)) {
+                                                                return true;
+                                                              }
+                                                            }
+                                                          }
+
+                                                          if (qNumWithoutQ.length > 0 && colNameLower.includes(qNumWithoutQ)) {
+                                                            const index = colNameLower.indexOf(qNumWithoutQ);
+                                                            if (index === 0 || (index > 0 && !/[a-z0-9]/.test(colNameLower[index - 1]))) {
+                                                              const afterMatch = colNameLower.substring(index + qNumWithoutQ.length);
+                                                              if (!afterMatch || afterMatch.match(/^[\s\-]/)) {
+                                                                return true;
+                                                              }
+                                                            }
+                                                          }
+
+                                                          // For Open Text, don't match row/column patterns - only exact matches
+                                                          return false;
+                                                        }
+
+                                                        // For other question types, use the original matching logic
+                                                        // Exact match
+                                                        if (colNameLower === qNumLower) return true;
+
+                                                        // Match with Q prefix variations
+                                                        const qNumWithQ = qNumLower.startsWith('q') ? qNumLower : 'q' + qNumLower;
+                                                        const qNumWithoutQ = qNumLower.startsWith('q') ? qNumLower.substring(1) : qNumLower;
+
+                                                        if (colNameLower === qNumWithQ || colNameLower === qNumWithoutQ) return true;
+
+                                                        // For open end questions, also match columns that start with the question number (with or without Q prefix)
+                                                        // and may have additional text (e.g., "QS1 - Question text")
+                                                        if (isOpenEnd) {
+                                                          if (colNameLower.startsWith(qNumWithQ) || colNameLower.startsWith(qNumWithoutQ)) {
+                                                            // Check if it's followed by a space, dash, or end of string (not a row/column indicator)
+                                                            const afterMatch = colNameLower.substring(
+                                                              colNameLower.startsWith(qNumWithQ) ? qNumWithQ.length : qNumWithoutQ.length
+                                                            );
+                                                            // If it's empty, space, dash, or just whitespace, it's a match
+                                                            if (!afterMatch || afterMatch.match(/^[\s\-]/) || afterMatch.length === 0) {
+                                                              return true;
+                                                            }
+                                                          }
+                                                        }
+
+                                                        // Match columns that start with the question number followed by row/column indicators
+                                                        return (
+                                                          colNameLower.startsWith(qNumLower + 'r') ||
+                                                          colNameLower.startsWith(qNumLower + 'c') ||
+                                                          colNameLower.startsWith(qNumLower + '_r') ||
+                                                          colNameLower.startsWith(qNumLower + '_c') ||
+                                                          colNameLower.startsWith(qNumLower + '-') ||
+                                                          colNameLower.startsWith(qNumWithQ + 'r') ||
+                                                          colNameLower.startsWith(qNumWithQ + 'c') ||
+                                                          colNameLower.startsWith(qNumWithQ + '_r') ||
+                                                          colNameLower.startsWith(qNumWithQ + '_c') ||
+                                                          colNameLower.startsWith(qNumWithQ + '-')
+                                                        );
+                                                      })
+                                                      .map((def: any) => def.columnName) || [];
+
+                                                    // For Open Text questions, if no matching columns were found in columnDefinitions,
+                                                    // use the question number itself as the expected column header
+                                                    if (isOpenText && matchingColumns.length === 0 && qNum) {
+                                                      // Use the question number as-is (it should match the column in the data file)
+                                                      matchingColumns = [qNum];
+                                                    }
+                                                  }
+
+                                                  const getResponseTypeStyle = (type: string) => {
+                                                    const lowerType = type.toLowerCase();
+                                                    if (lowerType.includes('open numeric')) {
+                                                      return 'bg-blue-100 text-blue-800';
+                                                    } else if (lowerType.includes('open text')) {
+                                                      return 'bg-cyan-100 text-cyan-800';
+                                                    } else if (lowerType.match(/values?:\s*0\s*-\s*1/i)) {
+                                                      return 'bg-green-100 text-green-800';
+                                                    } else if (lowerType.includes('values:')) {
+                                                      return 'bg-orange-100 text-orange-800';
+                                                    } else {
+                                                      return 'bg-gray-100 text-gray-800';
+                                                    }
+                                                  };
+
+                                                  const isExpanded = expandedDatamapRows.has(idx);
+                                                  const toggleExpand = () => {
+                                                    setExpandedDatamapRows(prev => {
+                                                      const newSet = new Set(prev);
+                                                      if (newSet.has(idx)) {
+                                                        newSet.delete(idx);
+                                                      } else {
+                                                        newSet.add(idx);
+                                                      }
+                                                      return newSet;
+                                                    });
+                                                  };
+
+                                                  return (
+                                                    <tr
+                                                      key={idx}
+                                                      className="hover:bg-yellow-50 cursor-pointer"
+                                                      onClick={toggleExpand}
+                                                    >
+                                                      <td className="px-4 py-2 text-xs text-gray-700" style={isExpanded ? {} : { maxHeight: '3rem', overflow: 'hidden' }}>
+                                                        <div style={isExpanded ? {} : { display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                                          {question.questionNumber}
+                                                        </div>
+                                                      </td>
+                                                      <td className="px-4 py-2 text-xs text-gray-700" style={isExpanded ? {} : { maxHeight: '3rem', overflow: 'hidden' }}>
+                                                        <div style={isExpanded ? {} : { display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                                          {question.description || '-'}
+                                                        </div>
+                                                      </td>
+                                                      <td className="px-4 py-2 text-xs text-gray-700" style={isExpanded ? {} : { maxHeight: '3rem', overflow: 'hidden' }}>
+                                                        <div style={isExpanded ? {} : { display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                                          {responseType}
+                                                        </div>
+                                                      </td>
+                                                      <td className="px-4 py-2 text-xs text-gray-700" style={isExpanded ? {} : { maxHeight: '3rem', overflow: 'hidden' }}>
+                                                        <div style={isExpanded ? {} : { display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                                          {questionType}
+                                                        </div>
+                                                      </td>
+                                                      <td className="px-4 py-2 text-xs text-gray-600" style={isExpanded ? {} : { maxHeight: '3rem', overflow: 'hidden' }}>
+                                                        {question.responseCodes && question.responseCodes.length > 0 ? (
+                                                          <div style={isExpanded ? {} : { display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                                            {question.responseCodes.map((codeItem: any, codeIdx: number) => (
+                                                              <span key={codeIdx}>
+                                                                {codeItem.code}: {codeItem.text}
+                                                                {codeIdx < question.responseCodes.length - 1 ? ', ' : ''}
+                                                              </span>
+                                                            ))}
+                                                          </div>
+                                                        ) : (
+                                                          <span className="text-gray-400 italic">-</span>
+                                                        )}
+                                                      </td>
+                                                      <td className="px-4 py-2 text-xs text-gray-600" style={isExpanded ? {} : { maxHeight: '3rem', overflow: 'hidden' }}>
+                                                        {matchingColumns.length > 0 ? (
+                                                          <div style={isExpanded ? {} : { display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                                            {matchingColumns.join(', ')}
+                                                          </div>
+                                                        ) : (
+                                                          <span className="text-gray-400 italic">-</span>
+                                                        )}
+                                                      </td>
+                                                      <td className="px-4 py-2 text-center">
+                                                        {(() => {
+                                                          // Check if this question exists in questionnaireQuestions
+                                                          const datamapQuestionNumber = question.questionNumber || '';
+                                                          const isInQNR = questionnaireQuestions.some((qnrQuestion: any) => {
+                                                            const qnrNumber = String(qnrQuestion.number || qnrQuestion.id || '');
+                                                            // Normalize both for comparison (handle Q prefix variations)
+                                                            const datamapNormalized = datamapQuestionNumber.toLowerCase().trim();
+                                                            const qnrNormalized = qnrNumber.toLowerCase().trim();
+
+                                                            // Check exact match
+                                                            if (datamapNormalized === qnrNormalized) return true;
+
+                                                            // Check with/without Q prefix
+                                                            const datamapWithQ = datamapNormalized.startsWith('q') ? datamapNormalized : 'q' + datamapNormalized;
+                                                            const datamapWithoutQ = datamapNormalized.startsWith('q') ? datamapNormalized.substring(1) : datamapNormalized;
+                                                            const qnrWithQ = qnrNormalized.startsWith('q') ? qnrNormalized : 'q' + qnrNormalized;
+                                                            const qnrWithoutQ = qnrNormalized.startsWith('q') ? qnrNormalized.substring(1) : qnrNormalized;
+
+                                                            return datamapWithQ === qnrWithQ ||
+                                                                   datamapWithQ === qnrWithoutQ ||
+                                                                   datamapWithoutQ === qnrWithQ ||
+                                                                   datamapWithoutQ === qnrWithoutQ;
+                                                          });
+
+                                                          return isInQNR ? (
+                                                            <CheckCircleIcon className="h-5 w-5 text-green-500 mx-auto" title="This question is in the QNR" />
+                                                          ) : (
+                                                            <span className="text-gray-300">-</span>
+                                                          );
+                                                        })()}
+                                                      </td>
+                                                    </tr>
+                                                  );
+                                                })}
+                                              </tbody>
+                                            </table>
+                                            </div>
+                                            );
+                                            })() : (
+                                              <div className="text-center py-8 text-gray-500">
+                                                No datamap questions available. Upload a datamap file from the main Data Map tab.
+                                              </div>
+                                            )}
+                                  </div>
+                                );
+                              })()}
+                              </div>
                             </div>
                           )}
                         </div>
