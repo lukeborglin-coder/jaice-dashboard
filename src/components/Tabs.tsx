@@ -311,7 +311,7 @@ export default function Tabs({ projects = [], onNavigateToProject, onHeaderChang
   const [questionTypeFilter, setQuestionTypeFilter] = useState<string | null>(null);
   const [showQuestionTypeFilter, setShowQuestionTypeFilter] = useState(false);
   const [allQuestionnaires, setAllQuestionnaires] = useState<any[]>([]);
-  const [qnrViewMode, setQnrViewMode] = useState<'tabSpecs' | 'variables' | 'banners' | 'data' | 'rawdata' | 'datamap'>('tabSpecs');
+  const [qnrViewMode, setQnrViewMode] = useState<'tabSpecs' | 'variables' | 'data' | 'datamap'>('tabSpecs');
   const [tabSpecsTypeFilter, setTabSpecsTypeFilter] = useState<string>('all');
   const [tabSpecsSubView, setTabSpecsSubView] = useState<'tables' | 'banners'>('tables');
   
@@ -1404,6 +1404,9 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
   const columnMapping = columnMappingState;
   const [columnHeaderSearch, setColumnHeaderSearch] = useState('');
   const [qnrVariableSearch, setQnrVariableSearch] = useState('');
+  const [rawDataSearch, setRawDataSearch] = useState('');
+  const [showRawDataSuggestions, setShowRawDataSuggestions] = useState(false);
+  const [dataTabView, setDataTabView] = useState<'variables' | 'rawdata' | 'datamap'>('variables');
   const [showMappingModal, setShowMappingModal] = useState(false);
   const [selectedColumnHeader, setSelectedColumnHeader] = useState<string | null>(null);
   const [selectedVariableForMapping, setSelectedVariableForMapping] = useState<string>('');
@@ -13199,9 +13202,9 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
     }
 
     // Auto-load data when:
-    // 1. Viewing variables or rawdata tab (existing behavior)
+    // 1. Viewing variables tab (existing behavior)
     // 2. On the tabs page (qnr view) - load automatically when page opens
-    if (qnrViewMode === 'rawdata' || qnrViewMode === 'variables' || viewMode === 'qnr') {
+    if (qnrViewMode === 'variables' || viewMode === 'qnr') {
       loadFullRawData();
     }
   }, [qnrViewMode, fullRawData, loadingFullRawData, selectedQuestionnaire, loadFullRawData, viewMode]);
@@ -13211,6 +13214,11 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
     setRawDataPage(1);
     setRawDataColumnStart(0);
   }, [qnrViewMode, selectedQuestionnaire?.id, fullRawData]);
+
+  // Reset page to 1 when search changes
+  useEffect(() => {
+    setRawDataPage(1);
+  }, [rawDataSearch]);
 
   // Track loading state to prevent duplicate calls
   const [loadingFileInfo, setLoadingFileInfo] = useState(false);
@@ -15180,17 +15188,6 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                   Variables
                 </button>
                 <button
-                  onClick={() => setQnrViewMode('banners')}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                    qnrViewMode === 'banners'
-                      ? 'text-white'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                  style={qnrViewMode === 'banners' ? { borderBottomColor: BRAND_ORANGE, color: BRAND_ORANGE } : {}}
-                >
-                  Banners
-                </button>
-                <button
                   onClick={() => setQnrViewMode('data')}
                   className={`py-2 px-1 border-b-2 font-medium text-sm ${
                     qnrViewMode === 'data'
@@ -15200,17 +15197,6 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                   style={qnrViewMode === 'data' ? { borderBottomColor: BRAND_ORANGE, color: BRAND_ORANGE } : {}}
                 >
                   Data
-                </button>
-                <button
-                  onClick={() => setQnrViewMode('rawdata')}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                    qnrViewMode === 'rawdata'
-                      ? 'text-white'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                  style={qnrViewMode === 'rawdata' ? { borderBottomColor: BRAND_ORANGE, color: BRAND_ORANGE } : {}}
-                >
-                  Raw Data
                 </button>
                 <button
                   onClick={() => setQnrViewMode('datamap')}
@@ -26021,190 +26007,6 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                 </div>
               )}
             </div>
-            ) : qnrViewMode === 'rawdata' ? (
-            /* Raw Data View */
-            <div key={`rawdata-${selectedQuestionnaire?.id}-${questionnaireQuestions.map(q => `${q.id || q.number}:${q.type || ''}`).join('|')}`} className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Raw Data</h3>
-                {processedRawData.rows.length > 0 && (
-                  <div className="flex items-center gap-6">
-                    {/* Column pagination */}
-                    {(() => {
-                      // Filter to only mapped headers for count
-                      const mappedHeaders = processedRawData.headers.filter(h => h === 'record' || (columnMapping && columnMapping[h]));
-                      const hasRecord = mappedHeaders.includes('record');
-                      const nonRecordCount = hasRecord ? mappedHeaders.length - 1 : mappedHeaders.length;
-                      const shouldShowPagination = nonRecordCount > rawDataColumnsPerPage;
-
-                      if (!shouldShowPagination) return null;
-
-                      return (
-                        <div className="flex items-center gap-3">
-                          <span className="text-sm text-gray-600 font-medium">Columns:</span>
-                          <span className="text-sm text-gray-600">
-                            {rawDataColumnStart + 1} - {Math.min(rawDataColumnStart + rawDataColumnsPerPage, nonRecordCount)} of {nonRecordCount}
-                            {hasRecord && <span className="text-gray-400 ml-1">(+record)</span>}
-                          </span>
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => setRawDataColumnStart(Math.max(0, rawDataColumnStart - rawDataColumnsPerPage))}
-                              disabled={rawDataColumnStart === 0}
-                              className="px-2 py-1 text-xs bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              ←
-                            </button>
-                            <span className="text-xs text-gray-600">
-                              {Math.floor(rawDataColumnStart / rawDataColumnsPerPage) + 1}/{Math.ceil(nonRecordCount / rawDataColumnsPerPage)}
-                            </span>
-                            <button
-                              onClick={() => setRawDataColumnStart(Math.min(nonRecordCount - rawDataColumnsPerPage, rawDataColumnStart + rawDataColumnsPerPage))}
-                              disabled={rawDataColumnStart + rawDataColumnsPerPage >= nonRecordCount}
-                              className="px-2 py-1 text-xs bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              →
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })()}
-                  </div>
-                )}
-              </div>
-
-              {(() => {
-                  // Show loading state if loading
-                  if (loadingFullRawData) {
-                    return <div className="text-center py-8 text-gray-500">Loading data...</div>;
-                  }
-                  
-                  // Show message if data failed to load (already attempted)
-                  if (!fullRawData && selectedQuestionnaire && fullRawDataLoadAttemptedRef.current.has(selectedQuestionnaire.id)) {
-                    return (
-                      <div className="text-center py-8">
-                        <p className="text-sm text-gray-500">No raw data file available for this questionnaire.</p>
-                      </div>
-                    );
-                  }
-
-                  if (!fullRawData || !fullRawData.rows || fullRawData.rows.length === 0) {
-                    return (
-                      <div className="text-center py-8">
-                        <p className="text-sm text-gray-500">No data available. Please upload a data file first.</p>
-                      </div>
-                    );
-                  }
-
-                  if (!variables || variables.length === 0) {
-                    return (
-                      <div className="text-center py-8">
-                        <p className="text-sm text-gray-500">No variables available</p>
-                        <p className="text-xs text-gray-400 mt-2">Sync with QNR to load variables</p>
-                      </div>
-                    );
-                  }
-
-                  // Use memoized processed data
-                  const allHeaders = processedRawData.headers;
-
-                  // Filter out unmapped columns (columns where columnMapping[header] is empty or doesn't exist)
-                  const mappedHeaders = allHeaders.filter(h => h === 'record' || (columnMapping && columnMapping[h]));
-
-                  // Apply column pagination - always show "record" as first column
-                  let visibleHeaders: string[] = [];
-                  const recordIndex = mappedHeaders.indexOf('record');
-                  const hasRecord = recordIndex !== -1;
-
-                  // Get non-record headers for pagination (only mapped ones)
-                  const nonRecordHeaders = hasRecord ? mappedHeaders.filter(h => h !== 'record') : mappedHeaders;
-
-                  // Calculate paginated columns from non-record headers
-                  const columnEndIdx = Math.min(rawDataColumnStart + rawDataColumnsPerPage, nonRecordHeaders.length);
-                  const paginatedHeaders = nonRecordHeaders.slice(rawDataColumnStart, columnEndIdx);
-
-                  // Always include record as first column if it exists
-                  if (hasRecord) {
-                    visibleHeaders = ['record', ...paginatedHeaders];
-                  } else {
-                    visibleHeaders = paginatedHeaders;
-                  }
-
-                  // Apply row pagination
-                  const startIdx = (rawDataPage - 1) * rawDataRowsPerPage;
-                  const endIdx = startIdx + rawDataRowsPerPage;
-                  const paginatedRows = processedRawData.rows.slice(startIdx, endIdx);
-
-                  return (
-                    <div className="border border-gray-200 rounded-lg overflow-hidden" style={{ maxHeight: 'calc(100vh - 250px)' }}>
-                      {/* Single scrollable container for both header and body - no horizontal scroll */}
-                      <div className="overflow-y-auto" style={{ maxHeight: 'calc(100vh - 250px)' }}>
-                        <table className="w-full divide-y divide-gray-200">
-                          <colgroup>
-                            {visibleHeaders.map((_, idx) => (
-                              <col key={idx} />
-                            ))}
-                          </colgroup>
-                          <thead className="bg-gray-50 sticky top-0 z-10">
-                            <tr>
-                              {visibleHeaders.map((header, idx) => {
-                                // Show the expected header directly (e.g., QS14r1c1)
-                                return (
-                                  <th
-                                    key={idx}
-                                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap bg-gray-50 border-b border-gray-200"
-                                  >
-                                    {header}
-                                  </th>
-                                );
-                              })}
-                            </tr>
-                            <tr className="bg-gray-100">
-                              {visibleHeaders.map((header, idx) => {
-                                // Show the mapped column header from the data file
-                                const mappedColumnHeader = header === 'record' ? 'record' : (columnMapping?.[header] || '');
-                                return (
-                                  <th
-                                    key={idx}
-                                    className="px-4 py-2 text-left text-xs font-normal text-gray-600 italic whitespace-nowrap bg-gray-100 border-b border-gray-200"
-                                  >
-                                    {mappedColumnHeader || '-'}
-                                  </th>
-                                );
-                              })}
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white divide-y divide-gray-200">
-                            {paginatedRows.length > 0 ? (
-                              paginatedRows.map((row, rowIdx) => (
-                                <tr key={startIdx + rowIdx}>
-                                  {visibleHeaders.map((header, colIdx) => {
-                                    const cellValue = row[header];
-                                    // Display empty cells (null, undefined, or empty string) as "-"
-                                    const displayValue = (cellValue === null || cellValue === undefined || cellValue === '')
-                                      ? '-'
-                                      : String(cellValue);
-
-                                    return (
-                                      <td key={colIdx} className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
-                                        {displayValue}
-                                      </td>
-                                    );
-                                  })}
-                                </tr>
-                              ))
-                            ) : (
-                              <tr>
-                                <td colSpan={visibleHeaders.length} className="px-4 py-8 text-center text-sm text-gray-500">
-                                  No data available.
-                                </td>
-                              </tr>
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  );
-                })()}
-            </div>
             ) : qnrViewMode === 'datamap' ? (
             /* Data Map View */
             <div key={`datamap-${selectedQuestionnaire?.id}`} className="p-6 flex flex-col h-full">
@@ -27160,64 +26962,45 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                   <div key={`data-mapping-${selectedQuestionnaire?.id}-${questionnaireQuestions.map(q => `${q.id || q.number}:${q.type || ''}`).join('|')}`} className="mt-6">
                     {/* QNR Variables Box */}
                     <div className="flex flex-col">
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center gap-3">
-                              <h4 className="text-sm font-semibold text-gray-900">
-                                QNR Variables {questionnaireQuestions.length > 0 ? `(${questionnaireQuestions.length})` : variables.length > 0 ? `(${variables.length})` : ''}
-                              </h4>
-                              <button
-                                onClick={async () => {
-                                  // Refresh expected headers from QNR and re-map
-                                  if (selectedQuestionnaire && selectedProject) {
-                                    // Set loading state immediately
-                                    setMappingVariables(true);
-                                    try {
-                                      // Reset mapping state first to allow re-mapping
-                                      setHasAttemptedMapping(false);
-                                      // Fetch fresh questionnaire data from API
-                                      const response = await fetch(`${API_BASE_URL}/api/questionnaire/${selectedProject.id}`, {
-                                        headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
-                                      });
-                                      if (response.ok) {
-                                        const projectQuestionnaires = await response.json();
-                                        const freshQnr = projectQuestionnaires.find((q: any) => q.id === selectedQuestionnaire.id);
-                                        if (freshQnr && freshQnr.questions) {
-                                          // Update questionnaire questions with fresh data
-                                          setQuestionnaireQuestions(freshQnr.questions);
-                                          // Reload datamap to get fresh column definitions
-                                          if (selectedQuestionnaire) {
-                                            loadDatamap();
-                                          }
-                                          // Wait a bit for state to update and variables to regenerate, then re-run automatic mapping
-                                          // Pass forceRemap=true to override hasAttemptedMapping check
-                                          setTimeout(() => {
-                                            performAutomaticMapping(true);
-                                          }, 500);
-                                        } else {
-                                          // No fresh data found, reset loading state
-                                          setMappingVariables(false);
-                                        }
-                                      } else {
-                                        // Request failed, reset loading state
-                                        setMappingVariables(false);
-                                      }
-                                    } catch (error) {
-                                      // Error occurred, reset loading state
-                                      setMappingVariables(false);
-                                    }
-                                  }
-                                }}
-                                disabled={mappingVariables || !selectedQuestionnaire || !selectedProject}
-                                className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                title="Refresh expected headers from QNR and re-map columns"
-                              >
-                                <ArrowPathIcon className={`h-4 w-4 ${mappingVariables ? 'animate-spin' : ''}`} />
-                                {mappingVariables ? 'Mapping...' : 'Refresh & Re-map'}
-                              </button>
-                            </div>
+                          <div className="flex items-center gap-3 mb-3">
+                            <button
+                              onClick={() => setDataTabView('variables')}
+                              className={`text-sm font-semibold px-3 py-1.5 rounded cursor-pointer transition-colors ${
+                                dataTabView === 'variables'
+                                  ? 'text-white'
+                                  : 'text-gray-900 bg-white border border-gray-300 hover:bg-gray-50'
+                              }`}
+                              style={dataTabView === 'variables' ? { backgroundColor: BRAND_ORANGE } : {}}
+                            >
+                              QNR Variables {questionnaireQuestions.length > 0 ? `(${questionnaireQuestions.length})` : variables.length > 0 ? `(${variables.length})` : ''}
+                            </button>
+                            <button
+                              onClick={() => setDataTabView('rawdata')}
+                              className={`text-sm font-semibold px-3 py-1.5 rounded cursor-pointer transition-colors ${
+                                dataTabView === 'rawdata'
+                                  ? 'text-white'
+                                  : 'text-gray-900 bg-white border border-gray-300 hover:bg-gray-50'
+                              }`}
+                              style={dataTabView === 'rawdata' ? { backgroundColor: BRAND_ORANGE } : {}}
+                            >
+                              Raw Data
+                            </button>
+                            <button
+                              onClick={() => setDataTabView('datamap')}
+                              className={`text-sm font-semibold px-3 py-1.5 rounded cursor-pointer transition-colors ${
+                                dataTabView === 'datamap'
+                                  ? 'text-white'
+                                  : 'text-gray-900 bg-white border border-gray-300 hover:bg-gray-50'
+                              }`}
+                              style={dataTabView === 'datamap' ? { backgroundColor: BRAND_ORANGE } : {}}
+                            >
+                              Data Map
+                            </button>
                           </div>
-                          <div className="mb-3">
-                            <div className="relative">
+                          {dataTabView === 'variables' && (
+                            <>
+                          <div className="mb-3 flex items-center gap-3">
+                            <div className="relative flex-1">
                               <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                               <input
                                 type="text"
@@ -27229,6 +27012,55 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                                 className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                               />
                             </div>
+                            <button
+                              onClick={async () => {
+                                // Refresh expected headers from QNR and re-map
+                                if (selectedQuestionnaire && selectedProject) {
+                                  // Set loading state immediately
+                                  setMappingVariables(true);
+                                  try {
+                                    // Reset mapping state first to allow re-mapping
+                                    setHasAttemptedMapping(false);
+                                    // Fetch fresh questionnaire data from API
+                                    const response = await fetch(`${API_BASE_URL}/api/questionnaire/${selectedProject.id}`, {
+                                      headers: { 'Authorization': `Bearer ${localStorage.getItem('cognitive_dash_token')}` }
+                                    });
+                                    if (response.ok) {
+                                      const projectQuestionnaires = await response.json();
+                                      const freshQnr = projectQuestionnaires.find((q: any) => q.id === selectedQuestionnaire.id);
+                                      if (freshQnr && freshQnr.questions) {
+                                        // Update questionnaire questions with fresh data
+                                        setQuestionnaireQuestions(freshQnr.questions);
+                                        // Reload datamap to get fresh column definitions
+                                        if (selectedQuestionnaire) {
+                                          loadDatamap();
+                                        }
+                                        // Wait a bit for state to update and variables to regenerate, then re-run automatic mapping
+                                        // Pass forceRemap=true to override hasAttemptedMapping check
+                                        setTimeout(() => {
+                                          performAutomaticMapping(true);
+                                        }, 500);
+                                      } else {
+                                        // No fresh data found, reset loading state
+                                        setMappingVariables(false);
+                                      }
+                                    } else {
+                                      // Request failed, reset loading state
+                                      setMappingVariables(false);
+                                    }
+                                  } catch (error) {
+                                    // Error occurred, reset loading state
+                                    setMappingVariables(false);
+                                  }
+                                }
+                              }}
+                              disabled={mappingVariables || !selectedQuestionnaire || !selectedProject}
+                              className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                              title="Refresh expected headers from QNR and re-map columns"
+                            >
+                              <ArrowPathIcon className={`h-4 w-4 ${mappingVariables ? 'animate-spin' : ''}`} />
+                              {mappingVariables ? 'Mapping...' : 'Refresh & Re-map'}
+                            </button>
                           </div>
                           <div className="border border-gray-200 rounded-lg overflow-hidden flex flex-col">
                             <div className="overflow-y-auto overflow-x-auto">
@@ -27595,6 +27427,282 @@ const [holdOptionsDropdownOpen, setHoldOptionsDropdownOpen] = useState<Record<st
                               })()}
                             </div>
                           </div>
+                            </>
+                          )}
+                          {dataTabView === 'rawdata' && (
+                            <div>
+                              <div className="mb-3 flex items-center gap-3">
+                                <div className="relative flex-1">
+                                  <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                  <input
+                                    type="text"
+                                    id="raw-data-search"
+                                    name="raw-data-search"
+                                    placeholder="Search raw data..."
+                                    value={rawDataSearch}
+                                    onChange={(e) => {
+                                      setRawDataSearch(e.target.value);
+                                      setShowRawDataSuggestions(e.target.value.trim().length > 0);
+                                    }}
+                                    onFocus={() => {
+                                      if (rawDataSearch.trim().length > 0) {
+                                        setShowRawDataSuggestions(true);
+                                      }
+                                    }}
+                                    onBlur={() => {
+                                      // Delay to allow click on suggestion
+                                      setTimeout(() => setShowRawDataSuggestions(false), 200);
+                                    }}
+                                    className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                  />
+                                  {showRawDataSuggestions && processedRawData.headers.length > 0 && (() => {
+                                    const searchLower = rawDataSearch.toLowerCase().trim();
+                                    if (!searchLower) return null;
+
+                                    // Get all mapped headers
+                                    const allHeaders = processedRawData.headers;
+                                    const mappedHeaders = allHeaders.filter(h => h === 'record' || (columnMapping && columnMapping[h]));
+                                    const hasRecord = mappedHeaders.includes('record');
+                                    const nonRecordHeaders = hasRecord ? mappedHeaders.filter(h => h !== 'record') : mappedHeaders;
+
+                                    // Filter headers that match the search
+                                    const matchingHeaders = mappedHeaders.filter(header => {
+                                      const headerLower = header.toLowerCase();
+                                      const mappedHeader = header === 'record' ? 'record' : (columnMapping?.[header] || '');
+                                      const mappedHeaderLower = mappedHeader.toLowerCase();
+                                      return headerLower.includes(searchLower) || mappedHeaderLower.includes(searchLower);
+                                    }).slice(0, 10); // Limit to 10 suggestions
+
+                                    if (matchingHeaders.length === 0) return null;
+
+                                    // Function to calculate which page a column is on
+                                    const getColumnPage = (header: string) => {
+                                      if (header === 'record') return 0;
+                                      const index = nonRecordHeaders.indexOf(header);
+                                      if (index === -1) return 0;
+                                      return Math.floor(index / rawDataColumnsPerPage);
+                                    };
+
+                                    // Function to navigate to column
+                                    const navigateToColumn = (header: string) => {
+                                      if (header === 'record') {
+                                        setRawDataColumnStart(0);
+                                      } else {
+                                        const index = nonRecordHeaders.indexOf(header);
+                                        if (index !== -1) {
+                                          const targetPage = Math.floor(index / rawDataColumnsPerPage);
+                                          setRawDataColumnStart(targetPage * rawDataColumnsPerPage);
+                                        }
+                                      }
+                                      setShowRawDataSuggestions(false);
+                                      // Keep the search term for row filtering
+                                    };
+
+                                    return (
+                                      <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                                        {matchingHeaders.map((header, idx) => {
+                                          const mappedHeader = header === 'record' ? 'record' : (columnMapping?.[header] || '');
+                                          const page = getColumnPage(header);
+                                          const pageNumber = page + 1;
+                                          const totalPages = Math.ceil(nonRecordHeaders.length / rawDataColumnsPerPage);
+                                          
+                                          return (
+                                            <div
+                                              key={idx}
+                                              onClick={() => navigateToColumn(header)}
+                                              className="px-4 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0"
+                                            >
+                                              <div className="flex items-center justify-between">
+                                                <div className="flex flex-col">
+                                                  <span className="text-sm font-medium text-gray-900">{header}</span>
+                                                  {mappedHeader && mappedHeader !== header && (
+                                                    <span className="text-xs text-gray-500 italic">{mappedHeader}</span>
+                                                  )}
+                                                </div>
+                                                <span className="text-xs text-gray-400">Page {pageNumber}/{totalPages}</span>
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    );
+                                  })()}
+                                </div>
+                                {processedRawData.rows.length > 0 && (() => {
+                                  // Filter to only mapped headers for count
+                                  const mappedHeaders = processedRawData.headers.filter(h => h === 'record' || (columnMapping && columnMapping[h]));
+                                  const hasRecord = mappedHeaders.includes('record');
+                                  const nonRecordCount = hasRecord ? mappedHeaders.length - 1 : mappedHeaders.length;
+                                  const shouldShowPagination = nonRecordCount > rawDataColumnsPerPage;
+
+                                  if (!shouldShowPagination) return null;
+
+                                  return (
+                                    <div className="flex items-center gap-2">
+                                      <button
+                                        onClick={() => setRawDataColumnStart(Math.max(0, rawDataColumnStart - rawDataColumnsPerPage))}
+                                        disabled={rawDataColumnStart === 0}
+                                        className="px-2 py-1 text-xs bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                      >
+                                        ←
+                                      </button>
+                                      <span className="text-xs text-gray-600">
+                                        {Math.floor(rawDataColumnStart / rawDataColumnsPerPage) + 1}/{Math.ceil(nonRecordCount / rawDataColumnsPerPage)}
+                                      </span>
+                                      <button
+                                        onClick={() => setRawDataColumnStart(Math.min(nonRecordCount - rawDataColumnsPerPage, rawDataColumnStart + rawDataColumnsPerPage))}
+                                        disabled={rawDataColumnStart + rawDataColumnsPerPage >= nonRecordCount}
+                                        className="px-2 py-1 text-xs bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                      >
+                                        →
+                                      </button>
+                                    </div>
+                                  );
+                                })()}
+                              </div>
+
+                              {(() => {
+                                  // Show loading state if loading
+                                  if (loadingFullRawData) {
+                                    return <div className="text-center py-8 text-gray-500">Loading data...</div>;
+                                  }
+                                  
+                                  // Show message if data failed to load (already attempted)
+                                  if (!fullRawData && selectedQuestionnaire && fullRawDataLoadAttemptedRef.current.has(selectedQuestionnaire.id)) {
+                                    return (
+                                      <div className="text-center py-8">
+                                        <p className="text-sm text-gray-500">No raw data file available for this questionnaire.</p>
+                                      </div>
+                                    );
+                                  }
+
+                                  if (!fullRawData || !fullRawData.rows || fullRawData.rows.length === 0) {
+                                    return (
+                                      <div className="text-center py-8">
+                                        <p className="text-sm text-gray-500">No data available. Please upload a data file first.</p>
+                                      </div>
+                                    );
+                                  }
+
+                                  if (!variables || variables.length === 0) {
+                                    return (
+                                      <div className="text-center py-8">
+                                        <p className="text-sm text-gray-500">No variables available</p>
+                                        <p className="text-xs text-gray-400 mt-2">Sync with QNR to load variables</p>
+                                      </div>
+                                    );
+                                  }
+
+                                  // Use memoized processed data
+                                  const allHeaders = processedRawData.headers;
+
+                                  // Filter out unmapped columns (columns where columnMapping[header] is empty or doesn't exist)
+                                  const mappedHeaders = allHeaders.filter(h => h === 'record' || (columnMapping && columnMapping[h]));
+
+                                  // Apply column pagination - always show "record" as first column
+                                  let visibleHeaders: string[] = [];
+                                  const recordIndex = mappedHeaders.indexOf('record');
+                                  const hasRecord = recordIndex !== -1;
+
+                                  // Get non-record headers for pagination (only mapped ones)
+                                  const nonRecordHeaders = hasRecord ? mappedHeaders.filter(h => h !== 'record') : mappedHeaders;
+
+                                  // Calculate paginated columns from non-record headers
+                                  const columnEndIdx = Math.min(rawDataColumnStart + rawDataColumnsPerPage, nonRecordHeaders.length);
+                                  const paginatedHeaders = nonRecordHeaders.slice(rawDataColumnStart, columnEndIdx);
+
+                                  // Always include record as first column if it exists
+                                  if (hasRecord) {
+                                    visibleHeaders = ['record', ...paginatedHeaders];
+                                  } else {
+                                    visibleHeaders = paginatedHeaders;
+                                  }
+
+                                  // Search bar is used for column navigation only, not row filtering
+                                  let filteredRows = processedRawData.rows;
+
+                                  // Apply row pagination
+                                  const startIdx = (rawDataPage - 1) * rawDataRowsPerPage;
+                                  const endIdx = startIdx + rawDataRowsPerPage;
+                                  const paginatedRows = filteredRows.slice(startIdx, endIdx);
+
+                                  return (
+                                    <div className="border border-gray-200 rounded-lg overflow-hidden" style={{ maxHeight: 'calc(100vh - 250px)' }}>
+                                      {/* Single scrollable container for both header and body - no horizontal scroll */}
+                                      <div className="overflow-y-auto" style={{ maxHeight: 'calc(100vh - 250px)' }}>
+                                        <table className="w-full divide-y divide-gray-200">
+                                          <colgroup>
+                                            {visibleHeaders.map((_, idx) => (
+                                              <col key={idx} />
+                                            ))}
+                                          </colgroup>
+                                          <thead className="bg-gray-50 sticky top-0 z-10">
+                                            <tr>
+                                              {visibleHeaders.map((header, idx) => {
+                                                // Show the expected header directly (e.g., QS14r1c1)
+                                                return (
+                                                  <th
+                                                    key={idx}
+                                                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 tracking-wider whitespace-nowrap bg-gray-50 border-b border-gray-200"
+                                                  >
+                                                    {header}
+                                                  </th>
+                                                );
+                                              })}
+                                            </tr>
+                                            <tr className="bg-gray-100">
+                                              {visibleHeaders.map((header, idx) => {
+                                                // Show the mapped column header from the data file
+                                                const mappedColumnHeader = header === 'record' ? 'record' : (columnMapping?.[header] || '');
+                                                return (
+                                                  <th
+                                                    key={idx}
+                                                    className="px-4 py-2 text-left text-xs font-normal text-gray-600 italic whitespace-nowrap bg-gray-100 border-b border-gray-200"
+                                                  >
+                                                    {mappedColumnHeader || '-'}
+                                                  </th>
+                                                );
+                                              })}
+                                            </tr>
+                                          </thead>
+                                          <tbody className="bg-white divide-y divide-gray-200">
+                                            {paginatedRows.length > 0 ? (
+                                              paginatedRows.map((row, rowIdx) => {
+                                                // Find the original index in processedRawData.rows for the key
+                                                const originalIndex = processedRawData.rows.indexOf(row);
+                                                return (
+                                                <tr key={originalIndex >= 0 ? originalIndex : startIdx + rowIdx}>
+                                                  {visibleHeaders.map((header, colIdx) => {
+                                                    const cellValue = row[header];
+                                                    // Display empty cells (null, undefined, or empty string) as "-"
+                                                    const displayValue = (cellValue === null || cellValue === undefined || cellValue === '')
+                                                      ? '-'
+                                                      : String(cellValue);
+
+                                                    return (
+                                                      <td key={colIdx} className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
+                                                        {displayValue}
+                                                      </td>
+                                                    );
+                                                  })}
+                                                </tr>
+                                              );
+                                              })
+                                            ) : (
+                                              <tr>
+                                                <td colSpan={visibleHeaders.length} className="px-4 py-8 text-center text-sm text-gray-500">
+                                                  No data available.
+                                                </td>
+                                              </tr>
+                                            )}
+                                          </tbody>
+                                        </table>
+                                      </div>
+                                    </div>
+                                  );
+                                })()}
+                            </div>
+                          )}
                         </div>
                   </div>
             </div>
